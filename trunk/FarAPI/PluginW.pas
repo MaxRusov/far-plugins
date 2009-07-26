@@ -36,39 +36,8 @@ Far Manager plugins that use this header file can be distributed under any
 other possible license with no implications from the above license on them.
 }
 
-{$IFDEF VIRTUALPASCAL}
-
-  {$DEFINE VP}
-  {&Delphi+}
-  {&AlignData+}
-  {&AlignRec+}
-  {&StdCall+}
-  {&H+}
-  {&Z+}
-  {&Use32+}
-
-{$ELSE}
-
-  {$ALIGN OFF}
-  {$MINENUMSIZE 4}
-  {$R-}
-
-  {$WRITEABLECONST ON}
-
-  {$IFNDEF VER80}           { Delphi 1.0     }
-   {$IFNDEF VER90}          { Delphi 2.0     }
-    {$IFNDEF VER93}         { C++Builder 1.0 }
-      {$IFNDEF VER100}
-        {$IFNDEF VER110}
-          {$DEFINE USE_DELPHI4}   { Delphi 4.0 or higher }
-        {$ENDIF}
-      {$ENDIF}
-    {$ENDIF}
-   {$ENDIF}
-  {$ENDIF}
-
-{$ENDIF}
-
+{$Align Off}
+{$RangeChecks Off}
 
 Unit PluginW;
 
@@ -79,14 +48,7 @@ uses Windows;
 const
   FARMANAGERVERSION_MAJOR = 2;
   FARMANAGERVERSION_MINOR = 0;
-  FARMANAGERVERSION_BUILD = 680;
-
-(* !!!
-#define MAKEFARVERSION(major,minor,build) ( ((major)<<8) | (minor) | ((build)<<16))
-
-#define FARMANAGERVERSION MAKEFARVERSION(FARMANAGERVERSION_MAJOR,FARMANAGERVERSION_MINOR,FARMANAGERVERSION_BUILD)
-*)
-
+  FARMANAGERVERSION_BUILD = 1050;
 
 type
 //TFarChar = AnsiChar;
@@ -106,7 +68,7 @@ const
   FARMACRO_KEY_EVENT = KEY_EVENT or $8000;
 
   CP_UNICODE = 1200;
-  CP_REVERSEBOM = 65534;
+  CP_REVERSEBOM = 1201;
   CP_AUTODETECT = UINT(-1);
 
 
@@ -122,7 +84,7 @@ const
   FMSG_ALLINONE            = $00000020;
  {$ifdef FAR_USE_INTERNALS}
   FMSG_COLOURS             = $00000040;
- {$endif END FAR_USE_INTERNALS}
+ {$endif FAR_USE_INTERNALS}
 
   FMSG_MB_OK               = $00010000;
   FMSG_MB_OKCANCEL         = $00020000;
@@ -145,11 +107,11 @@ type
   TFarApiMessage = function (
     PluginNumber :Integer;
     Flags :DWORD;
-    const HelpTopic :PFarChar;
-    const Items :PPCharArray;
+    HelpTopic :PFarChar;
+    Items :PPCharArray;
     ItemsNumber :Integer;
     ButtonsNumber :Integer
-  ) :Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) :Integer; stdcall;
 
 
 { DialogItemTypes }
@@ -169,7 +131,7 @@ const
   DI_LISTBOX      = 11;
  {$ifdef FAR_USE_INTERNALS}
   DI_MEMOEDIT     = 12;
- {$endif END FAR_USE_INTERNALS}
+ {$endif FAR_USE_INTERNALS}
   DI_USERCONTROL  = 255;
 
 
@@ -220,7 +182,7 @@ const
   DIF_NOTCVTUSERCONTROL     = $00040000;
  {$ifdef FAR_USE_INTERNALS}
   DIF_SEPARATORUSER         = $00080000;
- {$endif END FAR_USE_INTERNALS}
+ {$endif FAR_USE_INTERNALS}
   DIF_EDITEXPAND            = $00080000;
   DIF_DROPDOWNLIST          = $00100000;
   DIF_USELASTHISTORY        = $00200000;
@@ -229,14 +191,14 @@ const
   DIF_3STATE                = $00800000;
  {$ifdef FAR_USE_INTERNALS}
   DIF_EDITPATH              = $01000000;
- {$endif END FAR_USE_INTERNALS}
+ {$endif FAR_USE_INTERNALS}
   DIF_LISTWRAPMODE          = $01000000;
   DIF_NOAUTOCOMPLETE        = $02000000;
   DIF_LISTAUTOHIGHLIGHT     = $02000000;
   DIF_LISTNOCLOSE           = $04000000;
  {$ifdef FAR_USE_INTERNALS}
   DIF_AUTOMATION            = $08000000;
- {$endif END FAR_USE_INTERNALS}
+ {$endif FAR_USE_INTERNALS}
   DIF_HIDDEN                = $10000000;
   DIF_READONLY              = $20000000;
   DIF_NOFOCUS               = $40000000;
@@ -331,6 +293,8 @@ const
   DM_GETDLGITEMSHORT      = DM_FIRST+65;
   DM_SETDLGITEMSHORT      = DM_FIRST+66;
 
+  DM_GETDIALOGINFO        = DM_FIRST+67;
+
   DN_FIRST                = $1000;
   DN_BTNCLICK             = DN_FIRST+1;
   DN_CTLCOLORDIALOG       = DN_FIRST+2;
@@ -353,6 +317,8 @@ const
   DN_DRAWDIALOGDONE       = DN_FIRST+19;
   DN_LISTHOTKEY           = DM_FIRST+20;
 
+  DN_GETDIALOGINFO        = DM_GETDIALOGINFO;
+
   DN_CLOSE                = DM_CLOSE;
   DN_KEY                  = DM_KEY;
 
@@ -368,18 +334,18 @@ const
 { FARCHECKEDSTATE }
 
 const
-   BSTATE_UNCHECKED = 0;
-   BSTATE_CHECKED   = 1;
-   BSTATE_3STATE    = 2;
-   BSTATE_TOGGLE    = 3;
+  BSTATE_UNCHECKED = 0;
+  BSTATE_CHECKED   = 1;
+  BSTATE_3STATE    = 2;
+  BSTATE_TOGGLE    = 3;
 
 
 { FARLISTMOUSEREACTIONTYPE }
 
 const
-   LMRT_ONLYFOCUS = 0;
-   LMRT_ALWAYS    = 1;
-   LMRT_NEVER     = 2;
+  LMRT_ONLYFOCUS = 0;
+  LMRT_ALWAYS    = 1;
+  LMRT_NEVER     = 2;
 
 {FARCOMBOBOXEVENTTYPE}
 
@@ -728,48 +694,29 @@ type
   end;
 
 (*
-#define Dlg_RedrawDialog(Info,hDlg)            Info.SendDlgMessage(hDlg,DM_REDRAW,0,0)
-
-#define Dlg_GetDlgData(Info,hDlg)              Info.SendDlgMessage(hDlg,DM_GETDLGDATA,0,0)
-#define Dlg_SetDlgData(Info,hDlg,Data)         Info.SendDlgMessage(hDlg,DM_SETDLGDATA,0,(LONG_PTR)Data)
-
-#define Dlg_GetDlgItemData(Info,hDlg,ID)       Info.SendDlgMessage(hDlg,DM_GETITEMDATA,0,0)
-#define Dlg_SetDlgItemData(Info,hDlg,ID,Data)  Info.SendDlgMessage(hDlg,DM_SETITEMDATA,0,(LONG_PTR)Data)
-
-#define DlgItem_GetFocus(Info,hDlg)            Info.SendDlgMessage(hDlg,DM_GETFOCUS,0,0)
-#define DlgItem_SetFocus(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_SETFOCUS,ID,0)
-#define DlgItem_Enable(Info,hDlg,ID)           Info.SendDlgMessage(hDlg,DM_ENABLE,ID,TRUE)
-#define DlgItem_Disable(Info,hDlg,ID)          Info.SendDlgMessage(hDlg,DM_ENABLE,ID,FALSE)
-#define DlgItem_IsEnable(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_ENABLE,ID,-1)
-#define DlgItem_SetText(Info,hDlg,ID,Str)      Info.SendDlgMessage(hDlg,DM_SETTEXTPTR,ID,(LONG_PTR)Str)
-
-#define DlgItem_GetCheck(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_GETCHECK,ID,0)
-#define DlgItem_SetCheck(Info,hDlg,ID,State)   Info.SendDlgMessage(hDlg,DM_SETCHECK,ID,State)
-
-#define DlgEdit_AddHistory(Info,hDlg,ID,Str)   Info.SendDlgMessage(hDlg,DM_ADDHISTORY,ID,(LONG_PTR)Str)
-
-#define DlgList_AddString(Info,hDlg,ID,Str)    Info.SendDlgMessage(hDlg,DM_LISTADDSTR,ID,(LONG_PTR)Str)
-#define DlgList_GetCurPos(Info,hDlg,ID)        Info.SendDlgMessage(hDlg,DM_LISTGETCURPOS,ID,0)
-#define DlgList_SetCurPos(Info,hDlg,ID,NewPos) {struct FarListPos LPos={NewPos,-1};Info.SendDlgMessage(hDlg,DM_LISTSETCURPOS,ID,(LONG_PTR)&LPos);}
-#define DlgList_ClearList(Info,hDlg,ID)        Info.SendDlgMessage(hDlg,DM_LISTDELETE,ID,0)
-#define DlgList_DeleteItem(Info,hDlg,ID,Index) {struct FarListDelete FLDItem={Index,1}; Info.SendDlgMessage(hDlg,DM_LISTDELETE,ID,(LONG_PTR)&FLDItem);}
-#define DlgList_SortUp(Info,hDlg,ID)           Info.SendDlgMessage(hDlg,DM_LISTSORT,ID,0)
-#define DlgList_SortDown(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_LISTSORT,ID,1)
-#define DlgList_GetItemData(Info,hDlg,ID,Index)          Info.SendDlgMessage(hDlg,DM_LISTGETDATA,ID,Index)
-#define DlgList_SetItemStrAsData(Info,hDlg,ID,Index,Str) {struct FarListItemData FLID{Index,0,Str,0}; Info.SendDlgMessage(hDlg,DM_LISTSETDATA,ID,(LONG_PTR)&FLID);}
+struct DialogInfo
+{
+  int StructSize;
+  GUID Id;
+};
 *)
-{!!!}
+type
+  PDialogInfo = ^TDialogInfo;
+  TDialogInfo = packed record
+    StructSize :Integer;
+    Id :TGUID;
+  end;
 
 { FARDIALOGFLAGS }
 
 const
-   FDLG_WARNING      = $00000001;
-   FDLG_SMALLDIALOG  = $00000002;
-   FDLG_NODRAWSHADOW = $00000004;
-   FDLG_NODRAWPANEL  = $00000008;
-  {$ifdef FAR_USE_INTERNALS}
-   FDLG_NONMODAL     = $00000010;
-  {$endif FAR_USE_INTERNALS}
+  FDLG_WARNING      = $00000001;
+  FDLG_SMALLDIALOG  = $00000002;
+  FDLG_NODRAWSHADOW = $00000004;
+  FDLG_NODRAWPANEL  = $00000008;
+ {$ifdef FAR_USE_INTERNALS}
+  FDLG_NONMODAL     = $00000010;
+ {$endif FAR_USE_INTERNALS}
 
 type
 (*
@@ -785,7 +732,7 @@ typedef LONG_PTR (WINAPI *FARWINDOWPROC)(
     Msg : Integer;
     Param1 : Integer;
     Param2 : Integer
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 (*
 typedef LONG_PTR (WINAPI *FARAPISENDDLGMESSAGE)(
@@ -800,7 +747,7 @@ typedef LONG_PTR (WINAPI *FARAPISENDDLGMESSAGE)(
     Msg : Integer;
     Param1 : Integer;
     Param2 : Integer
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 (*
 typedef LONG_PTR (WINAPI *FARAPIDEFDLGPROC)(
@@ -815,7 +762,7 @@ typedef LONG_PTR (WINAPI *FARAPIDEFDLGPROC)(
     Msg : Integer;
     Param1 : Integer;
     Param2 : Integer
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 (*
 typedef HANDLE (WINAPI *FARAPIDIALOGINIT)(
@@ -843,7 +790,7 @@ typedef HANDLE (WINAPI *FARAPIDIALOGINIT)(
     Flags : DWORD;
     DlgProc : TFarApiWindowProc;
     Param : Integer
-  ) :THandle; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) :THandle; stdcall;
 
 
   { Far 2 Added }
@@ -855,7 +802,7 @@ typedef int (WINAPI *FARAPIDIALOGRUN)(
 *)
   TFarApiDialogRun = function(
     hDlg :THandle
-  ) :Integer;  {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) :Integer;  stdcall;
 
 (*
 typedef void (WINAPI *FARAPIDIALOGFREE)(
@@ -864,7 +811,7 @@ typedef void (WINAPI *FARAPIDIALOGFREE)(
 *)
   TFarApiDialogFree = procedure(
     hDlg :THandle
-  ); {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ); stdcall;
 
 
    {Obsolete}
@@ -897,17 +844,20 @@ type
   PFarMenuItemArray = ^TFarMenuItemArray;
   TFarMenuItemArray = packed array[0..MaxInt div SizeOf(TFarMenuItem) - 1] of TFarMenuItem;
 
-  
+
 { MENUITEMFLAGS }
 
 const
-   MIF_SELECTED   = $00010000;
-   MIF_CHECKED    = $00020000;
-   MIF_SEPARATOR  = $00040000;
-   MIF_DISABLE    = $00080000;
-   MIF_GRAYED     = $00100000;
-   MIF_HIDDEN     = $00200000;
-   MIF_USETEXTPTR = $80000000;
+  MIF_SELECTED   = $00010000;
+  MIF_CHECKED    = $00020000;
+  MIF_SEPARATOR  = $00040000;
+  MIF_DISABLE    = $00080000;
+  MIF_GRAYED     = $00100000;
+  MIF_HIDDEN     = $00200000;
+ {$ifdef FAR_USE_INTERNALS}
+  MIF_SUBMENU    = $00400000;
+ {$endif FAR_USE_INTERNALS}
+  MIF_USETEXTPTR = $80000000;
 
 (*
 struct FarMenuItemEx
@@ -970,14 +920,14 @@ type
     X, Y : Integer;
     MaxHeight : Integer;
     Flags : DWORD;
-    const Title :PFarChar;
-    const Bottom :PFarChar;
-    const HelpTopic :PFarChar;
+    Title :PFarChar;
+    Bottom :PFarChar;
+    HelpTopic :PFarChar;
     BreakKeys :PIntegerArray;
     BreakCode :PIntegerArray;
-    const Item :PFarMenuItemArray;
+    Item :PFarMenuItemArray;
     ItemsNumber :Integer
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 
 {------------------------------------------------------------------------------}
@@ -1017,6 +967,9 @@ type
     cAlternateFileName :PFarChar;
   end;
 
+  TFarFindDataArray = packed array [0..MaxInt div sizeof(TFarFindData) - 1] of TFarFindData;
+  PFarFindDataArray = ^TFarFindDataArray;
+
 (*
 struct PluginPanelItem
 {
@@ -1047,7 +1000,6 @@ type
     Reserved : array [0..1] of DWORD;
   end;
 
-type
   TPluginPanelItemArray = packed array[0..MaxInt div sizeof(TPluginPanelItem) - 1] of TPluginPanelItem;
   PPluginPanelItemArray = ^TPluginPanelItemArray;
 
@@ -1068,58 +1020,12 @@ const
 { PANELINFOTYPE }
 
 const
-   PTYPE_FILEPANEL  = 0;
-   PTYPE_TREEPANEL  = 1;
-   PTYPE_QVIEWPANEL = 2;
-   PTYPE_INFOPANEL  = 3;
+  PTYPE_FILEPANEL  = 0;
+  PTYPE_TREEPANEL  = 1;
+  PTYPE_QVIEWPANEL = 2;
+  PTYPE_INFOPANEL  = 3;
 
 (*
-struct PanelInfo
-{
-  int PanelType;
-  int Plugin;
-  RECT PanelRect;
-  struct PluginPanelItem *PanelItems;
-  int ItemsNumber;
-  struct PluginPanelItem *SelectedItems;
-  int SelectedItemsNumber;
-  int CurrentItem;
-  int TopPanelItem;
-  int Visible;
-  int Focus;
-  int ViewMode;
-  char ColumnTypes[80];
-  char ColumnWidths[80];
-  char CurDir[NM];
-  int ShortNames;
-  int SortMode;
-  DWORD Flags;
-  DWORD Reserved;
-};
-->
-struct PanelInfo
-{
-  int PanelType;
-  int Plugin;
-  RECT PanelRect;
-  struct PluginPanelItem *PanelItems;
-  int ItemsNumber;
-  struct PluginPanelItem **SelectedItems;
-  int SelectedItemsNumber;
-  int CurrentItem;
-  int TopPanelItem;
-  int Visible;
-  int Focus;
-  int ViewMode;
-  wchar_t *lpwszColumnTypes;
-  wchar_t *lpwszColumnWidths;
-  wchar_t *lpwszCurDir;
-  int ShortNames;
-  int SortMode;
-  DWORD Flags;
-  DWORD Reserved;
-};
-->
 struct PanelInfo
 {
   int PanelType;
@@ -1198,64 +1104,46 @@ type
 { FILE_CONTROL_COMMANDS }
 
 const
-   PANEL_NONE		         = -1;
-   PANEL_ACTIVE	                 = -1;
-   PANEL_PASSIVE	         = -2;
+  PANEL_NONE	                = -1;
+  PANEL_ACTIVE	                = -1;
+  PANEL_PASSIVE	                = -2;
 
 const
-   FCTL_CLOSEPLUGIN              = 0;        
-   FCTL_GETPANELINFO             = 1;        
-   FCTL_UPDATEPANEL              = 2;        
-   FCTL_REDRAWPANEL              = 3;        
-   FCTL_GETCMDLINE               = 4;        
-   FCTL_SETCMDLINE               = 5;        
-   FCTL_SETSELECTION             = 6;        
-   FCTL_SETVIEWMODE              = 7;        
-   FCTL_INSERTCMDLINE            = 8;        
-   FCTL_SETUSERSCREEN            = 9;        
-   FCTL_SETPANELDIR              = 10;       
-   FCTL_SETCMDLINEPOS            = 11;       
-   FCTL_GETCMDLINEPOS            = 12;       
-   FCTL_SETSORTMODE              = 13;       
-   FCTL_SETSORTORDER             = 14;       
-   FCTL_GETCMDLINESELECTEDTEXT   = 15;       
-   FCTL_SETCMDLINESELECTION      = 16;       
-   FCTL_GETCMDLINESELECTION      = 17;       
-   FCTL_CHECKPANELSEXIST         = 18;       
-   FCTL_SETNUMERICSORT           = 19;       
-   { Far 2 Added }
-   FCTL_GETUSERSCREEN            = 20;       
-   FCTL_ISACTIVEPANEL            = 21;       
-   FCTL_GETPANELITEM             = 22;       
-   FCTL_GETSELECTEDPANELITEM     = 23;       
-   FCTL_GETCURRENTPANELITEM      = 24;       
-   FCTL_GETCURRENTDIRECTORY      = 25;
-   FCTL_GETCOLUMNTYPES           = 26;
-   FCTL_GETCOLUMNWIDTHS          = 27;
+  FCTL_CLOSEPLUGIN              = 0;
+  FCTL_GETPANELINFO             = 1;
+  FCTL_UPDATEPANEL              = 2;
+  FCTL_REDRAWPANEL              = 3;
+  FCTL_GETCMDLINE               = 4;
+  FCTL_SETCMDLINE               = 5;
+  FCTL_SETSELECTION             = 6;
+  FCTL_SETVIEWMODE              = 7;
+  FCTL_INSERTCMDLINE            = 8;
+  FCTL_SETUSERSCREEN            = 9;
+  FCTL_SETPANELDIR              = 10;
+  FCTL_SETCMDLINEPOS            = 11;
+  FCTL_GETCMDLINEPOS            = 12;
+  FCTL_SETSORTMODE              = 13;
+  FCTL_SETSORTORDER             = 14;
+  FCTL_GETCMDLINESELECTEDTEXT   = 15;
+  FCTL_SETCMDLINESELECTION      = 16;
+  FCTL_GETCMDLINESELECTION      = 17;
+  FCTL_CHECKPANELSEXIST         = 18;
+  FCTL_SETNUMERICSORT           = 19;
+  { Far 2 Added }
+  FCTL_GETUSERSCREEN            = 20;
+  FCTL_ISACTIVEPANEL            = 21;
+  FCTL_GETPANELITEM             = 22;
+  FCTL_GETSELECTEDPANELITEM     = 23;
+  FCTL_GETCURRENTPANELITEM      = 24;
+  FCTL_GETCURRENTDIRECTORY      = 25;
+  FCTL_GETCOLUMNTYPES           = 26;
+  FCTL_GETCOLUMNWIDTHS          = 27;
+  FCTL_BEGINSELECTION           = 28;
+  FCTL_ENDSELECTION             = 29;
 
-(* Obsolete
-   FCTL_GETANOTHERPANELINFO      = 2;
-   FCTL_UPDATEANOTHERPANEL       = 4;
-   FCTL_REDRAWANOTHERPANEL       = 6;
-   FCTL_SETANOTHERPANELDIR       = 7;
-   FCTL_SETANOTHERSELECTION      = 11;
-   FCTL_SETANOTHERVIEWMODE       = 13;
-   FCTL_GETPANELSHORTINFO        = 18;
-   FCTL_SETANOTHERSORTMODE       = 20;
-   FCTL_SETANOTHERSORTORDER      = 22;
-   FCTL_GETANOTHERPANELSHORTINFO = 27;
-   FCTL_SETANOTHERNUMERICSORT    = 30;
-   FCTL_FREEPANELITEM            = 25;
-*)
 
 type
 (*
-typedef int (WINAPI *FARAPICONTROL)(
-  HANDLE hPlugin,
-  int Command,
-  void *Param
-);
-->
 typedef int (WINAPI *FARAPICONTROL)(
   HANDLE hPlugin,
   int Command,
@@ -1268,7 +1156,7 @@ typedef int (WINAPI *FARAPICONTROL)(
     Command :Integer;
     Param1 :Integer;
     Param2 :Pointer
-  ) :Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) :Integer; stdcall;
 
 (*
 typedef void (WINAPI *FARAPITEXT)(
@@ -1281,30 +1169,24 @@ typedef void (WINAPI *FARAPITEXT)(
   TFarApiText = function (
     X, Y : Integer;
     Color : Integer;
-    const Str : PFarChar
-   ) :Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+    Str : PFarChar
+   ) :Integer; stdcall;
 
 (*
 typedef HANDLE (WINAPI *FARAPISAVESCREEN)(int X1, int Y1, int X2, int Y2);
 *)
   TFarApiSaveScreen = function (
     X1, Y1, X2, Y2 : Integer
-  ) :THandle; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) :THandle; stdcall;
 
 (*
 typedef void (WINAPI *FARAPIRESTORESCREEN)(HANDLE hScreen);
 *)
   TFarApiRestoreScreen = procedure (
      hScreen : THandle
-  ); {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ); stdcall;
 
 (*
-typedef int (WINAPI *FARAPIGETDIRLIST)(
-  const char *Dir,
-  struct PluginPanelItem **pPanelItem,
-  int *pItemsNumber
-);
-->
 typedef int (WINAPI *FARAPIGETDIRLIST)(
   const wchar_t *Dir,
   struct FAR_FIND_DATA **pPanelItem,
@@ -1312,20 +1194,24 @@ typedef int (WINAPI *FARAPIGETDIRLIST)(
 );
 *)
   TFarApiGetDirList = function (
-    const Dir : PFarChar;
-    var PanelItem : PPluginPanelItemArray;  {!!!}
+    Dir : PFarChar;
+    var Items : PFarFindDataArray;
     var ItemsNumber : Integer
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 (*
-typedef int (WINAPI *FARAPIGETPLUGINDIRLIST)(
-  int PluginNumber,
-  HANDLE hPlugin,
-  const char *Dir,
-  struct PluginPanelItem **pPanelItem,
-  int *pItemsNumber
+typedef void (WINAPI *FARAPIFREEDIRLIST)(
+  struct FAR_FIND_DATA *PanelItem,
+  int nItemsNumber
 );
-->
+*)
+  TFarApiFreeDirList = procedure (
+    Items : PFarFindDataArray;
+    ItemsNumber :Integer
+  ); stdcall;
+
+
+(*
 typedef int (WINAPI *FARAPIGETPLUGINDIRLIST)(
   INT_PTR PluginNumber,
   HANDLE hPlugin,
@@ -1335,30 +1221,20 @@ typedef int (WINAPI *FARAPIGETPLUGINDIRLIST)(
 );
 *)
   TFarApiGetPluginDirList = function (
-    PluginNumber : Integer;  {!!!}
+    PluginNumber : Integer;
     hPlugin : THandle;
-    const Dir : PChar;
+    Dir : PFarChar;
     var PanelItem :PPluginPanelItemArray;
     var ItemsNumber :Integer
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
-
-(*
-typedef void (WINAPI *FARAPIFREEDIRLIST)(const struct PluginPanelItem *PanelItem);
-->
-typedef void (WINAPI *FARAPIFREEDIRLIST)(struct FAR_FIND_DATA *PanelItem, int nItemsNumber);
-*)
-  TFarApiFreeDirList = procedure (
-    const PanelItem : PPluginPanelItemArray;  {!!!}
-    ItemsNumber :Integer
-  ); {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 (*
 typedef void (WINAPI *FARAPIFREEPLUGINDIRLIST)(struct PluginPanelItem *PanelItem, int nItemsNumber);
 *)
   TFarApiFreePluginDirList = procedure (
-    const PanelItem : PPluginPanelItemArray;  {!!!}
+    PanelItem : PPluginPanelItemArray;
     ItemsNumber :Integer
-  ); {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ); stdcall;
 
 
 {------------------------------------------------------------------------------}
@@ -1368,12 +1244,12 @@ typedef void (WINAPI *FARAPIFREEPLUGINDIRLIST)(struct PluginPanelItem *PanelItem
 { VIEWER_FLAGS }
 
 const
-   VF_NONMODAL              = $00000001;
-   VF_DELETEONCLOSE         = $00000002;
-   VF_ENABLE_F6             = $00000004;
-   VF_DISABLEHISTORY        = $00000008;
-   VF_IMMEDIATERETURN       = $00000100;
-   VF_DELETEONLYFILEONCLOSE = $00000200;
+  VF_NONMODAL              = $00000001;
+  VF_DELETEONCLOSE         = $00000002;
+  VF_ENABLE_F6             = $00000004;
+  VF_DISABLEHISTORY        = $00000008;
+  VF_IMMEDIATERETURN       = $00000100;
+  VF_DELETEONLYFILEONCLOSE = $00000200;
 
 (*
 typedef int (WINAPI *FARAPIVIEWER)(
@@ -1394,7 +1270,7 @@ type
     X1, Y1, X2, Y2 : Integer;
     Flags : DWORD;
     CodePage : UINT
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 
 { EDITOR_FLAGS }
@@ -1416,11 +1292,11 @@ const
   EF_OPENMODE_USEEXISTING  = $20000000;
   EF_OPENMODE_BREAKIFOPEN  = $30000000;
   EF_OPENMODE_RELOADIFOPEN = $40000000;
- {$endif END FAR_USE_INTERNALS}
+ {$endif FAR_USE_INTERNALS}
 
  {$ifdef FAR_USE_INTERNALS}
   EF_SERVICEREGION         = $00001000;
- {$endif END FAR_USE_INTERNALS}
+ {$endif FAR_USE_INTERNALS}
 
 
 { EDITOR_EXITCODE }
@@ -1435,7 +1311,7 @@ const
   EEC_ALREADY_EXISTS      = 5;
   EEC_OPEN_NEWINSTANCE    = 6;
   EEC_RELOAD              = 7;
- {$endif END FAR_USE_INTERNALS}
+ {$endif FAR_USE_INTERNALS}
 
 type
 (*
@@ -1460,7 +1336,7 @@ typedef int (WINAPI *FARAPIEDITOR)(
     StartLine : Integer;
     StartChar : Integer;
     CodePage : UINT
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 (*
 typedef int (WINAPI *FARAPICMPNAME)(
@@ -1473,7 +1349,7 @@ typedef int (WINAPI *FARAPICMPNAME)(
     Pattern : PFarChar;
     aString : PFarChar;
     SkipPath : Integer
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 
 type
@@ -1486,18 +1362,18 @@ typedef const wchar_t* (WINAPI *FARAPIGETMSG)(
   TFarApiGetMsg = function (
     PluginNumber : Integer;
     MsgId : Integer
-  ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : PFarChar; stdcall;
 
 
 { FarHelpFlags }
 
 const
-   FHELP_NOSHOWERROR = $80000000;
-   FHELP_SELFHELP    = $00000000;
-   FHELP_FARHELP     = $00000001;
-   FHELP_CUSTOMFILE  = $00000002;
-   FHELP_CUSTOMPATH  = $00000004;
-   FHELP_USECONTENTS = $40000000;
+  FHELP_NOSHOWERROR = $80000000;
+  FHELP_SELFHELP    = $00000000;
+  FHELP_FARHELP     = $00000001;
+  FHELP_CUSTOMFILE  = $00000002;
+  FHELP_CUSTOMPATH  = $00000004;
+  FHELP_USECONTENTS = $40000000;
 
 
 (*
@@ -1512,9 +1388,9 @@ type
     ModuleName : PFarChar;
     Topic : PFarChar;
     Flags : DWORD
-  ) :LongBool; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) :LongBool; stdcall;
 
-  
+
 { ADVANCED_CONTROL_COMMANDS }
 
 const
@@ -1546,9 +1422,9 @@ const
   ACTL_REMOVEMEDIA          = 24;
   ACTL_GETMEDIATYPE         = 25;
   ACTL_GETPOLICIES          = 26;
- {$endif END FAR_USE_INTERNALS}
+ {$endif FAR_USE_INTERNALS}
   ACTL_REDRAWALL            = 27;
-  ACTL_SYNCHRO              = 28;  
+  ACTL_SYNCHRO              = 28;
 
 (*
 #ifdef FAR_USE_INTERNALS
@@ -1581,104 +1457,111 @@ enum FarPoliciesFlags{
 { FarSystemSettings }
 
 const
-   FSS_CLEARROATTRIBUTE           = $00000001;
-   FSS_DELETETORECYCLEBIN         = $00000002;
-   FSS_USESYSTEMCOPYROUTINE       = $00000004;
-   FSS_COPYFILESOPENEDFORWRITING  = $00000008;
-   FSS_CREATEFOLDERSINUPPERCASE   = $00000010;
-   FSS_SAVECOMMANDSHISTORY        = $00000020;
-   FSS_SAVEFOLDERSHISTORY         = $00000040;
-   FSS_SAVEVIEWANDEDITHISTORY     = $00000080;
-   FSS_USEWINDOWSREGISTEREDTYPES  = $00000100;
-   FSS_AUTOSAVESETUP              = $00000200;
-   FSS_SCANSYMLINK                = $00000400;
+  FSS_CLEARROATTRIBUTE           = $00000001;
+  FSS_DELETETORECYCLEBIN         = $00000002;
+  FSS_USESYSTEMCOPYROUTINE       = $00000004;
+  FSS_COPYFILESOPENEDFORWRITING  = $00000008;
+  FSS_CREATEFOLDERSINUPPERCASE   = $00000010;
+  FSS_SAVECOMMANDSHISTORY        = $00000020;
+  FSS_SAVEFOLDERSHISTORY         = $00000040;
+  FSS_SAVEVIEWANDEDITHISTORY     = $00000080;
+  FSS_USEWINDOWSREGISTEREDTYPES  = $00000100;
+  FSS_AUTOSAVESETUP              = $00000200;
+  FSS_SCANSYMLINK                = $00000400;
 
 { FarPanelSettings }
 
 const
-   FPS_SHOWHIDDENANDSYSTEMFILES    = $00000001;
-   FPS_HIGHLIGHTFILES              = $00000002;
-   FPS_AUTOCHANGEFOLDER            = $00000004;
-   FPS_SELECTFOLDERS               = $00000008;
-   FPS_ALLOWREVERSESORTMODES       = $00000010;
-   FPS_SHOWCOLUMNTITLES            = $00000020;
-   FPS_SHOWSTATUSLINE              = $00000040;
-   FPS_SHOWFILESTOTALINFORMATION   = $00000080;
-   FPS_SHOWFREESIZE                = $00000100;
-   FPS_SHOWSCROLLBAR               = $00000200;
-   FPS_SHOWBACKGROUNDSCREENSNUMBER = $00000400;
-   FPS_SHOWSORTMODELETTER          = $00000800;
+  FPS_SHOWHIDDENANDSYSTEMFILES    = $00000001;
+  FPS_HIGHLIGHTFILES              = $00000002;
+  FPS_AUTOCHANGEFOLDER            = $00000004;
+  FPS_SELECTFOLDERS               = $00000008;
+  FPS_ALLOWREVERSESORTMODES       = $00000010;
+  FPS_SHOWCOLUMNTITLES            = $00000020;
+  FPS_SHOWSTATUSLINE              = $00000040;
+  FPS_SHOWFILESTOTALINFORMATION   = $00000080;
+  FPS_SHOWFREESIZE                = $00000100;
+  FPS_SHOWSCROLLBAR               = $00000200;
+  FPS_SHOWBACKGROUNDSCREENSNUMBER = $00000400;
+  FPS_SHOWSORTMODELETTER          = $00000800;
 
 { FarDialogSettings }
 
 const
-   FDIS_HISTORYINDIALOGEDITCONTROLS    = $00000001;
-   FDIS_PERSISTENTBLOCKSINEDITCONTROLS = $00000002;
-   FDIS_AUTOCOMPLETEININPUTLINES       = $00000004;
-   FDIS_BSDELETEUNCHANGEDTEXT          = $00000008;
-   FDIS_DELREMOVESBLOCKS               = $00000010;
-   FDIS_MOUSECLICKOUTSIDECLOSESDIALOG  = $00000020;
+  FDIS_HISTORYINDIALOGEDITCONTROLS    = $00000001;
+  FDIS_PERSISTENTBLOCKSINEDITCONTROLS = $00000002;
+  FDIS_AUTOCOMPLETEININPUTLINES       = $00000004;
+  FDIS_BSDELETEUNCHANGEDTEXT          = $00000008;
+  FDIS_DELREMOVESBLOCKS               = $00000010;
+  FDIS_MOUSECLICKOUTSIDECLOSESDIALOG  = $00000020;
 
 { FarInterfaceSettings }
 
 const
-   FIS_CLOCKINPANELS                  = $00000001;
-   FIS_CLOCKINVIEWERANDEDITOR         = $00000002;
-   FIS_MOUSE                          = $00000004;
-   FIS_SHOWKEYBAR                     = $00000008;
-   FIS_ALWAYSSHOWMENUBAR              = $00000010;
-   FIS_USERIGHTALTASALTGR             = $00000080;
-   FIS_SHOWTOTALCOPYPROGRESSINDICATOR = $00000100;
-   FIS_SHOWCOPYINGTIMEINFO            = $00000200;
-   FIS_USECTRLPGUPTOCHANGEDRIVE       = $00000800;
+  FIS_CLOCKINPANELS                  = $00000001;
+  FIS_CLOCKINVIEWERANDEDITOR         = $00000002;
+  FIS_MOUSE                          = $00000004;
+  FIS_SHOWKEYBAR                     = $00000008;
+  FIS_ALWAYSSHOWMENUBAR              = $00000010;
+  FIS_USERIGHTALTASALTGR             = $00000080;
+  FIS_SHOWTOTALCOPYPROGRESSINDICATOR = $00000100;
+  FIS_SHOWCOPYINGTIMEINFO            = $00000200;
+  FIS_USECTRLPGUPTOCHANGEDRIVE       = $00000800;
 
 { FarConfirmationsSettings }
 
 const
-   FCS_COPYOVERWRITE          = $00000001;
-   FCS_MOVEOVERWRITE          = $00000002;
-   FCS_DRAGANDDROP            = $00000004;
-   FCS_DELETE                 = $00000008;
-   FCS_DELETENONEMPTYFOLDERS  = $00000010;
-   FCS_INTERRUPTOPERATION     = $00000020;
-   FCS_DISCONNECTNETWORKDRIVE = $00000040;
-   FCS_RELOADEDITEDFILE       = $00000080;
-   FCS_CLEARHISTORYLIST       = $00000100;
-   FCS_EXIT                   = $00000200;
+  FCS_COPYOVERWRITE          = $00000001;
+  FCS_MOVEOVERWRITE          = $00000002;
+  FCS_DRAGANDDROP            = $00000004;
+  FCS_DELETE                 = $00000008;
+  FCS_DELETENONEMPTYFOLDERS  = $00000010;
+  FCS_INTERRUPTOPERATION     = $00000020;
+  FCS_DISCONNECTNETWORKDRIVE = $00000040;
+  FCS_RELOADEDITEDFILE       = $00000080;
+  FCS_CLEARHISTORYLIST       = $00000100;
+  FCS_EXIT                   = $00000200;
+  FCS_OVERWRITEDELETEROFILES = $00000400;
 
 { FarDescriptionSettings }
 
 const
-   FDS_UPDATEALWAYS      = $00000001;
-   FDS_UPDATEIFDISPLAYED = $00000002;
-   FDS_SETHIDDEN         = $00000004;
-   FDS_UPDATEREADONLY    = $00000008;
+  FDS_UPDATEALWAYS      = $00000001;
+  FDS_UPDATEIFDISPLAYED = $00000002;
+  FDS_SETHIDDEN         = $00000004;
+  FDS_UPDATEREADONLY    = $00000008;
 
 const
-   FAR_CONSOLE_GET_MODE       = -2;
-   FAR_CONSOLE_TRIGGER        = -1;
-   FAR_CONSOLE_SET_WINDOWED   = 0;
-   FAR_CONSOLE_SET_FULLSCREEN = 1;
-   FAR_CONSOLE_WINDOWED       = 0;
-   FAR_CONSOLE_FULLSCREEN     = 1;
-   
+  FAR_CONSOLE_GET_MODE       = -2;
+  FAR_CONSOLE_TRIGGER        = -1;
+  FAR_CONSOLE_SET_WINDOWED   = 0;
+  FAR_CONSOLE_SET_FULLSCREEN = 1;
+  FAR_CONSOLE_WINDOWED       = 0;
+  FAR_CONSOLE_FULLSCREEN     = 1;
+
+
+{ FAREJECTMEDIAFLAGS }
+
+const
+  EJECT_NO_MESSAGE          = $00000001;
+  EJECT_LOAD_MEDIA          = $00000002;
+ {$ifdef FAR_USE_INTERNALS}
+  EJECT_NOTIFY_AFTERREMOVE  = $00000004;
+  EJECT_READY               = $80000000;
+ {$endif FAR_USE_INTERNALS}
 
 (*
-enum FAREJECTMEDIAFLAGS{
- EJECT_NO_MESSAGE                    = 0x00000001,
- EJECT_LOAD_MEDIA                    = 0x00000002,
-#ifdef FAR_USE_INTERNALS
- EJECT_NOTIFY_AFTERREMOVE            = 0x00000004,
- EJECT_READY                         = 0x80000000,
-#endif // END FAR_USE_INTERNALS
-};
-
 struct ActlEjectMedia {
   DWORD Letter;
   DWORD Flags;
 };
 *)
-
+type
+  PActlEjectMedia = ^TActlEjectMedia;
+  TActlEjectMedia = packed record
+    Letter :DWORD;
+    Flags :DWORD;
+  end;
 
 (*
 #ifdef FAR_USE_INTERNALS
@@ -1714,12 +1597,13 @@ struct ActlMediaType {
 #endif // END FAR_USE_INTERNALS
 *)
 
+
 { FARKEYSEQUENCEFLAGS }
 
 const
-   KSFLAGS_DISABLEOUTPUT       = $00000001;
-   KSFLAGS_NOSENDKEYSTOPLUGINS = $00000002;
-   KSFLAGS_REG_MULTI_SZ        = $00100000;
+  KSFLAGS_DISABLEOUTPUT       = $00000001;
+  KSFLAGS_NOSENDKEYSTOPLUGINS = $00000002;
+  KSFLAGS_REG_MULTI_SZ        = $00100000;
 
 (*
 struct KeySequence{
@@ -1799,7 +1683,7 @@ type
 { FARCOLORFLAGS }
 
 const
-   FCLR_REDRAW = $00000001;
+  FCLR_REDRAW = $00000001;
 
 (*
 struct FarSetColors{
@@ -1832,7 +1716,7 @@ const
   WTYPE_COMBOBOX   = 7;
   WTYPE_FINDFOLDER = 8;
   WTYPE_USER       = 9;
- {$endif END FAR_USE_INTERNALS}
+ {$endif FAR_USE_INTERNALS}
 
 (*
 struct WindowInfo
@@ -1872,36 +1756,42 @@ type
     ModuleNumber : Integer;
     Command : Integer;
     Param : Pointer
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
+
+{ VIEWER_CONTROL_COMMANDS }
+
+const
+  VCTL_GETINFO     = 0;
+  VCTL_QUIT        = 1;
+  VCTL_REDRAW      = 2;
+  VCTL_SETKEYBAR   = 3;
+  VCTL_SETPOSITION = 4;
+  VCTL_SELECT      = 5;
+  VCTL_SETMODE     = 6;
+
+
+{ VIEWER_OPTIONS }
+
+const
+  VOPT_SAVEFILEPOSITION = 1;
+  VOPT_AUTODETECTTABLE  = 2;
+
+
+{VIEWER_SETMODE_TYPES}
+
+const
+  VSMT_HEX       = 0;
+  VSMT_WRAP      = 1;
+  VSMT_WORDWRAP  = 2;
+
+
+{VIEWER_SETMODEFLAGS_TYPES}
+
+const
+  VSMFL_REDRAW   = $00000001;
 
 (*
-enum VIEWER_CONTROL_COMMANDS {
-  VCTL_GETINFO,
-  VCTL_QUIT,
-  VCTL_REDRAW,
-  VCTL_SETKEYBAR,
-  VCTL_SETPOSITION,
-  VCTL_SELECT,
-  VCTL_SETMODE,
-};
-
-enum VIEWER_OPTIONS {
-  VOPT_SAVEFILEPOSITION=1,
-  VOPT_AUTODETECTCODEPAGE=2,
-};
-
-
-enum VIEWER_SETMODE_TYPES {
-  VSMT_HEX,
-  VSMT_WRAP,
-  VSMT_WORDWRAP,
-};
-
-enum VIEWER_SETMODEFLAGS_TYPES {
-  VSMFL_REDRAW    = 0x00000001,
-};
-
 struct ViewerSetMode {
   int Type;
   union {
@@ -1911,27 +1801,72 @@ struct ViewerSetMode {
   DWORD Flags;
   DWORD Reserved;
 };
+*)
 
+type
+  PViewerSetMode = ^TViewerSetMode;
+  TViewerSetMode = packed record
+    ParamType : Integer;
+
+    Param : record case Integer of
+      0 : (iParam : Integer);
+      1 : (cParam : PFarChar);
+    end;
+
+    Flags : DWORD;
+    Reserved : DWORD;
+  end;
+
+(*
 struct ViewerSelect
 {
   __int64 BlockStartPos;
   int     BlockLen;
 };
+*)
+type
+  TFarInt64Part = packed record
+    LowPart :DWORD;
+    HighPart :DWORD;
+  end;
 
-enum VIEWER_SETPOS_FLAGS {
-  VSP_NOREDRAW    = 0x0001,
-  VSP_PERCENT     = 0x0002,
-  VSP_RELATIVE    = 0x0004,
-  VSP_NORETNEWPOS = 0x0008,
-};
+  TFarInt64 = packed record
+    case Integer of
+      0 : (i64 : Int64);
+      1 : (Part : TFarInt64Part);
+  end;
 
+  PViewerSelect = ^TViewerSelect;
+  TViewerSelect = packed record
+    BlockStartPos :TFarInt64;
+    BlockLen :Integer;
+  end;
+
+{ VIEWER_SETPOS_FLAGS }
+
+const
+  VSP_NOREDRAW    = $0001;
+  VSP_PERCENT     = $0002;
+  VSP_RELATIVE    = $0004;
+  VSP_NORETNEWPOS = $0008;
+
+(*
 struct ViewerSetPosition
 {
   DWORD Flags;
   __int64 StartPos;
   __int64 LeftPos;
 };
+*)
+type
+  PViewerSetPosition = ^TViewerSetPosition;
+  TViewerSetPosition = packed record
+    Flags : DWORD;
+    StartPos : TFarInt64;
+    LeftPos : TFarInt64;
+  end;
 
+(*
 struct ViewerMode{
   UINT CodePage;
   int Wrap;
@@ -1939,7 +1874,18 @@ struct ViewerMode{
   int Hex;
   DWORD Reserved[4];
 };
+*)
+type
+  PViewerMode = ^TViewerMode;
+  TViewerMode = packed record
+    CodePage :UINT;
+    Wrap : Integer;
+    WordWrap : Integer;
+    Hex : Integer;
+    Reserved : array [0..3] of DWORD;
+  end;
 
+(*
 struct ViewerInfo
 {
   int    StructSize;
@@ -1955,7 +1901,21 @@ struct ViewerInfo
   __int64 LeftPos;
 };
 *)
-
+type
+  PViewerInfo = ^TViewerInfo;
+  TViewerInfo = packed record
+    StructSize : Integer;
+    ViewerID : Integer;
+    FileName : PFarChar;
+    FileSize : TFarInt64;
+    FilePos : TFarInt64;
+    WindowSizeX : Integer;
+    WindowSizeY : Integer;
+    Options : DWORD;
+    TabSize : Integer;
+    CurMode : TViewerMode;
+    LeftPos : TFarInt64;
+  end;
 
 (*
 typedef int (WINAPI *FARAPIVIEWERCONTROL)(
@@ -1967,7 +1927,7 @@ type
   TFarApiViewerControl = function (
     Command : Integer;
     Param : Pointer
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
+  ) : Integer; stdcall;
 
 
 { VIEWER_EVENTS }
@@ -2049,8 +2009,8 @@ const
   ECTL_UNDOREDO            = 32;
   ECTL_GETFILENAME         = 33;
  {$ifdef FAR_USE_INTERNALS}
-  ECTL_SERVICEREGION,      = 34;
- {$endif END FAR_USE_INTERNALS}
+  ECTL_SERVICEREGION       = 34;
+ {$endif FAR_USE_INTERNALS}
 
 
 { EDITOR_SETPARAMETER_TYPES }
@@ -2093,21 +2053,28 @@ type
     Reserved2 : DWORD;
   end;
 
+
+{EDITOR_UNDOREDO_COMMANDS}
+
+const
+  EUR_BEGIN = 0;
+  EUR_END   = 1;
+  EUR_UNDO  = 2;
+  EUR_REDO  = 3;
+
 (*
-enum EDITOR_UNDOREDO_COMMANDS {
-  EUR_BEGIN,
-  EUR_END,
-  EUR_UNDO,
-  EUR_REDO
-};
-
-
 struct EditorUndoRedo
 {
   int Command;
   DWORD_PTR Reserved[3];
 };
 *)
+type
+  PEditorUndoRedo = ^TEditorUndoRedo;
+  TEditorUndoRedo = packed record
+    Command :Integer;
+    Reserved :array[0..2] of DWORD;
+  end;
 
 (*
 struct EditorGetString
@@ -2157,30 +2124,30 @@ type
 { EXPAND_TABS }
 
 const
-   EXPAND_NOTABS  = 0;
-   EXPAND_ALLTABS = 1;
-   EXPAND_NEWTABS = 2;
+  EXPAND_NOTABS  = 0;
+  EXPAND_ALLTABS = 1;
+  EXPAND_NEWTABS = 2;
 
 
 { EDITOR_OPTIONS }
 
 const
-   EOPT_EXPANDALLTABS      = $00000001;
-   EOPT_PERSISTENTBLOCKS   = $00000002;
-   EOPT_DELREMOVESBLOCKS   = $00000004;
-   EOPT_AUTOINDENT         = $00000008;
-   EOPT_SAVEFILEPOSITION   = $00000010;
-   EOPT_AUTODETECTCODEPAGE = $00000020;
-   EOPT_CURSORBEYONDEOL    = $00000040;
-   EOPT_EXPANDONLYNEWTABS  = $00000080;
+  EOPT_EXPANDALLTABS      = $00000001;
+  EOPT_PERSISTENTBLOCKS   = $00000002;
+  EOPT_DELREMOVESBLOCKS   = $00000004;
+  EOPT_AUTOINDENT         = $00000008;
+  EOPT_SAVEFILEPOSITION   = $00000010;
+  EOPT_AUTODETECTCODEPAGE = $00000020;
+  EOPT_CURSORBEYONDEOL    = $00000040;
+  EOPT_EXPANDONLYNEWTABS  = $00000080;
 
 
 { EDITOR_BLOCK_TYPES }
 
 const
-   BTYPE_NONE   = 0;
-   BTYPE_STREAM = 1;
-   BTYPE_COLUMN = 2;
+  BTYPE_NONE   = 0;
+  BTYPE_STREAM = 1;
+  BTYPE_COLUMN = 2;
 
 
 { EDITOR_CURRENTSTATE }
@@ -2216,27 +2183,24 @@ struct EditorInfo
 type
   PEditorInfo = ^TEditorInfo;
   TEditorInfo = packed record
-     EditorID : Integer;
-//   FileName : PFarChar;   { Use ECTL_GETFILENAME }
-     WindowSizeX : Integer;
-     WindowSizeY : Integer;
-     TotalLines : Integer;
-     CurLine : Integer;
-     CurPos : Integer;
-     CurTabPos : Integer;
-     TopScreenLine : Integer;
-     LeftPos : Integer;
-     Overtype : Integer;
-     BlockType : Integer;
-     BlockStartLine : Integer;
-//   AnsiMode : {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
-//   TableNum : Integer;
-     Options : DWORD;
-     TabSize : Integer;
-     BookMarkCount : Integer;
-     CurState : DWORD;
-     CodePage : UINT;
-     Reserved : array [0..4] of DWORD;
+    EditorID : Integer;
+    WindowSizeX : Integer;
+    WindowSizeY : Integer;
+    TotalLines : Integer;
+    CurLine : Integer;
+    CurPos : Integer;
+    CurTabPos : Integer;
+    TopScreenLine : Integer;
+    LeftPos : Integer;
+    Overtype : Integer;
+    BlockType : Integer;
+    BlockStartLine : Integer;
+    Options : DWORD;
+    TabSize : Integer;
+    BookMarkCount : Integer;
+    CurState : DWORD;
+    CodePage : UINT;
+    Reserved : array [0..4] of DWORD;
   end;
 
 (*
@@ -2370,7 +2334,7 @@ type
   TFarApiEditorControl = function (
     Command : Integer;
     Param : Pointer
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 
 { INPUTBOXFLAGS }
@@ -2385,7 +2349,7 @@ const
  {$ifdef FAR_USE_INTERNALS}
   FIB_CHECKBOX         = $00010000;
   FIB_EDITPATH         = $01000000;
- {$endif END FAR_USE_INTERNALS}
+ {$endif FAR_USE_INTERNALS}
 
 (*
 typedef int (WINAPI *FARAPIINPUTBOX)(
@@ -2409,7 +2373,7 @@ type
     DestLength : Integer;
     HelpTopic : PFarChar;
     Flags : DWORD
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 (*
 typedef int (WINAPI *FARAPIPLUGINSCONTROL)(
@@ -2425,7 +2389,7 @@ type
     Command :Integer;
     Param1 :Integer;
     Param2 :Pointer
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 (*
 typedef int (WINAPI *FARAPIFILEFILTERCONTROL)(
@@ -2441,7 +2405,7 @@ type
     Command :Integer;
     Param1 :Integer;
     Param2 :Pointer
-  ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  ) : Integer; stdcall;
 
 
 (*
@@ -2489,53 +2453,48 @@ typedef int     (WINAPI *FARSTDLOCALSTRNICMP)(const wchar_t *s1,const wchar_t *s
 
 type
   {&Cdecl+}
-  TFarStdQSortFunc = function (Param1 : Pointer; Param2 : Pointer) :Integer; {$IFNDEF VP} cdecl; {$ENDIF VP}
-  TFarStdQSortExFunc = function (Param1 : Pointer; Param2 : Pointer; UserParam : Pointer) : Integer; {$IFNDEF VP} cdecl; {$ENDIF VP}
+  TFarStdQSortFunc = function (Param1 : Pointer; Param2 : Pointer) :Integer; cdecl;
+  TFarStdQSortExFunc = function (Param1 : Pointer; Param2 : Pointer; UserParam : Pointer) : Integer; cdecl;
 
   {&StdCall+}
-  TFarStdQSort = procedure (Base : Pointer; NElem : DWORD; Width : DWORD;
-    {$IFNDEF VP} FCmp : TFarStdQSortFunc{$ELSE}FCmp : Pointer{$ENDIF}); {$IFNDEF VP} stdcall; {$ENDIF VP}
-  TFarStdQSortEx = procedure (Base : Pointer; NElem : DWORD; Width : DWORD;
-    {$IFNDEF VP} FCmp : TFarStdQSortExFunc;{$ELSE}FCmp : Pointer;{$ENDIF}UserParam : Pointer); {$IFNDEF VP} stdcall; {$ENDIF VP}
+  TFarStdQSort = procedure (Base : Pointer; NElem : DWORD; Width : DWORD; FCmp : TFarStdQSortFunc); stdcall;
+  TFarStdQSortEx = procedure (Base : Pointer; NElem : DWORD; Width : DWORD; FCmp : TFarStdQSortExFunc; UserParam : Pointer); stdcall;
 
-  TFarStdBSearch = procedure (const Key : Pointer; const Base : Pointer; NElem : DWORD; Width : DWORD;
-    {$IFNDEF VP} FCmp : TFarStdQSortFunc{$ELSE}FCmp : Pointer{$ENDIF}); {$IFNDEF VP} stdcall; {$ENDIF VP}
+  TFarStdBSearch = procedure (Key : Pointer; Base : Pointer; NElem : DWORD; Width : DWORD; FCmp : TFarStdQSortFunc); stdcall;
 
-  TFarStdGetFileOwner = function (const Computer : PFarChar; const Name : PFarChar; Owner : PFarChar ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdGetNumberOfLinks = function (const Name : PFarChar) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdAtoi = function (const S : PFarChar) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
- {$IFDEF USE_DELPHI4}
-  TFarStdAtoi64 = function (const S : PFarChar) : Int64; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdItoa64 = function (Value : Int64; Str : PFarChar; Radix : Integer) :PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
- {$ENDIF USE_DELPHI4}
+  TFarStdGetFileOwner = function (Computer : PFarChar; Name : PFarChar; Owner : PFarChar ) : Integer; stdcall;
+  TFarStdGetNumberOfLinks = function (Name : PFarChar) : Integer; stdcall;
+  TFarStdAtoi = function (S : PFarChar) : Integer; stdcall;
+  TFarStdAtoi64 = function (S : PFarChar) : Int64; stdcall;
+  TFarStdItoa64 = function (Value : Int64; Str : PFarChar; Radix : Integer) :PFarChar; stdcall;
 
-  TFarStdItoa = function (Value : Integer; Str : PFarChar; Radix : Integer ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdLTrim = function (Str : PFarChar) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdRTrim = function (Str : PFarChar) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdTrim = function (Str : PFarChar) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdTruncStr = function (Str : PFarChar; MaxLength : Integer) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdTruncPathStr = function (Str : PFarChar; MaxLength : Integer) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdQuoteSpaceOnly = function (Str : PFarChar) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdPointToName = function (const Path : PFarChar) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdGetPathRoot = function (const Path : PFarChar; Root : PFarChar; DestSize :Integer) :Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdAddEndSlash = function (Path : PFarChar) : LongBool; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdCopyToClipBoard = function (const Data : PFarChar) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdPasteFromClipboard = function : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdInputRecordToKey = function (const R : TInputRecord) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
+  TFarStdItoa = function (Value : Integer; Str : PFarChar; Radix : Integer ) : PFarChar; stdcall;
+  TFarStdLTrim = function (Str : PFarChar) : PFarChar; stdcall;
+  TFarStdRTrim = function (Str : PFarChar) : PFarChar; stdcall;
+  TFarStdTrim = function (Str : PFarChar) : PFarChar; stdcall;
+  TFarStdTruncStr = function (Str : PFarChar; MaxLength : Integer) : PFarChar; stdcall;
+  TFarStdTruncPathStr = function (Str : PFarChar; MaxLength : Integer) : PFarChar; stdcall;
+  TFarStdQuoteSpaceOnly = function (Str : PFarChar) : PFarChar; stdcall;
+  TFarStdPointToName = function (Path : PFarChar) : PFarChar; stdcall;
+  TFarStdGetPathRoot = function (Path : PFarChar; Root : PFarChar; DestSize :Integer) :Integer; stdcall;
+  TFarStdAddEndSlash = function (Path : PFarChar) : LongBool; stdcall;
+  TFarStdCopyToClipBoard = function (Data : PFarChar) : Integer; stdcall;
+  TFarStdPasteFromClipboard = function : PFarChar; stdcall;
+  TFarStdInputRecordToKey = function (const R : TInputRecord) : Integer; stdcall;
 
-  TFarStdLocalIsLower = function (Ch : Integer) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdLocalIsUpper = function (Ch : Integer) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdLocalIsAlpha = function (Ch : Integer) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdLocalIsAlphaNum = function (Ch : Integer) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdLocalUpper = function (LowerChar : Integer) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdLocalLower = function (UpperChar : Integer) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
+  TFarStdLocalIsLower = function (Ch : Integer) : Integer; stdcall;
+  TFarStdLocalIsUpper = function (Ch : Integer) : Integer; stdcall;
+  TFarStdLocalIsAlpha = function (Ch : Integer) : Integer; stdcall;
+  TFarStdLocalIsAlphaNum = function (Ch : Integer) : Integer; stdcall;
+  TFarStdLocalUpper = function (LowerChar : Integer) : Integer; stdcall;
+  TFarStdLocalLower = function (UpperChar : Integer) : Integer; stdcall;
 
-  TFarStdLocalUpperBuf = function (Buf : PFarChar; Length : Integer) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdLocalLowerBuf = function (Buf : PFarChar; Length : Integer) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdLocalStrUpr = function (S1 : PFarChar) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdLocalStrLwr = function (S1 : PFarChar) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdLocalStrICmp = function (const S1 : PFarChar; const S2 : PFarChar) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdLocalStrNICmp = function (const S1 : PFarChar; const S2 : PFarChar; N : Integer) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
+  TFarStdLocalUpperBuf = function (Buf : PFarChar; Length : Integer) : Integer; stdcall;
+  TFarStdLocalLowerBuf = function (Buf : PFarChar; Length : Integer) : Integer; stdcall;
+  TFarStdLocalStrUpr = function (S1 : PFarChar) : Integer; stdcall;
+  TFarStdLocalStrLwr = function (S1 : PFarChar) : Integer; stdcall;
+  TFarStdLocalStrICmp = function (S1 : PFarChar; S2 : PFarChar) : Integer; stdcall;
+  TFarStdLocalStrNICmp = function (S1 : PFarChar; S2 : PFarChar; N : Integer) : Integer; stdcall;
 
 
 { PROCESSNAME_FLAGS }
@@ -2551,8 +2510,8 @@ typedef int (WINAPI *FARSTDPROCESSNAME)(const wchar_t *param1, wchar_t *param2, 
 typedef void (WINAPI *FARSTDUNQUOTE)(wchar_t *Str);
 *)
 type
-  TFarStdProcessName = function (Param1, Param2 :PFarChar; Size, Flags :DWORD) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdUnquote = procedure (Str : PFarChar); {$IFNDEF VP} stdcall; {$ENDIF}
+  TFarStdProcessName = function (Param1, Param2 :PFarChar; Size, Flags :DWORD) : Integer; stdcall;
+  TFarStdUnquote = procedure (Str : PFarChar); stdcall;
 
 
 { XLATMODE }
@@ -2563,7 +2522,7 @@ const
  {$ifdef FAR_USE_INTERNALS}
   XLAT_USEKEYBLAYOUTNAME = $00000004;
   XLAT_CONVERTALLCMDLINE = $00010000;
- {$endif END FAR_USE_INTERNALS}
+ {$endif FAR_USE_INTERNALS}
 
 
 (*
@@ -2572,9 +2531,9 @@ typedef size_t  (WINAPI *FARSTDKEYTOKEYNAME)(int Key,wchar_t *KeyText,size_t Siz
 typedef int     (WINAPI *FARSTDKEYNAMETOKEY)(const wchar_t *Name);
 *)
 type
-  TFarStdXLat = function (Line :PFarChar; StartPos, EndPos :Integer; Flags :DWORD) :PFarChar; {$IFNDEF VP} stdcall; {$ENDIF VP}
-  TFarStdKeyToKeyName = function (Key : Integer; KeyText : PFarChar; Size : Integer) : LongBool;{!!!} {$IFNDEF VP} stdcall; {$ENDIF VP}
-  TFarStdKeyNameToKey = function (Name : PFarChar) : Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  TFarStdXLat = function (Line :PFarChar; StartPos, EndPos :Integer; Flags :DWORD) :PFarChar; stdcall;
+  TFarStdKeyToKeyName = function (Key : Integer; KeyText : PFarChar; Size : Integer) :Integer; stdcall;
+  TFarStdKeyNameToKey = function (Name : PFarChar) : Integer; stdcall;
 
 { FRSMODE }
 
@@ -2594,11 +2553,11 @@ typedef wchar_t* (WINAPI *FARSTDMKTEMP)(wchar_t *Dest, DWORD size, const wchar_t
 typedef void    (WINAPI *FARSTDDELETEBUFFER)(void *Buffer);
 *)
 type
-  TFRSUserFunc = function (const FData :PFarFindData; const FullName :PFarChar; Param :Pointer) :Integer; {$IFNDEF VP} stdcall; {$ENDIF VP}
+  TFRSUserFunc = function (const FData :PFarFindData; const FullName :PFarChar; Param :Pointer) :Integer; stdcall;
 
-  TFarStdRecursiveSearch = procedure (InitDir, Mask :PFarChar; {$IFNDEF VP} Func :TFRSUserFunc;{$ELSE}Func :Pointer;{$ENDIF} Flags :DWORD; Param :Pointer); {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdMkTemp = function (Dest :PFarChar; Size :DWORD; Prefix :PFarChar) :PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdDeleteBuffer = procedure(Buffer :Pointer); {$IFNDEF VP} stdcall; {$ENDIF}
+  TFarStdRecursiveSearch = procedure (InitDir, Mask :PFarChar; Func :TFRSUserFunc; Flags :DWORD; Param :Pointer); stdcall;
+  TFarStdMkTemp = function (Dest :PFarChar; Size :DWORD; Prefix :PFarChar) :PFarChar; stdcall;
+  TFarStdDeleteBuffer = procedure(Buffer :Pointer); stdcall;
 
 
 { MKLINKOP }
@@ -2617,9 +2576,9 @@ typedef int     (WINAPI *FARCONVERTNAMETOREAL)(const wchar_t *Src, wchar_t *Dest
 typedef int     (WINAPI *FARGETREPARSEPOINTINFO)(const wchar_t *Src, wchar_t *Dest,int DestSize);
 *)
 type
-  TFarStdMkLink = function (Src, Dest :PFarChar; Flags :DWORD) :Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdConvertNameToReal = function (Src, Dest :PFarChar; DestSize :Integer) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
-  TFarStdGetReparsePointInfo = function (Src, Dest :PFarChar; DestSize :Integer) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
+  TFarStdMkLink = function (Src, Dest :PFarChar; Flags :DWORD) :Integer; stdcall;
+  TFarStdConvertNameToReal = function (Src, Dest :PFarChar; DestSize :Integer) : Integer; stdcall;
+  TFarStdGetReparsePointInfo = function (Src, Dest :PFarChar; DestSize :Integer) : Integer; stdcall;
 
 
 (*
@@ -2803,7 +2762,7 @@ type
     GetDirList          : TFarApiGetDirList;
     GetPluginDirList    : TFarApiGetPluginDirList;
     FreeDirList         : TFarApiFreeDirList;
-    FreePluginDirList   : Pointer; {TFarApiFreePluginDirList} {!!!}
+    FreePluginDirList   : TFarApiFreePluginDirList;
     Viewer              : TFarApiViewer;
     Editor              : TFarApiEditor;
     CmpName             : TFarApiCmpName;
@@ -2877,13 +2836,6 @@ type
 (*
 struct InfoPanelLine
 {
-  wchar_t Text[80];
-  wchar_t Data[80];
-  int  Separator;
-};
-->
-struct InfoPanelLine
-{
   const wchar_t *Text;
   const wchar_t *Data;
   int  Separator;
@@ -2938,39 +2890,39 @@ type
 { OPENPLUGININFO_FLAGS }
 
 const
-   OPIF_USEFILTER           = $00000001;
-   OPIF_USESORTGROUPS       = $00000002;
-   OPIF_USEHIGHLIGHTING     = $00000004;
-   OPIF_ADDDOTS             = $00000008;
-   OPIF_RAWSELECTION        = $00000010;
-   OPIF_REALNAMES           = $00000020;
-   OPIF_SHOWNAMESONLY       = $00000040;
-   OPIF_SHOWRIGHTALIGNNAMES = $00000080;
-   OPIF_SHOWPRESERVECASE    = $00000100;
-   OPIF_FINDFOLDERS         = $00000200;
-   OPIF_COMPAREFATTIME      = $00000400;
-   OPIF_EXTERNALGET         = $00000800;
-   OPIF_EXTERNALPUT         = $00001000;
-   OPIF_EXTERNALDELETE      = $00002000;
-   OPIF_EXTERNALMKDIR       = $00004000;
-   OPIF_USEATTRHIGHLIGHTING = $00008000;
+  OPIF_USEFILTER           = $00000001;
+  OPIF_USESORTGROUPS       = $00000002;
+  OPIF_USEHIGHLIGHTING     = $00000004;
+  OPIF_ADDDOTS             = $00000008;
+  OPIF_RAWSELECTION        = $00000010;
+  OPIF_REALNAMES           = $00000020;
+  OPIF_SHOWNAMESONLY       = $00000040;
+  OPIF_SHOWRIGHTALIGNNAMES = $00000080;
+  OPIF_SHOWPRESERVECASE    = $00000100;
+  OPIF_FINDFOLDERS         = $00000200;
+  OPIF_COMPAREFATTIME      = $00000400;
+  OPIF_EXTERNALGET         = $00000800;
+  OPIF_EXTERNALPUT         = $00001000;
+  OPIF_EXTERNALDELETE      = $00002000;
+  OPIF_EXTERNALMKDIR       = $00004000;
+  OPIF_USEATTRHIGHLIGHTING = $00008000;
 
 
 { OPENPLUGININFO_SORTMODES }
 
 const
-   SM_DEFAULT        = 0;
-   SM_UNSORTED       = 1;
-   SM_NAME           = 2;
-   SM_EXT            = 3;
-   SM_MTIME          = 4;
-   SM_CTIME          = 5;
-   SM_ATIME          = 6;
-   SM_SIZE           = 7;
-   SM_DESCR          = 8;
-   SM_OWNER          = 9;
-   SM_COMPRESSEDSIZE = 10;
-   SM_NUMLINKS       = 11;
+  SM_DEFAULT        = 0;
+  SM_UNSORTED       = 1;
+  SM_NAME           = 2;
+  SM_EXT            = 3;
+  SM_MTIME          = 4;
+  SM_CTIME          = 5;
+  SM_ATIME          = 6;
+  SM_SIZE           = 7;
+  SM_DESCR          = 8;
+  SM_OWNER          = 9;
+  SM_COMPRESSEDSIZE = 10;
+  SM_NUMLINKS       = 11;
 
 (*
 struct KeyBarTitles
@@ -3004,13 +2956,13 @@ type
 { OPERATION_MODES }
 
 const
-   OPM_SILENT    = $0001;
-   OPM_FIND      = $0002;
-   OPM_VIEW      = $0004;
-   OPM_EDIT      = $0008;
-   OPM_TOPLEVEL  = $0010;
-   OPM_DESCR     = $0020;
-   OPM_QUICKVIEW = $0040;
+  OPM_SILENT    = $0001;
+  OPM_FIND      = $0002;
+  OPM_VIEW      = $0004;
+  OPM_EDIT      = $0008;
+  OPM_TOPLEVEL  = $0010;
+  OPM_DESCR     = $0020;
+  OPM_QUICKVIEW = $0040;
 
 
 (*
@@ -3063,36 +3015,37 @@ type
 { OPENPLUGIN_OPENFROM }
 
 const
-   OPEN_DISKMENU    = 0;
-   OPEN_PLUGINSMENU = 1;
-   OPEN_FINDLIST    = 2;
-   OPEN_SHORTCUT    = 3;
-   OPEN_COMMANDLINE = 4;
-   OPEN_EDITOR      = 5;
-   OPEN_VIEWER      = 6;
-   OPEN_FILEPANEL   = 7;
-   OPEN_DIALOG      = 8;
-   OPEN_FROMMACRO   = $10000;
+  OPEN_DISKMENU    = 0;
+  OPEN_PLUGINSMENU = 1;
+  OPEN_FINDLIST    = 2;
+  OPEN_SHORTCUT    = 3;
+  OPEN_COMMANDLINE = 4;
+  OPEN_EDITOR      = 5;
+  OPEN_VIEWER      = 6;
+  OPEN_FILEPANEL   = 7;
+  OPEN_DIALOG      = 8;
+  OPEN_ANALYSE     = 9;
+  OPEN_FROMMACRO   = $10000;
 
 { FAR_PKF_FLAGS }
 
 const
-   PKF_CONTROL    = $00000001;
-   PKF_ALT        = $00000002;
-   PKF_SHIFT      = $00000004;
-   PKF_PREPROCESS = $00080000; // for "Key", function ProcessKey()
+  PKF_CONTROL    = $00000001;
+  PKF_ALT        = $00000002;
+  PKF_SHIFT      = $00000004;
+  PKF_PREPROCESS = $00080000; // for "Key", function ProcessKey()
 
 { FAR_EVENTS }
 
 const
-   FE_CHANGEVIEWMODE = 0;
-   FE_REDRAW         = 1;
-   FE_IDLE           = 2;
-   FE_CLOSE          = 3;
-   FE_BREAK          = 4;
-   FE_COMMAND        = 5;
-   FE_GOTFOCUS       = 6;
-   FE_KILLFOCUS      = 7;
+  FE_CHANGEVIEWMODE = 0;
+  FE_REDRAW         = 1;
+  FE_IDLE           = 2;
+  FE_CLOSE          = 3;
+  FE_BREAK          = 4;
+  FE_COMMAND        = 5;
+  FE_GOTFOCUS       = 6;
+  FE_KILLFOCUS      = 7;
 
 { FAR_PLUGINS_CONTROL_COMMANDS }
 
@@ -3105,23 +3058,24 @@ const
 const
   PLT_PATH = 0;
 
-(*
-enum FAR_FILE_FILTER_CONTROL_COMMANDS {
-  FFCTL_CREATEFILEFILTER = 0,
-  FFCTL_FREEFILEFILTER,
-  FFCTL_OPENFILTERSMENU,
-  FFCTL_STARTINGTOFILTER,
-  FFCTL_ISFILEINFILTER,
-};
 
-enum FAR_FILE_FILTER_TYPE
-{
-  FFT_PANEL = 0,
-  FFT_FINDFILE,
-  FFT_COPY,
-  FFT_SELECT,
-};
-*)
+{FAR_FILE_FILTER_CONTROL_COMMANDS}
+
+const
+  FFCTL_CREATEFILEFILTER = 0;
+  FFCTL_FREEFILEFILTER   = 1;
+  FFCTL_OPENFILTERSMENU  = 2;
+  FFCTL_STARTINGTOFILTER = 3;
+  FFCTL_ISFILEINFILTER   = 4;
+
+{FAR_FILE_FILTER_TYPE}
+
+const
+  FFT_PANEL     = 0;
+  FFT_FINDFILE  = 1;
+  FFT_COPY      = 2;
+  FFT_SELECT    = 3;
+
 
 (*
 // Exported Functions
@@ -3160,6 +3114,212 @@ int    WINAPI _export SetFindListW(HANDLE hPlugin,const struct PluginPanelItem *
 void   WINAPI _export SetStartupInfoW(const struct PluginStartupInfo *Info);
 *)
 
-implementation
+
+(*
+#define MAKEFARVERSION(major,minor,build) ( ((major)<<8) | (minor) | ((build)<<16))
+
+#define FARMANAGERVERSION MAKEFARVERSION(FARMANAGERVERSION_MAJOR,FARMANAGERVERSION_MINOR,FARMANAGERVERSION_BUILD)
+*)
+
+function MakeFarVersion (Major : DWORD; Minor : DWORD; Build : DWORD) : DWORD;
+
+
+(*
+#define Dlg_RedrawDialog(Info,hDlg)            Info.SendDlgMessage(hDlg,DM_REDRAW,0,0)
+
+#define Dlg_GetDlgData(Info,hDlg)              Info.SendDlgMessage(hDlg,DM_GETDLGDATA,0,0)
+#define Dlg_SetDlgData(Info,hDlg,Data)         Info.SendDlgMessage(hDlg,DM_SETDLGDATA,0,(LONG_PTR)Data)
+
+#define Dlg_GetDlgItemData(Info,hDlg,ID)       Info.SendDlgMessage(hDlg,DM_GETITEMDATA,0,0)
+#define Dlg_SetDlgItemData(Info,hDlg,ID,Data)  Info.SendDlgMessage(hDlg,DM_SETITEMDATA,0,(LONG_PTR)Data)
+
+#define DlgItem_GetFocus(Info,hDlg)            Info.SendDlgMessage(hDlg,DM_GETFOCUS,0,0)
+#define DlgItem_SetFocus(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_SETFOCUS,ID,0)
+#define DlgItem_Enable(Info,hDlg,ID)           Info.SendDlgMessage(hDlg,DM_ENABLE,ID,TRUE)
+#define DlgItem_Disable(Info,hDlg,ID)          Info.SendDlgMessage(hDlg,DM_ENABLE,ID,FALSE)
+#define DlgItem_IsEnable(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_ENABLE,ID,-1)
+#define DlgItem_SetText(Info,hDlg,ID,Str)      Info.SendDlgMessage(hDlg,DM_SETTEXTPTR,ID,(LONG_PTR)Str)
+
+#define DlgItem_GetCheck(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_GETCHECK,ID,0)
+#define DlgItem_SetCheck(Info,hDlg,ID,State)   Info.SendDlgMessage(hDlg,DM_SETCHECK,ID,State)
+
+#define DlgEdit_AddHistory(Info,hDlg,ID,Str)   Info.SendDlgMessage(hDlg,DM_ADDHISTORY,ID,(LONG_PTR)Str)
+
+#define DlgList_AddString(Info,hDlg,ID,Str)    Info.SendDlgMessage(hDlg,DM_LISTADDSTR,ID,(LONG_PTR)Str)
+#define DlgList_GetCurPos(Info,hDlg,ID)        Info.SendDlgMessage(hDlg,DM_LISTGETCURPOS,ID,0)
+#define DlgList_SetCurPos(Info,hDlg,ID,NewPos) {struct FarListPos LPos={NewPos,-1};Info.SendDlgMessage(hDlg,DM_LISTSETCURPOS,ID,(LONG_PTR)&LPos);}
+#define DlgList_ClearList(Info,hDlg,ID)        Info.SendDlgMessage(hDlg,DM_LISTDELETE,ID,0)
+#define DlgList_DeleteItem(Info,hDlg,ID,Index) {struct FarListDelete FLDItem={Index,1}; Info.SendDlgMessage(hDlg,DM_LISTDELETE,ID,(LONG_PTR)&FLDItem);}
+#define DlgList_SortUp(Info,hDlg,ID)           Info.SendDlgMessage(hDlg,DM_LISTSORT,ID,0)
+#define DlgList_SortDown(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_LISTSORT,ID,1)
+#define DlgList_GetItemData(Info,hDlg,ID,Index)          Info.SendDlgMessage(hDlg,DM_LISTGETDATA,ID,Index)
+#define DlgList_SetItemStrAsData(Info,hDlg,ID,Index,Str) {struct FarListItemData FLID{Index,0,Str,0}; Info.SendDlgMessage(hDlg,DM_LISTSETDATA,ID,(LONG_PTR)&FLID);}
+*)
+
+function Dlg_RedrawDialog(const Info :TPluginStartupInfo; hDlg :THandle) :Integer;
+function Dlg_GetDlgData(const Info :TPluginStartupInfo; hDlg :THandle) :Integer;
+function Dlg_SetDlgData(const Info :TPluginStartupInfo; hDlg :THandle; Data :Pointer) :Integer;
+function Dlg_GetDlgItemData(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+function Dlg_SetDlgItemData(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Data :Pointer) :Integer;
+function DlgItem_GetFocus(const Info :TPluginStartupInfo; hDlg :THandle) :Integer;
+function DlgItem_SetFocus(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+function DlgItem_Enable(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+function DlgItem_Disable(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+function DlgItem_IsEnable(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+function DlgItem_SetText(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Str :PFarChar) :Integer;
+function DlgItem_GetCheck(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+function DlgItem_SetCheck(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; State :Integer) :Integer;
+function DlgEdit_AddHistory(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Str :PFarChar) :Integer;
+function DlgList_AddString(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Str :PFarChar) :Integer;
+function DlgList_GetCurPos(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+function DlgList_SetCurPos(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; NewPos :Integer) :Integer;
+function DlgList_ClearList(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+function DlgList_DeleteItem(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Index :Integer) :Integer;
+function DlgList_SortUp(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+function DlgList_SortDown(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+function DlgList_GetItemData(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Index :Integer) :Integer;
+function DlgList_SetItemStrAsData(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Index :Integer; Str :PFarChar) :Integer;
+
+
+{******************************************************************************}
+{******************************} implementation {******************************}
+{******************************************************************************}
+
+
+function MakeFarVersion (Major :DWORD; Minor :DWORD; Build :DWORD) :DWORD;
+begin
+   Result := (Major shl 8) or (Minor) or (Build shl 16);
+end;
+
+
+function Dlg_RedrawDialog(const Info :TPluginStartupInfo; hDlg :THandle) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_REDRAW, 0, 0);
+end;
+
+function Dlg_GetDlgData(const Info :TPluginStartupInfo; hDlg :THandle) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_GETDLGDATA, 0, 0);
+end;
+
+function Dlg_SetDlgData(const Info :TPluginStartupInfo; hDlg :THandle; Data :Pointer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_SETDLGDATA, 0, Integer(Data));
+end;
+
+function Dlg_GetDlgItemData(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_GETITEMDATA, 0, 0);
+end;
+
+function Dlg_SetDlgItemData(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Data :Pointer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_SETITEMDATA, 0, Integer(Data));
+end;
+
+function DlgItem_GetFocus(const Info :TPluginStartupInfo; hDlg :THandle) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg,DM_GETFOCUS,0,0)
+end;
+
+function DlgItem_SetFocus(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg,DM_SETFOCUS,ID,0)
+end;
+
+function DlgItem_Enable(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_ENABLE, ID, 1);
+end;
+
+function DlgItem_Disable(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_ENABLE, ID, 0);
+end;
+
+function DlgItem_IsEnable(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_ENABLE, ID, -1);
+end;
+
+function DlgItem_SetText(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Str :PFarChar) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_SETTEXTPTR, ID, Integer(Str));
+end;
+
+function DlgItem_GetCheck(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_GETCHECK, ID, 0);
+end;
+
+function DlgItem_SetCheck(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; State :Integer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_SETCHECK, ID, State);
+end;
+
+function DlgEdit_AddHistory(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Str :PFarChar) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_ADDHISTORY, ID, Integer(Str));
+end;
+
+function DlgList_AddString(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Str :PFarChar) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_LISTADDSTR, ID, Integer(Str));
+end;
+
+function DlgList_GetCurPos(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_LISTGETCURPOS, ID, 0);
+end;
+
+function DlgList_SetCurPos(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; NewPos :Integer) :Integer;
+var
+  LPos :TFarListPos;
+begin
+  LPos.SelectPos := NewPos;
+  LPos.TopPos := -1;
+  Result := Info.SendDlgMessage(hDlg, DM_LISTSETCURPOS, ID, Integer(@LPos));
+end;
+
+function DlgList_ClearList(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg,DM_LISTDELETE,ID,0)
+end;
+
+function DlgList_DeleteItem(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Index :Integer) :Integer;
+var
+  FLDItem :TFarListDelete;
+begin
+  FLDItem.StartIndex := Index;
+  FLDItem.Count := 1;
+  Result := Info.SendDlgMessage(hDlg, DM_LISTDELETE, ID, Integer(@FLDItem));
+end;
+
+function DlgList_SortUp(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_LISTSORT, ID, 0);
+end;
+
+function DlgList_SortDown(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_LISTSORT, ID, 1);
+end;
+
+function DlgList_GetItemData(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Index :Integer) :Integer;
+begin
+  Result := Info.SendDlgMessage(hDlg, DM_LISTGETDATA, ID, Index);
+end;
+
+function DlgList_SetItemStrAsData(const Info :TPluginStartupInfo; hDlg :THandle; ID :Integer; Index :Integer; Str :PFarChar) :Integer;
+var
+  FLID :TFarListItemData;
+begin
+  FLID.Index := Index;
+  FLID.DataSize := 0;
+  FLID.Data := Str;
+  FLID.Reserved := 0;
+  Result := Info.SendDlgMessage (hDlg, DM_LISTSETDATA, ID, Integer(@FLID));
+end;
+
 
 end.

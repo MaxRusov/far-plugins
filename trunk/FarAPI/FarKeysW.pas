@@ -1,15 +1,40 @@
-(*
-  farkeys.pas
+{
+  FarKeysW.pas
 
-  Inside KeyName for FAR Manager 1.70
+  Inside KeyName for FAR Manager 2
+}
 
-  Copyright (c) 1996-2000 Eugene Roshal
-  Copyrigth (c) 2000-2006 FAR group
-*)
+{
+Copyright (c) 1996 Eugene Roshal
+Copyright (c) 2000 Far Group
+All rights reserved.
 
-{$IFNDEF VIRTUALPASCAL}
-   {$MINENUMSIZE 4}
-{$ENDIF}
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+3. The name of the authors may not be used to endorse or promote products
+   derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+EXCEPTION:
+Far Manager plugins that use this header file can be distributed under any
+other possible license with no implications from the above license on them.
+}
 
 unit FarKeysW;
 
@@ -64,12 +89,14 @@ const
    KEY_UP                  = EXTENDED_KEY_BASE+VK_UP;
    KEY_RIGHT               = EXTENDED_KEY_BASE+VK_RIGHT;
    KEY_DOWN                = EXTENDED_KEY_BASE+VK_DOWN;
+   KEY_PRNTSCRN            = EXTENDED_KEY_BASE+VK_SNAPSHOT;   
    KEY_INS                 = EXTENDED_KEY_BASE+VK_INSERT;
    KEY_DEL                 = EXTENDED_KEY_BASE+VK_DELETE;
 
    KEY_LWIN                = EXTENDED_KEY_BASE+VK_LWIN;
    KEY_RWIN                = EXTENDED_KEY_BASE+VK_RWIN;
    KEY_APPS                = EXTENDED_KEY_BASE+VK_APPS;
+// KEY_STANDBY             = EXTENDED_KEY_BASE+VK_SLEEP;
 
    KEY_NUMPAD0             = EXTENDED_KEY_BASE+VK_NUMPAD0;
    KEY_NUMPAD1             = EXTENDED_KEY_BASE+VK_NUMPAD1;
@@ -86,6 +113,7 @@ const
    KEY_MULTIPLY            = EXTENDED_KEY_BASE+VK_MULTIPLY;
    KEY_ADD                 = EXTENDED_KEY_BASE+VK_ADD;
    KEY_SUBTRACT            = EXTENDED_KEY_BASE+VK_SUBTRACT;
+   KEY_DECIMAL             = EXTENDED_KEY_BASE+VK_DECIMAL;
    KEY_DIVIDE              = EXTENDED_KEY_BASE+VK_DIVIDE;
 
    KEY_F1                  = EXTENDED_KEY_BASE+VK_F1;
@@ -141,20 +169,19 @@ const
 
    KEY_MSWHEEL_UP          = INTERNAL_KEY_BASE+3;
    KEY_MSWHEEL_DOWN        = INTERNAL_KEY_BASE+4;
-//ifdef FAR_USE_INTERNALS
-//if defined(MOUSEKEY)
-   KEY_MSLDBLCLICK         = INTERNAL_KEY_BASE+5;
-   KEY_MSRDBLCLICK         = INTERNAL_KEY_BASE+6;
-//endif
-   KEY_RCTRLALTSHIFTPRESS  = INTERNAL_KEY_BASE+7;
-   KEY_RCTRLALTSHIFTRELEASE= INTERNAL_KEY_BASE+8;
-//endif // END FAR_USE_INTER NALS
+
    KEY_NUMDEL              = INTERNAL_KEY_BASE+9;
-   KEY_DECIMAL             = INTERNAL_KEY_BASE+$0A;
    KEY_NUMENTER            = INTERNAL_KEY_BASE+$0B;
 
    KEY_MSWHEEL_LEFT        = INTERNAL_KEY_BASE+$0C;
    KEY_MSWHEEL_RIGHT       = INTERNAL_KEY_BASE+$0D;
+
+   KEY_MSLCLICK            = INTERNAL_KEY_BASE+$0F;
+   KEY_MSRCLICK            = INTERNAL_KEY_BASE+$10;
+
+   KEY_MSM1CLICK           = INTERNAL_KEY_BASE+$11;
+   KEY_MSM2CLICK           = INTERNAL_KEY_BASE+$12;
+   KEY_MSM3CLICK           = INTERNAL_KEY_BASE+$13;
 
    KEY_VK_0xFF_BEGIN       = EXTENDED_KEY_BASE+$000000100;
    KEY_VK_0xFF_END         = EXTENDED_KEY_BASE+$0000001FF;
@@ -163,36 +190,9 @@ const
 
    KEY_NONE                = INTERNAL_KEY_BASE_2+1;
    KEY_IDLE                = INTERNAL_KEY_BASE_2+2;
-//ifdef FAR_USE_INTERNALS
-   KEY_DRAGCOPY            = INTERNAL_KEY_BASE_2+3;
-   KEY_DRAGMOVE            = INTERNAL_KEY_BASE_2+4;
-   KEY_LOCKSCREEN          = INTERNAL_KEY_BASE_2+5;
-
-   KEY_KILLFOCUS           = INTERNAL_KEY_BASE_2+6;
-   KEY_GOTFOCUS            = INTERNAL_KEY_BASE_2+7;
-   KEY_CONSOLE_BUFFER_RESIZE =INTERNAL_KEY_BASE_2+8;
-
-   KEY_OP_BASE             = INTERNAL_KEY_BASE_2+$0100;
-   KEY_OP_XLAT             = KEY_OP_BASE+0;
-   KEY_OP_DATE             = KEY_OP_BASE+1;
-   KEY_OP_PLAINTEXT        = KEY_OP_BASE+2;
-   KEY_OP_SELWORD          = KEY_OP_BASE+3;
-   KEY_OP_ENDBASE          = INTERNAL_KEY_BASE_2+$01FF;
-
-//endif // END FAR_USE_INTER NALS
 
    KEY_END_SKEY            = $0003FFFF;
    KEY_LAST_BASE           = KEY_END_SKEY;
-
-//ifdef FAR_USE_INTERNALS
-   KEY_MACRO_BASE          = $00080000;
-   KEY_MACRO_OP_BASE       = KEY_MACRO_BASE;          // opcode
-   KEY_MACRO_F_BASE        = KEY_MACRO_OP_BASE+256;   // функции
-   KEY_MACRO_C_BASE        = KEY_MACRO_F_BASE+256;    // булевые условия
-   KEY_MACRO_V_BASE        = KEY_MACRO_C_BASE+512;    // разные переменные
-   // см macroopcode.hpp
-   KEY_MACRO_ENDBASE       = $000FFFFF;
-//endif // END FAR_USE_INTERNALS
 
  { AddDefKeyboard }
 
