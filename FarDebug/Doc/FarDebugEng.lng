@@ -1,0 +1,60 @@
+.Language=English,English
+
+"English"
+"Far Debug"
+"Error"
+
+"&O Open..."
+"&S Step"
+"&N Next"
+"&U Next Line"
+"&U Until"
+"&R Run"
+"&K Kill"
+"&L Locate"
+"&E Evaluate..."
+"&B Add breakpoit..."
+"&F Find Address..."
+"&D Disassemble..."
+"&W Windows            >"
+"&* Debug console..."
+
+"&C Callstack..."
+"&B Breakpoints..."
+"&S Sources..."
+
+"Callstack"
+"Breakpoints"
+"Evaluate"
+"Sources"
+
+"File name"
+"Parameters"
+"&Load"
+"&Step"
+"&Run"
+
+"Source file not found: %s"
+"Path to source file:"
+"&Ok"
+"&Cancel"
+"&Select..."
+
+"Find Address"
+"Address or several addresses:"
+"Address not found"
+
+"File not found"
+"File not found: %s"
+"Folder not found"
+"The program is not being run"
+"Line contains no debug info"
+
+"Wait for debugger"
+"Interrupt"
+"Interrupt current operation?"
+"&Yes"
+"&No"
+
+"Open File Dialog"
+"Dialog Tool plugin not installed"
