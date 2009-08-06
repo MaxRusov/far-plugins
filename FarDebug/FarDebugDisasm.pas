@@ -82,7 +82,7 @@ interface
       FAddr2      :TAddr;
 
       FResCmd     :Integer;
-      FResIndex   :Integer;
+//    FResIndex   :Integer;
 
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
