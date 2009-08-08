@@ -1,0 +1,13 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\Software\Far2\Plugins\UCharMap]
+
+; ÷вет текущего символа
+;"CurrentColor"=dword:
+
+; ÷вет символа, отсутствующего в текущем шрифте
+;"HiddenColor"=dword:76
+
+; ÷вет соответствующий фильтру (цвет символов)
+;"FoundColor"=dword:
+
