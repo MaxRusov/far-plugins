@@ -1,0 +1,6 @@
+REGEDIT4
+
+[-HKEY_CURRENT_USER\Software\Far2\Plugins\PlugMenu]
+[-HKEY_CURRENT_USER\Software\Far2\PluginHotkeys\Plugins/PlugMenu/PlugMenu.dll]
+[-HKEY_CURRENT_USER\Software\Far2\KeyMacros\Common\F11]
+[-HKEY_CURRENT_USER\Software\Far2\KeyMacros\Common\ShiftF11]

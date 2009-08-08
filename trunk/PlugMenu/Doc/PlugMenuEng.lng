@@ -1,0 +1,66 @@
+.Language=English,English
+
+"English"
+
+"Plugin commands"
+
+"Error"
+
+"Assign hotkey"
+"Enter hotkey (letter or digit)"
+"&Hide command"
+
+"Unload"
+"Do you wish to unload the plugin"
+
+"Bad idea!"
+"Use FAR command ""unloadp:""\nfor unload this plugin"
+
+"File not found"
+"Plugin load error"
+"Plugin unload error"
+
+"Options"
+"Show &Hidden         Ctrl-H"
+"&Loaded mark         Ctrl-1"
+"A&nsi mark           Ctrl-Shift-1"
+"&File name           Ctrl-2"
+"&Modification time   Ctrl-3"
+"&Access time         Ctrl-4"
+"&Plugin flags        Ctrl-5"
+"&Sort By...          Ctrl-F12"
+"A&uto hotkey"
+"Show h&ints"
+"F&ollow mouse"
+"&Wrap mode"
+
+"Sort By"
+"&Command             Ctrl-F1"
+"&File Name           Ctrl-F2"
+"&Modification Time   Ctrl-F3"
+"&Access Time         Ctrl-F4"
+"&Plugin Flags        Ctrl-F5"
+"&Unsorted            Ctrl-F11"
+
+"Plugin information"
+"File name"
+"Folder"
+"Modified"
+"Description"
+"Copyright"
+"Version"
+"Encoding"
+"Flags"
+"Prefixes"
+
+"&Close"
+"&Properties"
+
+"Load Plugin"
+"Plugin File Name:"
+"&Ok"
+"&Cancel"
+"&Select..."
+
+"Open File Dialog"
+"Dialog Tool plugin not installed"
