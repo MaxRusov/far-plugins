@@ -1,0 +1,13 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\Software\Far\Plugins\PlugMenu]
+
+; Показывать всплывающие подсказки (требуется плагин FarHints)
+"ShowHints"=dword:1
+
+; Цвет недоступных/скрытых плагинов (цвет символов)
+;"HiddenColor"=dword:06
+
+; Цвет соответствующий фильтру (цвет символов)
+;"FoundColor"=dword:0A
+
