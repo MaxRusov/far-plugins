@@ -13,10 +13,10 @@ interface
 
   uses
     Windows,
-    SysTypes,
-    MSUtils,
-    MSStr,
-    MSWinUtils,
+    MixTypes,
+    MixUtils,
+    MixStrings,
+    MixWinUtils,
    {$ifdef bUnicodeFar}
     PluginW,
    {$else}
@@ -37,7 +37,7 @@ interface
 
 
   uses
-    MSDebug;
+    MixDebug;
 
 
   const

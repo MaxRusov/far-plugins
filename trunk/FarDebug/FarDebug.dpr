@@ -12,9 +12,9 @@ library FarDebug;
 {******************************************************************************}
 
 uses
-  SysErrors,
+  MixErrors,
  {$ifdef bTrace}
-  MSCheck,
+  MixCheck,
  {$endif bTrace}
   FarDebugMain;
 

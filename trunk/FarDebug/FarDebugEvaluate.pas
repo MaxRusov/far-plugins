@@ -13,10 +13,9 @@ interface
 
   uses
     Windows,
-    SysTypes,
-    SysUtil,
-    MSUtils,
-    MSStr,
+    MixTypes,
+    MixUtils,
+    MixStrings,
 
    {$ifdef bUnicodeFar}
     PluginW,
@@ -76,7 +75,7 @@ interface
 {******************************************************************************}
 
   uses
-    MSDebug;
+    MixDebug;
 
 
  {-----------------------------------------------------------------------------}
