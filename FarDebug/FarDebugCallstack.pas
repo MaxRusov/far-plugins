@@ -13,11 +13,10 @@ interface
 
   uses
     Windows,
-    SysTypes,
-    SysUtil,
-    MSStr,
-    MSUtils,
-    MSClasses,
+    MixTypes,
+    MixUtils,
+    MixStrings,
+    MixClasses,
 
    {$ifdef bUnicodeFar}
     PluginW,
@@ -87,7 +86,7 @@ interface
 {******************************************************************************}
 
   uses
-    MSDebug;
+    MixDebug;
 
 
   procedure GetCallstack(AStack :TObjList);

@@ -12,10 +12,10 @@ interface
 
   uses
     Windows,
-    SysTypes,
-    SysUtil,
-    MSStr,
-    MSWinUtils,
+    MixTypes,
+    MixUtils,
+    MixStrings,
+    MixWinUtils,
 
    {$ifdef bUnicodeFar}
     PluginW,
@@ -156,7 +156,7 @@ interface
 {******************************************************************************}
 
   uses
-    MSDebug;
+    MixDebug;
 
 
   function GetMsg(AMess :TMessages) :PFarChar;

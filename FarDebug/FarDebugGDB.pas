@@ -12,12 +12,11 @@ interface
 
   uses
     Windows,
-    SysTypes,
-    SysUtil,
-    MSUtils,
-    MSStr,
-    MSClasses,
-    MSWinUtils,
+    MixTypes,
+    MixUtils,
+    MixStrings,
+    MixClasses,
+    MixWinUtils,
 
     FarMatch,
 
@@ -135,7 +134,7 @@ interface
   uses
     FarDebugConsole,
     FarDebugPathDlg,
-    MSDebug;
+    MixDebug;
 
  {-----------------------------------------------------------------------------}
 
