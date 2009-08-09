@@ -30,7 +30,7 @@ exports
  {$ifdef bUnicode}
   {$R PlugMenuW.res}
  {$else}
-  {$R PlugMenu.res}
+  {$R PlugMenuA.res}
  {$endif bUnicode}
 
 
