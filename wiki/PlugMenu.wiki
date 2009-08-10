@@ -1,4 +1,4 @@
-#Summary PlugMenu - Расширенное меню плагинов для FAR Manager
+#summary PlugMenu - Расширенное меню плагинов для FAR Manager
 
 = Описание =
 
