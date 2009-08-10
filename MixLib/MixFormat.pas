@@ -56,7 +56,8 @@ Function FloatToStrF(Value: Extended; format: TFloatFormat; Precision, Digits: I
 
 uses
   MixUtils,
-  MixConsts;
+  MixConsts,
+  MixDebug;
 
 {------------------------------------------------------------------------------}
 { Date/Time functions                                                          }
