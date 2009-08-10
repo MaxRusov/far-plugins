@@ -503,7 +503,8 @@ interface
  {-----------------------------------------------------------------------------}
 
   type
-    TEnumFilesProc = function(const AFileName :TString; const ARec :TFarFindData) :Integer;
+    TEnumFilesProc = function(const AFileName :TString; const ARec :TFarFindData) :Integer
+      {$ifdef bFreePascal}of object{$endif bFreePascal};
 
 
   function EnumFilesProc(const FindData :PFarFindData; const FullName :PFarChar; Param: pointer) :integer; stdcall;
@@ -513,9 +514,13 @@ interface
   begin
     vStr := FullName;
     vTmp := TMethod(Param^);
+   {$ifdef bDelphi}
     asm push vTmp.Data; end;
     Result := TEnumFilesProc(vTmp.Code)(vStr, FindData^);
     asm pop ECX; end;
+   {$else}
+    Result := TEnumFilesProc(vTmp)(vStr, FindData^);
+   {$endif bDelphi}
   end;
 
   procedure EnumFilesEx(const ADir, AMask :TFarStr; const aProc :TMethod);

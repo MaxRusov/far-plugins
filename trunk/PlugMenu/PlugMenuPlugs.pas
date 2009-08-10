@@ -982,6 +982,7 @@ interface
     vHandle :THandle;
     vCache :TObjList;
   begin
+//  Trace('FirstInitFarPluginsList');
     FPlugins.FreeAll;
 
     vDlls := nil; vCache := nil;

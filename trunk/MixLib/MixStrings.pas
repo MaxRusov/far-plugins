@@ -1092,11 +1092,8 @@ interface
 
 
   function ExtractRelativePath(const BaseName, DestName :TString) :TString;
-  var
-    BasePath, DestPath :TString;
-    BaseDirs, DestDirs :array[0..129] of PTChar;
-    BaseDirCount, DestDirCount: Integer;
-    I, J: Integer;
+  type
+    TDirsArray = array[0..129] of PTChar;
 
     function ExtractFilePathNoDrive(const FileName :TString) :TString;
     begin
@@ -1104,7 +1101,7 @@ interface
       Result := Copy(Result, Length(ExtractFileDrive(FileName)) + 1, 32767);
     end;
 
-    procedure SplitDirs(var Path :TString; var Dirs :array of PTChar; var DirCount: Integer);
+    procedure SplitDirs(var Path :TString; var Dirs :TDirsArray; var DirCount: Integer);
     var
       I, J: Integer;
     begin
@@ -1112,13 +1109,10 @@ interface
       J := 0;
       while I <= Length(Path) do
       begin
-  //    if Path[I] in LeadBytes then
-  //      Inc(I)
-  //    else
-        if Path[I] = '\' then             { Do not localize }
-        begin
+        if Path[I] = '\' then begin
           Path[I] := #0;
-          Dirs[J] := @Path[I + 1];
+          Dirs[J] := PTChar(Path) + I + 1;
+//        Dirs[J] := @Path[I + 1];
           Inc(J);
         end;
         Inc(I);
@@ -1126,12 +1120,18 @@ interface
       DirCount := J - 1;
     end;
 
+  var
+    I, J: Integer;
+    BasePath, DestPath :TString;
+    BaseDirs, DestDirs :TDirsArray;
+    BaseDirCount, DestDirCount: Integer;
   begin
     if StrEqual(ExtractFileDrive(BaseName), ExtractFileDrive(DestName)) then begin
       BasePath := ExtractFilePathNoDrive(BaseName);
       DestPath := ExtractFilePathNoDrive(DestName);
       SplitDirs(BasePath, BaseDirs, BaseDirCount);
       SplitDirs(DestPath, DestDirs, DestDirCount);
+      
       I := 0;
       while (I < BaseDirCount) and (I < DestDirCount) do begin
         if UpComparePChar(BaseDirs[I], DestDirs[I]) = 0 then
@@ -1139,16 +1139,13 @@ interface
         else
           Break;
       end;
+
       Result := '';
       for J := I to BaseDirCount - 1 do
         Result := Result + '..\';
       for J := I to DestDirCount - 1 do
-       {$ifdef bUnicode}
-        {!!!-???}
-        Result := Result + TString(DestDirs[J]) + '\';
-       {$else}
         Result := Result + DestDirs[J] + '\';
-       {$endif bUnicode}
+
       Result := Result + ExtractFileName(DestName);
     end else
       Result := DestName;
