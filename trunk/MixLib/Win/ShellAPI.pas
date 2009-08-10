@@ -20,63 +20,39 @@ interface
 uses MixTypes, Windows;
 
 type
-  {-$EXTERNALSYM HDROP}
   HDROP = Longint;
   PPWideChar = ^PWideChar;
 
-{-$EXTERNALSYM DragQueryFileA}
 function DragQueryFileA(Drop: HDROP; FileIndex: UINT; FileName: PAnsiChar; cb: UINT): UINT; stdcall;
-{-$EXTERNALSYM DragQueryFileW}
 function DragQueryFileW(Drop: HDROP; FileIndex: UINT; FileName: PWideChar; cb: UINT): UINT; stdcall;
-{-$EXTERNALSYM DragQueryFile}
 function DragQueryFile(Drop: HDROP; FileIndex: UINT; FileName: PTChar; cb: UINT): UINT; stdcall;
-{-$EXTERNALSYM DragQueryPoint}
 function DragQueryPoint(Drop: HDROP; var Point: TPoint): BOOL; stdcall;
-{-$EXTERNALSYM DragFinish}
 procedure DragFinish(Drop: HDROP); stdcall;
-{-$EXTERNALSYM DragAcceptFiles}
 procedure DragAcceptFiles(Wnd: HWND; Accept: BOOL); stdcall;
-{-$EXTERNALSYM ShellExecuteA}
 function ShellExecuteA(hWnd: HWND; Operation, FileName, Parameters,
   Directory: PAnsiChar; ShowCmd: Integer): HINST; stdcall;
-{-$EXTERNALSYM ShellExecuteW}
 function ShellExecuteW(hWnd: HWND; Operation, FileName, Parameters,
   Directory: PWideChar; ShowCmd: Integer): HINST; stdcall;
-{-$EXTERNALSYM ShellExecute}
 function ShellExecute(hWnd: HWND; Operation, FileName, Parameters,
   Directory: PTChar; ShowCmd: Integer): HINST; stdcall;
-{-$EXTERNALSYM FindExecutableA}
 function FindExecutableA(FileName, Directory: PAnsiChar; Result: PAnsiChar): HINST; stdcall;
-{-$EXTERNALSYM FindExecutableW}
 function FindExecutableW(FileName, Directory: PWideChar; Result: PWideChar): HINST; stdcall;
-{-$EXTERNALSYM FindExecutable}
 function FindExecutable(FileName, Directory: PTChar; Result: PTChar): HINST; stdcall;
-{-$EXTERNALSYM CommandLineToArgvW}
 function CommandLineToArgvW(lpCmdLine: LPCWSTR; var pNumArgs: Integer): PPWideChar; stdcall;
-{-$EXTERNALSYM ShellAboutA}
 function ShellAboutA(Wnd: HWND; szApp, szOtherStuff: PAnsiChar; Icon: HICON): Integer; stdcall;
-{-$EXTERNALSYM ShellAboutW}
 function ShellAboutW(Wnd: HWND; szApp, szOtherStuff: PWideChar; Icon: HICON): Integer; stdcall;
-{-$EXTERNALSYM ShellAbout}
 function ShellAbout(Wnd: HWND; szApp, szOtherStuff: PTChar; Icon: HICON): Integer; stdcall;
-{-$EXTERNALSYM DuplicateIcon}
 function DuplicateIcon(hInst: HINST; Icon: HICON): HICON; stdcall;
-{-$EXTERNALSYM ExtractAssociatedIconA}
 function ExtractAssociatedIconA(hInst: HINST; lpIconPath: PAnsiChar;
   var lpiIcon: Word): HICON; stdcall;
-{-$EXTERNALSYM ExtractAssociatedIconW}
 function ExtractAssociatedIconW(hInst: HINST; lpIconPath: PWideChar;
   var lpiIcon: Word): HICON; stdcall;
-{-$EXTERNALSYM ExtractAssociatedIcon}
 function ExtractAssociatedIcon(hInst: HINST; lpIconPath: PTChar;
   var lpiIcon: Word): HICON; stdcall;
-{-$EXTERNALSYM ExtractIconA}
 function ExtractIconA(hInst: HINST; lpszExeFileName: PAnsiChar;
   nIconIndex: UINT): HICON; stdcall;
-{-$EXTERNALSYM ExtractIconW}
 function ExtractIconW(hInst: HINST; lpszExeFileName: PWideChar;
   nIconIndex: UINT): HICON; stdcall;
-{-$EXTERNALSYM ExtractIcon}
 function ExtractIcon(hInst: HINST; lpszExeFileName: PTChar;
   nIconIndex: UINT): HICON; stdcall;
 
@@ -110,59 +86,38 @@ type
 const
 { AppBar stuff }
 
-  {-$EXTERNALSYM ABM_NEW}
   ABM_NEW           = $00000000;
-  {-$EXTERNALSYM ABM_REMOVE}
   ABM_REMOVE        = $00000001;
-  {-$EXTERNALSYM ABM_QUERYPOS}
   ABM_QUERYPOS      = $00000002;
-  {-$EXTERNALSYM ABM_SETPOS}
   ABM_SETPOS        = $00000003;
-  {-$EXTERNALSYM ABM_GETSTATE}
   ABM_GETSTATE      = $00000004;
-  {-$EXTERNALSYM ABM_GETTASKBARPOS}
   ABM_GETTASKBARPOS = $00000005;
-  {-$EXTERNALSYM ABM_ACTIVATE}
   ABM_ACTIVATE      = $00000006;  { lParam = True/False means activate/deactivate }
-  {-$EXTERNALSYM ABM_GETAUTOHIDEBAR}
   ABM_GETAUTOHIDEBAR = $00000007;
-  {-$EXTERNALSYM ABM_SETAUTOHIDEBAR}
   ABM_SETAUTOHIDEBAR = $00000008;  { this can fail at any time.  MUST check the result
                                      lParam = TRUE/FALSE  Set/Unset
                                      uEdge = what edge }
-  {-$EXTERNALSYM ABM_WINDOWPOSCHANGED}
   ABM_WINDOWPOSCHANGED = $0000009;
 
 { these are put in the wparam of callback messages }
 
-  {-$EXTERNALSYM ABN_STATECHANGE}
   ABN_STATECHANGE    = $0000000;
-  {-$EXTERNALSYM ABN_POSCHANGED}
   ABN_POSCHANGED     = $0000001;
-  {-$EXTERNALSYM ABN_FULLSCREENAPP}
   ABN_FULLSCREENAPP  = $0000002;
-  {-$EXTERNALSYM ABN_WINDOWARRANGE}
   ABN_WINDOWARRANGE  = $0000003; { lParam = True means hide }
 
 { flags for get state }
 
-  {-$EXTERNALSYM ABS_AUTOHIDE}
   ABS_AUTOHIDE    = $0000001;
-  {-$EXTERNALSYM ABS_ALWAYSONTOP}
   ABS_ALWAYSONTOP = $0000002;
 
-  {-$EXTERNALSYM ABE_LEFT}
   ABE_LEFT        = 0;
-  {-$EXTERNALSYM ABE_TOP}
   ABE_TOP         = 1;
-  {-$EXTERNALSYM ABE_RIGHT}
   ABE_RIGHT       = 2;
-  {-$EXTERNALSYM ABE_BOTTOM}
   ABE_BOTTOM      = 3;
 
 type
   PAppBarData = ^TAppBarData;
-  {-$EXTERNALSYM _AppBarData}
   _AppBarData = record
     cbSize: DWORD;
     hWnd: HWND;
@@ -172,26 +127,18 @@ type
     lParam: LPARAM; { message specific }
   end;
   TAppBarData = _AppBarData;
-  {-$EXTERNALSYM APPBARDATA}
   APPBARDATA = _AppBarData;
 
-{-$EXTERNALSYM SHAppBarMessage}
 function SHAppBarMessage(dwMessage: DWORD; var pData: TAppBarData): UINT; stdcall;
 
 
-{-$EXTERNALSYM DoEnvironmentSubstA}
 function DoEnvironmentSubstA(szString: PAnsiChar; cbString: UINT): DWORD; stdcall;
-{-$EXTERNALSYM DoEnvironmentSubstW}
 function DoEnvironmentSubstW(szString: PWideChar; cbString: UINT): DWORD; stdcall;
-{-$EXTERNALSYM DoEnvironmentSubst}
 function DoEnvironmentSubst(szString: PTChar; cbString: UINT): DWORD; stdcall;
-{-$EXTERNALSYM ExtractIconExA}
 function ExtractIconExA(lpszFile: PAnsiChar; nIconIndex: Integer;
   var phiconLarge, phiconSmall: HICON; nIcons: UINT): UINT; stdcall;
-{-$EXTERNALSYM ExtractIconExW}
 function ExtractIconExW(lpszFile: PWideChar; nIconIndex: Integer;
   var phiconLarge, phiconSmall: HICON; nIcons: UINT): UINT; stdcall;
-{-$EXTERNALSYM ExtractIconEx}
 function ExtractIconEx(lpszFile: PTChar; nIconIndex: Integer;
   var phiconLarge, phiconSmall: HICON; nIcons: UINT): UINT; stdcall;
 
@@ -199,61 +146,40 @@ function ExtractIconEx(lpszFile: PTChar; nIconIndex: Integer;
 { Shell File Operations }
 
 const
-  {-$EXTERNALSYM FO_MOVE}
   FO_MOVE           = $0001;
-  {-$EXTERNALSYM FO_COPY}
   FO_COPY           = $0002;
-  {-$EXTERNALSYM FO_DELETE}
   FO_DELETE         = $0003;
-  {-$EXTERNALSYM FO_RENAME}
   FO_RENAME         = $0004;
 
-  {-$EXTERNALSYM FOF_MULTIDESTFILES}
   FOF_MULTIDESTFILES         = $0001;
-  {-$EXTERNALSYM FOF_CONFIRMMOUSE}
   FOF_CONFIRMMOUSE           = $0002;
-  {-$EXTERNALSYM FOF_SILENT}
   FOF_SILENT                 = $0004;  { don't create progress/report }
-  {-$EXTERNALSYM FOF_RENAMEONCOLLISION}
   FOF_RENAMEONCOLLISION      = $0008;
-  {-$EXTERNALSYM FOF_NOCONFIRMATION}
   FOF_NOCONFIRMATION         = $0010;  { Don't prompt the user. }
-  {-$EXTERNALSYM FOF_WANTMAPPINGHANDLE}
   FOF_WANTMAPPINGHANDLE      = $0020;  { Fill in SHFILEOPSTRUCT.hNameMappings
                                          Must be freed using SHFreeNameMappings }
-  {-$EXTERNALSYM FOF_ALLOWUNDO}
   FOF_ALLOWUNDO              = $0040;
-  {-$EXTERNALSYM FOF_FILESONLY}
   FOF_FILESONLY              = $0080;  { on *.*, do only files }
-  {-$EXTERNALSYM FOF_SIMPLEPROGRESS}
   FOF_SIMPLEPROGRESS         = $0100;  { means don't show names of files }
-  {-$EXTERNALSYM FOF_NOCONFIRMMKDIR}
   FOF_NOCONFIRMMKDIR         = $0200;  { don't confirm making any needed dirs }
-  {-$EXTERNALSYM FOF_NOERRORUI}
   FOF_NOERRORUI              = $0400;  { don't put up error UI }
 
 type
-  {-$EXTERNALSYM FILEOP_FLAGS}
   FILEOP_FLAGS = Word;
 
 const
-  {-$EXTERNALSYM PO_DELETE}
   PO_DELETE       = $0013;  { printer is being deleted }
-  {-$EXTERNALSYM PO_RENAME}
   PO_RENAME       = $0014;  { printer is being renamed }
-  {-$EXTERNALSYM PO_PORTCHANGE}
   PO_PORTCHANGE   = $0020;  { port this printer connected to is being changed
                               if this id is set, the strings received by
                               the copyhook are a doubly-null terminated
                               list of strings.  The first is the printer
                               name and the second is the printer port. }
-  {-$EXTERNALSYM PO_REN_PORT}
   PO_REN_PORT     = $0034;  { PO_RENAME and PO_PORTCHANGE at same time. }
 
 { no POF_ flags currently defined }
 
 type
-  {-$EXTERNALSYM PRINTEROP_FLAGS}
   PRINTEROP_FLAGS = Word;
 
 { implicit parameters are:
@@ -333,60 +259,35 @@ type
 { ShellExecute() and ShellExecuteEx() error codes }
 const
 { regular WinExec() codes }
-  {-$EXTERNALSYM SE_ERR_FNF}
   SE_ERR_FNF              = 2;       { file not found }
-  {-$EXTERNALSYM SE_ERR_PNF}
   SE_ERR_PNF              = 3;       { path not found }
-  {-$EXTERNALSYM SE_ERR_ACCESSDENIED}
   SE_ERR_ACCESSDENIED     = 5;       { access denied }
-  {-$EXTERNALSYM SE_ERR_OOM}
   SE_ERR_OOM              = 8;       { out of memory }
-  {-$EXTERNALSYM SE_ERR_DLLNOTFOUND}
   SE_ERR_DLLNOTFOUND      = 32;
 
 { error values for ShellExecute() beyond the regular WinExec() codes }
-  {-$EXTERNALSYM SE_ERR_SHARE}
   SE_ERR_SHARE                    = 26;
-  {-$EXTERNALSYM SE_ERR_ASSOCINCOMPLETE}
   SE_ERR_ASSOCINCOMPLETE          = 27;
-  {-$EXTERNALSYM SE_ERR_DDETIMEOUT}
   SE_ERR_DDETIMEOUT               = 28;
-  {-$EXTERNALSYM SE_ERR_DDEFAIL}
   SE_ERR_DDEFAIL                  = 29;
-  {-$EXTERNALSYM SE_ERR_DDEBUSY}
   SE_ERR_DDEBUSY                  = 30;
-  {-$EXTERNALSYM SE_ERR_NOASSOC}
   SE_ERR_NOASSOC                  = 31;
 
 { Note CLASSKEY overrides CLASSNAME }
-  {-$EXTERNALSYM SEE_MASK_CLASSNAME}
   SEE_MASK_CLASSNAME      = $00000001;
-  {-$EXTERNALSYM SEE_MASK_CLASSKEY}
   SEE_MASK_CLASSKEY       = $00000003;
 { Note INVOKEIDLIST overrides IDLIST }
-  {-$EXTERNALSYM SEE_MASK_IDLIST}
   SEE_MASK_IDLIST         = $00000004;
-  {-$EXTERNALSYM SEE_MASK_INVOKEIDLIST}
   SEE_MASK_INVOKEIDLIST   = $0000000c;
-  {-$EXTERNALSYM SEE_MASK_ICON}
   SEE_MASK_ICON           = $00000010;
-  {-$EXTERNALSYM SEE_MASK_HOTKEY}
   SEE_MASK_HOTKEY         = $00000020;
-  {-$EXTERNALSYM SEE_MASK_NOCLOSEPROCESS}
   SEE_MASK_NOCLOSEPROCESS = $00000040;
-  {-$EXTERNALSYM SEE_MASK_CONNECTNETDRV}
   SEE_MASK_CONNECTNETDRV  = $00000080;
-  {-$EXTERNALSYM SEE_MASK_FLAG_DDEWAIT}
   SEE_MASK_FLAG_DDEWAIT   = $00000100;
-  {-$EXTERNALSYM SEE_MASK_DOENVSUBST}
   SEE_MASK_DOENVSUBST     = $00000200;
-  {-$EXTERNALSYM SEE_MASK_FLAG_NO_UI}
   SEE_MASK_FLAG_NO_UI     = $00000400;
-  {-$EXTERNALSYM SEE_MASK_UNICODE}
   SEE_MASK_UNICODE        = $00010000; // !!! changed from previous SDK (was $00004000)
-  {-$EXTERNALSYM SEE_MASK_NO_CONSOLE}
   SEE_MASK_NO_CONSOLE     = $00008000;
-  {-$EXTERNALSYM SEE_MASK_ASYNCOK}
   SEE_MASK_ASYNCOK        = $00100000;
 
 type
@@ -480,18 +381,12 @@ type
   NOTIFYICONDATA = {$ifdef bUnicode}NOTIFYICONDATAW{$else}NOTIFYICONDATAA{$endif bUnicode};
 
 const
-  {-$EXTERNALSYM NIM_ADD}
   NIM_ADD         = $00000000;
-  {-$EXTERNALSYM NIM_MODIFY}
   NIM_MODIFY      = $00000001;
-  {-$EXTERNALSYM NIM_DELETE}
   NIM_DELETE      = $00000002;
 
-  {-$EXTERNALSYM NIF_MESSAGE}
   NIF_MESSAGE     = $00000001;
-  {-$EXTERNALSYM NIF_ICON}
   NIF_ICON        = $00000002;
-  {-$EXTERNALSYM NIF_TIP}
   NIF_TIP         = $00000004;
 
 function Shell_NotifyIconA(dwMessage: DWORD; lpData: PNotifyIconDataA): BOOL; stdcall;
@@ -546,35 +441,20 @@ type
   SHFILEINFO = {$ifdef bUnicode}SHFILEINFOW{$else}SHFILEINFOA{$endif bUnicode};
 
 const
-  {-$EXTERNALSYM SHGFI_ICON}
   SHGFI_ICON              = $000000100;     { get icon }
-  {-$EXTERNALSYM SHGFI_DISPLAYNAME}
   SHGFI_DISPLAYNAME       = $000000200;     { get display name }
-  {-$EXTERNALSYM SHGFI_TYPENAME}
   SHGFI_TYPENAME          = $000000400;     { get type name }
-  {-$EXTERNALSYM SHGFI_ATTRIBUTES}
   SHGFI_ATTRIBUTES        = $000000800;     { get attributes }
-  {-$EXTERNALSYM SHGFI_ICONLOCATION}
   SHGFI_ICONLOCATION      = $000001000;     { get icon location }
-  {-$EXTERNALSYM SHGFI_EXETYPE}
   SHGFI_EXETYPE           = $000002000;     { return exe type }
-  {-$EXTERNALSYM SHGFI_SYSICONINDEX}
   SHGFI_SYSICONINDEX      = $000004000;     { get system icon index }
-  {-$EXTERNALSYM SHGFI_LINKOVERLAY}
   SHGFI_LINKOVERLAY       = $000008000;     { put a link overlay on icon }
-  {-$EXTERNALSYM SHGFI_SELECTED}
   SHGFI_SELECTED          = $000010000;     { show icon in selected state }
-  {-$EXTERNALSYM SHGFI_LARGEICON}
   SHGFI_LARGEICON         = $000000000;     { get large icon }
-  {-$EXTERNALSYM SHGFI_SMALLICON}
   SHGFI_SMALLICON         = $000000001;     { get small icon }
-  {-$EXTERNALSYM SHGFI_OPENICON}
   SHGFI_OPENICON          = $000000002;     { get open icon }
-  {-$EXTERNALSYM SHGFI_SHELLICONSIZE}
   SHGFI_SHELLICONSIZE     = $000000004;     { get shell size icon }
-  {-$EXTERNALSYM SHGFI_PIDL}
   SHGFI_PIDL              = $000000008;     { pszPath is a pidl }
-  {-$EXTERNALSYM SHGFI_USEFILEATTRIBUTES}
   SHGFI_USEFILEATTRIBUTES = $000000010;     { use passed dwFileAttribute }
 
 function SHGetFileInfoA(pszPath: PAnsiChar; dwFileAttributes: DWORD;
@@ -585,11 +465,8 @@ function SHGetFileInfo(pszPath: PTChar; dwFileAttributes: DWORD;
   var psfi: TSHFileInfo; cbFileInfo, uFlags: UINT): DWORD; stdcall;
 
 const
-  {-$EXTERNALSYM SHGNLI_PIDL}
   SHGNLI_PIDL             = $000000001;     { pszLinkTo is a pidl }
-  {-$EXTERNALSYM SHGNLI_PREFIXNAME}
   SHGNLI_PREFIXNAME       = $000000002;     { Make name "Shortcut to xxx" }
-  {-$EXTERNALSYM SHGNLI_NOUNIQUE}
   SHGNLI_NOUNIQUE         = $000000004;     { don't do the unique name generation }
 
   shell32 = 'shell32.dll';
