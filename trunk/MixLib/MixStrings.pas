@@ -9,7 +9,8 @@ interface
   uses
     Windows,
     MixTypes,
-    MixUtils;
+    MixUtils,
+    MixConsts;
 
   const
     charTAB = #09;
@@ -709,42 +710,25 @@ interface
 
   function Str2Int(const Str :TString) :TInteger;
   var
-    Err :TInteger;
+    vErr :TInteger;
   begin
-    Val(Str, Result, Err);
-(*
-    if Err <> 0 then
-      AppError('!!!');
-*)
+    Val(Str, Result, vErr);
+    if vErr <> 0 then
+      AppErrorResFmt(@SInvalidInteger, [Str]);
   end;
 
 
   function Hex2Int64(const AHexStr :TString) :TInt64;
-  begin
-    {!!!}
-  end;
-(*
-  function Hex2Int64(const AHexStr :TString) :TInt64;
- {$ifdef bInt64}
   var
-    I, vLen, vShift :TInteger;
- {$endif bInt64}
+    vStr :TString;
+    vErr :TInteger;
   begin
-   {$ifdef bInt64}
-    vLen := Length(AHexStr);
-    if vLen > SizeOf(Result)*2 then
-      AppErrorFmt('Неверное шестнадцатеричное число: %s', [AHexStr]);
-    Result := Zero64;
-    vShift := 0;
-    for I := vLen downto 1 do begin
-      Result := Result or (TInt64(HexChar2Byte(AHexStr[I])) shl vShift);
-      Inc(vShift, 4);
-    end;
-   {$else !bInt64}
-    Sorry;
-   {$endif bInt64}
+    vStr := '$' + AHexStr;
+    Val(vStr, Result, vErr);
+    if vErr <> 0 then
+      AppErrorResFmt(@SInvalidInteger, [AHexStr]);
   end;
-*)
+
 
  {-----------------------------------------------------------------------------}
 

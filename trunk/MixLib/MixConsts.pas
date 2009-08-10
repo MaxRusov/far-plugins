@@ -24,6 +24,7 @@ resourcestring
   SArgumentMissing       = 'Missing argument in format "%s"';
   SInvalidArgIndex       = 'Invalid argument index in format "%s"';
   SBitsIndexError        = 'Bits index out of range';
+  SInvalidInteger        = '"%s" is an invalid integer';
 (*
   SAccessDenied          = 'Access denied';
   SAccessViolation       = 'Access violation';
@@ -61,7 +62,6 @@ resourcestring
   SInvalidFloat          = '"%s" is an invalid float';
   SInvalidGUID           = '"%s" is not a valid GUID value';
   SInvalidInput          = 'Invalid input';
-  SInvalidInteger        = '"%s" is an invalid integer';
   SInvalidOp             = 'Invalid floating point operation';
   SInvalidPointer        = 'Invalid pointer operation';
   SInvalidVarCast        = 'Invalid variant type cast';

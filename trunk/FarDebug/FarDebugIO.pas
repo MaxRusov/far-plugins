@@ -165,7 +165,11 @@ interface
           if vFound > 0 then begin
             vLen := Length(AStr);
             SetLength(AStr, vLen + vFound);
+           {$ifdef bUnicode}
             MultiByteToWideChar(CP_ACP, 0, @vBuf[0], vFound, PTChar(AStr) + vLen, vFound);
+           {$else}
+            Move(vBuf, (PTChar(AStr) + vLen)^, vFound);
+           {$endif bUnicode}
           end;
 
           if vFound < vRead then
@@ -210,7 +214,11 @@ interface
         ApiCheck( ReadFile( AHandle, vBuf, SizeOf(vBuf), DWORD(vRead), nil) );
         if vRead > 0 then begin
           SetLength(vStr, vRead);
+         {$ifdef bUnicode}
           MultiByteToWideChar(CP_ACP, 0, @vBuf[0], vRead, PTChar(vStr), vRead);
+         {$else}
+          Move(vBuf, PTChar(vStr)^, vRead);
+         {$endif bUnicode}
           AStr := AStr + vStr;
           Sleep(10); {???}
         end;
