@@ -202,8 +202,9 @@ var
   procedure MemFree(var P {:Pointer});
 
   procedure AppError(const ErrorStr :TString);
-  procedure AppErrorRes(ResString :PString);
   procedure AppErrorFmt(const ErrorStr :TString; const Args: array of const);
+  procedure AppErrorRes(ResString :PString);
+  procedure AppErrorResFmt(ResString :PString; const Args: array of const);
   procedure RaiseError(aClass :ExceptClass; const ErrorStr :TString);
 
   procedure ApiCheck(ARes :Boolean);
@@ -1072,6 +1073,16 @@ var
   end;
 
 
+  procedure AppErrorFmt(const ErrorStr :TString; const Args: array of const);
+  begin
+   {$ifdef bTraceError}
+    SetErrorAddress(ReturnAddr);
+   {$endif bTraceError}
+    raise EAppError.CreateFmt(ErrorStr, Args)
+      {$ifopt W+} at ReturnAddr {$endif W+};
+  end;
+
+
   procedure AppErrorRes(ResString :PString);
   begin
    {$ifdef bTraceError}
@@ -1082,13 +1093,13 @@ var
   end;
 
 
-  procedure AppErrorFmt(const ErrorStr :TString; const Args: array of const);
+  procedure AppErrorResFmt(ResString :PString; const Args: array of const);
   begin
    {$ifdef bTraceError}
     SetErrorAddress(ReturnAddr);
    {$endif bTraceError}
-    raise EAppError.CreateFmt(ErrorStr, Args)
-      {$ifopt W+} at ReturnAddr {$endif W+};
+    raise EAppError.CreateResFmt(ResString, Args)
+     {$ifopt W+} at ReturnAddr {$endif W+};
   end;
 
 
