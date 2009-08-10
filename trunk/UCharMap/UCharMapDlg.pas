@@ -255,14 +255,6 @@ interface
   end;
 
 
-  type
-    TBitsHack = class
-    public
-      FSize :Integer;
-      FBits :Pointer;
-    end;
-
-
   procedure TCharMapDlg.ReinitFilter;
   var
     I :Integer;
@@ -273,7 +265,7 @@ interface
         FFilter := TIntList.Create;
       FFilter.Clear;
 
-      vPtr := TBitsHack(FRange).FBits;
+      vPtr := FRange.BitsPtr;
       for I := 0 to $FFF do begin
         if Word(vPtr^) <> 0 then
           FFilter.Add(I);

@@ -645,7 +645,9 @@ end;
 
 Function FloatToStrF(Value: Extended; format: TFloatFormat; Precision, Digits: Integer): String;
 begin
+  {!!!}
 (*Result := FloatToStrF(Value,Format,Precision,Digits,DefaultFormatSettings);*)
+  Result := '';
 end;
 
 

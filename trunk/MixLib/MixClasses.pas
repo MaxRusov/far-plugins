@@ -283,18 +283,23 @@ interface
 
   type
     TBits = class
+    public
+      destructor Destroy; override;
+      function OpenBit: Integer;
+
     private
       FSize: Integer;
       FBits: Pointer;
+
       procedure Error;
       procedure SetSize(Value: Integer);
       procedure SetBit(Index: Integer; Value: Boolean);
       function GetBit(Index: Integer): Boolean;
+
     public
-      destructor Destroy; override;
-      function OpenBit: Integer;
-      property Bits[Index: Integer]: Boolean read GetBit write SetBit; default;
-      property Size: Integer read FSize write SetSize;
+      property BitsPtr :Pointer read FBits;
+      property Bits[I :Integer]: Boolean read GetBit write SetBit; default;
+      property Size :Integer read FSize write SetSize;
     end;
 
 
@@ -1383,6 +1388,45 @@ interface
  { TBits                                                                       }
  {-----------------------------------------------------------------------------}
 
+ {$ifdef b64}
+  procedure _SetBit({RCX:}ABits :Pointer; {RDX:}ABitIdx :TInteger); register;
+  asm
+    BTS     [RCX], RDX
+  end;
+
+  procedure _ClearBit({RCX:}ABits :Pointer; {RDX:}ABitIdx :TInteger); register;
+  asm
+    BTR     [RCX], RDX
+  end;
+
+  function _GetBit({RCX:}ABits :Pointer; {RDX:}ABitIdx :TInteger): Boolean; register;
+  asm
+    BT      [RCX], RDX
+    SBB     RAX, RAX
+    AND     RAX, 1
+  end;
+
+ {$else}
+
+  procedure _SetBit({EAX:}ABits :Pointer; {EDX:}ABitIdx :TInteger); register;
+  asm
+    BTS     [EAX],EDX
+  end;
+
+  procedure _ClearBit({EAX:}ABits :Pointer; {EDX:}ABitIdx :TInteger); register;
+  asm
+    BTR     [EAX],EDX
+  end;
+
+  function _GetBit({EAX:}ABits :Pointer; {EDX:}ABitIdx :TInteger): Boolean; register;
+  asm
+    BT      [EAX], EDX
+    SBB     EAX, EAX
+    AND     EAX, 1
+  end;
+ {$endif b64}
+
+
   const
     BitsPerInt = SizeOf(Integer) * 8;
 
@@ -1412,25 +1456,23 @@ interface
     function Min(X, Y: Integer): Integer;
     begin
       Result := X;
-      if X > Y then Result := Y;
+      if X > Y then
+        Result := Y;
     end;
 
   begin
-    if Value <> Size then
-    begin
-      if Value < 0 then Error;
+    if Value <> Size then begin
+      if Value < 0 then
+        Error;
       NewMemSize := ((Value + BitsPerInt - 1) div BitsPerInt) * SizeOf(Integer);
       OldMemSize := ((Size + BitsPerInt - 1) div BitsPerInt) * SizeOf(Integer);
-      if NewMemSize <> OldMemSize then
-      begin
+      if NewMemSize <> OldMemSize then begin
         NewMem := nil;
-        if NewMemSize <> 0 then
-        begin
+        if NewMemSize <> 0 then begin
           GetMem(NewMem, NewMemSize);
           FillChar(NewMem^, NewMemSize, 0);
         end;
-        if OldMemSize <> 0 then
-        begin
+        if OldMemSize <> 0 then begin
           if NewMem <> nil then
             Move(FBits^, NewMem^, Min(OldMemSize, NewMemSize));
           FreeMem(FBits, OldMemSize);
@@ -1441,42 +1483,27 @@ interface
     end;
   end;
 
-  procedure TBits.SetBit(Index: Integer; Value: Boolean); assembler;
-  asm
-          CMP     Index,[EAX].FSize
-          JAE     @@Size
 
-  @@1:    MOV     EAX,[EAX].FBits
-          OR      Value,Value
-          JZ      @@2
-          BTS     [EAX],Index
-          RET
-
-  @@2:    BTR     [EAX],Index
-          RET
-
-  @@Size: CMP     Index,0
-          JL      TBits.Error
-          PUSH    Self
-          PUSH    Index
-          PUSH    ECX {Value}
-          INC     Index
-          CALL    TBits.SetSize
-          POP     ECX {Value}
-          POP     Index
-          POP     Self
-          JMP     @@1
+  procedure TBits.SetBit(Index: Integer; Value: Boolean);
+  begin
+    if Index < 0 then
+      Error;
+    if Index >= FSize then
+      SetSize(Index + 1);
+    if Value then
+      _SetBit(FBits, Index)
+    else
+      _ClearBit(FBits, Index)
   end;
 
-  function TBits.GetBit(Index: Integer): Boolean; assembler;
-  asm
-          CMP     Index,[EAX].FSize
-          JAE     TBits.Error
-          MOV     EAX,[EAX].FBits
-          BT      [EAX],Index
-          SBB     EAX,EAX
-          AND     EAX,1
+
+  function TBits.GetBit(Index: Integer): Boolean;
+  begin
+    if (Index < 0) or (Index >= FSize) then
+      Error;
+    Result := _GetBit(FBits, Index);
   end;
+
 
   function TBits.OpenBit: Integer;
   var
@@ -1487,15 +1514,13 @@ interface
   begin
     E := (Size + BitsPerInt - 1) div BitsPerInt - 1;
     for I := 0 to E do
-      if PBitArray(FBits)^[I] <> [0..BitsPerInt - 1] then
-      begin
+      if PBitArray(FBits)^[I] <> [0..BitsPerInt - 1] then begin
         B := PBitArray(FBits)^[I];
-        for J := Low(J) to High(J) do
-        begin
-          if not (J in B) then
-          begin
+        for J := Low(J) to High(J) do begin
+          if not (J in B) then begin
             Result := I * BitsPerInt + J;
-            if Result >= Size then Result := Size;
+            if Result >= Size then
+              Result := Size;
             Exit;
           end;
         end;
