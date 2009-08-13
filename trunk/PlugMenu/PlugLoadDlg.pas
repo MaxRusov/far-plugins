@@ -54,7 +54,7 @@ interface
     protected
       procedure Prepare; override;
       function CloseDialog(ItemID :Integer) :Boolean; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
     private
       FFileName  :TString;
@@ -98,7 +98,7 @@ interface
   end;
 
 
-  function TLoadPluginDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; {override;}
+  function TLoadPluginDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
 
     procedure LocSelectFile;
     var

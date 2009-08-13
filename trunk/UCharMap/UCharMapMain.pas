@@ -28,7 +28,7 @@ interface
   procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
   procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPluginW(OpenFrom :integer; Item :TIntPtr): THandle; stdcall;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -93,7 +93,7 @@ interface
   end;
 
 
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPluginW(OpenFrom :integer; Item :TIntPtr): THandle; stdcall;
   begin
     Result:= INVALID_HANDLE_VALUE;
     try

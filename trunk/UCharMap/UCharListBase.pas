@@ -65,7 +65,7 @@ interface
       procedure Prepare; override;
       procedure InitDialog; override;
       function CloseDialog(ItemID :Integer) :Boolean; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
       procedure SelectItem(ACode :Integer); virtual;
       procedure UpdateHeader; virtual;
@@ -290,7 +290,7 @@ interface
   end;
 
 
-  function TListBase.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; {override;}
+  function TListBase.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
 
     procedure LocSetFilter(const ANewFilter :TString);
     begin

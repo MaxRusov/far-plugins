@@ -1,7 +1,9 @@
 {$I Defines.inc} { см. также DefApp.inc }
 
 {$APPTYPE CONSOLE}
-{$ImageBase $40A00000}
+{$ifdef bDelphi}
+ {$ImageBase $40A00000}
+{$endif bDelphi}
 
 library FarDebug;
 

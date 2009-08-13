@@ -103,7 +103,7 @@ interface
       procedure UpdateVerInfo;
 
     public
-      function CompareObj(Another :TBasis; Context :Integer) :Integer; override;
+      function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; override;
 
     private
       FFileName     :TString;
@@ -510,7 +510,7 @@ interface
   end;
 
 
-  function TFarPlugin.CompareObj(Another :TBasis; Context :Integer) :Integer; {override;}
+  function TFarPlugin.CompareObj(Another :TBasis; Context :TIntPtr) :Integer; {override;}
   begin
     Result := UpCompareStr(Command[0].GetMenuTitle, TFarPlugin(Another).Command[0].GetMenuTitle);
   end;
@@ -968,7 +968,6 @@ interface
 
     function LocEnumPlugins(const AFileName :TString; const ARec :TFarFindData) :Integer;
     begin
-//    Trace(AFileName);
       vDlls.Add(AFileName);
       Result := 1;
     end;

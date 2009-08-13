@@ -45,13 +45,13 @@ interface
   function GetMinFarVersionW :Integer; stdcall;
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
   procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
   function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
  {$else}
   procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
   procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
   procedure ExitFAR; stdcall;
-  function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
   function ProcessEditorEvent(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
  {$endif bUnicodeFar}
 
@@ -301,9 +301,9 @@ interface
 
 
  {$ifdef bUnicodeFar}
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
  {$else}
-  function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
  {$endif bUnicodeFar}
   begin
     Result:= INVALID_HANDLE_VALUE;
@@ -345,7 +345,7 @@ interface
       procedure AddBreakLine(ARow :Integer);
       procedure AddCodeLine(ARow :Integer);
 
-      function CompareKey(Key :Pointer; Context :Integer) :Integer; override;
+      function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
 
     private
       FID     :Integer;
@@ -387,9 +387,9 @@ interface
   end;
 
 
-  function TEdtHelper.CompareKey(Key :Pointer; Context :Integer) :Integer; {override;}
+  function TEdtHelper.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
-    Result := IntCompare(FID, Integer(Key));
+    Result := IntCompare(FID, TIntPtr(Key));
   end;
 
 
@@ -402,7 +402,7 @@ interface
     vIndex :Integer;
   begin
     Result := nil;
-    if EdtHelpers.FindKey(Pointer(AID), 0, [foBinary], vIndex) then
+    if EdtHelpers.FindKey(Pointer(TIntPtr(AID)), 0, [foBinary], vIndex) then
       Result := EdtHelpers[vIndex]
     else if ACreate then begin
       Result := TEdtHelper.CreateEx(AID);
@@ -415,7 +415,7 @@ interface
   var
     vIndex :Integer;
   begin
-    if EdtHelpers.FindKey(Pointer(AID), 0, [foBinary], vIndex) then
+    if EdtHelpers.FindKey(Pointer(TIntPtr(AID)), 0, [foBinary], vIndex) then
       EdtHelpers.FreeAt(vIndex);
   end;
 

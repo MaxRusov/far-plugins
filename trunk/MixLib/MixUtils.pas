@@ -77,9 +77,9 @@ type
     constructor CreateResFmtHelp(ResString :PString; const Args: array of const; AHelpContext: Integer);
   private
     FMessage :TString;
-    FHelpContext :TInteger;
+    FHelpContext :Integer;
   public
-    property HelpContext :TInteger read FHelpContext write FHelpContext;
+    property HelpContext :Integer read FHelpContext write FHelpContext;
     property Message :TString read FMessage write FMessage;
   end;
 
@@ -114,9 +114,9 @@ function StrLen(const Str: PTChar) :Cardinal;
 function StrLenA(const Str: PAnsiChar) :Cardinal;
 function StrLenW(const Str: PWideChar) :Cardinal;
 
-function StrLCopy(Dest: PTChar; const Source: PTChar; MaxLen: Cardinal): PTChar;
-function StrLCopyA(Dest: PAnsiChar; const Source: PAnsiChar; MaxLen: Cardinal): PAnsiChar;
-function StrLCopyW(Dest: PWideChar; const Source: PWideChar; MaxLen: Cardinal): PWideChar;
+function StrLCopy(Dest: PTChar; Source: PTChar; MaxLen: Cardinal): PTChar;
+function StrLCopyA(Dest: PAnsiChar; Source: PAnsiChar; MaxLen: Cardinal): PAnsiChar;
+function StrLCopyW(Dest: PWideChar; Source: PWideChar; MaxLen: Cardinal): PWideChar;
 
 function StrPCopy(Dest :PTChar; const Source :TString): PTChar;
 function StrPCopyA(Dest :PAnsiChar; const Source :TAnsiStr): PAnsiChar;
@@ -197,8 +197,8 @@ var
 
   procedure FreeObj(var Obj {:TObject});
 
-  function MemAlloc(Size :TInteger) :Pointer;
-  function MemAllocZero(Size :TInteger) :Pointer;
+  function MemAlloc(Size :Integer) :Pointer;
+  function MemAllocZero(Size :Integer) :Pointer;
   procedure MemFree(var P {:Pointer});
 
   procedure AppError(const ErrorStr :TString);
@@ -206,9 +206,10 @@ var
   procedure AppErrorRes(ResString :PString);
   procedure AppErrorResFmt(ResString :PString; const Args: array of const);
   procedure RaiseError(aClass :ExceptClass; const ErrorStr :TString);
+  procedure RaiseErrorRes(aClass :ExceptClass; ResString :PString);
 
   procedure ApiCheck(ARes :Boolean);
-  procedure ApiCheckCode(Code :TInteger);
+  procedure ApiCheckCode(Code :Integer);
 
   procedure Sorry;
   procedure Wrong;
@@ -216,7 +217,7 @@ var
 
   function LocalAddr(Proc :Pointer) :TMethod;
 
-  function TickCountDiff(AValue1, AValue2 :DWORD) :TInteger;
+  function TickCountDiff(AValue1, AValue2 :DWORD) :Integer;
 
 
 {******************************************************************************}
@@ -340,7 +341,7 @@ var
   function LoadStr(Ident :Integer) :TString;
   var
     vBuf :array[0..1024] of TChar;
-    vLen :TInteger;
+    vLen :Integer;
   begin
     Result := '';
     vLen := LoadString(HInstance, Ident, @vBuf[0], High(vBuf));
@@ -364,16 +365,9 @@ var
    {$endif bUnicode}
   end;
 
-  function StrLenA(const Str :PAnsiChar) :Cardinal; assembler;
-  asm
-          MOV     EDX,EDI
-          MOV     EDI,EAX
-          MOV     ECX,0FFFFFFFFH
-          XOR     AL,AL
-          REPNE   SCASB
-          MOV     EAX,0FFFFFFFEH
-          SUB     EAX,ECX
-          MOV     EDI,EDX
+  function StrLenA(const Str :PAnsiChar) :Cardinal;
+  begin
+    Result := {Windows.}lstrlena(Str);
   end;
 
   function StrLenW(const Str :PWideChar) :Cardinal;
@@ -382,7 +376,7 @@ var
   end;
 
 
-  function StrLCopy(Dest: PTChar; const Source: PTChar; MaxLen: Cardinal): PTChar;
+  function StrLCopy(Dest: PTChar; Source: PTChar; MaxLen: Cardinal): PTChar;
   begin
    {$ifdef bUnicode}
     Result := StrLCopyW(Dest, Source, MaxLen);
@@ -391,72 +385,29 @@ var
    {$endif bUnicode}
   end;
 
-
-  function StrLCopyA(Dest: PAnsiChar; const Source: PAnsiChar; MaxLen: Cardinal): PAnsiChar; assembler;
-  asm
-    PUSH    EDI
-    PUSH    ESI
-    PUSH    EBX
-    MOV     ESI,EAX
-    MOV     EDI,EDX
-    MOV     EBX,ECX
-    XOR     AL,AL
-    TEST    ECX,ECX
-    JZ      @@1
-    REPNE   SCASB
-    JNE     @@1
-    INC     ECX
-  @@1:
-    SUB     EBX,ECX
-    MOV     EDI,ESI
-    MOV     ESI,EDX
-    MOV     EDX,EDI
-    MOV     ECX,EBX
-    SHR     ECX,2
-    REP     MOVSD
-    MOV     ECX,EBX
-    AND     ECX,3
-    REP     MOVSB
-    STOSB
-    MOV     EAX,EDX
-    POP     EBX
-    POP     ESI
-    POP     EDI
+  function StrLCopyA(Dest: PAnsiChar; Source: PAnsiChar; MaxLen: Cardinal): PAnsiChar;
+  begin
+    Result := Dest;
+    while (MaxLen > 0) and (Source^ <> #0) do begin
+      Dest^ := Source^;
+      Inc(Source);
+      Inc(Dest);
+      Dec(MaxLen);
+    end;
+    Dest^ := #0;
   end;
 
-
-  function StrLCopyW(Dest: PWideChar; const Source: PWideChar; MaxLen: Cardinal): PWideChar; assembler;
-  asm
-    PUSH    EDI
-    PUSH    ESI
-    PUSH    EBX
-    MOV     ESI,EAX
-    MOV     EDI,EDX
-    MOV     EBX,ECX
-    XOR     AX,AX
-    TEST    ECX,ECX
-    JZ      @@1
-    REPNE   SCASW
-    JNE     @@1
-    INC     ECX
-  @@1:
-    SUB     EBX,ECX
-    MOV     EDI,ESI
-    MOV     ESI,EDX
-    MOV     EDX,EDI
-    MOV     ECX,EBX
-    SHR     ECX,1
-    REP     MOVSD
-    MOV     ECX,EBX
-    AND     ECX,1
-    REP     MOVSW
-    STOSW
-    MOV     EAX,EDX
-    POP     EBX
-    POP     ESI
-    POP     EDI
+  function StrLCopyW(Dest: PWideChar; Source: PWideChar; MaxLen: Cardinal): PWideChar;
+  begin
+    Result := Dest;
+    while (MaxLen > 0) and (Source^ <> #0) do begin
+      Dest^ := Source^;
+      Inc(Source);
+      Inc(Dest);
+      Dec(MaxLen);
+    end;
+    Dest^ := #0;
   end;
-
 
 
   function StrPCopy(Dest :PTChar; const Source :TString) :PTChar;
@@ -502,39 +453,14 @@ var
 
   function StrMoveW(Dest: PWideChar; const Source: PWideChar; Count: Cardinal): PWideChar;
   begin
-    Result := Dest;
     Move(Source^, Dest^, Count * SizeOf(WideChar));
+    Result := Dest;
   end;
 
-  function StrMoveA(Dest: PAnsiChar; const Source: PAnsiChar; Count: Cardinal): PAnsiChar; assembler;
-  asm
-          PUSH    ESI
-          PUSH    EDI
-          MOV     ESI,EDX
-          MOV     EDI,EAX
-          MOV     EDX,ECX
-          CMP     EDI,ESI
-          JA      @@1
-          JE      @@2
-          SHR     ECX,2
-          REP     MOVSD
-          MOV     ECX,EDX
-          AND     ECX,3
-          REP     MOVSB
-          JMP     @@2
-  @@1:    LEA     ESI,[ESI+ECX-1]
-          LEA     EDI,[EDI+ECX-1]
-          AND     ECX,3
-          STD
-          REP     MOVSB
-          SUB     ESI,3
-          SUB     EDI,3
-          MOV     ECX,EDX
-          SHR     ECX,2
-          REP     MOVSD
-          CLD
-  @@2:    POP     EDI
-          POP     ESI
+  function StrMoveA(Dest: PAnsiChar; const Source: PAnsiChar; Count: Cardinal): PAnsiChar;
+  begin
+    Move(Source^, Dest^, Count * SizeOf(AnsiChar));
+    Result := Dest;
   end;
 
 
@@ -547,43 +473,24 @@ var
    {$endif bUnicode}
   end;
 
-  function StrScanA(const Str :PAnsiChar; Chr :AnsiChar) :PAnsiChar; assembler;
-  asm
-          PUSH    EDI
-          PUSH    EAX
-          MOV     EDI,Str
-          MOV     ECX,0FFFFFFFFH
-          XOR     AL,AL
-          REPNE   SCASB
-          NOT     ECX
-          POP     EDI
-          MOV     AL,Chr
-          REPNE   SCASB
-          MOV     EAX,0
-          JNE     @@1
-          MOV     EAX,EDI
-          DEC     EAX
-  @@1:    POP     EDI
+  function StrScanA(const Str :PAnsiChar; Chr :AnsiChar) :PAnsiChar;
+  begin
+    Result := Str;
+    while (Result^ <> #0) and (Result^ <> Chr) do
+      Inc(Result);
+    if (Result^ = #0) and (Chr <> #0) then
+      Result := nil;
   end;
 
-  function StrScanW(const Str :PWideChar; Chr :WideChar) :PWideChar; assembler;
-  asm
-          PUSH    EDI
-          PUSH    EAX
-          MOV     EDI,Str
-          MOV     ECX,0FFFFFFFFH
-          XOR     AX,AX
-          REPNE   SCASW
-          NOT     ECX
-          POP     EDI
-          MOV     AX,Chr
-          REPNE   SCASW
-          MOV     EAX,0
-          JNE     @@1
-          MOV     EAX,EDI
-          DEC     EAX
-          DEC     EAX
-  @@1:    POP     EDI
+  function StrScanW(const Str :PWideChar; Chr :WideChar) :PWideChar;
+  begin
+    Result := Str;
+    while (Result^ <> #0) and (Result^ <> Chr) do
+      Inc(Result);
+    if (Result^ = #0) and (Chr <> #0) then
+      Result := nil
+    else
+      NOP;
   end;
 
 
@@ -595,6 +502,19 @@ var
     Result := StrEndA(Str);
    {$endif bUnicode}
   end;
+
+ {$ifdef b64}
+  function StrEndA(const Str :PAnsiChar) :PAnsiChar;
+  begin
+    Result := Str + StrLenA(Str);
+  end;
+
+  function StrEndW(const Str: PWideChar): PWideChar;
+  begin
+    Result := Str + StrLenW(Str);
+  end;
+
+ {$else}
 
   function StrEndA(const Str :PAnsiChar) :PAnsiChar; assembler;
   asm
@@ -617,8 +537,9 @@ var
           LEA     EAX,[EDI-2]
           MOV     EDI,EDX
   end;
+ {$endif b64}
 
-
+ 
   function StrLIComp(const Str1, Str2 :PTChar; MaxLen :Cardinal) :Integer;
   begin
    {$ifdef bUnicode}
@@ -627,6 +548,19 @@ var
     Result := StrLICompA(Str1, Str2, MaxLen);
    {$endif bUnicode}
   end;
+
+ {$ifdef b64}
+  function StrLICompA(const Str1, Str2 :PAnsiChar; MaxLen :Cardinal) :Integer;
+  begin
+    Result := CompareStringA(LOCALE_USER_DEFAULT, NORM_IGNORECASE, Str1, MaxLen, Str2, MaxLen) - 2;
+  end;
+
+  function StrLICompW(const Str1, Str2 :PWideChar; MaxLen :Cardinal) :Integer;
+  begin
+    Result := CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, Str1, MaxLen, Str2, MaxLen) - 2;
+  end;
+
+ {$else}
 
   function StrLICompA(const Str1, Str2 :PAnsiChar; MaxLen :Cardinal) :Integer; assembler;
   asm
@@ -669,6 +603,7 @@ var
   begin
     Result := CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, Str1, MaxLen, Str2, MaxLen) - 2;
   end;
+ {$endif b64}
 
 
   function StrAlloc(Size: Cardinal) :PTChar;
@@ -1029,7 +964,7 @@ var
   end;
 
 
-  function MemAlloc(Size :TInteger) :Pointer;
+  function MemAlloc(Size :Integer) :Pointer;
   begin
     Result := nil;
     if Size <> 0 then begin
@@ -1041,7 +976,7 @@ var
   end;
 
 
-  function MemAllocZero(Size :TInteger) :Pointer;
+  function MemAllocZero(Size :Integer) :Pointer;
   begin
     Result := nil;
     if Size <> 0 then begin
@@ -1113,9 +1048,19 @@ var
   end;
 
 
+  procedure RaiseErrorRes(aClass :ExceptClass; ResString :PString);
+  begin
+   {$ifdef bTraceError}
+    SetErrorAddress(ReturnAddr);
+   {$endif bTraceError}
+    raise aClass.CreateRes(ResString)
+     {$ifopt W+} at ReturnAddr {$endif W+};
+  end;
+
+
   procedure ApiCheck(ARes :Boolean);
   var
-    vLastError :TInteger;
+    vLastError :Integer;
   begin
     if not ARes then begin
       vLastError := GetLastError;
@@ -1127,7 +1072,7 @@ var
   end;
 
 
-  procedure ApiCheckCode(Code :TInteger);
+  procedure ApiCheckCode(Code :Integer);
   begin
     if Code <> ERROR_SUCCESS then begin
      {$ifdef bTraceError}
@@ -1140,7 +1085,7 @@ var
 
   procedure WrongError(const Mess :String; Addr :Pointer);
   begin
-    raise EDebugRaise.CreateFmt(Mess + #10 + 'Адрес %p', [Addr])
+    raise EDebugRaise.CreateFmt(Mess + #10 + 'At %p', [Addr])
      {$ifopt W+} at Addr {$endif W+};
   end;
 
@@ -1150,24 +1095,26 @@ var
    {$ifdef bTraceError}
     SetErrorAddress(ReturnAddr);
    {$endif bTraceError}
-    raise EUnderConstruction.Create('К сожалению, данная процедура пока не реализована')
+    raise EUnderConstruction.CreateRes(@SNotImplemented)
      {$ifopt W+} at ReturnAddr {$endif W+};
   end;
+
 
   procedure Wrong;
   begin
    {$ifdef bTraceError}
     SetErrorAddress(ReturnAddr);
    {$endif bTraceError}
-    WrongError('Внутренняя ошибка приложения.', ReturnAddr);
+    WrongError('Internal application error.', ReturnAddr);
   end;
+
 
   procedure AbstractError;
   begin
    {$ifdef bTraceError}
     SetErrorAddress(ReturnAddr);
    {$endif bTraceError}
-    WrongError('Вызов абстрактного метода.', ReturnAddr);
+    WrongError('Abstract method called.', ReturnAddr);
   end;
 
 
@@ -1198,7 +1145,7 @@ var
  {$endif b64}
 
 
-  function TickCountDiff(AValue1, AValue2 :DWORD) :TInteger;
+  function TickCountDiff(AValue1, AValue2 :DWORD) :Integer;
   var
     vTmp :DWORD;
   begin
@@ -1212,9 +1159,6 @@ var
    {$endif b64}
     Result := vTmp;
   end;
-
-
-
 
 
 {$ifdef bFreePascal}

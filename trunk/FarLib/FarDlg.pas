@@ -42,8 +42,8 @@ interface
 
       function Run :Integer;
 
-      function SendMsg(AMsg, AParam1, AParam2 :Integer) :Integer; overload;
-      function SendMsg(AMsg, AParam1 :Integer; AParam2 :Pointer) :Integer; overload;
+      function SendMsg(AMsg, AParam1 :Integer; AParam2 :TIntPtr) :TIntPtr; overload;
+      function SendMsg(AMsg, AParam1 :Integer; AParam2 :Pointer) :TIntPtr; overload;
       function GetDlgRect :TSmallrect;
       procedure SetDlgPos(ALeft, ATop, AWidth, AHeight :Integer);
       function GetChecked(AItemID :Integer) :Boolean;
@@ -58,7 +58,7 @@ interface
 
     protected
       procedure Prepare; virtual; abstract;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer; virtual;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; virtual;
       procedure ErrorHandler(E :Exception); virtual;
 
       procedure InitDialog; virtual;
@@ -77,7 +77,7 @@ interface
       FWidth     :Integer;
       FHeight    :Integer;
 
-      function DlgProc(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer;
+      function DlgProc(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr;
       function CtrlPalette(const AColors :array of Integer) :Integer;
       procedure ChangePalette(AColors :PFarListColors);
     end;
@@ -92,7 +92,7 @@ interface
       function KeyDown(AKey :Integer) :Boolean; virtual;
       function MouseEvent(var AMouse :TMouseEventRecord) :Boolean; virtual;
       function MouseClick(const AMouse :TMouseEventRecord) :Boolean; virtual;
-      function EventHandler(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer; virtual;
+      function EventHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :Integer; virtual;
 
     protected
       FOwner     :TFarDialog;
@@ -138,22 +138,22 @@ interface
 //end;
 
 
-  function ApiDlgProc(hDlg :THandle; Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; stdcall;
+  function ApiDlgProc(hDlg :THandle; Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; stdcall;
   var
     vDialog :TFarDialog;
   begin
     if Msg = DN_INITDIALOG then begin
       FARAPI.SendDlgMessage(hDlg, DM_SETDLGDATA, 0, Param2);
-      Integer(vDialog) := Param2;
+      TIntPtr(vDialog) := Param2;
       vDialog.FHandle := hDlg;
     end else
-      Integer(vDialog) := FARAPI.SendDlgMessage(hDlg, DM_GETDLGDATA, 0, 0);
+      TIntPtr(vDialog) := FARAPI.SendDlgMessage(hDlg, DM_GETDLGDATA, 0, 0);
     Assert(vDialog.FHandle = hDlg);
     Result := vDialog.DlgProc(Msg, Param1, Param2);
   end;
 
 
-  function TFarDialog.DlgProc(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer;
+  function TFarDialog.DlgProc(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr;
   begin
     Result := 0; {???}
     try
@@ -172,7 +172,7 @@ interface
 
 
 
-  function TFarDialog.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer; {virtual;}
+  function TFarDialog.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {virtual;}
   var
     I :Integer;
     vCtrl :TFarCustomControl;
@@ -254,7 +254,7 @@ interface
   begin
     Result := 0;
     for I := 0 to IntMin(High(AColors), 3) do
-      PByteArray(@Result)[I] := Byte( FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(AColors[i])) );
+      PByteArray(@Result)[I] := Byte( FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(TIntPtr(AColors[i]))) );
   end;
 
 
@@ -267,19 +267,19 @@ interface
     I :Integer;
   begin
     for I := 0 to IntMin(cColors, AColors.ColorCount) - 1 do
-      AColors.Colors[I] := Char( FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(cMenuPalette[i])) );
+      AColors.Colors[I] := Char( FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(TIntPtr(cMenuPalette[i]))) );
   end;
 
 
-  function TFarDialog.SendMsg(AMsg, AParam1, AParam2 :Integer) :Integer;
+  function TFarDialog.SendMsg(AMsg, AParam1 :Integer; AParam2 :TIntPtr) :TIntPtr;
   begin
     Result := FARAPI.SendDlgMessage(FHandle, AMsg, AParam1, AParam2);
   end;
 
 
-  function TFarDialog.SendMsg(AMsg, AParam1 :Integer; AParam2 :Pointer) :Integer;
+  function TFarDialog.SendMsg(AMsg, AParam1 :Integer; AParam2 :Pointer) :TIntPtr;
   begin
-    Result := FARAPI.SendDlgMessage(FHandle, AMsg, AParam1, Integer(AParam2));
+    Result := FARAPI.SendDlgMessage(FHandle, AMsg, AParam1, TIntPtr(AParam2));
   end;
 
 
@@ -411,7 +411,7 @@ interface
   end;
 
 
-  function TFarCustomControl.EventHandler(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer; {virtual;}
+  function TFarCustomControl.EventHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :Integer; {virtual;}
   begin
     Result := -1;
     case Msg of

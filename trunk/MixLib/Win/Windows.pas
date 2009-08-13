@@ -17,6 +17,10 @@ unit Windows;
 {$MINENUMSIZE 4}
 {$WEAKPACKAGEUNIT}
 
+{$ifdef bFreePascal}
+ {$PACKRECORDS C}
+{$endif bFreePascal}
+
 interface
 
 uses
@@ -64,7 +68,9 @@ type
   LCID = DWORD;
   LANGID = Word;
 
-  THandle = LongWord;
+  SIZE_T = TCardinal;
+
+  THandle = TCardinal;
   PHandle = ^THandle;
 
 const
@@ -86,7 +92,6 @@ type
     1: (
       QuadPart: LONGLONG);
   end;
-  {-$NODEFINE TLargeInteger}
   TLargeInteger = Int64;
   LARGE_INTEGER = _LARGE_INTEGER;
 
@@ -553,7 +558,7 @@ type
     BaseAddress : Pointer;
     AllocationBase : Pointer;
     AllocationProtect : DWORD;
-    RegionSize : DWORD;
+    RegionSize : SIZE_T;
     State : DWORD;
     Protect : DWORD;
     Type_9 : DWORD;
@@ -1625,45 +1630,41 @@ type
 function HiByte(W: Word): Byte;
 
 type
-  HWND = type LongWord;
-  HHOOK = type LongWord;
-
+  HWND = THandle;
+  HHOOK = THandle;
 
   ATOM = Word;
-  TAtom = Word;
+  TAtom = ATOM;
 
+  FARPROC = Pointer;
+  TFarProc = FARPROC;
   HGLOBAL = THandle;
   HLOCAL = THandle;
-  FARPROC = Pointer;
-  TFarProc = Pointer;
-  PROC_22 = Pointer;
-  HGDIOBJ = type LongWord;
-  HACCEL = type LongWord;
-  HBITMAP = type LongWord;
-  HBRUSH = type LongWord;
-  HCOLORSPACE = type LongWord;
-  HDC = type LongWord;
-  HGLRC = type LongWord;
-  HDESK = type LongWord;
-  HENHMETAFILE = type LongWord;
-  HFONT = type LongWord;
-  HICON = type LongWord;
-  HMENU = type LongWord;
-  HMETAFILE = type LongWord;
-  HINST = type LongWord;
+  HGDIOBJ = THandle;
+  HACCEL = THandle;
+  HBITMAP = THandle;
+  HBRUSH = THandle;
+  HCOLORSPACE = THandle;
+  HDC = THandle;
+  HGLRC = THandle;
+  HDESK = THandle;
+  HENHMETAFILE = THandle;
+  HFONT = THandle;
+  HICON = THandle;
+  HMENU = THandle;
+  HMETAFILE = THandle;
+  HINST = THandle;
   HMODULE = HINST;              { HMODULEs can be used in place of HINSTs }
-  HPALETTE = type LongWord;
-  HPEN = type LongWord;
-  HRGN = type LongWord;
-  HRSRC = type LongWord;
-  HSTR = type LongWord;
-  HTASK = type LongWord;
-  HWINSTA = type LongWord;
-  HKL = type LongWord;
+  HPALETTE = THandle;
+  HPEN = THandle;
+  HRGN = THandle;
+  HRSRC = THandle;
+  HSTR = THandle;
+  HTASK = THandle;
+  HWINSTA = THandle;
+  HKL = THandle;
 
-
-
-  HFILE = LongWord;
+  HFILE = THandle;
   HCURSOR = HICON;              { HICONs & HCURSORs are polymorphic }
 
   COLORREF = DWORD;
@@ -1678,9 +1679,7 @@ type
     x: Longint;
     y: Longint;
   end;
-  {-$NODEFINE TPoint}
   tagPOINT = TPoint;
-  {-$NODEFINE tagPOINT}
 
   PRect = ^TRect;
 
@@ -1689,7 +1688,6 @@ type
       0: (Left, Top, Right, Bottom: Integer);
       1: (TopLeft, BottomRight: TPoint);
   end;
-  {-$NODEFINE TRect}
 
   _POINTL = packed record      { ptl }
     x: Longint;
@@ -1725,7 +1723,7 @@ function GetCurrentTime: Longint;
 function Yield: Bool;
 
 const
-  INVALID_HANDLE_VALUE = DWORD(-1);
+  INVALID_HANDLE_VALUE = THandle(-1);
   INVALID_FILE_SIZE = DWORD($FFFFFFFF);
 
   FILE_BEGIN = 0;

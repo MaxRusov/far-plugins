@@ -55,11 +55,11 @@ interface
   type
     TSrcFilter = class(TMyFilter)
     public
-      function ItemCompare(PItem, PAnother :Pointer; Context :Integer) :Integer; override;
+      function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
     end;
 
 
-  function TSrcFilter.ItemCompare(PItem, PAnother :Pointer; Context :Integer) :Integer; {override;}
+  function TSrcFilter.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
   var
     vSrc1, vSrc2 :TSourceFile;
   begin
@@ -101,7 +101,7 @@ interface
       procedure ReinitGrid; override;
       procedure ReinitAndSaveCurrent; override;
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
     private
       FResSrc  :TSourceFile;
@@ -301,7 +301,7 @@ interface
   end;
 
 
-  function TSourcesDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; {override;}
+  function TSourcesDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
 
     procedure LocRefresh;
     begin
