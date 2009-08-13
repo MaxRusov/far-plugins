@@ -18,21 +18,21 @@ interface
   type
     TReplaceFlags = set of (rfReplaceAll, rfIgnoreCase);
 
-  function IntIf(Cond :Boolean; L1, L2 :TInteger) :TInteger;
+  function IntIf(Cond :Boolean; L1, L2 :Integer) :Integer;
   function StrIf(Cond :Boolean; const S1, S2 :TString) :TString;
-  function IntMin(L1, L2 :TInteger) :TInteger;
-  function IntMax(L1, L2 :TInteger) :TInteger;
-  function RangeLimit(V :TInteger; LMin, LMax :TInteger) :TInteger;
-  function LogCompare(L1, L2 :Boolean) :TInteger;
-  function IntCompare(L1, L2 :TInteger) :TInteger;
-  function UnsCompare(L1, L2 :TCardinal) :TInteger;
-  function PtrCompare(P1, P2 :Pointer) :TInteger;
-  function FloatCompare(const E1, E2 :TFloat) :TInteger;
-  function DateTimeCompare(const aD1, aD2 :TDateTime) :TInteger;
+  function IntMin(L1, L2 :Integer) :Integer;
+  function IntMax(L1, L2 :Integer) :Integer;
+  function RangeLimit(V :Integer; LMin, LMax :Integer) :Integer;
+  function LogCompare(L1, L2 :Boolean) :Integer;
+  function IntCompare(L1, L2 :Integer) :Integer;
+  function UnsCompare(L1, L2 :TUnsPtr) :Integer;
+  function PtrCompare(P1, P2 :Pointer) :Integer;
+  function FloatCompare(const E1, E2 :TFloat) :Integer;
+  function DateTimeCompare(const aD1, aD2 :TDateTime) :Integer;
 
-  procedure MemFill2(PBuf :Pointer; ACount :TInteger; AFiller :Word);
-  procedure MemFillChar(pBuf :Pointer; ACount :TInteger; AChar :TChar);
-  function MemSearch(Str :PAnsiChar; Count :TInteger; Match :Char) :TInteger;
+  procedure MemFill2(PBuf :Pointer; ACount :Integer; AFiller :Word);
+  procedure MemFillChar(pBuf :Pointer; ACount :Integer; AChar :TChar);
+  function MemSearch(Str :PAnsiChar; Count :Integer; Match :Char) :Integer;
 
   function Point(AX, AY: Integer): TPoint;
   function SmallPoint(AX, AY: SmallInt): TSmallPoint;
@@ -45,11 +45,11 @@ interface
   function RectContainsXY(const AR :TRect; X, Y :TInt32) :Boolean;
 
   function ChrInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
-  function ChrPos(Ch :TChar; const Str :TString) :TInteger;
-  function ChrsPos(const Chars :TAnsiCharSet; const Str :TString) :TInteger;
-  function ChrsLastPos(const Chars :TAnsiCharSet; const Str :TString) :TInteger;
+  function ChrPos(Ch :TChar; const Str :TString) :Integer;
+  function ChrsPos(const Chars :TAnsiCharSet; const Str :TString) :Integer;
+  function ChrsLastPos(const Chars :TAnsiCharSet; const Str :TString) :Integer;
   function CharIsWordChar(Chr :TChar) :Boolean;
-  function StrUpPos(const Substr, Str :TString) :TInteger;
+  function StrUpPos(const Substr, Str :TString) :Integer;
   function LastDelimiter(const Delimiters, S :TString): Integer;
 
   function CharUpCase(AChr :TChar) :TChar;
@@ -57,22 +57,22 @@ interface
   function StrUpCase(const Str :TString) :TString;
   function StrLoCase(const Str :TString) :TString;
 
-  function UpCompareStr(const Str1, Str2 :TString) :TInteger;
-  function UpCompareSubStr(const SubStr, Str :TString) :TInteger;
-  function UpComparePChar(const Str1, Str2 :PTChar) :TInteger;
+  function UpCompareStr(const Str1, Str2 :TString) :Integer;
+  function UpCompareSubStr(const SubStr, Str :TString) :Integer;
+  function UpComparePChar(const Str1, Str2 :PTChar) :Integer;
   function StrEqual(const Str1, Str2 :TString) :Boolean;
 
-  procedure ChrOemToAnsi(var Chars; Count :TInteger);
-  procedure ChrAnsiToOem(var Chars; Count :TInteger);
+  procedure ChrOemToAnsi(var Chars; Count :Integer);
+  procedure ChrAnsiToOem(var Chars; Count :Integer);
   function StrOemToAnsi(const Str :TAnsiStr) :TAnsiStr;
   function StrAnsiToOEM(const Str :TAnsiStr) :TAnsiStr;
 
-  function Int2Str(Num :TInteger) :TString;
-  function Int2StrEx(Num :TInteger) :TString;
+  function Int2Str(Num :Integer) :TString;
+  function Int2StrEx(Num :Integer) :TString;
   function Int64ToStr(Num :TInt64) :TString;
   function Int64ToStrEx(Num :TInt64) :TString;
-  function Str2IntDef(const Str :TString; Def :TInteger) :TInteger;
-  function Str2Int(const Str :TString) :TInteger;
+  function Str2IntDef(const Str :TString; Def :Integer) :Integer;
+  function Str2Int(const Str :TString) :Integer;
   function Hex2Int64(const AHexStr :TString) :TInt64;
 
   function AppendStrCh(const AStr, AAdd, ADel :TString) :TString;
@@ -81,14 +81,14 @@ interface
   function StrReplace(const S, OldPattern, NewPattern :TString; Flags :TReplaceFlags) :TString;
   function StrExpandTabs(s :TString) :TString;
 
-  function WordCount(const S :TString; const Del :TAnsiCharSet) :TInteger;
-  function ExtractWordsPos(Number, Count :TInteger; const S :TString; const Del :TAnsiCharSet; var B :TInteger) :TString;
-  function ExtractWords(Number, Count :TInteger; const S :TString; const Del :TAnsiCharSet) :TString;
-  function ExtractWord(Number :TInteger; const S :TString; const Del :TAnsiCharSet) :TString;
+  function WordCount(const S :TString; const Del :TAnsiCharSet) :Integer;
+  function ExtractWordsPos(Number, Count :Integer; const S :TString; const Del :TAnsiCharSet; var B :Integer) :TString;
+  function ExtractWords(Number, Count :Integer; const S :TString; const Del :TAnsiCharSet) :TString;
+  function ExtractWord(Number :Integer; const S :TString; const Del :TAnsiCharSet) :TString;
 
   function ExtractNextWord(var Str :PTChar; const Del :TAnsiCharSet) :TString;
   function ExtractNextValue(var Str :PTChar; const Del :TAnsiCharSet) :TString;
-  function ExtractNextInt(var Str :PTChar; const Del :TAnsiCharSet) :TInteger;
+  function ExtractNextInt(var Str :PTChar; const Del :TAnsiCharSet) :Integer;
 
   function AddBackSlash(const Path :TString) :TString;
   function RemoveBackSlash(const Path :TString) :TString;
@@ -116,7 +116,7 @@ interface
     MixDebug;
 
 
-  function IntIf(Cond :Boolean; L1, L2 :TInteger) :TInteger;
+  function IntIf(Cond :Boolean; L1, L2 :Integer) :Integer;
   begin
     if Cond then
       Result := L1
@@ -134,7 +134,7 @@ interface
   end;
 
 
-  function IntMin(L1, L2 :TInteger) :TInteger;
+  function IntMin(L1, L2 :Integer) :Integer;
   begin
     if L1 < L2 then
       Result := L1
@@ -143,7 +143,7 @@ interface
   end;
 
 
-  function IntMax(L1, L2 :TInteger) :TInteger;
+  function IntMax(L1, L2 :Integer) :Integer;
   begin
     if L1 > L2 then
       Result := L1
@@ -152,7 +152,7 @@ interface
   end;
 
 
-  function RangeLimit(V :TInteger; LMin, LMax :TInteger) :TInteger;
+  function RangeLimit(V :Integer; LMin, LMax :Integer) :Integer;
   begin
     if V > LMax then
       V := LMax;
@@ -162,7 +162,7 @@ interface
   end;
 
 
-  function LogCompare(L1, L2 :Boolean) :TInteger;
+  function LogCompare(L1, L2 :Boolean) :Integer;
   begin
     if L1 > L2 then
       Result := 1
@@ -174,7 +174,7 @@ interface
   end;
 
 
-  function IntCompare(L1, L2 :TInteger) :TInteger;
+  function IntCompare(L1, L2 :Integer) :Integer;
   begin
     if L1 > L2 then
       Result := 1
@@ -186,7 +186,7 @@ interface
   end;
 
 
-  function UnsCompare(L1, L2 :TCardinal) :TInteger;
+  function UnsCompare(L1, L2 :TUnsPtr) :Integer;
   begin
     if L1 > L2 then
       Result := 1
@@ -198,7 +198,7 @@ interface
   end;
 
 
-  function PtrCompare(P1, P2 :Pointer) :TInteger;
+  function PtrCompare(P1, P2 :Pointer) :Integer;
   begin
     if Pointer1(P1) > Pointer1(P2) then
       Result := 1
@@ -210,7 +210,7 @@ interface
   end;
 
 
-  function FloatCompare(const E1, E2 :TFloat) :TInteger;
+  function FloatCompare(const E1, E2 :TFloat) :Integer;
   begin
     if E1 > E2 then
       Result := 1
@@ -222,7 +222,7 @@ interface
   end;
 
 
-  function DateTimeCompare(const aD1, aD2 :TDateTime) :TInteger;
+  function DateTimeCompare(const aD1, aD2 :TDateTime) :Integer;
   begin
     if aD1 > aD2 then
       Result := 1
@@ -235,7 +235,7 @@ interface
 
 
 
-  procedure MemFill2(PBuf :Pointer; ACount :TInteger; AFiller :Word);
+  procedure MemFill2(PBuf :Pointer; ACount :Integer; AFiller :Word);
   var
     vPtr :PWord;
   begin
@@ -248,7 +248,7 @@ interface
   end;
 
 
-  procedure MemFillChar(pBuf :Pointer; ACount :TInteger; AChar :TChar);
+  procedure MemFillChar(pBuf :Pointer; ACount :Integer; AChar :TChar);
   begin
    {$ifdef bUnicode}
     MemFill2(pBuf, ACount, Word(AChar));
@@ -258,7 +258,7 @@ interface
   end;
 
 
-  function MemSearch(Str :PAnsiChar; Count :TInteger; Match :Char) :TInteger;
+  function MemSearch(Str :PAnsiChar; Count :Integer; Match :Char) :Integer;
   var
     vPtr, vLast :PAnsiChar;
   begin
@@ -361,9 +361,9 @@ interface
   end;
 
 
-  function ChrPos(Ch :TChar; const Str :TString) :TInteger;
+  function ChrPos(Ch :TChar; const Str :TString) :Integer;
   var
-    I, L :TInteger;
+    I, L :Integer;
   begin
     L := Length(Str);
     if L > 0 then
@@ -376,9 +376,9 @@ interface
   end;
 
 
-  function ChrsPos(const Chars :TAnsiCharSet; const Str :TString) :TInteger;
+  function ChrsPos(const Chars :TAnsiCharSet; const Str :TString) :Integer;
   var
-    I, L :TInteger;
+    I, L :Integer;
   begin
     L := Length(Str);
     if L > 0 then
@@ -395,9 +395,9 @@ interface
   end;
 
 
-  function ChrsLastPos(const Chars :TAnsiCharSet; const Str :TString) :TInteger;
+  function ChrsLastPos(const Chars :TAnsiCharSet; const Str :TString) :Integer;
   var
-    I, L :TInteger;
+    I, L :Integer;
   begin
     L := Length(Str);
     if L > 0 then
@@ -420,7 +420,7 @@ interface
   end;
 
 
-  function StrUpPos(const Substr, Str :TString) :TInteger;
+  function StrUpPos(const Substr, Str :TString) :Integer;
   begin
     {!!! - Повысить эффективность}
     Result := Pos( StrUpCase(SubStr), StrUpCase(Str) );
@@ -443,13 +443,13 @@ interface
 
   function CharUpCase(AChr :TChar) :TChar;
   begin
-    Result := TChar(TCardinal({Windows.}CharUpper(Pointer(TCardinal(AChr)))));
+    Result := TChar(TUnsPtr({Windows.}CharUpper(Pointer(TUnsPtr(AChr)))));
   end;
 
 
   function CharLoCase(AChr :TChar) :TChar;
   begin
-    Result := TChar(TCardinal({Windows.}CharLower(Pointer(TCardinal(AChr)))));
+    Result := TChar(TUnsPtr({Windows.}CharLower(Pointer(TUnsPtr(AChr)))));
   end;
 
 
@@ -465,7 +465,7 @@ interface
 
   function StrUpCase(const Str :TString) :TString;
   var
-    vLen :TInteger;
+    vLen :Integer;
   begin
     Result := StrUnique(Str);
     vLen := Length(Result);
@@ -476,7 +476,7 @@ interface
 
   function StrLoCase(const Str :TString) :TString;
   var
-    vLen :TInteger;
+    vLen :Integer;
   begin
     Result := StrUnique(Str);
     vLen := Length(Result);
@@ -485,13 +485,13 @@ interface
   end;
 
 
-  function UpCompareBuf(const Buf1; const Buf2; Len1 :TInteger; Len2 :TInteger) :TInteger;
+  function UpCompareBuf(const Buf1; const Buf2; Len1 :Integer; Len2 :Integer) :Integer;
   begin
     Result := CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE, @Buf1, Len1, @Buf2, Len2) - 2;
   end;
 
 
-  function UpCompareStr(const Str1, Str2 :TString) :TInteger;
+  function UpCompareStr(const Str1, Str2 :TString) :Integer;
   begin
     if Pointer(Str1) = Pointer(Str2) then
       Result := 0
@@ -500,16 +500,16 @@ interface
   end;
 
 
-  function UpCompareSubStr(const SubStr, Str :TString) :TInteger;
+  function UpCompareSubStr(const SubStr, Str :TString) :Integer;
   var
-    vLen :TInteger;
+    vLen :Integer;
   begin
     vLen := Length(SubStr);
     Result := CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE, PTChar(SubStr), vLen, PTChar(Str), IntMin(vLen, Length(Str))) - 2;
   end;
 
 
-  function UpComparePChar(const Str1, Str2 :PTChar) :TInteger;
+  function UpComparePChar(const Str1, Str2 :PTChar) :Integer;
   begin
     if Str1 = Str2 then
       Result := 0
@@ -520,7 +520,7 @@ interface
 
   function StrEqual(const Str1, Str2 :TString) :Boolean;
   var
-    vLen :TInteger;
+    vLen :Integer;
   begin
     if Pointer(Str1) = Pointer(Str2) then
       Result := True
@@ -534,13 +534,13 @@ interface
   end;
 
 
-  procedure ChrOemToAnsi(var Chars; Count :TInteger);
+  procedure ChrOemToAnsi(var Chars; Count :Integer);
   begin
     {Windows.}OemToCharBuffA(PAnsiChar(@Chars), PAnsiChar(@Chars), Count);
   end;
 
 
-  procedure ChrAnsiToOem(var Chars; Count :TInteger);
+  procedure ChrAnsiToOem(var Chars; Count :Integer);
   begin
     {Windows.}CharToOemBuffA(PAnsiChar(@Chars), PAnsiChar(@Chars), Count);
   end;
@@ -548,7 +548,7 @@ interface
 
   function StrOemToAnsi(const Str :TAnsiStr) :TAnsiStr;
   var
-    vLen :TInteger;
+    vLen :Integer;
   begin
     vLen := Length(Str);
     SetString(Result, nil, vLen);
@@ -558,7 +558,7 @@ interface
 
   function StrAnsiToOEM(const Str :TAnsiStr) :TAnsiStr;
   var
-    vLen :TInteger;
+    vLen :Integer;
   begin
     vLen := Length(Str);
     SetString(Result, nil, vLen);
@@ -568,7 +568,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure SetStringBackLight(var AStr :TString; ABuf :PAnsiChar; ALen :TInteger);
+  procedure SetStringBackLight(var AStr :TString; ABuf :PAnsiChar; ALen :Integer);
   var
     vSrc :PAnsiChar;
     vPtr :PTChar;
@@ -585,9 +585,9 @@ interface
   end;
 
 
-  function Int32ToString(Num :TInt32; AGroup :TInteger) :TString;
+  function Int32ToString(Num :TInt32; AGroup :Integer) :TString;
   var
-    I, R :TInteger;
+    I, R :Integer;
     Dig :Byte;
     Neg :Boolean;
     Str :array[0..32] of AnsiChar; {-2'147'483'648..2'147'483'647}
@@ -614,9 +614,9 @@ interface
   end;
 
 
-  function Int64ToString(Num :TInt64; AGroup :TInteger) :TString;
+  function Int64ToString(Num :TInt64; AGroup :Integer) :TString;
   var
-    I, R :TInteger;
+    I, R :Integer;
     Dig :Byte;
     Neg :Boolean;
     Str :array[0..32] of AnsiChar; {-9'223'372'036'854'775'808..9'223'372'036'854'775'807}
@@ -643,9 +643,9 @@ interface
   end;
 
 
-  function CardinalToString(Num :TCardinal; AGroup :TInteger) :TString;
+  function CardinalToString(Num :TUnsPtr; AGroup :Integer) :TString;
   var
-    I, R :TInteger;
+    I, R :Integer;
     Dig :Byte;
     Str :array[0..32] of AnsiChar; {0..4'294'967'295}   {0..18'446'744'073'709'551'615}
   begin
@@ -666,7 +666,7 @@ interface
   end;
 
 
-  function Int2Str(Num :TInteger) :TString;
+  function Int2Str(Num :Integer) :TString;
   begin
    {$ifdef b64}
     Result := Int64ToString(Num, 0);
@@ -676,7 +676,7 @@ interface
   end;
 
 
-  function Int2StrEx(Num :TInteger) :TString;
+  function Int2StrEx(Num :Integer) :TString;
   begin
    {$ifdef b64}
     Result := Int64ToString(Num, 3);
@@ -698,9 +698,9 @@ interface
   end;
 
 
-  function Str2IntDef(const Str :TString; Def :TInteger) :TInteger;
+  function Str2IntDef(const Str :TString; Def :Integer) :Integer;
   var
-    Err :TInteger;
+    Err :Integer;
   begin
     Val(Str, Result, Err);
     if Err <> 0 then
@@ -708,9 +708,9 @@ interface
   end;
 
 
-  function Str2Int(const Str :TString) :TInteger;
+  function Str2Int(const Str :TString) :Integer;
   var
-    vErr :TInteger;
+    vErr :Integer;
   begin
     Val(Str, Result, vErr);
     if vErr <> 0 then
@@ -721,7 +721,7 @@ interface
   function Hex2Int64(const AHexStr :TString) :TInt64;
   var
     vStr :TString;
-    vErr :TInteger;
+    vErr :Integer;
   begin
     vStr := '$' + AHexStr;
     Val(vStr, Result, vErr);
@@ -746,7 +746,7 @@ interface
 
   function StrDeleteChars(const Str :TString; const Chars :TAnsiCharSet) :TString;
   var
-    I, J, L :TInteger;
+    I, J, L :Integer;
   begin
     Result := '';
 
@@ -768,7 +768,7 @@ interface
 
   function StrReplaceChars(const Str :TString; const Chars :TAnsiCharSet; Chr :TChar) :TString;
   var
-    I : TInteger;
+    I : Integer;
   begin
     Result := Str;
     for I := 1 to Length(Str) do
@@ -780,7 +780,7 @@ interface
   function StrReplace(const S, OldPattern, NewPattern :TString; Flags :TReplaceFlags) :TString;
   var
     SearchStr, Patt, NewStr: TString;
-    Offset: TInteger;
+    Offset: Integer;
   begin
     if rfIgnoreCase in Flags then begin
       SearchStr := StrUpCase(S);
@@ -811,7 +811,7 @@ interface
 
   function StrExpandTabs(s :TString) :TString;
   var
-    ix :TInteger;
+    ix :Integer;
   begin
     Result := '';
     while TRUE do begin
@@ -838,9 +838,9 @@ interface
 
 
 
-  function WordCount(const S :TString; const Del :TAnsiCharSet) :TInteger;
+  function WordCount(const S :TString; const Del :TAnsiCharSet) :Integer;
   var
-    L, I :TInteger;
+    L, I :Integer;
   begin
     Result := 0;
     if S <> '' then begin
@@ -858,9 +858,9 @@ interface
   end;
 
 
-  function ExtractWordsPos(Number, Count :TInteger; const S :TString; const Del :TAnsiCharSet; var B :TInteger) :TString;
+  function ExtractWordsPos(Number, Count :Integer; const S :TString; const Del :TAnsiCharSet; var B :Integer) :TString;
   var
-    N2, L, I, W :TInteger;
+    N2, L, I, W :Integer;
   begin
     Result := '';
     B := MaxInt;
@@ -903,15 +903,15 @@ interface
   end;
 
 
-  function ExtractWords(Number, Count :TInteger; const S :TString; const Del :TAnsiCharSet) :TString;
+  function ExtractWords(Number, Count :Integer; const S :TString; const Del :TAnsiCharSet) :TString;
   var
-    P :TInteger;
+    P :Integer;
   begin
     Result := ExtractWordsPos(Number, Count, S, Del, P);
   end;
 
 
-  function ExtractWord(Number :TInteger; const S :TString; const Del :TAnsiCharSet) :TString;
+  function ExtractWord(Number :Integer; const S :TString; const Del :TAnsiCharSet) :TString;
   begin
     Result := ExtractWords(Number, 1, S, Del);
   end;
@@ -945,7 +945,7 @@ interface
   end;
 
 
-  function ExtractNextInt(var Str :PTChar; const Del :TAnsiCharSet) :TInteger;
+  function ExtractNextInt(var Str :PTChar; const Del :TAnsiCharSet) :Integer;
   var
     vStr :TString;
   begin
@@ -967,7 +967,7 @@ interface
 
   function RemoveBackSlash(const Path :TString) :TString;
   var
-    L, L2 :TInteger;
+    L, L2 :Integer;
   begin
     L := Length(Path);
     L2 := L;
@@ -1062,7 +1062,7 @@ interface
 
   function SafeChangeFileExtension(const FileName, Extension: TString) :TString;
   var
-    I: TInteger;
+    I: Integer;
   begin
     Result := FileName;
     if FileName <> '' then begin
@@ -1182,7 +1182,7 @@ interface
 
   function ExtractParamStr(var AStr :PTChar) :TString;
 
-    function LocStr(AChr :PTChar; ALen :TInteger) :TString;
+    function LocStr(AChr :PTChar; ALen :Integer) :TString;
     begin
       SetString(Result, AChr, ALen);
     end;

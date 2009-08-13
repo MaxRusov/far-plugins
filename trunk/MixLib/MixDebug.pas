@@ -26,7 +26,7 @@ interface
 {******************************} implementation {******************************}
 {******************************************************************************}
 
-  function IntMin(L1, L2 :TInteger) :TInteger;
+  function IntMin(L1, L2 :Integer) :Integer;
   begin
     if L1 < L2 then
       Result := L1
@@ -39,11 +39,11 @@ interface
   const
     HexChars :array[0..15] of AnsiChar = ('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
   var
-    I :TInteger;
-    N :TCardinal;
+    I :Integer;
+    N :TUnsPtr;
     D :Byte;
   begin
-    N := TCardinal(APtr);
+    N := TUnsPtr(APtr);
     for I := SizeOf(Pointer) * 2 - 1 downto 0 do begin
       D := N and $F;
       N := N shr 4;
@@ -55,7 +55,7 @@ interface
 
   function ChrCopyShortStr(Dest :PAnsiChar; const Source :ShortString) :PAnsiChar;
   var
-    vLen :TInteger;
+    vLen :Integer;
   begin
     vLen := Length(Source);
     if vLen > 0 then
@@ -65,7 +65,7 @@ interface
   end;
 
 
-  function ChrCopyAL(Dest, Source :PAnsiChar; Len, BufLen :TInteger) :PAnsiChar;
+  function ChrCopyAL(Dest, Source :PAnsiChar; Len, BufLen :Integer) :PAnsiChar;
   begin
     if Len > BufLen - 1 then
       Len := BufLen - 1;
@@ -76,7 +76,7 @@ interface
   end;
 
 
-  function ChrCopyA(Dest, Source :PAnsiChar; Len :TInteger) :PAnsiChar;
+  function ChrCopyA(Dest, Source :PAnsiChar; Len :Integer) :PAnsiChar;
   begin
     Result := ChrCopyAL(Dest, Source, Len, Len + 1);
   end;
@@ -119,7 +119,7 @@ interface
     vStr  :array[0..MaxErrorLen] of AnsiChar;
 //  vName :ShortString;
     vPtr :PAnsiChar;
-    vLen :TInteger;
+    vLen :Integer;
   begin
 //  if debSkipNextError then begin
 //    debSkipNextError := False;
