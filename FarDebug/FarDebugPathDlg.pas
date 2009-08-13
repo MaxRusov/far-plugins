@@ -59,7 +59,7 @@ interface
       procedure Prepare; override;
       procedure InitDialog; override;
       function CloseDialog(ItemID :Integer) :Boolean; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
     private
       FSrcFile :TString;
@@ -119,7 +119,7 @@ interface
   end;
 
 
-  function TPromptFolderDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; {override;}
+  function TPromptFolderDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
 
     procedure LocSelectFile;
     var

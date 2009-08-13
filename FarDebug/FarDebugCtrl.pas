@@ -138,7 +138,6 @@ interface
   procedure AppErrorIdFmt(AMess :TMessages; const Args: array of const);
 
   procedure HandleError(AError :Exception);
-  function GetOptColor(AColor, ASysColor :Integer) :Integer;
   function ExtractNextLine(var AStr :PTChar) :TString;
   function ExtractBefore(const AStr, AStart, AFinish :TString) :TString;
   function UpCompareSubPChar(const SubStr1, Str2 :PTChar) :Integer;
@@ -187,14 +186,6 @@ interface
       ShowMessage('GDB', Trim(AError.Message), FMSG_WARNING or FMSG_MB_OK)
     else
       ShowMessage('FAR Debug', AError.Message, FMSG_WARNING or FMSG_MB_OK);
-  end;
-
-
-  function GetOptColor(AColor, ASysColor :Integer) :Integer;
-  begin
-    Result := AColor;
-    if Result = 0 then
-      Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(ASysColor));
   end;
 
 
@@ -318,7 +309,7 @@ interface
         vFileName := EditorFile(I);
         vFound := StrEqual(vFileName, AFileName);
         if vFound then begin
-          FARAPI.AdvControl(hModule, ACTL_SETCURRENTWINDOW, Pointer(I));
+          FARAPI.AdvControl(hModule, ACTL_SETCURRENTWINDOW, Pointer(TIntPtr(I)));
           FARAPI.AdvControl(hModule, ACTL_COMMIT, nil);
           Break;
         end;

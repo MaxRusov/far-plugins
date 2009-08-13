@@ -41,7 +41,6 @@ interface
 
 
   function GetImageBase :Pointer;
- {$ifdef bWindows}
   var
     vPtr :Pointer;
     vMemInfo :TMemoryBasicInformation;
@@ -53,15 +52,10 @@ interface
    {$endif bFreePascal}
     VirtualQuery(vPtr, vMemInfo, SizeOf(vMemInfo));
     Result := vMemInfo.AllocationBase;
- {$else}
-  begin
-    Result := nil; {!Linux}
- {$endif bWindows}
   end;
 
 
   function GetVersionStr(const AKey :TString) :TString;
- {$ifdef bWindows}
   var
     vName, vBuf, vKey :TString;
     vPtr  :Pointer;
@@ -78,10 +72,6 @@ interface
       if VerQueryValue(PTChar(vBuf), PTChar(vKey), vPtr, vSize) then
         Result := PTChar(vPtr);
     end;
- {$else}
-  begin
-    Result := ''; {!Linux}
- {$endif bWindows}
   end;
 
 
@@ -98,7 +88,6 @@ interface
 
 
   function MemLimitGB :TInteger;
- {$ifdef bWindows}
   var
     vPtr :Pointer;
   begin
@@ -108,10 +97,6 @@ interface
       Result := Round(TCardinal(vPtr) / (1024 * 1024 * 1024));
       VirtualFree(vPtr, 0, MEM_RELEASE);
     end;
- {$else}
-  begin
-    Result := 0; {!Linux}
- {$endif bWindows}
   end;
 
 
@@ -288,7 +273,7 @@ finalization
 begin
  {$ifdef bTrace}
   TraceDoneInfo;
- {$endif bTrace} 
+ {$endif bTrace}
 end;
 
 end.

@@ -44,7 +44,7 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
       procedure ErrorHandler(E :Exception); override;
 
     private
@@ -254,7 +254,7 @@ interface
   end;
 
 
-  function TEvaluateDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; {override;}
+  function TEvaluateDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
 
     procedure LocInput;
     var

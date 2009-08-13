@@ -48,7 +48,7 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
       procedure SelectItem(ACode :Integer); virtual;
       procedure ReinitListControl; virtual;
@@ -260,7 +260,7 @@ interface
   end;
 
 
-  function TTabsList.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; {override;}
+  function TTabsList.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
 
     procedure LocInsert;
     var

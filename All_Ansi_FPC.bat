@@ -1,3 +1,3 @@
 @Echo off
 
-call _CompileAll fpc*.bat %*
+call _CompileAll fpc.*bat %*

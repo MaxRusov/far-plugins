@@ -52,7 +52,7 @@ interface
     public
       destructor Destroy; override;
 
-      function CompareKey(Key :Pointer; Context :Integer) :Integer; override;
+      function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
 
       procedure UpdateLineInfo(ARow1, ARow2 :Integer);
       function GetVisiblePath :TString;
@@ -390,7 +390,7 @@ Line 761 of "FPTest.dpr" is at address 0x1001ab0 <Test1> but contains no code.
   end;
 
 
-  function TSourceFile.CompareKey(Key :Pointer; Context :Integer) :Integer; {override;}
+  function TSourceFile.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
     Result := UpCompareStr(FFileName, TString(Key));
   end;

@@ -36,14 +36,14 @@ interface
   procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
   procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
   function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
   function ConfigureW(Item: integer) :Integer; stdcall;
  {$else}
   procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
   procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
   procedure ExitFAR; stdcall;
-  function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
   function Configure(Item: integer) :Integer; stdcall;
  {$endif bUnicodeFar}
 
@@ -225,7 +225,7 @@ interface
     if not TabsManager.CanPaintTabs(True) then
       Exit;
 
-    FARAPI.AdvControl(hModule, ACTL_SYNCHRO, Pointer(ACmd));
+    FARAPI.AdvControl(hModule, ACTL_SYNCHRO, Pointer(TIntPtr(ACmd)));
   end;
 
  {$else}
@@ -489,7 +489,7 @@ interface
 
 
  {$ifdef bUnicodeFar}
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
  {$else}
   function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
  {$endif bUnicodeFar}

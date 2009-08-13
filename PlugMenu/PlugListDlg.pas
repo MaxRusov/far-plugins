@@ -103,7 +103,7 @@ interface
     public
       FWindowType :Integer;
 
-      function ItemCompare(PItem, PAnother :Pointer; Context :Integer) :Integer; override;
+      function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
 
     private
       function GetItems(AIndex :Integer) :Integer;
@@ -128,7 +128,7 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
     private
       FGrid           :TFarGrid;
@@ -333,7 +333,7 @@ interface
   end;
 
 
-  function TMyFilter.ItemCompare(PItem, PAnother :Pointer; Context :Integer) :Integer; {override;}
+  function TMyFilter.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
   var
     vCmd1, vCmd2 :TFarPluginCmd;
   begin
@@ -414,6 +414,7 @@ interface
     FWidth := DX;
     FHeight := DY;
     FItemCount := 3;
+
     FDialog := CreateDialog(
       [
         NewItemApi(DI_DoubleBox,   2, 1, DX - 4, DY - 2, 0, ''),
@@ -1143,7 +1144,7 @@ interface
  {$endif bUnicode}
 
 
-  function TMenuDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; {override;}
+  function TMenuDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
 
     procedure SetFilter(const ANewFilter :TString);
     begin

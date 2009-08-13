@@ -1,7 +1,9 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{$ImageBase $40500000}
+{$ifdef bDelphi}
+ {$ImageBase $40500000}
+{$endif bDelphi}
 
 library PlugMenu;
 

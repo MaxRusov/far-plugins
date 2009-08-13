@@ -28,19 +28,22 @@ interface
     { Платформозависимые целые }
 
    {$ifdef bFreePascal}
-    TInteger  = PtrInt;
-    TCardinal = PtrUInt;
+    TIntPtr = PtrInt;
+    TUnsPtr = PtrUInt;
    {$else}
 
    {$ifdef b64}
     // Delphi 64...
    {$else}
-    TInteger  = Integer;
-    TCardinal = Cardinal;
+    TIntPtr = Integer;
+    TUnsPtr = Cardinal;
    {$endif b64}
 
    {$endif bFreePascal}
 
+    {!!! Убрать}
+    TInteger = TIntPtr;
+    TCardinal = TUnsPtr;
     PTInteger = ^TInteger;
     PTCardinal = ^TCardinal;
 
@@ -198,6 +201,9 @@ interface
 
 
 end.
+
+
+
 
 
 

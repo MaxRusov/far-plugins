@@ -15,6 +15,10 @@ unit ShellAPI;
 
 {$WEAKPACKAGEUNIT}
 
+{$ifdef bFreePascal}
+ {$PACKRECORDS C}
+{$endif bFreePascal}
+
 interface
 
 uses MixTypes, Windows;

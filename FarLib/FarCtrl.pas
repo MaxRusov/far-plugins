@@ -97,7 +97,7 @@ interface
     FARAPI  :TPluginStartupInfo;
     FARSTD  :TFarStandardFunctions;
 
-    hModule      :Integer;
+    hModule      :TIntPtr;
     hFarWindow   :THandle;
     hStdIn       :THandle;
     hStdOut      :THandle;
@@ -172,33 +172,30 @@ interface
  {$endif bTrace}
 
 
+
   function FarChar2Str(AStr :PFarChar) :TString;
  {$ifdef bUnicodeFar}
+  begin
+    Result := AStr;
+  end;
  {$else}
  {$ifdef bUnicode}
+  begin
+    Result := StrOEMToAnsi(AStr);
+  end;
  {$else}
   var
     vLen :Integer;
- {$endif bUnicode}
- {$endif bUnicodeFar}
   begin
-   {$ifdef bUnicodeFar}
-    Result := AStr;
-   {$else}
-
-   {$ifdef bUnicode}
-    Result := StrOEMToAnsi(AStr);
-   {$else}
     vLen := 0;
     if AStr <> nil then
       vLen := StrLenA(AStr);
     SetString(Result, nil, vLen);
     if vLen > 0 then
       {Windows.}OemToCharBuffA(AStr, Pointer(Result), vLen);
-   {$endif bUnicode}
-
-   {$endif bUnicodeFar}
   end;
+ {$endif bUnicode}
+ {$endif bUnicodeFar}
 
 
   procedure FillFarChar(ABuf :PFarChar; ACount :Integer; AChar :TFarChar);
@@ -213,15 +210,13 @@ interface
 
   procedure SetFarChr(ABuf :PFarChar; ASrc :PTChar; AMaxLen :Integer);
  {$ifdef bUnicodeFar}
+  begin
+    StrLCopy(ABuf, ASrc, AMaxLen);
+  end;
  {$else}
   var
     vLen :Integer;
- {$endif bUnicodeFar}
   begin
-   {$ifdef bUnicodeFar}
-    StrLCopy(ABuf, ASrc, AMaxLen);
-   {$else}
-
     vLen := StrLen(ASrc);
     if AMaxLen < vLen then
       vLen := AMaxLen;
@@ -232,9 +227,8 @@ interface
    {$endif bUnicode}
     (ABuf + vLen)^ := #0;
     CharToOEMBuffA(ABuf, ABuf, vLen);
-
-   {$endif bUnicodeFar}
   end;
+ {$endif bUnicodeFar}
 
 
   procedure SetFarStr(ABuf :PFarChar; const AStr :TString; AMaxLen :Integer);
@@ -245,7 +239,7 @@ interface
 
   function GetMsg(MsgId :Integer) :PFarChar;
   begin
-    Result := FARAPI.GetMsg(FARAPI.ModuleNumber, Byte(MsgId));
+    Result := FARAPI.GetMsg(FARAPI.ModuleNumber, MsgId);
   end;
 
 
@@ -423,7 +417,7 @@ interface
   begin
     Result := AColor;
     if Result = 0 then
-      Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(ASysColor));
+      Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(TIntPtr(ASysColor)));
   end;
 
 

@@ -35,12 +35,12 @@ interface
   function GetMinFarVersionW :Integer; stdcall;
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
   procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;  
+  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
  {$else}
   procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
   procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
   procedure ExitFAR; stdcall;
-  function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
  {$endif bUnicodeFar}
 
 
@@ -192,7 +192,8 @@ interface
   procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
  {$endif bUnicodeFar}
   begin
-//  TraceF('GetPluginInfo: %s', ['']);
+//  Trace('GetPluginInfo');
+
     pi.StructSize:= SizeOf(pi);
     pi.Flags:= PF_EDITOR or PF_VIEWER or PF_DIALOG or PF_FULLCMDLINE;
 
@@ -216,16 +217,16 @@ interface
 //  Trace('ExitFAR');
   end;
 
-
+  
  {$ifdef bUnicodeFar}
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
  {$else}
-  function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
  {$endif bUnicodeFar}
   var
     vWinInfo :TWindowInfo;
   begin
-    Result:= INVALID_HANDLE_VALUE;
+    Result := INVALID_HANDLE_VALUE;
 //  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
 
     try
@@ -237,7 +238,7 @@ interface
 
         FillChar(vWinInfo, SizeOf(vWinInfo), 0);
         vWinInfo.Pos := -1;
-        FARAPI.AdvControl(hModule, ACTL_GETSHORTWINDOWINFO , @vWinInfo);
+        FARAPI.AdvControl(hModule, ACTL_GETSHORTWINDOWINFO, @vWinInfo);
 
         if OpenFrom = OPEN_COMMANDLINE then
           OpenCmdLine(FarChar2Str(PFarChar(Item)), vWinInfo.WindowType)

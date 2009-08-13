@@ -1,7 +1,9 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{$ImageBase $40B00000}
+{$ifdef bDelphi}
+ {$ImageBase $40B00000}
+{$endif bDelphi}
 
 library PanelTabs;  
 

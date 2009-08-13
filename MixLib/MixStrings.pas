@@ -1111,7 +1111,7 @@ interface
       begin
         if Path[I] = '\' then begin
           Path[I] := #0;
-          Dirs[J] := PTChar(Path) + I + 1;
+          Dirs[J] := PTChar(Path) + I;
 //        Dirs[J] := @Path[I + 1];
           Inc(J);
         end;

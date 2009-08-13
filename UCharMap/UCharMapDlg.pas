@@ -70,7 +70,7 @@ interface
       procedure Prepare; override;
       procedure InitDialog; override;
       function CloseDialog(ItemID :Integer) :Boolean; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
     private
       FGrid        :TFarGrid;
@@ -269,7 +269,7 @@ interface
       for I := 0 to $FFF do begin
         if Word(vPtr^) <> 0 then
           FFilter.Add(I);
-        Inc(Integer(vPtr), 2);
+        Inc(Pointer1(vPtr), 2);
       end;
 
     end else
@@ -507,7 +507,7 @@ interface
   end;
 
 
-  function TCharMapDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; {override;}
+  function TCharMapDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
 
     procedure LocGotoNext;
     begin
