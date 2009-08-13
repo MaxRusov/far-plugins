@@ -1,7 +1,7 @@
 {
   FarKeysW.pas
 
-  Inside KeyName for FAR Manager 2
+  Internal key names for FAR Manager <%VERSION%>
 }
 
 {
