@@ -6,183 +6,187 @@ unit MixUtils;
 
 interface
 
-uses
-  Windows,
-  MixTypes;
+  uses
+    Windows,
+    MixTypes;
 
 
-const
-  { File open modes }
+  const
+    { File open modes }
 
-  fmOpenRead       = $0000;
-  fmOpenWrite      = $0001;
-  fmOpenReadWrite  = $0002;
-  fmShareCompat    = $0000;
-  fmShareExclusive = $0010;
-  fmShareDenyWrite = $0020;
-  fmShareDenyRead  = $0030;
-  fmShareDenyNone  = $0040;
+    fmOpenRead       = $0000;
+    fmOpenWrite      = $0001;
+    fmOpenReadWrite  = $0002;
+    fmShareCompat    = $0000;
+    fmShareExclusive = $0010;
+    fmShareDenyWrite = $0020;
+    fmShareDenyRead  = $0030;
+    fmShareDenyNone  = $0040;
 
-  { File attribute constants }
+    { File attribute constants }
 
-  faReadOnly  = $00000001;
-  faHidden    = $00000002;
-  faSysFile   = $00000004;
-  faVolumeID  = $00000008;
-  faDirectory = $00000010;
-  faArchive   = $00000020;
-  faAnyFile   = $0000003F;
-
-
-type
-{ General arrays }
-
-  PByteArray = ^TByteArray;
-  TByteArray = array[0..32767] of Byte;
-
-  PWordArray = ^TWordArray;
-  TWordArray = array[0..16383] of Word;
-
-{ Type conversion records }
-
-  WordRec = packed record
-    Lo, Hi: Byte;
-  end;
-
-  LongRec = packed record
-    Lo, Hi: Word;
-  end;
-
-  Int64Rec = packed record
-    Lo, Hi: DWORD;
-  end;
-
-  TMethod = record
-    Code, Data: Pointer;
-  end;
+    faReadOnly  = $00000001;
+    faHidden    = $00000002;
+    faSysFile   = $00000004;
+    faVolumeID  = $00000008;
+    faDirectory = $00000010;
+    faArchive   = $00000020;
+    faAnyFile   = $0000003F;
 
 
-type
-  ExceptClass = class of Exception;
+  type
+  { General arrays }
 
-  Exception = class(TObject)
-  public
-    constructor Create(const msg :TString);
-    constructor CreateFmt(const msg :TString; const args : array of const);
-    constructor CreateRes(ResString :PString);
-    constructor CreateResFmt(ResString :PString; const Args: array of const);
-    constructor CreateHelp(const Msg :TString; AHelpContext: Integer);
-    constructor CreateFmtHelp(const Msg :TString; const Args: array of const; AHelpContext: Integer);
-    constructor CreateResHelp(ResString :PString; AHelpContext: Integer);
-    constructor CreateResFmtHelp(ResString :PString; const Args: array of const; AHelpContext: Integer);
-  private
-    FMessage :TString;
-    FHelpContext :Integer;
-  public
-    property HelpContext :Integer read FHelpContext write FHelpContext;
-    property Message :TString read FMessage write FMessage;
-  end;
+    PByteArray = ^TByteArray;
+    TByteArray = array[0..32767] of Byte;
 
-  EConvertError = class(Exception);
-  EFormatError = class(Exception);
-  EAssertionFailed = class(Exception);
-  EAbstractError = class(Exception);
+    PWordArray = ^TWordArray;
+    TWordArray = array[0..16383] of Word;
 
-  EWin32Error = class(Exception)
-  public
-    ErrorCode: DWORD;
-  end;
+  { Type conversion records }
 
-  EExternal = class(Exception)
-  public
-    ExceptionRecord: PExceptionRecord;
-  end;
+    WordRec = packed record
+      Lo, Hi: Byte;
+    end;
 
-  EAbort = class(Exception);
+    LongRec = packed record
+      Lo, Hi: Word;
+    end;
 
-procedure Abort;
+    Int64Rec = packed record
+      Lo, Hi: DWORD;
+    end;
 
-var
-  FormatFunc :Function(const Fmt :TString; const Args : Array of const) :TString;
+    TMethod = record
+      Code, Data: Pointer;
+    end;
 
-Function Format(const Fmt :TString; const Args : Array of const) :TString;
 
-function LoadStr(Ident: Integer) :TString;
-function FmtLoadStr(Ident: Integer; const Args: array of const) :TString;
+  type
+    ExceptClass = class of Exception;
 
-function StrLen(const Str: PTChar) :Cardinal;
-function StrLenA(const Str: PAnsiChar) :Cardinal;
-function StrLenW(const Str: PWideChar) :Cardinal;
+    Exception = class(TObject)
+    public
+      constructor Create(const msg :TString);
+      constructor CreateFmt(const msg :TString; const args : array of const);
+      constructor CreateRes(ResString :PString);
+      constructor CreateResFmt(ResString :PString; const Args: array of const);
+      constructor CreateHelp(const Msg :TString; AHelpContext: Integer);
+      constructor CreateFmtHelp(const Msg :TString; const Args: array of const; AHelpContext: Integer);
+      constructor CreateResHelp(ResString :PString; AHelpContext: Integer);
+      constructor CreateResFmtHelp(ResString :PString; const Args: array of const; AHelpContext: Integer);
+    private
+      FMessage :TString;
+      FHelpContext :Integer;
+    public
+      property HelpContext :Integer read FHelpContext write FHelpContext;
+      property Message :TString read FMessage write FMessage;
+    end;
 
-function StrLCopy(Dest: PTChar; Source: PTChar; MaxLen: Cardinal): PTChar;
-function StrLCopyA(Dest: PAnsiChar; Source: PAnsiChar; MaxLen: Cardinal): PAnsiChar;
-function StrLCopyW(Dest: PWideChar; Source: PWideChar; MaxLen: Cardinal): PWideChar;
+    EConvertError = class(Exception);
+    EFormatError = class(Exception);
+    EAssertionFailed = class(Exception);
+    EAbstractError = class(Exception);
 
-function StrPCopy(Dest :PTChar; const Source :TString): PTChar;
-function StrPCopyA(Dest :PAnsiChar; const Source :TAnsiStr): PAnsiChar;
-function StrPCopyW(Dest :PWideChar; const Source :TWideStr): PWideChar;
+    EWin32Error = class(Exception)
+    public
+      ErrorCode: DWORD;
+    end;
 
-function StrPLCopy(Dest :PTChar; const Source :TString; MaxLen :Cardinal) :PTChar;
-function StrPLCopyA(Dest :PAnsiChar; const Source :TAnsiStr; MaxLen :Cardinal) :PAnsiChar;
-function StrPLCopyW(Dest :PWideChar; const Source :TWideStr; MaxLen :Cardinal) :PWideChar;
+    EExternal = class(Exception)
+    public
+      ExceptionRecord: PExceptionRecord;
+    end;
 
-function StrMove(Dest: PTChar; const Source: PTChar; Count: Cardinal): PTChar;
-function StrMoveA(Dest: PAnsiChar; const Source: PAnsiChar; Count: Cardinal): PAnsiChar;
-function StrMoveW(Dest: PWideChar; const Source: PWideChar; Count: Cardinal): PWideChar;
+    EAbort = class(Exception);
 
-function StrScan(const Str :PTChar; Chr :TChar) :PTChar;
-function StrScanA(const Str :PAnsiChar; Chr :AnsiChar) :PAnsiChar;
-function StrScanW(const Str :PWideChar; Chr :WideChar) :PWideChar;
+  procedure Abort;
 
-function StrEnd(const Str: PTChar): PTChar;
-function StrEndA(const Str: PAnsiChar): PAnsiChar;
-function StrEndW(const Str: PWideChar): PWideChar;
+  var
+    FormatFunc :Function(const Fmt :TString; const Args : Array of const) :TString;
 
-function StrLIComp(const Str1, Str2 :PTChar; MaxLen :Cardinal) :Integer;
-function StrLICompA(const Str1, Str2 :PAnsiChar; MaxLen :Cardinal) :Integer;
-function StrLICompW(const Str1, Str2 :PWideChar; MaxLen :Cardinal) :Integer;
+  Function Format(const Fmt :TString; const Args : Array of const) :TString;
 
-function StrAlloc(Size: Cardinal) :PTChar;
-function StrAllocA(Size: Cardinal) :PAnsiChar;
-function StrAllocW(Size: Cardinal): PWideChar;
+  function LoadStr(Ident: Integer) :TString;
+  function FmtLoadStr(Ident: Integer; const Args: array of const) :TString;
 
-function StrNew(const Str :PTChar) :PTChar;
-function StrNewA(const Str :PAnsiChar) :PAnsiChar;
-function StrNewW(const Str :PWideChar) :PWideChar;
+  function StrLen(const Str: PTChar) :Cardinal;
+  function StrLenA(const Str: PAnsiChar) :Cardinal;
+  function StrLenW(const Str: PWideChar) :Cardinal;
 
-procedure StrDispose(Str :PTChar);
-procedure StrDisposeA(Str :PAnsiChar);
-procedure StrDisposeW(Str :PWideChar);
+  function StrLCopy(Dest: PTChar; Source: PTChar; MaxLen: Cardinal): PTChar;
+  function StrLCopyA(Dest: PAnsiChar; Source: PAnsiChar; MaxLen: Cardinal): PAnsiChar;
+  function StrLCopyW(Dest: PWideChar; Source: PWideChar; MaxLen: Cardinal): PWideChar;
 
-function Trim(const S :TString) :TString;
-function TrimLeft(const S :TString) :TString;
-function TrimRight(const S :TString) :TString;
+  function StrPCopy(Dest :PTChar; const Source :TString): PTChar;
+  function StrPCopyA(Dest :PAnsiChar; const Source :TAnsiStr): PAnsiChar;
+  function StrPCopyW(Dest :PWideChar; const Source :TWideStr): PWideChar;
 
-function AnsiStrLIComp(S1, S2 :PTChar; MaxLen: Cardinal): Integer;
-function AnsiQuotedStr(const S :TString; Quote :TChar) :TString;
-function AnsiExtractQuotedStr(var Src :PTChar; Quote :TChar) :TString;
+  function StrPLCopy(Dest :PTChar; const Source :TString; MaxLen :Cardinal) :PTChar;
+  function StrPLCopyA(Dest :PAnsiChar; const Source :TAnsiStr; MaxLen :Cardinal) :PAnsiChar;
+  function StrPLCopyW(Dest :PWideChar; const Source :TWideStr; MaxLen :Cardinal) :PWideChar;
 
-function SysErrorMessage(ErrorCode: Integer) :TString;
-function Win32Check(RetVal: BOOL): BOOL;
-procedure RaiseLastWin32Error;
+  function StrMove(Dest: PTChar; const Source: PTChar; Count: Cardinal): PTChar;
+  function StrMoveA(Dest: PAnsiChar; const Source: PAnsiChar; Count: Cardinal): PAnsiChar;
+  function StrMoveW(Dest: PWideChar; const Source: PWideChar; Count: Cardinal): PWideChar;
 
-function FileOpen(const FileName :TString; Mode: LongWord): Integer;
-function FileCreate(const FileName :TString): Integer;
-function FileRead(Handle: Integer; var Buffer; Count: LongWord): Integer;
-function FileWrite(Handle: Integer; const Buffer; Count: LongWord): Integer;
-function FileSeek(Handle, Offset, Origin: Integer): Integer; overload;
-function FileSeek(Handle: Integer; const Offset: Int64; Origin: Integer): Int64; overload;
-procedure FileClose(Handle: Integer);
-function FileAge(const FileName :TString): Integer;
-function FileGetAttr(const FileName :TString): Integer;
-function FileSetAttr(const FileName :TString; Attr: Integer): Integer;
+  function StrScan(const Str :PTChar; Chr :TChar) :PTChar;
+  function StrScanA(const Str :PAnsiChar; Chr :AnsiChar) :PAnsiChar;
+  function StrScanW(const Str :PWideChar; Chr :WideChar) :PWideChar;
 
-procedure Beep;
+  function StrEnd(const Str: PTChar): PTChar;
+  function StrEndA(const Str: PAnsiChar): PAnsiChar;
+  function StrEndW(const Str: PWideChar): PWideChar;
 
-{$ifdef bFreePascal}
-var
-  MainThreadID :THandle;
-{$endif bFreePascal}
+  function StrLIComp(const Str1, Str2 :PTChar; MaxLen :Cardinal) :Integer;
+  function StrLICompA(const Str1, Str2 :PAnsiChar; MaxLen :Cardinal) :Integer;
+  function StrLICompW(const Str1, Str2 :PWideChar; MaxLen :Cardinal) :Integer;
+
+  function StrAlloc(Size: Cardinal) :PTChar;
+  function StrAllocA(Size: Cardinal) :PAnsiChar;
+  function StrAllocW(Size: Cardinal): PWideChar;
+
+  function StrNew(const Str :PTChar) :PTChar;
+  function StrNewA(const Str :PAnsiChar) :PAnsiChar;
+  function StrNewW(const Str :PWideChar) :PWideChar;
+
+  procedure StrDispose(Str :PTChar);
+  procedure StrDisposeA(Str :PAnsiChar);
+  procedure StrDisposeW(Str :PWideChar);
+
+  function Trim(const S :TString) :TString;
+  function TrimLeft(const S :TString) :TString;
+  function TrimRight(const S :TString) :TString;
+
+  function AnsiStrLIComp(S1, S2 :PTChar; MaxLen: Cardinal): Integer;
+  function AnsiQuotedStr(const S :TString; Quote :TChar) :TString;
+  function AnsiExtractQuotedStr(var Src :PTChar; Quote :TChar) :TString;
+
+  function SysErrorMessage(ErrorCode: Integer) :TString;
+  function Win32Check(RetVal: BOOL): BOOL;
+  procedure RaiseLastWin32Error;
+
+  function FileOpen(const FileName :TString; Mode: LongWord): Integer;
+  function FileCreate(const FileName :TString): Integer;
+  function FileRead(Handle: Integer; var Buffer; Count: LongWord): Integer;
+  function FileWrite(Handle: Integer; const Buffer; Count: LongWord): Integer;
+  function FileSeek(Handle, Offset, Origin: Integer): Integer; overload;
+  function FileSeek(Handle: Integer; const Offset: Int64; Origin: Integer): Int64; overload;
+  procedure FileClose(Handle: Integer);
+  function FileAge(const FileName :TString): Integer;
+  function FileGetAttr(const FileName :TString): Integer;
+  function FileSetAttr(const FileName :TString; Attr: Integer): Integer;
+  function DeleteFile(const FileName :TString): Boolean;
+  function RenameFile(const OldName, NewName :TString): Boolean;
+  function CreateDir(const Dir :TString): Boolean;
+  function RemoveDir(const Dir :TString): Boolean;
+
+  procedure Beep;
+
+  {$ifdef bFreePascal}
+  var
+    MainThreadID :THandle;
+  {$endif bFreePascal}
 
 {------------------------------------------------------------------------------}
 
@@ -949,8 +953,30 @@ var
       Result := GetLastError;
   end;
 
-{------------------------------------------------------------------------------}
 
+  function DeleteFile(const FileName :TString): Boolean;
+  begin
+    Result := Windows.DeleteFile(PTChar(FileName));
+  end;
+
+  function RenameFile(const OldName, NewName :TString): Boolean;
+  begin
+    Result := MoveFile(PTChar(OldName), PTChar(NewName));
+  end;
+
+
+  function CreateDir(const Dir :TString): Boolean;
+  begin
+    Result := CreateDirectory(PTChar(Dir), nil);
+  end;
+
+  function RemoveDir(const Dir :TString): Boolean;
+  begin
+    Result := RemoveDirectory(PTChar(Dir));
+  end;
+
+
+{------------------------------------------------------------------------------}
 
   procedure FreeObj(var Obj {:TObject});
   var
