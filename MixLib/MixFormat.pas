@@ -27,6 +27,7 @@ const
 
 
 function Now :TDateTime;
+function Date :TDateTime;
 function IsLeapYear(Year: Word): Boolean;
 function EncodeDate(Year, Month, Day: Word): TDateTime;
 function EncodeTime(Hour, Min, Sec, MSec: Word) :TDateTime;
@@ -71,11 +72,21 @@ end;
 
 function Now :TDateTime;
 var
-  SystemTime: TSystemTime;
+  SystemTime :TSystemTime;
 begin
   GetLocalTime(SystemTime);
   with SystemTime do
     Result := EncodeDate(wYear, wMonth, wDay) + EncodeTime(wHour, wMinute, wSecond, wMilliseconds);
+end;
+
+
+function Date :TDateTime;
+var
+  SystemTime :TSystemTime;
+begin
+  GetLocalTime(SystemTime);
+  with SystemTime do
+    Result := EncodeDate(wYear, wMonth, wDay);
 end;
 
 
