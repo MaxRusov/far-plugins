@@ -44,7 +44,7 @@ type
   TFloatFormat = (ffGeneral, ffExponent, ffFixed, ffNumber, ffCurrency);
   TFloatValue = (fvExtended, fvCurrency, fvSingle, fvReal, fvDouble, fvComp);
 
-function HexStr(AVal :Int64; ACount :TInteger) :TString;
+function HexStr(AVal :Int64; ACount :Integer) :TString;
 
 Function Format (Const Fmt :TString; const Args : Array of const) :TString;
 
@@ -265,11 +265,11 @@ end;
 
 function CharUpCase(AChr :TChar) :TChar;
 begin
-  Result := TChar(TCardinal({Windows.}CharUpper(Pointer(TCardinal(AChr)))));
+  Result := TChar(TUnsPtr({Windows.}CharUpper(Pointer(TUnsPtr(AChr)))));
 end;
 
 
-function Space(ASize :TInteger) :TString;
+function Space(ASize :Integer) :TString;
 begin
 //SetString(Result, nil, ASize);
 //FillChar(PTChar(Result), ASize, ' ');
@@ -280,9 +280,9 @@ end;
 const
   HexChars :array[0..15] of TChar = ('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
 
-function HexStr(AVal :Int64; ACount :TInteger) :TString;
+function HexStr(AVal :Int64; ACount :Integer) :TString;
 var
-  i :TInteger;
+  i :Integer;
 begin
   SetString(Result, nil, ACount);
   for i := ACount downto 1 do begin
@@ -313,8 +313,8 @@ end;
 
 Function Format (Const Fmt :TString; const Args : Array of const) :TString;
 var
-  ChPos,OldPos,ArgPos,DoArg,Len :TInteger;
-  Index :TInteger;
+  ChPos,OldPos,ArgPos,DoArg,Len :Integer;
+  Index :Integer;
   Width, Prec : Longint;
   Left : Boolean;
 
@@ -450,7 +450,7 @@ var
   end;
 
 
-  function Checkarg (AT :TInteger; err :boolean):boolean;
+  function Checkarg (AT :Integer; err :boolean):boolean;
   { Check if argument INDEX is of correct type (AT)
     If Index=-1, ArgPos is used, and argpos is augmented with 1
     DoArg is set to the argument that must be used. }
@@ -587,7 +587,7 @@ begin
 
         'P' : Begin
                 CheckArg(vtpointer,true);
-                ToAdd:=HexStr(TInteger(Args[DoArg].VPointer),sizeof(TInteger)*2);
+                ToAdd:=HexStr(TIntPtr(Args[DoArg].VPointer),sizeof(TIntPtr)*2);
               end;
 
         'X' : begin

@@ -549,7 +549,7 @@ interface
       if Event <> SE_COMMONSYNCHRO then
         Exit;
 
-      case TCardinal(Param) of
+      case TUnsPtr(Param) of
         1: TabsManager.PaintTabs(True);
         2: TabsManager.MouseClick;
       end;

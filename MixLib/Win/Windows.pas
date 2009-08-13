@@ -68,9 +68,9 @@ type
   LCID = DWORD;
   LANGID = Word;
 
-  SIZE_T = TCardinal;
+  SIZE_T = TUnsPtr;
 
-  THandle = TCardinal;
+  THandle = TUnsPtr;
   PHandle = ^THandle;
 
 const

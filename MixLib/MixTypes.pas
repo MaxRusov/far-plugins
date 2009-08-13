@@ -41,13 +41,10 @@ interface
 
    {$endif bFreePascal}
 
-    {!!! Убрать}
-    TInteger = TIntPtr;
-    TCardinal = TUnsPtr;
-    PTInteger = ^TInteger;
-    PTCardinal = ^TCardinal;
+    PIntPtr = ^TIntPtr;
+    PUnsPtr = ^TUnsPtr;
 
-
+    
   type
    {$ifdef bFloatIsDouble}
     TFloat = Double;

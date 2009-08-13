@@ -87,14 +87,14 @@ interface
   end;
 
 
-  function MemLimitGB :TInteger;
+  function MemLimitGB :Integer;
   var
     vPtr :Pointer;
   begin
     Result := 0;
     vPtr := VirtualAlloc(nil, 1, MEM_RESERVE or MEM_TOP_DOWN, PAGE_READWRITE);
     if vPtr <> nil then begin
-      Result := Round(TCardinal(vPtr) / (1024 * 1024 * 1024));
+      Result := Round(TUnsPtr(vPtr) / (1024 * 1024 * 1024));
       VirtualFree(vPtr, 0, MEM_RELEASE);
     end;
   end;
@@ -104,12 +104,12 @@ interface
   const
     HexChars :array[0..15] of TChar = ('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
   var
-    I :TInteger;
-    N :TCardinal;
+    I :Integer;
+    N :TUnsPtr;
     D :Byte;
   begin
     SetString(Result, nil, SizeOf(Pointer) * 2);
-    N := TCardinal(APtr);
+    N := TUnsPtr(APtr);
     for I := SizeOf(Pointer) * 2 downto 1 do begin
       D := N and $F;
       N := N shr 4;

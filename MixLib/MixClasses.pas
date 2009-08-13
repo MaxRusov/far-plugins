@@ -37,8 +37,8 @@ interface
       procedure ReadFromStream(Stream :TStream); virtual;
      {$endif bUseStreams}
 
-      function CompareObj(Another :TBasis; Context :TInteger) :Integer; virtual;
-      function CompareKey(Key :Pointer; Context :TInteger) :Integer; virtual;
+      function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; virtual;
+      function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; virtual;
 
       function ValidInstanceEx(AClass :TBasisClass) :Boolean;
 
@@ -75,7 +75,7 @@ interface
     TExList = class(TBasis)
     public
       constructor Create; override;
-      constructor CreateSize(AItemSize :TInteger);
+      constructor CreateSize(AItemSize :Integer);
       destructor Destroy; override;
 
      {$ifdef bUseStreams}
@@ -88,39 +88,39 @@ interface
 
       procedure Clear;
 
-      function Add(Item: Pointer) :TInteger;
-      procedure Insert(Index :TInteger; Item: Pointer);
+      function Add(Item: Pointer) :Integer;
+      procedure Insert(Index :Integer; Item: Pointer);
 
-      function AddSorted(Item :Pointer; Context :TInteger; Duplicates :TDuplicates) :Integer;
+      function AddSorted(Item :Pointer; Context :TIntPtr; Duplicates :TDuplicates) :Integer;
         { Вставляет элемент с сортировкой }
 
-      function AddData(const Item) :TInteger; {virtual;}
-      procedure InsertData(Index :TInteger; const Item);
+      function AddData(const Item) :Integer; {virtual;}
+      procedure InsertData(Index :Integer; const Item);
 
-      procedure Delete(AIndex: TInteger);
-      procedure DeleteRange(AIndex, ACount :TInteger);
-      function Remove(Item: Pointer): TInteger;
-      function RemoveData(const Item) :TInteger;
+      procedure Delete(AIndex: Integer);
+      procedure DeleteRange(AIndex, ACount :Integer);
+      function Remove(Item: Pointer): Integer;
+      function RemoveData(const Item) :Integer;
 
-      procedure ReplaceRangeFrom(const ABuffer; AIndex, AOldCount, ANewCount :TInteger);
+      procedure ReplaceRangeFrom(const ABuffer; AIndex, AOldCount, ANewCount :Integer);
 
       function Contain(Item :Pointer) :Boolean;
-      function IndexOf(Item :Pointer) :TInteger;
-      function IndexOfData(const Item) :TInteger;
+      function IndexOf(Item :Pointer) :Integer;
+      function IndexOfData(const Item) :Integer;
 
       function First: Pointer;
       function Last: Pointer;
 
-      function FindKey(Key :Pointer; Context :TInteger; Opt :TFindOptions; var Index :Integer) :Boolean; virtual;
+      function FindKey(Key :Pointer; Context :TIntPtr; Opt :TFindOptions; var Index :Integer) :Boolean; virtual;
         { Альтернативный вариант поиска. Постепенно переходим к нему }
-      procedure SortList(Ascend :Boolean; Context :TInteger); {virtual;}
+      procedure SortList(Ascend :Boolean; Context :TIntPtr); {virtual;}
         { Быстрая сортировка списка }
 
       { Следующие функции работают только для частного случая : FItemSize = 4 }
 
       procedure Pack;
-      procedure Exchange(Index1, Index2: TInteger); virtual;
-      procedure Move(CurIndex, NewIndex: TInteger);
+      procedure Exchange(Index1, Index2: Integer); virtual;
+      procedure Move(CurIndex, NewIndex: Integer);
 
     protected
       FItemSize  : Integer;
@@ -133,8 +133,8 @@ interface
 
 //    procedure ItemFree(PItem :Pointer); virtual;
 //    procedure ItemAssign(PItem, PSource :Pointer); virtual;
-      function  ItemCompare(PItem, PAnother :Pointer; Context :TInteger) :Integer; virtual;
-      function  ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TInteger) :Integer; virtual;
+      function  ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; virtual;
+      function  ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; virtual;
      {$ifdef bUseStreams}
       procedure ItemToStream(PItem :Pointer; Stream :TStream); virtual;
       procedure ItemFromStream(PItem :Pointer; Stream :TStream); virtual;
@@ -173,20 +173,20 @@ interface
 
       procedure FreeAll;
         { Уничтожает все элементы списка }
-      procedure FreeAt(AIndex :TInteger);
+      procedure FreeAt(AIndex :Integer);
         { Уничтожает элемент с номером AIndex }
-      procedure FreeRange(AIndex, ACount :TInteger);
+      procedure FreeRange(AIndex, ACount :Integer);
         { Уничтожает элементы списка в заданном диапазоне }
       procedure FreeItem(Item :Pointer);
         { Уничтожает элемент Item (даже если его нет в списке!) }
-      procedure FreeKey(Key :Pointer; Context :TInteger; Opt :TFindOptions);
+      procedure FreeKey(Key :Pointer; Context :TIntPtr; Opt :TFindOptions);
         { Уничтожает элемент найденый функцией FindKey }
 
     protected
       procedure FreeOne(Item :Pointer); virtual;
 
-      function ItemCompare(PItem, PAnother :Pointer; Context :TInteger) :Integer; override;
-      function ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TInteger) :Integer; override;
+      function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
+      function ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; override;
      {$ifdef bUseStreams}
       procedure ItemToStream(PItem :Pointer; Stream :TStream); override;
       procedure ItemFromStream(PItem :Pointer; Stream :TStream); override;
@@ -197,46 +197,46 @@ interface
   type
     TIntList = class(TExList)
     public
-      function Add(Item :TInteger) :TInteger;
+      function Add(Item :TIntPtr) :Integer;
 
     protected
-      function ItemCompare(PItem, PAnother :Pointer; Context :TInteger) :Integer; override;
-      function ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TInteger) :Integer; override;
+      function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
+      function ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; override;
      {$ifdef bUseStreams}
       procedure ItemToStream(PItem :Pointer; Stream :TStream); override;
       procedure ItemFromStream(PItem :Pointer; Stream :TStream); override;
      {$endif bUseStreams}
 
-      function  GetIntItems(Index :TInteger) :TInteger;
-      procedure PutIntItems(Index, Value :TInteger);
+      function  GetIntItems(Index :Integer) :TIntPtr;
+      procedure PutIntItems(Index :Integer; Value :TIntPtr);
 
     public
-      property Items[I :TInteger] :TInteger read GetIntItems write PutIntItems; default;
+      property Items[I :Integer] :TIntPtr read GetIntItems write PutIntItems; default;
     end;
 
   type
     TStrList = class(TObjList)
     public
       procedure Clear;
-      function IndexOf(const AStr :TString) :TInteger;
-      function Add(const AStr :TString) :TInteger;
-      function AddSorted(const AStr :TString; Context :TInteger; Duplicates :TDuplicates) :Integer;
-      procedure Insert(Index :TInteger; const AStr :TString);
-      procedure Delete(AIndex :TInteger);
+      function IndexOf(const AStr :TString) :Integer;
+      function Add(const AStr :TString) :Integer;
+      function AddSorted(const AStr :TString; Context :TIntPtr; Duplicates :TDuplicates) :Integer;
+      procedure Insert(Index :Integer; const AStr :TString);
+      procedure Delete(AIndex :Integer);
 
     protected
       procedure FreeOne(Item :Pointer); override;
-      function ItemCompare(PItem, PAnother :Pointer; Context :TInteger) :Integer; override;
+      function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
      {$ifdef bUseStreams}
       procedure ItemToStream(PItem :Pointer; Stream :TStream); override;
       procedure ItemFromStream(PItem :Pointer; Stream :TStream); override;
      {$endif bUseStreams}
-      function GetStrItems(Index :TInteger) :TString;
-      procedure PutStrItems(Index :TInteger; const Value :TString);
+      function GetStrItems(Index :Integer) :TString;
+      procedure PutStrItems(Index :Integer; const Value :TString);
 
     public
-      property Items[I :TInteger] :TString read GetStrItems write PutStrItems; default;
-      property Strings[I :TInteger] :TString read GetStrItems write PutStrItems;
+      property Items[I :Integer] :TString read GetStrItems write PutStrItems; default;
+      property Strings[I :Integer] :TString read GetStrItems write PutStrItems;
     end;
 
 
@@ -251,8 +251,8 @@ interface
       procedure ReadFromStream(Stream :TStream); override;
      {$endif bUseStreams}
 
-      function CompareObj(Another :TBasis; Context :TInteger) :Integer; override;
-      function CompareKey(Key :Pointer; Context :TInteger) :Integer; override;
+      function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; override;
+      function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
 
     protected
       FName :TString;
@@ -415,8 +415,8 @@ interface
   begin
    {$ifdef bAsserts}
     Result :=
-      (Self <> nil) and (TCardinal(Self) and $3 = 0) and
-      (FClass <> nil) and (TCardinal(FClass) and $3 = 0) and
+      (Self <> nil) and (TUnsPtr(Self) and $3 = 0) and
+      (FClass <> nil) and (TUnsPtr(FClass) and $3 = 0) and
       (FClass = ClassType) and (TObject(Self) is TBasis);
    {$else}
     Result := True;
@@ -427,8 +427,8 @@ interface
   begin
    {$ifdef bAsserts}
     Result :=
-      (Self <> nil) and (TCardinal(Self) and $3 = 0) and
-      (FClass <> nil) and (TCardinal(FClass) and $3 = 0) and
+      (Self <> nil) and (TUnsPtr(Self) and $3 = 0) and
+      (FClass <> nil) and (TUnsPtr(FClass) and $3 = 0) and
       (FClass = ClassType) and (TObject(Self) is AClass);
    {$else}
     Result := True;
@@ -442,7 +442,7 @@ interface
 //end;
 
 
-  function TBasis.CompareObj(Another :TBasis; Context :TInteger) :Integer; {virtual;}
+  function TBasis.CompareObj(Another :TBasis; Context :TIntPtr) :Integer; {virtual;}
 (*
   var
     Str :TString;
@@ -458,7 +458,7 @@ interface
     Result := 0;
   end;
 
-  function TBasis.CompareKey(Key :Pointer; Context :TInteger) :Integer; {virtual;}
+  function TBasis.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {virtual;}
   begin
     Result := 0;
     {!!!}
@@ -491,7 +491,7 @@ interface
     errComListItemNotFound = 5;   { "Элемент коллекции не найден" }
 
 
-  procedure ListError(ErrCode :TInteger);
+  procedure ListError(ErrCode :Integer);
   begin
    {$ifdef bTraceError}
     SetErrorAddress(ReturnAddr2);
@@ -502,7 +502,7 @@ interface
 
 
   {!!!}
-  function MemCompare (a1, a2 :Pointer; len :TInteger) :TInteger;
+  function MemCompare (a1, a2 :Pointer; len :Integer) :Integer;
   begin
     Result := 0;
     while (Result < len) and ((PAnsiChar(a1)+Result)^ = (PAnsiChar(a2)+Result)^) DO
@@ -518,7 +518,7 @@ interface
   end;
 
 
-  constructor TExList.CreateSize(AItemSize :TInteger);
+  constructor TExList.CreateSize(AItemSize :Integer);
   begin
     Create;
     FItemSize  := AItemSize;
@@ -584,18 +584,18 @@ interface
   end;
 
 
-  function TExList.Add(Item :Pointer) :TInteger;
+  function TExList.Add(Item :Pointer) :Integer;
   begin
     Result := AddData(Item);
   end;
 
-  procedure TExList.Insert(Index :TInteger; Item :Pointer);
+  procedure TExList.Insert(Index :Integer; Item :Pointer);
   begin
     InsertData(Index, Item);
   end;
 
 
-  function TExList.AddSorted(Item :Pointer; Context :TInteger; Duplicates :TDuplicates) :Integer;
+  function TExList.AddSorted(Item :Pointer; Context :TIntPtr; Duplicates :TDuplicates) :Integer;
   begin
     if FindKey(Item, Context, [foCompareObj, foBinary], Result) then begin
       case Duplicates of
@@ -607,7 +607,7 @@ interface
   end;
 
 
-  function TExList.AddData(const Item) :TInteger; {virtual;}
+  function TExList.AddData(const Item) :Integer; {virtual;}
   begin
     Assert(ValidInstance);
     Result := FCount;
@@ -621,7 +621,7 @@ interface
   end;
 
   
-  procedure TExList.InsertData(Index :TInteger; const Item);
+  procedure TExList.InsertData(Index :Integer; const Item);
   var
     P :Pointer1;
   begin
@@ -646,13 +646,13 @@ interface
   end;
 
 
-  procedure TExList.Delete(AIndex: TInteger);
+  procedure TExList.Delete(AIndex: Integer);
   begin
     DeleteRange(AIndex, 1)
   end;
 
 
-  procedure TExList.DeleteRange(AIndex, ACount :TInteger);
+  procedure TExList.DeleteRange(AIndex, ACount :Integer);
   var
     P :Pointer1;
   begin
@@ -667,12 +667,12 @@ interface
   end;
 
 
-  function TExList.Remove(Item :Pointer) :TInteger;
+  function TExList.Remove(Item :Pointer) :Integer;
   begin
     Result := RemoveData(Item);
   end;
 
-  function TExList.RemoveData(const Item) :TInteger;
+  function TExList.RemoveData(const Item) :Integer;
   begin
     Result := IndexOfData(Item);
     if Result <> -1 then
@@ -680,9 +680,9 @@ interface
   end;
 
 
-  procedure TExList.ReplaceRangeFrom(const ABuffer; AIndex, AOldCount, ANewCount :TInteger);
+  procedure TExList.ReplaceRangeFrom(const ABuffer; AIndex, AOldCount, ANewCount :Integer);
   var
-    vNewCount :TInteger;
+    vNewCount :Integer;
     P :Pointer1;
   begin
     if (AIndex < 0) or (AIndex + AOldCount > FCount) then
@@ -709,14 +709,14 @@ interface
     Result := IndexOfData(Item) <> -1;
   end;
 
-  function TExList.IndexOf(Item :Pointer) :TInteger;
+  function TExList.IndexOf(Item :Pointer) :Integer;
   begin
     Result := IndexOfData(Item);
   end;
 
-  function TExList.IndexOfData(const Item) :TInteger;
+  function TExList.IndexOfData(const Item) :Integer;
   var
-    I :TInteger;
+    I :Integer;
     P :Pointer1;
     F :Boolean;
   begin
@@ -739,7 +739,7 @@ interface
 
   procedure TExList.Grow; {virtual;}
   var
-    Delta: TInteger;
+    Delta: Integer;
   begin
     if FCapacity > 64 then
       Delta := FCapacity div 4
@@ -800,7 +800,7 @@ interface
 
   procedure TExList.WriteToStream(Stream :TStream); {override;}
   var
-    I :TInteger;
+    I :Integer;
     P :Pointer1;
   begin
     P := Pointer1(FList);
@@ -837,19 +837,19 @@ interface
 
  {---------------------------------------------}
 
-  function TExList.ItemCompare(PItem, PAnother :Pointer; Context :TInteger) :Integer; {virtual;}
+  function TExList.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {virtual;}
   begin
     Wrong; Result := 0;
   end;
 
 
-  function TExList.ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TInteger) :Integer; {virtual;}
+  function TExList.ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; {virtual;}
   begin
     Wrong; Result := 0;
   end;
 
 
-  function TExList.FindKey(Key :Pointer; Context :TInteger; Opt :TFindOptions; var Index :Integer) :Boolean; {virtual;}
+  function TExList.FindKey(Key :Pointer; Context :TIntPtr; Opt :TFindOptions; var Index :Integer) :Boolean; {virtual;}
   var
     I, L, H, C :Integer;
     P :Pointer;
@@ -907,11 +907,11 @@ interface
   end;
 
 
-  procedure TExList.SortList(Ascend :Boolean; Context :TInteger);
+  procedure TExList.SortList(Ascend :Boolean; Context :TIntPtr);
 
-    procedure LocQuickSort(L, R :TInteger);
+    procedure LocQuickSort(L, R :Integer);
     var
-      I, J, P :TInteger;
+      I, J, P :Integer;
       vPtr :Pointer;
     begin
       repeat
@@ -962,17 +962,17 @@ interface
 
  {---------------------------------------------}
 
-  procedure MemExchange(APtr1, APtr2 :Pointer; ASize :TInteger);
+  procedure MemExchange(APtr1, APtr2 :Pointer; ASize :Integer);
   var
-    vCnt :TInteger;
-    vInt :TCardinal;
+    vCnt :Integer;
+    vInt :TUnsPtr;
     vByte :Byte;
   begin
     vCnt := SizeOf(Pointer);
     while ASize >= vCnt do begin
-      vInt := TCardinal(APtr1^);
-      TCardinal(APtr1^) := TCardinal(APtr2^);
-      TCardinal(APtr2^) := vInt;
+      vInt := TUnsPtr(APtr1^);
+      TUnsPtr(APtr1^) := TUnsPtr(APtr2^);
+      TUnsPtr(APtr2^) := vInt;
       Inc(Pointer1(APtr1), vCnt);
       Inc(Pointer1(APtr2), vCnt);
       Dec(ASize, vCnt);
@@ -988,7 +988,7 @@ interface
   end;
 
 
-  procedure TExList.Exchange(Index1, Index2: TInteger); {virtual;}
+  procedure TExList.Exchange(Index1, Index2: Integer); {virtual;}
   begin
     if (Index1 >= 0) and (Index1 < FCount) and (Index2 >= 0) and (Index2 < FCount) then
       MemExchange(Pointer1(FList) + Index1 * FItemSize, Pointer1(FList) + Index2 * FItemSize, FItemSize)
@@ -997,7 +997,7 @@ interface
   end;
 
 
-  procedure TExList.Move(CurIndex, NewIndex: TInteger);
+  procedure TExList.Move(CurIndex, NewIndex: Integer);
   var
     Item: Pointer;
   begin
@@ -1014,7 +1014,7 @@ interface
 
   procedure TExList.Pack;
   var
-    I: TInteger;
+    I: Integer;
   begin
     Assert(FItemSize = SizeOf(Pointer));
     for I := FCount - 1 downto 0 do
@@ -1037,7 +1037,7 @@ interface
 (*
   procedure TObjList.Assign(Source :TPersistent); {overrite;}
   var
-    I :TInteger;
+    I :Integer;
   begin
     if Source is TObjList then begin
       FreeAll;
@@ -1072,15 +1072,15 @@ interface
   end;
 
 
-  procedure TObjList.FreeAt(AIndex :TInteger);
+  procedure TObjList.FreeAt(AIndex :Integer);
   begin
     FreeRange(AIndex, 1);
   end;
 
 
-  procedure TObjList.FreeRange(AIndex, ACount :TInteger);
+  procedure TObjList.FreeRange(AIndex, ACount :Integer);
   var
-    I :TInteger;
+    I :Integer;
   begin
     if (ACount < 0) or (AIndex < 0) or (AIndex + ACount > FCount) then
       ListError(errComListOutOfIndex);
@@ -1097,7 +1097,7 @@ interface
   end;
 
 
-  procedure TObjList.FreeKey(Key :Pointer; Context :TInteger; Opt :TFindOptions);
+  procedure TObjList.FreeKey(Key :Pointer; Context :TIntPtr; Opt :TFindOptions);
   var
     I :Integer;
   begin
@@ -1121,13 +1121,13 @@ interface
 //end;
 
 
-  function TObjList.ItemCompare(PItem, PAnother :Pointer; Context :TInteger) :Integer; {override;}
+  function TObjList.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
     Assert(TBasis(PItem^).ValidInstance and TBasis(PAnother^).ValidInstance);
     Result := TBasis(PItem^).CompareObj(TBasis(PAnother^), Context);
   end;
 
-  function TObjList.ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TInteger) :Integer; {override;}
+  function TObjList.ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
     Assert(TBasis(PItem^).ValidInstance);
     Result := TBasis(PItem^).CompareKey(Key, Context);
@@ -1152,45 +1152,45 @@ interface
  { TIntList                                                                    }
  {-----------------------------------------------------------------------------}
 
-  function TIntList.Add(Item :TInteger) :TInteger;
+  function TIntList.Add(Item :TIntPtr) :Integer;
   begin
     Result := AddData(Item);
   end;
 
 
-  function TIntList.ItemCompare(PItem, PAnother :Pointer; Context :TInteger) :Integer; {override;}
+  function TIntList.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
-    Result := IntCompare(PTInteger(PItem)^, PTInteger(PAnother)^);
+    Result := IntCompare(PIntPtr(PItem)^, PIntPtr(PAnother)^);
   end;
 
 
-  function TIntList.ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TInteger) :Integer; {override;}
+  function TIntList.ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
-    Result := IntCompare(PTInteger(PItem)^, TInteger(Key));
+    Result := IntCompare(PIntPtr(PItem)^, TIntPtr(Key));
   end;
 
 
  {$ifdef bUseStreams}
   procedure TIntList.ItemToStream(PItem :Pointer; Stream :TStream); {override;}
   begin
-    IntToStream(Stream, TInteger(PItem^));
+    IntToStream(Stream, Integer(PItem^));
   end;
 
 
   procedure TIntList.ItemFromStream(PItem :Pointer; Stream :TStream); {override;}
   begin
-    TInteger(PItem^) := IntFromStream(Stream);
+    Integer(PItem^) := IntFromStream(Stream);
   end;
  {$endif bUseStreams}
 
 
-  function TIntList.GetIntItems(Index :TInteger) :TInteger;
+  function TIntList.GetIntItems(Index :Integer) :TIntPtr;
   begin
-    Result := TInteger(inherited GetItems(Index));
+    Result := TIntPtr(inherited GetItems(Index));
   end;
 
 
-  procedure TIntList.PutIntItems(Index, Value :TInteger);
+  procedure TIntList.PutIntItems(Index :Integer; Value :TIntPtr);
   begin
     inherited PutItems(Index, Pointer(Value));
   end;
@@ -1207,7 +1207,7 @@ interface
   end;
 
 
-  function TStrList.ItemCompare(PItem, PAnother :Pointer; Context :TInteger) :Integer; {override;}
+  function TStrList.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
     Result := UpCompareStr(TString(PItem^), TString(PANother^));
   end;
@@ -1227,9 +1227,9 @@ interface
  {$endif bUseStreams}
 
 
-  function TStrList.IndexOf(const AStr :TString) :TInteger;
+  function TStrList.IndexOf(const AStr :TString) :Integer;
   var
-    I :TInteger;
+    I :Integer;
   begin
     for I := 0 to FCount - 1 do begin
       if StrEqual(TString(FList[I]), AStr) then begin
@@ -1241,13 +1241,13 @@ interface
   end;
 
 
-  function TStrList.Add(const AStr :TString) :TInteger;
+  function TStrList.Add(const AStr :TString) :Integer;
   begin
     Result := FCount;
     Insert(FCount, AStr);
   end;
 
-  procedure TStrList.Insert(Index :TInteger; const AStr :TString);
+  procedure TStrList.Insert(Index :Integer; const AStr :TString);
   var
     vTmp :Pointer;
   begin
@@ -1258,7 +1258,7 @@ interface
   end;
 
 
-  function TStrList.AddSorted(const AStr :TString; Context :TInteger; Duplicates :TDuplicates) :Integer;
+  function TStrList.AddSorted(const AStr :TString; Context :TIntPtr; Duplicates :TDuplicates) :Integer;
   begin
     if FindKey(Pointer(AStr), Context, [foCompareObj, foBinary], Result) then begin
       case Duplicates of
@@ -1270,7 +1270,7 @@ interface
   end;
 
 
-  procedure TStrList.Delete(AIndex :TInteger);
+  procedure TStrList.Delete(AIndex :Integer);
   begin
     FreeAt(AIndex);
   end;
@@ -1281,12 +1281,12 @@ interface
   end;
 
 
-  function TStrList.GetStrItems(Index :TInteger) :TString;
+  function TStrList.GetStrItems(Index :Integer) :TString;
   begin
     Result := TString(inherited GetItems(Index));
   end;
 
-  procedure TStrList.PutStrItems(Index :TInteger; const Value :TString);
+  procedure TStrList.PutStrItems(Index :Integer; const Value :TString);
   begin
     Assert(ValidInstance);
     if (Index < 0) or (Index >= FCount) then
@@ -1330,7 +1330,7 @@ interface
  {$endif bUseStreams}
 
 
-  function TNamedObject.CompareObj(Another :TBasis; Context :TInteger) :Integer; {override;}
+  function TNamedObject.CompareObj(Another :TBasis; Context :TIntPtr) :Integer; {override;}
   begin
     if Another is TNamedObject then
       Result := UpCompareStr(FName, TNamedObject(Another).Name)
@@ -1339,7 +1339,7 @@ interface
   end;
 
 
-  function TNamedObject.CompareKey(Key :Pointer; Context :TInteger) :Integer; {override;}
+  function TNamedObject.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
     Result := UpCompareStr(FName, TString(Key));
   end;
@@ -1389,17 +1389,17 @@ interface
  {-----------------------------------------------------------------------------}
 
  {$ifdef b64}
-  procedure _SetBit({RCX:}ABits :Pointer; {RDX:}ABitIdx :TInteger); register;
+  procedure _SetBit({RCX:}ABits :Pointer; {RDX:}ABitIdx :TIntPtr); register;
   asm
     BTS     [RCX], RDX
   end;
 
-  procedure _ClearBit({RCX:}ABits :Pointer; {RDX:}ABitIdx :TInteger); register;
+  procedure _ClearBit({RCX:}ABits :Pointer; {RDX:}ABitIdx :TIntPtr); register;
   asm
     BTR     [RCX], RDX
   end;
 
-  function _GetBit({RCX:}ABits :Pointer; {RDX:}ABitIdx :TInteger): Boolean; register;
+  function _GetBit({RCX:}ABits :Pointer; {RDX:}ABitIdx :TIntPtr): Boolean; register;
   asm
     BT      [RCX], RDX
     SBB     RAX, RAX
@@ -1408,17 +1408,17 @@ interface
 
  {$else}
 
-  procedure _SetBit({EAX:}ABits :Pointer; {EDX:}ABitIdx :TInteger); register;
+  procedure _SetBit({EAX:}ABits :Pointer; {EDX:}ABitIdx :TIntPtr); register;
   asm
     BTS     [EAX],EDX
   end;
 
-  procedure _ClearBit({EAX:}ABits :Pointer; {EDX:}ABitIdx :TInteger); register;
+  procedure _ClearBit({EAX:}ABits :Pointer; {EDX:}ABitIdx :TIntPtr); register;
   asm
     BTR     [EAX],EDX
   end;
 
-  function _GetBit({EAX:}ABits :Pointer; {EDX:}ABitIdx :TInteger): Boolean; register;
+  function _GetBit({EAX:}ABits :Pointer; {EDX:}ABitIdx :TIntPtr) :Boolean; register;
   asm
     BT      [EAX], EDX
     SBB     EAX, EAX
