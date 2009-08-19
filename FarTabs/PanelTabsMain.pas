@@ -154,6 +154,12 @@ interface
 
 
   procedure TTabsThread.Execute; {override;}
+  const
+   {$ifdef bUnicodeFar}
+    cRetryPeriod = 0;
+   {$else}
+    cRetryPeriod = 300;
+   {$endif bUnicodeFar}
   var
     vInput :TEventTypes;
     vTitle, vLastTitle :TString;
@@ -162,6 +168,7 @@ interface
     vIndex :Integer;
     vKind :TTabKind;
     X, Y :Integer;
+    vTick :DWORD;
     vCh :TChar;
   begin
     vLastTitle := '';
@@ -179,14 +186,15 @@ interface
 //      Trace('Mouse Up.');
       end else
       begin
-
         vInput := CheckInput;
+//      TraceF('Input=%d', [Byte(vInput)]);
+
         if vInput = [] then begin
           vTitle := GetConsoleTitleStr;
           if vTitle <> vLastTitle then begin
 //          Trace('Title changed...');
             vLastTitle := vTitle;
-            CallPlugin(1);  
+            CallPlugin(1);
             vWasInput := False;
           end else
           begin
@@ -199,23 +207,36 @@ interface
               vWasInput := False;
             end else
             if vWasInput then begin
-//            Trace('Check...');
-              CallPlugin(1);
-              vWasInput := False;
+
+              vTick := GetTickCount;
+              while not Terminated and (TickCountDiff(GetTickCount, vTick) < cRetryPeriod) do begin
+                vInput := CheckInput;
+                if vInput <> [] then
+                  Break;
+              end;
+
+              if vInput = [] then begin
+//              Trace('Possible need repaint???...');
+                CallPlugin(1);
+                vWasInput := False;
+              end;
+
             end;
           end;
         end else
-          vWasInput := True;
+          vWasInput := vWasInput or (cetKeyDown in vInput);
 
-        if vInput <> [] then begin
+        if (vInput <> []) or vWasInput then begin
           Sleep(10)
         end else
         if AlertableSleep(1000) then begin
 //        Trace('Alert!');
         end;
       end;
+
     end;
   end;
+
 
 
  {$ifdef bUnicodeFar}
@@ -245,6 +266,7 @@ interface
       Exit;
 
 //  TraceF('Call plugin: ACmd=%d', [ACmd]);
+    
     GlobalCommand := ACmd;
     { Вызовем плагин в основном потоке, через механизм макросов... }
     SendKeys(vKey, vCtrl);
@@ -337,6 +359,7 @@ interface
   procedure SelectTabByKey;
   var
     vKey :Integer;
+    vChr :TChar;
   begin
     vKey := FARAPI.AdvControl(hModule, ACTL_WAITKEY, nil);
     case vKey of
@@ -347,7 +370,18 @@ interface
       KEY_SPACE:
         TabsManager.ListTab(True);
     else
-      TabsManager.SelectTab(True, VKeyToIndex(vKey));
+//    TabsManager.SelectTab(True, VKeyToIndex(vKey));
+     {$ifdef bUnicodeFar}
+      if (vKey > 32) and (vKey < $FFFF) then begin
+     {$else}
+      if (vKey > 32) and (vKey <= $FF) then begin
+     {$endif bUnicodeFar}
+        vChr := TChar(vKey);
+       {$ifndef bUnicodeFar}
+        ChrOemToAnsi(vChr, 1);
+       {$endif bUnicodeFar}
+        TabsManager.SelectTabByKey(True, vChr);
+      end;
     end;
   end;
 
@@ -498,10 +532,10 @@ interface
     try
 //    TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
 
-     {$ifndef bUnicode}
+     {$ifndef bUnicodeFar}
       SetFileApisToAnsi;
       try
-     {$endif bUnicode}
+     {$endif bUnicodeFar}
 
       if OpenFrom and OPEN_FROMMACRO <> 0 then begin
         Item := Item and not OPEN_FROMMACRO;
@@ -526,11 +560,11 @@ interface
       else
         OpenMenu;
 
-     {$ifndef bUnicode}
+     {$ifndef bUnicodeFar}
       finally
         SetFileApisToOEM;
       end;
-     {$endif bUnicode}
+     {$endif bUnicodeFar}
 
     except
       on E :Exception do

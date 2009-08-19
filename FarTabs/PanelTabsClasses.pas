@@ -68,6 +68,8 @@ interface
       FFolder  :TString;
       FDelta   :Integer;
       FWidth   :Integer;
+      FHotkey  :TChar;
+      FHotPos  :Integer;
 
     public
       property Caption :TString read FCaption write FCaption;
@@ -80,6 +82,8 @@ interface
       constructor CreateEx(const AName :TString);
 
       function FindTab(const AName :TString; AByFolder :Boolean) :Integer;
+      function FindTabByKey(AKey :TChar) :Integer;
+      procedure UpdateHotkeys;
       procedure RealignTabs(ANewWidth :Integer);
       procedure StoreReg(const APath :TString);
       procedure RestoreReg(const APath :TString);
@@ -108,6 +112,7 @@ interface
       procedure AddTab(Active :Boolean);
       procedure ListTab(Active :Boolean);
       procedure SelectTab(Active :Boolean; AIndex :Integer);
+      procedure SelectTabByKey(Active :Boolean; AChar :TChar);
 
       procedure ToggleOption(var AOption :Boolean);
       procedure RunCommand(const ACmd :TString);
@@ -222,6 +227,66 @@ interface
 
 
 
+  procedure DrawTextChr(AChr :TChar; X, Y :Integer; AColor :Integer);
+  var
+    vBuf :array[0..1] of TChar;
+  begin
+    vBuf[0] := AChr;
+    vBuf[1] := #0;
+    FARAPI.Text(X, Y, AColor, @vBuf[0]);
+  end;
+
+
+  procedure DrawTextEx(const AStr :TString; X, Y :Integer; AMaxLen, ASelPos, ASelLen :Integer; AColor1, AColor2 :Integer);
+
+    procedure LocDrawPart(var AChr :PTChar; ALen :Integer; var ARest :Integer; AColor :Integer);
+    var
+      vBuf :Array[0..255] of TChar;
+    begin
+      if (ARest > 0) and (ALen > 0) then begin
+        if ALen > ARest then
+          ALen := ARest;
+        if ALen > High(vBuf) then
+          ALen := High(vBuf);
+        StrLCopy(@vBuf[0], AChr, ALen);
+        FARAPI.Text(X, Y, AColor, @vBuf[0]);
+        Dec(ARest, ALen);
+        Inc(AChr, ALen);
+        Inc(X, ALen);
+      end;
+    end;
+
+  var
+    vChr :PTChar;
+  begin
+    vChr := PTChar(AStr);
+    if (ASelPos = 0) or (ASelLen = 0) then
+      LocDrawPart(vChr, Length(AStr), AMaxLen, AColor1)
+    else begin
+      LocDrawPart(vChr, ASelPos - 1, AMaxLen, AColor1);
+      LocDrawPart(vChr, ASelLen, AMaxLen, AColor2);
+      LocDrawPart(vChr, Length(AStr) - ASelPos - ASelLen + 1, AMaxLen, AColor1);
+    end;
+  end;
+
+
+  function FarXLat(AChr :TChar) :TChar;
+  var
+    vBuf :array[0..1] of TChar;
+  begin
+    vBuf[0] := AChr;
+    vBuf[1] := #0;
+   {$ifdef bUnicode}
+    Result := FARSTD.XLat(@vBuf[0], 0, 1, 0)^;
+   {$else}
+    CharToOEMBuffA(vBuf, vBuf, 1);
+    FARSTD.XLat(@vBuf[0], 0, 1, nil, 0);
+    OEMToCharBuffA(vBuf, vBuf, 1);
+    Result := vBuf[0];
+   {$endif bUnicode}
+  end;
+
+  
  {-----------------------------------------------------------------------------}
  { TPanelTab                                                                   }
  {-----------------------------------------------------------------------------}
@@ -266,6 +331,53 @@ interface
   end;
 
 
+  function TPanelTabs.FindTabByKey(AKey :TChar) :Integer;
+  var
+    I :Integer;
+    vKey :TChar;
+    vTab :TPanelTab;
+  begin
+    vKey := CharUpcase(AKey);
+    for I := 0 to FCount - 1 do begin
+      vTab := Items[I];
+      if vTab.FHotkey = vKey then begin
+        Result := I;
+        Exit;
+      end;
+    end;
+    Result := -1;
+  end;
+
+
+  procedure TPanelTabs.UpdateHotkeys;
+  var
+    I, J :Integer;
+    vTab :TPanelTab;
+    vChr :TChar;
+  begin
+    for I := 0 to FCount - 1 do begin
+      vTab := Items[I];
+      vTab.FHotPos := ChrPos('&', vTab.FCaption);
+      if (vTab.FHotPos > 0) and (vTab.FHotPos < length(vTab.FCaption)) then
+        vTab.FHotkey := CharUpcase(vTab.FCaption[vTab.FHotPos + 1])
+      else
+        vTab.FHotkey := #0;
+    end;
+
+    J := 0;
+    for I := 0 to FCount - 1 do begin
+      vTab := Items[I];
+      if vTab.FHotkey = #0 then begin
+        repeat
+          vChr := IndexToChar(J);
+          Inc(J);
+        until FindTabByKey(vChr) = -1;
+        vTab.FHotkey := vChr;
+      end;
+    end;
+  end;
+
+
   procedure TPanelTabs.RealignTabs(ANewWidth :Integer);
 
     function LocReduceTab :Boolean;
@@ -301,6 +413,9 @@ interface
       vTab := Items[I];
 
       L := Length(vTab.FCaption) + 1;
+      if vTab.FHotPos > 0 then
+        Dec(L)
+      else
       if optShowNumbers then
         Inc(L);
 
@@ -416,9 +531,10 @@ interface
       I := 0;
       while True do begin
         if not LocReadTab(vKey, I) then
-          Exit;
+          Break;
         Inc(I);
       end;
+      UpdateHotkeys;
     finally
       RegCloseKey(vKey);
     end;
@@ -477,6 +593,7 @@ interface
         Add(TPanelTab.CreateEx(vCaption, vFolder));
       end;
     end;
+    UpdateHotkeys;
   end;
 
 
@@ -732,7 +849,7 @@ interface
       vTabs   :TPanelTabs;
       vTab    :TPanelTab;
       vStr, vStr1 :TString;
-      vTmp    :array[0..1] of TChar;
+      vHotColor :Integer;
     begin
       vTabs := FTabs[AKind];
       vRect := FRects[AKind];
@@ -746,7 +863,6 @@ interface
       vStr := StringOfChar(' ', vRect.Right - vRect.Left);
       FARAPI.Text(vRect.Left, vRect.Top, vColor0, PTChar(vStr));
 
-      vTmp[1] := #0;
       for I := 0 to vTabs.Count - 1 do begin
         vTab := vTabs[I];
        {$ifdef bUnicodefar}
@@ -756,44 +872,43 @@ interface
        {$endif bUnicodefar}
         X := vRect.Left + vTab.FDelta;
 
+        vStr1 := '';
         vWidth := vTab.FWidth - 1;
-        if optShowNumbers then begin
-          vStr1 := IndexToChar(I);
-          Dec(vWidth);
-        end;
-
-        if Length(vStr) > vWidth then
-          vStr := Copy(vStr, 1, vWidth);
+        if vTab.FHotPos > 0 then begin
+          Delete(vStr, vTab.FHotPos, 1);
+        end else
+        if optShowNumbers then
+          vStr1 := vTab.FHotkey;
 
         if StrEqual(vFolders[AKind], vTab.FFolder) then begin
-          vTmp[0] := cSide2;
-          FARAPI.Text(X-1, vRect.Top, vColorSide1, @vTmp[0]);
+          DrawTextChr(cSide2, X-1, vRect.Top, vColorSide1);
 
-          if optShowNumbers then begin
-            FARAPI.Text(X, vRect.Top, (vColor4 and $0F) or (vColor1 and $F0), PTChar(vStr1));
+          vHotColor := (vColor4 and $0F) or (vColor1 and $F0);
+          if vStr1 <> '' then begin
+            FARAPI.Text(X, vRect.Top, vHotColor, PTChar(vStr1));
+            Dec(vWidth);
             Inc(X);
           end;
-          FARAPI.Text(X, vRect.Top, vColor1, PTChar(vStr));
-          Inc(X, Length(vStr));
+          DrawTextEx(vStr, X, vRect.Top, vWidth, vTab.FHotPos, 1, vColor1, vHotColor);
+          Inc(X, vWidth);
 
-          vTmp[0] := cSide1;
-          FARAPI.Text(X, vRect.Top, vColorSide1, @vTmp[0]);
+          DrawTextChr(cSide1, X, vRect.Top, vColorSide1);
         end else
         begin
-          if optShowNumbers then begin
-            FARAPI.Text(X, vRect.Top, (vColor4 and $0F) or (vColor2 and $F0), PTChar(vStr1));
+          vHotColor := (vColor4 and $0F) or (vColor2 and $F0);
+          if vStr1 <> '' then begin
+            FARAPI.Text(X, vRect.Top, vHotColor, PTChar(vStr1));
+            Dec(vWidth);
             Inc(X);
           end;
-          FARAPI.Text(X, vRect.Top, vColor2, PTChar(vStr));
+          DrawTextEx(vStr, X, vRect.Top, vWidth, vTab.FHotPos, 1, vColor2, vHotColor);
         end;
       end;
 
       if optShowButton then begin
-        vTmp[0] := cSide2;
-        FARAPI.Text(vRect.Right - 3, vRect.Top, vColorSide2, @vTmp[0]);
-        FARAPI.Text(vRect.Right - 2, vRect.Top, vColor3, '+');
-        vTmp[0] := cSide1;
-        FARAPI.Text(vRect.Right - 1, vRect.Top, vColorSide2, @vTmp[0]);
+        DrawTextChr(cSide2, vRect.Right - 3, vRect.Top, vColorSide2);
+        DrawTextChr('+', vRect.Right - 2, vRect.Top, vColor3);
+        DrawTextChr(cSide1, vRect.Right - 1, vRect.Top, vColorSide2);
       end else
       begin
 //      vTmp[0] := cSide1;
@@ -855,6 +970,7 @@ interface
       vTabs.Add(TPanelTab.CreateEx(vCaption, vPath));
       vTabs.StoreReg('');
       vTabs.FAllWidth := -1;
+      vTabs.UpdateHotkeys;
       PaintTabs;
     end else
       Beep;
@@ -873,6 +989,7 @@ interface
       JumpToPath(vTab.FFolder, Active);
     end;
     vTabs.FAllWidth := -1;
+    vTabs.UpdateHotkeys;
     PaintTabs;
   end;
 
@@ -921,6 +1038,26 @@ interface
   end;
 
 
+  procedure TTabsManager.SelectTabByKey(Active :Boolean; AChar :TChar);
+  var
+    vIndex :Integer;
+    vTabs :TPanelTabs;
+    vTab :TPanelTab;
+  begin
+    vTabs := GetTabs(Active);
+    vIndex := vTabs.FindTabByKey(AChar);
+    if vIndex = -1 then begin
+      AChar := FarXLat(AChar);
+      vIndex := vTabs.FindTabByKey(AChar);
+    end;
+    if vIndex <> -1 then begin
+      vTab := vTabs[vIndex];
+      JumpToPath(vTab.FFolder, Active);
+    end else
+      Beep;
+  end;
+
+
   procedure TTabsManager.MouseClick;
 
     procedure LocGotoTab(AKind :TTabKind; AIndex :Integer);
@@ -956,6 +1093,7 @@ interface
       if EditTab(vTabs, AIndex) then begin
         vTabs.StoreReg('');
         vTabs.FAllWidth := -1;
+        vTabs.UpdateHotkeys;
         PaintTabs;
       end;
     end;
