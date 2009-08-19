@@ -91,11 +91,11 @@ interface
 //  optFoundColor      :Integer = $0A;
 //  optSelectedColor   :Integer = $20;
 
-   {$ifdef bUnicode}
+   {$ifdef bUnicodeFar}
    {$else}
     TabKey1            :Word    = 0; {VK_F24 - $87}
     TabShift1          :Word    = 0; {LEFT_ALT_PRESSED or SHIFT_PRESSED}
-   {$endif bUnicode}
+   {$endif bUnicodeFar}
 
 
 
@@ -264,11 +264,11 @@ interface
     vInfo  :TPanelInfo;
   begin
     FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodefar}
+   {$ifdef bUnicodeFar}
     FARAPI.Control(THandle(PANEL_ACTIVE), FCTL_GetPanelInfo, 0, @vInfo);
    {$else}
     FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelShortInfo, @vInfo);
-   {$endif bUnicodefar}
+   {$endif bUnicodeFar}
     Result := (PFLAGS_PANELLEFT and vInfo.Flags = 0);
   end;
 
@@ -295,10 +295,10 @@ interface
     vStr :TFarStr;
     vMacro :TActlKeyMacro;
   begin
-   {$ifndef bUnicode}
+   {$ifndef bUnicodeFar}
     SetFileApisToOEM;
     try
-   {$endif bUnicode}
+   {$endif bUnicodeFar}
 
     if IsFullFilePath(APath) then begin
      {$ifdef bUnicodeFar}
@@ -329,11 +329,11 @@ interface
     end else
       Beep;
 
-   {$ifndef bUnicode}
+   {$ifndef bUnicodeFar}
     finally
       SetFileApisToAnsi;
     end;
-   {$endif bUnicode}
+   {$endif bUnicodeFar}
   end;
 
 
@@ -369,11 +369,11 @@ interface
     if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then
       Exit;
     try
-     {$ifdef bUnicode}
+     {$ifdef bUnicodeFar}
      {$else}
       TabKey1 := RegQueryInt(vKey, 'CallKey', TabKey1);
       TabShift1 := RegQueryInt(vKey, 'CallShift', TabShift1);
-     {$endif bUnicode}
+     {$endif bUnicodeFar}
 
       optBkColor := RegQueryInt(vKey, 'TabBkColor', optBkColor);
       optActiveTabColor := RegQueryInt(vKey, 'ActiveTabColor', optActiveTabColor);
