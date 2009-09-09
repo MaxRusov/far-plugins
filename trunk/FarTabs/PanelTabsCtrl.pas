@@ -51,6 +51,7 @@ interface
       strAddTab,
       strCaption,
       strFolder,
+      strFixed,
       strOk,
       strCancel,
       strDelete,
@@ -61,25 +62,29 @@ interface
 
 
   const
-    cFarTabGUID      = $A91B3F07;
-    cFarTabPrefix    = 'tab';
+    cFarTabGUID        = $A91B3F07;
+    cFarTabPrefix      = 'tab';
 
-    cTabFileExt      = 'tab';
+    cTabFileExt        = 'tab';
 
-    cPlugRegFolder   = 'PanelTabs';
-    cTabsRegFolder   = 'Tabs';
-    cTabRegFolder    = 'Tab';
-    cLeftRegFolder   = 'Left';
-    cRightRegFolder  = 'Right';
-    cCommonRegFolder = 'Common';
-    cCaptionRegKey   = 'Caption';
-    cFolderRegKey    = 'Folder';
+    cPlugRegFolder     = 'PanelTabs';
+    cTabsRegFolder     = 'Tabs';
+    cTabRegFolder      = 'Tab';
+    cLeftRegFolder     = 'Left';
+    cRightRegFolder    = 'Right';
+    cCommonRegFolder   = 'Common';
+    cCaptionRegKey     = 'Caption';
+    cFolderRegKey      = 'Folder';
+    cCurrentRegKey     = 'Current';
 
   var
     optShowTabs        :Boolean = True;
     optShowNumbers     :Boolean = True;
     optShowButton      :Boolean = True;
     optSeparateTabs    :Boolean = True;
+
+    optFixedMark       :TString = '*';
+    optNotFixedMark    :TString = '';
 
     optBkColor         :Integer = 0;
     optActiveTabColor  :Integer = 0;
@@ -125,7 +130,11 @@ interface
 
   function CurrentPanelIsRight :Boolean;
   function GetPanelDir(Active :Boolean) :TString;
+  function GetCurrentItem(Active :Boolean) :TString;
+  procedure SetCurrentItem(Active :Boolean; const AItem :TString);
   procedure JumpToPath(const APath :TString; Active :Boolean);
+
+  function PathToCaption(const APath :TString) :TString;
 
   procedure ReadSetup;
   procedure WriteSetup;
@@ -290,6 +299,84 @@ interface
   end;
 
 
+  function GetCurrentItem(Active :Boolean) :TString;
+  var
+    vInfo :TPanelInfo;
+    vIndex :Integer;
+   {$ifdef bUnicodeFar}
+    vHandle :THandle;
+   {$endif bUnicodeFar}
+  begin
+    Result := '';
+
+    FillChar(vInfo, SizeOf(vInfo), 0);
+   {$ifdef bUnicodeFar}
+    vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
+    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+   {$else}
+    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
+   {$endif bUnicodeFar}
+
+    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
+
+      vIndex := vInfo.CurrentItem;
+      if (vIndex < 0) or (vIndex >= vInfo.ItemsNumber) then
+        Exit;
+
+     {$ifdef bUnicodeFar}
+      Result := FarPanelItemName(vHandle, FCTL_GETPANELITEM, vIndex);
+     {$else}
+      Result := FarChar2Str(vInfo.PanelItems[vIndex].FindData.cFileName);
+     {$endif bUnicodeFar}
+    end;
+  end;
+
+
+  procedure SetCurrentItem(Active :Boolean; const AItem :TString);
+  var
+    I :Integer;
+    vStr :TString;
+    vInfo :TPanelInfo;
+    vRedrawInfo :TPanelRedrawInfo;
+   {$ifdef bUnicodeFar}
+    vHandle :THandle;
+   {$endif bUnicodeFar}
+  begin
+    FillChar(vInfo, SizeOf(vInfo), 0);
+   {$ifdef bUnicodeFar}
+    vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
+    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+   {$else}
+    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
+   {$endif bUnicodeFar}
+
+    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
+      vRedrawInfo.TopPanelItem := vInfo.TopPanelItem;
+      vRedrawInfo.CurrentItem := vInfo.CurrentItem;
+
+      for I := 0 to vInfo.ItemsNumber - 1 do begin
+       {$ifdef bUnicodeFar}
+        vStr := FarPanelItemName(vHandle, FCTL_GETPANELITEM, I);
+       {$else}
+        vStr := FarChar2Str(vInfo.PanelItems[I].FindData.cFileName);
+       {$endif bUnicodeFar}
+
+        if StrEqual(vStr, AItem) then begin
+//        vRedrawInfo.TopPanelItem := I; {???}
+          vRedrawInfo.CurrentItem := I;
+          Break;
+        end;
+      end;
+
+     {$ifdef bUnicodeFar}
+      FARAPI.Control(vHandle, FCTL_REDRAWPANEL, 0, @vRedrawInfo);
+     {$else}
+      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_REDRAWPANEL, FCTL_REDRAWANOTHERPANEL), @vRedrawInfo);
+     {$endif bUnicodeFar}
+    end;
+  end;
+
+
   procedure JumpToPath(const APath :TString; Active :Boolean);
   var
     vStr :TFarStr;
@@ -360,6 +447,14 @@ interface
   end;
 
 
+  function PathToCaption(const APath :TString) :TString;
+  begin
+    Result := ExtractFileName(APath);
+    if Result = '' then
+      Result := APath;
+  end;
+
+
  {-----------------------------------------------------------------------------}
 
   procedure ReadSetup;
@@ -384,6 +479,9 @@ interface
 //    optHiddenColor := RegQueryInt(vKey, 'HiddenColor', optHiddenColor);
 //    optFoundColor := RegQueryInt(vKey, 'FoundColor', optFoundColor);
 //    optSelectedColor := RegQueryInt(vKey, 'SelectedColor', optSelectedColor);
+
+      optFixedMark := RegQueryStr(vKey, 'LockedMark', optFixedMark);
+      optNotFixedMark := RegQueryStr(vKey, 'UnlockedMark', optNotFixedMark);
 
       optShowTabs := RegQueryLog(vKey, 'ShowTabs', optShowTabs);
       optShowNumbers := RegQueryLog(vKey, 'ShowNumbers', optShowNumbers);
