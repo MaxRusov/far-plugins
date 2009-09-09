@@ -130,6 +130,8 @@ interface
   begin
     SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
     ReinitListControl;
+    if FResInd <> -1 then
+      SetCurrent(FResInd);
   end;
 
 
@@ -180,7 +182,7 @@ interface
     vMaxLen1 := 0; vMaxLen2 := 0;
     for I := 0 to FTabs.Count - 1 do begin
       vTab := FTabs[I];
-      vMaxLen1 := IntMax(vMaxLen1, Length(vTab.Caption));
+      vMaxLen1 := IntMax(vMaxLen1, Length(vTab.GetTabCaption));
       vMaxLen2 := IntMax(vMaxLen2, Length(vTab.Folder));
     end;
 
@@ -231,7 +233,7 @@ interface
   begin
     if ARow < FTabs.Count then begin
       vTab := FTabs[ARow];
-      vStr := Format('%s %s', [IndexToChar(ARow), vTab.Caption]);
+      vStr := Format('%s %s', [IndexToChar(ARow), vTab.GetTabCaption]);
       FGrid.DrawChrEx(X, Y, PTChar(vStr), AWidth, 0, 1, AColor, IntIf(FGrid.CurRow = ARow, FHotkeyColor2, FHotkeyColor1));
     end;
   end;
@@ -373,6 +375,7 @@ interface
     vDlg := TTabsList.Create;
     try
       vDlg.FTabs := ATabs;
+      vDlg.FResInd := AIndex;
 
       if vDlg.Run = -1 then
         Exit;

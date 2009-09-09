@@ -14,6 +14,7 @@ interface
     Windows,
     MixTypes,
     MixUtils,
+    MixStrings,
    {$ifdef bUnicodeFar}
     PluginW,
    {$else}
@@ -41,21 +42,24 @@ interface
     IdFrame         = 0;
     IdEdtCaption    = 2;
     IdEdtFolder     = 4;
-    IdCancel        = 7;
-    IdDelete        = 8;
+    IdChkFixed      = 5;
+    IdCancel        = 8;
+    IdDelete        = 9;
 
   type
     TEditTabDlg = class(TFarDialog)
     public
       constructor Create; override;
-      
+
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
       function CloseDialog(ItemID :Integer) :Boolean; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
     private
       FTab    :TPanelTab;
+      FLock   :Integer;
     end;
 
 
@@ -68,12 +72,12 @@ interface
   procedure TEditTabDlg.Prepare; {override;}
   const
     DX = 76;
-    DY = 11;
+    DY = 12;
   begin
     FHelpTopic := 'Edit';
     FWidth := DX;
     FHeight := DY;
-    FItemCount := 9;
+    FItemCount := 10;
 
     FDialog := CreateDialog(
       [
@@ -84,6 +88,8 @@ interface
 
         NewItemApi(DI_Text,     5,   4,   DX-10,  -1,   0, GetMsg(strFolder)),
         NewItemApi(DI_Edit,     5,   5,   DX-10,  -1,   DIF_HISTORY, '', 'PanelTabs.Folder' ),
+
+        NewItemApi(DI_Checkbox, 5,   7,   DX-10,  -1,   0, GetMsg(strFixed) ),
 
         NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strOk) ),
@@ -96,12 +102,14 @@ interface
 
   procedure TEditTabDlg.InitDialog; {override;}
   begin
-    SetText(IdEdtCaption, FTab.Caption);
+    if FTab.IsFixed then
+      SetText(IdEdtCaption, FTab.Caption);
     SetText(IdEdtFolder, FTab.Folder);
     if FTab.Caption = '' then begin
       SetText(IdFrame, GetMsg(strAddTab));
       SendMsg(DM_ENABLE, IdDelete, 0);
     end;
+    SendMsg(DM_SETCHECK, IdChkFixed, IntIf(FTab.IsFixed, BSTATE_CHECKED, BSTATE_UNCHECKED));
   end;
 
 
@@ -112,15 +120,65 @@ interface
     if (ItemID <> -1) and (ItemID <> IdCancel) and (ItemID <> IdDelete) then begin
       vCaption := Trim(GetText(IdEdtCaption));
       vFolder := GetText(IdEdtFolder);
-      if vCaption = '' then
-        AppErrorID(strEmptyCaption);
+//    if vCaption = '' then
+//      AppErrorID(strEmptyCaption);
 //    if not IsFullFilePath(vFolder) then
 //      AppErrorFmt('Invalid path: %s', [vFolder]);
+
+      if (vCaption = '') and (vFolder <> '') then
+        vCaption := '*';
 
       FTab.Caption := vCaption;
       FTab.Folder := vFolder;
     end;
     Result := True;
+  end;
+
+
+  function TEditTabDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+
+    procedure LocChangeChk;
+    var
+      vFixed :Boolean;
+      vFolder :TString;
+    begin
+      Inc(FLock);
+      try
+        vFixed := SendMsg(DM_GETCHECK, IdChkFixed, 0) = BSTATE_CHECKED;
+//      TraceF('Fixed: %d', [Byte(vFixed)]);
+        if vFixed then begin
+          vFolder := GetText(IdEdtFolder);
+          SetText(IdEdtCaption, PathToCaption(vFolder));
+        end else
+          SetText(IdEdtCaption, '');
+      finally
+        Dec(FLock);
+      end;
+    end;
+
+
+    procedure LocChangeCaption;
+    var
+      vCaption :TString;
+    begin
+      if FLock = 0 then begin
+        vCaption := Trim(GetText(IdEdtCaption));
+        SendMsg(DM_SETCHECK, IdChkFixed, IntIf(vCaption <> '', BSTATE_CHECKED, BSTATE_UNCHECKED));
+      end;
+    end;
+
+
+  begin
+//  TraceF('InfoDialogProc: FHandle=%d, Msg=%d, Param1=%d, Param2=%d', [FHandle, Msg, Param1, Param2]);
+    case Msg of
+      DN_BTNCLICK:
+        if Param1 = IdChkFixed then
+          LocChangeChk;
+      DN_EDITCHANGE:
+        if Param1 = IdEdtCaption then
+          LocChangeCaption;
+    end;
+    Result := inherited DialogHandler(Msg, Param1, Param2);
   end;
 
 
@@ -165,7 +223,7 @@ interface
       vDlg.FTab := TPanelTab.CreateEx('', '');
 
       vRes := vDlg.Run;
-      if (vRes = -1) or (vRes = IdCancel) then
+      if (vRes = -1) or (vRes = IdCancel) or (vDlg.FTab.Folder = '') then
         Exit;
 
       ATabs.Insert(AIndex, vDlg.FTab);

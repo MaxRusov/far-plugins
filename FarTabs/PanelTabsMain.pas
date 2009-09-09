@@ -367,8 +367,12 @@ interface
         {};
       KEY_INS:
         TabsManager.AddTab(True);
+      KEY_DEL:
+        TabsManager.DeleteTab(True);
       KEY_SPACE:
         TabsManager.ListTab(True);
+      KEY_MULTIPLY:
+        TabsManager.FixUnfixTab(True);
     else
 //    TabsManager.SelectTab(True, VKeyToIndex(vKey));
      {$ifdef bUnicodeFar}
@@ -518,6 +522,10 @@ interface
  {$endif bUnicodeFar}
   begin
     SetTabsThread(False);
+    try
+      TabsManager.StoreTabs;
+    except
+    end;
     FreeObj(TabsManager);
   end;
 

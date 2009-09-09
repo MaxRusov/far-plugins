@@ -63,13 +63,19 @@ interface
     public
       constructor CreateEx(const ACaption, AFolder :TString);
 
+      function GetTabCaption :TString;
+      function IsFixed :Boolean;
+      procedure Fix(AValue :Boolean);
+
     private
-      FCaption :TString;
-      FFolder  :TString;
-      FDelta   :Integer;
-      FWidth   :Integer;
-      FHotkey  :TChar;
-      FHotPos  :Integer;
+      FCaption  :TString;
+      FFolder   :TString;
+      FDelta    :Integer;
+      FWidth    :Integer;
+      FHotkey   :TChar;
+      FHotPos   :Integer;
+
+      FCurrent  :TString;    { Текущий Item на данном Tab'е }
 
     public
       property Caption :TString read FCaption write FCaption;
@@ -81,7 +87,7 @@ interface
     public
       constructor CreateEx(const AName :TString);
 
-      function FindTab(const AName :TString; AByFolder :Boolean) :Integer;
+      function FindTab(const AName :TString; AFixedOnly, AByFolder :Boolean) :Integer;
       function FindTabByKey(AKey :TChar) :Integer;
       procedure UpdateHotkeys;
       procedure RealignTabs(ANewWidth :Integer);
@@ -91,8 +97,9 @@ interface
       procedure RestoreFile(const AFileName :TString);
 
     private
-      FName     :TString;
-      FAllWidth :Integer;
+      FName     :TString;    { Имя набора = имя ветки реестра}
+      FCurrent  :Integer;    { Текущий Tab (для нефиксированных табов) }
+      FAllWidth :Integer;    { Ширина панели табов при последнем вызове RealignTabs }
     end;
 
 
@@ -110,21 +117,31 @@ interface
 
       procedure MouseClick;
       procedure AddTab(Active :Boolean);
+      procedure DeleteTab(Active :Boolean);
       procedure ListTab(Active :Boolean);
+      procedure FixUnfixTab(Active :Boolean);
       procedure SelectTab(Active :Boolean; AIndex :Integer);
       procedure SelectTabByKey(Active :Boolean; AChar :TChar);
 
       procedure ToggleOption(var AOption :Boolean);
       procedure RunCommand(const ACmd :TString);
 
+      procedure StoreTabs;
+      procedure RestoreTabs;
+
     private
       FRects :array[TTabKind] of TRect;
       FTabs  :array[TTabKind] of TPanelTabs;
 
-      procedure RestoreTabs;
       function KindOfTab(Active :Boolean) :TTabKind;
       function GetTabs(Active :Boolean) :TPanelTabs;
-      procedure AddTabEx(Active :Boolean; AKind :TTabKind);
+      procedure RememberTabState(Active :Boolean; AKind :TTabKind);
+      procedure RestoreTabState(Active :Boolean; ATab :TPanelTab);
+      procedure DoSelectTab(Active :Boolean; AKind :TTabKind; AOnPassive :Boolean; AIndex :Integer);
+
+      procedure AddTabEx(Active :Boolean; AKind :TTabKind; AFixed :Boolean);
+      procedure DeleteTabEx(Active :Boolean; AKind :TTabKind);
+      procedure FixUnfixTabEx(Active :Boolean; AKind :TTabKind);
       procedure ListTabEx(Active :Boolean; AKind :TTabKind);
     end;
 
@@ -286,7 +303,7 @@ interface
    {$endif bUnicode}
   end;
 
-  
+
  {-----------------------------------------------------------------------------}
  { TPanelTab                                                                   }
  {-----------------------------------------------------------------------------}
@@ -299,6 +316,33 @@ interface
   end;
 
 
+  function TPanelTab.IsFixed :Boolean;
+  begin
+    Result := (FCaption <> '') and (FCaption <> '*');
+  end;
+
+
+  function TPanelTab.GetTabCaption :TString;
+  begin
+    if IsFixed then
+      Result := optFixedMark + FCaption
+    else begin
+      Result := PathToCaption(FFolder);
+      if optNotFixedMark <> '' then
+        Result := optNotFixedMark + Result;
+    end;
+  end;
+
+
+  procedure TPanelTab.Fix(AValue :Boolean);
+  begin
+    if AValue then 
+      FCaption := PathToCaption(FFolder)
+    else
+      FCaption := '*';
+  end;
+
+
  {-----------------------------------------------------------------------------}
  { TPanelTabs                                                                  }
  {-----------------------------------------------------------------------------}
@@ -307,10 +351,11 @@ interface
   begin
     Create;
     FName := AName;
+    FCurrent := -1;
   end;
 
 
-  function TPanelTabs.FindTab(const AName :TString; AByFolder :Boolean) :Integer;
+  function TPanelTabs.FindTab(const AName :TString; AFixedOnly, AByFolder :Boolean) :Integer;
   var
     I :Integer;
     vTab :TPanelTab;
@@ -318,6 +363,8 @@ interface
   begin
     for I := 0 to FCount - 1 do begin
       vTab := Items[I];
+      if AFixedOnly and not vTab.IsFixed then
+        Continue;
       if not AByFolder then
         vStr := vTab.FCaption
       else
@@ -353,13 +400,15 @@ interface
   var
     I, J :Integer;
     vTab :TPanelTab;
+    vStr :TString;
     vChr :TChar;
   begin
     for I := 0 to FCount - 1 do begin
       vTab := Items[I];
-      vTab.FHotPos := ChrPos('&', vTab.FCaption);
-      if (vTab.FHotPos > 0) and (vTab.FHotPos < length(vTab.FCaption)) then
-        vTab.FHotkey := CharUpcase(vTab.FCaption[vTab.FHotPos + 1])
+      vStr := vTab.GetTabCaption;
+      vTab.FHotPos := ChrPos('&', vStr);
+      if (vTab.FHotPos > 0) and (vTab.FHotPos < length(vStr)) then
+        vTab.FHotkey := CharUpcase(vStr[vTab.FHotPos + 1])
       else
         vTab.FHotkey := #0;
     end;
@@ -412,7 +461,7 @@ interface
     for I := 0 to FCount - 1 do begin
       vTab := Items[I];
 
-      L := Length(vTab.FCaption) + 1;
+      L := Length(vTab.GetTabCaption) + 1;
       if vTab.FHotPos > 0 then
         Dec(L)
       else
@@ -485,9 +534,12 @@ interface
       I := Count;
       while True do begin
         if not LocDelete(vKey, I) then
-          Exit;
+          Break;
         Inc(I);
       end;
+
+      RegWriteInt(vKey, cCurrentRegKey, FCurrent);
+
     finally
       RegCloseKey(vKey);
     end;
@@ -534,6 +586,9 @@ interface
           Break;
         Inc(I);
       end;
+
+      FCurrent := RegQueryInt(vKey, cCurrentRegKey, FCurrent);
+
       UpdateHotkeys;
     finally
       RegCloseKey(vKey);
@@ -622,6 +677,14 @@ interface
   end;
 
 
+  procedure TTabsManager.StoreTabs;
+  begin
+    FTabs[tkLeft].StoreReg('');
+    FTabs[tkRight].StoreReg('');
+    FTabs[tkCommon].StoreReg('');
+  end;
+
+
   procedure TTabsManager.RestoreTabs;
   begin
     FTabs[tkLeft].RestoreReg('');
@@ -693,7 +756,6 @@ interface
     end else
       Result := LocCheck(tkCommon);
   end;
-
 
 
   function TTabsManager.NeedCheck(var X, Y :Integer) :Boolean;
@@ -809,13 +871,18 @@ interface
           vKind := tkLeft
         else
           vKind := tkRight;
-       {$ifdef bUnicodefar}
-        vFolders[vKind] := GetPanelDir(Active);
-       {$else}
-        vFolders[vKind] := FarChar2Str(vInfo.CurDir);
-       {$endif bUnicodefar}
+          
+        if vInfo.Plugin = 0 then begin
+         {$ifdef bUnicodefar}
+          vFolders[vKind] := GetPanelDir(Active);
+         {$else}
+          vFolders[vKind] := FarChar2Str(vInfo.CurDir);
+         {$endif bUnicodefar}
+        end else
+          vFolders[vKind] := '';
         if not optSeparateTabs and Active then
           vFolders[tkCommon] := vFolders[vKind];
+
         with vInfo.PanelRect do begin
           FRects[vKind] := Rect(Left, Bottom + 1, Right + 1, Bottom + 2);
           { Check fullscreen }
@@ -845,16 +912,37 @@ interface
     procedure PaintTabsForPanel(AKind :TTabKind);
     var
       I, X, vWidth :Integer;
-      vRect   :TRect;
-      vTabs   :TPanelTabs;
-      vTab    :TPanelTab;
+      vRect :TRect;
+      vTabs :TPanelTabs;
+      vTab :TPanelTab;
       vStr, vStr1 :TString;
       vHotColor :Integer;
+      vCurrentIndex :Integer;
     begin
       vTabs := FTabs[AKind];
       vRect := FRects[AKind];
       if RectEmpty(vRect) then
         Exit;
+
+      vCurrentIndex := -1;
+      if vTabs.FCurrent <> -1 then begin
+        if vTabs.FCurrent < vTabs.Count then begin
+          vTab := vTabs[vTabs.FCurrent];
+          if not vTab.IsFixed then begin
+            { Таб, следящий за сменой позиции... }
+            vCurrentIndex := vTabs.FCurrent;
+            if not StrEqual(vTab.FFolder, vFolders[AKind]) then begin
+              if vFolders[AKind] <> '' then begin
+                vTab.FFolder := vFolders[AKind];
+                vTabs.FAllWidth := -1;
+              end else
+                { Плагин. Пока не поддерживается. }
+                vCurrentIndex := -1;
+            end;
+          end;
+        end else
+          vTabs.FCurrent := -1;
+      end;
 
       vWidth := vRect.Right - vRect.Left + 1;
       if vTabs.FAllWidth <> vWidth then
@@ -866,9 +954,9 @@ interface
       for I := 0 to vTabs.Count - 1 do begin
         vTab := vTabs[I];
        {$ifdef bUnicodefar}
-        vStr := vTab.FCaption;
+        vStr := vTab.GetTabCaption;
        {$else}
-        vStr := StrAnsiToOem(vTab.FCaption);
+        vStr := StrAnsiToOem(vTab.GetTabCaption);
        {$endif bUnicodefar}
         X := vRect.Left + vTab.FDelta;
 
@@ -880,7 +968,10 @@ interface
         if optShowNumbers then
           vStr1 := vTab.FHotkey;
 
-        if StrEqual(vFolders[AKind], vTab.FFolder) then begin
+        if (vCurrentIndex = -1) and vTab.IsFixed and StrEqual(vFolders[AKind], vTab.FFolder) then
+          vCurrentIndex := I;
+
+        if vCurrentIndex = I then begin
           DrawTextChr(cSide2, X-1, vRect.Top, vColorSide1);
 
           vHotColor := (vColor4 and $0F) or (vColor1 and $F0);
@@ -954,46 +1045,6 @@ interface
   end;
 
 
- {-----------------------------------------------------------------------------}
-
-  procedure TTabsManager.AddTabEx(Active :Boolean; AKind :TTabKind);
-  var
-    vPath, vCaption :TString;
-    vTabs :TPanelTabs;
-  begin
-    vPath := GetPanelDir(Active);
-    vTabs := FTabs[AKind];
-    if vTabs.FindTab(vPath, True) = -1 then begin
-      vCaption := ExtractFileName(vPath);
-      if vCaption = '' then
-        vCaption := vPath;
-      vTabs.Add(TPanelTab.CreateEx(vCaption, vPath));
-      vTabs.StoreReg('');
-      vTabs.FAllWidth := -1;
-      vTabs.UpdateHotkeys;
-      PaintTabs;
-    end else
-      Beep;
-  end;
-
-
-  procedure TTabsManager.ListTabEx(Active :Boolean; AKind :TTabKind);
-  var
-    vIndex :Integer;
-    vTabs :TPanelTabs;
-    vTab :TPanelTab;
-  begin
-    vTabs := FTabs[AKind];
-    if ListTabDlg(vTabs, vIndex) then begin
-      vTab := vTabs[vIndex];
-      JumpToPath(vTab.FFolder, Active);
-    end;
-    vTabs.FAllWidth := -1;
-    vTabs.UpdateHotkeys;
-    PaintTabs;
-  end;
-
-
   function TTabsManager.KindOfTab(Active :Boolean) :TTabKind;
   begin
     if optSeparateTabs then begin
@@ -1012,9 +1063,122 @@ interface
   end;
 
 
+ {-----------------------------------------------------------------------------}
+
+  procedure TTabsManager.RememberTabState(Active :Boolean; AKind :TTabKind);
+  var
+    vTabs :TPanelTabs;
+    vTab :TPanelTab;
+  begin
+    vTabs := FTabs[AKind];
+    if (vTabs.FCurrent >= 0) and (vTabs.FCurrent < vTabs.FCount) then begin
+      vTab := vTabs[vTabs.FCurrent];
+      vTab.FCurrent := GetCurrentItem(Active);
+    end;
+  end;
+
+
+  procedure TTabsManager.RestoreTabState(Active :Boolean; ATab :TPanelTab);
+  begin
+    if (ATab.FCurrent <> '') and (ATab.FCurrent <> '..') then begin
+      SetCurrentItem(Active, ATab.FCurrent);
+    end;
+  end;
+
+
+  procedure TTabsManager.DoSelectTab(Active :Boolean; AKind :TTabKind; AOnPassive :Boolean; AIndex :Integer);
+  var
+    vTabs :TPanelTabs;
+    vTab :TPanelTab;
+  begin
+    vTabs := FTabs[AKind];
+    if (AIndex >= 0) and (AIndex < vTabs.Count)then begin
+      vTab := vTabs[AIndex];
+      if not AOnPassive then begin
+        RememberTabState(Active, AKind);
+        JumpToPath(vTab.FFolder, Active);
+        RestoreTabState(Active, vTab);
+        vTabs.FCurrent := AIndex;
+      end else
+        JumpToPath(vTab.FFolder, not Active);
+      PaintTabs;
+    end else
+      Beep;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
   procedure TTabsManager.AddTab(Active :Boolean);
   begin
-    AddTabEx(Active, KindOfTab(Active));
+    AddTabEx(Active, KindOfTab(Active), False);
+  end;
+
+  procedure TTabsManager.AddTabEx(Active :Boolean; AKind :TTabKind; AFixed :Boolean);
+  var
+    vPath, vCaption :TString;
+    vTabs :TPanelTabs;
+  begin
+    vPath := GetPanelDir(Active);
+    vTabs := FTabs[AKind];
+    if not AFixed or (vTabs.FindTab(vPath, True, True) = -1) then begin
+      if AFixed then
+        vCaption := PathToCaption(vPath)
+      else
+        vCaption := '*';
+      vTabs.Add(TPanelTab.CreateEx(vCaption, vPath));
+      vTabs.FCurrent := vTabs.Count - 1;
+      vTabs.StoreReg('');
+      vTabs.FAllWidth := -1;
+      vTabs.UpdateHotkeys;
+      PaintTabs;
+    end else
+      Beep;
+  end;
+
+
+  procedure TTabsManager.DeleteTab(Active :Boolean);
+  begin
+    DeleteTabEx(Active, KindOfTab(Active));
+  end;
+
+  procedure TTabsManager.DeleteTabEx(Active :Boolean; AKind :TTabKind);
+  var
+    vTabs :TPanelTabs;
+  begin
+    vTabs := FTabs[AKind];
+    if vTabs.FCurrent <> -1 then begin
+      vTabs.FreeAt(vTabs.FCurrent);
+      vTabs.FCurrent := -1;
+      vTabs.StoreReg('');
+      vTabs.FAllWidth := -1;
+      vTabs.UpdateHotkeys;
+      PaintTabs;
+    end else
+      Beep;
+  end;
+
+
+  procedure TTabsManager.FixUnfixTab(Active :Boolean);
+  begin
+    FixUnfixTabEx(Active, KindOfTab(Active));
+  end;
+
+  procedure TTabsManager.FixUnfixTabEx(Active :Boolean; AKind :TTabKind);
+  var
+    vTabs :TPanelTabs;
+    vTab :TPanelTab;
+  begin
+    vTabs := FTabs[AKind];
+    if vTabs.FCurrent <> -1 then begin
+      vTab := vTabs[vTabs.FCurrent];
+      vTab.Fix(not vTab.IsFixed);
+      vTabs.StoreReg('');
+      vTabs.FAllWidth := -1;
+      vTabs.UpdateHotkeys;
+      PaintTabs;
+    end else
+      Beep;
   end;
 
 
@@ -1023,38 +1187,43 @@ interface
     ListTabEx(Active, KindOfTab(Active));
   end;
 
+  procedure TTabsManager.ListTabEx(Active :Boolean; AKind :TTabKind);
+  var
+    vIndex :Integer;
+    vTabs :TPanelTabs;
+  begin
+    vTabs := FTabs[AKind];
+    vIndex := vTabs.FCurrent;
+    if ListTabDlg(vTabs, vIndex) then
+      DoSelectTab( Active, AKind, False, vIndex );
+    vTabs.FAllWidth := -1;
+    vTabs.UpdateHotkeys;
+    PaintTabs;
+  end;
+
 
   procedure TTabsManager.SelectTab(Active :Boolean; AIndex :Integer);
-  var
-    vTabs :TPanelTabs;
-    vTab :TPanelTab;
   begin
-    vTabs := GetTabs(Active);
-    if (AIndex >= 0) and (AIndex < vTabs.Count)then begin
-      vTab := vTabs[AIndex];
-      JumpToPath(vTab.FFolder, Active);
-    end else
-      Beep;
+    DoSelectTab( Active, KindOfTab(Active), False, AIndex );
   end;
 
 
   procedure TTabsManager.SelectTabByKey(Active :Boolean; AChar :TChar);
   var
-    vIndex :Integer;
+    vKind :TTabKind;
     vTabs :TPanelTabs;
-    vTab :TPanelTab;
+    vIndex :Integer;
   begin
-    vTabs := GetTabs(Active);
+    vKind := KindOfTab(Active);
+
+    vTabs := FTabs[vKind];
     vIndex := vTabs.FindTabByKey(AChar);
     if vIndex = -1 then begin
       AChar := FarXLat(AChar);
       vIndex := vTabs.FindTabByKey(AChar);
     end;
-    if vIndex <> -1 then begin
-      vTab := vTabs[vIndex];
-      JumpToPath(vTab.FFolder, Active);
-    end else
-      Beep;
+
+    DoSelectTab( Active, vKind, False, vIndex );
   end;
 
 
@@ -1062,27 +1231,27 @@ interface
 
     procedure LocGotoTab(AKind :TTabKind; AIndex :Integer);
     var
-      vActive :Boolean;
-      vTab :TPanelTab;
+      vActive, vOnPassive :Boolean;
     begin
       vActive := True;
       if optSeparateTabs then
         vActive := (AKind = tkRight) = CurrentPanelIsRight;
-      if GetKeyState(VK_Shift) < 0 then
-        vActive := not vActive;
-      vTab := FTabs[AKind][AIndex];
-      JumpToPath(vTab.FFolder, vActive);
-      PaintTabs;
+
+      vOnPassive := GetKeyState(VK_Shift) < 0;
+
+      DoSelectTab( vActive, AKind, vOnPassive, AIndex );
     end;
 
     procedure LocAddTab(AKind :TTabKind);
     var
       vActive :Boolean;
+      vFixed :Boolean;
     begin
       vActive := True;
       if optSeparateTabs then
         vActive := (AKind = tkRight) = CurrentPanelIsRight;
-      AddTabEx(vActive, AKind);
+      vFixed := GetKeyState(VK_Shift) < 0;
+      AddTabEx(vActive, AKind, vFixed);
     end;
 
     procedure LocEditTab(AKind :TTabKind; AIndex :Integer);
@@ -1096,6 +1265,16 @@ interface
         vTabs.UpdateHotkeys;
         PaintTabs;
       end;
+    end;
+
+    procedure LocListTab(AKind :TTabKind);
+    var
+      vActive :Boolean;
+    begin
+      vActive := True;
+      if optSeparateTabs then
+        vActive := (AKind = tkRight) = CurrentPanelIsRight;
+      ListTabEx(vActive, AKind);
     end;
 
   var
@@ -1125,11 +1304,10 @@ interface
         if not vButton2 then
           LocAddTab(vKind)
         else
-          ListTabEx(True (*vRight = CurrentPanelIsRight*), vKind);
+          LocListTab(vKind);
       hsPanel:
         {};
     end;
-
   end;
 
 
