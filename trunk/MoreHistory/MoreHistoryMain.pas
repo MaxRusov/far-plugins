@@ -300,17 +300,17 @@ interface
       High(vItems)+1);
 
     case vRes of
-      0: OpenHistoryDlg(0, '');
-      1: OpenHistoryDlg(1, '');
-      2: OpenHistoryDlg(2, '');
-      3: OpenHistoryDlg(3, '');
+      0: OpenHistoryDlg('', 0, '');
+      1: OpenHistoryDlg('Folders', 1, '');
+      2: OpenHistoryDlg('Registry', 2, '');
+      3: OpenHistoryDlg('FTP', 3, '');
     end;
   end;
 
 
   procedure OpenCmdLine(const AStr :TString);
   begin
-    OpenHistoryDlg(0, AStr);
+    OpenHistoryDlg('', 0, AStr);
   end;
 
 

@@ -42,6 +42,8 @@ interface
       procedure SetFlags(AFlags :Cardinal);
       function GetMode :Integer;
       function GetDomain :TString;
+      function GetDateGroup :TString;
+      function GetGroup :TString;
 
     public
       function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
@@ -59,7 +61,7 @@ interface
       property Flags :Cardinal read FFlags;
     end;
 
-    
+
     TFilterMask = class(TBasis)
     public
       constructor CreateEx(const AMask :TString; AExact :Boolean);
@@ -205,6 +207,24 @@ interface
   end;
 
 
+
+  function NumMode(ANum :Integer) :Integer;
+    {-Для сопряжения числительных }
+  const
+    cModes :array[0..9] of Integer = (3, 4, 2, 2, 2, 3, 3, 3, 3, 3);
+  begin
+    if ANum = 1 then
+      Result := 1
+    else begin
+      ANum := ANum mod 100;
+      if (ANum > 10) and (ANum < 20) then
+        Result := 3
+      else
+        Result := cModes[ANum mod 10];
+    end;
+  end;
+
+
  {-----------------------------------------------------------------------------}
  { TFarHistory                                                                 }
  {-----------------------------------------------------------------------------}
@@ -290,6 +310,46 @@ interface
       Result := ExtractWord(1, FPath, [':']) + ':\'
     else
       Result := ExtractWord(1, FPath, [':']) + ':';
+  end;
+
+
+  function THistoryEntry.GetDateGroup :TString;
+  const
+    cDays :array[1..4] of TMessages = (strDays1, strDays2, strDays5, strDays21);
+  var
+    vDate1, vDate2, vDays :Integer;
+    vTime :TDateTime;
+  begin
+    vTime := EncodeTime(optMidnightHour, 0, 0, 0);
+    vDate1 := Trunc(Date - vTime);
+    vDate2 := Trunc(FTime - vTime);
+
+    vDays := vDate1 - vDate2;
+    if vDays = 0 then
+      Result := GetMsgStr(strToday)
+//  else
+//  if vDays = 1 then
+//    Result := GetMsgStr(strYesterday)
+    else
+      Result := Int2Str(vDays) + ' ' + Format(GetMsgStr(strDaysAgo), [GetMsgStr(cDays[NumMode(vDays)])]);
+    Result := Result + ', ' + FormatDate('ddd, dd', vDate2);
+  end;
+
+
+  function THistoryEntry.GetGroup :TString;
+  begin
+    case optHierarchyMode of
+      hmDate:
+        Result := GetDateGroup;
+      hmDomain:
+        Result := GetDomain;
+//    hmDateDomain:
+//      Result := GetDateGroup + ', ' + GetDomain;
+//    hmDomainDate:
+//      Result := GetDomain + ', ' + GetDateGroup;
+    else
+      Result := '';
+    end;
   end;
 
 

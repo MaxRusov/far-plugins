@@ -27,14 +27,17 @@ REGEDIT4
 ; Показывать всплывающие подсказки (требуется плагин FarHints)
 "ShowHints"=dword:1
 
+; Время границы суток
+"MidnightHour"=dword:0
+
 ; Цвет транзитных пунктов (цвет символов)
 ;"HiddenColor"=dword:
 
 ; Цвет соответствующий фильтру (цвет символов)
-;"FoundColor"=dword:
+;"FoundColor"=dword:0A
 
 ; Цвет групп в иерархическом режиме (цвет символов)
-;"GroupColor"=dword:09
+;"GroupColor"=dword:0B
 
 ; Цвет выделенных пунктов (цвет фона)
 ;"SelectedColor"=dword:20
