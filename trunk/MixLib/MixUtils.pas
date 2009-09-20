@@ -69,12 +69,12 @@ interface
     public
       constructor Create(const msg :TString);
       constructor CreateFmt(const msg :TString; const args : array of const);
-      constructor CreateRes(ResString :PString);
-      constructor CreateResFmt(ResString :PString; const Args: array of const);
+      constructor CreateRes(ResString :Pointer{PResStringRec});
+      constructor CreateResFmt(ResString :Pointer{PResStringRec}; const Args: array of const);
       constructor CreateHelp(const Msg :TString; AHelpContext: Integer);
       constructor CreateFmtHelp(const Msg :TString; const Args: array of const; AHelpContext: Integer);
-      constructor CreateResHelp(ResString :PString; AHelpContext: Integer);
-      constructor CreateResFmtHelp(ResString :PString; const Args: array of const; AHelpContext: Integer);
+      constructor CreateResHelp(ResString :Pointer{PResStringRec}; AHelpContext: Integer);
+      constructor CreateResFmtHelp(ResString :Pointer{PResStringRec}; const Args: array of const; AHelpContext: Integer);
     private
       FMessage :TString;
       FHelpContext :Integer;
@@ -256,20 +256,20 @@ interface
   end;
 
 
-  constructor Exception.CreateRes(ResString :PString);
+  constructor Exception.CreateRes(ResString :Pointer{PResStringRec});
   begin
     inherited create;
-    FMessage := ResString^;
+    FMessage := LoadResString(ResString);
    {$ifdef bTraceError}
     TraceException(nil, ClassName, FMessage);
    {$endif bTraceError}
   end;
 
 
-  constructor Exception.CreateResFmt(ResString :PString; const Args: array of const);
+  constructor Exception.CreateResFmt(ResString :Pointer{PResStringRec}; const Args: array of const);
   begin
     inherited create;
-    FMessage := Format(ResString^,args);
+    FMessage := Format(LoadResString(ResString), args);
    {$ifdef bTraceError}
     TraceException(nil, ClassName, FMessage);
    {$endif bTraceError}
@@ -298,10 +298,10 @@ interface
   end;
 
 
-  constructor Exception.CreateResHelp(ResString :PString; AHelpContext: Integer);
+  constructor Exception.CreateResHelp(ResString :Pointer{PResStringRec}; AHelpContext: Integer);
   begin
     inherited create;
-    FMessage := ResString^;
+    FMessage := LoadResString(ResString);
     FHelpContext := AHelpContext;
    {$ifdef bTraceError}
     TraceException(nil, ClassName, FMessage);
@@ -309,10 +309,10 @@ interface
   end;
 
 
-  constructor Exception.CreateResFmtHelp(ResString :PString; const Args: array of const; AHelpContext: Integer);
+  constructor Exception.CreateResFmtHelp(ResString :Pointer{PResStringRec}; const Args: array of const; AHelpContext: Integer);
   begin
     inherited create;
-    FMessage := Format(ResString^,args);
+    FMessage := Format(LoadResString(ResString), args);
     FHelpContext := AHelpContext;
    {$ifdef bTraceError}
     TraceException(nil, ClassName, FMessage);
