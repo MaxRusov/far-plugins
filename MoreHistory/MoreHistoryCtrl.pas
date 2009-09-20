@@ -17,33 +17,64 @@ interface
     MixStrings,
     MixClasses,
     MixWinUtils,
+   {$ifdef bUnicodeFar}
+    PluginW,
+   {$else}
+    Plugin,
+   {$endif bUnicodeFar}
     FarCtrl,
     FarMatch;
 
 
-  const
-    strLang                 = 0;
-    strTitle                = 1;
-    strError                = 2;
+  type
+    TMessages = (
+      strLang,
+      strTitle,
+      strError,
 
-    strAllHist              = 3;
-    strFoldersHist          = 4;
-    strRegistryHist         = 5;
-    strFTPHist              = 6;
+      strAllHist,
+      strFoldersHist,
+      strRegistryHist,
+      strFTPHist,
 
-    strListTitle            = 7;
+      strListTitle,
 
-    strConfirmation         = 8;
-    strDeleteSelectedPrompt = 9;
-    strClearSelectedPrompt  = 10;
-    strMakeTransitPrompt    = 11;
-    strMakeActualPrompt     = 12;
+      strConfirmation,
+      strDeleteSelectedPrompt,
+      strClearSelectedPrompt,
+      strMakeTransitPrompt,
+      strMakeActualPrompt,
 
-    strHintPath             = 13;
-    strHintFTP              = 14;
-    strHintPrefix           = 15;
-    strHintLastVisited      = 16;
-    strHintVisitCount       = 17;
+      strHintPath,
+      strHintFTP,
+      strHintPrefix,
+      strHintLastVisited,
+      strHintVisitCount,
+
+      strOptionsTitle,
+      strMShowHidden,
+      strMGroupBy,
+      strMAccessTime,
+      strMHitCount,
+      strMSortBy,
+      strMShowHints,
+      strMFollowMouse,
+      strMWrapMode,
+
+      strSortByTitle,
+      strMByName,
+      strMByAccessTime,
+      strMByHitCount,
+      strMUnsorted,
+
+      strToday,
+      strYesterday,
+      strDaysAgo,
+      strDays1,
+      strDays2,
+      strDays5,
+      strDays21
+    );
 
 
   const
@@ -74,16 +105,28 @@ interface
     hfFinal   = $00000001;
     hfDeleted = $80000000;
 
+  type
+    THierarchyMode = (
+      hmDate,
+      hmDomain
+//    hmDateDomain
+//    hmDomainDate
+    );
+
   var
-    optNewAtTop        :Boolean = True;
     optShowHidden      :Boolean = False;
     optHierarchical    :Boolean = True;
+    optHierarchyMode   :THierarchyMode = hmDate;
 
     optShowDate        :Boolean = True;
     optShowHits        :Boolean = False;
     optShowGrid        :Boolean = False;
     optShowHints       :Boolean = True;
+    optFollowMouse     :Boolean = False;
+    optWrapMode        :Boolean = False;
+    optNewAtTop        :Boolean = True;
 
+    optMidnightHour    :Integer = 0;
     optDateFormat      :Integer = 0;
 
     optSortMode        :Integer = 0;
@@ -99,19 +142,22 @@ interface
     optHiddenColor     :Integer = 0;
     optFoundColor      :Integer = $0A;
     optSelectedColor   :Integer = $20;
-    optGroupColor      :Integer = 0;
+    optGroupColor      :Integer = $0B; //???
 
 
   var
     FRegRoot  :TString;
 
 
+  function GetMsg(AMess :TMessages) :PFarChar;
+  function GetMsgStr(AMess :TMessages) :TString;
+
   procedure CopyToClipboard(const AStr :TString);
 
   procedure ReadSettings;
 
-  procedure ReadSetup;
-  procedure WriteSetup;
+  procedure ReadSetup(const AMode :TString);
+  procedure WriteSetup(const AMode :TString);
 
   function GetHistoryList(const AHistName :TString) :TStrList;
   procedure AddStrInHistory(const AHistName, AStr :TString);
@@ -124,6 +170,16 @@ interface
   uses
     MixDebug;
 
+
+  function GetMsg(AMess :TMessages) :PFarChar;
+  begin
+    Result := FarCtrl.GetMsg(Integer(AMess));
+  end;
+
+  function GetMsgStr(AMess :TMessages) :TString;
+  begin
+    Result := FarCtrl.GetMsgStr(Integer(AMess));
+  end;
 
  {-----------------------------------------------------------------------------}
 
@@ -159,53 +215,75 @@ interface
   end;
 
 
-  procedure ReadSetup;
+  procedure ReadSetup(const AMode :TString);
   var
     vKey :HKEY;
   begin
-    if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then
-      Exit;
-    try
-      optNewAtTop := RegQueryLog(vKey, 'NewAtTop', optNewAtTop);
+    optShowHidden := False;
+    optHierarchical := True;
+    if (AMode = '') or StrEqual(AMode, 'Folders') then
+      optHierarchyMode := hmDate
+    else
+      optHierarchyMode := hmDomain;
 
-      optShowHidden := RegQueryLog(vKey, 'ShowTransit', optShowHidden);
-      optHierarchical := RegQueryLog(vKey, 'Hierarchical', optHierarchical);
+    if RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder + StrIf(AMode <> '', '\View\' + AMode, ''), vKey) then begin
+      try
+        optShowHidden := RegQueryLog(vKey, 'ShowTransit', optShowHidden);
+        optHierarchical := RegQueryLog(vKey, 'Hierarchical', optHierarchical);
+        Byte(optHierarchyMode) := RegQueryInt(vKey, 'HierarchyMode', Byte(optHierarchyMode));
+//      PluginSortMode     := RegQueryInt(vKey, 'SortMode', PluginSortMode);
+      finally
+        RegCloseKey(vKey);
+      end;
+    end;
 
-      optShowDate  := RegQueryLog(vKey, 'ShowDate', optShowDate);
-      optShowHits  := RegQueryLog(vKey, 'ShowHits', optShowHits);
-      optShowGrid  := RegQueryLog(vKey, 'ShowGrid', optShowGrid);
-      optShowHints := RegQueryLog(vKey, 'ShowHints', optShowHints);
+    if RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then begin
+      try
+        optShowDate := RegQueryLog(vKey, 'ShowDate', optShowDate);
+        optShowHits := RegQueryLog(vKey, 'ShowHits', optShowHits);
+        optShowGrid := RegQueryLog(vKey, 'ShowGrid', optShowGrid);
+        optShowHints := RegQueryLog(vKey, 'ShowHints', optShowHints);
+        optFollowMouse := RegQueryLog(vKey, 'FollowMouse', optFollowMouse);
+        optWrapMode := RegQueryLog(vKey, 'WrapMode', optWrapMode);
+        optNewAtTop := RegQueryLog(vKey, 'NewAtTop', optNewAtTop);
 
-//    PluginSortMode     := RegQueryInt(vKey, 'SortMode', PluginSortMode);
+        optMidnightHour := RegQueryInt(vKey, 'MidnightHour', optMidnightHour);
 
-      optHiddenColor := RegQueryInt(vKey, 'HiddenColor', optHiddenColor);
-      optFoundColor := RegQueryInt(vKey, 'FoundColor', optFoundColor);
-      optSelectedColor := RegQueryInt(vKey, 'SelectedColor', optSelectedColor);
-      optGroupColor := RegQueryInt(vKey, 'GroupColor', optGroupColor);
+        optHiddenColor := RegQueryInt(vKey, 'HiddenColor', optHiddenColor);
+        optFoundColor := RegQueryInt(vKey, 'FoundColor', optFoundColor);
+        optSelectedColor := RegQueryInt(vKey, 'SelectedColor', optSelectedColor);
+        optGroupColor := RegQueryInt(vKey, 'GroupColor', optGroupColor);
 
-    finally
-      RegCloseKey(vKey);
+      finally
+        RegCloseKey(vKey);
+      end;
     end;
   end;
 
 
-  procedure WriteSetup;
+  procedure WriteSetup(const AMode :TString);
   var
     vKey :HKEY;
   begin
-    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
+    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder + StrIf(AMode <> '', '\View\' + AMode, ''), vKey);
     try
-      RegWriteLog(vKey, 'NewAtTop', optNewAtTop);
-
       RegWriteLog(vKey, 'ShowTransit', optShowHidden);
       RegWriteLog(vKey, 'Hierarchical', optHierarchical);
+      RegWriteInt(vKey, 'HierarchyMode', Byte(optHierarchyMode));
+//    RegWriteInt(vKey, 'SortMode', PluginSortMode);
+    finally
+      RegCloseKey(vKey);
+    end;
 
+    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
+    try
       RegWriteLog(vKey, 'ShowDate', optShowDate);
       RegWriteLog(vKey, 'ShowHits', optShowHits);
       RegWriteLog(vKey, 'ShowGrid', optShowGrid);
       RegWriteLog(vKey, 'ShowHints', optShowHints);
-
-//    RegWriteInt(vKey, 'SortMode', PluginSortMode);
+      RegWriteLog(vKey, 'FollowMouse', optFollowMouse);
+      RegWriteLog(vKey, 'WrapMode', optWrapMode);
+      RegWriteLog(vKey, 'NewAtTop', optNewAtTop);
 
     finally
       RegCloseKey(vKey);

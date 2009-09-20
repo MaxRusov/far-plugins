@@ -54,11 +54,13 @@ interface
 
     private
       FName :TString;
+      FDomain :TString;
 
       function GetItems(AIndex :Integer) :Integer;
 
     public
       property Name :TString read FName write FName;
+      property Domain :TString read FDomain write FDomain;
       property Items[AIndex :Integer] :Integer read GetItems; default;
     end;
 

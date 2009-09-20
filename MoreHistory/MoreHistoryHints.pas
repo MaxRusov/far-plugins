@@ -85,7 +85,7 @@ interface
   begin
     FAPI := API;
     AInfo.Flags := PF_ProcessDialog or PF_CanChangeSize;
-    ReadSetup;
+//  ReadSetup;
   end;
 
 
