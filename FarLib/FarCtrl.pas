@@ -153,6 +153,7 @@ interface
 
  {$ifdef bUnicodeFar}
   function FarPanelItem(AHandle :THandle; ACmd, AIndex :Integer) :PPluginPanelItem;
+  function FarPanelItemName(AHandle :THandle; ACmd, AIndex :Integer) :TString;
     { ACmd = FCTL_GETPANELITEM, FCTL_GETSELECTEDPANELITEM, FCTL_GETCURRENTPANELITEM }
   function FarPanelString(AHandle :THandle; ACmd :Integer) :TFarStr;
   function FarPanelGetCurrentDirectory(AHandle :THandle) :TFarStr;
@@ -554,6 +555,19 @@ interface
     vSize := FARAPI.Control(AHandle, ACmd, AIndex, nil);
     Result := MemAlloc( vSize );
     FARAPI.Control(AHandle, ACmd, AIndex, Result);
+  end;
+
+
+  function FarPanelItemName(AHandle :THandle; ACmd, AIndex :Integer) :TString;
+  var
+    vItem :PPluginPanelItem;
+  begin
+    vItem := FarPanelItem(AHandle, ACmd, AIndex);
+    try
+      Result := vItem.FindData.cFileName;
+    finally
+      MemFree(vItem);
+    end;
   end;
 
 
