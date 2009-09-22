@@ -16,7 +16,6 @@ interface
     Windows,
     MixTypes,
     MixUtils,
-    MixFormat,
     MixStrings,
    {$ifdef bUnicodeFar}
     PluginW
@@ -173,7 +172,6 @@ interface
  {$endif bTrace}
 
 
-
   function FarChar2Str(AStr :PFarChar) :TString;
  {$ifdef bUnicodeFar}
   begin
@@ -181,19 +179,19 @@ interface
   end;
  {$else}
  {$ifdef bUnicode}
+  var
+    vTmp :TAnsiStr;
   begin
-    Result := StrOEMToAnsi(AStr);
+    vTmp := AStr;
+    if vTmp <> '' then
+      {Windows.}OemToCharBuffA(AStr, Pointer(vTmp), Length(vTmp));
+    Result := vTmp;
   end;
  {$else}
-  var
-    vLen :Integer;
   begin
-    vLen := 0;
-    if AStr <> nil then
-      vLen := StrLenA(AStr);
-    SetString(Result, nil, vLen);
-    if vLen > 0 then
-      {Windows.}OemToCharBuffA(AStr, Pointer(Result), vLen);
+    Result := AStr;
+    if Result <> '' then
+      {Windows.}OemToCharBuffA(AStr, Pointer(Result), Length(Result));
   end;
  {$endif bUnicode}
  {$endif bUnicodeFar}
