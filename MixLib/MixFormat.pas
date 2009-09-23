@@ -7,7 +7,8 @@ interface
 
 uses
   Windows,
-  MixTypes;
+  MixTypes,
+  MixUtils;
 
 
 type
@@ -45,8 +46,6 @@ type
   TFloatFormat = (ffGeneral, ffExponent, ffFixed, ffNumber, ffCurrency);
   TFloatValue = (fvExtended, fvCurrency, fvSingle, fvReal, fvDouble, fvComp);
 
-function HexStr(AVal :Int64; ACount :Integer) :TString;
-
 Function Format (Const Fmt :TString; const Args : Array of const) :TString;
 
 Function FloatToStrF(Value: Extended; format: TFloatFormat; Precision, Digits: Integer): String; overload;
@@ -56,7 +55,6 @@ Function FloatToStrF(Value: Extended; format: TFloatFormat; Precision, Digits: I
 {******************************************************************************}
 
 uses
-  MixUtils,
   MixConsts,
   MixDebug;
 
@@ -287,20 +285,6 @@ begin
   Result := StringOfChar(' ', ASize);
 end;
 
-
-const
-  HexChars :array[0..15] of TChar = ('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
-
-function HexStr(AVal :Int64; ACount :Integer) :TString;
-var
-  i :Integer;
-begin
-  SetString(Result, nil, ACount);
-  for i := ACount downto 1 do begin
-    Result[i] := HexChars[AVal and $f];
-    AVal := AVal shr 4;
-  end;
-end;
 
 
 Const
@@ -666,9 +650,4 @@ end;
 initialization
   FormatFunc := Format;
 end.
-
-
-
-
-
 

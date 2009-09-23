@@ -69,6 +69,12 @@ interface
       foExceptOnFail
     );
 
+    TListOption  = (
+      loItemFree,      { Для Item'а надо вызывать процедуру уничтожения }
+      loItemSave       { Для Item'а надо вызывать процедуру ItemToStream/ItemFromStream }
+    );
+    TListOptions = set of TListOption;
+
     PPointerList = ^TPointerList;
     TPointerList = array[0..MaxInt div SizeOf(Pointer) - 1] of Pointer;
 
@@ -88,13 +94,15 @@ interface
 
       procedure Clear;
 
+      function NewItem(AIndex :Integer) :Pointer;
+
       function Add(Item: Pointer) :Integer;
       procedure Insert(Index :Integer; Item: Pointer);
 
       function AddSorted(Item :Pointer; Context :TIntPtr; Duplicates :TDuplicates) :Integer;
         { Вставляет элемент с сортировкой }
 
-      function AddData(const Item) :Integer; {virtual;}
+      function AddData(const Item) :Integer;
       procedure InsertData(Index :Integer; const Item);
 
       procedure Delete(AIndex: Integer);
@@ -118,7 +126,6 @@ interface
 
       { Следующие функции работают только для частного случая : FItemSize = 4 }
 
-      procedure Pack;
       procedure Exchange(Index1, Index2: Integer); virtual;
       procedure Move(CurIndex, NewIndex: Integer);
 
@@ -128,10 +135,11 @@ interface
       FList      : PPointerList;
       FCount     : Integer;
       FCapacity  : Integer;
+      FOptions   : TListOptions;
 
       procedure Grow; virtual;
 
-//    procedure ItemFree(PItem :Pointer); virtual;
+      procedure ItemFree(PItem :Pointer); virtual;
 //    procedure ItemAssign(PItem, PSource :Pointer); virtual;
       function  ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; virtual;
       function  ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; virtual;
@@ -149,6 +157,7 @@ interface
       procedure SetCount(NewCount :Integer);
 
     public
+      property Options :TListOptions read FOptions write FOptions;
       property ItemSize :Integer read FItemSize;
       property Count :Integer read FCount write SetCount;
       property Capacity :Integer read FCapacity write SetCapacity;
@@ -164,7 +173,7 @@ interface
   type
     TObjList = class(TExList)
     public
-      destructor Destroy; override;
+      constructor Create; override;
 
 //    procedure Assign(Source :TPersistent); override;
      {$ifdef bUseStreams}
@@ -172,19 +181,10 @@ interface
      {$endif bUseStreams}
 
       procedure FreeAll;
-        { Уничтожает все элементы списка }
-      procedure FreeAt(AIndex :Integer);
-        { Уничтожает элемент с номером AIndex }
-      procedure FreeRange(AIndex, ACount :Integer);
-        { Уничтожает элементы списка в заданном диапазоне }
-      procedure FreeItem(Item :Pointer);
-        { Уничтожает элемент Item (даже если его нет в списке!) }
-      procedure FreeKey(Key :Pointer; Context :TIntPtr; Opt :TFindOptions);
-        { Уничтожает элемент найденый функцией FindKey }
+      procedure FreeAt(AIndex: Integer);
 
     protected
-      procedure FreeOne(Item :Pointer); virtual;
-
+      procedure ItemFree(PItem :Pointer); override;
       function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
       function ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; override;
      {$ifdef bUseStreams}
@@ -214,18 +214,19 @@ interface
       property Items[I :Integer] :TIntPtr read GetIntItems write PutIntItems; default;
     end;
 
+
   type
-    TStrList = class(TObjList)
+    TStrList = class(TExList)
     public
-      procedure Clear;
-      function IndexOf(const AStr :TString) :Integer;
+      constructor Create; override;
+
       function Add(const AStr :TString) :Integer;
       function AddSorted(const AStr :TString; Context :TIntPtr; Duplicates :TDuplicates) :Integer;
       procedure Insert(Index :Integer; const AStr :TString);
-      procedure Delete(AIndex :Integer);
+      function IndexOf(const AStr :TString) :Integer;
 
     protected
-      procedure FreeOne(Item :Pointer); override;
+      procedure ItemFree(PItem :Pointer); override;
       function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
      {$ifdef bUseStreams}
       procedure ItemToStream(PItem :Pointer; Stream :TStream); override;
@@ -236,7 +237,7 @@ interface
 
     public
       property Items[I :Integer] :TString read GetStrItems write PutStrItems; default;
-      property Strings[I :Integer] :TString read GetStrItems write PutStrItems;
+//    property Strings[I :Integer] :TString read GetStrItems write PutStrItems;
     end;
 
 
@@ -279,6 +280,61 @@ interface
     public
       property Descr :TString read FDescr write FDescr;
     end;
+
+
+  type
+    PStringItem = ^TStringItem;
+    TStringItem = record
+      FString :TString;
+      FObject :TObject;
+    end;
+
+    TStringList = class(TObjList)
+    public
+      constructor Create; override;
+
+      function Add(const S :TString) :Integer;
+      procedure Insert(AIndex :Integer; const S :TString);
+      function AddObject(const S :TString; AObject :Pointer) :Integer;
+      procedure InsertObject(AIndex: Integer; const S :TString; AObject :Pointer);
+
+      function IndexOf(const S :TString): Integer;
+
+      procedure SaveToFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto);
+      procedure LoadFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto);
+
+    protected
+      procedure ItemFree(Item :Pointer); override;
+      function ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; override;
+
+    private
+      FSorted     :Boolean;
+      FDuplicates :TDuplicates;
+
+      function GetTextStr :TString;
+      procedure SetTextStr(const Value :TString);
+
+      function GetStrItems(Index :Integer) :TString;
+      procedure PutStrItems(Index :Integer; const Value :TString);
+      function GetObject(Index :Integer) :TObject;
+      procedure PutObject(Index :Integer; Value :TObject);
+
+    public
+      property Sorted :Boolean read FSorted write FSorted {SetSorted};
+      property Duplicates :TDuplicates read FDuplicates write FDuplicates;
+
+      property Strings[I :Integer] :TString read GetStrItems write PutStrItems; default;
+      property Objects[I :Integer] :TObject read GetObject write PutObject;
+      property Text :TString read GetTextStr write SetTextStr;
+    end;
+
+
+  type
+    TObjStrings = class(TStringList)
+    protected
+      procedure ItemFree(Item :Pointer); override;
+    end;
+
 
 
   type
@@ -344,7 +400,7 @@ interface
 //    property OnTerminate: TNotifyEvent read FOnTerminate write FOnTerminate;
     end;
 
-    
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -443,26 +499,23 @@ interface
 
 
   function TBasis.CompareObj(Another :TBasis; Context :TIntPtr) :Integer; {virtual;}
-(*
-  var
-    Str :TString;
+//var
+//  Str :TString;
   begin
+    Wrong;
     Result := 0;
-    if Another <> nil then
-      Str := Another.ClassName
-    else
-      Str := 'nil';
-    {!!!}  
-    AppErrorFmt(errComCompareError, [ClassName, Str]); *)
-  begin
-    Result := 0;
+//  if Another <> nil then
+//    Str := Another.ClassName
+//  else
+//    Str := 'nil';
+//  AppErrorFmt(errComCompareError, [ClassName, Str]);
   end;
 
   function TBasis.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {virtual;}
   begin
+    Wrong;
     Result := 0;
-    {!!!}
-(*  InternalErrorResFmt(errComCompareKeyError, [ClassName]); *)
+//  InternalErrorResFmt(errComCompareKeyError, [ClassName]);
   end;
 
 
@@ -482,24 +535,6 @@ interface
  {-----------------------------------------------------------------------------}
  { TExList                                                                     }
  {-----------------------------------------------------------------------------}
-
-  const
-    errComListOutOfIndex   = 1;   { "Индекс коллекции выходит за допустимые пределы" }
-    errComListCountError   = 2;   { "Размер коллекции выходит за допустимые пределы" }
-    errComListOverflow     = 3;   { "Размер коллекции выходит за допустимые пределы" }
-    errComDuplicateItem    = 4;   { "Коллекция не допускает идентичных элементов" }
-    errComListItemNotFound = 5;   { "Элемент коллекции не найден" }
-
-
-  procedure ListError(ErrCode :Integer);
-  begin
-   {$ifdef bTraceError}
-    SetErrorAddress(ReturnAddr2);
-   {$endif bTraceError}
-    raise EAppError.Create(LoadStr(ErrCode))
-     {$ifopt W+} at ReturnAddr2 {$endif W+};
-  end;
-
 
   {!!!}
   function MemCompare (a1, a2 :Pointer; len :Integer) :Integer;
@@ -528,14 +563,15 @@ interface
 
   destructor TExList.Destroy; {override;}
   begin
-    SetCount(0);
+    Clear;
     inherited Destroy;
   end;
 
-  
+
   procedure TExList.Clear;
   begin
-    SetCount(0);
+    if FCount > 0 then
+      DeleteRange(0, FCount);
     SetCapacity(0);
   end;
 
@@ -546,7 +582,7 @@ interface
     if (Index >= 0) and (Index < FCount) then
       Result := FList[Index]
     else begin
-      ListError(errComListOutOfIndex);
+      AppErrorResFmt(@SListIndexError, [Index]);
       Result := nil;
     end;
   end;
@@ -557,7 +593,7 @@ interface
     if (Index >= 0) and (Index < FCount) then
       FList[Index] := Item
     else
-      ListError(errComListOutOfIndex);
+      AppErrorResFmt(@SListIndexError, [Index]);
   end;
 
 
@@ -565,7 +601,7 @@ interface
   begin
     Assert(ValidInstance);
     if (Index < 0) or (Index >= FCount) then
-      ListError(errComListOutOfIndex);
+      AppErrorResFmt(@SListIndexError, [Index]);
     if FItemSize = SizeOf(Pointer) then
       Result := @FList[Index]
     else
@@ -586,12 +622,15 @@ interface
 
   function TExList.Add(Item :Pointer) :Integer;
   begin
-    Result := AddData(Item);
+    Assert(FItemSize = SizeOf(Pointer));
+    Result := FCount;
+    Pointer(NewItem(FCount)^) := Item;
   end;
 
   procedure TExList.Insert(Index :Integer; Item :Pointer);
   begin
-    InsertData(Index, Item);
+    Assert(FItemSize = SizeOf(Pointer));
+    Pointer(NewItem(Index)^) := Item;
   end;
 
 
@@ -600,47 +639,44 @@ interface
     if FindKey(Item, Context, [foCompareObj, foBinary], Result) then begin
       case Duplicates of
         dupIgnore : Exit;
-        dupError  : ListError(errComDuplicateItem);
+        dupError  : AppErrorRes(@SDuplicateError);
       end;
     end;
-    InsertData(Result, Item);
+    Insert(Result, Item);
   end;
 
 
-  function TExList.AddData(const Item) :Integer; {virtual;}
+  function TExList.AddData(const Item) :Integer;
   begin
-    Assert(ValidInstance);
     Result := FCount;
-    if Result = FCapacity then
-      Grow;
-    if FItemSize = SizeOf(Pointer) then
-      FList[Result] := Pointer(Item)
-    else
-      System.Move(Item, (Pointer1(FList) + Result * FItemSize)^, FItemSize);
-    Inc(FCount);
+    InsertData(FCount, Item);
   end;
 
-  
+
   procedure TExList.InsertData(Index :Integer; const Item);
-  var
-    P :Pointer1;
   begin
-    Assert(ValidInstance);
-    if (Index < 0) or (Index > FCount) then
-      ListError(errComListOutOfIndex);
+    if FItemSize = SizeOf(Pointer) then
+      Pointer(NewItem(Index)^) := Pointer(Item)
+    else
+      System.Move(Item, NewItem(Index)^, FItemSize);
+  end;
+
+
+  function TExList.NewItem(AIndex :Integer) :Pointer;
+  begin
+    if (AIndex < 0) or (AIndex > FCount) then
+      AppErrorResFmt(@SListIndexError, [AIndex]);
     if FCount = FCapacity then
       Grow;
     if FItemSize = SizeOf(Pointer) then begin
-      P := Pointer(@FList[Index]);
-      if Index < FCount then
-        System.Move(P^, (P + SizeOf(Pointer))^, (FCount - Index) * SizeOf(Pointer));
-      PPointer(P)^ := Pointer(Item)
+      Result := Pointer(@FList[AIndex]);
+      if AIndex < FCount then
+        System.Move(Result^, (Pointer1(Result) + SizeOf(Pointer))^, (FCount - AIndex) * SizeOf(Pointer));
     end else
     begin
-      P := Pointer1(FList) + Index * FItemSize;
-      if Index < FCount then
-        System.Move(P^, (P + FItemSize)^, (FCount - Index) * FItemSize);
-      System.Move(Item, P^, FItemSize);
+      Result := Pointer1(FList) + AIndex * FItemSize;
+      if AIndex < FCount then
+        System.Move(Result^, (Pointer1(Result) + FItemSize)^, (FCount - AIndex) * FItemSize);
     end;
     Inc(FCount);
   end;
@@ -654,11 +690,21 @@ interface
 
   procedure TExList.DeleteRange(AIndex, ACount :Integer);
   var
+    I :Integer;
     P :Pointer1;
   begin
     Assert(ValidInstance);
     if (AIndex < 0) or (AIndex + ACount > FCount) then
-      ListError(errComListOutOfIndex);
+      AppErrorResFmt(@SListIndexError, [AIndex]);
+
+    if loItemFree in fOptions then begin
+      P := Pointer1(FList) + AIndex * FItemSize;
+      for I := 0 to ACount - 1 do begin
+        ItemFree(P);
+        Inc(P, FItemSize);
+      end;
+    end;
+
     if AIndex + ACount < FCount then begin
       P := Pointer1(FList) + AIndex * FItemSize;
       System.Move((P + ACount * FItemSize)^, P^, (FCount - AIndex - ACount) * FItemSize);
@@ -686,7 +732,7 @@ interface
     P :Pointer1;
   begin
     if (AIndex < 0) or (AIndex + AOldCount > FCount) then
-      ListError(errComListOutOfIndex);
+      AppErrorResFmt(@SListIndexError, [AIndex]);
     if AOldCount < ANewCount then begin
       vNewCount := FCount + (ANewCount - AOldCount);
       if vNewCount > FCapacity then
@@ -755,7 +801,7 @@ interface
   procedure TExList.SetCapacity(NewCapacity :Integer); {virtual;}
   begin
     if (NewCapacity < FCount) or (NewCapacity > FItemLimit) then
-      ListError(errComListOverflow);
+      AppErrorResFmt(@SListCapacityError, [NewCapacity]);
     if NewCapacity <> FCapacity then begin
       ReallocMem(FList, NewCapacity * FItemSize);
       FCapacity := NewCapacity;
@@ -774,7 +820,7 @@ interface
   begin
     Assert(ValidInstance);
     if (NewCount < 0) or (NewCount > FItemLimit) then
-      ListError(errComListCountError);
+      AppErrorResFmt(@SListCountError, [NewCount]);
     if NewCount > FCapacity then
       SetCapacity(NewCount);
     if NewCount > FCount then
@@ -836,6 +882,12 @@ interface
 
 
  {---------------------------------------------}
+
+  procedure TExList.ItemFree(PItem :Pointer); {virtual;}
+  begin
+    {};
+  end;
+
 
   function TExList.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {virtual;}
   begin
@@ -902,8 +954,8 @@ interface
       Index := L;
     end;
 
-    if not Result and (foExceptOnFail in Opt) then
-      ListError(errComListItemNotFound);
+//  if not Result and (foExceptOnFail in Opt) then
+//    ListError(errComListItemNotFound);
   end;
 
 
@@ -990,13 +1042,44 @@ interface
 
   procedure TExList.Exchange(Index1, Index2: Integer); {virtual;}
   begin
-    if (Index1 >= 0) and (Index1 < FCount) and (Index2 >= 0) and (Index2 < FCount) then
-      MemExchange(Pointer1(FList) + Index1 * FItemSize, Pointer1(FList) + Index2 * FItemSize, FItemSize)
-    else
-      ListError(errComListOutOfIndex);
+    if (Index1 < 0) or (Index1 >= FCount) then
+      AppErrorResFmt(@SListIndexError, [Index1]);
+    if (Index2 < 0) or (Index2 >= FCount) then
+      AppErrorResFmt(@SListIndexError, [Index2]);
+    MemExchange(Pointer1(FList) + Index1 * FItemSize, Pointer1(FList) + Index2 * FItemSize, FItemSize)
   end;
 
 
+  procedure TExList.Move(CurIndex, NewIndex: Integer);
+  const
+    cTmpBufSize = 128;
+  var
+    vPtr1, vPtr2 :Pointer1;
+    vTmp :Pointer;
+    vBuf :array[0..cTmpBufSize - 1] of Byte;
+  begin
+    Assert(FItemSize = SizeOf(Pointer));
+    if CurIndex <> NewIndex then begin
+      vTmp := @vBuf;
+      if FItemSize > cTmpBufSize then
+        vTmp := MemAlloc(FItemSize);
+      try
+        vPtr1 := GetPItems(CurIndex);
+        vPtr2 := GetPItems(NewIndex);
+        System.Move(vPtr1^, vTmp^, FItemSize);
+        if NewIndex > CurIndex then
+          System.Move((vPtr1 + FItemSize)^, vPtr1^, vPtr2 - vPtr1)
+        else
+          System.Move(vPtr2^, (vPtr2 + FItemSize)^, vPtr1 - vPtr2);
+        System.Move(vTmp^, vPtr2^, FItemSize);
+      finally
+        if FItemSize > cTmpBufSize then
+          MemFree(vTmp);
+      end;
+    end;
+  end;
+
+(*
   procedure TExList.Move(CurIndex, NewIndex: Integer);
   var
     Item: Pointer;
@@ -1004,35 +1087,23 @@ interface
     Assert(FItemSize = SizeOf(Pointer));
     if CurIndex <> NewIndex then begin
       if (NewIndex < 0) or (NewIndex >= FCount) then
-        ListError(errComListOutOfIndex);
+        AppErrorResFmt(@SListIndexError, [NewIndex]);
       Item := GetItems(CurIndex);
       Delete(CurIndex);
       Insert(NewIndex, Item);
     end;
   end;
-
-
-  procedure TExList.Pack;
-  var
-    I: Integer;
-  begin
-    Assert(FItemSize = SizeOf(Pointer));
-    for I := FCount - 1 downto 0 do
-      if Items[I] = nil then
-        Delete(I);
-  end;
-
+*)
 
  {-----------------------------------------------------------------------------}
  { TObjList                                                                    }
  {-----------------------------------------------------------------------------}
 
-  destructor TObjList.Destroy; {override;}
+  constructor TObjList.Create; {override;}
   begin
-    FreeAll;
-    inherited Destroy;
+    inherited Create;
+    FOptions := [loItemFree];
   end;
-
 
 (*
   procedure TObjList.Assign(Source :TPersistent); {overrite;}
@@ -1052,66 +1123,30 @@ interface
  {$ifdef bUseStreams}
   procedure TObjList.ReadFromStream(Stream :TStream); {override;}
   begin
-    FreeAll;
+    Clear;
     AppendFromStream(Stream);
   end;
  {$endif bUseStreams}
 
 
-  procedure TObjList.FreeOne(Item :Pointer); {virtual;}
-  begin
-    if Item <> nil then
-      TObject(Item).Destroy;
-  end;
-
-
   procedure TObjList.FreeAll;
   begin
-    if FCount > 0 then
-      FreeRange(0, FCount);
+    Clear;
   end;
 
-
-  procedure TObjList.FreeAt(AIndex :Integer);
+  
+  procedure TObjList.FreeAt(AIndex: Integer);
   begin
-    FreeRange(AIndex, 1);
-  end;
-
-
-  procedure TObjList.FreeRange(AIndex, ACount :Integer);
-  var
-    I :Integer;
-  begin
-    if (ACount < 0) or (AIndex < 0) or (AIndex + ACount > FCount) then
-      ListError(errComListOutOfIndex);
-    for I := AIndex to AIndex + ACount - 1 do
-      FreeOne(FList[I]);
-    DeleteRange(AIndex, ACount);
-  end;
-
-
-  procedure TObjList.FreeItem(Item :Pointer);
-  begin
-    Remove(Item);
-    FreeOne(Item);
-  end;
-
-
-  procedure TObjList.FreeKey(Key :Pointer; Context :TIntPtr; Opt :TFindOptions);
-  var
-    I :Integer;
-  begin
-    if FindKey(Key, Context, Opt, I) then
-      FreeRange(I, 1);
+    Delete(AIndex);
   end;
 
 
  {-----------------------------------------------------------------------------}
 
-//procedure TObjList.ItemFree(PItem :Pointer); {override;}
-//begin
-//  FreeObj(PItem^);
-//end;
+  procedure TObjList.ItemFree(PItem :Pointer); {override;}
+  begin
+    FreeObj(PItem^);
+  end;
 
 
 //procedure TObjList.ItemAssign(PItem, PSource :Pointer); {override;}
@@ -1200,10 +1235,16 @@ interface
  { TStrList                                                                    }
  {-----------------------------------------------------------------------------}
 
-  procedure TStrList.FreeOne(Item :Pointer); {override;}
+  constructor TStrList.Create; {override;}
   begin
-    if Item <> nil then
-      TString(Item) := '';
+    inherited Create;
+    FOptions := [loItemFree];
+  end;
+
+
+  procedure TStrList.ItemFree(PItem :Pointer); {override;}
+  begin
+    TString(PItem^) := '';
   end;
 
 
@@ -1263,21 +1304,10 @@ interface
     if FindKey(Pointer(AStr), Context, [foCompareObj, foBinary], Result) then begin
       case Duplicates of
         dupIgnore : Exit;
-        dupError  : ListError(errComDuplicateItem);
+        dupError  : AppErrorRes(@SDuplicateError);
       end;
     end;
     Insert(Result, AStr);
-  end;
-
-
-  procedure TStrList.Delete(AIndex :Integer);
-  begin
-    FreeAt(AIndex);
-  end;
-
-  procedure TStrList.Clear;
-  begin
-    FreeAll;
   end;
 
 
@@ -1290,7 +1320,7 @@ interface
   begin
     Assert(ValidInstance);
     if (Index < 0) or (Index >= FCount) then
-      ListError(errComListOutOfIndex);
+      AppErrorResFmt(@SListIndexError, [Index]);
     TString(FList[Index]) := Value;
   end;
 
@@ -1345,7 +1375,6 @@ interface
   end;
 
 
-
  {-----------------------------------------------------------------------------}
  { TDescrObject                                                                }
  {-----------------------------------------------------------------------------}
@@ -1383,6 +1412,175 @@ interface
   end;
  {$endif bUseStreams}
 
+
+ {-----------------------------------------------------------------------------}
+ { TStringList = class(TStringList)                                            }
+ {-----------------------------------------------------------------------------}
+
+  constructor TStringList.Create; {override;}
+  begin
+    inherited Create;
+    FItemSize  := SizeOf(TStringItem);
+    FItemLimit := MaxInt div FItemSize;
+    FOptions := [loItemFree];
+  end;
+
+
+  procedure TStringList.ItemFree(Item :Pointer); {override;}
+  begin
+    with PStringItem(Item)^ do
+      FString := '';
+  end;
+
+
+  function TStringList.ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; {override;}
+  begin
+    Result := UpCompareStr(PStringItem(PItem).FString, TString(Key));
+  end;
+
+
+  function TStringList.Add(const S :TString) :Integer;
+  begin
+    Result := AddObject(S, nil);
+  end;
+
+  procedure TStringList.Insert(AIndex :Integer; const S :TString);
+  begin
+    InsertObject(AIndex, S, nil);
+  end;
+
+
+  function TStringList.AddObject(const S :TString; AObject :Pointer) :Integer;
+  begin
+    if not FSorted then
+      Result := FCount
+    else
+      if FindKey(Pointer(S), 0, [foBinary], Result) then
+        case FDuplicates of
+          dupIgnore: Exit;
+          dupError: AppErrorRes(@SDuplicateError);
+        end;
+    InsertObject(Result, S, AObject);
+  end;
+
+
+  procedure TStringList.InsertObject(AIndex: Integer; const S :TString; AObject :Pointer);
+  begin
+    with PStringItem(NewItem(AIndex))^ do begin
+      Pointer(FString) := nil;
+      FString := S;
+      FObject := AObject;
+    end;
+  end;
+
+
+  function TStringList.IndexOf(const S :TString): Integer;
+  var
+    vOpt :TFindOptions;
+  begin
+    vOpt := [];
+    if FSorted then
+      vOpt := [foBinary];
+    if not FindKey(Pointer(S), 0, vOpt, Result) then
+      Result := -1;
+  end;
+
+
+  function TStringList.GetStrItems(Index :Integer) :TString;
+  begin
+    Result := PStringItem(GetPItems(Index)).FString;
+  end;
+
+  procedure TStringList.PutStrItems(Index :Integer; const Value :TString);
+  begin
+    PStringItem(GetPItems(Index)).FString := Value;
+  end;
+
+  function TStringList.GetObject(Index :Integer) :TObject;
+  begin
+    Result := PStringItem(GetPItems(Index)).FObject;
+  end;
+
+  procedure TStringList.PutObject(Index :Integer; Value :TObject);
+  begin
+    PStringItem(GetPItems(Index)).FObject := Value;
+  end;
+
+
+  function TStringList.GetTextStr :TString;
+  var
+    I, vLen, vSize :Integer;
+    vFrame :PStringItem;
+    vPtr :PTChar;
+  begin
+    vSize := 0;
+    vFrame := Pointer(FList);
+    for I := 0 to FCount - 1 do begin
+      Inc(vSize, Length(vFrame.FString) + 2);
+      Inc(Pointer1(vFrame), FItemSize);
+    end;
+
+    SetString(Result, nil, vSize);
+    vPtr := Pointer(Result);
+    vFrame := Pointer(FList);
+    for I := 0 to FCount - 1 do begin
+      vLen := Length(vFrame.FString);
+      if vLen > 0 then begin
+        StrMove(vPtr, PTChar(vFrame.FString), vLen);
+        Inc(vPtr, vLen);
+      end;
+      Inc(Pointer1(vFrame), FItemSize);
+      vPtr^ := #13;
+      Inc(vPtr);
+      vPtr^ := #10;
+      Inc(vPtr);
+    end;
+  end;
+
+
+  procedure TStringList.SetTextStr(const Value :TString);
+  var
+    vPtr, vBeg :PTChar;
+    vStr :TString;
+  begin
+    Clear;
+    vPtr := PTChar(Value);
+    while vPtr^ <> #0 do begin
+      vBeg := vPtr;
+      while (vPtr^ <> #0) and (vPtr^ <> #10) and (vPtr^ <> #13) do
+        Inc(vPtr);
+      SetString(vStr, vBeg, vPtr - vBeg);
+      Add(vStr);
+      if vPtr^ = #13 then
+        Inc(vPtr);
+      if vPtr^ = #10 then
+        Inc(vPtr);
+    end;
+  end;
+
+
+  procedure TStringList.SaveToFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto);
+  begin
+    StrToFile(AFileName, GetTextStr, AMode);
+  end;
+
+  procedure TStringList.LoadFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto);
+  begin
+    SetTextStr( StrFromFile(AFileName, AMode) );
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TObjStrings = class(TStringList)                                            }
+ {-----------------------------------------------------------------------------}
+
+  procedure TObjStrings.ItemFree(Item :Pointer); {override;}
+  begin
+    with PStringItem(Item)^ do begin
+      FString := '';
+      FreeObj(FObject);
+    end;
+  end;
 
  {-----------------------------------------------------------------------------}
  { TBits                                                                       }

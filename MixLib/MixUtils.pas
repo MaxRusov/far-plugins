@@ -114,17 +114,25 @@ interface
   function StrLenA(const Str: PAnsiChar) :Cardinal;
   function StrLenW(const Str: PWideChar) :Cardinal;
 
-  function StrLCopy(Dest: PTChar; Source: PTChar; MaxLen: Cardinal): PTChar;
-  function StrLCopyA(Dest: PAnsiChar; Source: PAnsiChar; MaxLen: Cardinal): PAnsiChar;
-  function StrLCopyW(Dest: PWideChar; Source: PWideChar; MaxLen: Cardinal): PWideChar;
+  function StrCopy(Dest :PTChar; const Source :PTChar) :PTChar;
+  function StrCopyA(Dest :PAnsiChar; const Source :PAnsiChar) :PAnsiChar;
+  function StrCopyW(Dest :PWideChar; const Source :PWideChar) :PWideChar;
+
+  function StrECopy(Dest :PTChar; const Source :PTChar) :PTChar;
+  function StrECopyA(Dest :PAnsiChar; const Source :PAnsiChar) :PAnsiChar;
+  function StrECopyW(Dest :PWideChar; const Source :PWideChar) :PWideChar;
+
+  function StrLCopy(Dest: PTChar; Source: PTChar; MaxLen :Integer): PTChar;
+  function StrLCopyA(Dest: PAnsiChar; Source: PAnsiChar; MaxLen :Integer): PAnsiChar;
+  function StrLCopyW(Dest: PWideChar; Source: PWideChar; MaxLen :Integer): PWideChar;
 
   function StrPCopy(Dest :PTChar; const Source :TString): PTChar;
   function StrPCopyA(Dest :PAnsiChar; const Source :TAnsiStr): PAnsiChar;
   function StrPCopyW(Dest :PWideChar; const Source :TWideStr): PWideChar;
 
-  function StrPLCopy(Dest :PTChar; const Source :TString; MaxLen :Cardinal) :PTChar;
-  function StrPLCopyA(Dest :PAnsiChar; const Source :TAnsiStr; MaxLen :Cardinal) :PAnsiChar;
-  function StrPLCopyW(Dest :PWideChar; const Source :TWideStr; MaxLen :Cardinal) :PWideChar;
+  function StrPLCopy(Dest :PTChar; const Source :TString; MaxLen :Integer) :PTChar;
+  function StrPLCopyA(Dest :PAnsiChar; const Source :TAnsiStr; MaxLen :Integer) :PAnsiChar;
+  function StrPLCopyW(Dest :PWideChar; const Source :TWideStr; MaxLen :Integer) :PWideChar;
 
   function StrMove(Dest: PTChar; const Source: PTChar; Count: Cardinal): PTChar;
   function StrMoveA(Dest: PAnsiChar; const Source: PAnsiChar; Count: Cardinal): PAnsiChar;
@@ -162,6 +170,8 @@ interface
   function AnsiQuotedStr(const S :TString; Quote :TChar) :TString;
   function AnsiExtractQuotedStr(var Src :PTChar; Quote :TChar) :TString;
 
+  function HexStr(AVal :Int64; ACount :Integer) :TString;
+
   function SysErrorMessage(ErrorCode: Integer) :TString;
   function Win32Check(RetVal: BOOL): BOOL;
   procedure RaiseLastWin32Error;
@@ -180,6 +190,8 @@ interface
   function RenameFile(const OldName, NewName :TString): Boolean;
   function CreateDir(const Dir :TString): Boolean;
   function RemoveDir(const Dir :TString): Boolean;
+  function GetCurrentDir :TString;
+  function SetCurrentDir(const Dir :TString): Boolean;
 
   procedure Beep;
 
@@ -380,7 +392,39 @@ interface
   end;
 
 
-  function StrLCopy(Dest: PTChar; Source: PTChar; MaxLen: Cardinal): PTChar;
+  function StrCopy(Dest :PTChar; const Source :PTChar) :PTChar;
+  begin
+    Result := StrLCopy(Dest, Source, MaxInt);
+  end;
+
+  function StrCopyA(Dest :PAnsiChar; const Source :PAnsiChar) :PAnsiChar;
+  begin
+    Result := StrLCopyA(Dest, Source, MaxInt);
+  end;
+
+  function StrCopyW(Dest :PWideChar; const Source :PWideChar) :PWideChar;
+  begin
+    Result := StrLCopyW(Dest, Source, MaxInt);
+  end;
+
+
+  function StrECopy(Dest :PTChar; const Source :PTChar) :PTChar;
+  begin
+    Result := StrEnd(StrCopy(Dest, Source));
+  end;
+
+  function StrECopyA(Dest :PAnsiChar; const Source :PAnsiChar) :PAnsiChar;
+  begin
+    Result := StrEndA(StrCopyA(Dest, Source));
+  end;
+
+  function StrECopyW(Dest :PWideChar; const Source :PWideChar) :PWideChar;
+  begin
+    Result := StrEndW(StrCopyW(Dest, Source));
+  end;
+
+
+  function StrLCopy(Dest: PTChar; Source: PTChar; MaxLen :Integer): PTChar;
   begin
    {$ifdef bUnicode}
     Result := StrLCopyW(Dest, Source, MaxLen);
@@ -389,7 +433,7 @@ interface
    {$endif bUnicode}
   end;
 
-  function StrLCopyA(Dest: PAnsiChar; Source: PAnsiChar; MaxLen: Cardinal): PAnsiChar;
+  function StrLCopyA(Dest: PAnsiChar; Source: PAnsiChar; MaxLen :Integer): PAnsiChar;
   begin
     Result := Dest;
     while (MaxLen > 0) and (Source^ <> #0) do begin
@@ -401,7 +445,7 @@ interface
     Dest^ := #0;
   end;
 
-  function StrLCopyW(Dest: PWideChar; Source: PWideChar; MaxLen: Cardinal): PWideChar;
+  function StrLCopyW(Dest: PWideChar; Source: PWideChar; MaxLen :Integer): PWideChar;
   begin
     Result := Dest;
     while (MaxLen > 0) and (Source^ <> #0) do begin
@@ -430,17 +474,17 @@ interface
   end;
 
 
-  function StrPLCopy(Dest :PTChar; const Source :TString; MaxLen :Cardinal) :PTChar;
+  function StrPLCopy(Dest :PTChar; const Source :TString; MaxLen :Integer) :PTChar;
   begin
     Result := StrLCopy(Dest, PTChar(Source), MaxLen);
   end;
 
-  function StrPLCopyA(Dest :PAnsiChar; const Source :TAnsiStr; MaxLen :Cardinal) :PAnsiChar;
+  function StrPLCopyA(Dest :PAnsiChar; const Source :TAnsiStr; MaxLen :Integer) :PAnsiChar;
   begin
     Result := StrLCopyA(Dest, PAnsiChar(Source), MaxLen);
   end;
 
-  function StrPLCopyW(Dest :PWideChar; const Source :TWideStr; MaxLen :Cardinal) :PWideChar;
+  function StrPLCopyW(Dest :PWideChar; const Source :TWideStr; MaxLen :Integer) :PWideChar;
   begin
     Result := StrLCopyW(Dest, PWideChar(Source), MaxLen);
   end;
@@ -822,6 +866,21 @@ interface
   end;
 
 
+  const
+    HexChars :array[0..15] of TChar = ('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
+
+  function HexStr(AVal :Int64; ACount :Integer) :TString;
+  var
+    i :Integer;
+  begin
+    SetString(Result, nil, ACount);
+    for i := ACount downto 1 do begin
+      Result[i] := HexChars[AVal and $f];
+      AVal := AVal shr 4;
+    end;
+  end;
+
+
   function SysErrorMessage(ErrorCode: Integer) :TString;
   const
     cMaxLen = 255;
@@ -866,7 +925,7 @@ interface
     MessageBeep(0);
   end;
 
-  {------------------------------------------------------------------------------}
+ {-----------------------------------------------------------------------------}
 
   function FileOpen(const FileName :TString; Mode: LongWord): Integer;
   const
@@ -973,6 +1032,19 @@ interface
   function RemoveDir(const Dir :TString): Boolean;
   begin
     Result := RemoveDirectory(PTChar(Dir));
+  end;
+
+
+  function GetCurrentDir :TString;
+  var
+    Buffer: array[0..MAX_PATH - 1] of TChar;
+  begin
+    SetString(Result, Buffer, GetCurrentDirectory(MAX_PATH, Buffer));
+  end;
+
+  function SetCurrentDir(const Dir :TString): Boolean;
+  begin
+    Result := SetCurrentDirectory(PTChar(Dir));
   end;
 
 

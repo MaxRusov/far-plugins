@@ -392,9 +392,7 @@ const
   PARAMFLAG_FOUT          = $02;
   PARAMFLAG_FLCID         = $04;
   PARAMFLAG_FRETVAL       = $08;
-  {-$EXTERNALSYM PARAMFLAG_FOPT    }
   PARAMFLAG_FOPT          = $10;
-  {-$EXTERNALSYM PARAMFLAG_FHASDEFAULT }
   PARAMFLAG_FHASDEFAULT   = $20;
 
 { from OLE2.H }
@@ -3576,7 +3574,6 @@ type
 { from designer.h}
 
 const
-  {-$EXTERNALSYM CATID_Designer:}
   CATID_Designer: TGUID = '{4EB304D0-7555-11cf-A0C2-00AA0062BE57}';
 
 type

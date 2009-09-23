@@ -23,8 +23,16 @@ resourcestring
   SInvalidFormat         = 'Invalid format specifier : "%s"';
   SArgumentMissing       = 'Missing argument in format "%s"';
   SInvalidArgIndex       = 'Invalid argument index in format "%s"';
+
+  SListIndexError        = 'List index out of bounds (%d)';
+  SListCapacityError     = 'List capacity out of bounds (%d)';
+  SListCountError        = 'List count out of bounds (%d)';
+  SDuplicateError        = 'List does not allow duplicates';
+//SSortedListError       = 'Operation not allowed on sorted string list';
+
   SBitsIndexError        = 'Bits index out of range';
   SInvalidInteger        = '"%s" is an invalid integer';
+
 (*
   SAccessDenied          = 'Access denied';
   SAccessViolation       = 'Access violation';
