@@ -1337,7 +1337,6 @@ type
   end;
   TImageLoadConfigDirectory = IMAGE_LOAD_CONFIG_DIRECTORY;
 //  IMAGE_LOAD_CONFIG_DIRECTORY = _IMAGE_LOAD_CONFIG_DIRECTORY;
-//  {-$EXTERNALSYM IMAGE_LOAD_CONFIG_DIRECTORY}
 
 
 // Function table entry format for MIPS/ALPHA images.  Function table is
@@ -1355,7 +1354,6 @@ type
   end;
   TImageRuntimeFunctionEntry = IMAGE_RUNTIME_FUNCTION_ENTRY;
 // IMAGE_RUNTIME_FUNCTION_ENTRY = _IMAGE_RUNTIME_FUNCTION_ENTRY;
-// {-$EXTERNALSYM IMAGE_RUNTIME_FUNCTION_ENTRY}
 
 
 //
@@ -3078,21 +3076,17 @@ type
     AgentNameLength: DWORD;
     AgentInformation: array[0..0] of CHAR;
   end;
-  //{-$EXTERNALSYM _RECOVERY_AGENT_INFORMATIONA}
   _RECOVERY_AGENT_INFORMATIONW = record
     NextEntryOffset: DWORD;
     AgentNameLength: DWORD;
     AgentInformation: array[0..0] of CHAR;
   end;
-  //{-$EXTERNALSYM _RECOVERY_AGENT_INFORMATIONW}
   _RECOVERY_AGENT_INFORMATION = _RECOVERY_AGENT_INFORMATIONA;
   TRecoveryAgentInformationA = _RECOVERY_AGENT_INFORMATIONA;
   TRecoveryAgentInformationW = _RECOVERY_AGENT_INFORMATIONW;
   TRecoveryAgentInformation = TRecoveryAgentInformationA;
   RECOVERY_AGENT_INFORMATIONA = _RECOVERY_AGENT_INFORMATIONA;
-  //{-$EXTERNALSYM RECOVERY_AGENT_INFORMATIONA}
   RECOVERY_AGENT_INFORMATIONW = _RECOVERY_AGENT_INFORMATIONW;
-  //{-$EXTERNALSYM RECOVERY_AGENT_INFORMATIONW}
   RECOVERY_AGENT_INFORMATION = RECOVERY_AGENT_INFORMATIONA;
 
 function QueryRecoveryAgentsA(p1: PAnsiChar; var p2: Pointer; var p3: TRecoveryAgentInformationA): DWORD; stdcall;
@@ -9773,101 +9767,53 @@ const
 
   DMPAPER_A6                  = 70;  { A6 105 x 148 mm                 }
 
-  {-$EXTERNALSYM DMPAPER_JENV_KAKU2          }
   DMPAPER_JENV_KAKU2          = 71;  { Japanese Envelope Kaku #2       }
-  {-$EXTERNALSYM DMPAPER_JENV_KAKU3          }
   DMPAPER_JENV_KAKU3          = 72;  { Japanese Envelope Kaku #3       }
-  {-$EXTERNALSYM DMPAPER_JENV_CHOU3          }
   DMPAPER_JENV_CHOU3          = 73;  { Japanese Envelope Chou #3       }
-  {-$EXTERNALSYM DMPAPER_JENV_CHOU4          }
   DMPAPER_JENV_CHOU4          = 74;  { Japanese Envelope Chou #4       }
-  {-$EXTERNALSYM DMPAPER_LETTER_ROTATED      }
   DMPAPER_LETTER_ROTATED      = 75;  { Letter Rotated 11 x 8 1/2 11 in }
-  {-$EXTERNALSYM DMPAPER_A3_ROTATED          }
   DMPAPER_A3_ROTATED          = 76;  { A3 Rotated 420 x 297 mm         }
-  {-$EXTERNALSYM DMPAPER_A4_ROTATED          }
   DMPAPER_A4_ROTATED          = 77;  { A4 Rotated 297 x 210 mm         }
-  {-$EXTERNALSYM DMPAPER_A5_ROTATED          }
   DMPAPER_A5_ROTATED          = 78;  { A5 Rotated 210 x 148 mm         }
-  {-$EXTERNALSYM DMPAPER_B4_JIS_ROTATED      }
   DMPAPER_B4_JIS_ROTATED      = 79;  { B4 (JIS) Rotated 364 x 257 mm   }
-  {-$EXTERNALSYM DMPAPER_B5_JIS_ROTATED      }
   DMPAPER_B5_JIS_ROTATED      = 80;  { B5 (JIS) Rotated 257 x 182 mm   }
-  {-$EXTERNALSYM DMPAPER_JAPANESE_POSTCARD_ROTATED }
   DMPAPER_JAPANESE_POSTCARD_ROTATED = 81; { Japanese Postcard Rotated 148 x 100 mm }
-  {-$EXTERNALSYM DMPAPER_DBL_JAPANESE_POSTCARD_ROTATED }
   DMPAPER_DBL_JAPANESE_POSTCARD_ROTATED = 82; { Double Japanese Postcard Rotated 148 x 200 mm }
-  {-$EXTERNALSYM DMPAPER_A6_ROTATED          }
   DMPAPER_A6_ROTATED          = 83;  { A6 Rotated 148 x 105 mm         }
-  {-$EXTERNALSYM DMPAPER_JENV_KAKU2_ROTATED  }
   DMPAPER_JENV_KAKU2_ROTATED  = 84;  { Japanese Envelope Kaku #2 Rotated}
-  {-$EXTERNALSYM DMPAPER_JENV_KAKU3_ROTATED  }
   DMPAPER_JENV_KAKU3_ROTATED  = 85;  { Japanese Envelope Kaku #3 Rotated}
-  {-$EXTERNALSYM DMPAPER_JENV_CHOU3_ROTATED  }
   DMPAPER_JENV_CHOU3_ROTATED  = 86;  { Japanese Envelope Chou #3 Rotated}
-  {-$EXTERNALSYM DMPAPER_JENV_CHOU4_ROTATED  }
   DMPAPER_JENV_CHOU4_ROTATED  = 87;  { Japanese Envelope Chou #4 Rotated}
-  {-$EXTERNALSYM DMPAPER_B6_JIS              }
   DMPAPER_B6_JIS              = 88;  { B6 (JIS) 128 x 182 mm           }
-  {-$EXTERNALSYM DMPAPER_B6_JIS_ROTATED      }
   DMPAPER_B6_JIS_ROTATED      = 89;  { B6 (JIS) Rotated 182 x 128 mm   }
-  {-$EXTERNALSYM DMPAPER_12X11               }
   DMPAPER_12X11               = 90;  { 12 x 11 in                      }
-  {-$EXTERNALSYM DMPAPER_JENV_YOU4           }
   DMPAPER_JENV_YOU4           = 91;  { Japanese Envelope You #4        }
-  {-$EXTERNALSYM DMPAPER_JENV_YOU4_ROTATED   }
   DMPAPER_JENV_YOU4_ROTATED   = 92;  { Japanese Envelope You #4 Rotated}
-  {-$EXTERNALSYM DMPAPER_P16K                }
   DMPAPER_P16K                = 93;  { PRC 16K 146 x 215 mm            }
-  {-$EXTERNALSYM DMPAPER_P32K                }
   DMPAPER_P32K                = 94;  { PRC 32K 97 x 151 mm             }
-  {-$EXTERNALSYM DMPAPER_P32KBIG             }
   DMPAPER_P32KBIG             = 95;  { PRC 32K(Big) 97 x 151 mm        }
-  {-$EXTERNALSYM DMPAPER_PENV_1              }
   DMPAPER_PENV_1              = 96;  { PRC Envelope #1 102 x 165 mm    }
-  {-$EXTERNALSYM DMPAPER_PENV_2              }
   DMPAPER_PENV_2              = 97;  { PRC Envelope #2 102 x 176 mm    }
-  {-$EXTERNALSYM DMPAPER_PENV_3              }
   DMPAPER_PENV_3              = 98;  { PRC Envelope #3 125 x 176 mm    }
-  {-$EXTERNALSYM DMPAPER_PENV_4              }
   DMPAPER_PENV_4              = 99;  { PRC Envelope #4 110 x 208 mm    }
-  {-$EXTERNALSYM DMPAPER_PENV_5              }
   DMPAPER_PENV_5              = 100; { PRC Envelope #5 110 x 220 mm    }
-  {-$EXTERNALSYM DMPAPER_PENV_6              }
   DMPAPER_PENV_6              = 101; { PRC Envelope #6 120 x 230 mm    }
-  {-$EXTERNALSYM DMPAPER_PENV_7              }
   DMPAPER_PENV_7              = 102; { PRC Envelope #7 160 x 230 mm    }
-  {-$EXTERNALSYM DMPAPER_PENV_8              }
   DMPAPER_PENV_8              = 103; { PRC Envelope #8 120 x 309 mm    }
-  {-$EXTERNALSYM DMPAPER_PENV_9              }
   DMPAPER_PENV_9              = 104; { PRC Envelope #9 229 x 324 mm    }
-  {-$EXTERNALSYM DMPAPER_PENV_10             }
   DMPAPER_PENV_10             = 105; { PRC Envelope #10 324 x 458 mm   }
-  {-$EXTERNALSYM DMPAPER_P16K_ROTATED        }
   DMPAPER_P16K_ROTATED        = 106; { PRC 16K Rotated                 }
-  {-$EXTERNALSYM DMPAPER_P32K_ROTATED        }
   DMPAPER_P32K_ROTATED        = 107; { PRC 32K Rotated                 }
-  {-$EXTERNALSYM DMPAPER_P32KBIG_ROTATED     }
   DMPAPER_P32KBIG_ROTATED     = 108; { PRC 32K(Big) Rotated            }
-  {-$EXTERNALSYM DMPAPER_PENV_1_ROTATED      }
   DMPAPER_PENV_1_ROTATED      = 109; { PRC Envelope #1 Rotated 165 x 102 mm}
-  {-$EXTERNALSYM DMPAPER_PENV_2_ROTATED      }
   DMPAPER_PENV_2_ROTATED      = 110; { PRC Envelope #2 Rotated 176 x 102 mm}
-  {-$EXTERNALSYM DMPAPER_PENV_3_ROTATED      }
   DMPAPER_PENV_3_ROTATED      = 111; { PRC Envelope #3 Rotated 176 x 125 mm}
-  {-$EXTERNALSYM DMPAPER_PENV_4_ROTATED      }
   DMPAPER_PENV_4_ROTATED      = 112; { PRC Envelope #4 Rotated 208 x 110 mm}
-  {-$EXTERNALSYM DMPAPER_PENV_5_ROTATED      }
   DMPAPER_PENV_5_ROTATED      = 113; { PRC Envelope #5 Rotated 220 x 110 mm}
-  {-$EXTERNALSYM DMPAPER_PENV_6_ROTATED      }
   DMPAPER_PENV_6_ROTATED      = 114; { PRC Envelope #6 Rotated 230 x 120 mm}
-  {-$EXTERNALSYM DMPAPER_PENV_7_ROTATED      }
   DMPAPER_PENV_7_ROTATED      = 115; { PRC Envelope #7 Rotated 230 x 160 mm}
-  {-$EXTERNALSYM DMPAPER_PENV_8_ROTATED      }
   DMPAPER_PENV_8_ROTATED      = 116; { PRC Envelope #8 Rotated 309 x 120 mm}
-  {-$EXTERNALSYM DMPAPER_PENV_9_ROTATED      }
   DMPAPER_PENV_9_ROTATED      = 117; { PRC Envelope #9 Rotated 324 x 229 mm}
-  {-$EXTERNALSYM DMPAPER_PENV_10_ROTATED     }
   DMPAPER_PENV_10_ROTATED     = 118; { PRC Envelope #10 Rotated 458 x 324 mm }
   DMPAPER_LAST                = DMPAPER_PENV_10_ROTATED;
   DMPAPER_USER                = $100;
@@ -10369,18 +10315,6 @@ const
   PFD_STEREO_DONTCARE             = DWORD($80000000);
 
 type
-
-
-
-
-
-
-
-
-
-
-
-
   TFNOldFontEnumProcA = TFarProc;
   TFNOldFontEnumProcW = TFarProc;
   TFNOldFontEnumProc = TFNOldFontEnumProcA;
@@ -10468,18 +10402,7 @@ function DescribePixelFormat(DC: HDC; p2: Integer; p3: UINT; var p4: TPixelForma
   functions for Win 3.1 compatibility }
 
 type
-
-
-
-
-
   TFNDevMode = TFarProc;
-
-
-
-
-
-
   TFNDevCaps = TFarProc;
 
 
@@ -12251,9 +12174,7 @@ function wglCopyContext(p1: HGLRC; p2: HGLRC; p3: Cardinal): BOOL; stdcall;
 function wglCreateContext(DC: HDC): HGLRC; stdcall;
 function wglCreateLayerContext(p1: HDC; p2: Integer): HGLRC; stdcall;
 function wglDeleteContext(p1: HGLRC): BOOL; stdcall;
-{-$EXTERNALSYM wglGetCurrentContext:}
 function wglGetCurrentContext: HGLRC; stdcall;
-{-$EXTERNALSYM wglGetCurrentDC:}
 function wglGetCurrentDC: HDC; stdcall;
 function wglMakeCurrent(DC: HDC; p2: HGLRC): BOOL; stdcall;
 function wglShareLists(p1, p2: HGLRC): BOOL; stdcall;
@@ -12404,16 +12325,6 @@ type
   HDWP = THandle;
   PMENUTEMPLATE = Pointer;
   va_list = PTChar;
-
-
-
-
-
-
-
-
-
-
   TFNWndProc = TFarProc;
   TFNDlgProc = TFarProc;
   TFNTimerProc = TFarProc;
@@ -12555,25 +12466,15 @@ const
   VK_MENU = 18;
   VK_PAUSE = 19;
   VK_CAPITAL = 20;
-  {-$EXTERNALSYM VK_KANA }
   VK_KANA = 21;
-  {-$EXTERNALSYM VK_HANGUL }
   VK_HANGUL = 21;
-  {-$EXTERNALSYM VK_JUNJA }
   VK_JUNJA = 23;
-  {-$EXTERNALSYM VK_FINAL }
   VK_FINAL = 24;
-  {-$EXTERNALSYM VK_HANJA }
   VK_HANJA = 25;
-  {-$EXTERNALSYM VK_KANJI }
   VK_KANJI = 25;
-  {-$EXTERNALSYM VK_CONVERT }
   VK_CONVERT = 28;
-  {-$EXTERNALSYM VK_NONCONVERT }
   VK_NONCONVERT = 29;
-  {-$EXTERNALSYM VK_ACCEPT }
   VK_ACCEPT = 30;
-  {-$EXTERNALSYM VK_MODECHANGE }
   VK_MODECHANGE = 31;
   VK_ESCAPE = 27;
   VK_SPACE = $20;
@@ -13844,14 +13745,12 @@ const
 
 type
   PBroadcastSysMsg = ^TBroadcastSysMsg;
-//  {-$EXTERNALSYM tagBROADCASTSYSMSG}
   tagBROADCASTSYSMSG = packed record
     uiMessage: UINT;
     wParam: WPARAM;
     lParam: LPARAM;
   end;
   TBroadcastSysMsg = tagBROADCASTSYSMSG;
-//  {-$EXTERNALSYM BROADCASTSYSMSG}
   BROADCASTSYSMSG = tagBROADCASTSYSMSG;
 
 const
@@ -13978,7 +13877,6 @@ type
   TFlashWInfo = FLASHWINFO;
 
 function FlashWindowEx(var pfwi: FLASHWINFO): BOOL; stdcall;
-{-$EXTERNALSYM FlashWindowEx}  
 
 const
   FLASHW_STOP = $0;
@@ -16511,7 +16409,6 @@ const
   SKF_LALTLATCHED = $10000000;
   SKF_LCTLLATCHED = $04000000;
   SKF_LSHIFTLATCHED = $01000000;
-  {-$EXTERNALSYM SKF_RALTLATCHED }
   SKF_RALTLATCHED = $20000000;
   SKF_RCTLLATCHED = $08000000;
   SKF_RSHIFTLATCHED = $02000000;
@@ -17439,19 +17336,11 @@ type
 
 { Enumeration function constants. }
 
-
-
-
-
-
-
-
   TFNLocaleEnumProc = TFarProc;
   TFNCodepageEnumProc = TFarProc;
   TFNDateFmtEnumProc = TFarProc;
   TFNTimeFmtEnumProc = TFarProc;
   TFNCalInfoEnumProc = TFarProc;
-
 
 
 { Code Page Dependent APIs. }
@@ -18066,13 +17955,6 @@ function VerQueryValue(pBlock: Pointer; lpSubBlock: PTChar;
 type
   REGSAM = ACCESS_MASK;  { Requested Key access mask type. }
 
-
-
-
-
-
-
-
   HKEY = type LongWord;
 
   PHKEY = ^HKEY;
@@ -18122,11 +18004,6 @@ type
   TPValueA = pvalueA;
   TPValueW = pvalueW;
   TPValue = TPValueA;
-
-
-
-
-
 
   TFNQueryHandler = TFarProc;
 
@@ -18675,15 +18552,8 @@ function WNetGetNetworkInformation(lpProvider: PTChar;
 type
 { User Profiles }
 
-
-
-
-
-
   TFNGetProfilePath = TFarProc;
   TFNReconcileProfile = TFarProc;
-
-
 
 const
   RP_LOGON = 1;    { if set, do for logon, else for logoff }
@@ -18692,12 +18562,7 @@ const
 type
 { Policies }
 
-
-
-
-
   TFNProcessPolicies = TFarProc;
-
 
 const
   PP_DISPLAYERRORS = 1;  { if set, display error messages, else fail silently if error }

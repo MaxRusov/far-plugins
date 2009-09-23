@@ -7,7 +7,8 @@ interface
   uses
     Windows,
     MixTypes,
-    MixUtils;
+    MixUtils,
+    MixStrings;
 
 
   function GetExeModuleFileName :TString;
@@ -45,6 +46,35 @@ interface
 
   function WinFileExists(const AFileName :TString) :Boolean;
   function WinFolderExists(const AFolderName :TString) :Boolean;
+
+  
+ {-----------------------------------------------------------------------------}
+
+  const
+    faEnumFiles   = (faDirectory + faVolumeID) * $10000 + 0;
+    faEnumFolders = (faDirectory + faVolumeID) * $10000 + (faDirectory);
+    faEnumFilesAndFolders = (faVolumeID) * $10000 + 0;
+
+  type
+    { Тип процедуры перечисления элементов каталога. }
+    TEnumFilesProc = procedure(const aPath :TString; const aSRec :TWin32FindData)
+      {$ifdef bFreePascal}of object{$endif bFreePascal};
+
+    TEnumFilesFunc = function(const aPath :TString; const aSRec :TWin32FindData) :Boolean
+      {$ifdef bFreePascal}of object{$endif bFreePascal};
+
+    { Параметры перечисления элементов каталога. }
+    TEnumFileOptions = set of (
+      efoRecursive,
+      efoIncludeDir,
+      efoFilesFirst,
+      efoBooleanFunc
+    );
+
+
+  procedure WinEnumFiles(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; const aProc :TMethod);
+  procedure WinEnumFilesEx(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; aOptions :TEnumFileOptions; const aProc :TMethod);
+
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -273,6 +303,116 @@ interface
   begin
     vCode := TUnsPtr(FileGetAttr(aFolderName));
     Result := (vCode <> TUnsPtr(-1)) and (vCode and FILE_ATTRIBUTE_DIRECTORY <> 0);
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  procedure WinEnumFiles(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; const aProc :TMethod);
+  var
+    I :Integer;
+    vHandle :THandle;
+    vSRec :TWin32FindData;
+    vFileMask :TString;
+    vLook, vMask :Word;
+   {$ifdef bDelphi}
+    vTmp :Pointer;
+   {$endif bDelphi}
+  begin
+    vLook := LongRec(aAttrs).Hi;
+    vMask := LongRec(aAttrs).Lo and vLook;
+   {$ifdef bDelphi}
+    vTmp := aProc.Data;
+   {$endif bDelphi}
+    for I := 1 to WordCount(aMasks, [';']) do begin
+      vFileMask := AddFileName(aFolderName, ExtractWord(I, aMasks, [';']));
+      vHandle  := FindFirstFile(PTChar(vFileMask), vSRec);
+      if vHandle <> INVALID_HANDLE_VALUE then begin
+        try
+          while True do begin
+
+            if
+              not ((vSRec.cFileName[0] = '.') and (vSRec.cFileName[1] = #0)) and
+              not ((vSRec.cFileName[0] = '.') and (vSRec.cFileName[1] = '.') and (vSRec.cFileName[2] = #0)) and
+              ((vSRec.dwFileAttributes and vLook) = vMask)
+            then begin
+
+             {$ifdef bDelphi}
+              asm push vTmp; end;
+              TEnumFilesProc(aProc.Code)(aFolderName, vSRec);
+              asm pop ECX; end;
+             {$else}
+              TEnumFilesProc(aProc)(aFolderName, vSRec);
+             {$endif bDelphi}
+
+            end;
+
+            if not FindNextFile(vHandle, vSRec) then
+              Break;
+          end;
+
+//        if (vRes <> ERROR_NO_MORE_FILES) and (vRes <> ERROR_FILE_NOT_FOUND) then
+//          IOError(errDosScanFolder, vRes, vFileMask);
+
+        finally
+          FindClose(vHandle);
+        end;
+      end;
+    end;
+  end;
+
+
+  procedure WinEnumFilesEx(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; aOptions :TEnumFileOptions; const aProc :TMethod);
+
+    procedure locEnumFolder(const aPath :TString; const aSRec :TWin32FindData);
+
+      function locAction :Boolean;
+     {$ifdef bDelphi}
+      var
+        vTmp :Pointer;
+      begin
+        vTmp := aProc.Data;
+        asm push vTmp; end;
+        if efoBooleanFunc in aOptions then
+          Result := TEnumFilesFunc(aProc.Code)(aPath, aSRec)
+        else begin
+          TEnumFilesProc(aProc.Code)(aPath, aSRec);
+          Result := True;
+        end;
+        asm pop ECX; end;
+     {$else}
+      begin
+        if efoBooleanFunc in aOptions then
+          Result := TEnumFilesFunc(aProc)(aPath, aSRec)
+        else begin
+          TEnumFilesProc(aProc)(aPath, aSRec);
+          Result := True;
+        end;
+     {$endif bDelphi}
+      end;
+
+    var
+      vPath :TString;
+    begin
+      if not ([efoFilesFirst, efoIncludeDir] * aOptions = [efoIncludeDir]) or locAction then begin
+        vPath := AddFileName(aPath, aSRec.cFileName);
+        if WinFolderExists(vPath) then
+          WinEnumFilesEx(vPath, aMasks, aAttrs, aOptions, aProc);
+
+        if [efoFilesFirst, efoIncludeDir] * aOptions = [efoFilesFirst, efoIncludeDir] then
+          locAction;
+      end;
+    end;
+
+  const
+    cDirMask = (faDirectory + faVolumeID) * $10000 + (faDirectory + faVolumeID);
+  begin
+    if not (efoFilesFirst in aOptions) then
+      WinEnumFiles(aFolderName, aMasks, aAttrs, aProc);
+    if efoRecursive in aOptions then
+      WinEnumFiles(aFolderName, '*.*', (aAttrs and not cDirMask) or faEnumFolders, LocalAddr(@locEnumFolder));
+    if efoFilesFirst in aOptions then
+      WinEnumFiles(aFolderName, aMasks, aAttrs, aProc);
   end;
 
 

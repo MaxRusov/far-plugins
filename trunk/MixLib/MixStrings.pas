@@ -9,8 +9,7 @@ interface
   uses
     Windows,
     MixTypes,
-    MixUtils,
-    MixConsts;
+    MixUtils;
 
   const
     charTAB = #09;
@@ -61,6 +60,7 @@ interface
   function UpCompareSubStr(const SubStr, Str :TString) :Integer;
   function UpComparePChar(const Str1, Str2 :PTChar) :Integer;
   function StrEqual(const Str1, Str2 :TString) :Boolean;
+  function StrIsEmpty(const Str :TString) :Boolean;
 
   procedure ChrOemToAnsi(var Chars; Count :Integer);
   procedure ChrAnsiToOem(var Chars; Count :Integer);
@@ -74,6 +74,7 @@ interface
   function Str2IntDef(const Str :TString; Def :Integer) :Integer;
   function Str2Int(const Str :TString) :Integer;
   function Hex2Int64(const AHexStr :TString) :TInt64;
+  function Str2FloatDef(const Str :TString; const Def :TFloat) :TFloat;
 
   function AppendStrCh(const AStr, AAdd, ADel :TString) :TString;
   function StrDeleteChars(const Str :TString; const Chars :TAnsiCharSet) :TString;
@@ -95,12 +96,16 @@ interface
   function AddFileName(const Path, FileName :TString) :TString;
   function CombineFileName(const Path, FileName :TString) :TString;
   function ExpandFileName(const FileName :TString) :TString;
+  function ClearFileExt(const FileName :TString) :TString;
+  function ExtractFileTitle(const FileName :TString) :TString;
+  function ExtractFileExtension(const FileName :TString) :TString;
   function ExtractFileName(const FileName :TString) :TString;
   function ExtractFilePath(const FileName :TString) :TString;
   function ExtractFileDrive(const FileName :TString) :TString;
   function SafeChangeFileExtension(const FileName, Extension :TString) :TString;
   function ExtractRelativePath(const BaseName, DestName :TString) :TString;
 
+  function FileNameHasMask(const FileName :TString) :Boolean;
   function FileNameIsLocal(const FileName :TString) :Boolean;
   function FileNameIsUNC(const FileName :TString) :Boolean;
   function IsFullFilePath(const APath :TString) :Boolean;
@@ -108,11 +113,28 @@ interface
   function GetCommandLineStr :PTChar;
   function ExtractParamStr(var AStr :PTChar) :TString;
 
+
+  type
+    TStrFileFormat = (
+      sffAnsi,
+      sffUnicode,
+      sffAuto
+    );
+
+  var
+    BOM_UTF16_LE  :array[1..2] of Byte = ($FF, $FE);
+    CRLF :array[1..2] of TChar = (#13, #10);
+
+  function StrFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto) :TString;
+  procedure StrToFile(const AFileName :TString; const AStr :TString; AMode :TStrFileFormat = sffAuto);
+
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
 
   uses
+    MixConsts,
     MixDebug;
 
 
@@ -533,6 +555,18 @@ interface
     end
   end;
 
+  function StrIsEmpty(const Str :TString) :Boolean;
+  var
+    I :Integer;
+  begin
+    for I := 1 to Length(Str) do
+      if Str[I] <> ' ' then begin
+        Result := False;
+        Exit;
+      end;
+    Result := True;
+  end;
+
 
   procedure ChrOemToAnsi(var Chars; Count :Integer);
   begin
@@ -727,6 +761,17 @@ interface
     Val(vStr, Result, vErr);
     if vErr <> 0 then
       AppErrorResFmt(@SInvalidInteger, [AHexStr]);
+  end;
+
+
+  function Str2FloatDef(const Str :TString; const Def :TFloat) :TFloat;
+  var
+    Err :Integer;
+  begin
+    {???}
+    Val(Str, Result, Err);
+    if Err <> 0 then
+      Result := Def;
   end;
 
 
@@ -980,6 +1025,37 @@ interface
   end;
 
 
+  function ClearFileExt(const FileName :TString) :TString;
+  var
+    I :Integer;
+  begin
+    I := LastDelimiter('.', FileName);
+    if I > 0 then begin
+      Result := Copy(FileName, 1, I - 1);
+    end else begin
+      Result := FileName;
+    end;
+  end;
+
+
+  function ExtractFileTitle(const FileName :TString) :TString;
+  begin
+    Result := ClearFileExt(ExtractFileName(FileName));
+  end;
+
+
+  function ExtractFileExtension(const FileName :TString) :TString;
+  var
+    I :Integer;
+  begin
+    I := LastDelimiter('.\:', FileName);
+    if (I > 0) and (FileName[I] = '.') then
+      Result := Copy(FileName, I + 1, MaxInt)
+    else
+      Result := '';
+  end;
+
+
   function ExtractFileName(const FileName :TString) :TString;
   var
     I: Integer;
@@ -1072,6 +1148,11 @@ interface
     end;
   end;
 
+
+  function FileNameHasMask(const FileName :TString) :Boolean;
+  begin
+    Result := LastDelimiter('*?', FileName) <> 0;
+  end;
 
   function FileNameIsLocal(const FileName :TString) :Boolean;
   begin
@@ -1221,5 +1302,87 @@ interface
     AStr := vPtr;
   end;
 
+
+
+ {-----------------------------------------------------------------------------}
+
+  function StrFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto) :TString;
+  var
+    vFile, vSize :Integer;
+    vBOM :Word;
+    vWStr :TWideStr;
+    vAStr :TAnsiStr;
+  begin
+    Result := '';
+    vFile := FileOpen(AFileName, fmOpenRead or fmShareDenyWrite);
+    if vFile < 0 then
+      ApiCheck(False);
+    try
+      vSize := GetFileSize(vFile, nil);
+      if AMode = sffAuto then begin
+        if (FileRead(vFile, vBOM, SizeOf(vBOM)) = SizeOf(vBOM)) and (vBOM = Word(BOM_UTF16_LE)) then begin
+          AMode := sffUnicode;
+          Dec(vSize, SizeOf(vBOM));
+        end else
+        begin
+          AMode := sffAnsi;
+          FileSeek(vFile, 0, 0);
+        end;
+      end;
+
+      if vSize > 0 then begin
+        if AMode = sffUnicode then begin
+          SetString(vWStr, nil, (vSize + 1) div SizeOf(WideChar));
+          FileRead(vFile, PWideChar(vWStr)^, vSize);
+          Result := vWStr;
+        end else
+        begin
+          SetString(vAStr, nil, vSize);
+          FileRead(vFile, PAnsiChar(vAStr)^, vSize);
+          Result := vAStr;
+        end;
+      end;
+
+    finally
+      FileClose(vFile);
+    end;
+  end;
+
+
+  procedure StrToFile(const AFileName :TString; const AStr :TString; AMode :TStrFileFormat = sffAuto);
+  var
+    vFile :Integer;
+
+    procedure LocWriteUnicode(const AStr :TWideStr);
+    begin
+      FileWrite(vFile, BOM_UTF16_LE, SizeOf(BOM_UTF16_LE));
+      FileWrite(vFile, PWideChar(AStr)^, Length(AStr) * SizeOf(WideChar));
+    end;
+
+    procedure LocWriteAnsi(const AStr :TAnsiStr);
+    begin
+      FileWrite(vFile, PAnsiChar(AStr)^, Length(AStr));
+    end;
+
+  begin
+    if AMode = sffAuto then
+     {$ifdef bUnicode}
+      AMode := sffUnicode;
+     {$else}
+      AMode := sffAnsi;
+     {$endif bUnicode}
+
+    vFile := FileCreate(AFileName);
+    if vFile < 0 then
+      ApiCheck(False);
+    try
+      if AMode = sffUnicode then
+        LocWriteUnicode(AStr)
+      else
+        LocWriteAnsi(AStr);
+    finally
+      FileClose(vFile);
+    end;
+  end;
 
 end.

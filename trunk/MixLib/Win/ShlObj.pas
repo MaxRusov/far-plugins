@@ -1102,7 +1102,6 @@ type
   end;
   TFolderSettings = FOLDERSETTINGS;
   LPFOLDERSETTINGS = PFolderSettings;
-  {-$EXTERNALSYM LPFOLDERSETTINGS} 
 
 { -------------------------------------------------------------------------- }
 
@@ -2080,9 +2079,7 @@ type
     dwStyle: DWORD;    // WPSTYLE_* mentioned above
   end;
   PWallPaperOpt = ^TWallPaperOpt;
-  {-$EXTERNALSYM PWallPaperOpt }
   TWallPaperOpt = _tagWALLPAPEROPT;
-  {-$EXTERNALSYM TWallPaperOpt }
 
   _tagCOMPONENTSOPT = packed record
     dwSize: DWORD;             // Size of this structure
@@ -2090,9 +2087,7 @@ type
     fActiveDesktop: BOOL;      // Active desktop enabled ?
   end;
   PComponentsOpt = ^TComponentsOpt;
-  {-$EXTERNALSYM PComponentsOpt }
   TComponentsOpt = _tagCOMPONENTSOPT;
-  {-$EXTERNALSYM TComponentsOpt }
 
   _tagCOMPPOS = packed record
     dwSize: DWORD;             //Size of this structure
@@ -2108,9 +2103,7 @@ type
     iPreferredTopPercent: Integer;   //Top of top-left corner as percent of screen height
   end;
   PCompPos = ^TCompPos;
-  {-$EXTERNALSYM PCompPos }
   TCompPos = _tagCOMPPOS;
-  {-$EXTERNALSYM TCompPos }
 
 const
   COMPONENT_TOP = $7fffffff;  // izOrder value meaning component is at the top
@@ -2144,9 +2137,7 @@ type
     wszSubscribedURL: array[0..INTERNET_MAX_URL_LENGTH - 1] of WideChar; //Subscrined URL
   end;
   PShComponent = ^TShComponent;
-  {-$EXTERNALSYM PShComponent }
   TShComponent = _tagCOMPONENT;
-  {-$EXTERNALSYM TShComponent }
 
 const
   // Flags for IActiveDesktop::ApplyChanges()
