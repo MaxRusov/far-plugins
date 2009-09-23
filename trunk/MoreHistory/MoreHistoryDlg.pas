@@ -536,7 +536,7 @@ interface
       vOpt := vOpt + [coNoVertLine];
 
     FGrid.ResetSize;
-    FGrid.Columns.FreeAll;
+    FGrid.Columns.Clear;
     FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, vOpt + [coOwnerDraw], 1) );
     if optShowDate then
       FGrid.Columns.Add( TColumnFormat.CreateEx('', '', vDateLen + 2, taRightJustify, vOpt, 2) );
@@ -691,7 +691,7 @@ interface
     vStr, vMask :TString;
   begin
     if FMaskStack.Count > 0 then
-      FMaskStack.FreeRange(FFixedCount, FMaskStack.Count - FFixedCount);
+      FMaskStack.DeleteRange(FFixedCount, FMaskStack.Count - FFixedCount);
       
     vStr := AFilter;
     vPos := ChrPos('>', vStr);

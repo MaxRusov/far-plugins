@@ -317,22 +317,20 @@ interface
   const
     cDays :array[1..4] of TMessages = (strDays1, strDays2, strDays5, strDays21);
   var
-    vDate1, vDate2, vDays :Integer;
-    vTime :TDateTime;
+    vDate0, vDateI, vDays :Integer;
   begin
-    vTime := EncodeTime(optMidnightHour, 0, 0, 0);
-    vDate1 := Trunc(Date - vTime);
-    vDate2 := Trunc(FTime - vTime);
+    vDate0 := Trunc(Date);
+    vDateI := Trunc(FTime - EncodeTime(optMidnightHour, 0, 0, 0));
 
-    vDays := vDate1 - vDate2;
-    if vDays = 0 then
+    vDays := vDate0 - vDateI;
+    if vDays <= 0 then
       Result := GetMsgStr(strToday)
 //  else
 //  if vDays = 1 then
 //    Result := GetMsgStr(strYesterday)
     else
       Result := Int2Str(vDays) + ' ' + Format(GetMsgStr(strDaysAgo), [GetMsgStr(cDays[NumMode(vDays)])]);
-    Result := Result + ', ' + FormatDate('ddd, dd', vDate2);
+    Result := Result + ', ' + FormatDate('ddd, dd', Trunc(vDateI));
   end;
 
 
@@ -592,7 +590,7 @@ interface
         end;
         FHistory.Add(vEntry);
         if FHistory.Count > optHistoryLimit then
-          FHistory.FreeRange(0, FHistory.Count - optHistoryLimit);
+          FHistory.DeleteRange(0, FHistory.Count - optHistoryLimit);
         FModified := True;
       end;
 
@@ -608,7 +606,7 @@ interface
     try
 //    TraceF('Add history: %s', [APath]);
 
-      FHistory.FreeAt(AIndex);
+      FHistory.Delete(AIndex);
       FModified := True;
 
     finally
@@ -861,7 +859,7 @@ interface
       vCount := PInteger(vPtr)^;
       Inc(vPtr, SizeOf(Integer));
 
-      FHistory.FreeAll;
+      FHistory.Clear;
       FHistory.Capacity := vCount;
       for I := 0 to vCount - 1 do begin
         vEntry := THistoryEntry.Create;
