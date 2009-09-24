@@ -60,6 +60,7 @@ interface
       strMShowHints,
       strMFollowMouse,
       strMWrapMode,
+      strMHideCurrent,
 
       strSortByTitle,
       strMByName,
@@ -125,6 +126,7 @@ interface
     optFollowMouse     :Boolean = False;
     optWrapMode        :Boolean = False;
     optNewAtTop        :Boolean = True;
+    optHideCurrent     :Boolean = True;
 
     optMidnightHour    :Integer = 0;
     optDateFormat      :Integer = 0;
@@ -246,6 +248,7 @@ interface
         optFollowMouse := RegQueryLog(vKey, 'FollowMouse', optFollowMouse);
         optWrapMode := RegQueryLog(vKey, 'WrapMode', optWrapMode);
         optNewAtTop := RegQueryLog(vKey, 'NewAtTop', optNewAtTop);
+        optHideCurrent := RegQueryLog(vKey, 'HideCurrent', optHideCurrent);
 
         optMidnightHour := RegQueryInt(vKey, 'MidnightHour', optMidnightHour);
 
@@ -284,6 +287,7 @@ interface
       RegWriteLog(vKey, 'FollowMouse', optFollowMouse);
       RegWriteLog(vKey, 'WrapMode', optWrapMode);
       RegWriteLog(vKey, 'NewAtTop', optNewAtTop);
+      RegWriteLog(vKey, 'HideCurrent', optHideCurrent);
 
     finally
       RegCloseKey(vKey);

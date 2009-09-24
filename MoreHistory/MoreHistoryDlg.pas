@@ -179,7 +179,11 @@ interface
     FDomain := #0;
     inherited InitDialog;
     if FReversed then
-      SetCurrent(FFilter.Count - 1, lmSafe);
+      SetCurrent(FFilter.Count - 1, lmSafe)
+    else begin
+      if FHierarchical then
+        SetCurrent(1, lmSafe)
+    end;
   end;
 
 
@@ -393,6 +397,8 @@ interface
           Continue;
         if not optShowHidden and not vHist.IsFinal then
           Continue;
+        if optHideCurrent and StrEqual(GLastAdded, vHist.Path) then
+          Continue;
 
         Inc(FTotalCount);
         vPos := 0; vLen := 0;
@@ -428,6 +434,8 @@ interface
           if (FMode <> 0) and (vHist.GetMode <> FMode) then
             Continue;
           if not optShowHidden and not vHist.IsFinal then
+            Continue;
+          if optHideCurrent and StrEqual(GLastAdded, vHist.Path) then
             Continue;
 
           Inc(FTotalCount);
@@ -476,7 +484,7 @@ interface
             for J := 0 to vGroup.Count - 1 do
               with PFilterRec(vGroup.PItems[J])^ do begin
                 vHist := FarHistory[FIdx];
-                if StrEqual(vGroup.Domain, vHist.Path) then
+                if (optHierarchyMode <> hmDate) and StrEqual(vGroup.Domain, vHist.Path) then
                   Continue;
 
                 FFilter.Add(FIdx, FPos, FLen);
@@ -772,7 +780,7 @@ interface
 
   procedure TMenuDlg.OptionsDlg;
   const
-    cMenuCount = 11;
+    cMenuCount = 12;
   var
     vRes, I :Integer;
     vItems :PFarMenuItemsArray;
@@ -792,6 +800,7 @@ interface
       SetMenuItemChrEx(vItem, GetMsg(strMShowHints));
       SetMenuItemChrEx(vItem, GetMsg(strMFollowMouse));
       SetMenuItemChrEx(vItem, GetMsg(strMWrapMode));
+      SetMenuItemChrEx(vItem, GetMsg(strMHideCurrent));
 
       vRes := 0;
       while True do begin
@@ -804,6 +813,7 @@ interface
         vItems[8].Flags := SetFlag(0, MIF_CHECKED1, optShowHints);
         vItems[9].Flags := SetFlag(0, MIF_CHECKED1, optFollowMouse);
         vItems[10].Flags := SetFlag(0, MIF_CHECKED1, optWrapMode);
+        vItems[11].Flags := SetFlag(0, MIF_CHECKED1, optHideCurrent);
 
         for I := 0 to cMenuCount - 1 do
           vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
@@ -832,6 +842,7 @@ interface
           8 : ToggleOption(optShowHints);
           9 : ToggleOption(optFollowMouse);
           10: ToggleOption(optWrapMode);
+          11: ToggleOption(optHideCurrent);
         end;
       end;
 

@@ -128,6 +128,9 @@ interface
   procedure HandleError(AError :Exception);
 
   var
+    GLastAdded :TString;  { Последняя добавленная папка, для опциональной фильтрации }
+
+  var
     FarHistory :TFarHistory;
 
 
@@ -551,12 +554,15 @@ interface
     vIndex :Integer;
     vEntry :THistoryEntry;
   begin
+    GLastAdded := '';
     if not IsFullFilePath(APath) and not IsKnownPluginPath(APath) then
       Exit;
 
     vPath := ConvertPluginPath(APath);
     if (vPath = '') or not CheckExclusion(vPath) then
       Exit;
+
+    GLastAdded := vPath;
 
     LockHistory;
     try
