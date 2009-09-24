@@ -110,9 +110,9 @@ interface
   function LoadStr(Ident: Integer) :TString;
   function FmtLoadStr(Ident: Integer; const Args: array of const) :TString;
 
-  function StrLen(const Str: PTChar) :Cardinal;
-  function StrLenA(const Str: PAnsiChar) :Cardinal;
-  function StrLenW(const Str: PWideChar) :Cardinal;
+  function StrLen(const Str: PTChar) :Integer;
+  function StrLenA(const Str: PAnsiChar) :Integer;
+  function StrLenW(const Str: PWideChar) :Integer;
 
   function StrCopy(Dest :PTChar; const Source :PTChar) :PTChar;
   function StrCopyA(Dest :PAnsiChar; const Source :PAnsiChar) :PAnsiChar;
@@ -372,7 +372,7 @@ interface
   end;
 
 
-  function StrLen(const Str :PTChar) :Cardinal;
+  function StrLen(const Str :PTChar) :Integer;
   begin
    {$ifdef bUnicode}
     Result := StrLenW(Str);
@@ -381,12 +381,12 @@ interface
    {$endif bUnicode}
   end;
 
-  function StrLenA(const Str :PAnsiChar) :Cardinal;
+  function StrLenA(const Str :PAnsiChar) :Integer;
   begin
     Result := {Windows.}lstrlena(Str);
   end;
 
-  function StrLenW(const Str :PWideChar) :Cardinal;
+  function StrLenW(const Str :PWideChar) :Integer;
   begin
     Result := {Windows.}lstrlenw(Str);
   end;

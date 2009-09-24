@@ -42,6 +42,7 @@ interface
   procedure SRectGrow(var AR :TSmallRect; ADX, ADY :TInt32);
   function RectEmpty(const AR :TRect) :Boolean;
   function RectContainsXY(const AR :TRect; X, Y :TInt32) :Boolean;
+  procedure RectMove(var AR :TRect; ADX, ADY :TInt32);
 
   function ChrInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
   function ChrPos(Ch :TChar; const Str :TString) :Integer;
@@ -372,6 +373,15 @@ interface
       (Y >= AR.Top)  and (Y < AR.Bottom);
   end;
 
+
+  procedure RectMove(var AR :TRect; ADX, ADY :TInt32);
+  begin
+    Inc(AR.Left,   ADX);
+    Inc(AR.Right,  ADX);
+    Inc(AR.Top,    ADY);
+    Inc(AR.Bottom, ADY);
+  end;
+  
 
   function ChrInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
   begin
