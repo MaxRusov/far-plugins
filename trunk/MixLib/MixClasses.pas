@@ -1058,7 +1058,6 @@ interface
     vTmp :Pointer;
     vBuf :array[0..cTmpBufSize - 1] of Byte;
   begin
-    Assert(FItemSize = SizeOf(Pointer));
     if CurIndex <> NewIndex then begin
       vTmp := @vBuf;
       if FItemSize > cTmpBufSize then
@@ -1079,21 +1078,6 @@ interface
     end;
   end;
 
-(*
-  procedure TExList.Move(CurIndex, NewIndex: Integer);
-  var
-    Item: Pointer;
-  begin
-    Assert(FItemSize = SizeOf(Pointer));
-    if CurIndex <> NewIndex then begin
-      if (NewIndex < 0) or (NewIndex >= FCount) then
-        AppErrorResFmt(@SListIndexError, [NewIndex]);
-      Item := GetItems(CurIndex);
-      Delete(CurIndex);
-      Insert(NewIndex, Item);
-    end;
-  end;
-*)
 
  {-----------------------------------------------------------------------------}
  { TObjList                                                                    }

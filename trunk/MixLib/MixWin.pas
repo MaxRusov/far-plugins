@@ -14,9 +14,11 @@ interface
     Windows,
     CommCtrl,
     Messages,
-    SysUtils,
-    Classes,
-    LibBase;
+
+    MixTypes,
+    MixUtils,
+    MixStrings,
+    MixClasses;
 
 
   const
@@ -135,7 +137,7 @@ interface
 {******************************************************************************}
 
   uses
-    MSDebug;
+    MixDebug;
 
 
   function InitWndProc(HWindow: HWnd; Msg, WParam, LParam: Longint) :Longint; stdcall;
