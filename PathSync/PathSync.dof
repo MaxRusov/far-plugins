@@ -1,0 +1,4 @@
+[Directories]
+OutputDir=..\Bin\PathSync
+UnitOutputDir=..\Units\PathSync
+SearchPath=..\FarApi;..\FarLib;..\MixLib;..\MixLib\Win;..\MixLib\BD5;..\RTL
