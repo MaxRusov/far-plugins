@@ -52,7 +52,7 @@ uses Windows;
 const
   FARMANAGERVERSION_MAJOR = 2;
   FARMANAGERVERSION_MINOR = 0;
-  FARMANAGERVERSION_BUILD = 1135;
+  FARMANAGERVERSION_BUILD = 1148;
 
 type
 //TFarChar = AnsiChar;
@@ -2402,14 +2402,28 @@ const
 
 (*
 typedef int     (WINAPI *FARSTDMKLINK)(const wchar_t *Src,const wchar_t *Dest,DWORD Flags);
-typedef int     (WINAPI *FARCONVERTNAMETOREAL)(const wchar_t *Src, wchar_t *Dest, int DestSize);
 typedef int     (WINAPI *FARGETREPARSEPOINTINFO)(const wchar_t *Src, wchar_t *Dest,int DestSize);
 *)
 type
   TFarStdMkLink = function (Src, Dest :PFarChar; Flags :DWORD) :Integer; stdcall;
-  TFarStdConvertNameToReal = function (Src, Dest :PFarChar; DestSize :Integer) : Integer; stdcall;
   TFarStdGetReparsePointInfo = function (Src, Dest :PFarChar; DestSize :Integer) : Integer; stdcall;
 
+(*
+enum CONVERTPATHMODES
+{
+	CPM_FULL,
+	CPM_REAL,
+};
+
+typedef int (WINAPI *FARCONVERTPATH)(CONVERTPATHMODES Mode, const wchar_t *Src, wchar_t *Dest, int DestSize);
+*)
+
+const
+  CPM_FULL = 0;
+  CPM_REAL = 1;
+
+type
+  TFarConvertPath = function(Mode :Integer {TConvertPathModes}; Src :PFarChar; Dest :PFarChar; DestSize :Integer) :Integer; stdcall;
 
 (*
 typedef struct FarStandardFunctions
@@ -2469,7 +2483,7 @@ typedef struct FarStandardFunctions
   FARSTDDELETEBUFFER         DeleteBuffer;
   FARSTDPROCESSNAME          ProcessName;
   FARSTDMKLINK               MkLink;
-  FARCONVERTNAMETOREAL       ConvertNameToReal;
+  FARCONVERTPATH             ConvertPath;
   FARGETREPARSEPOINTINFO     GetReparsePointInfo;
 } FARSTANDARDFUNCTIONS;
 *)
@@ -2530,7 +2544,7 @@ type
     DeleteBuffer        : TFarStdDeleteBuffer;
     ProcessName         : TFarStdProcessName;
     MkLink              : TFarStdMkLink;
-    ConvertNameToReal   : TFarStdConvertNameToReal;
+    ConvertPath         : TFarConvertPath;
     GetReparsePointInfo : TFarStdGetReparsePointInfo;
   end;
 
