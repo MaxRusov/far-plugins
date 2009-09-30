@@ -161,6 +161,8 @@ interface
 
   procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName, ATypeName :PTString);
 
+  function FarExpandFileName(const AFileName :TString) :TString;
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -637,6 +639,25 @@ interface
     end;
    {$endif bUnicodeFar}
   end;
+
+
+  function FarExpandFileName(const AFileName :TString) :TString;
+ {$ifdef bUnicodeFar}
+  var
+    vLen :Integer;
+  begin
+    Result := '';
+    vLen := FARSTD.ConvertPath(CPM_FULL, PTChar(AFileName), nil, 0);
+    if vLen > 0 then begin
+      SetLength(Result, vLen - 1);
+      FARSTD.ConvertPath(CPM_FULL, PTChar(AFileName), PTChar(Result), vLen);
+    end;
+ {$else}
+  begin
+    Result := ExpandFileName(AFileName);
+ {$endif bUnicodeFar}
+  end;
+
 
 
 end.
