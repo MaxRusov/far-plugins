@@ -119,13 +119,13 @@ interface
     if UpCompareSubStr(cPlugLoadPrefix, AStr) = 0 then begin
       if (vStr <> '') and (vStr[1] = '"') and (vStr[Length(vStr)] = '"') then
         vStr := Trim(Copy(vStr, 2, length(vStr) - 2));
-      vStr := ExpandFileName(vStr);
+      vStr := FarExpandFileName(vStr);
       LoadNewPlugin(vStr);
     end else
     if UpCompareSubStr(cPlugUnloadPrefix, AStr) = 0 then begin
       if (vStr <> '') and (vStr[1] = '"') and (vStr[Length(vStr)] = '"') then
         vStr := Trim(Copy(vStr, 2, length(vStr) - 2));
-      vStr := ExpandFileName(vStr);
+      vStr := FarExpandFileName(vStr);
       UnloadPlugin(vStr);
     end;
    {$endif bUnicode}
@@ -138,11 +138,9 @@ interface
  {$ifdef bUnicodeFar}
   function GetMinFarVersionW :Integer; stdcall;
   begin
-//  Result := $02F40200;  { Need 2.0.756 }
-//  Result := $03150200;  { Need 2.0.789 }
-//  Result := $03550200;  { Need 2.0.853 }
-//  Result := $038E0200;  { Need 2.0.910 }   { Новый формат кэша плагинов. }
-    Result := $03E30200;  { Need 2.0.995 }   { Изменена TWindowInfo }
+//  Result := MakeFarVersion(2, 0, 910);    { Новый формат кэша плагинов. }
+//  Result := MakeFarVersion(2, 0, 995);    { Изменена TWindowInfo }
+    Result := MakeFarVersion(2, 0, 1148);   { ConvertPath }
   end;
  {$endif bUnicodeFar}
 
