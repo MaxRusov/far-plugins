@@ -9,6 +9,10 @@ unit PlugMenuPlugs;
 {* Работа с плагинами                                                         *}
 {******************************************************************************}
 
+{$ifdef CPUX86_64}
+ {$PACKRECORDS C}
+{$endif CPUX86_64}
+
 interface
 
   uses
@@ -297,7 +301,7 @@ interface
     TPCharArrayA = packed array[0..Pred(MaxLongint div SizeOf(PAnsiChar))] of PAnsiChar;
 
     PPluginInfoA = ^TPluginInfoA;
-    TPluginInfoA = packed record
+    TPluginInfoA = record
        StructSize : Integer;
        Flags : DWORD;
        DiskMenuStrings : PPCharArrayA;
@@ -359,6 +363,8 @@ interface
     vInfoA :TPluginInfoA;
    {$endif bUnicode}
   begin
+//  TraceF('UpdatePluginInfo: %s, %s', [FFileName, ARegPath]);
+
     FCommands.FreeAll;
     FConfigString := '';
     FPrefixes := '';
@@ -966,10 +972,27 @@ interface
   var
     vDlls :TStrList;
 
-    function LocEnumPlugins(const AFileName :TString; const ARec :TFarFindData) :Integer;
+    procedure LocSearchOnPath(const APath :TString);
+
+      function LocEnumPlugins(const AFileName :TString; const ARec :TFarFindData) :Integer;
+      begin
+        vDlls.Add(AFileName);
+        Result := 1;
+      end;
+
+    var
+      I :Integer;
+      vPath :TString;
     begin
-      vDlls.Add(AFileName);
-      Result := 1;
+      for I := 1 to WordCount(APath, [';', ',']) do begin
+        vPath := Trim(ExtractWord(I, APath, [';', ',']));
+        if (vPath <> '') and (vPath[1] = '"') and (vPath[length(vPath)] = '"') then
+          vPath := Trim(Copy(vPath, 2, length(vPath) - 2));
+        vPath := StrExpandEnvironment(vPath);
+        vPath := ExpandFileName(vPath);
+        if WinFolderExists(vPath) then
+          EnumFilesEx(vPath, '*.dll', LocalAddr(@LocEnumPlugins));
+      end;
     end;
 
   var
@@ -990,19 +1013,10 @@ interface
       vCache := TObjList.Create;
 
       { Просканируем каталог плагинов (ищем все *.dll) }
-      EnumFilesEx(FPluginsPath, '*.dll', LocalAddr(@LocEnumPlugins));
+      LocSearchOnPath(FPluginsPath);
 
-      if FAddPluginsPaths <> '' then begin
-        for I := 1 to WordCount(FAddPluginsPaths, [';', ',']) do begin
-          vPath := Trim(ExtractWord(I, FAddPluginsPaths, [';', ',']));
-          if (vPath <> '') and (vPath[1] = '"') and (vPath[length(vPath)] = '"') then
-            vPath := Trim(Copy(vPath, 2, length(vPath) - 2));
-          vPath := StrExpandEnvironment(vPath);
-          vPath := ExpandFileName(vPath);
-          if WinFolderExists(vPath) then
-            EnumFilesEx(vPath, '*.dll', LocalAddr(@LocEnumPlugins));
-        end;
-      end;
+      if FAddPluginsPaths <> '' then
+        LocSearchOnPath(FAddPluginsPaths);
 
       { Просканируем кэш плагинов в реестре}
       if RegOpenKey(HKCU, PTChar(FCacheRoot), vKey) = 0 then begin
