@@ -277,7 +277,10 @@ interface
     if (vInfo.PanelType = PTYPE_FILEPANEL) and (vInfo.Plugin = 0) then begin
       vPath := FarPanelGetCurrentDirectory(THandle(PANEL_ACTIVE));
       if vPath <> FLastPath then begin
+//      TraceF('Len=%d, Path=%s', [Length(vPath), vPath]);
         vSetOk := SetCurrentDir(vPath);
+        if vSetOk then
+          vSetOk := StrEqual(vPath, GetCurrentDir);
         UpdateColor(vSetOk);
         FLastPath := vPath;
       end;
