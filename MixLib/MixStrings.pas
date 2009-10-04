@@ -21,28 +21,28 @@ interface
   function StrIf(Cond :Boolean; const S1, S2 :TString) :TString;
   function IntMin(L1, L2 :Integer) :Integer;
   function IntMax(L1, L2 :Integer) :Integer;
+  function Int64Max(const N1, N2 :TInt64) :TInt64;
   function RangeLimit(V :Integer; LMin, LMax :Integer) :Integer;
   function LogCompare(L1, L2 :Boolean) :Integer;
   function IntCompare(L1, L2 :Integer) :Integer;
+  function Int64Compare(const N1, N2 :TInt64) :Integer;
   function UnsCompare(L1, L2 :TUnsPtr) :Integer;
   function PtrCompare(P1, P2 :Pointer) :Integer;
   function FloatCompare(const E1, E2 :TFloat) :Integer;
   function DateTimeCompare(const aD1, aD2 :TDateTime) :Integer;
 
-  procedure MemFill2(PBuf :Pointer; ACount :Integer; AFiller :Word);
-  procedure MemFillChar(pBuf :Pointer; ACount :Integer; AChar :TChar);
-  function MemSearch(Str :PAnsiChar; Count :Integer; Match :Char) :Integer;
-
+  function MakeInt64(ALo, AHi :DWORD) :TInt64;
   function Point(AX, AY: Integer): TPoint;
   function SmallPoint(AX, AY: SmallInt): TSmallPoint;
-  function Size(ACX, ACY :TInt32) :TSize;
+  function Size(ACX, ACY :Integer) :TSize;
   function Rect(ALeft, ATop, ARight, ABottom: Integer): TRect;
   function Bounds(ALeft, ATop, AWidth, AHeight: Integer): TRect;
-  function SBounds(X, Y, W, H :TInt32) :TSmallRect;
-  procedure SRectGrow(var AR :TSmallRect; ADX, ADY :TInt32);
+  function SRect(X, Y, X2, Y2 :Integer) :TSmallRect;
+  function SBounds(X, Y, W, H :Integer) :TSmallRect;
+  procedure SRectGrow(var AR :TSmallRect; ADX, ADY :Integer);
   function RectEmpty(const AR :TRect) :Boolean;
-  function RectContainsXY(const AR :TRect; X, Y :TInt32) :Boolean;
-  procedure RectMove(var AR :TRect; ADX, ADY :TInt32);
+  function RectContainsXY(const AR :TRect; X, Y :Integer) :Boolean;
+  procedure RectMove(var AR :TRect; ADX, ADY :Integer);
 
   function ChrInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
   function ChrPos(Ch :TChar; const Str :TString) :Integer;
@@ -175,6 +175,15 @@ interface
   end;
 
 
+  function Int64Max(const N1, N2 :TInt64) :TInt64;
+  begin
+    if N1 > N2 then
+      Result := N1
+    else
+      Result := N2;
+  end;
+
+
   function RangeLimit(V :Integer; LMin, LMax :Integer) :Integer;
   begin
     if V > LMax then
@@ -203,6 +212,18 @@ interface
       Result := 1
     else
     if L1 < L2 then
+      Result := -1
+    else
+      Result := 0;
+  end;
+
+
+  function Int64Compare(const N1, N2 :TInt64) :Integer;
+  begin
+    if N1 > N2 then
+      Result := 1
+    else
+    if N1 < N2 then
       Result := -1
     else
       Result := 0;
@@ -257,39 +278,10 @@ interface
   end;
 
 
-
-  procedure MemFill2(PBuf :Pointer; ACount :Integer; AFiller :Word);
-  var
-    vPtr :PWord;
+  function MakeInt64(ALo, AHi :DWORD) :TInt64;
   begin
-    vPtr := PBuf;
-    while ACount > 0 DO begin
-      vPtr^ := AFiller;
-      Inc(vPtr);
-      Dec(ACount);
-    end;
-  end;
-
-
-  procedure MemFillChar(pBuf :Pointer; ACount :Integer; AChar :TChar);
-  begin
-   {$ifdef bUnicode}
-    MemFill2(pBuf, ACount, Word(AChar));
-   {$else}
-    FillChar(pBuf^, ACount, AChar);
-   {$endif bUnicode}
-  end;
-
-
-  function MemSearch(Str :PAnsiChar; Count :Integer; Match :Char) :Integer;
-  var
-    vPtr, vLast :PAnsiChar;
-  begin
-    vPtr := Str;
-    vLast := Str + Count;
-    while (vPtr < vLast) and (vPtr^ <> Match) do
-      inc(vPtr);
-    Result := vPtr - Str;
+    Int64Rec(Result).Lo := ALo;
+    Int64Rec(Result).Hi := AHi;
   end;
 
 
@@ -310,7 +302,7 @@ interface
   end;
 
 
-  function Size(ACX, ACY :TInt32) :TSize;
+  function Size(ACX, ACY :Integer) :TSize;
   begin
     with Result do begin
       CX := ACX;
@@ -340,7 +332,18 @@ interface
   end;
 
 
-  function SBounds(X, Y, W, H :TInt32) :TSmallRect;
+  function SRect(X, Y, X2, Y2 :Integer) :TSmallRect;
+  begin
+    with Result do begin
+      Left := X;
+      Top := Y;
+      Right := X2;
+      Bottom := Y2;
+    end;
+  end;
+
+
+  function SBounds(X, Y, W, H :Integer) :TSmallRect;
   begin
     with Result do begin
       Left := X;
@@ -351,7 +354,7 @@ interface
   end;
 
 
-  procedure SRectGrow(var AR :TSmallRect; ADX, ADY :TInt32);
+  procedure SRectGrow(var AR :TSmallRect; ADX, ADY :Integer);
   begin
     dec(AR.Left,   ADX);
     inc(AR.Right,  ADX);
@@ -366,7 +369,7 @@ interface
   end;
 
 
-  function RectContainsXY(const AR :TRect; X, Y :TInt32) :Boolean;
+  function RectContainsXY(const AR :TRect; X, Y :Integer) :Boolean;
   begin
     Result :=
       (X >= AR.Left) and (X < AR.Right) and
@@ -374,7 +377,7 @@ interface
   end;
 
 
-  procedure RectMove(var AR :TRect; ADX, ADY :TInt32);
+  procedure RectMove(var AR :TRect; ADX, ADY :Integer);
   begin
     Inc(AR.Left,   ADX);
     Inc(AR.Right,  ADX);

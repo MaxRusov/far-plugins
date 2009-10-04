@@ -172,6 +172,12 @@ interface
 
   function HexStr(AVal :Int64; ACount :Integer) :TString;
 
+  procedure MemFill2(PBuf :Pointer; ACount :Integer; AFiller :Word);
+  procedure MemFillChar(pBuf :Pointer; ACount :Integer; AChar :TChar);
+  function MemSearch(Str :PAnsiChar; Count :Integer; Match :Char) :Integer;
+  function MemCompare(APtr1, APtr2 :Pointer; ASize :Integer) :Integer;
+  procedure MemExchange(APtr1, APtr2 :Pointer; ASize :Integer);
+
   function SysErrorMessage(ErrorCode: Integer) :TString;
   function Win32Check(RetVal: BOOL): BOOL;
   procedure RaiseLastWin32Error;
@@ -183,6 +189,7 @@ interface
   function FileSeek(Handle, Offset, Origin: Integer): Integer; overload;
   function FileSeek(Handle: Integer; const Offset: Int64; Origin: Integer): Int64; overload;
   procedure FileClose(Handle: Integer);
+  function FileTimeToDosFileDate(const AFileTime :TFileTime) :Integer;
   function FileAge(const FileName :TString): Integer;
   function FileGetAttr(const FileName :TString): Integer;
   function FileSetAttr(const FileName :TString; Attr: Integer): Integer;
@@ -341,9 +348,9 @@ interface
   end;
 
 
-  {------------------------------------------------------------------------------}
-  {                                                                              }
-  {------------------------------------------------------------------------------}
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
 
   Function Format(const Fmt :TString; const Args : Array of const) :TString;
   begin
@@ -881,6 +888,89 @@ interface
   end;
 
 
+ {-----------------------------------------------------------------------------}
+
+  procedure MemFill2(PBuf :Pointer; ACount :Integer; AFiller :Word);
+  var
+    vPtr :PWord;
+  begin
+    vPtr := PBuf;
+    while ACount > 0 DO begin
+      vPtr^ := AFiller;
+      Inc(vPtr);
+      Dec(ACount);
+    end;
+  end;
+
+
+  procedure MemFillChar(pBuf :Pointer; ACount :Integer; AChar :TChar);
+  begin
+   {$ifdef bUnicode}
+    MemFill2(pBuf, ACount, Word(AChar));
+   {$else}
+    FillChar(pBuf^, ACount, AChar);
+   {$endif bUnicode}
+  end;
+
+
+  function MemSearch(Str :PAnsiChar; Count :Integer; Match :Char) :Integer;
+  var
+    vPtr, vLast :PAnsiChar;
+  begin
+    vPtr := Str;
+    vLast := Str + Count;
+    while (vPtr < vLast) and (vPtr^ <> Match) do
+      inc(vPtr);
+    Result := vPtr - Str;
+  end;
+
+
+  function MemCompare(APtr1, APtr2 :Pointer; ASize :Integer) :Integer;
+  const
+    cPtrSize = SizeOf(Pointer);
+  begin
+    Result := ASize;
+    while (ASize >= cPtrSize) and (TUnsPtr(APtr1^) = TUnsPtr(APtr2^)) do begin
+      Inc(Pointer1(APtr1), cPtrSize);
+      Inc(Pointer1(APtr2), cPtrSize);
+      Dec(ASize, cPtrSize);
+    end;
+    while (ASize > 0) and (Byte(APtr1^) = Byte(APtr2^)) do begin
+      Inc(Pointer1(APtr1));
+      Inc(Pointer1(APtr2));
+      Dec(ASize);
+    end;
+    Dec(Result, ASize);
+  end;
+
+
+  procedure MemExchange(APtr1, APtr2 :Pointer; ASize :Integer);
+  var
+    vCnt :Integer;
+    vInt :TUnsPtr;
+    vByte :Byte;
+  begin
+    vCnt := SizeOf(Pointer);
+    while ASize >= vCnt do begin
+      vInt := TUnsPtr(APtr1^);
+      TUnsPtr(APtr1^) := TUnsPtr(APtr2^);
+      TUnsPtr(APtr2^) := vInt;
+      Inc(Pointer1(APtr1), vCnt);
+      Inc(Pointer1(APtr2), vCnt);
+      Dec(ASize, vCnt);
+    end;
+    while ASize >=1 do begin
+      vByte := Byte(APtr1^);
+      Byte(APtr1^) := Byte(APtr2^);
+      Byte(APtr2^) := vByte;
+      Inc(Pointer1(APtr1));
+      Inc(Pointer1(APtr2));
+      Dec(ASize);
+    end;
+  end;
+
+ {-----------------------------------------------------------------------------}
+
   function SysErrorMessage(ErrorCode: Integer) :TString;
   const
     cMaxLen = 255;
@@ -980,29 +1070,37 @@ interface
     CloseHandle(THandle(Handle));
   end;
 
-  function FileAge(const FileName :TString): Integer;
+
+  function FileTimeToDosFileDate(const AFileTime :TFileTime) :Integer;
+  var
+    vLocalTime :TFileTime;
+  begin
+    FileTimeToLocalFileTime(AFileTime, vLocalTime);
+    if not FileTimeToDosDateTime(vLocalTime, LongRec(Result).Hi, LongRec(Result).Lo) then
+      Result := -1;
+  end;
+
+
+  function FileAge(const FileName :TString) :Integer;
   var
     Handle: THandle;
     FindData: TWin32FindData;
-    LocalFileTime: TFileTime;
   begin
     Handle := FindFirstFile(PTChar(FileName), FindData);
-    if Handle <> INVALID_HANDLE_VALUE then
-    begin
+    if Handle <> INVALID_HANDLE_VALUE then begin
       Windows.FindClose(Handle);
-      if (FindData.dwFileAttributes and FILE_ATTRIBUTE_DIRECTORY) = 0 then
-      begin
-        FileTimeToLocalFileTime(FindData.ftLastWriteTime, LocalFileTime);
-        if FileTimeToDosDateTime(LocalFileTime, LongRec(Result).Hi,
-          LongRec(Result).Lo) then Exit;
+      if (FindData.dwFileAttributes and FILE_ATTRIBUTE_DIRECTORY) = 0 then begin
+        Result := FileTimeToDosFileDate(FindData.ftLastWriteTime);
+        Exit;
       end;
     end;
     Result := -1;
   end;
 
+
   function FileGetAttr(const FileName :TString): Integer;
   begin
-    Result := GetFileAttributes(PTChar(FileName));
+    Result := Integer(GetFileAttributes(PTChar(FileName)));
   end;
 
   function FileSetAttr(const FileName :TString; Attr: Integer): Integer;

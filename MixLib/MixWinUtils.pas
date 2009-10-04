@@ -299,10 +299,10 @@ interface
 
   function WinFolderExists(const AFolderName :TString) :Boolean;
   var
-    vCode :TUnsPtr;
+    vCode :Integer;
   begin
-    vCode := TUnsPtr(FileGetAttr(aFolderName));
-    Result := (vCode <> TUnsPtr(-1)) and (vCode and FILE_ATTRIBUTE_DIRECTORY <> 0);
+    vCode := FileGetAttr(aFolderName);
+    Result := (vCode <> -1) and (vCode and FILE_ATTRIBUTE_DIRECTORY <> 0);
   end;
 
 
