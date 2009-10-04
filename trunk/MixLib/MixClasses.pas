@@ -536,15 +536,6 @@ interface
  { TExList                                                                     }
  {-----------------------------------------------------------------------------}
 
-  {!!!}
-  function MemCompare (a1, a2 :Pointer; len :Integer) :Integer;
-  begin
-    Result := 0;
-    while (Result < len) and ((PAnsiChar(a1)+Result)^ = (PAnsiChar(a2)+Result)^) DO
-      inc(Result);
-  end;
-
-
   constructor TExList.Create; {override;}
   begin
     inherited Create;
@@ -1013,32 +1004,6 @@ interface
 
 
  {---------------------------------------------}
-
-  procedure MemExchange(APtr1, APtr2 :Pointer; ASize :Integer);
-  var
-    vCnt :Integer;
-    vInt :TUnsPtr;
-    vByte :Byte;
-  begin
-    vCnt := SizeOf(Pointer);
-    while ASize >= vCnt do begin
-      vInt := TUnsPtr(APtr1^);
-      TUnsPtr(APtr1^) := TUnsPtr(APtr2^);
-      TUnsPtr(APtr2^) := vInt;
-      Inc(Pointer1(APtr1), vCnt);
-      Inc(Pointer1(APtr2), vCnt);
-      Dec(ASize, vCnt);
-    end;
-    while ASize >=1 do begin
-      vByte := Byte(APtr1^);
-      Byte(APtr1^) := Byte(APtr2^);
-      Byte(APtr2^) := vByte;
-      Inc(Pointer1(APtr1));
-      Inc(Pointer1(APtr2));
-      Dec(ASize);
-    end;
-  end;
-
 
   procedure TExList.Exchange(Index1, Index2: Integer); {virtual;}
   begin
