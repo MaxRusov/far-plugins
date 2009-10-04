@@ -1,26 +1,30 @@
-{$I Defines.inc} { см. также DefApp.inc }
+{$I Defines.inc}
 
 {$ImageBase $01000000}
 
 program Noisy;
 
 uses
+  Windows,
   MixTypes,
   MixErrors,
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
-  Windows,
+  MixFormat,
   MixUtils,
-  PlayerMain;
+  WinNoisyMain;
 
- {$R NoisyW.res}
+ {$R WinNoisyW.res}
 
 begin
   try
     Run;
   except
-    on E :Exception do 
+    on E :Exception do begin
+//    S := E.Message;
+//    Writeln(S);
       MessageBox(0, PTChar(E.Message), 'Error', MB_OK or MB_ICONERROR);
+    end;
   end;
 end.

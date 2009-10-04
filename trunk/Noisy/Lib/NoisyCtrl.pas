@@ -15,11 +15,12 @@ interface
   uses
     Windows,
     Messages,
-    Classes,
-    SysUtils,
-    ComWindows,
-    uBasis,
-    uStrings,
+
+    MixTypes,
+    MixUtils,
+    MixStrings,
+    MixClasses,
+    MixWinUtils,
 
     NoisyConsts,
     NoisyUtil;
@@ -79,7 +80,7 @@ interface
 {******************************************************************************}
 
   uses
-    uDebug;
+    MixDebug;
 
 
  {-----------------------------------------------------------------------------}
@@ -161,7 +162,7 @@ interface
     vWnd := FindWindow(WndClassName, nil);
     if vWnd = 0 then begin
       vPlayerName := AddFileName(FModulePath, cPlayerName);
-      if not SysUtils.FileExists(vPlayerName) then
+      if not WinFileExists(vPlayerName) then
         AppErrorFmt('Not found:'#13'%s', [vPlayerName]);
 
       if ShellOpen(0, vPlayerName, AStr) then begin
