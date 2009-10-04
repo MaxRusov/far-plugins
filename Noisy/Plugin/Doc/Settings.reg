@@ -1,0 +1,30 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\Software\Noisy]
+
+; —писок загружаемых плагинов BASS или путь к каталогу плагинов
+;"BASSPlugins"="basswma.dll;bassflac.dll"
+;"BASSPlugins"=" ... \\*.dll"
+
+; ѕоказывать иконку проигрывател€ в SysTray
+"Systray"=dword:1
+
+; ѕоказывать информацию о текущем треке / режиме работы в виде ballon tooltip
+"Tooltip"=dword:1
+
+; ѕериод показа tooltip'а в сек.
+"TooltipPeriod"=dword:5
+
+; ѕериод плавного затухани€ громкости в мсек (по умолчанию: $12C - 300 мсек)
+;"FadePeriod"=dword:0
+"FadePeriod"=dword:12C
+
+; ѕериод после остановки воспроизведени€, по истечении которого проигрыватель
+; автоматически завершит работу, в сек. (0 - никогда, по умолчанию: $1E - 30 сек)
+;"IdlePeriod"=dword:0
+;"IdlePeriod"=dword:5
+"IdlePeriod"=dword:1E
+
+; –азмер истории playlist'ов (по умолчанию: $64 - 100)
+;"HistoryLength"=dword:0
+"HistoryLength"=dword:64

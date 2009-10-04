@@ -1,0 +1,33 @@
+.Language=English
+
+&O Open            # np://Open
+&A Add files       # np://Add
+-
+&P Play/Pause      # np:/PlayPause
+&S Stop            # np:/Stop
+-
+&L Playlist >
+{
+  &N Next          # np:/Next
+  &P Prev          # np:/Prev
+  &F First         # np:/First
+  &L Last          # np:/Last
+  -
+  &G Goto track... # np://Playlist
+  -
+  &C Clear         # np:/Clear
+}
+-
+&V Volume >
+{
+  &+ Volume +5%    #+ np:/Volume=+5
+  &- Volume -5%    #+ np:/Volume=-5
+  &M Mute 5%       #+ np:/Mute=5
+  -
+  &L Balance -5% left  #+ np:/Balance=-5
+  &R Balance +5% right #+ np:/Balance=+5
+  &= Balance center    #+ np:/Balance=0
+}
+-
+&I Information     # np://Info
+&X Exit            # np:/Quit

@@ -1,0 +1,43 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\Software\Noisy\Hotkeys]
+; Play
+"Hotkey1"=dword:B3
+"Command1"="/PlayPause"
+
+; Stop
+"Hotkey2"=dword:B2
+"Command2"="/Stop"
+
+; NextTrack
+"Hotkey3"=dword:B0
+"Command3"="/Next"
+
+; PrevTrack
+"Hotkey4"=dword:B1
+"Command4"="/Prev"
+
+; Alt+NextTrack
+"Hotkey5"=dword:000100B0
+"Command5"="/Seek=+5"
+
+; Alt+PrevTrack
+"Hotkey6"=dword:000100B1
+"Command6"="/Seek=-5"
+
+; Alt + VolumeUp
+"Hotkey7"=dword:000100AF
+"Command7"="/Volume=+5"
+
+; Alt + VolumeDown
+"Hotkey8"=dword:000100AE
+"Command8"="/Volume=-5"
+
+; Alt + VolumeMute
+"Hotkey9"=dword:000100AD
+"Command9"="/Mute=5"
+
+; Alt + Stop
+"Hotkey10"=dword:000100B2
+"Command10"="/Quit"
+
