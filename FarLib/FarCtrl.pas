@@ -159,6 +159,10 @@ interface
   function EditorControlString(ACmd :Integer) :TFarStr;
  {$endif bUnicodeFar}
 
+  procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
+  function FarPanelGetCurrentItem(Active :Boolean) :TString;
+  function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
+
   procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName, ATypeName :PTString);
 
   function FarExpandFileName(const AFileName :TString) :TString;
@@ -607,6 +611,132 @@ interface
 
  {$endif bUnicodeFar}
 
+
+  procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
+  var
+    vStr :TFarStr;
+    vMacro :TActlKeyMacro;
+  begin
+   {$ifndef bUnicodeFar}
+    SetFileApisToOEM; 
+    try
+   {$endif bUnicodeFar}
+
+    if IsFullFilePath(APath) then begin
+     {$ifdef bUnicodeFar}
+      FARAPI.Control(THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE)), FCTL_SETPANELDIR, 0, PFarChar(APath));
+      FARAPI.Control(THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE)), FCTL_REDRAWPANEL, 0, nil);
+     {$else}
+      vStr := StrAnsiToOem(APath);
+      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_SETPANELDIR, FCTL_SETANOTHERPANELDIR), PFarChar(vStr));
+      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_REDRAWPANEL, FCTL_REDRAWANOTHERPANEL), nil);
+     {$endif bUnicodeFar}
+    end else
+    if APath <> '' then begin
+     {$ifdef bUnicodeFar}
+      FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(APath));
+     {$else}
+      vStr := StrAnsiToOem(APath);
+      FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, PFarChar(vStr));
+     {$endif bUnicodeFar}
+
+      if Active then
+        vStr := 'Enter'
+      else
+        vStr := 'Tab Enter Tab';
+      vMacro.Command := MCMD_POSTMACROSTRING;
+      vMacro.Param.PlainText.SequenceText := PFarChar(vStr);
+      vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
+      FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+    end else
+      Beep;
+
+   {$ifndef bUnicodeFar}
+    finally
+      SetFileApisToAnsi;
+    end;
+   {$endif bUnicodeFar}
+  end;
+
+
+  function FarPanelGetCurrentItem(Active :Boolean) :TString;
+  var
+    vInfo :TPanelInfo;
+    vIndex :Integer;
+   {$ifdef bUnicodeFar}
+    vHandle :THandle;
+   {$endif bUnicodeFar}
+  begin
+    Result := '';
+
+    FillChar(vInfo, SizeOf(vInfo), 0);
+   {$ifdef bUnicodeFar}
+    vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
+    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+   {$else}
+    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
+   {$endif bUnicodeFar}
+
+    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
+
+      vIndex := vInfo.CurrentItem;
+      if (vIndex < 0) or (vIndex >= vInfo.ItemsNumber) then
+        Exit;
+
+     {$ifdef bUnicodeFar}
+      Result := FarPanelItemName(vHandle, FCTL_GETPANELITEM, vIndex);
+     {$else}
+      Result := FarChar2Str(vInfo.PanelItems[vIndex].FindData.cFileName);
+     {$endif bUnicodeFar}
+    end;
+  end;
+
+
+  function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
+  var
+    I :Integer;
+    vStr :TString;
+    vInfo :TPanelInfo;
+    vRedrawInfo :TPanelRedrawInfo;
+   {$ifdef bUnicodeFar}
+    vHandle :THandle;
+   {$endif bUnicodeFar}
+  begin
+    Result := False;
+    FillChar(vInfo, SizeOf(vInfo), 0);
+   {$ifdef bUnicodeFar}
+    vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
+    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+   {$else}
+    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
+   {$endif bUnicodeFar}
+
+    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
+      vRedrawInfo.TopPanelItem := vInfo.TopPanelItem;
+      vRedrawInfo.CurrentItem := vInfo.CurrentItem;
+
+      for I := 0 to vInfo.ItemsNumber - 1 do begin
+       {$ifdef bUnicodeFar}
+        vStr := FarPanelItemName(vHandle, FCTL_GETPANELITEM, I);
+       {$else}
+        vStr := FarChar2Str(vInfo.PanelItems[I].FindData.cFileName);
+       {$endif bUnicodeFar}
+
+        if StrEqual(vStr, AItem) then begin
+//        vRedrawInfo.TopPanelItem := I; {???}
+          vRedrawInfo.CurrentItem := I;
+          Result := True;
+          Break;
+        end;
+      end;
+
+     {$ifdef bUnicodeFar}
+      FARAPI.Control(vHandle, FCTL_REDRAWPANEL, 0, @vRedrawInfo);
+     {$else}
+      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_REDRAWPANEL, FCTL_REDRAWANOTHERPANEL), @vRedrawInfo);
+     {$endif bUnicodeFar}
+    end;
+  end;
 
 
   procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName, ATypeName :PTString);
