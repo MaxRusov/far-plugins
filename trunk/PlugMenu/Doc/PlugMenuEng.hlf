@@ -1,0 +1,151 @@
+.Language=English,English
+.PluginContents=PlugMenu
+
+@Contents
+$ #Expanded plugin menu - PlugMenu#
+
+   This plugin replaces the original plugin menu ~Plugin Commands~@:Plugins@.
+It has several advanced capabilities: display of additional information, sorting, filtering and the ability to hide unnecessary or seldom-used commands.
+
+  Plugin supports dynamically unload or load plugins for #FAR 2#, similar to the FAR console commands "unloadp:" and "pload:".
+
+  ~Keyboard Commands~@PluginCommands@
+  ~Assign shortcuts~@AssignHotkey@
+  ~Prefixes for command line~@Prefixes@
+
+  ~About the author~@About@
+
+@PluginCommands
+$ #PlugMenu#
+
+ Keyboard Commands
+
+ Command for selected plugin:
+
+ #Enter#     Execute the current command plugin (if available).
+           Same action is performed on left mouse click.
+
+ #Alt#       Enable or disable filtering mode (see also notes below)
+
+ #Shift-F1#  Help on current plugin (if any)
+ #F2#        Options menu
+ #F3#        Information about current plugin
+ #F4#        Set hotkey for current plugin
+ #F9#        Plugin settings (if any)
+
+ #Ctrl-H#    Show hidden plugins
+ #Ctrl-A#    Automatically assign shortcuts
+
+ #Ctrl-PgDn# Change directory to plugin
+
+ Manage plugins (only Far 2)
+
+ #Ins#       Load the current plugin into memory
+ #Del#       Unload the current plugin from memory
+ #Ctrl-L#    Register a new plugin
+
+ Display more information about selected plugin:
+
+ #Ctrl-1#    Show tags for loaded plugins (marked with "*")
+ #Ctrl-2#    Show file names / Show complete path / off  
+ #Ctrl-3#    Show file modification date / date and time / off
+ #Ctrl-4#    Show file last access date / date and time / off
+ #Ctrl-5#    Show the "PlugMenu" flags (see legend below)
+
+
+ Sort plugin list:
+
+ #Ctrl-F1#   Sort by command
+ #Ctrl-F2#   Sort by file name
+ #Ctrl-F3#   Sort by modification time 
+ #Ctrl-F4#   Sort by last access
+ #Ctrl-F5#   Sort by flags for plugins
+ #Ctrl-F11#  Unsorted
+
+ #Ctrl-F12#  Sort via menu
+
+ Legend for the flags
+
+ #P#  Preload - Plugin is loaded when you start FAR.
+ #F#  File - Plugin works in filepanel.
+ #E#  Editor - Plugin works in editor.
+ #V#  Viewer - Plugin works in viewer.
+ #D#  Dialog - Plugin works in dialogs. 
+
+
+ Notes:
+
+    Filtering view of plugins: Hold down Alt and type in any letters. 
+Input text is searched from the beginning of each word. To filter every 
+entry choose "*" as first character.
+
+    Show hidden plugins: By default, the dialog shows only those plugins 
+that are available in the current context (the panel of files, the editor etc.). 
+By pressing #Ctrl-H# the full list of all plugins will be shown. 
+Those that are not available in the current context marked by a point in front.
+
+
+ ~Back to content~@Contents@
+
+@AssignHotkey
+$ #Assign shortcuts#
+
+    F4 in "PlugMenu" menu allows to assign hot keys to menu items 
+(this makes it easier to call them from keyboard macros). 
+
+
+    Notes: The hotkey is appointed to the standard Plugins menu and consequently
+affects macros that depend on these hotkeys.
+
+
+ ~Back to content~@Contents@
+
+@Prefixes
+$ #Command prefixes#
+
+ For the management of plugins "PlugMenu" adds a number of prefixes to the 
+command line:
+
+  #PlugMenu:Mask#
+
+    - Opens dialog "PlugMenu". #Mask# is optional. If it is specified, the
+list of commands will initially be filtered.
+
+
+  The following prefixes are only available in Far 2:
+  
+  #PlugLoad:filename#
+
+    - Register a new plugin. #Filename# should be the name of the plugin
+module (*.DLL). If it is in the current directory, you can specify just
+the filename. Otherwise it is required to specify the full path to the
+file too. After registration the plugin is available through menu "PlugMenu".
+
+    Another way to register a new plugin through dialog is hotkey #Ctrl-L#
+in menu "PlugMenu".
+
+  #PlugUnload:filename#
+
+    - Unload the plugin from memory and unregister it. Its commands will be
+unavailable for call.
+
+
+  Notes:  These commands are complete the equivalent to the commands #PLoad# 
+and  #Unloadp# (available via standard plugin #FAR Commands#). 
+Except that plugin "PlugMenu" does not "see" plugins that are loaded
+"around" him and can not properly display their commands. So it is 
+preferable to use his commands.
+
+
+  ~Back to contents~@Contents@
+
+@About
+$ #About the author#
+
+ #PlugMenu#
+
+ (c) 2008-2009, Maxim Rusov 
+ ~Max.Rusov@@gmail.com~@mailto:Max.Rusov@@gmail.com@
+
+
+ ~Back to contents~@Contents@

@@ -441,16 +441,16 @@ interface
 
           for I := 0 to vInfoA.PluginMenuStringsNumber - 1 do begin
 //          vStr := StrOemToAnsi(vInfoA.PluginMenuStrings[I]) + ' [A]';
-            vStr := StrOemToAnsi(vInfoA.PluginMenuStrings[I]);
+            vStr := MixStrings.StrOemToAnsi(vInfoA.PluginMenuStrings[I]);
             FCommands.Add( TFarPluginCmd.CreateEx(Self, I, vStr) );
           end;
 
           if vInfoA.PluginConfigStringsNumber > 0 then
 //          FConfigString := StrOemToAnsi(vInfoA.PluginConfigStrings[0]) + ' [A]';
-            FConfigString := StrOemToAnsi(vInfoA.PluginConfigStrings[0]);
+            FConfigString := MixStrings.StrOemToAnsi(vInfoA.PluginConfigStrings[0]);
 
           if vInfoA.CommandPrefix <> nil then
-            FPrefixes := StrOemToAnsi(vInfoA.CommandPrefix);
+            FPrefixes := MixStrings.StrOemToAnsi(vInfoA.CommandPrefix);
         end;
       end;
      {$endif bUnicode}
