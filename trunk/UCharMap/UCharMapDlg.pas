@@ -124,8 +124,9 @@ interface
   constructor TCharMapDlg.Create; {override;}
   begin
     inherited Create;
+   {$ifdef bUseHint}
     RegisterHints(Self);
-
+   {$endif bUseHint}
     FHiddenColor := optHiddenColor;
     if FHiddenColor = 0 then
       FHiddenColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_DIALOGDISABLED));
@@ -134,7 +135,9 @@ interface
 
   destructor TCharMapDlg.Destroy; {override;}
   begin
+   {$ifdef bUseHint}
     UnRegisterHints;
+   {$endif bUseHint}
     FreeObj(FGrid);
     FreeObj(FFilter);
     FreeObj(FRange);
