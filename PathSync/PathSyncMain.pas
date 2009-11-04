@@ -225,7 +225,8 @@ interface
 
   function GetMinFarVersionW :Integer; stdcall;
   begin
-    Result := MakeFarVersion(2, 0, 1148);
+//  Result := MakeFarVersion(2, 0, 1148);
+    Result := MakeFarVersion(2, 0, 1180);  {GetCurrentDirectory}
   end;
 
 
