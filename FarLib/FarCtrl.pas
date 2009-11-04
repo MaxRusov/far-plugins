@@ -17,6 +17,7 @@ interface
     MixTypes,
     MixUtils,
     MixStrings,
+    MixClasses,
    {$ifdef bUnicodeFar}
     PluginW
    {$else}
@@ -156,15 +157,16 @@ interface
     { ACmd = FCTL_GETPANELITEM, FCTL_GETSELECTEDPANELITEM, FCTL_GETCURRENTPANELITEM }
   function FarPanelString(AHandle :THandle; ACmd :Integer) :TFarStr;
   function FarPanelGetCurrentDirectory(AHandle :THandle) :TFarStr;
+  function FarGetCurrentDirectory :TFarStr;
   function EditorControlString(ACmd :Integer) :TFarStr;
  {$endif bUnicodeFar}
 
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   function FarPanelGetCurrentItem(Active :Boolean) :TString;
   function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
-
+  procedure FarPanelSetSelectedItems(Active :Boolean; AItems :TStringList; AClearAll :Boolean = True);
+  procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = 0; ACol :Integer = 1);
   procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName, ATypeName :PTString);
-
   function FarExpandFileName(const AFileName :TString) :TString;
 
 {******************************************************************************}
@@ -590,8 +592,22 @@ interface
 
   function FarPanelGetCurrentDirectory(AHandle :THandle) :TFarStr;
   begin
-    Result := FarPanelString(AHandle, FCTL_GETCURRENTDIRECTORY);
+    Result := FarPanelString(AHandle, FCTL_GETPANELDIR);
   end;
+
+
+  function FarGetCurrentDirectory :TFarStr;
+  var
+    vLen :Integer;
+  begin
+    Result := '';
+    vLen := FARSTD.GetCurrentDirectory(0, nil);
+    if vLen > 1 then begin
+      SetLength(Result, vLen - 1);
+      FARSTD.GetCurrentDirectory(vLen, PFarChar(Result));
+    end;
+  end;
+
 
 // FCTL_GETCOLUMNTYPES           = 27;
 // FCTL_GETCOLUMNWIDTHS          = 28;
@@ -736,6 +752,85 @@ interface
       FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_REDRAWPANEL, FCTL_REDRAWANOTHERPANEL), @vRedrawInfo);
      {$endif bUnicodeFar}
     end;
+  end;
+
+
+  procedure FarPanelSetSelectedItems(Active :Boolean; AItems :TStringList; AClearAll :Boolean = True);
+ {$ifdef bUnicodeFar}
+  var
+    I :Integer;
+    vStr :TString;
+    vInfo :TPanelInfo;
+    vHandle :THandle;
+  begin
+    vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
+
+    FillChar(vInfo, SizeOf(vInfo), 0);
+    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+
+    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
+      FARAPI.Control(vHandle, FCTL_BEGINSELECTION, 0, nil);
+      try
+        for I := 0 to vInfo.ItemsNumber - 1 do begin
+          vStr := FarPanelItemName(vHandle, FCTL_GETPANELITEM, I);
+          if AItems.IndexOf(vStr) <> -1 then
+            FARAPI.Control(vHandle, FCTL_SETSELECTION, I, Pointer(PPIF_SELECTED) )
+          else
+            {};
+        end;
+      finally
+        FARAPI.Control(vHandle, FCTL_ENDSELECTION, 0, nil);
+      end;
+    end;
+
+ {$else}
+  var
+    I :Integer;
+    vStr :TString;
+    vInfo :TPanelInfo;
+  begin
+    FillChar(vInfo, SizeOf(vInfo), 0);
+    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
+
+    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
+
+      for I := 0 to vInfo.ItemsNumber - 1 do
+        with vInfo.PanelItems[I] do begin
+          vStr := FarChar2Str(FindData.cFileName);
+          if AClearAll then
+            Flags := Flags and not PPIF_SELECTED;
+          if AItems.IndexOf(vStr) <> -1 then
+            Flags := Flags or PPIF_SELECTED;
+        end;
+
+      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_SetSelection, FCTL_SetAnotherSelection), @vInfo);
+    end;
+ {$endif bUnicodeFar}
+  end;
+
+
+  procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = 0; ACol :Integer = 1);
+  var
+    vName :TFarStr;
+  begin
+   {$ifdef bUnicodeFar}
+    vName := AFileName;
+    if AEdit then
+      FARAPI.Editor(PFarChar(vName), nil, 0, 0, -1, -1, AFlags, ARow, ACol, CP_AUTODETECT)
+    else
+      FARAPI.Viewer(PFarChar(vName), nil, 0, 0, -1, -1, AFlags, CP_AUTODETECT);
+   {$else}
+    SetFileApisToOEM;
+    try
+      vName := StrAnsiToOEM(AFileName);
+      if AEdit then
+        FARAPI.Editor(PFarChar(vName), nil, 0, 0, -1, -1, AFlags, ARow, ACol)
+      else
+        FARAPI.Viewer(PFarChar(vName), nil, 0, 0, -1, -1, AFlags);
+    finally
+      SetFileApisToAnsi;
+    end;
+   {$endif bUnicodeFar}
   end;
 
 
