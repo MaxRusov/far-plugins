@@ -147,6 +147,7 @@ const
 { FarDialogItemFlags }
 
 const
+  DIF_NONE                  = 0;
   DIF_COLORMASK             = $000000ff;
   DIF_SETCOLOR              = $00000100;
   DIF_BOXCOLOR              = $00000200;
@@ -1080,7 +1081,7 @@ const
   FCTL_GETPANELITEM             = 22;
   FCTL_GETSELECTEDPANELITEM     = 23;
   FCTL_GETCURRENTPANELITEM      = 24;
-  FCTL_GETCURRENTDIRECTORY      = 25;
+  FCTL_GETPANELDIR              = 25;  //FCTL_GETCURRENTDIRECTORY = FCTL_GETPANELDIR;
   FCTL_GETCOLUMNTYPES           = 26;
   FCTL_GETCOLUMNWIDTHS          = 27;
   FCTL_BEGINSELECTION           = 28;
@@ -2406,7 +2407,7 @@ typedef int     (WINAPI *FARGETREPARSEPOINTINFO)(const wchar_t *Src, wchar_t *De
 *)
 type
   TFarStdMkLink = function (Src, Dest :PFarChar; Flags :DWORD) :Integer; stdcall;
-  TFarStdGetReparsePointInfo = function (Src, Dest :PFarChar; DestSize :Integer) : Integer; stdcall;
+  TFarGetReparsePointInfo = function (Src, Dest :PFarChar; DestSize :Integer) : Integer; stdcall;
 
 (*
 enum CONVERTPATHMODES
@@ -2424,6 +2425,12 @@ const
 
 type
   TFarConvertPath = function(Mode :Integer {TConvertPathModes}; Src :PFarChar; Dest :PFarChar; DestSize :Integer) :Integer; stdcall;
+
+(*
+typedef DWORD (WINAPI *FARGETCURRENTDIRECTORY)(DWORD Size,wchar_t* Buffer);
+*)
+type
+  TFarGetCurrentDirectory = function(Size :DWORD; Buffer :PFarChar) :DWORD; stdcall;
 
 (*
 typedef struct FarStandardFunctions
@@ -2485,6 +2492,7 @@ typedef struct FarStandardFunctions
   FARSTDMKLINK               MkLink;
   FARCONVERTPATH             ConvertPath;
   FARGETREPARSEPOINTINFO     GetReparsePointInfo;
+  FARGETCURRENTDIRECTORY     GetCurrentDirectory;
 } FARSTANDARDFUNCTIONS;
 *)
 type
@@ -2545,8 +2553,9 @@ type
     ProcessName         : TFarStdProcessName;
     MkLink              : TFarStdMkLink;
     ConvertPath         : TFarConvertPath;
-    GetReparsePointInfo : TFarStdGetReparsePointInfo;
-  end;
+    GetReparsePointInfo : TFarGetReparsePointInfo;
+    GetCurrentDirectory : TFarGetCurrentDirectory;
+  end; {TFarStandardFunctions}
 
 
 (*
@@ -2631,7 +2640,7 @@ type
     FileFilterControl   : TFarApiFilterControl;
 
     RegExpControl       : TFarApiRegexpControl;
-  end;
+  end; {TPluginStartupInfo}
 
 
 { PLUGIN_FLAGS }
