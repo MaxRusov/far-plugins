@@ -263,6 +263,28 @@ interface
 
   function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
   var
+    vPath  :TString;
+    vSetOk :Boolean;
+  begin
+//  TraceF('ProcessSynchroEventW. Event=%d, Param=%d', [Event, Integer(Param)]);
+    Result := 0;
+    if Event <> SE_COMMONSYNCHRO then
+      Exit;
+
+    vPath := FarGetCurrentDirectory;
+    if vPath <> FLastPath then begin
+//    TraceF('Len=%d, Path=%s', [Length(vPath), vPath]);
+      vSetOk := SetCurrentDir(vPath);
+      if vSetOk then
+        vSetOk := StrEqual(vPath, GetCurrentDir);
+      UpdateColor(vSetOk);
+      FLastPath := vPath;
+    end;
+  end;
+
+(*
+  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
+  var
     vInfo  :TPanelInfo;
     vPath  :TString;
     vSetOk :Boolean;
@@ -274,6 +296,7 @@ interface
 
     FillChar(vInfo, SizeOf(vInfo), 0);
     FARAPI.Control(THandle(PANEL_ACTIVE), FCTL_GetPanelInfo, 0, @vInfo);
+
     if (vInfo.PanelType = PTYPE_FILEPANEL) and (vInfo.Plugin = 0) then begin
       vPath := FarPanelGetCurrentDirectory(THandle(PANEL_ACTIVE));
       if vPath <> FLastPath then begin
@@ -290,6 +313,7 @@ interface
       FLastPath := '';
     end;
   end;
+*)
 
 
   function ConfigureW(Item: integer) :Integer; stdcall;
