@@ -1,0 +1,31 @@
+
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,0
+ PRODUCTVERSION 1,0,0,0
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0x0L
+ FILEOS 0x10004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "041904E3"
+        BEGIN
+            VALUE "FileDescription", "PathSync Far plugin\0"
+            VALUE "InternalName", "PathSync\0"
+            VALUE "OriginalFilename", "PathSync.dll\0"
+            VALUE "FileVersion", "1.0.2\0"
+            VALUE "CompanyName", "Max Rusov\0"
+            VALUE "LegalCopyright", "(c) 2009, Max Rusov\0"
+            VALUE "ProductName", "PathSync\0"
+            VALUE "ProductVersion", "1.0\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x419, 1251
+    END
+END

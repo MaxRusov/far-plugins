@@ -20,6 +20,6 @@ exports
   ConfigureW,
   ExitFARW;
 
-// {$R PathSyncW.res}
+{$R PathSync.res}
 
 end.
