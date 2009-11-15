@@ -1405,8 +1405,5 @@ interface
     end;
   end;
 
-initialization
-
-  StrUpCase('abc');
-
+  
 end.
