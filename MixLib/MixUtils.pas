@@ -171,10 +171,13 @@ interface
   function AnsiExtractQuotedStr(var Src :PTChar; Quote :TChar) :TString;
 
   function HexStr(AVal :Int64; ACount :Integer) :TString;
+ {$ifdef bDelphi12}
+  function StringOfChar(AChar :TChar; ALen :Integer) :TString;
+ {$endif bDelphi12}
 
   procedure MemFill2(PBuf :Pointer; ACount :Integer; AFiller :Word);
   procedure MemFillChar(pBuf :Pointer; ACount :Integer; AChar :TChar);
-  function MemSearch(Str :PAnsiChar; Count :Integer; Match :Char) :Integer;
+  function MemSearch(Str :PAnsiChar; Count :Integer; Match :AnsiChar) :Integer;
   function MemCompare(APtr1, APtr2 :Pointer; ASize :Integer) :Integer;
   procedure MemExchange(APtr1, APtr2 :Pointer; ASize :Integer);
 
@@ -226,10 +229,10 @@ interface
 
   procedure AppError(const ErrorStr :TString);
   procedure AppErrorFmt(const ErrorStr :TString; const Args: array of const);
-  procedure AppErrorRes(ResString :PString);
-  procedure AppErrorResFmt(ResString :PString; const Args: array of const);
+  procedure AppErrorRes(ResString :Pointer{PResStringRec});
+  procedure AppErrorResFmt(ResString :Pointer{PResStringRec}; const Args: array of const);
   procedure RaiseError(aClass :ExceptClass; const ErrorStr :TString);
-  procedure RaiseErrorRes(aClass :ExceptClass; ResString :PString);
+  procedure RaiseErrorRes(aClass :ExceptClass; ResString :Pointer{PResStringRec});
 
   procedure ApiCheck(ARes :Boolean);
   procedure ApiCheckCode(Code :Integer);
@@ -888,6 +891,14 @@ interface
   end;
 
 
+ {$ifdef bDelphi12}
+  function StringOfChar(AChar :TChar; ALen :Integer) :TString;
+  begin
+    Result := System.StringOfChar(AChar, ALen)
+  end;
+ {$endif bDelphi12}
+
+
  {-----------------------------------------------------------------------------}
 
   procedure MemFill2(PBuf :Pointer; ACount :Integer; AFiller :Word);
@@ -913,7 +924,7 @@ interface
   end;
 
 
-  function MemSearch(Str :PAnsiChar; Count :Integer; Match :Char) :Integer;
+  function MemSearch(Str :PAnsiChar; Count :Integer; Match :AnsiChar) :Integer;
   var
     vPtr, vLast :PAnsiChar;
   begin
@@ -1214,7 +1225,7 @@ interface
   end;
 
 
-  procedure AppErrorRes(ResString :PString);
+  procedure AppErrorRes(ResString :Pointer{PResStringRec});
   begin
    {$ifdef bTraceError}
     SetErrorAddress(ReturnAddr);
@@ -1224,7 +1235,7 @@ interface
   end;
 
 
-  procedure AppErrorResFmt(ResString :PString; const Args: array of const);
+  procedure AppErrorResFmt(ResString :Pointer{PResStringRec}; const Args: array of const);
   begin
    {$ifdef bTraceError}
     SetErrorAddress(ReturnAddr);
@@ -1244,7 +1255,7 @@ interface
   end;
 
 
-  procedure RaiseErrorRes(aClass :ExceptClass; ResString :PString);
+  procedure RaiseErrorRes(aClass :ExceptClass; ResString :Pointer{PResStringRec});
   begin
    {$ifdef bTraceError}
     SetErrorAddress(ReturnAddr);

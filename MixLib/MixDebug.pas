@@ -6,19 +6,24 @@ interface
 
   uses
     Windows,
-    MixTypes;
+    MixTypes,
+    MixUtils;
 
 
   procedure SetReturnAddr;
   procedure SetReturnAddrNewInstance;
   procedure SetErrorAddress(aAddr :Pointer);
-  procedure TraceException(AAddr :Pointer; const AClass :ShortString; const AMessage :TString);
+  procedure TraceException(AAddr :Pointer; const AClass :TSysStr; const AMessage :TString);
 
  {$ifdef bTrace}
   procedure TraceStr(AMsg :PAnsiChar);
   procedure TraceStrF(AMsg :PAnsiChar; const Args: array of const);
-  procedure Trace(const AMsg :TAnsiStr);
-  procedure TraceF(const AMsg :TAnsiStr; const Args: array of const);
+  procedure Trace(const AMsg :TString);
+  procedure TraceA(const AMsg :TAnsiStr);
+  procedure TraceW(const AMsg :TWideStr);
+  procedure TraceF(const AMsg :TString; const Args: array of const);
+  procedure TraceFW(const AMsg :TAnsiStr; const Args: array of const);
+  procedure TraceFA(const AMsg :TWideStr; const Args: array of const);
  {$endif bTrace}
 
 
@@ -110,7 +115,7 @@ interface
   end;
 
 
-  procedure TraceException(AAddr :Pointer; const AClass :ShortString; const AMessage :TString);
+  procedure TraceException(AAddr :Pointer; const AClass :TSysStr; const AMessage :TString);
  {$ifdef bTrace}
   const
     MaxErrorLen = 4096;
@@ -143,6 +148,7 @@ interface
     vPtr := ChrCopyA(vPtr, ', ', 2);
 //  vPtr := ChrCopyShortStr(vPtr, vName);
 //  vPtr := ChrCopy(vPtr, ', ', 2);
+    {!Unicode}
     vPtr := ChrCopyShortStr(vPtr, AClass);
     vPtr := ChrCopyA(vPtr, ': ', 2);
    {$ifdef bUnicode}
@@ -167,9 +173,9 @@ interface
  {$ifdef bTrace}
   const
    {$ifdef b64}
-    cTraceDll = 'MSTraceLib64';
+    cTraceDll = 'MSTraceLib64.dll';
    {$else}
-    cTraceDll = 'MSTraceLib';
+    cTraceDll = 'MSTraceLib.dll';
    {$endif b64}
 
 
@@ -189,14 +195,44 @@ interface
     dllTraceFmt(HInstance, AMsg, Args);
   end;
 
-  procedure Trace(const AMsg :TAnsiStr);
+
+  procedure Trace(const AMsg :TString);
+  begin
+   {$ifdef bUnicode}
+    TraceW(AMsg);
+   {$else}
+    TraceA(AMsg);
+   {$endif bUnicode}
+  end;
+
+  procedure TraceA(const AMsg :TAnsiStr); overload;
   begin
     dllTrace(HInstance, PAnsiChar(AMsg));
   end;
 
-  procedure TraceF(const AMsg :TAnsiStr; const Args: array of const);
+  procedure TraceW(const AMsg :TWideStr); overload;
   begin
-    dllTraceFmt(HInstance, PAnsiChar(AMsg), Args);
+    TraceA(TAnsiStr(AMsg));
+  end;
+
+
+  procedure TraceF(const AMsg :TString; const Args: array of const);
+  begin
+   {$ifdef bUnicode}
+    TraceFW(AMsg, Args);
+   {$else}
+    TraceFA(AMsg, Args);
+   {$endif bUnicode}
+  end;
+
+  procedure TraceFW(const AMsg :TAnsiStr; const Args: array of const);
+  begin
+    Trace(Format(TString(AMsg), Args));
+  end;
+
+  procedure TraceFA(const AMsg :TWideStr; const Args: array of const);
+  begin
+    Trace(Format(TString(AMsg), Args));
   end;
  {$endif bTrace}
 

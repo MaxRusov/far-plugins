@@ -1,4 +1,3 @@
-
 {$I Defines.inc}
 
 unit MixFormat;
@@ -48,7 +47,7 @@ type
 
 Function Format (Const Fmt :TString; const Args : Array of const) :TString;
 
-Function FloatToStrF(Value: Extended; format: TFloatFormat; Precision, Digits: Integer): String; overload;
+Function FloatToStrF(Value: Extended; format: TFloatFormat; Precision, Digits: Integer) :TString;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -62,7 +61,7 @@ uses
 { Date/Time functions                                                          }
 {------------------------------------------------------------------------------}
 
-procedure ConvertError(ResString :PString);
+procedure ConvertError(ResString :Pointer{PResStringRec});
 begin
   raise EConvertError.CreateRes(ResString);
 end;
@@ -278,6 +277,34 @@ begin
 end;
 
 
+function IntToStr(AInt :Integer) :TString;
+{$ifdef bDelphi12}
+var
+  vTmp :ShortString;
+begin
+  Str(AInt, vTmp);
+  Result := TString(vTmp);
+{$else}
+begin
+  Str(AInt, Result);
+{$endif bDelphi12}
+end;
+
+
+function Int64ToStr(AInt :Int64) :TString;
+{$ifdef bDelphi12}
+var
+  vTmp :ShortString;
+begin
+  Str(AInt, vTmp);
+  Result := TString(vTmp);
+{$else}
+begin
+  Str(AInt, Result);
+{$endif bDelphi12}
+end;
+
+
 function Space(ASize :Integer) :TString;
 begin
 //SetString(Result, nil, ASize);
@@ -299,9 +326,9 @@ Var
 begin
   S:='';
   Case ErrCode of
-   feInvalidFormat : raise EConvertError.Createfmt(SInvalidFormat,[s]);
-   feMissingArgument : raise EConvertError.Createfmt(SArgumentMissing,[s]);
-   feInvalidArgIndex : raise EConvertError.Createfmt(SInvalidArgIndex,[s]);
+   feInvalidFormat : raise EConvertError.CreateResFmt(@SInvalidFormat,[s]);
+   feMissingArgument : raise EConvertError.CreateResFmt(@SArgumentMissing,[s]);
+   feInvalidArgIndex : raise EConvertError.CreateResFmt(@SInvalidArgIndex,[s]);
  end;
 end;
 
@@ -314,7 +341,7 @@ var
   Left : Boolean;
 
 
-  Function ReadFormat : Char;
+  Function ReadFormat :TChar;
   { ReadFormat reads the format string. It returns the type character in
     uppercase, and sets index, Width, Prec to their correct values,
     or -1 if not set. It sets Left to true if left alignment was requested.
@@ -322,126 +349,113 @@ var
   Var
     Value : longint;
 
-      Procedure ReadInteger;
-      var
-       {$ifdef bFreePascal}
-        Code: Word;
-       {$else}
-        Code: Integer;
-       {$endif bFreePascal}
-      begin
-        If Value<>-1 then exit; // Was already read.
-        OldPos:=ChPos;
-        While (ChPos<=Len) and
-              (Fmt[ChPos]<='9') and (Fmt[ChPos]>='0') do inc(ChPos);
-        If ChPos>len then
+    Procedure ReadInteger;
+    var
+     {$ifdef bFreePascal}
+      Code: Word;
+     {$else}
+      Code: Integer;
+     {$endif bFreePascal}
+      vStr :TString;
+    begin
+      If Value<>-1 then
+        exit; // Was already read.
+      OldPos:=ChPos;
+      While (ChPos<=Len) and (Fmt[ChPos]<='9') and (Fmt[ChPos]>='0') do
+        inc(ChPos);
+      If ChPos>len then
+        DoFormatError(feInvalidFormat);
+      If Fmt[ChPos]='*' then begin
+        If (ChPos>OldPos) or (ArgPos>High(Args)) then
           DoFormatError(feInvalidFormat);
-        If Fmt[ChPos]='*' then
-          begin
-          If (ChPos>OldPos) or (ArgPos>High(Args)) then
-            DoFormatError(feInvalidFormat);
-          case Args[ArgPos].Vtype of
-            vtInteger: Value := Args[ArgPos].VInteger;
-            vtInt64: Value := Args[ArgPos].VInt64^;
-           {$ifdef bFreePascal}
-            vtQWord: Value := Args[ArgPos].VQWord^;
-           {$endif bFreePascal}
-          else
-            DoFormatError(feInvalidFormat);
-          end;
-          Inc(ArgPos);
-          Inc(ChPos);
-          end
+        case Args[ArgPos].Vtype of
+          vtInteger: Value := Args[ArgPos].VInteger;
+          vtInt64: Value := Args[ArgPos].VInt64^;
+         {$ifdef bFreePascal}
+          vtQWord: Value := Args[ArgPos].VQWord^;
+         {$endif bFreePascal}
         else
-          begin
-          If (OldPos<ChPos) Then
-            begin
-            Val (Copy(Fmt,OldPos,ChPos-OldPos),value,code);
-            // This should never happen !!
-            If Code>0 then DoFormatError (feInvalidFormat);
-            end
-          else
-            Value:=-1;
-          end;
-      end;
-
-      Procedure ReadIndex;
+          DoFormatError(feInvalidFormat);
+        end;
+        Inc(ArgPos);
+        Inc(ChPos);
+      end else
       begin
-        If Fmt[ChPos]<>':' then
-          ReadInteger
-        else
-          value:=0; // Delphi undocumented behaviour, assume 0, #11099
-        If Fmt[ChPos]=':' then
-          begin
-          If Value=-1 then DoFormatError(feMissingArgument);
-          Index:=Value;
+        If (OldPos<ChPos) Then begin
+          vStr := Copy(Fmt,OldPos,ChPos-OldPos);
+          Val ( TRtlStr(vStr), value, code);
+          // This should never happen !!
+          If Code>0 then
+            DoFormatError (feInvalidFormat);
+        end else
           Value:=-1;
-          Inc(ChPos);
-          end;
       end;
+    end;
 
-      Procedure ReadLeft;
-      begin
-        If Fmt[ChPos]='-' then
-          begin
-          left:=True;
-          Inc(ChPos);
-          end
-        else
-          Left:=False;
-      end;
+    Procedure ReadIndex;
+    begin
+      If Fmt[ChPos]<>':' then
+        ReadInteger
+      else
+        value:=0; // Delphi undocumented behaviour, assume 0, #11099
+      If Fmt[ChPos]=':' then
+        begin
+        If Value=-1 then DoFormatError(feMissingArgument);
+        Index:=Value;
+        Value:=-1;
+        Inc(ChPos);
+        end;
+    end;
 
-      Procedure ReadWidth;
-      begin
-        ReadInteger;
-        If Value<>-1 then
-          begin
-          Width:=Value;
-          Value:=-1;
-          end;
-      end;
+    Procedure ReadLeft;
+    begin
+      If Fmt[ChPos]='-' then
+        begin
+        left:=True;
+        Inc(ChPos);
+        end
+      else
+        Left:=False;
+    end;
 
-      Procedure ReadPrec;
-      begin
-        If Fmt[ChPos]='.' then
-          begin
-          inc(ChPos);
-            ReadInteger;
-          If Value=-1 then
-           Value:=0;
-          prec:=Value;
-          end;
-      end;
+    Procedure ReadWidth;
+    begin
+      ReadInteger;
+      If Value<>-1 then
+        begin
+        Width:=Value;
+        Value:=-1;
+        end;
+    end;
 
- {$ifdef bUnicode}
-  var
-    FormatChar : TChar;
- {$endif bUnicode}
+    Procedure ReadPrec;
+    begin
+      If Fmt[ChPos]='.' then
+        begin
+        inc(ChPos);
+          ReadInteger;
+        If Value=-1 then
+         Value:=0;
+        prec:=Value;
+        end;
+    end;
+
   begin
     Index:=-1;
     Width:=-1;
     Prec:=-1;
     Value:=-1;
     inc(ChPos);
-    If Fmt[ChPos]='%' then
-      begin
-        Result:='%';
-        exit;                           // VP fix
-      end;
+    If Fmt[ChPos]='%' then begin
+      Result:='%';
+      exit;                           // VP fix
+    end;
     ReadIndex;
     ReadLeft;
     ReadWidth;
     ReadPrec;
 
-   {$ifdef bUnicode}
-    FormatChar := CharUpcase(Fmt[ChPos]);
-    if word(FormatChar) > 255 then
-      Result := #255
-    else
-      Result := Char(FormatChar);
-   {$else}
     Result := CharUpcase(Fmt[ChPos]);
-   {$endif bUnicode}
   end;
 
 
@@ -468,7 +482,7 @@ var
 
 var
   Hs,ToAdd :TString;
-  Fchar :char;
+  Fchar :TChar;
   vq : qword;
 begin
   Result:='';
@@ -488,15 +502,15 @@ begin
       Case FChar of
         'D' :begin
                if Checkarg(vtInteger,False) then
-                 Str(Args[Doarg].VInteger,ToAdd)
+                 ToAdd := IntToStr(Args[Doarg].VInteger)
                else
               {$ifdef bFreePascal}
                if CheckArg(vtQWord,False) then
-                 Str(int64(Args[DoArg].VQWord^),toadd)
+                 ToAdd := Int64ToStr(int64(Args[DoArg].VQWord^))
                else
               {$endif bFreePascal}
                if CheckArg(vtInt64,True) then
-                 Str(Args[DoArg].VInt64^,toadd);
+                 ToAdd := Int64ToStr(Args[DoArg].VInt64^);
                Width:=Abs(width);
                Index:=Prec-Length(ToAdd);
                If ToAdd[1]<>'-' then
@@ -507,16 +521,16 @@ begin
              end;
 
         'U' :begin
-               if Checkarg(vtinteger, False) then
-                 Str(cardinal(Args[Doarg].VInteger),ToAdd)
+               if Checkarg(vtInteger, False) then
+                 ToAdd := Int64ToStr(cardinal(Args[Doarg].VInteger))
                else
               {$ifdef bFreePascal}
                if CheckArg(vtQWord, False) then
-                 Str(Args[DoArg].VQWord^,toadd)
+                 ToAdd := Int64ToStr(int64(Args[DoArg].VQWord^))
                else
               {$endif bFreePascal}
                if CheckArg(vtInt64, True) then
-                 Str(Args[DoArg].VInt64^,toadd);
+                 ToAdd := Int64ToStr(Args[DoArg].VInt64^);
                Width:=Abs(width);
                Index:=Prec-Length(ToAdd);
                ToAdd:=StringOfChar('0',Index)+ToAdd
@@ -546,6 +560,7 @@ begin
               else if CheckArg(vtExtended,true) then
                 ToAdd:=FloatToStrF(Args[doarg].VExtended^,ffNumber,9999,Prec);
               end;
+
         'M' : begin
               if CheckArg(vtExtended,false) then
                 ToAdd:=FloatToStrF(Args[doarg].VExtended^,ffCurrency,9999,Prec)
@@ -554,26 +569,32 @@ begin
               end;
 
         'S' : begin
+               {$ifdef bUnicodeStr}
+                if CheckArg(vtUnicodeString,false) then
+                  hs:=TString(UnicodeString(Args[doarg].VUnicodeString))
+                else
+               {$endif bUnicodeStr}
+                if CheckArg(vtWidestring,false) then
+                  hs:=TString(WideString(Args[doarg].VWideString))
+                else
+                if CheckArg(vtAnsiString,false) then
+                  hs:=TString(AnsiString(Args[doarg].VAnsiString))
+                else
                 if CheckArg(vtString,false) then
-                  hs:=Args[doarg].VString^
+                  hs:=TString(Args[doarg].VString^)
                 else
-                  if CheckArg(vtChar,false) then
-                    hs:=Args[doarg].VChar
+                if CheckArg(vtPWideChar,false) then
+                  hs:=TString(Args[doarg].VPWideChar)
                 else
-                  if CheckArg(vtPChar,false) then
-                    hs:=Args[doarg].VPChar
+                if CheckArg(vtPChar,false) then
+                  hs:=TString(Args[doarg].VPChar)
                 else
-                  if CheckArg(vtPWideChar,false) then
-                    hs:=WideString(Args[doarg].VPWideChar)
+                if CheckArg(vtWideChar,false) then
+                  hs:=TString(Args[doarg].VWideChar)
                 else
-                  if CheckArg(vtWideChar,false) then
-                    hs:=WideString(Args[doarg].VWideChar)
-                else
-                  if CheckArg(vtWidestring,false) then
-                    hs:=WideString(Args[doarg].VWideString)
-                else
-                  if CheckArg(vtAnsiString,true) then
-                    hs:=ansistring(Args[doarg].VAnsiString);
+                if CheckArg(vtChar,false) then
+                  hs:=TString(Args[doarg].VChar);
+
                 Index:=Length(hs);
                 If (Prec<>-1) and (Index>Prec) then
                   Index:=Prec;
@@ -638,7 +659,7 @@ begin
 end;
 
 
-Function FloatToStrF(Value: Extended; format: TFloatFormat; Precision, Digits: Integer): String;
+Function FloatToStrF(Value: Extended; format: TFloatFormat; Precision, Digits: Integer) :TString;
 begin
   {!!!}
 (*Result := FloatToStrF(Value,Format,Precision,Digits,DefaultFormatSettings);*)

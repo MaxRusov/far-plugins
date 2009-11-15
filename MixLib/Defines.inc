@@ -20,10 +20,14 @@
 {$Define bDebugInfo}
 {$Define bWindows}
 
+{$ifdef ANSI}
+  {$Undef Unicode}             { Для Delphi 2009+}
+{$endif ANSI}
+
 {$ifdef Unicode}
   {$Define bUnicode}           { Внутренности плагина - в unicode }
   {$Define bUnicodeFar}        { Far 2 API }
-{$endif bRelease}
+{$endif Unicode}
 
 {------------------------------------------------------------------------------}
 
@@ -80,7 +84,7 @@
    {$Define bDelphi7}
    {$Define bDelphi8}
    {$Define bDelphi9}
-   {$Define bDelphi10}  //D2006
+   {$Define bDelphi10}  { D2006 }
   {$endif Ver180}
 
   {$ifdef Ver200}
@@ -92,7 +96,25 @@
    {$Define bDelphi9}
    {$Define bDelphi10}
    {$Define bDelphi11}
-   {$Define bDelphi12}  // D2009
+   {$Define bDelphi12}  { D2009 }
+  {$endif}
+
+  {$ifdef Ver210}
+   {$Define bDelphi4}
+   {$Define bDelphi5}
+   {$Define bDelphi6}
+   {$Define bDelphi7}
+   {$Define bDelphi8}
+   {$Define bDelphi9}
+   {$Define bDelphi10}
+   {$Define bDelphi11}
+   {$Define bDelphi12}
+   {$Define bDelphi13}  { D2010 }
+  {$endif}
+
+  {$ifdef bDelphi12}
+   {$Define bUnicodeStr}  { Поддерживается тип UnicodeString }
+   {$Define bUnicodeRTL}
   {$endif}
 
 {$endif FPC}
