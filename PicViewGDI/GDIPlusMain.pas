@@ -32,12 +32,12 @@ interface
 
   var
     WaitDelay        :Integer = 1000;  { Сколько ждем декодирование, презде чем показать эскиз. Только при первом открытии. }
-    DraftDelay       :Integer = 125;   { Задержка для аккрутной перерисовки }
+    DraftDelay       :Integer = 125;   { Задержка для аккурaтной перерисовки }
     StretchDelay     :Integer = 500;   { Задержка для масштабирования }
-    PrecacheDelay    :Integer = 100;   {ms }
+    PrecacheDelay    :Integer = 100;   { Задержка для предварительного масштабирования }
 
     FastListDelay    :Integer = 500;
-    ThumbDelay       :Integer = 500;   { Задержка до начала декодирования при перелистывании }
+    ThumbDelay       :Integer = 250;   { Задержка до начала декодирования при перелистывании }
 
     UseThumbnail     :Boolean = True;
     
@@ -69,6 +69,14 @@ interface
     MixDebug;
 
 
+  function RectEquals(const AR, R :TRect) :Boolean;
+  begin
+    Result :=
+      (AR.Left = R.Left) and (AR.Top = R.Top) and
+      (AR.Right = R.Right) and (AR.Bottom = R.Bottom);
+  end;
+
+
   procedure CorrectBound(var ASize :TSize; ALimit :Integer);
   begin
     if (ASize.cx > ALimit) or (ASize.CY > ALimit) then begin
@@ -79,6 +87,21 @@ interface
       begin
         ASize.cx := MulDiv(ASize.cx, ALimit, ASize.cy);
         ASize.cy := ALimit;
+      end;
+    end;
+  end;
+
+
+  procedure CorrectBoundEx(var ASize :TSize; const ALimit :TSize);
+  begin
+    if (ASize.cx > ALimit.cx) or (ASize.cy > ALimit.cy) then begin
+      if (ASize.cx - ALimit.cx) > (ASize.cy - ALimit.cy) then begin
+        ASize.cy := MulDiv(ASize.cy, ALimit.cx, ASize.cx);
+        ASize.cx := ALimit.cx;
+      end else
+      begin
+        ASize.cx := MulDiv(ASize.cx, ALimit.cy, ASize.cy);
+        ASize.cy := ALimit.cy;
       end;
     end;
   end;
@@ -153,6 +176,12 @@ interface
   end;
 
 
+  function RandomColor :DWORD;
+  begin
+    Result := RGB(Random(256), Random(256), Random(256));
+  end;
+
+
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
@@ -185,8 +214,6 @@ interface
     vStr :TString;
     vKey :HKEY;
   begin
-//  TraceF('ReadSettings: %s', [APath]);
-
     RegOpenWrite(HKCU, APath, vKey);
     try
       if not RegQueryBinByte(vKey, cUseThumbnailRegKey, Byte(UseThumbnail)) then
@@ -261,8 +288,12 @@ interface
     FHeight := H;
 
     vDC := GetDC(0);
-    FBMP := CreateCompatibleBitmap(vDC, W, H);
-    ReleaseDC(0, vDC);
+    try
+      FBMP := CreateCompatibleBitmap(vDC, W, H);
+      ApiCheck(FBMP <> 0);
+    finally
+      ReleaseDC(0, vDC);
+    end;
 
     FDC := CreateCompatibleDC(0);
     FOldBmp := SelectObject(FDC, FBmp);
@@ -278,9 +309,12 @@ interface
   begin
     if FOldBrush <> 0 then
       SelectObject(FDC, FOldBrush);
-    SelectObject(FDC, FOldBmp);
-    DeleteObject(FBMP);
-    DeleteDC(FDC);
+    if FOldBmp <> 0 then
+      SelectObject(FDC, FOldBmp);
+    if FBMP <> 0 then
+      DeleteObject(FBMP);
+    if FDC <> 0 then
+      DeleteDC(FDC);
   end;
 
 
@@ -317,7 +351,8 @@ interface
       FSize       :TSize;
       FThumb      :TMemDC;
       FState      :TTaskState;
-      FOnComplete :TNotifyEvent;
+      FError      :TString;
+      FOnTask     :TNotifyEvent;
       FNext       :TTask;
     end;
 
@@ -361,7 +396,7 @@ interface
 
       procedure Execute; override;
 
-      function AddTask(const AName :TString; AFrame :Integer; const ASize :TSize; const AOnComplete :TNotifyEvent) :TTask;
+      procedure AddTask(ATask :TTask);
       function CheckTask(ATask :TTask) :Boolean;
       procedure CancelTask(ATask :TTask);
 
@@ -423,6 +458,8 @@ interface
       if FTask = nil then
         Exit;
       FTask.FState := tsProceed;
+      if Assigned(FTask.FOnTask) then
+        FTask.FOnTask(nil);
     finally
       LeaveCriticalSection(FTaskCS);
     end;
@@ -432,8 +469,8 @@ interface
     EnterCriticalSection(FTaskCS);
     try
       FTask.FState := tsReady;
-      if Assigned(FTask.FOnComplete) then
-        FTask.FOnComplete(nil);
+      if Assigned(FTask.FOnTask) then
+        FTask.FOnTask(nil);
       NextTask;
     finally
       LeaveCriticalSection(FTaskCS);
@@ -448,7 +485,8 @@ interface
     vTask :TTask;
   begin
     vTask := FTask;
-    FTask := FTask.FNext;
+    FTask := vTask.FNext;
+    vTask.FNext := nil;
     vTask._Release;
   end;
 
@@ -459,7 +497,7 @@ interface
     Result := TTask(AData).FState = tsCancelled;
    {$ifdef bTrace}
     if Result then
-      Trace('!!!Canceled');
+      Trace('!Canceled');
    {$endif bTrace}
   end;
 
@@ -475,61 +513,73 @@ interface
     vTime     :DWORD;
    {$endif bTrace}
   begin
-    vThumb := nil;
-    vSize := ATask.FSize;
-    vImage := TGPImageEx.Create(ATask.FName);
     try
-      if vImage.GetLastStatus = Ok then begin
+      vThumb := nil;
+      vSize := ATask.FSize;
+      vImage := TGPImageEx.Create(ATask.FName);
+      try
+        if vImage.GetLastStatus = Ok then begin
 
-        if ATask.FFrame > 0 then begin
-          FillChar(vDimID, SizeOf(vDimID), 0);
-          if vImage.GetFrameDimensionsList(@vDimID, 1) = Ok then
-            vImage.SelectActiveFrame(vDimID, ATask.FFrame);
+          if ATask.FFrame > 0 then begin
+            FillChar(vDimID, SizeOf(vDimID), 0);
+            if vImage.GetFrameDimensionsList(@vDimID, 1) = Ok then
+              vImage.SelectActiveFrame(vDimID, ATask.FFrame);
+          end;
+
+          vThumb := TMemDC.Create(0, vSize.CX, vSize.CY);
+//        GradientFillRect(vThumb.FDC, Rect(0, 0, vSize.CX, vSize.CY), RandomColor, RandomColor, True);
+
+          vGraphics := TGPGraphics.Create(vThumb.FDC);
+          try
+//          vGraphics.SetCompositingMode(CompositingModeSourceCopy);
+//          vGraphics.SetCompositingQuality(CompositingQualityHighSpeed);
+//          vGraphics.SetSmoothingMode(SmoothingModeHighSpeed);
+//          vGraphics.SetInterpolationMode(InterpolationModeLowQuality);
+
+           {$ifdef bTrace}
+            vTime := GetTickCount;
+            TraceF('Render %s, %d x %d...', [ATask.FName, vSize.CX, vSize.CY]);
+           {$endif bTrace}
+
+            vGraphics.DrawImage(vImage, MakeRect(0, 0, vSize.CX, vSize.CY), 0, 0, vImage.GetWidth, vImage.GetHeight, UnitPixel, nil, ImageAbort, ATask);
+
+           {$ifdef bTrace}
+            TraceF('  Ready (%d). %d ms', [Byte(vGraphics.GetLastStatus), TickCountDiff(GetTickCount, vTime)]);
+           {$endif bTrace}
+
+          finally
+            FreeObj(vGraphics);
+          end;
+
         end;
-
-       {$ifdef bTrace}
-        vTime := GetTickCount;
-        TraceF('Render %s, %d x %d...', [ATask.FName, vSize.CX, vSize.CY]);
-       {$endif bTrace}
-
-        vThumb := TMemDC.Create(0, vSize.CX, vSize.CY);
-        vGraphics := TGPGraphics.Create(vThumb.FDC);
-        try
-          vGraphics.DrawImage(vImage, MakeRect(0, 0, vSize.CX, vSize.CY), 0, 0, vImage.GetWidth, vImage.GetHeight, UnitPixel, nil, ImageAbort, ATask);
-        finally
-          FreeObj(vGraphics);
-        end;
-
-       {$ifdef bTrace}
-        TraceF('  Ready. %d ms', [TickCountDiff(GetTickCount, vTime)]);
-       {$endif bTrace}
+      finally
+        FreeObj(vImage);
       end;
-    finally
-      FreeObj(vImage);
-    end;
 
-    FTask.FThumb := vThumb;
+      ATask.FThumb := vThumb;
+
+    except
+      on E :Exception do
+        ATask.FError := E.Message;
+    end;
   end;
 
 
-  function TThumbnailThread.AddTask(const AName :TString; AFrame :Integer; const ASize :TSize; const AOnComplete :TNotifyEvent) :TTask;
+  procedure TThumbnailThread.AddTask(ATask :TTask);
   var
     vTask :TTask;
   begin
-    Result := TTask.CreateEx(AName, AFrame, ASize);
-    Result.FOnComplete := AOnComplete;
-
     EnterCriticalSection(FTaskCS);
     try
       if FTask = nil then
-        FTask := Result
+        FTask := ATask
       else begin
         vTask := FTask;
         while vTask.FNext <> nil do
           vTask := vTask.FNext;
-        vTask.FNext := Result;
+        vTask.FNext := ATask;
       end;
-      Result._AddRef;
+      ATask._AddRef;
     finally
       LeaveCriticalSection(FTaskCS);
     end;
@@ -554,7 +604,7 @@ interface
     EnterCriticalSection(FTaskCS);
     try
       ATask.FState := tsCancelled;
-      ATask.FOnComplete := nil;
+      ATask.FOnTask := nil;
     finally
       LeaveCriticalSection(FTaskCS);
     end;
@@ -697,14 +747,23 @@ interface
  {-----------------------------------------------------------------------------}
 
   var
+    GViewID        :Integer;
+
+  var
+    GLastID        :Integer;
     GLastPaint     :DWORD;
-    GViewCount     :Integer;
-    GViewIsFirst   :Boolean;
-    GFastScroll    :Boolean;
+    GLastPaint1    :DWORD;
+    GWinSize       :TSize;
 
   type
     PDelays = ^TDelays;
     TDelays = array[0..MaxInt div SizeOf(Integer) - 1] of Integer;
+
+    TViewQuality = (
+      vqAuto,
+      vqLo,
+      vqHi
+    );
 
     TView = class(TBasis)
     public
@@ -722,12 +781,14 @@ interface
 
       procedure FillBack(const ARect :TRect; AColor :DWORD);
       procedure DrawImage(const ASrcRect, ADstRect :TRect; AColor :DWORD);
+      procedure DrawText(X, Y :Integer; const AStr :TString);
       function InitThumbnail(ADX, ADY :Integer) :Boolean;
 
     private
       FRefCount    :Integer;
 
-      FSrcName     :TString;
+      FID          :Integer;      { Уникальный идентификатор }
+      FSrcName     :TString;      { Имя файла }
       FSrcImage    :TGPImageEx;   { Исходное изображение }
       FImgSize     :TSize;        { Оригинальный размер картинки (текущей страницы) }
       FPixels      :Integer;      { Цветност (BPP) }
@@ -736,14 +797,18 @@ interface
       FThumbImage  :TMemDC;       { Изображение, буферизированное как Bitmap }
       FThumbSize   :TSize;        { Размер Preview'шки }
       FIsThumbnail :Boolean;      { Это превью (thumbnail) }
+      FErrorMess   :TString;
 
       FViewStart   :DWORD;        { Для поддержки предварительного декодирования }
 
-      FResizeStart :DWORD;
+      FResizeStart :DWORD;        { Для поддержки фонового декодирования (при масштабировании или быстрой прокрутке) }
       FResizeSize  :TSize;
 
       FDraftStart  :DWORD;
-      FHighQuality :Boolean;
+      FFirstDraw   :Boolean;
+      FHiQual      :Boolean;
+      FPrevSrcRect :TRect;
+      FPrevDstRect :TRect;
 
       { Для поддержки анимированных изображений... }
       FFrames      :Integer;
@@ -758,14 +823,14 @@ interface
       { Рисование }
       FWnd          :HWND;
       FDC           :HDC;
-      FPaintStruct  :TPaintStruct;
+//    FPaintStruct  :TPaintStruct;
 
       FDrawCS       :TRTLCriticalSection;
 
       procedure SetAsyncTask(const ASize :TSize);
       function CheckAsyncTask :Boolean;
       procedure CancelTask;
-      procedure TaskComplete(ASender :Tobject);
+      procedure TaskEvent(ASender :Tobject);
       procedure Idle(ASender :Tobject);
     end;
 
@@ -778,15 +843,13 @@ interface
     InitIdleThread;
     GIdleThread.AddIdle(Idle);
 
-    Inc(GViewCount);
-    GViewIsFirst := GViewCount = 1;
+    Inc(GViewID);
+    FID := GViewID;
   end;
 
 
   destructor TView.Destroy; {override;}
   begin
-    Dec(GViewCount);
-
 //  TraceF('%p TView.Destroy', [Pointer(Self)]);
     if GIdleThread <> nil then
       GIdleThread.DeleteIdle(Idle);
@@ -839,6 +902,7 @@ interface
     FFrames := GetFrameCount(FSrcImage, FDimID, FDelays, FDelCount);
 
     FDirectDraw := vHahAlpha or (FDelays <> nil);
+//  FDirectDraw := False;
   end;
 
 
@@ -855,6 +919,7 @@ interface
 
     CancelTask;
     FreeObj(FThumbImage);
+    FErrorMess := '';
   end;
 
 
@@ -863,7 +928,8 @@ interface
     EnterCriticalSection(FDrawCS);
     try
       FWnd := AWnd;
-      FDC := BeginPaint(AWnd, FPaintStruct);
+//    FDC := BeginPaint(AWnd, FPaintStruct);
+      FDC := GetDC(AWnd);
     finally
       LeaveCriticalSection(FDrawCS);
     end;
@@ -875,7 +941,8 @@ interface
     EnterCriticalSection(FDrawCS);
     try
       if FDC <> 0 then begin
-        EndPaint(AWnd, FPaintStruct);
+//      EndPaint(AWnd, FPaintStruct);
+        ReleaseDC(FWnd, FDC);
         FDC := 0;
       end;
     finally
@@ -890,6 +957,7 @@ interface
     try
 //    TraceF('TView.DisplayClose: %s', [FSrcName]);
       FWnd := 0;
+      FViewStart := 0;
     finally
       LeaveCriticalSection(FDrawCS);
     end;
@@ -902,6 +970,24 @@ interface
     if FDC <> 0 then begin
       GradientFillRect(FDC, ARect, AColor, AColor, True);
 //    GradientFillRect(FDC, ARect, RGB(255,0,0), AColor, True);
+    end;
+  end;
+
+
+  procedure TView.DrawText(X, Y :Integer; const AStr :TString);
+  var
+    vFont, vOldFont :HFont;
+  begin
+    vFont := GetStockObject(DEFAULT_GUI_FONT);
+    vOldFont := SelectObject(FDC, vFont);
+    if vOldFont = 0 then
+      Exit;
+    try
+
+      TextOut(FDC, X, Y, PTChar(AStr), Length(AStr));
+
+    finally
+      SelectObject(FDC, vOldFont);
     end;
   end;
 
@@ -937,14 +1023,19 @@ interface
       end;
     end;
 
-    function LocThumbSize(PicSize, DispSize, SrcSize :Integer) :Integer;
+    function LocThumbSize(ImgSize, SrcSize, DispSize :Integer) :Integer;
     begin
-      if SrcSize >= PicSize then
+      if SrcSize = ImgSize then
         Result := DispSize
       else
-        Result := MulDiv(PicSize, DispSize, SrcSize);
-      if Result > PicSize then
-        Result := PicSize;
+        Result := MulDiv(ImgSize, DispSize, SrcSize);
+      if Result > ImgSize then
+        Result := ImgSize;
+    end;
+
+    function LocCalcScale(ADX, ADY :Integer) :Integer;
+    begin
+      Result := IntMax(MulDiv(ADX, 100, FImgSize.cx), MulDiv(ADY, 100, FImgSize.cy));
     end;
 
     function LocScaleX(X :Integer) :Integer;
@@ -969,13 +1060,23 @@ interface
     end;
 
   var
-    vDX, vDY :Integer;
+    vSize :TSize;
+    vScale :Integer;
     vRect :TRect;
     vStart :DWORD;
     vSaveDC :Integer;
+    vFastScroll :Boolean;
+   {$ifdef bTrace}
+//  vTime :DWORD;
+   {$endif bTrace}
   begin
     if FDC = 0 then
       Exit;
+
+   {$ifdef bTrace}
+//  vTime := GetTickCount;
+//  TraceF('Paint (%p) %s...', [Pointer(FThumbImage), ExtractFileName(FSrcName)]);
+   {$endif bTrace}
 
 //  TraceF('Src: %d, %d, %d, %d. Dst: %d, %d, %d, %d',
 //    [ASrcRect.Left, ASrcRect.Top, ASrcRect.Right - ASrcRect.Left, ASrcRect.Bottom - ASrcRect.Top,
@@ -984,21 +1085,29 @@ interface
     if FDirectDraw then
       LocDirectDraw
     else begin
+      vSize.cx := LocThumbSize(FImgSize.cx, ASrcRect.Right - ASrcRect.Left, ADstRect.Right - ADstRect.Left);
+      vSize.cy := LocThumbSize(FImgSize.cy, ASrcRect.Bottom - ASrcRect.Top, ADstRect.Bottom - ADstRect.Top);
 
-      vDX := LocThumbSize(FImgSize.cx, ADstRect.Right - ADstRect.Left, ASrcRect.Right - ASrcRect.Left);
-      vDY := LocThumbSize(FImgSize.cy, ADstRect.Bottom - ADstRect.Top, ASrcRect.Bottom - ASrcRect.Top);
+      if (FThumbImage = nil) or (FIsThumbnail and (FAsyncTask = nil)) then begin
 
-      if (FThumbImage = nil) or FIsThumbnail then begin
-        { Картинки нет, или это превью }
-        if GViewIsFirst or (FThumbImage = nil) or (TickCountDiff(GetTickCount, GLastPaint) > FastListDelay) then begin
-          GFastScroll := False;
+        { Определяем режим "быстрой прокрутки"}
+        vFastScroll := {(GLastID <> FID) and} (TickCountDiff(GetTickCount, GLastPaint) < FastListDelay);
+        if vFastScroll then
+          GLastPaint1 := GetTickCount;
+
+        vScale := LocCalcScale(vSize.cx, vSize.cy);
+        if vScale > 90 then
+          { Выгоднее уже декодировать 100% }
+          vSize := FImgSize;
+
+        if (FThumbImage = nil) or not vFastScroll then begin
+          { Запускаем фоновый декодер и ждем результата (но не долше, чем WaitDelay)}
           if FAsyncTask = nil then
-            SetAsyncTask(Size(vDX, vDY));
-
+            SetAsyncTask(vSize);
           vStart := GetTickCount;
           while (FAsyncTask <> nil) and (TickCountDiff(GetTickCount, vStart) < WaitDelay) do begin
             if CheckAsyncTask then begin
-              FHighQuality := True;
+              FHiQual := not vFastScroll;
               FDraftStart := 0;
               Break;
             end;
@@ -1006,23 +1115,26 @@ interface
           end;
         end else
         begin
-          GFastScroll := True;
+          { "Быстрая прокрутка". Показываем превью, декодер отработает в фоне. }
           FResizeStart := GetTickCount - DWORD(StretchDelay) + DWORD(ThumbDelay);
-          FResizeSize := Size(vDX, vDY);
+          FResizeSize := vSize;
         end;
       end;
 
       if FAsyncTask <> nil then
-        if CheckAsyncTask then begin
-          FHighQuality := True;
-          GFastScroll := False;
-        end;
+        if CheckAsyncTask then
+          FHiQual := True;
 
-      if (FAsyncTask = nil) and (LocNeedResize(vDX, FThumbSize.CX) or LocNeedResize(vDY, FThumbSize.CY)) then begin
-        if (FResizeStart = 0) or (FResizeSize.cx <> vDX) or (FResizeSize.cy <> vDY) then begin
+      if (FAsyncTask = nil) and (LocNeedResize(vSize.cx, FThumbSize.CX) or LocNeedResize(vSize.cy, FThumbSize.CY)) then begin
+        if (FResizeStart = 0) or (FResizeSize.cx <> vSize.cx) or (FResizeSize.cy <> vSize.cy) then begin
 //        TraceF('Need resize! %d x %d', [FThumbSize.cx - vDX, FThumbSize.cy - vDY]);
-          FResizeStart := GetTickCount;
-          FResizeSize := Size(vDX, vDY);
+          if FFirstDraw then
+            { Ошиблись с прогнозом при опрежающем декодировании. }
+            SetAsyncTask(vSize)
+          else begin
+            FResizeStart := GetTickCount;
+            FResizeSize := vSize;
+          end;
         end;
       end else
         FResizeStart := 0;
@@ -1032,24 +1144,34 @@ interface
         with ASrcRect do
           vRect := Rect(LocScaleX(Left), LocScaleY(Top), LocScaleX(Right), LocScaleY(Bottom));
 
-//      TraceF('StretchBlt. Mode=%d', [Byte(FHighQuality)]);
-        if FHighQuality then begin
+        if FHiQual and not FIsThumbnail and not FFirstDraw then
+          if not RectEquals(FPrevSrcRect, ASrcRect) or not RectEquals(FPrevDstRect, ADstRect) then
+            FHiQual := False;
+
+        FPrevSrcRect := ASrcRect;
+        FPrevDstRect := ADstRect;
+
+        if FHiQual and not FIsThumbnail then
           { Аккуратный, но медленный }
-          SetStretchBltMode(FDC, HALFTONE);
-          FHighQuality := False;
-        end else
-        begin
+          SetStretchBltMode(FDC, HALFTONE)
+        else begin
           { Быстрый, но не аккуратный }
           SetStretchBltMode(FDC, COLORONCOLOR);
-          FDraftStart := GetTickCount;
+          if not FIsThumbnail then
+            FDraftStart := GetTickCount;
         end;
 
+       {$ifdef bTrace}
+        TraceF('%p.StretchBlt. Thumb=%d, Qual=%s', [Pointer(Self), Byte(FIsThumbnail), StrIf(FHiQual, 'Hi', 'Lo')]);
+       {$endif bTrace}
         StretchBlt(
           FDC,
           ADstRect.Left, ADstRect.Top, ADstRect.Right - ADstRect.Left, ADstRect.Bottom - ADstRect.Top,
           FThumbImage.FDC,
           vRect.Left, vRect.Top, vRect.Right - vRect.Left, vRect.Bottom - vRect.Top,
           SRCCOPY);
+
+        FFirstDraw := False;
 
       end else
         GradientFillRect(FDC, ADstRect, AColor, AColor, True);
@@ -1062,12 +1184,28 @@ interface
         ExcludeClipRect(FDC, Left, Top, Right, Bottom);
       GetClientRect(FWnd, vRect);
       FillBack(vRect, AColor);
+      with vRect do
+        GWinSize := Size(Right - Left, Bottom - Top);
     finally
       RestoreDC(FDC, vSaveDC);
     end;
 
-    GLastPaint := GetTickCount;
+    if FAsyncTask <> nil then
+      DrawText(vRect.Left, vRect.Top, 'Decoding...')
+    else
+    if FErrorMess <> '' then
+      DrawText(vRect.Left, vRect.Top, FErrorMess);
+
+    if GLastID <> FID then begin
+      GLastPaint := GetTickCount;
+      GLastID := FID;
+    end;
+
+   {$ifdef bTrace}
+//  TraceF('  Done paint. %d ms', [TickCountDiff(GetTickCount, vTime)]);
+   {$endif bTrace}
   end;
+
 
 
   function TView.InitThumbnail(ADX, ADY :Integer) :Boolean;
@@ -1124,9 +1262,13 @@ interface
   procedure TView.SetAsyncTask(const ASize :TSize);
   begin
     InitThumbnailThread;
-//  TraceF('SetAsyncTask %s...', [FSrcName]);
-    FAsyncTask := GThumbThread.AddTask(FSrcName, FFrame, ASize, TaskComplete);
+//  TraceF('SetAsyncTask %s...', [ExtractFileName(FSrcName)]);
+
+    FAsyncTask := TTask.CreateEx(FSrcName, FFrame, ASize);
+    FAsyncTask.FOnTask := TaskEvent;
     FAsyncTask._AddRef;
+
+    GThumbThread.AddTask(FAsyncTask);
   end;
 
 
@@ -1137,8 +1279,9 @@ interface
       if GThumbThread.CheckTask(FAsyncTask) then begin
         FreeObj(FThumbImage);
 
-        FThumbImage := FAsyncTask.FThumb;
-        FThumbSize  := FAsyncTask.FSize;
+        FThumbImage  := FAsyncTask.FThumb;
+        FThumbSize   := FAsyncTask.FSize;
+        FErrorMess   := FAsyncTask.FError;
         FIsThumbnail := False;
 
         FAsyncTask.FThumb := nil;
@@ -1152,7 +1295,9 @@ interface
 
   procedure TView.CancelTask;
   begin
+    Assert(ValidInstance);
     if FAsyncTask <> nil then begin
+//    TraceF('CancelTask %s...', [FSrcName]);
       GThumbThread.CancelTask(FAsyncTask);
       FAsyncTask._Release;
       FAsyncTask := nil;
@@ -1160,16 +1305,17 @@ interface
   end;
 
 
-  procedure TView.TaskComplete(ASender :Tobject);
+  procedure TView.TaskEvent(ASender :Tobject);
   begin
-//  TraceF('TaskComplete (Wnd=%d, DC=%d)...', [FWnd, FDC]);
+//  TraceF('TaskEvent %d...', [Byte(FAsyncTask.FState)]);
     FDraftStart := GetTickCount - DWORD(DraftDelay);
   end;
 
 
   procedure TView.Idle(ASender :Tobject);
+  var
+    vSize :TSize;
   begin
-//  TraceF('Idle %s...', [FSrcName]);
     EnterCriticalSection(FDrawCS);
     try
       if FDirectDraw then
@@ -1183,26 +1329,26 @@ interface
         end;
 
         if (FDraftStart <> 0) and (TickCountDiff(GetTickCount, FDraftStart) > DraftDelay) then begin
+//        TraceF('%p.InvalidateRect FWnd=%d', [Pointer(Self), FWnd]);
           FDraftStart := 0;
-          FHighQuality := True;
+          FHiQual := True;
           InvalidateRect(FWnd, nil, False);
         end;
       end;
 
-      if (FWnd = 0) and ((FThumbImage = nil) or FIsThumbnail) and not GFastScroll then begin
+      if (FWnd = 0) and ((FThumbImage = nil) or FIsThumbnail) and (TickCountDiff(GetTickCount, GLastPaint1) > FastListDelay) then begin
         if (FViewStart <> 0) and (TickCountDiff(GetTickCount, FViewStart) > PrecacheDelay) then begin
-          { Опережающее декодирование }
+          { Опережающее декодировани (размере эскиза прогнозируем из расчета того что он вписывается в экран...) }
           FViewStart := 0;
-          {!!! Прогноз о размере эскиза... }
-//        TraceF('Forward task %s...', [FSrcName]);
-          SetAsyncTask(FImgSize);
+          vSize := FImgSize;
+          CorrectBoundEx(vSize, GWinSize);
+          SetAsyncTask(vSize);
         end;
       end;
 
     finally
       LeaveCriticalSection(FDrawCS);
     end;
-//  Trace('  Idle done');
   end;
 
 
@@ -1234,8 +1380,11 @@ interface
       if ActiveView <> nil then
         ActiveView.Deactivate;
       ActiveView := AView;
-      if AView <> nil then
-        AView.FHighQuality := True;  {!!!-???}
+      if AView <> nil then begin
+        AView.FFirstDraw := True;
+        AView.FHiQual := True;  {???}
+        AView.FDraftStart := 0;
+      end;
     end;
   end;
 
@@ -1264,11 +1413,11 @@ interface
   procedure pvdPluginInfo2(pPluginInfo :PPVDInfoPlugin2); stdcall;
   begin
 //  Trace('pvdPluginInfo2');
-    pPluginInfo.pName := 'GDI+ Alt';
+    pPluginInfo.pName := 'GDIPlus';
     pPluginInfo.pVersion := '1.0';
     pPluginInfo.pComments := '(c) 2009, Maxim Rusov';
     pPluginInfo.Flags := PVD_IP_DECODE or PVD_IP_DISPLAY or PVD_IP_PRIVATE;
-    pPluginInfo.Priority := 999;
+    pPluginInfo.Priority := $0F00;
   end;
 
 
@@ -1282,7 +1431,8 @@ interface
   procedure pvdGetFormats2(pContext :Pointer; pFormats :PPVDFormats2); stdcall;
   begin
 //  Trace('pvdGetFormats2');
-    pFormats.pSupported := 'bmp,jpg,gif,tif,png,wmf'; {!!!}
+//  pFormats.pSupported := 'JPG,JPEG,JPE,PNG,GIF,TIF,TIFF,EXIF,BMP,DIB,EMF,WMF';
+    pFormats.pSupported := '*';
     pFormats.pIgnored := '';
   end;
 
@@ -1304,12 +1454,11 @@ interface
         if vView.FDelays <> nil then
           pImageInfo.Flags := PVD_IIF_ANIMATED
         else
-          {pImageInfo.Flags := PVD_IIF_MAGAZINE}; {???}
+          {pImageInfo.Flags := PVD_IIF_MAGAZINE};
 
       pImageInfo.pImageContext := vView;
       vView._AddRef;
-
-//    TraceF('pvdFileOpen2 result: Pages=%d, Size=%d %d', [vView.FFrames, vView.FImgSize.cx, vView.FImgSize.cy]);
+//    TraceF('  pvdFileOpen2 result: Pages=%d, Size=%d %d', [vView.FFrames, vView.FImgSize.cx, vView.FImgSize.cy]);
 
       Result := True;
     end;
@@ -1333,7 +1482,7 @@ interface
       pPageInfo.lWidth := FImgSize.cx;
       pPageInfo.lHeight := FImgSize.cy;
       pPageInfo.nBPP := FPixels;
-//    TraceF('pvdPageInfo2: Page=%d, Size=%d %d', [pPageInfo.iPage, FImgSize.cx, FImgSize.cy]);
+//    TraceF('  pvdPageInfo2 result: Page=%d, Size=%d %d', [pPageInfo.iPage, FImgSize.cx, FImgSize.cy]);
 
       Result := True;
     end;
@@ -1342,13 +1491,20 @@ interface
 
   function pvdPageDecode2(pContext :Pointer; pImageContext :Pointer; pDecodeInfo :PPVDInfoDecode2; DecodeCallback :TPVDDecodeCallback2; pDecodeCallbackContext :Pointer) :BOOL; stdcall;
   begin
-//  TraceF('pvdPageDecode2: ImageContext=%p', [pImageContext]);
+//  TraceF('pvdPageDecode2: ImageContext=%p; Size=%d x %d', [pImageContext, pDecodeInfo.lWidth, pDecodeInfo.lHeight]);
     with TView(pImageContext) do begin
+//    TraceF('pvdPageDecode2: %s', [FSrcName]);
 
-      if UseThumbnail and not FDirectDraw and (FFrames = 1) then
-        InitThumbnail(0, 0 {cThumbSize, cThumbSize} );
+      if UseThumbnail = not (GetKeyState(VK_Shift) < 0) then
+        if not FDirectDraw and (FFrames = 1) then
+          InitThumbnail(0, 0 {cThumbSize, cThumbSize} );
 
-      FViewStart := GetTickCount;
+//    if (FFrames = 1) {???} then
+        FViewStart := GetTickCount;
+
+      pDecodeInfo.lWidth := FImgSize.cx;
+      pDecodeInfo.lHeight := FImgSize.cy;
+      pDecodeInfo.nBPP := FPixels;
 
       pDecodeInfo.Flags := PVD_IDF_READONLY or PVD_IDF_PRIVATE_DISPLAY;
       pDecodeInfo.pImage := pImageContext;
@@ -1407,7 +1563,7 @@ interface
   var
     vView :TView;
   begin
-//  TraceF('pvdDisplayPaint2: DisplayContext=%p, Operation=%d', [pDisplayContext, pDisplayPaint.Operation]);
+//  TraceF('pvdDisplayPaint2: DisplayContext=%p, hWnd=%d, Operation=%d', [pDisplayContext, pDisplayPaint.hWnd, pDisplayPaint.Operation]);
     vView := pDisplayContext;
     SetActiveView(vView);
     case pDisplayPaint.Operation of

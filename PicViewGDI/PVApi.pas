@@ -59,7 +59,6 @@ const
   PVD_IDF_COMPAT_MODE       = 64;  // Плагин второй версии вызван в режиме совместимости с первой (через PVD1Helper.cpp)
 
 
-
 (*
 // pvdInitPlugin2 - параметры инициализации субплагина
 struct pvdInitPlugin2
@@ -83,6 +82,8 @@ struct pvdInitPlugin2
 	void (__stdcall* MessageLog)(void *pCallbackContext, const wchar_t* asMessage, UINT32 anSeverity);
 	// asExtList может содержать '*' (тогда всегда TRUE) или '.' (TRUE если asExt пусто). Сравнение регистронезависимое
 	BOOL (__stdcall* ExtensionMatch)(wchar_t* asExtList, const wchar_t* asExt);
+	//
+	HMODULE hModule;             // [IN]  HANDLE загруженной библиотеки
 };
 *)
 type
@@ -96,6 +97,7 @@ type
     pCallbackContext :Pointer;
     MessageLog :Pointer;
     ExtensionMatch :Pointer;
+    hModule :THandle;
   end;
 
 (*
@@ -108,6 +110,7 @@ struct pvdInfoPlugin2
 	const wchar_t *pComments;    // [OUT] комментарии о субплагине: для чего предназначен, кто автор субплагина, ...
 	UINT32 Priority;             // [OUT] приоритет субплагина; используется только для новых субплагинов при формировании
 	                             //       списка декодеров. Чем выше Priority тем выше в списке он будет размещен.
+	HMODULE hModule;             // [IN]  HANDLE загруженной библиотеки
 };
 *)
 type
@@ -119,16 +122,17 @@ type
     pVersion :PWideChar;
     pComments :PWideChar;
     Priority :UINT;
+    hModule :THandle;
   end;
 
 (*
 // pvdFormats2 - список поддерживаемых форматов
 struct pvdFormats2
 {
-	UINT32 cbSize;               // [IN]  размер структуры в байтах
-	const wchar_t *pSupported;   // [OUT] Список поддерживаемых расширений через запятую.
-	                             //       Здесь допускается указание "*" означающее, что
-	                             //       субплагин является универсальным.
+    UINT32 cbSize;               // [IN]  размер структуры в байтах
+    const wchar_t *pSupported;   // [OUT] Список поддерживаемых расширений через запятую.
+                                 //       Здесь допускается указание "*" означающее, что
+                                 //       субплагин является универсальным.
                                  //       Если при распознавании ни один из субплагинов не подошел по расширению -
                                  //       PicView все равно попытается открыть файл субплагином, если расширение
                                  //       не указано в списке его игнорируемых.
@@ -147,17 +151,23 @@ type
     pIgnored :PWideChar;
   end;
 
-
 (*
 struct pvdInfoImage2
 {
 	UINT32 cbSize;               // [IN]  размер структуры в байтах
-	void   *pImageContext;       // [OUT] Контекст, используемый при обращении к файлу
+	void   *pImageContext;       // [IN]  При вызове из pvdFileOpen2 может быть НЕ NULL,
+								 //       если плагин экспортирует функцию pvdFileDetect2
+								 // [OUT] Контекст, используемый при обращении к файлу
 	UINT32 nPages;               // [OUT] количество страниц изображения
+								 //       При вызове из pvdFileDetect2 заполнение необязательно
 	UINT32 Flags;                // [OUT] возможные флаги: PVD_IIF_xxx
+								 //       При выозве из pvdFileDetect2 критичен флаг PVD_IIF_FILE_REQUIRED
 	const wchar_t *pFormatName;  // [OUT] название формата файла
+								 //       При вызове из pvdFileDetect2 заполнение необязательно, но желательно
 	const wchar_t *pCompression; // [OUT] алгоритм сжатия
+								 //       При вызове из pvdFileDetect2 заполнение необязательно
 	const wchar_t *pComments;    // [OUT] различные комментарии о файле
+								 //       При вызове из pvdFileDetect2 заполнение необязательно
 	//
 	DWORD  nErrNumber;           // [OUT] Информация об ошибке детектирования формата файла
 	                             //       Субплагину желательно экспортировать функцию pvdTranslateError2
@@ -165,6 +175,10 @@ struct pvdInfoImage2
 	                             //       субплагину просто неизвестен этот формат файла. PicView
 	                             //       не будет отображать эту ошибку пользователю, если сможет
 	                             //       открыть файл каким-то другим субплагином-декодером.
+
+	SIZE PreferredSize;          // [IN]  PicView может передать сюда предпочитаемый размер изображения.
+	                             //       Субплагин может использовать это поле (если тут не {0,0})
+	                             //       для рендеринга изображения с антиалиасингом
 };
 *)
 type
@@ -177,7 +191,8 @@ type
     pFormatName :PWideChar;
     pCompression :PWideChar;
     pComments :PWideChar;
-    nErrNumber :Integer;
+    nErrNumber :DWORD;
+    PreferredSize :TSize;
   end;
 
 (*
@@ -191,9 +206,11 @@ struct pvdInfoPage2
 	UINT32 lFrameTime;        // [OUT] для анимированных изображений - длительность отображения страницы в тысячных секунды;
 	                          //       иначе - не используется
 	// Plugin output
-	DWORD  nErrNumber;        // [OUT] Информация об ошибке
-                              //       Субплагину желательно экспортировать функцию pvdTranslateError2
-	UINT32 nPages;            // [OUT] 0, или плагин может скорректировать количество страниц изображения
+	DWORD  nErrNumber;           // [OUT] Информация об ошибке
+                                 //       Субплагину желательно экспортировать функцию pvdTranslateError2
+	UINT32 nPages;               // [OUT] 0, или плагин может скорректировать количество страниц изображения
+	const wchar_t *pFormatName;  // [OUT] NULL или плагин может скорректировать название формата файла
+	const wchar_t *pCompression; // [OUT] NULL или плагин может скорректировать алгоритм сжатия
 };
 *)
 type
@@ -207,6 +224,8 @@ type
     lFrameTime :UINT;
     nErrNumber :DWORD;
     nPages :UINT;
+    pFormatName :PWideChar;
+    pCompression :PWideChar;
   end;
 
 
@@ -225,18 +244,17 @@ const
   PVD_CM_RGBA    = 10;  // "RGBA"        -- UNSUPPORTED !!!
   PVD_CM_ABRG    = 11;  // "ABRG"        -- UNSUPPORTED !!!
 
-
 (*
 struct pvdInfoDecode2
 {
 	UINT32 cbSize;             // [IN]  размер структуры в байтах
 	UINT32 iPage;              // [IN]  Номер декодируемой страницы (0-based)
-	UINT32 lWidth;             // [OUT] Ширина декодированной области (pImage)
-	UINT32 lHeight;            // [OUT] Высота декодированной области (pImage)
+	UINT32 lWidth, lHeight;    // [IN]  Рекомендуемый размер декодированного изображения (если декодер поддерживает антиалиасинг)
+	                           // [OUT] Размер декодированной области (pImage)
 	UINT32 nBPP;               // [IN]  PicView может запросить предпочтительный формат (пока не используется)
 	                           // [OUT] количество бит на пиксель в декодированном изображении
 	                           //       при использовании 32 бит может быть указан флаг PVD_IDF_ALPHA
-                                   //       PicView не отображает это значение пользователю - в заголовке
+                               //       PicView не отображает это значение пользователю - в заголовке 
 	                           //       выводится pvdInfoPage2.nBPP, так что можно спокойно делать преобразования
 	INT32  lImagePitch;        // [OUT] модуль - длина строки декодированного изображения в байтах;
 	                           //       положительные значения - строки идут сверху вниз, отрицательные - снизу вверх
@@ -255,7 +273,7 @@ struct pvdInfoDecode2
 	                           //       32 бит - 8 бит на компонент (BGR или BGRA при указании PVD_IDF_ALPHA)
 	UINT32 *pPalette;          // [OUT] указатель на палитру изображения, используется в форматах 8 и меньше бит на пиксель
 	UINT32 nColorsUsed;        // [OUT] количество используемых цветов в палитре; если 0, то используются все возможные цвета
-	                           //       (пока не используесят, палитра должна содержать [1<<nBPP] цветов)
+	                           //       (пока не используется, палитра должна содержать [1<<nBPP] цветов)
 
 	DWORD  nErrNumber;         // [OUT] Информация об ошибке декодирования
 	                           //       Субплагину желательно экспортировать функцию pvdTranslateError2
@@ -263,14 +281,19 @@ struct pvdInfoDecode2
 	LPARAM lParam;             // [OUT] Субплагин может использовать это поле на свое усмотрение
 
 	pvdColorModel  ColorModel; // [OUT] Сейчас поддерживаются только PVD_CM_BGR & PVD_CM_BGRA
-	DWORD          Precision;  // [RESERVED] bits per channel (8,12,16bit) 
+	DWORD          Precision;  // [RESERVED] bits per channel (8,12,16bit)
 	POINT          Origin;     // [RESERVED] m_x & m_y; Interface apl returns m_x=0; m_y=Ymax;
-	float          PAR;        // [RESERVED] Pixel aspect ratio definition 
+	float          PAR;        // [RESERVED] Pixel aspect ratio definition
 	pvdOrientation Orientation;// [RESERVED]
 	UINT32 nPages;             // [OUT] 0, или плагин может скорректировать количество страниц изображения
+	const wchar_t *pFormatName;  // [OUT] NULL или плагин может скорректировать название формата файла
+	const wchar_t *pCompression; // [OUT] NULL или плагин может скорректировать алгоритм сжатия
+	union {
+		RGBQUAD BackgroundColor; // [IN] Декодер может использовать это поле при рендеринге
+		DWORD  nBackgroundColor; //      прозрачных изображений
+	};
 };
 *)
-
 type
   PPVDInfoDecode2 = ^TPVDInfoDecode2;
   TPVDInfoDecode2 = packed record
@@ -293,6 +316,9 @@ type
     PAR :Extended; {???}
     Orientation :byte; {PPVDOrientation}
     nPages :UINT;
+    pFormatName :PWideChar;
+    pCompression :PWideChar;
+    nBackgroundColor :DWORD;
   end;
 
 (*
@@ -337,7 +363,6 @@ type
     nErrNumber :DWORD;
   end;
 
-
 (*
 struct pvdInfoDisplayCreate2
 {
@@ -346,6 +371,8 @@ struct pvdInfoDisplayCreate2
 	DWORD BackColor;             // [IN]  RGB background
 	void* pDisplayContext;       // [OUT]
 	DWORD nErrNumber;            // [OUT]
+	const wchar_t* pFileName;    // [IN]  Information only. Valid only in pvdDisplayCreate2
+	UINT32 iPage;                // [IN]  Information only
 };
 *)
 type
@@ -356,6 +383,8 @@ type
     BackColor :DWORD;
     pDisplayContext :Pointer;
     nErrNumber :DWORD;
+    pFileName :PWideChar;
+    iPage :UINT;
   end;
 
 
@@ -370,7 +399,7 @@ struct pvdInfoDisplayPaint2
 {
 	UINT32 cbSize;               // [IN]  размер структуры в байтах
 	DWORD Operation;  // PVD_IDP_*
-	HWND hWnd;                   // [IN]  == pvdInfoDisplayInit2.hWnd
+	HWND hWnd;                   // [IN]  Где рисовать
 	HWND hParentWnd;             // [IN]
 	union {
 	RGBQUAD BackColor;  //
@@ -379,7 +408,7 @@ struct pvdInfoDisplayPaint2
 	RECT ImageRect;
 	RECT DisplayRect;
 
-	LPVOID pDrawContext; // Это поле может использоваться плагином для хранения "HDC". Освобождать должен плагин по команде PVD_IDP_COMMIT
+	LPVOID pDrawContext; // Это поле может использоваться субплагином для хранения "HDC". Освобождать должен субплагин по команде PVD_IDP_COMMIT
 
 	//RECT ParentRect;
 	////DWORD BackColor;             // [IN]  RGB background
@@ -391,6 +420,13 @@ struct pvdInfoDisplayPaint2
 	//RECT rcGlobal;               // [IN]  в каком месте окна нужно показать изображение (остальное заливается фоном BackColor)
 	//RECT rcCrop;                 // [IN]  прямоугольник отсечения (клиентская часть окна)
 	DWORD nErrNumber;            // [OUT]
+	
+	DWORD nZoom; // [IN] передается только для информации. 0x10000 == 100%
+	DWORD nFlags; // [IN] PVD_IDPF_*
+	
+	DWORD *pChessMate;
+	DWORD uChessMateWidth;
+	DWORD uChessMateHeight;
 };
 *)
 type
@@ -405,6 +441,11 @@ type
     DisplayRect :TRECT;
     pDrawContext :Pointer;
     nErrNumber :DWORD;
+    nZoom :DWORD;
+    nFlags :DWORD;
+    pChessMate :Pointer;
+    uChessMateWidth :DWORD;
+    uChessMateHeight :DWORD;
   end;
 
 (*
