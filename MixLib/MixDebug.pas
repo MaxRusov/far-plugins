@@ -22,8 +22,8 @@ interface
   procedure TraceA(const AMsg :TAnsiStr);
   procedure TraceW(const AMsg :TWideStr);
   procedure TraceF(const AMsg :TString; const Args: array of const);
-  procedure TraceFW(const AMsg :TAnsiStr; const Args: array of const);
-  procedure TraceFA(const AMsg :TWideStr; const Args: array of const);
+  procedure TraceFA(const AMsg :TAnsiStr; const Args: array of const);
+  procedure TraceFW(const AMsg :TWideStr; const Args: array of const);
  {$endif bTrace}
 
 
@@ -225,12 +225,12 @@ interface
    {$endif bUnicode}
   end;
 
-  procedure TraceFW(const AMsg :TAnsiStr; const Args: array of const);
+  procedure TraceFA(const AMsg :TAnsiStr; const Args: array of const);
   begin
     Trace(Format(TString(AMsg), Args));
   end;
 
-  procedure TraceFA(const AMsg :TWideStr; const Args: array of const);
+  procedure TraceFW(const AMsg :TWideStr; const Args: array of const);
   begin
     Trace(Format(TString(AMsg), Args));
   end;
