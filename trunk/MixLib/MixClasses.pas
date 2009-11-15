@@ -148,6 +148,8 @@ interface
       procedure ItemFromStream(PItem :Pointer; Stream :TStream); virtual;
      {$endif bUseStreams}
 
+      procedure RemoveRange(AIndex, ACount :Integer);
+
     protected
       function  GetItems(Index :Integer) :Pointer;
       procedure PutItems(Index :Integer; Item: Pointer);
@@ -696,6 +698,29 @@ interface
       end;
     end;
 
+    RemoveRange(AIndex, ACount);
+  end;
+
+
+  function TExList.Remove(Item :Pointer) :Integer;
+  begin
+    Assert(FItemSize = SizeOf(Pointer));
+    Result := RemoveData(Item);
+  end;
+
+
+  function TExList.RemoveData(const Item) :Integer;
+  begin
+    Result := IndexOfData(Item);
+    if Result <> -1 then
+      RemoveRange(Result, 1);
+  end;
+
+
+  procedure TExList.RemoveRange(AIndex, ACount :Integer);
+  var
+    P :Pointer1;
+  begin
     if AIndex + ACount < FCount then begin
       P := Pointer1(FList) + AIndex * FItemSize;
       System.Move((P + ACount * FItemSize)^, P^, (FCount - AIndex - ACount) * FItemSize);
@@ -703,20 +728,7 @@ interface
     Dec(FCount, ACount);
   end;
 
-
-  function TExList.Remove(Item :Pointer) :Integer;
-  begin
-    Result := RemoveData(Item);
-  end;
-
-  function TExList.RemoveData(const Item) :Integer;
-  begin
-    Result := IndexOfData(Item);
-    if Result <> -1 then
-      DeleteRange(Result, 1);
-  end;
-
-
+  
   procedure TExList.ReplaceRangeFrom(const ABuffer; AIndex, AOldCount, ANewCount :Integer);
   var
     vNewCount :Integer;
@@ -759,11 +771,10 @@ interface
   begin
     P := Pointer1(FList);
     for I := 0 to FCount - 1 do begin
-      if FItemSize = SizeOf(Pointer) then begin
+      if FItemSize = SizeOf(Pointer) then
         F := PPointer(P)^ = Pointer(Item)
-      end else begin
+      else
         F := MemCompare(P, @Item, FItemSize) = FItemSize;
-      end;
       if F then begin
         Result := I;
         Exit;
@@ -1684,7 +1695,7 @@ interface
   var
     FreeThread :Boolean;
    {$ifdef bTrace}
-    vName :TAnsiStr;
+    vName :TSysStr;
    {$endif bTrace}
   begin
     try

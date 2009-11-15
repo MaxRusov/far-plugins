@@ -488,6 +488,7 @@ interface
   end;
 
 
+(*
   function StrUnique(const Str :TString) :TString;
   begin
    {$ifdef bUnicode}
@@ -495,6 +496,12 @@ interface
    {$else}
     SetString(Result, PChar(Str), Length(Str));
    {$endif bUnicode}
+  end;
+*)
+
+  function StrUnique(const Str :TString) :TString;
+  begin
+    SetString(Result, PTChar(Str), Length(Str));
   end;
 
 
@@ -1352,7 +1359,7 @@ interface
         begin
           SetString(vAStr, nil, vSize);
           FileRead(vFile, PAnsiChar(vAStr)^, vSize);
-          Result := vAStr;
+          Result := TString(vAStr);
         end;
       end;
 
@@ -1392,10 +1399,14 @@ interface
       if AMode = sffUnicode then
         LocWriteUnicode(AStr)
       else
-        LocWriteAnsi(AStr);
+        LocWriteAnsi(TAnsiStr(AStr));
     finally
       FileClose(vFile);
     end;
   end;
+
+initialization
+
+  StrUpCase('abc');
 
 end.

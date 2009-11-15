@@ -1,5 +1,3 @@
-{$I Defines.inc}
-
 {*******************************************************}
 {                                                       }
 {       Borland Delphi Run-time Library                 }
@@ -10,6 +8,8 @@
 {       Translator: Inprise Corporation                 }
 {                                                       }
 {*******************************************************}
+
+{$I Defines.inc}
 
 unit Windows;
 
@@ -2073,11 +2073,11 @@ type
     ByteSize: Byte;
     Parity: Byte;
     StopBits: Byte;
-    XonChar: CHAR;
-    XoffChar: CHAR;
-    ErrorChar: CHAR;
-    EofChar: CHAR;
-    EvtChar: CHAR;
+    XonChar: AnsiChar;
+    XoffChar: AnsiChar;
+    ErrorChar: AnsiChar;
+    EofChar: AnsiChar;
+    EvtChar: AnsiChar;
     wReserved1: Word;
   end;
   TDCB = _DCB;
@@ -2578,7 +2578,7 @@ type
     nErrCode: Word;
     Reserved1: Word;
     Reserved2: Word;
-    szPathName: array[0..OFS_MAXPATHNAME-1] of CHAR;
+    szPathName: array[0..OFS_MAXPATHNAME-1] of AnsiChar;
   end;
   TOFStruct = _OFSTRUCT;
   OFSTRUCT = _OFSTRUCT;
@@ -2928,7 +2928,7 @@ function SetCommConfig(hCommDev: THandle; const lpCC: TCommConfig; dwSize: DWORD
 function SetCommMask(hFile: THandle; dwEvtMask: DWORD): BOOL; stdcall;
 function SetCommState(hFile: THandle; const lpDCB: TDCB): BOOL; stdcall;
 function SetCommTimeouts(hFile: THandle; const lpCommTimeouts: TCommTimeouts): BOOL; stdcall;
-function TransmitCommChar(hFile: THandle; cChar: CHAR): BOOL; stdcall;
+function TransmitCommChar(hFile: THandle; cChar: AnsiChar): BOOL; stdcall;
 function WaitCommEvent(hFile: THandle; var lpEvtMask: DWORD; lpOverlapped: POverlapped): BOOL; stdcall;
 function SetTapePosition(hDevice: THandle; dwPositionMethod, dwPartition: DWORD;
   dwOffsetLow, dwOffsetHigh: DWORD; bImmediate: BOOL): DWORD; stdcall;
@@ -3074,12 +3074,12 @@ type
   _RECOVERY_AGENT_INFORMATIONA = record
     NextEntryOffset: DWORD;
     AgentNameLength: DWORD;
-    AgentInformation: array[0..0] of CHAR;
+    AgentInformation: array[0..0] of AnsiChar;
   end;
   _RECOVERY_AGENT_INFORMATIONW = record
     NextEntryOffset: DWORD;
     AgentNameLength: DWORD;
-    AgentInformation: array[0..0] of CHAR;
+    AgentInformation: array[0..0] of WideChar;
   end;
   _RECOVERY_AGENT_INFORMATION = _RECOVERY_AGENT_INFORMATIONA;
   TRecoveryAgentInformationA = _RECOVERY_AGENT_INFORMATIONA;
@@ -8497,7 +8497,7 @@ type
   tagBITMAPCOREINFO = record
     bmciHeader: TBitmapCoreHeader;
     bmciColors: array[0..0] of TRGBTriple;
-    Reserved: array[0..0] of Char;
+    Reserved: array[0..0] of AnsiChar;
   end;
   TBitmapCoreInfo = tagBITMAPCOREINFO;
   BITMAPCOREINFO = tagBITMAPCOREINFO;
@@ -9954,8 +9954,8 @@ type
   PRgnData = ^TRgnData;
   _RGNDATA = record
     rdh: TRgnDataHeader;
-    Buffer: array[0..0] of CHAR;
-    Reserved: array[0..2] of CHAR;
+    Buffer: array[0..0] of AnsiChar;
+    Reserved: array[0..2] of AnsiChar;
   end;
   TRgnData = _RGNDATA;
   RGNDATA = _RGNDATA;
@@ -17500,7 +17500,7 @@ type
         UnicodeChar: WCHAR;
         dwControlKeyState: DWORD);
       1: (
-        AsciiChar: CHAR);
+        AsciiChar: AnsiChar);
   end;
   TKeyEventRecord = _KEY_EVENT_RECORD;
   KEY_EVENT_RECORD = _KEY_EVENT_RECORD;
@@ -17598,7 +17598,7 @@ type
         UnicodeChar: WCHAR;
         Attributes: Word);
       1: (
-        AsciiChar: CHAR);
+        AsciiChar: AnsiChar);
   end;
   TCharInfo = _CHAR_INFO;
   CHAR_INFO = _CHAR_INFO;

@@ -64,13 +64,13 @@ interface
 
     TAnsiStr = AnsiString;
     PAnsiStr = PAnsiString;
-   {$ifdef bDelphi12}
+   {$ifdef bUnicodeStr}
     TWideStr = UnicodeString;
     PWideStr = PUnicodeString;
    {$else}
     TWideStr = WideString;
     PWideStr = PWideString;
-   {$endif bDelphi12}
+   {$endif bUnicodeStr}
     TAutoStr = WideString;
     PAutoStr = ^WideString;
 
@@ -94,6 +94,11 @@ interface
     PRTLStr = PAnsiStr;
    {$endif bUnicodeRTL}
 
+   {$ifdef bUnicodeRTL}
+    TSysStr = TString;
+   {$else}
+    TSysStr = ShortString;
+   {$endif bUnicodeRTL}
 
   const
    {$ifdef bUnicode}
