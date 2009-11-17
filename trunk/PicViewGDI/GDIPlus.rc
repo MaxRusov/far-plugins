@@ -1,4 +1,6 @@
 
+#include "Build.h"
+
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 
 VS_VERSION_INFO VERSIONINFO
@@ -17,7 +19,7 @@ BEGIN
             VALUE "FileDescription", "GDI+ PVD Decoder (alternative)\0"
             VALUE "InternalName", "GDIPlus\0"
             VALUE "OriginalFilename", "GDIPlus.dll\0"
-            VALUE "FileVersion", "1.0.0\0"
+            VALUE "FileVersion", "1.0." BuildS "\0"
             VALUE "CompanyName", "Max Rusov\0"
             VALUE "LegalCopyright", "(c) 2009, Max Rusov\0"
             VALUE "ProductName", "GDIPlus\0"
