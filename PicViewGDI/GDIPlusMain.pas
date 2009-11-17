@@ -20,10 +20,12 @@ interface
     MixWinUtils,
     GDIPAPI,
     GDIPOBJ,
+//  GDIImageUtil,
     PVApi;
 
   const
-    cUseThumbnailRegKey = 'UseThumbnail';
+    cUseThumbnailRegKey   = 'UseThumbnail';
+    cDecodeOnReduceRegKey = 'DecodeOnReduce';
 
   const
     cAnimationStep     = 100;          {ms }
@@ -40,7 +42,9 @@ interface
     ThumbDelay       :Integer = 250;   { Задержка до начала декодирования при перелистывании }
 
     UseThumbnail     :Boolean = True;
-    
+    DecodeOnReduce   :Boolean = False;
+    RotateOnEXIF     :Boolean = False;
+
 
   function pvdInit2(pInit :PpvdInitPlugin2) :integer; stdcall;
   procedure pvdExit2(pContext :Pointer); stdcall;
@@ -183,6 +187,87 @@ interface
 
 
  {-----------------------------------------------------------------------------}
+
+(*
+  procedure TraceExifProps(AImage :TGPImage);
+  var
+    I :Integer;
+    vSize, vCount :Cardinal;
+    vBuffer, vItem :PPropertyItem;
+    vName, vValue :TString;
+  begin
+    AImage.GetPropertySize(vSize, vCount);
+    if vCount > 0 then begin
+      GetMem(vBuffer, vSize);
+      ZeroMemory(vBuffer, vSize);
+      try
+        AImage.GetAllPropertyItems(vSize, vCount, vBuffer);
+
+        vItem := vBuffer;
+        for i := 0 to Integer(vCount) - 1 do begin
+          vName := GetImagePropName(vItem.id);
+          if vName = '' then
+            vName := Format('Prop%d', [vItem.id]);
+
+          vValue := '';
+          if vItem.type_ = PropertyTagTypeASCII then
+            vValue := PChar(vItem.value)
+          else
+          if vItem.type_ = PropertyTagTypeByte then
+            vValue := Int2Str(Byte(vItem.value^))
+          else
+          if vItem.type_ = PropertyTagTypeShort then
+            vValue := Int2Str(Word(vItem.value^))
+          else
+          if vItem.type_ in [PropertyTagTypeLong, PropertyTagTypeSLONG] then
+            vValue := Int2Str(Integer(vItem.value^))
+          else
+          if vItem.type_ in [PropertyTagTypeRational, PropertyTagTypeSRational] then
+            vValue := '???';
+
+          if (vName <> '') {and (vValue <> '')} then
+            TraceF('Prop: %s = %s', [ vName, vValue ]);
+
+          Inc(PChar(vItem), SizeOf(TPropertyItem));
+        end;
+
+      finally
+        FreeMem(vBuffer);
+      end;
+    end;
+  end;
+*)
+
+  function GetExifTagValueAsInt(AImage :TGPImage; AID :ULONG; var AValue :Integer) :Boolean;
+  var
+    vSize :UINT;
+    vItem :PPropertyItem;
+  begin
+    Result := False;
+    vSize := AImage.GetPropertyItemSize(AID);
+    if vSize > 0 then begin
+      vItem := MemAlloc(vSIze);
+      try
+        Result := True;
+        AImage.GetPropertyItem(AID, vSIze, vItem);
+        if vItem.type_ = PropertyTagTypeByte then
+          AValue := Byte(vItem.value^)
+        else
+        if vItem.type_ = PropertyTagTypeShort then
+          AValue := Word(vItem.value^)
+        else
+        if vItem.type_ in [PropertyTagTypeLong, PropertyTagTypeSLONG] then
+          AValue := Integer(vItem.value^)
+        else
+          Result := False;
+      finally
+        MemFree(vItem);
+      end;
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
@@ -218,6 +303,9 @@ interface
     try
       if not RegQueryBinByte(vKey, cUseThumbnailRegKey, Byte(UseThumbnail)) then
         RegWriteBinByte(vKey, cUseThumbnailRegKey, Byte(UseThumbnail));
+
+      if not RegQueryBinByte(vKey, cDecodeOnReduceRegKey, Byte(DecodeOnReduce)) then
+        RegWriteBinByte(vKey, cDecodeOnReduceRegKey, Byte(DecodeOnReduce));
     finally
       RegCloseKey(vKey);
     end;
@@ -226,6 +314,7 @@ interface
     RegOpenWrite(HKCU, vStr, vKey);
     try
       RegWriteStr(vKey, cUseThumbnailRegKey, 'bool;Use Thumbnail');
+      RegWriteStr(vKey, cDecodeOnReduceRegKey, 'bool;Decode on Reduce');
     finally
       RegCloseKey(vKey);
     end;
@@ -791,8 +880,9 @@ interface
       FSrcName     :TString;      { Имя файла }
       FSrcImage    :TGPImageEx;   { Исходное изображение }
       FImgSize     :TSize;        { Оригинальный размер картинки (текущей страницы) }
-      FPixels      :Integer;      { Цветност (BPP) }
+      FPixels      :Integer;      { Цветность (BPP) }
       FDirectDraw  :Boolean;      { Полупрозрачное или анимированное изображение, не используем preview'шки }
+      FOrientation :Integer;
 
       FThumbImage  :TMemDC;       { Изображение, буферизированное как Bitmap }
       FThumbSize   :TSize;        { Размер Preview'шки }
@@ -901,12 +991,20 @@ interface
     { Подсчитываем количество фреймов в анимированном/многостраничном изображении }
     FFrames := GetFrameCount(FSrcImage, FDimID, FDelays, FDelCount);
 
+//  TraceExifProps(FSrcImage);
+    if RotateOnEXIF then
+      if GetExifTagValueAsInt(FSrcImage, PropertyTagOrientation, FOrientation) then begin
+//      TraceF('!!! EXIF: Orientation=%d', [FOrientation]);
+      end;    
+
     FDirectDraw := vHahAlpha or (FDelays <> nil);
 //  FDirectDraw := False;
   end;
 
 
   procedure TView.SetFrame(AIndex :Integer);
+  var
+    vTmp :Integer;
   begin
     if (FFrames > 1) and (AIndex < FFrames) then begin
       FSrcImage.SelectActiveFrame(FDimID, AIndex);
@@ -916,6 +1014,13 @@ interface
     FImgSize.cx := FSrcImage.GetWidth;
     FImgSize.cy := FSrcImage.GetHeight;
     FPixels     := GetPixelFormatSize(FSrcImage.GetPixelFormat);
+
+    if RotateOnEXIF and (FOrientation <> 0) then
+      if (FOrientation = 6) or (FOrientation = 8) then begin
+        vTmp := FImgSize.cx;
+        FImgSize.cx := FImgSize.cy;
+        FImgSize.cy := vTmp;
+      end;
 
     CancelTask;
     FreeObj(FThumbImage);
@@ -1053,9 +1158,9 @@ interface
       vDelta :Integer;
     begin
       Result := False;
-      if N1 > N2 then begin
-        vDelta := N1 - N2;
-        Result := vDelta > MulDiv(N1, cRescalePerc, 100);
+      if (N1 > N2) or DecodeOnReduce then begin
+        vDelta := Abs(N1 - N2);
+        Result := vDelta > MulDiv(IntMax(N1, N2), cRescalePerc, 100);
       end;
     end;
 
@@ -1092,8 +1197,10 @@ interface
 
         { Определяем режим "быстрой прокрутки"}
         vFastScroll := {(GLastID <> FID) and} (TickCountDiff(GetTickCount, GLastPaint) < FastListDelay);
-        if vFastScroll then
+        if vFastScroll then begin
+//        Trace('!!!FastScroll???');
           GLastPaint1 := GetTickCount;
+        end;
 
         vScale := LocCalcScale(vSize.cx, vSize.cy);
         if vScale > 90 then
@@ -1151,25 +1258,39 @@ interface
         FPrevSrcRect := ASrcRect;
         FPrevDstRect := ADstRect;
 
-        if FHiQual and not FIsThumbnail then
-          { Аккуратный, но медленный }
-          SetStretchBltMode(FDC, HALFTONE)
-        else begin
-          { Быстрый, но не аккуратный }
-          SetStretchBltMode(FDC, COLORONCOLOR);
-          if not FIsThumbnail then
-            FDraftStart := GetTickCount;
-        end;
+        if (ADstRect.Right - ADstRect.Left = vRect.Right - vRect.Left) and (ADstRect.Bottom - ADstRect.Top = vRect.Bottom - vRect.Top) then begin
+         {$ifdef bTrace}
+          TraceF('BitBlt. Thumb=%d', [Byte(FIsThumbnail)]);
+         {$endif bTrace}
+          BitBlt(
+            FDC,
+            ADstRect.Left, ADstRect.Top, ADstRect.Right - ADstRect.Left, ADstRect.Bottom - ADstRect.Top,
+            FThumbImage.FDC,
+            vRect.Left, vRect.Top,
+            SRCCOPY);
+          FDraftStart := 0;
+        end else
+        begin
+          if FHiQual and not FIsThumbnail then
+            { Аккуратный, но медленный }
+            SetStretchBltMode(FDC, HALFTONE)
+          else begin
+            { Быстрый, но не аккуратный }
+            SetStretchBltMode(FDC, COLORONCOLOR);
+            if not FIsThumbnail then
+              FDraftStart := GetTickCount;
+          end;
 
-       {$ifdef bTrace}
-        TraceF('%p.StretchBlt. Thumb=%d, Qual=%s', [Pointer(Self), Byte(FIsThumbnail), StrIf(FHiQual, 'Hi', 'Lo')]);
-       {$endif bTrace}
-        StretchBlt(
-          FDC,
-          ADstRect.Left, ADstRect.Top, ADstRect.Right - ADstRect.Left, ADstRect.Bottom - ADstRect.Top,
-          FThumbImage.FDC,
-          vRect.Left, vRect.Top, vRect.Right - vRect.Left, vRect.Bottom - vRect.Top,
-          SRCCOPY);
+         {$ifdef bTrace}
+          TraceF('StretchBlt. Thumb=%d, Qual=%s', [Byte(FIsThumbnail), StrIf(FHiQual, 'Hi', 'Lo')]);
+         {$endif bTrace}
+          StretchBlt(
+            FDC,
+            ADstRect.Left, ADstRect.Top, ADstRect.Right - ADstRect.Left, ADstRect.Bottom - ADstRect.Top,
+            FThumbImage.FDC,
+            vRect.Left, vRect.Top, vRect.Right - vRect.Left, vRect.Bottom - vRect.Top,
+            SRCCOPY);
+        end;
 
         FFirstDraw := False;
 
@@ -1431,8 +1552,8 @@ interface
   procedure pvdGetFormats2(pContext :Pointer; pFormats :PPVDFormats2); stdcall;
   begin
 //  Trace('pvdGetFormats2');
-//  pFormats.pSupported := 'JPG,JPEG,JPE,PNG,GIF,TIF,TIFF,EXIF,BMP,DIB,EMF,WMF';
-    pFormats.pSupported := '*';
+    pFormats.pSupported := 'JPG,JPEG,JPE,PNG,GIF,TIF,TIFF,EXIF,BMP,DIB,EMF,WMF';
+//  pFormats.pSupported := '*';
     pFormats.pIgnored := '';
   end;
 
@@ -1443,8 +1564,8 @@ interface
   begin
 //  TraceF('pvdFileOpen2: %s', [pFileName]);
     Result := False;
-    if StrEqual(ExtractFileName(pFileName), 'CMYK.png') then
-      Exit;
+//  if StrEqual(ExtractFileName(pFileName), 'CMYK.png') then
+//    Exit;
 
     vView := CreateView(pFileName);
     if vView <> nil then begin
@@ -1505,6 +1626,7 @@ interface
       pDecodeInfo.lWidth := FImgSize.cx;
       pDecodeInfo.lHeight := FImgSize.cy;
       pDecodeInfo.nBPP := FPixels;
+      pDecodeInfo.ColorModel := PVD_CM_PRIVATE;
 
       pDecodeInfo.Flags := PVD_IDF_READONLY or PVD_IDF_PRIVATE_DISPLAY;
       pDecodeInfo.pImage := pImageContext;
