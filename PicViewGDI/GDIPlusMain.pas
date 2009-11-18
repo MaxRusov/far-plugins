@@ -20,12 +20,12 @@ interface
     MixWinUtils,
     GDIPAPI,
     GDIPOBJ,
-//  GDIImageUtil,
     PVApi;
 
   const
     cUseThumbnailRegKey   = 'UseThumbnail';
     cDecodeOnReduceRegKey = 'DecodeOnReduce';
+    cRotateOnEXIFRegKey   = 'RotateOnEXIF';
 
   const
     cAnimationStep     = 100;          {ms }
@@ -43,7 +43,7 @@ interface
 
     UseThumbnail     :Boolean = True;
     DecodeOnReduce   :Boolean = False;
-    RotateOnEXIF     :Boolean = False;
+    RotateOnEXIF     :Boolean = True;
 
 
   function pvdInit2(pInit :PpvdInitPlugin2) :integer; stdcall;
@@ -245,23 +245,42 @@ interface
   begin
     Result := False;
     vSize := AImage.GetPropertyItemSize(AID);
-    if vSize > 0 then begin
+    if (AImage.GetLastStatus = OK) and (vSize > 0) then begin
       vItem := MemAlloc(vSIze);
       try
-        Result := True;
-        AImage.GetPropertyItem(AID, vSIze, vItem);
-        if vItem.type_ = PropertyTagTypeByte then
-          AValue := Byte(vItem.value^)
-        else
-        if vItem.type_ = PropertyTagTypeShort then
-          AValue := Word(vItem.value^)
-        else
-        if vItem.type_ in [PropertyTagTypeLong, PropertyTagTypeSLONG] then
-          AValue := Integer(vItem.value^)
-        else
-          Result := False;
+        AImage.GetPropertyItem(AID, vSize, vItem);
+        if AImage.GetLastStatus = OK then begin
+          Result := True;
+          if vItem.type_ = PropertyTagTypeByte then
+            AValue := Byte(vItem.value^)
+          else
+          if vItem.type_ = PropertyTagTypeShort then
+            AValue := Word(vItem.value^)
+          else
+          if vItem.type_ in [PropertyTagTypeLong, PropertyTagTypeSLONG] then
+            AValue := Integer(vItem.value^)
+          else
+            Result := False;
+        end;
       finally
         MemFree(vItem);
+      end;
+    end;
+  end;
+
+
+  procedure RotateImage(AImage :TGPImage; AOrient :Integer);
+  begin
+    if AOrient <> 0 then begin
+      case AOrient of
+        3: AImage.RotateFlip(Rotate180FlipNone);
+        6: AImage.RotateFlip(Rotate90FlipNone);
+        8: AImage.RotateFlip(Rotate270FlipNone);
+
+        2: AImage.RotateFlip(RotateNoneFlipX);
+        4: AImage.RotateFlip(RotateNoneFlipY);
+        5: AImage.RotateFlip(Rotate90FlipX);
+        7: AImage.RotateFlip(Rotate270FlipX);
       end;
     end;
   end;
@@ -303,9 +322,10 @@ interface
     try
       if not RegQueryBinByte(vKey, cUseThumbnailRegKey, Byte(UseThumbnail)) then
         RegWriteBinByte(vKey, cUseThumbnailRegKey, Byte(UseThumbnail));
-
       if not RegQueryBinByte(vKey, cDecodeOnReduceRegKey, Byte(DecodeOnReduce)) then
         RegWriteBinByte(vKey, cDecodeOnReduceRegKey, Byte(DecodeOnReduce));
+      if not RegQueryBinByte(vKey, cRotateOnEXIFRegKey, Byte(RotateOnEXIF)) then
+        RegWriteBinByte(vKey, cRotateOnEXIFRegKey, Byte(RotateOnEXIF));
     finally
       RegCloseKey(vKey);
     end;
@@ -315,6 +335,7 @@ interface
     try
       RegWriteStr(vKey, cUseThumbnailRegKey, 'bool;Use Thumbnail');
       RegWriteStr(vKey, cDecodeOnReduceRegKey, 'bool;Decode on Reduce');
+      RegWriteStr(vKey, cRotateOnEXIFRegKey, 'bool;Rotate On EXIF');
     finally
       RegCloseKey(vKey);
     end;
@@ -438,6 +459,7 @@ interface
       FName       :TString;
       FFrame      :Integer;
       FSize       :TSize;
+      FOrient     :Integer;
       FThumb      :TMemDC;
       FState      :TTaskState;
       FError      :TString;
@@ -624,6 +646,9 @@ interface
 //          vGraphics.SetCompositingQuality(CompositingQualityHighSpeed);
 //          vGraphics.SetSmoothingMode(SmoothingModeHighSpeed);
 //          vGraphics.SetInterpolationMode(InterpolationModeLowQuality);
+
+            if ATask.FOrient <> 0 then
+              RotateImage(vImage, ATask.FOrient);
 
            {$ifdef bTrace}
             vTime := GetTickCount;
@@ -882,7 +907,7 @@ interface
       FImgSize     :TSize;        { Оригинальный размер картинки (текущей страницы) }
       FPixels      :Integer;      { Цветность (BPP) }
       FDirectDraw  :Boolean;      { Полупрозрачное или анимированное изображение, не используем preview'шки }
-      FOrientation :Integer;
+      FOrient      :Integer;
 
       FThumbImage  :TMemDC;       { Изображение, буферизированное как Bitmap }
       FThumbSize   :TSize;        { Размер Preview'шки }
@@ -982,6 +1007,14 @@ interface
     FSrcImage := AImage;
     FSrcImage._AddRef;
 
+//  TraceExifProps(FSrcImage);
+    if RotateOnEXIF then
+      if GetExifTagValueAsInt(FSrcImage, PropertyTagOrientation, FOrient) then begin
+//      TraceF('!!! EXIF: Orientation=%d', [FOrient]);
+        if FOrient <> 0 then
+          RotateImage(FSrcImage, FOrient);
+      end;
+
     FImgSize.cx := FSrcImage.GetWidth;
     FImgSize.cy := FSrcImage.GetHeight;
     FPixels     := GetPixelFormatSize(FSrcImage.GetPixelFormat);
@@ -991,20 +1024,12 @@ interface
     { Подсчитываем количество фреймов в анимированном/многостраничном изображении }
     FFrames := GetFrameCount(FSrcImage, FDimID, FDelays, FDelCount);
 
-//  TraceExifProps(FSrcImage);
-    if RotateOnEXIF then
-      if GetExifTagValueAsInt(FSrcImage, PropertyTagOrientation, FOrientation) then begin
-//      TraceF('!!! EXIF: Orientation=%d', [FOrientation]);
-      end;    
-
     FDirectDraw := vHahAlpha or (FDelays <> nil);
 //  FDirectDraw := False;
   end;
 
 
   procedure TView.SetFrame(AIndex :Integer);
-  var
-    vTmp :Integer;
   begin
     if (FFrames > 1) and (AIndex < FFrames) then begin
       FSrcImage.SelectActiveFrame(FDimID, AIndex);
@@ -1014,13 +1039,6 @@ interface
     FImgSize.cx := FSrcImage.GetWidth;
     FImgSize.cy := FSrcImage.GetHeight;
     FPixels     := GetPixelFormatSize(FSrcImage.GetPixelFormat);
-
-    if RotateOnEXIF and (FOrientation <> 0) then
-      if (FOrientation = 6) or (FOrientation = 8) then begin
-        vTmp := FImgSize.cx;
-        FImgSize.cx := FImgSize.cy;
-        FImgSize.cy := vTmp;
-      end;
 
     CancelTask;
     FreeObj(FThumbImage);
@@ -1196,11 +1214,9 @@ interface
       if (FThumbImage = nil) or (FIsThumbnail and (FAsyncTask = nil)) then begin
 
         { Определяем режим "быстрой прокрутки"}
-        vFastScroll := {(GLastID <> FID) and} (TickCountDiff(GetTickCount, GLastPaint) < FastListDelay);
-        if vFastScroll then begin
-//        Trace('!!!FastScroll???');
+        vFastScroll := (TickCountDiff(GetTickCount, GLastPaint) < FastListDelay);
+        if vFastScroll then
           GLastPaint1 := GetTickCount;
-        end;
 
         vScale := LocCalcScale(vSize.cx, vSize.cy);
         if vScale > 90 then
@@ -1334,7 +1350,7 @@ interface
     vThmImage :TGPImage;
     vGraphics :TGPGraphics;
    {$ifdef bTrace}
-//  vTime :Cardinal;
+//  vTime :DWORD;
    {$endif bTrace}
   begin
 //  TraceF('UpdateThumbnail: %d x %d', [ADX, ADY]);
@@ -1345,7 +1361,7 @@ interface
    {$endif bTrace}
     vThmImage := FSrcImage.GetThumbnailImage(ADX, ADY, nil, nil);
    {$ifdef bTrace}
-//  TraceF('GetThumbnail time: %d ms (%d x %d)', [TickCountDiff(GetTickCount, vTime), vThmImage.GetWidth, vThmImage.GetHeight]);
+//  TraceF('GetThumbnail time: %d ms, (%d x %d)', [TickCountDiff(GetTickCount, vTime), vThmImage.GetWidth, vThmImage.GetHeight]);
    {$endif bTrace}
     if (vThmImage = nil) or (vThmImage.GetLastStatus <> Ok) then begin
       FreeObj(vThmImage);
@@ -1386,6 +1402,7 @@ interface
 //  TraceF('SetAsyncTask %s...', [ExtractFileName(FSrcName)]);
 
     FAsyncTask := TTask.CreateEx(FSrcName, FFrame, ASize);
+    FAsyncTask.FOrient := FOrient;
     FAsyncTask.FOnTask := TaskEvent;
     FAsyncTask._AddRef;
 
@@ -1552,8 +1569,7 @@ interface
   procedure pvdGetFormats2(pContext :Pointer; pFormats :PPVDFormats2); stdcall;
   begin
 //  Trace('pvdGetFormats2');
-    pFormats.pSupported := 'JPG,JPEG,JPE,PNG,GIF,TIF,TIFF,EXIF,BMP,DIB,EMF,WMF';
-//  pFormats.pSupported := '*';
+    pFormats.pSupported := 'JPG,JPEG,JPE,PNG,GIF,TIF,TIFF,EXIF,BMP,DIB,EMF,WMF'; // '*';
     pFormats.pIgnored := '';
   end;
 
@@ -1564,9 +1580,6 @@ interface
   begin
 //  TraceF('pvdFileOpen2: %s', [pFileName]);
     Result := False;
-//  if StrEqual(ExtractFileName(pFileName), 'CMYK.png') then
-//    Exit;
-
     vView := CreateView(pFileName);
     if vView <> nil then begin
 
