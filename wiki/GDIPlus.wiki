@@ -18,8 +18,9 @@
 
   http://code.google.com/p/conemu-maximus5/
 
-= История изменений =
+---
 
+= История изменений =
 
 == Ver 1.0.2 ==
 
