@@ -267,7 +267,7 @@ interface
     I :Integer;
   begin
     for I := 0 to IntMin(cColors, AColors.ColorCount) - 1 do
-      AColors.Colors[I] := Char( FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(TIntPtr(cMenuPalette[i]))) );
+      AColors.Colors[I] := AnsiChar( FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(TIntPtr(cMenuPalette[i]))) );
   end;
 
 
