@@ -1,12 +1,12 @@
-{$I Defines.inc}
-
-unit UCharMapDlg;
-
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* Unicode CharMap                                                            *}
 {******************************************************************************}
+
+{$I Defines.inc}
+
+unit UCharMapDlg;
 
 interface
 
@@ -29,7 +29,7 @@ interface
    {$ifdef bUseHint}
     UCharMapHints,
    {$endif bUseHint}
-   
+
     UCharMapCtrl,
     UCharMapFontsDlg,
     UCharMapGroupsDlg;

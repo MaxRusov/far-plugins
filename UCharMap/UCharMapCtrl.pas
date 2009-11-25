@@ -1,12 +1,12 @@
-{$I Defines.inc}
-
-unit UCharMapCtrl;
-
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* Unicode CharMap                                                            *}
 {******************************************************************************}
+
+{$I Defines.inc}
+
+unit UCharMapCtrl;
 
 interface
 
@@ -213,7 +213,7 @@ interface
         if vCode2 = -1 then
           Continue;
 
-        GroupNames.Add( TUnicodeGroup.CreateEx(vCode1, vCode2, vStr) );
+        GroupNames.Add( TUnicodeGroup.CreateEx(vCode1, vCode2, TString(vStr)) );
       end;
 
     finally
@@ -264,7 +264,7 @@ interface
         if vCode >= vMax then
           vMax := vCode;
 
-        CharNames[vCode] := vStr;
+        CharNames[vCode] := TString(vStr);
       end;
 
       if CharNames.Count > vMax + 1 then

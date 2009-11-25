@@ -1,13 +1,13 @@
-{$I Defines.inc}
-{$Typedaddress Off}
-
-unit UCharMapMain;
-
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* Unicode CharMap                                                            *}
 {******************************************************************************}
+
+{$I Defines.inc}
+{$Typedaddress Off}
+
+unit UCharMapMain;
 
 interface
 
@@ -83,7 +83,7 @@ interface
     pi.PluginMenuStrings:= @PluginMenuStrings;
     pi.PluginMenuStringsNumber:= 1;
 
-    pi.CommandPrefix := PFarChar(CmdPrefix);  
+    pi.CommandPrefix := PFarChar(CmdPrefix);
   end;
 
 
