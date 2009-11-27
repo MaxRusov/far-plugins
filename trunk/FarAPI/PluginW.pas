@@ -1400,6 +1400,7 @@ const
   FIS_SHOWTOTALCOPYPROGRESSINDICATOR = $00000100;
   FIS_SHOWCOPYINGTIMEINFO            = $00000200;
   FIS_USECTRLPGUPTOCHANGEDRIVE       = $00000800;
+  FIS_SHOWTOTALDELPROGRESSINDICATOR  = $00001000;
 
 { FarConfirmationsSettings }
 
@@ -1634,7 +1635,7 @@ struct ViewerSetMode {
   int Type;
   union {
     int iParam;
-    wchar_t *cParam;
+    wchar_t *wszParam;
   } Param;
   DWORD Flags;
   DWORD Reserved;
@@ -1867,11 +1868,11 @@ struct EditorSetParameter
   int Type;
   union {
     int iParam;
-    wchar_t *cParam;
+    wchar_t *wszParam;
     DWORD Reserved1;
   } Param;
   DWORD Flags;
-  DWORD Reserved2;
+  DWORD Size;
 };
 *)
 type
@@ -1884,7 +1885,7 @@ type
        2 : (Reserved : DWORD);
     end;
     Flags : DWORD;
-    Reserved2 : DWORD;
+    Size : DWORD;
   end;
 
 
@@ -3004,6 +3005,8 @@ int    WINAPI _export ProcessKeyW(HANDLE hPlugin,int Key,unsigned int ControlSta
 int    WINAPI _export ProcessSynchroEventW(int Event,void *Param);
 int    WINAPI _export ProcessViewerEventW(int Event,void *Param);
 int    WINAPI _export PutFilesW(HANDLE hPlugin,struct PluginPanelItem *PanelItem,int ItemsNumber,int Move,int OpMode);
+->
+int    WINAPI _export PutFilesW(HANDLE hPlugin,struct PluginPanelItem *PanelItem,int ItemsNumber,int Move,const wchar_t *SrcPath,int OpMode);
 int    WINAPI _export SetDirectoryW(HANDLE hPlugin,const wchar_t *Dir,int OpMode);
 int    WINAPI _export SetFindListW(HANDLE hPlugin,const struct PluginPanelItem *PanelItem,int ItemsNumber);
 void   WINAPI _export SetStartupInfoW(const struct PluginStartupInfo *Info);

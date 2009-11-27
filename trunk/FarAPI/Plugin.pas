@@ -56,6 +56,13 @@ interface
 
 uses Windows;
 
+type
+  TFarChar = AnsiChar;
+  PFarChar = PAnsiChar;
+
+//TFarChar = WideChar;
+//PFarChar = PWideChar;
+
 const
    NM = 260;
    FARMACRO_KEY_EVENT = KEY_EVENT or $8000;
@@ -64,7 +71,7 @@ const
 
 type
    PPCharArray = ^TPCharArray;
-   TPCharArray = packed array[0..Pred(MaxLongint div SizeOf(PChar))] of PChar;
+   TPCharArray = packed array[0..Pred(MaxLongint div SizeOf(PFarChar))] of PFarChar;
 
 type
    PIntegerArray = ^TIntegerArray;
@@ -94,7 +101,7 @@ type
    TFarApiMessage = function (
          PluginNumber : Integer;
          Flags : DWORD;
-         const HelpTopic : PChar;
+         const HelpTopic : PFarChar;
          const Items : PPCharArray;
          ItemsNumber : Integer;
          ButtonsNumber : Integer
@@ -288,7 +295,7 @@ type
    PFarListItem = ^TFarListItem;
    TFarListItem = packed record
       Flags : DWORD;
-      Text : array [0..127] of Char;
+      Text : array [0..127] of TFarChar;
       Reserved : array [0..2] of DWORD;
    end;
 
@@ -334,7 +341,7 @@ type
    PFarListFind = ^TFarListFind;
    TFarListFind = packed record
       StartIndex : Integer;
-      Pattern : PChar;
+      Pattern : PFarChar;
       Flags : DWORD;
       Reserved : DWORD;
    end;
@@ -388,9 +395,9 @@ type
    PFarListTitles = ^TFarListTitles;
    TFarListTitles = packed record
       TitleLen : Integer;
-      Title : PChar;
+      Title : PFarChar;
       BottomLen : Integer;
-      Bottom : PChar;
+      Bottom : PFarChar;
    end;
 
 type
@@ -399,7 +406,7 @@ type
       Flags : DWORD;
       Reserved : DWORD;
       ColorCount : Integer;
-      Colors : PChar;
+      Colors : PFarChar;
    end;
 
 type
@@ -407,8 +414,8 @@ type
    TFarDataPtr = packed record
       PtrFlags : DWORD;
       PtrLength : Integer;
-      PtrData : PChar;
-      PtrTail : array [0..0] of Char;
+      PtrData : PFarChar;
+      PtrTail : array [0..0] of TFarChar;
    end;
 
 type
@@ -423,8 +430,8 @@ type
 
       Param : record case Integer of
          0 : (Selected : {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF});
-         1 : (History : PChar);
-         2 : (Mask : PChar);
+         1 : (History : PFarChar);
+         2 : (Mask : PFarChar);
          3 : (ListItems : PFarList);
          4 : (ListPos : Integer);
          5 : (VBuf : PCharInfo);
@@ -434,7 +441,7 @@ type
       DefaultButton : {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
 
       Data : record case Integer of
-         0 : (Data : array [0..511] of Char);
+         0 : (Data : array [0..511] of TFarChar);
          1 : (Ptr : PFarDataPtr);
       end;
    end;
@@ -447,7 +454,7 @@ type
    PFarDialogItemData = ^TFarDialogItemData;
    TFarDialogItemData = packed record
       PtrLength : Integer;
-      PtrData : PChar;
+      PtrData : PFarChar;
    end;
 
 type
@@ -501,7 +508,7 @@ type
    TFarApiDialog = function (
          PluginNumber : Integer;
          X1, Y1, X2, Y2 : Integer;
-         const HelpTopic : PChar;
+         const HelpTopic : PFarChar;
          Item : PFarDialogItemArray;
          ItemsNumber : Integer
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
@@ -509,7 +516,7 @@ type
    TFarApiDialogEx = function (
          PluginNumber : Integer;
          X1, Y1, X2, Y2 : Integer;
-         const HelpTopic : PChar;
+         const HelpTopic : PFarChar;
          Item : PFarDialogItemArray;
          ItemsNumber : Integer;
          Reserved : DWORD;
@@ -525,7 +532,7 @@ type
 type
    PFarMenuItem = ^TFarMenuItem;
    TFarMenuItem = packed record
-      Text : array [0..127] of Char;
+      Text : array [0..127] of TFarChar;
       Selected :  {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
       Checked :   {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
       Separator : {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
@@ -551,8 +558,8 @@ type
       Flags : DWORD;
 
       Text : record case Integer of
-         0 : (Text : array [0..127] of Char);
-         1 : (TextPtr : PChar);
+         0 : (Text : array [0..127] of TFarChar);
+         1 : (TextPtr : PFarChar);
       end;
 
       AccelKey : DWORD;
@@ -580,9 +587,9 @@ type
          X, Y : Integer;
          MaxHeight : Integer;
          Flags : DWORD;
-         const Title : PChar;
-         const Bottom : PChar;
-         const HelpTopic : PChar;
+         const Title : PFarChar;
+         const Bottom : PFarChar;
+         const HelpTopic : PFarChar;
          const BreakKeys : PIntegerArray;
          BreakCode : PIntegerArray;
          const Item : PFarMenuItemArray;
@@ -607,8 +614,8 @@ type
       nFileSizeLow : DWORD;
       dwReserved0 : DWORD;
       dwReserved1 : DWORD;
-      cFileName : array [0..MAX_PATH-1] of Char;
-      cAlternateFileName : array [0..13] of Char;
+      cFileName : array [0..MAX_PATH-1] of TFarChar;
+      cAlternateFileName : array [0..13] of TFarChar;
    end;
 
 type
@@ -619,8 +626,8 @@ type
       PackSize : DWORD;
       Flags : DWORD;
       NumberOfLinks : DWORD;
-      Description : PChar;
-      Owner : PChar;
+      Description : PFarChar;
+      Owner : PFarChar;
       CustomColumnData : PPCharArray;
       CustomColumnNumber : Integer;
       UserData : DWORD;
@@ -667,9 +674,9 @@ type
       Visible : {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
       Focus :   {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
       ViewMode : Integer;
-      ColumnTypes : array [0..79] of Char;
-      ColumnWidths : array [0..79] of Char;
-      CurDir : array [0..NM-1] of Char;
+      ColumnTypes : array [0..79] of TFarChar;
+      ColumnWidths : array [0..79] of TFarChar;
+      CurDir : array [0..NM-1] of TFarChar;
       ShortNames : Integer;
       SortMode : Integer;
       Flags : DWORD;
@@ -736,7 +743,7 @@ type
    TFarApiText = function (
          X, Y : Integer;
          Color : Integer;
-         const Str : PChar
+         const Str : PFarChar
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarApiSaveScreen = function (
@@ -748,7 +755,7 @@ type
          ); {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarApiGetDirList = function (
-         const Dir : PChar;
+         const Dir : PFarChar;
          var PanelIten : PPluginPanelItemArray;
          var ItemsNumber : Integer
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
@@ -756,7 +763,7 @@ type
    TFarApiGetPluginDirList = function (
          PluginNumber : Integer;
          hPlugin : THandle;
-         const Dir : PChar;
+         const Dir : PFarChar;
          var PanelItem : PPluginPanelItemArray;
          var ItemsNumber : Integer
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
@@ -777,8 +784,8 @@ const
 
 type
    TFarApiViewer = function (
-         const FileName : PChar;
-         const Title : PChar;
+         const FileName : PFarChar;
+         const Title : PFarChar;
          X1, Y1, X2, Y2 : Integer;
          Flags : DWORD
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
@@ -805,8 +812,8 @@ const
 
 type
    TFarApiEditor = function (
-         const FileName : PChar;
-         const Title : PChar;
+         const FileName : PFarChar;
+         const Title : PFarChar;
          X1, Y1, X2, Y2 : Integer;
          Flags : DWORD;
          StartLine : Integer;
@@ -814,8 +821,8 @@ type
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarApiCmpName = function (
-         const Pattern : PChar;
-         const aString : PChar;
+         const Pattern : PFarChar;
+         const aString : PFarChar;
          SkipPath : {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF}
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
@@ -831,20 +838,20 @@ type
       EncodeTable : array [0..255] of Byte;
       UpperTable : array [0..255] of Byte;
       LowerTable : array [0..255] of Byte;
-      TableName : array [0..127] of Char;
+      TableName : array [0..127] of TFarChar;
    end;
 
 type
    TFarApiCharTable = function (
          Command : Integer;
-         Buffer : PChar;
+         Buffer : PFarChar;
          BufferSize : Integer
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarApiGetMsg = function (
          PluginNumber : Integer;
          MsgId : Integer
-         ) : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+         ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
 { FarHelpFlags }
 
@@ -858,8 +865,8 @@ const
 
 type
    TFarApiShowHelp = function (
-         const ModuleName : PChar;
-         const Topic : PChar;
+         const ModuleName : PFarChar;
+         const Topic : PFarChar;
          Flags : DWORD
          ) : LongBool; {$IFNDEF VP} stdcall; {$ENDIF}
 
@@ -1024,7 +1031,7 @@ const
 type
    PPlainText = ^TPlainText;
    TPlainText = packed record
-      SequenceText : PChar;
+      SequenceText : PFarChar;
       Flags : DWORD;
   end;
 
@@ -1050,7 +1057,7 @@ type
       Flags : DWORD;
       StartIndex : Integer;
       ColorCount : Integer;
-      Colors : PChar;
+      Colors : PFarChar;
    end;
 
 { WINDOWINFO_TYPE }
@@ -1070,8 +1077,8 @@ type
       WindowType : Integer;
       Modified : {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
       Current :  {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
-      TypeName : array [0..63] of Char;
-      Name : array [0..NM-1] of Char;
+      TypeName : array [0..63] of TFarChar;
+      Name : array [0..NM-1] of TFarChar;
    end;
 
 type
@@ -1129,7 +1136,7 @@ type
 
       Param : record case Integer of
          0 : (iParam : Integer);
-         1 : (cParam : PChar);
+         1 : (cParam : PFarChar);
       end;
 
       Flags : DWORD;
@@ -1178,7 +1185,7 @@ type
    TViewerInfo = packed record
       StructSize : Integer;
       ViewerID : Integer;
-      FileName : PChar;
+      FileName : PFarChar;
       FileSize : TFarInt64;
       FilePos : TFarInt64;
       WindowSizeX : Integer;
@@ -1285,7 +1292,7 @@ type
 
       Param : record case Integer of
          0 : (iParam : Integer);
-         1 : (cParam : PChar);
+         1 : (cParam : PFarChar);
          2 : (Reserved : DWORD);
       end;
 
@@ -1297,8 +1304,8 @@ type
    PEditorGetString = ^TEditorGetString;
    TEditorGetString = packed record
       StringNumber : Integer;
-      StringText : PChar;
-      StringEOL : PChar;
+      StringText : PFarChar;
+      StringEOL : PFarChar;
       StringLength : Integer;
       SelStart : Integer;
       SelEnd : Integer;
@@ -1308,8 +1315,8 @@ type
    PEditorSetString = ^TEditorSetString;
    TEditorSetString = packed record
       StringNumber : Integer;
-      StringText : PChar;
-      StringEOL : PChar;
+      StringText : PFarChar;
+      StringEOL : PFarChar;
       StringLength : Integer;
    end;
 
@@ -1350,7 +1357,7 @@ type
    PEditorInfo = ^TEditorInfo;
    TEditorInfo = packed record
       EditorID : Integer;
-      FileName : PChar;
+      FileName : PFarChar;
       WindowSizeX : Integer;
       WindowSizeY : Integer;
       TotalLines : Integer;
@@ -1405,7 +1412,7 @@ type
 type
    PEditorConvertText = ^TEditorConvertText;
    TEditorConvertText = packed record
-      Text : PChar;
+      Text : PFarChar;
       TextLength : Integer;
    end;
 
@@ -1435,8 +1442,8 @@ type
 type
    PEditorSaveFile = ^TEditorSaveFile;
    TEditorSaveFile = packed record
-      FileName : array [0..NM-1] of Char;
-      FileEOL : PChar;
+      FileName : array [0..NM-1] of TFarChar;
+      FileEOL : PFarChar;
    end;
 
 type
@@ -1457,13 +1464,13 @@ const
 
 type
    TFarApiInputBox = function (
-         const Title : PChar;
-         const SubTitle : PChar;
-         const HistoryName : PChar;
-         const SrcText : PChar;
-         DestText : PChar;
+         const Title : PFarChar;
+         const SubTitle : PFarChar;
+         const HistoryName : PFarChar;
+         const SrcText : PFarChar;
+         DestText : PFarChar;
          DestLength : Integer;
-         const HelpTopic : PChar;
+         const HelpTopic : PFarChar;
          Flags : DWORD
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
@@ -1519,83 +1526,83 @@ type
          ); {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdGetFileOwner = function (
-         const Computer : PChar;
-         const Name : PChar;
-         Owner : PChar
+         const Computer : PFarChar;
+         const Name : PFarChar;
+         Owner : PFarChar
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdGetNumberOfLinks = function (
-         const Name : PChar
+         const Name : PFarChar
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdAtoi = function (
-         const S : PChar
+         const S : PFarChar
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
 {$IFDEF USE_DELPHI4}
 
    TFarStdAtoi64 = function (
-         const S : PChar
+         const S : PFarChar
          ) : Int64; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdItoa64 = function (
          Value : Int64;
-         Str : PChar;
+         Str : PFarChar;
          Radix : Integer
-         ) : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+         ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
 {$ENDIF}
 
    TFarStdItoa = function (
          Value : Integer;
-         Str : PChar;
+         Str : PFarChar;
          Radix : Integer
-         ) : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+         ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdLTrim = function (
-         Str : PChar
-         ) : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+         Str : PFarChar
+         ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdRTrim = function (
-         Str : PChar
-         ) : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+         Str : PFarChar
+         ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdTrim = function (
-         Str : PChar
-         ) : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+         Str : PFarChar
+         ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdTruncStr = function (
-         Str : PChar;
+         Str : PFarChar;
          MaLength : Integer
-         ) : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+         ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdTruncPathStr = function (
-         Str : PChar;
+         Str : PFarChar;
          MaxLength : Integer
-         ) : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+         ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdQuoteSpaceOnly = function (
-         Str : PChar
-         ) : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+         Str : PFarChar
+         ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdPointToName = function (
-         const Path : PChar
-         ) : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+         const Path : PFarChar
+         ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdGetPathRoot = procedure (
-         const Path : PChar;
-         Root : PChar
+         const Path : PFarChar;
+         Root : PFarChar
          ); {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdAddEndSlash = function (
-         Path : PChar
+         Path : PFarChar
          ) : LongBool; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdCopyToClipBoard = function (
-         const Data : PChar
+         const Data : PFarChar
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
-   TFarStdPasteFromClipboard = function : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+   TFarStdPasteFromClipboard = function : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdInputRecordToKey = function (
          const R : TInputRecord
@@ -1626,31 +1633,31 @@ type
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdLocalUpperBuf = function (
-         Buf : PChar;
+         Buf : PFarChar;
          Length : Integer
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdLocalLowerBuf = function (
-         Buf : PChar;
+         Buf : PFarChar;
          Length : Integer
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdLocalStrUpr = function (
-         S1 : PChar
+         S1 : PFarChar
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdLocalStrLwr = function (
-         S1 : PChar
+         S1 : PFarChar
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdLocalStrICmp = function (
-         const S1 : PChar;
-         const S2 : PChar
+         const S1 : PFarChar;
+         const S2 : PFarChar
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdLocalStrNICmp = function (
-         const S1 : PChar;
-         const S2 : PChar;
+         const S1 : PFarChar;
+         const S2 : PFarChar;
          N : Integer
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
@@ -1665,18 +1672,18 @@ const
 
 type
    TFarStdProcessName = function (
-         const Param1 : PChar;
-         Param2 : PChar;
+         const Param1 : PFarChar;
+         Param2 : PFarChar;
          Flags : DWORD
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdUnquote = procedure (
-         Str : PChar
+         Str : PFarChar
          ); {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdExpandEnvironmentStr = function (
-         const Src : PChar;
-         Dst : PChar;
+         const Src : PFarChar;
+         Dst : PFarChar;
          Size : DWORD
          ) : DWORD; {$IFNDEF VP} stdcall; {$ENDIF}
 
@@ -1688,26 +1695,26 @@ const
 
 type
    TFarStdXLat = function (
-        Line : PChar;
+        Line : PFarChar;
         StartPos : Integer;
         EndPos : Integer;
         TableSet : PCharTableSet;
         Flags : DWORD
-        ) : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+        ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdKeyToKeyName = function (
         Key : Integer;
-        KeyText : PChar;
+        KeyText : PFarChar;
         Size : Integer
         ) : LongBool; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdKeyNameToKey = function (
-        const Name : PChar
+        const Name : PFarChar
         ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFRSUserFunc = function (
         const FData : PFarFindData;
-        const FullName : PChar;
+        const FullName : PFarChar;
         Param : Pointer
         ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
@@ -1721,8 +1728,8 @@ const
 
 type
    TFarStdRecursiveSearch = procedure (
-         const InitDir : PChar;
-         const Mask : PChar;
+         const InitDir : PFarChar;
+         const Mask : PFarChar;
 {$IFNDEF VP}
          Func : TFRSUserFunc;
 {$ELSE}
@@ -1733,12 +1740,12 @@ type
          ); {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdMkTemp = function (
-         Dest : PChar;
-         const Prefix : PChar
-         ) : PChar; {$IFNDEF VP} stdcall; {$ENDIF}
+         Dest : PFarChar;
+         const Prefix : PFarChar
+         ) : PFarChar; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdDeleteBuffer = procedure (
-         Buffer : PChar
+         Buffer : PFarChar
          ); {$IFNDEF VP} stdcall; {$ENDIF}
 
 { MKLINKOP }
@@ -1756,20 +1763,20 @@ const
 
 type
    TFarStdMkLink = function (
-         const Src : PChar;
-         const Dest : PChar;
+         const Src : PFarChar;
+         const Dest : PFarChar;
          Flags : DWORD
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdConvertNameToReal = function (
-         const Src : PChar;
-         Dest : PChar;
+         const Src : PFarChar;
+         Dest : PFarChar;
          DestSize : Integer
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
    TFarStdGetReparsePointInfo = function (
-         const Src : PChar;
-         Dest : PChar;
+         const Src : PFarChar;
+         Dest : PFarChar;
          DestSize : Integer
          ) : Integer; {$IFNDEF VP} stdcall; {$ENDIF}
 
@@ -1850,9 +1857,9 @@ type
    PPluginStartupInfo = ^TPluginStartupInfo;
    TPluginStartupInfo = packed record
       StructSize : Integer;
-      ModuleName : array [0..NM-1] of Char;
+      ModuleName : array [0..NM-1] of TFarChar;
       ModuleNumber : Integer;
-      RootKey : PChar;
+      RootKey : PFarChar;
 
       Menu : TFarApiMenu;
       Dialog : TFarApiDialog;
@@ -1905,15 +1912,15 @@ type
       PluginMenuStringsNumber : Integer;
       PluginConfigStrings : PPCharArray;
       PluginConfigStringsNumber : Integer;
-      CommandPrefix : PChar;
+      CommandPrefix : PFarChar;
       Reserved : DWORD;
    end;
 
 type
    PInfoPanelLine = ^TInfoPanelLine;
    TInfoPanelLine = packed record
-      Text : array [0..79] of Char;
-      Data : array [0..79] of Char;
+      Text : array [0..79] of TFarChar;
+      Data : array [0..79] of TFarChar;
       Separator : Integer;
    end;
 
@@ -1924,15 +1931,15 @@ type
 type
    PPanelMode = ^TPanelMode;
    TPanelMode = packed record
-      ColumnTypes : PChar;
-      ColumnWidths : PChar;
+      ColumnTypes : PFarChar;
+      ColumnWidths : PFarChar;
       ColumnTitles : PPCharArray;
       FullScreen : {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
       DetailedStatus : {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
       AlignExtensions : {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
       CaseConversion : {$IFDEF USE_BOOL} LongBool {$ELSE} Integer {$ENDIF};
-      StatusColumnTypes : PChar;
-      StatusColumnWidths : PChar;
+      StatusColumnTypes : PFarChar;
+      StatusColumnWidths : PFarChar;
       Reserved : array [0..1] of DWORD;
    end;
 
@@ -1979,13 +1986,13 @@ const
 type
    PKeyBarTitles = ^TKeyBarTitles;
    TKeyBarTitles = packed record
-      Titles : array [0..11] of PChar;
-      CtrlTitles : array [0..11] of PChar;
-      AltTitles : array [0..11] of PChar;
-      ShiftTitles : array [0..11] of PChar;
-      CtrlShiftTitles : array [0..11] of PChar;
-      AltShiftTitles : array [0..11] of PChar;
-      CtrlAltTitles : array [0..11] of PChar;
+      Titles : array [0..11] of PFarChar;
+      CtrlTitles : array [0..11] of PFarChar;
+      AltTitles : array [0..11] of PFarChar;
+      ShiftTitles : array [0..11] of PFarChar;
+      CtrlShiftTitles : array [0..11] of PFarChar;
+      AltShiftTitles : array [0..11] of PFarChar;
+      CtrlAltTitles : array [0..11] of PFarChar;
    end;
 
 type
@@ -2008,10 +2015,10 @@ type
    TOpenPluginInfo = packed record
       StructSize : Integer;
       Flags : DWORD;
-      HostFile : PChar;
-      CurDir : PChar;
-      Format : PChar;
-      PanelTitle : PChar;
+      HostFile : PFarChar;
+      CurDir : PFarChar;
+      Format : PFarChar;
+      PanelTitle : PFarChar;
       InfoLines : PInfoPanelLineArray;
       InfoLinesNumber : Integer;
       DescrFiles : PPCharArray;
@@ -2022,7 +2029,7 @@ type
       StartSortMode : Integer;
       StartSortOrder : Integer;
       KeyBar : PKeyBarTitlesArray;
-      ShortcutData : PChar;
+      ShortcutData : PFarChar;
       Reserved : Integer;
    end;
 
@@ -2072,11 +2079,11 @@ function DlgItem_SetFocus (Info : TPluginStartupInfo; hDlg : THandle; ID : Integ
 function DlgItem_Enable (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer) : Integer;
 function DlgItem_Disable (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer) : Integer;
 function DlgItem_IsEnable (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer) : Integer;
-function DlgItem_SetText (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer; Str : PChar) : Integer;
+function DlgItem_SetText (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer; Str : PFarChar) : Integer;
 function DlgItem_GetCheck (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer) : Integer;
 function DlgItem_SetCheck (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer; State : Integer) : Integer;
-function DlgEdit_AddHistory (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer; Str : PChar) : Integer;
-function DlgList_AddString (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer; Str : PChar) : Integer;
+function DlgEdit_AddHistory (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer; Str : PFarChar) : Integer;
+function DlgList_AddString (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer; Str : PFarChar) : Integer;
 function DlgList_GetCurPos (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer) : Integer;
 function DlgList_SetCurPos (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer; NewPos : Integer) : Integer;
 function DlgList_ClearList (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer) : Integer;
@@ -2084,7 +2091,7 @@ function DlgList_DeleteItem (Info : TPluginStartupInfo; hDlg : THandle; ID : Int
 function DlgList_SortUp (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer) : Integer;
 function DlgList_SortDown (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer) : Integer;
 function DlgList_GetItemData (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer; Index : Integer) : Integer;
-function DlgList_SetItemStrAsData (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer; Index : Integer; Str : PChar) : Integer;
+function DlgList_SetItemStrAsData (Info : TPluginStartupInfo; hDlg : THandle; ID : Integer; Index : Integer; Str : PFarChar) : Integer;
 
 implementation
 
@@ -2180,7 +2187,7 @@ function DlgItem_SetText (
       Info : TPluginStartupInfo;
       hDlg : THandle;
       ID : Integer;
-      Str : PChar
+      Str : PFarChar
       ) : Integer;
 begin
    Result := Info.SendDlgMessage (hDlg, DM_SETTEXTPTR, ID, Integer(Str));
@@ -2209,7 +2216,7 @@ function DlgEdit_AddHistory (
       Info : TPluginStartupInfo;
       hDlg : THandle;
       ID : Integer;
-      Str : PChar
+      Str : PFarChar
       ) : Integer;
 begin
    Result := Info.SendDlgMessage (hDlg, DM_ADDHISTORY, ID, Integer(Str));
@@ -2219,7 +2226,7 @@ function DlgList_AddString (
       Info : TPluginStartupInfo;
       hDlg : THandle;
       ID : Integer;
-      Str : PChar
+      Str : PFarChar
       ) : Integer;
 begin
    Result := Info.SendDlgMessage (hDlg, DM_LISTADDSTR, ID, Integer(Str));
@@ -2304,7 +2311,7 @@ function DlgList_SetItemStrAsData (
       hDlg : THandle;
       ID : Integer;
       Index : Integer;
-      Str : PChar
+      Str : PFarChar
       ) : Integer;
 var
    FLID : TFarListItemData;
