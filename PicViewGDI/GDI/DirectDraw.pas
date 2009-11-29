@@ -5,17 +5,18 @@
 {*  Files:      ddraw.h dvp.h                                                 *}
 {*  Content:    DirectDraw and DirectDrawVideoPort include files              *}
 {*                                                                            *}
-{*  DirectX 9.0 Delphi adaptation by Alexey Barkovoy                          *}
-{*  E-Mail: clootie@reactor.ru                                                *}
+{*  DirectX 9.0 Delphi / FreePascal adaptation by Alexey Barkovoy             *}
+{*  E-Mail: directx@clootie.ru                                                *}
 {*                                                                            *}
-{*  Modified: 20-Dec-2002                                                     *}
+{*  Modified: 07-Sep-2003                                                     *}
 {*                                                                            *}
 {*  Based upon :                                                              *}
 {*    DirectX 7.0 Object Pascal adaptation by                                 *}
 {*      Erik Unger, e-Mail: DelphiDirectX@next-reality.com                    *}
 {*                                                                            *}
 {*  Latest version can be downloaded from:                                    *}
-{*     http://clootie.narod.ru/delphi/                                        *}
+{*    http://www.clootie.ru                                                   *}
+{*    http://sourceforge.net/projects/delphi-dx9sdk                           *}
 {*                                                                            *}
 {******************************************************************************}
 {                                                                              }
@@ -67,83 +68,7 @@ unit DirectDraw;
 
 interface
 
-{$I DirectX.inc}
-
-////////////////////////////////////////////////////////////////////////
-// Global level dynamic loading support
-{$IFDEF DYNAMIC_LINK_ALL}
-  {$DEFINE DIRECTDRAW_DYNAMIC_LINK}
-{$ENDIF}
-{$IFDEF DYNAMIC_LINK_EXPLICIT_ALL}
-  {$DEFINE DIRECTDRAW_DYNAMIC_LINK_EXPLICIT}
-{$ENDIF}
-
-// Remove "dots" below to force some kind of dynamic linking
-{.$DEFINE DIRECTDRAW_DYNAMIC_LINK}
-{.$DEFINE DIRECTDRAW_DYNAMIC_LINK_EXPLICIT}
-
-////////////////////////////////////////////////////////////////////////
-// Assume for what DirectDraw version we will compile headers
-{$IFDEF DIRECTX7}
-  {$DEFINE DIRECTDRAW_VERSION_7}
-{$ENDIF}
-{$IFDEF DIRECTX6}
-  {$DEFINE DIRECTDRAW_VERSION_6}
-{$ENDIF}
-{$IFDEF DIRECTX5}
-  {$DEFINE DIRECTDRAW_VERSION_5}
-{$ENDIF}
-{$IFDEF DIRECTX3}
-  {$DEFINE DIRECTDRAW_VERSION_3}
-{$ENDIF}
-
-{$IFNDEF DIRECTDRAW_VERSION_7}
-  {$IFNDEF DIRECTDRAW_VERSION_6}
-    {$IFNDEF DIRECTDRAW_VERSION_5}
-      {$IFNDEF DIRECTDRAW_VERSION_3}
-        {$IFNDEF DIRECTDRAW_VERSION_LESS_3}
-          {$DEFINE DIRECTDRAW_VERSION_7} // Compiling for DirectDraw7 by default
-        {$ENDIF}
-      {$ENDIF}
-    {$ENDIF}
-  {$ENDIF}
-{$ENDIF}
-
-////////////////////////////////////////////////////////////////////////
-// Emit conditionals to C++Builder compiler
-{$IFDEF DIRECTDRAW_VERSION_LESS_3}
-  {$HPPEMIT '#define DIRECTDRAW_VERSION         0x0100'}
-{$ENDIF}
-{$IFDEF DIRECTDRAW_VERSION_3}
-  {$HPPEMIT '#define DIRECTDRAW_VERSION         0x0300'}
-{$ENDIF}
-{$IFDEF DIRECTDRAW_VERSION_5}
-  {$HPPEMIT '#define DIRECTDRAW_VERSION         0x0500'}
-{$ENDIF}
-{$IFDEF DIRECTDRAW_VERSION_6}
-  {$HPPEMIT '#define DIRECTDRAW_VERSION         0x0600'}
-{$ENDIF}
-{$IFDEF DIRECTDRAW_VERSION_7}
-  {$HPPEMIT '#define DIRECTDRAW_VERSION         0x0700'}
-{$ENDIF}
-
-////////////////////////////////////////////////////////////////////////
-// Define symbols for '<=' comparision
-{$IFDEF DIRECTDRAW_VERSION_7}
-  {$DEFINE DIRECTDRAW_VERSION_6}
-{$ENDIF}
-{$IFDEF DIRECTDRAW_VERSION_6}
-  {$DEFINE DIRECTDRAW_VERSION_5}
-{$ENDIF}
-{$IFDEF DIRECTDRAW_VERSION_5}
-  {$DEFINE DIRECTDRAW_VERSION_3}
-{$ENDIF}
-{$IFDEF DIRECTDRAW_VERSION_3}
-  {$DEFINE DIRECTDRAW_VERSION_LESS_3}
-{$ENDIF}
-
-(*$HPPEMIT '#include "ddraw.h"' *)
-(*$HPPEMIT '#include "dvp.h"' *)
+{$WEAKPACKAGEUNIT}
 
 uses
   Windows;
@@ -238,19 +163,20 @@ type
   REFGUID = PGUID;
   {$EXTERNALSYM REFGUID}
 
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDraw> _di_IDirectDraw;'}
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDraw2> _di_IDirectDraw2;'}
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDraw4> _di_IDirectDraw4;'}
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDraw7> _di_IDirectDraw7;'}
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDrawSurface> _di_IDirectDrawSurface;'}
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDrawSurface2> _di_IDirectDrawSurface2;'}
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDrawSurface3> _di_IDirectDrawSurface3;'}
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDrawSurface4> _di_IDirectDrawSurface4;'}
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDrawSurface7> _di_IDirectDrawSurface7;'}
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDrawPalette> _di_IDirectDrawPalette;'}
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDrawClipper> _di_IDirectDrawClipper;'}
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDrawColorControl> _di_IDirectDrawColorControl;'}
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDrawGammaControl> _di_IDirectDrawGammaControl;'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDraw);'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDraw2);'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDraw4);'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDraw7);'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDrawSurface);'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDrawSurface2);'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDrawSurface3);'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDrawSurface4);'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDrawSurface7);'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDrawPalette);'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDrawClipper);'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDrawColorControl);'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDrawGammaControl);'}
+  
   IDirectDraw = interface;
   {$EXTERNALSYM IDirectDraw}
   IDirectDraw2 = interface;
@@ -325,14 +251,9 @@ type
   {$EXTERNALSYM DDCOLORKEY}
   TDDColorKey = _DDCOLORKEY;
 
-// Delphi 5 and up don't allow interfaces in variant records
-// so we have to use pointers instead (which can be type-casted into interfaces):
-
-{$IFDEF COMPILER5_UP}
+  // Delphi 5 and up don't allow interfaces in variant records
+  // so we have to use pointers instead (which can be type-casted into interfaces):
   PDirectDrawSurface = Pointer;
-{$ELSE}
-  PDirectDrawSurface = IDirectDrawSurface;
-{$ENDIF}
 
 (*
  * TDDBltFX
@@ -719,30 +640,9 @@ type
   PDDCaps_DX7 = ^TDDCaps_DX7;
   TDDCaps_DX7 = TDDCaps_DX6;
 
-{$IFDEF DIRECTDRAW_VERSION_7}
+
   PDDCaps = PDDCaps_DX7;
   TDDCaps = TDDCaps_DX7;
-{$ELSE}
-{$IFDEF DIRECTDRAW_VERSION_6}
-  PDDCaps = PDDCaps_DX6;
-  TDDCaps = TDDCaps_DX6;
-{$ELSE}
-{$IFDEF DIRECTDRAW_VERSION_5}
-  PDDCaps = PDDCaps_DX5;
-  TDDCaps = TDDCaps_DX5;
-{$ELSE}
-{$IFDEF DIRECTDRAW_VERSION_3}
-  PDDCaps = PDDCaps_DX3;
-  TDDCaps = TDDCaps_DX3;
-{$ELSE}
-  PDDCaps = PDDCaps_DX1;
-  TDDCaps = TDDCaps_DX1;
-{$ENDIF}
-{$ENDIF}
-{$ENDIF}
-{$ENDIF}
-
-
 
 (*
  * TDDPixelFormat
@@ -882,8 +782,8 @@ type
     // drivers, since this is unreliable and many different strings may be associated with the same
     // device, and the same driver from different vendors.
     //
-    szDriver: array[0..MAX_DDDEVICEID_STRING-1] of Char;
-    szDescription: array[0..MAX_DDDEVICEID_STRING-1] of Char;
+    szDriver: array[0..MAX_DDDEVICEID_STRING-1] of AnsiChar;
+    szDescription: array[0..MAX_DDDEVICEID_STRING-1] of AnsiChar;
 
     //
     // This element is the version of the DirectDraw/3D driver. It is legal to do <, > comparisons
@@ -930,8 +830,8 @@ type
     // drivers, since this is unreliable and many different strings may be associated with the same
     // device, and the same driver from different vendors.
     //
-    szDriver: array[0..MAX_DDDEVICEID_STRING-1] of Char;
-    szDescription: array[0..MAX_DDDEVICEID_STRING-1] of Char;
+    szDriver: array[0..MAX_DDDEVICEID_STRING-1] of AnsiChar;
+    szDescription: array[0..MAX_DDDEVICEID_STRING-1] of AnsiChar;
 
     //
     // This element is the version of the DirectDraw/3D driver. It is legal to do <, > comparisons
@@ -1120,7 +1020,7 @@ type
  * callbacks
  *)
 
-//{$IFNDEF WINNT}
+//
   TDDEnumModesCallback = function (const lpDDSurfaceDesc: TDDSurfaceDesc;
       lpContext: Pointer): HResult; stdcall;
   {$NODEFINE TDDEnumModesCallback}
@@ -1141,7 +1041,7 @@ type
       const lpDDSurfaceDesc: TDDSurfaceDesc2; lpContext: Pointer): HResult; stdcall;
   {$NODEFINE TDDEnumSurfacesCallback7}
   {$HPPEMIT 'typedef LPDDENUMSURFACESCALLBACK7 TDDEnumSurfacesCallback7;'}
-//{$ENDIF}
+//
 
 (*
  * INTERACES FOLLOW:
@@ -5791,42 +5691,6 @@ function DirectDrawLoaded: Boolean;
 function UnLoadDirectDraw: Boolean;
 function LoadDirectDraw: Boolean;
 
-{$IFDEF DIRECTDRAW_DYNAMIC_LINK}
-var
-  DirectDrawEnumerateA : function (lpCallback: TDDEnumCallbackA;
-       lpContext: Pointer): HResult; stdcall;
-  {$EXTERNALSYM DirectDrawEnumerateA}
-  DirectDrawEnumerateW : function (lpCallback: TDDEnumCallbackW;
-       lpContext: Pointer): HResult; stdcall;
-  {$EXTERNALSYM DirectDrawEnumerateW}
-  DirectDrawEnumerate  : function (lpCallback: TDDEnumCallback;
-       lpContext: Pointer): HResult; stdcall;
-  {$EXTERNALSYM DirectDrawEnumerate}
-
-  DirectDrawEnumerateExA : function (lpCallback: TDDEnumCallbackExA;
-       lpContext: Pointer; dwFlags: DWORD): HResult; stdcall;
-  {$EXTERNALSYM DirectDrawEnumerateExA}
-  DirectDrawEnumerateExW : function (lpCallback: TDDEnumCallbackExW;
-       lpContext: Pointer; dwFlags: DWORD): HResult; stdcall;
-  {$EXTERNALSYM DirectDrawEnumerateExW}
-  DirectDrawEnumerateEx  : function (lpCallback: TDDEnumCallbackEx;
-       lpContext: Pointer; dwFlags: DWORD): HResult; stdcall;
-  {$EXTERNALSYM DirectDrawEnumerateEx}
-
-  DirectDrawCreate : function (lpGUID: PGUID;
-       out lplpDD: IDirectDraw;
-       pUnkOuter: IUnknown): HResult; stdcall;
-  {$EXTERNALSYM DirectDrawCreate}
-  DirectDrawCreateEx : function  (lpGUID: PGUID;
-       out lplpDD: IDirectDraw7; const iid: TGUID;
-       pUnkOuter: IUnknown): HResult; stdcall;
-  {$EXTERNALSYM DirectDrawCreateEx}
-  DirectDrawCreateClipper : function (dwFlags: DWORD;
-       out lplpDDClipper: IDirectDrawClipper;
-       pUnkOuter: IUnknown): HResult; stdcall;
-  {$EXTERNALSYM DirectDrawCreateClipper}
-{$ELSE}
-
 function DirectDrawEnumerateA(lpCallback: TDDEnumCallbackA; lpContext: Pointer): HResult; stdcall; external DirectDrawDll;
 {$EXTERNALSYM DirectDrawEnumerateA}
 function DirectDrawEnumerateW(lpCallback: TDDEnumCallbackW; lpContext: Pointer): HResult; stdcall; external DirectDrawDll;
@@ -5855,7 +5719,7 @@ function DirectDrawCreateClipper(dwFlags: DWORD; out lplpDDClipper: IDirectDrawC
     pUnkOuter: IUnknown): HResult; stdcall; external DirectDrawDll;
 {$EXTERNALSYM DirectDrawCreateClipper}
 
-{$ENDIF}
+
 
 const
 (*
@@ -6830,13 +6694,13 @@ type
  *	IVideoPort
  *)
   IDirectDrawVideoPort = interface;
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDrawVideoPort> _di_IDirectDrawVideoPort;'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDrawVideoPort);'}
   {$EXTERNALSYM IDirectDrawVideoPort}
 
 (*
  * IDirectDrawVideoPortContainer
  *)
-  {$HPPEMIT 'typedef System::DelphiInterface<IDDVideoPortContainer> _di_IDDVideoPortContainer;'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDDVideoPortContainer);'}
   {$EXTERNALSYM IDDVideoPortContainer}
   IDDVideoPortContainer = interface(IUnknown)
     ['{6C142760-A733-11CE-A521-0020AF0BE560}']
@@ -6890,7 +6754,7 @@ type
 (*
  * IDirectDrawVideoPort
  *)
-  {$HPPEMIT 'typedef System::DelphiInterface<IDirectDrawVideoPortNotify> _di_IDirectDrawVideoPortNotify;'}
+  {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IDirectDrawVideoPortNotify);'}
   {$EXTERNALSYM IDirectDrawVideoPortNotify}
   IDirectDrawVideoPortNotify = interface(IUnknown)
     ['{6C142760-A733-11CE-A521-0020AF0BE560}']
@@ -6899,9 +6763,6 @@ type
     function ReleaseNotification(hEvent: THandle): HResult; stdcall;
   end;
 
-
-var
-  DDrawDLL : HMODULE = 0;
 
 function DDErrorString(Value: HResult): String;
 
@@ -7060,78 +6921,78 @@ begin
   end;
 end;
 
-{$IFDEF DIRECTDRAW_DYNAMIC_LINK}
-var
-  DirectDrawLib: THandle = 0;
 
-function DirectDrawLoaded: Boolean;
-begin
-  Result:= DirectDrawLib <> 0;
-end;
 
-function UnLoadDirectDraw: Boolean;
-begin
-  Result:= True;
-  if DirectDrawLoaded then
-  begin
-    Result:= FreeLibrary(DirectDrawLib);
 
-    DirectDrawEnumerateA := nil;
-    DirectDrawEnumerateW := nil;
-    DirectDrawEnumerate := nil;
 
-    DirectDrawEnumerateExA := nil;
-    DirectDrawEnumerateExW := nil;
-    DirectDrawEnumerateEx := nil;
 
-    DirectDrawCreate := nil;
-    DirectDrawCreateEx := nil;
-    DirectDrawCreateClipper := nil;
-    {$IFDEF WINNT}
-    NtDirectDrawCreate := nil;
-    {$ENDIF}
 
-    DirectDrawLib:= 0;
-  end;
-end;
 
-function LoadDirectDraw: Boolean;
-begin
-  Result:= DirectDrawLoaded;
-  if (not Result) then
-  begin
-    DirectDrawLib:= LoadLibrary(DirectDrawDll);
-    if DirectDrawLoaded then
-    begin
-      DirectDrawEnumerateA := GetProcAddress(DirectDrawLib, 'DirectDrawEnumerateA');
-      DirectDrawEnumerateW := GetProcAddress(DirectDrawLib, 'DirectDrawEnumerateW');
-      {$IFDEF UNICODE}
-      DirectDrawEnumerate := GetProcAddress(DirectDrawLib, 'DirectDrawEnumerateW');
-      {$ELSE}
-      DirectDrawEnumerate := GetProcAddress(DirectDrawLib, 'DirectDrawEnumerateA');
-      {$ENDIF}
 
-      DirectDrawEnumerateExA := GetProcAddress(DirectDrawLib, 'DirectDrawEnumerateExA');
-      DirectDrawEnumerateExW := GetProcAddress(DirectDrawLib, 'DirectDrawEnumerateExW');
-      {$IFDEF UNICODE}
-      DirectDrawEnumerateEx := GetProcAddress(DirectDrawLib, 'DirectDrawEnumerateExW');
-      {$ELSE}
-      DirectDrawEnumerateEx := GetProcAddress(DirectDrawLib, 'DirectDrawEnumerateExA');
-      {$ENDIF}
 
-      DirectDrawCreate := GetProcAddress(DDrawDLL,'DirectDrawCreate');
-      DirectDrawCreateEx := GetProcAddress(DDrawDLL,'DirectDrawCreateEx');
-      DirectDrawCreateClipper := GetProcAddress(DDrawDLL,'DirectDrawCreateClipper');
-      {$IFDEF WINNT}
-      NtDirectDrawCreate := GetProcAddress(DDrawDLL,'NtDirectDrawCreate');
-      {$ENDIF}
 
-      Result:= Assigned(DirectDrawCreate); // At least basic procedure is found!
-      if not Result then UnLoadDirectDraw;
-    end;
-  end;
-end;
-{$ELSE}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function DirectDrawLoaded: Boolean;
 begin // Stub function for static linking
   Result:= True;
@@ -7147,15 +7008,14 @@ begin // Stub function for static linking
   Result:= True;
 end;
 
-{$ENDIF}
 
-{$IFDEF DIRECTDRAW_DYNAMIC_LINK}
-initialization
-{$IFNDEF DIRECTDRAW_DYNAMIC_LINK_EXPLICIT}
-  LoadDirectDraw;
-{$ENDIF}
-finalization
-  UnLoadDirectDraw;
-{$ENDIF}
+
+
+
+
+
+
+
+
+
 end.
-
