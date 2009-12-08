@@ -1,4 +1,4 @@
-{$I Defines.inc}
+{$I Defines.inc}       
 {$Typedaddress Off}
 
 unit MoreHistoryMain;
@@ -109,11 +109,11 @@ interface
 //  FarHistory.RestoreHistory;
 
     while not Terminated do begin
-(*
-      if CanCheckWindow then
-        {  онтролируем смену консольного окна (на случай Detach'а консоли) }
-        hFarWindow := GetConsoleWindow;
-*)
+
+//    if CanCheckWindow then
+//      {  онтролируем смену консольного окна (на случай Detach'а консоли) }
+//      hFarWindow := GetConsoleWindow;
+
       vActive := IsActiveConsole;
       if vActive <> vLastActive then begin
         if vActive then begin
@@ -186,14 +186,10 @@ interface
   procedure SetHistoryWatcher(AOn :Boolean);
   begin
     if AOn <> (HistThread <> nil) then begin
-      if AOn then begin
-        HistThread := THistThread.Create(False);
-      end else
-      begin
-        HistThread.Terminate;
-        HistThread.WaitFor;
+      if AOn then 
+        HistThread := THistThread.Create(False)
+      else
         FreeObj(HistThread);
-      end;
     end;
   end;
 
@@ -228,56 +224,6 @@ interface
 
                       
  {-----------------------------------------------------------------------------}
-
-  procedure OptionsMenu;
-(*  var
-    vItems :array[0..4] of TFarMenuItemEx;
-    vRes :Integer;
-  begin
-    FillChar(vItems, SizeOf(vItems), 0);
-
-    SetMenuItem(@vItems[0], GetMsg(strAutoMouse));
-    if FarHintsAutoMouse then
-      vItems[0].Flags := MIF_CHECKED;
-
-    SetMenuItem(@vItems[1], GetMsg(strAutoKey));
-    if FarHintsAutoKey then
-      vItems[1].Flags := MIF_CHECKED;
-
-    vItems[2].Flags := MIF_SEPARATOR;
-
-    SetMenuItem(@vItems[3], GetMsg(strShellThumbnail));
-    if FarHintUseThumbnail then
-      vItems[3].Flags := MIF_CHECKED;
-
-    SetMenuItem(@vItems[4], GetMsg(strIconOnThumbnail));
-    if FarHintIconOnThumb then
-      vItems[4].Flags := MIF_CHECKED;
-
-    vRes := FARAPI.Menu(hModule, -1, -1, 0,
-      FMENU_WRAPMODE or FMENU_USEEXT,
-      GetMsg(strOptionsTitle),
-      '',
-      '',
-      nil, nil,
-      @vItems,
-      High(vItems)+1);
-    if vRes = -1 then
-      Exit;
-
-    case vRes of
-      0: FarHintsAutoMouse := not FarHintsAutoMouse;
-      1: FarHintsAutoKey := not FarHintsAutoKey;
-
-      3: FarHintUseThumbnail := not FarHintUseThumbnail;
-      4: FarHintIconOnThumb := not FarHintIconOnThumb;
-    end;
-
-    WriteSomeSettings(FRegRoot);
-*)
-  begin
-  end;
-
 
   procedure OpenMenu;
   var
@@ -345,11 +291,11 @@ interface
 
     { ѕолучаем Handle консоли Far'а }
     hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
-(*
-    InitConsoleProc;
+
+//  InitConsoleProc;
 //  hConWindow := GetConsoleWindow;
-    CanCheckWindow := GetConsoleWindow = hFarWindow;
-*)
+//  CanCheckWindow := GetConsoleWindow = hFarWindow;
+
     ReadSettings;
 
     FarHistory := TFarHistory.Create;
@@ -367,6 +313,7 @@ interface
  {$endif bUnicodeFar}
   begin
 //  TraceF('GetPluginInfo: %s', ['']);
+
     pi.StructSize:= SizeOf(pi);
     pi.Flags:= PF_PRELOAD or PF_EDITOR or PF_VIEWER or PF_DIALOG;
 

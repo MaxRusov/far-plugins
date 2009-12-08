@@ -34,6 +34,7 @@ interface
     THistoryEntry = class(TBasis)
     public
       constructor CreateEx(const APath :TString);
+      destructor Destroy; override;
 
       procedure HitInfoClear;
 
@@ -241,6 +242,13 @@ interface
   end;
 
 
+  destructor THistoryEntry.Destroy; {override;}
+  begin
+//  TraceF('THistoryEntry.Destroy %s', [FPath]);
+    inherited Destroy;
+  end;
+
+
   function THistoryEntry.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
     Result := UpCompareStr(FPath, TString(Key));
@@ -426,6 +434,7 @@ interface
 
   constructor TFarHistory.Create; {override;}
   begin
+//  Trace('TFarHistory.Create...');
     inherited Create;
     InitializeCriticalSection(FCSLock);
     FHistory := TObjList.Create;
@@ -436,7 +445,8 @@ interface
 
   destructor TFarHistory.Destroy; {override;}
   begin
-    FreeObj(FHistory);
+//  Trace('TFarHistory.Destroy...');
+    FreeObj(FHistory);  
     FreeObj(FExclusions);
     DeleteCriticalSection(FCSLock);
     inherited Destroy;
