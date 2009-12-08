@@ -96,7 +96,7 @@ interface
     end;
   end;
 
-  
+
  {-----------------------------------------------------------------------------}
  { THintPluginObject                                                           }
  {-----------------------------------------------------------------------------}
@@ -133,7 +133,7 @@ interface
     Result := False;
 
     FarGetWindowInfo(-1, vWinInfo, @vStr, nil);
-    if not (vWinInfo.WindowType in [WTYPE_DIALOG]) or (vStr <>  GetMsgStr(strTitle)) then
+    if not (vWinInfo.WindowType in [WTYPE_DIALOG]) or (vStr <> GetMsgStr(strTitle)) then
       Exit;
 
     vGrid := (FOwner as TCharMapDlg).Grid;
@@ -321,5 +321,9 @@ interface
   end;
 
 
+initialization
+
+finalization
+  NOP;
 end.
 
