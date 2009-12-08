@@ -85,7 +85,7 @@ interface
  {-----------------------------------------------------------------------------}
 
   const
-    MIF_CHECKED1 = MIF_CHECKED (* or Byte(chrCheck) *);
+    MIF_CHECKED1 = MIF_CHECKED { or Byte(chrCheck)};
 
   type
     PFarMenuItemsArray = ^TFarMenuItemsArray;
