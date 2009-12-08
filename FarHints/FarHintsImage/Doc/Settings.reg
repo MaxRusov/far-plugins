@@ -1,0 +1,12 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\Software\Far\Plugins\FarHints\Plugins\Image]
+
+; Максимальный размер изображения в хинте
+"MaxSize"=dword:80
+
+; Использовать эскизы (если формат изображения их поддерживает)
+"UseThumbnail"=dword:1
+
+; Показывать анимацию, если это анимированная картинка
+"ShowAnimation"=dword:1

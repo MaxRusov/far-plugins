@@ -1,0 +1,39 @@
+#------------------------------------------------------------------------------
+VERSION = BWS.01
+#------------------------------------------------------------------------------
+!ifndef ROOT
+ROOT = $(MAKEDIR)\..
+!endif
+#------------------------------------------------------------------------------
+MAKE = $(ROOT)\bin\make.exe -$(MAKEFLAGS) -f$**
+DCC = $(ROOT)\bin\dcc32.exe $**
+BRCC = $(ROOT)\bin\brcc32.exe $**
+#------------------------------------------------------------------------------
+PROJECTS = FarHintsVerInfo.dll FarHintsFolders.dll FarHintsImage.dll \
+  FarHintsMP3.dll FarHintsCursors.dll FarHintsProcess.dll FarHints.dll
+#------------------------------------------------------------------------------
+default: $(PROJECTS)
+#------------------------------------------------------------------------------
+
+FarHintsVerInfo.dll: FarHintsVerInfo\FarHintsVerInfo.dpr
+  $(DCC)
+
+FarHintsFolders.dll: FarHintsFolders\FarHintsFolders.dpr
+  $(DCC)
+
+FarHintsImage.dll: FarHintsImage\FarHintsImage.dpr
+  $(DCC)
+
+FarHintsMP3.dll: FarHintsMP3\FarHintsMP3.dpr
+  $(DCC)
+
+FarHintsCursors.dll: FarHintsCursors\FarHintsCursors.dpr
+  $(DCC)
+
+FarHintsProcess.dll: FarHintsProcess\FarHintsProcess.dpr
+  $(DCC)
+
+FarHints.dll: FarHints\FarHints.dpr
+  $(DCC)
+
+
