@@ -14,6 +14,11 @@ unit Messages;
 {$A-}
 {$WEAKPACKAGEUNIT}
 
+{$ifdef bFreePascal}
+ {$PACKRECORDS C}
+{$endif bFreePascal}
+
+
 interface
 
 uses Windows;
@@ -483,37 +488,46 @@ type
 
 { Generic window message record }
 
+ {$ifdef b64}
+  HALFLRESULT = DWORD;
+  HALFPARAM = DWORD;
+  HALFPARAMBOOL = LONGBOOL;
+ {$else}
+  HALFLRESULT = WORD;
+  HALFPARAM = WORD;
+  HALFPARAMBOOL = WORDBOOL;
+ {$endif b64}
+
   PMessage = ^TMessage;
-  TMessage = packed record
-    Msg: Cardinal;
-    case Integer of
+  TMessage = record
+    msg  :UINT;
+    case longint of
       0: (
-        WParam: Longint;
-        LParam: Longint;
-        Result: Longint);
+        wParam :WPARAM;
+        lParam :LPARAM;
+        Result :LRESULT;
+       );
       1: (
-        WParamLo: Word;
-        WParamHi: Word;
-        LParamLo: Word;
-        LParamHi: Word;
-        ResultLo: Word;
-        ResultHi: Word);
-  end;
+        wParamlo, wParamhi : HALFPARAM;
+        lParamlo, lParamhi : HALFPARAM;
+        Resultlo, Resulthi : HALFLRESULT;
+      );
+   end;
 
 { Common message format records }
 
-  TWMNoParams = packed record
-    Msg: Cardinal;
-    Unused: array[0..3] of Word;
-    Result: Longint;
-  end;
+   TWMNoParams = record
+     Msg : UINT;
+     Unused : array[0..3] of HALFPARAM;
+     Result : LRESULT;
+   end;
 
-  TWMKey = packed record
-    Msg: Cardinal;
+  TWMKey = record
+    Msg: UINT;
     CharCode: Word;
     Unused: Word;
     KeyData: Longint;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMMouse = packed record
@@ -817,11 +831,11 @@ type
 
   TWMExitMenuLoop = TWMEnterMenuLoop;
 
-  TWMEraseBkgnd = packed record
-    Msg: Cardinal;
-    DC: HDC;
-    Unused: Longint;
-    Result: Longint;
+  TWMEraseBkgnd = record
+    Msg :UINT;
+    DC :HDC;
+    Unused :LPARAM;
+    Result :LRESULT;
   end;
 
   TWMFontChange = TWMNoParams;
@@ -994,12 +1008,16 @@ type
   end;
 
   TWMMenuChar = packed record
-    Msg: Cardinal;
-    User: Char;
-    Unused: Byte;
+    Msg :Cardinal;
+   {$ifdef bUnicode}
+    User :WideChar;
+   {$else}
+    User :AnsiChar;
+    Unused :Byte;
+   {$endif bUnicode}
     MenuFlag: Word; { MF_POPUP, MF_SYSMENU }
-    Menu: HMENU;
-    Result: Longint;
+    Menu :HMENU;
+    Result :Longint;
   end;
 
   TWMMenuSelect = packed record
@@ -1057,16 +1075,16 @@ type
 
   TWMNCDestroy = TWMNoParams;
 
-  TWMNCHitTest = packed record
-    Msg: Cardinal;
-    Unused: Longint;
+  TWMNCHitTest = record
+    Msg :UINT;
+    Unused :LPARAM;
     case Integer of
       0: (
-        XPos: Smallint;
-        YPos: Smallint);
+        XPos :Smallint;
+        YPos :Smallint);
       1: (
-        Pos: TSmallPoint;
-        Result: Longint);
+        Pos :TSmallPoint;
+        Result :LRESULT);
   end;
 
   TWMNCHitMessage = packed record
@@ -1113,11 +1131,11 @@ type
     Result: Longint;
   end;
 
-  TWMPaint = packed record
-    Msg: Cardinal;
-    DC: HDC;
-    Unused: Longint;
-    Result: Longint;
+  TWMPaint = record
+    Msg :UINT;
+    DC :HDC;
+    Unused :LPARAM;
+    Result :LRESULT;
   end;
 
   TWMPaintClipboard = packed record

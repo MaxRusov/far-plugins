@@ -1,11 +1,13 @@
 {------------------------------------------------------------------------------}
 
+{$Define Unicode}              { По умолчанию собирается Unicode версия }
+
 {$ifdef Debug}
   { Отладка }
   {$Define bDebug}       
   {$Define bTrace}
   {$Define bAsserts}
-  {$Define bCodeChecks}
+  {$Define bMemCheck}
 {$else}
   { Сборка }
   {$Define bRelease}
@@ -21,7 +23,7 @@
 {$Define bWindows}
 
 {$ifdef ANSI}
-  {$Undef Unicode}             { Для Delphi 2009+}
+  {$Undef Unicode}
 {$endif ANSI}
 
 {$ifdef Unicode}
@@ -40,6 +42,15 @@
   {$ifdef CPUX86_64}
    {$Define b64}
   {$endif CPUX86_64}
+
+  {$ifdef Ver2_3}
+   {$Define bFPC23}
+  {$endif Ver2_3}
+
+  {$ifdef Ver2_4}
+   {$Define bFPC23}
+   {$Define bFPC24}
+  {$endif Ver2_4}
 
 {$else}
   {Delphi}
@@ -113,6 +124,7 @@
   {$endif}
 
   {$ifdef bDelphi12}
+   {$Define bInline}
    {$Define bUnicodeStr}  { Поддерживается тип UnicodeString }
    {$Define bUnicodeRTL}
   {$endif}
@@ -146,6 +158,7 @@
   {Free Pascal}
   {$SmartLink On}
   {$AsmMode Intel}
+  {$packset 1}
 {$else}
   {$SafeDivide Off}
 {$endif bFreePascal}

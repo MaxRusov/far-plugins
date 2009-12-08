@@ -5089,7 +5089,7 @@ end;
 function Header_InsertItem(Header: HWnd; Index: Integer;
   const Item: THDItem): Integer;
 begin
-  Result := SendMessage(Header, HDM_INSERTITEM, Index, Longint(@Item));
+  Result := SendMessage(Header, HDM_INSERTITEM, Index, TIntPtr(@Item));
 end;
 
 function Header_DeleteItem(Header: HWnd; Index: Integer): Bool;
@@ -5099,17 +5099,17 @@ end;
 
 function Header_GetItem(Header: HWnd; Index: Integer; var Item: THDItem): Bool;
 begin
-  Result := Bool( SendMessage(Header, HDM_GETITEM, Index, Longint(@Item)) );
+  Result := Bool( SendMessage(Header, HDM_GETITEM, Index, TIntPtr(@Item)) );
 end;
 
 function Header_SetItem(Header: HWnd; Index: Integer; const Item: THDItem): Bool;
 begin
-  Result := Bool( SendMessage(Header, HDM_SETITEM, Index, Longint(@Item)) );
+  Result := Bool( SendMessage(Header, HDM_SETITEM, Index, TIntPtr(@Item)) );
 end;
 
 function Header_Layout(Header: HWnd; Layout: PHDLayout): Bool;
 begin
-  Result := Bool( SendMessage(Header, HDM_LAYOUT, 0, Longint(Layout)) );
+  Result := Bool( SendMessage(Header, HDM_LAYOUT, 0, TIntPtr(Layout)) );
 end;
 
 function Header_GetItemRect(hwnd: HWND; iItem: Integer; lprc: PRect): Integer;
@@ -5231,41 +5231,41 @@ end;
 
 function ListView_GetItemA(hWnd: HWND; var pItem: TLVItemA): Bool;
 begin
-  Result := Bool( SendMessage(hWnd, LVM_GETITEM, 0, Longint(@pItem)) );
+  Result := Bool( SendMessage(hWnd, LVM_GETITEM, 0, TIntPtr(@pItem)) );
 end;
 function ListView_GetItemW(hWnd: HWND; var pItem: TLVItemW): Bool;
 begin
-  Result := Bool( SendMessage(hWnd, LVM_GETITEM, 0, Longint(@pItem)) );
+  Result := Bool( SendMessage(hWnd, LVM_GETITEM, 0, TIntPtr(@pItem)) );
 end;
 function ListView_GetItem(hWnd: HWND; var pItem: TLVItem): Bool;
 begin
-  Result := Bool( SendMessage(hWnd, LVM_GETITEM, 0, Longint(@pItem)) );
+  Result := Bool( SendMessage(hWnd, LVM_GETITEM, 0, TIntPtr(@pItem)) );
 end;
 
 function ListView_SetItemA(hWnd: HWND; const pItem: TLVItemA): Bool;
 begin
-  Result := Bool( SendMessage(hWnd, LVM_SETITEM, 0, Longint(@pItem)) );
+  Result := Bool( SendMessage(hWnd, LVM_SETITEM, 0, TIntPtr(@pItem)) );
 end;
 function ListView_SetItemW(hWnd: HWND; const pItem: TLVItemW): Bool;
 begin
-  Result := Bool( SendMessage(hWnd, LVM_SETITEM, 0, Longint(@pItem)) );
+  Result := Bool( SendMessage(hWnd, LVM_SETITEM, 0, TIntPtr(@pItem)) );
 end;
 function ListView_SetItem(hWnd: HWND; const pItem: TLVItem): Bool;
 begin
-  Result := Bool( SendMessage(hWnd, LVM_SETITEM, 0, Longint(@pItem)) );
+  Result := Bool( SendMessage(hWnd, LVM_SETITEM, 0, TIntPtr(@pItem)) );
 end;
 
 function ListView_InsertItemA(hWnd: HWND; const pItem: TLVItemA): Integer;
 begin
-  Result := Integer( SendMessage(hWnd, LVM_INSERTITEM, 0, Longint(@pItem)) );
+  Result := Integer( SendMessage(hWnd, LVM_INSERTITEM, 0, TIntPtr(@pItem)) );
 end;
 function ListView_InsertItemW(hWnd: HWND; const pItem: TLVItemW): Integer;
 begin
-  Result := Integer( SendMessage(hWnd, LVM_INSERTITEM, 0, Longint(@pItem)) );
+  Result := Integer( SendMessage(hWnd, LVM_INSERTITEM, 0, TIntPtr(@pItem)) );
 end;
 function ListView_InsertItem(hWnd: HWND; const pItem: TLVItem): Integer;
 begin
-  Result := Integer( SendMessage(hWnd, LVM_INSERTITEM, 0, Longint(@pItem)) );
+  Result := Integer( SendMessage(hWnd, LVM_INSERTITEM, 0, TIntPtr(@pItem)) );
 end;
 
 function ListView_DeleteItem(hWnd: HWND; i: Integer): Bool;
@@ -5296,17 +5296,17 @@ end;
 function ListView_FindItemA(hWnd: HWND; iStart: Integer;
   const plvfi: TLVFindInfoA): Integer;
 begin
-  Result := SendMessage(hWnd, LVM_FINDITEM, iStart, Longint(@plvfi));
+  Result := SendMessage(hWnd, LVM_FINDITEM, iStart, TIntPtr(@plvfi));
 end;
 function ListView_FindItemW(hWnd: HWND; iStart: Integer;
   const plvfi: TLVFindInfoW): Integer;
 begin
-  Result := SendMessage(hWnd, LVM_FINDITEM, iStart, Longint(@plvfi));
+  Result := SendMessage(hWnd, LVM_FINDITEM, iStart, TIntPtr(@plvfi));
 end;
 function ListView_FindItem(hWnd: HWND; iStart: Integer;
   const plvfi: TLVFindInfo): Integer;
 begin
-  Result := SendMessage(hWnd, LVM_FINDITEM, iStart, Longint(@plvfi));
+  Result := SendMessage(hWnd, LVM_FINDITEM, iStart, TIntPtr(@plvfi));
 end;
 
 function ListView_GetItemRect(hWnd: HWND; i: Integer; var prc: TRect;
@@ -5315,7 +5315,7 @@ begin
   if @prc <> nil then
   begin
     prc.left := Code;
-    Result := Bool( SendMessage(hWnd, LVM_GETITEMRECT, i, Longint(@prc)) );
+    Result := Bool( SendMessage(hWnd, LVM_GETITEMRECT, i, TIntPtr(@prc)) );
   end
   else
     Result := Bool( SendMessage(hWnd, LVM_GETITEMRECT, i, 0) );
@@ -5329,25 +5329,25 @@ end;
 function ListView_GetItemPosition(hwndLV: HWND; i: Integer;
   var ppt: TPoint): Bool;
 begin
-  Result := Bool( SendMessage(hWndLV, LVM_GETITEMPOSITION, i, Longint(@ppt)) );
+  Result := Bool( SendMessage(hWndLV, LVM_GETITEMPOSITION, i, TIntPtr(@ppt)) );
 end;
 
 function ListView_GetStringWidthA(hwndLV: HWND; psz: PAnsiChar): Integer;
 begin
-  Result := SendMessageA(hwndLV, LVM_GETSTRINGWIDTH, 0, Longint(psz));
+  Result := SendMessageA(hwndLV, LVM_GETSTRINGWIDTH, 0, TIntPtr(psz));
 end;
 function ListView_GetStringWidthW(hwndLV: HWND; psz: PWideChar): Integer;
 begin
-  Result := SendMessageW(hwndLV, LVM_GETSTRINGWIDTH, 0, Longint(psz));
+  Result := SendMessageW(hwndLV, LVM_GETSTRINGWIDTH, 0, TIntPtr(psz));
 end;
 function ListView_GetStringWidth(hwndLV: HWND; psz: PTChar): Integer;
 begin
-  Result := SendMessage(hwndLV, LVM_GETSTRINGWIDTH, 0, Longint(psz));
+  Result := SendMessage(hwndLV, LVM_GETSTRINGWIDTH, 0, TIntPtr(psz));
 end;
 
 function ListView_HitTest(hwndLV: HWND; var pinfo: TLVHitTestInfo): Integer;
 begin
-  Result := SendMessage(hwndLV, LVM_HITTEST, 0, Longint(@pinfo));
+  Result := SendMessage(hwndLV, LVM_HITTEST, 0, TIntPtr(@pinfo));
 end;
 
 function ListView_EnsureVisible(hwndLV: HWND; i: Integer; fPartialOK: Bool): Bool;
@@ -5393,43 +5393,43 @@ end;
 
 function ListView_GetColumnA(hwnd: HWND; iCol: Integer; var pcol: TLVColumnA): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, LVM_GETCOLUMN, iCol, Longint(@pcol)) );
+  Result := Bool( SendMessage(hwnd, LVM_GETCOLUMN, iCol, TIntPtr(@pcol)) );
 end;
 
 function ListView_GetColumnW(hwnd: HWND; iCol: Integer; var pcol: TLVColumnW): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, LVM_GETCOLUMN, iCol, Longint(@pcol)) );
+  Result := Bool( SendMessage(hwnd, LVM_GETCOLUMN, iCol, TIntPtr(@pcol)) );
 end;
 
 function ListView_GetColumn(hwnd: HWND; iCol: Integer; var pcol: TLVColumn): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, LVM_GETCOLUMN, iCol, Longint(@pcol)) );
+  Result := Bool( SendMessage(hwnd, LVM_GETCOLUMN, iCol, TIntPtr(@pcol)) );
 end;
 
 function ListView_SetColumnA(hwnd: HWND; iCol: Integer; const pcol: TLVColumnA): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, LVM_SETCOLUMN, iCol, Longint(@pcol)) );
+  Result := Bool( SendMessage(hwnd, LVM_SETCOLUMN, iCol, TIntPtr(@pcol)) );
 end;
 function ListView_SetColumnW(hwnd: HWND; iCol: Integer; const pcol: TLVColumnW): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, LVM_SETCOLUMN, iCol, Longint(@pcol)) );
+  Result := Bool( SendMessage(hwnd, LVM_SETCOLUMN, iCol, TIntPtr(@pcol)) );
 end;
 function ListView_SetColumn(hwnd: HWND; iCol: Integer; const pcol: TLVColumn): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, LVM_SETCOLUMN, iCol, Longint(@pcol)) );
+  Result := Bool( SendMessage(hwnd, LVM_SETCOLUMN, iCol, TIntPtr(@pcol)) );
 end;
 
 function ListView_InsertColumnA(hwnd: HWND; iCol: Integer; const pcol: TLVColumnA): Integer;
 begin
-  Result := SendMessage(hWnd, LVM_INSERTCOLUMN, iCol, Longint(@pcol));
+  Result := SendMessage(hWnd, LVM_INSERTCOLUMN, iCol, TIntPtr(@pcol));
 end;
 function ListView_InsertColumnW(hwnd: HWND; iCol: Integer; const pcol: TLVColumnW): Integer;
 begin
-  Result := SendMessage(hWnd, LVM_INSERTCOLUMN, iCol, Longint(@pcol));
+  Result := SendMessage(hWnd, LVM_INSERTCOLUMN, iCol, TIntPtr(@pcol));
 end;
 function ListView_InsertColumn(hwnd: HWND; iCol: Integer; const pcol: TLVColumn): Integer;
 begin
-  Result := SendMessage(hWnd, LVM_INSERTCOLUMN, iCol, Longint(@pcol));
+  Result := SendMessage(hWnd, LVM_INSERTCOLUMN, iCol, TIntPtr(@pcol));
 end;
 
 function ListView_DeleteColumn(hwnd: HWND; iCol: Integer): Bool;
@@ -5457,12 +5457,12 @@ function ListView_CreateDragImage(hwnd: HWND; i: Integer;
   const lpptUpLeft: TPoint): HIMAGELIST;
 begin
   Result := HIMAGELIST( SendMessage(hwnd, LVM_CREATEDRAGIMAGE, i,
-    Longint(@lpptUpLeft)));
+    TIntPtr(@lpptUpLeft)));
 end;
 
 function ListView_GetViewRect(hwnd: HWND; var prc: TRect): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, LVM_GETVIEWRECT, 0, Longint(@prc)) );
+  Result := Bool( SendMessage(hwnd, LVM_GETVIEWRECT, 0, TIntPtr(@prc)) );
 end;
 
 function ListView_GetTextColor(hwnd: HWND): TColorRef;
@@ -5497,7 +5497,7 @@ end;
 
 function ListView_GetOrigin(hwndLV: HWND; var ppt: TPoint): Bool;
 begin
-  Result := Bool( SendMessage(hwndLV, LVM_GETORIGIN, 0, Longint(@ppt)) );
+  Result := Bool( SendMessage(hwndLV, LVM_GETORIGIN, 0, TIntPtr(@ppt)) );
 end;
 
 function ListView_Update(hwndLV: HWND; i: Integer): Bool;
@@ -5511,7 +5511,7 @@ var
 begin
   Item.stateMask := mask;
   Item.state := data;
-  Result := Bool( SendMessage(hwndLV, LVM_SETITEMSTATE, i, Longint(@Item)) );
+  Result := Bool( SendMessage(hwndLV, LVM_SETITEMSTATE, i, TIntPtr(@Item)) );
 end;
 
 function ListView_GetItemState(hwndLV: HWND; i, mask: Integer): Integer;
@@ -5530,7 +5530,7 @@ var
 begin
   Item.statemask := LVIS_STATEIMAGEMASK;
   Item.State := ((Integer(Checked) and 1) + 1) shl 12;
-  SendMessage(hwndLV, LVM_SETITEMSTATE, i, Integer(@Item));
+  SendMessage(hwndLV, LVM_SETITEMSTATE, i, TIntPtr(@Item));
 end;
 
 function ListView_GetItemTextA(hwndLV: HWND; i, iSubItem: Integer;
@@ -5541,7 +5541,7 @@ begin
   Item.iSubItem := iSubItem;
   Item.cchTextMax := cchTextMax;
   Item.pszText := pszText;
-  Result := SendMessage(hwndLV, LVM_GETITEMTEXTA, i, Longint(@Item));
+  Result := SendMessage(hwndLV, LVM_GETITEMTEXTA, i, TIntPtr(@Item));
 end;
 
 function ListView_GetItemTextW(hwndLV: HWND; i, iSubItem: Integer;
@@ -5552,7 +5552,7 @@ begin
   Item.iSubItem := iSubItem;
   Item.cchTextMax := cchTextMax;
   Item.pszText := pszText;
-  Result := SendMessage(hwndLV, LVM_GETITEMTEXTW, i, Longint(@Item));
+  Result := SendMessage(hwndLV, LVM_GETITEMTEXTW, i, TIntPtr(@Item));
 end;
 
 function ListView_GetItemText(hwndLV: HWND; i, iSubItem: Integer;
@@ -5563,7 +5563,7 @@ begin
   Item.iSubItem := iSubItem;
   Item.cchTextMax := cchTextMax;
   Item.pszText := pszText;
-  Result := SendMessage(hwndLV, LVM_GETITEMTEXT, i, Longint(@Item));
+  Result := SendMessage(hwndLV, LVM_GETITEMTEXT, i, TIntPtr(@Item));
 end;
 
 function ListView_SetItemTextA(hwndLV: HWND; i, iSubItem: Integer;
@@ -5573,7 +5573,7 @@ var
 begin
   Item.iSubItem := iSubItem;
   Item.pszText := pszText;
-  Result := Bool( SendMessageA(hwndLV, LVM_SETITEMTEXT, i, Longint(@Item)) );
+  Result := Bool( SendMessageA(hwndLV, LVM_SETITEMTEXT, i, TIntPtr(@Item)) );
 end;
 
 function ListView_SetItemTextW(hwndLV: HWND; i, iSubItem: Integer;
@@ -5583,7 +5583,7 @@ var
 begin
   Item.iSubItem := iSubItem;
   Item.pszText := pszText;
-  Result := Bool( SendMessageW(hwndLV, LVM_SETITEMTEXT, i, Longint(@Item)) );
+  Result := Bool( SendMessageW(hwndLV, LVM_SETITEMTEXT, i, TIntPtr(@Item)) );
 end;
 
 function ListView_SetItemText(hwndLV: HWND; i, iSubItem: Integer;
@@ -5593,7 +5593,7 @@ var
 begin
   Item.iSubItem := iSubItem;
   Item.pszText := pszText;
-  Result := Bool( SendMessage(hwndLV, LVM_SETITEMTEXT, i, Longint(@Item)) );
+  Result := Bool( SendMessage(hwndLV, LVM_SETITEMTEXT, i, TIntPtr(@Item)) );
 end;
 
 procedure ListView_SetItemCount(hwndLV: HWND; cItems: Integer);
@@ -5610,7 +5610,7 @@ function ListView_SortItems(hwndLV: HWND; pfnCompare: TLVCompare;
   lPrm: Longint): Bool;
 begin
   Result := Bool( SendMessage(hwndLV, LVM_SORTITEMS, lPrm,
-    Longint(@pfnCompare)) );
+    TIntPtr(@pfnCompare)) );
 end;
 
 procedure ListView_SetItemPosition32(hwndLV: HWND; i, x, y: Integer);
@@ -5619,7 +5619,7 @@ var
 begin
   ptNewPos.x := x;
   ptNewPos.y := y;
-  SendMessage(hwndLV, LVM_SETITEMPOSITION32, i, Longint(@ptNewPos));
+  SendMessage(hwndLV, LVM_SETITEMPOSITION32, i, TIntPtr(@ptNewPos));
 end;
 
 function ListView_GetSelectedCount(hwndLV: HWND): UINT;
@@ -5634,17 +5634,17 @@ end;
 
 function ListView_GetISearchStringA(hwndLV: HWND; lpsz: PAnsiChar): Bool;
 begin
-  Result := Bool( SendMessageA(hwndLV, LVM_GETISEARCHSTRING, 0, Longint(lpsz)) );
+  Result := Bool( SendMessageA(hwndLV, LVM_GETISEARCHSTRING, 0, TIntPtr(lpsz)) );
 end;
 
 function ListView_GetISearchStringW(hwndLV: HWND; lpsz: PWideChar): Bool;
 begin
-  Result := Bool( SendMessageW(hwndLV, LVM_GETISEARCHSTRING, 0, Longint(lpsz)) );
+  Result := Bool( SendMessageW(hwndLV, LVM_GETISEARCHSTRING, 0, TIntPtr(lpsz)) );
 end;
 
 function ListView_GetISearchString(hwndLV: HWND; lpsz: PTChar): Bool;
 begin
-  Result := Bool( SendMessage(hwndLV, LVM_GETISEARCHSTRING, 0, Longint(lpsz)) );
+  Result := Bool( SendMessage(hwndLV, LVM_GETISEARCHSTRING, 0, TIntPtr(lpsz)) );
 end;
 
 function ListView_SetIconSpacing(hwndLV: HWND; cx, cy: Word): DWORD;
@@ -5670,26 +5670,26 @@ begin
     prc^.Top := iSubItem;
     prc^.Left := code;
   end;
-  Result := BOOL(SendMessage(hwndLV, LVM_GETSUBITEMRECT, iItem, Longint(prc)));
+  Result := BOOL(SendMessage(hwndLV, LVM_GETSUBITEMRECT, iItem, TIntPtr(prc)));
 end;
 
 function ListView_SubItemHitTest(hwndLV: HWND; plvhti: PLVHitTestInfo): Integer;
 begin
-  Result := SendMessage(hwndLV, LVM_SUBITEMHITTEST, 0, Longint(plvhti));
+  Result := SendMessage(hwndLV, LVM_SUBITEMHITTEST, 0, TIntPtr(plvhti));
 end;
 
 function ListView_SetColumnOrderArray(hwndLV: HWND; iCount: Integer;
   pi: PInteger): BOOL;
 begin
   Result := BOOL(SendMessage(hwndLV, LVM_SETCOLUMNORDERARRAY, iCount,
-    Longint(pi)));
+    TIntPtr(pi)));
 end;
 
 function ListView_GetColumnOrderArray(hwndLV: HWND; iCount: Integer;
   pi: PInteger): BOOL;
 begin
   Result := BOOL(SendMessage(hwndLV, LVM_GETCOLUMNORDERARRAY, iCount,
-    Longint(pi)));
+    TIntPtr(pi)));
 end;
 
 function ListView_SetHotItem(hwndLV: HWND; i: Integer): Integer;
@@ -5721,7 +5721,7 @@ end;
 
 function ListView_SetWorkAreas(hwndLV: HWND; nWorkAreas: Integer; prc: PRect): BOOL;
 begin
-  Result := BOOL(SendMessage(hwndLV, LVM_SETWORKAREA, nWorkAreas, Longint(prc)));
+  Result := BOOL(SendMessage(hwndLV, LVM_SETWORKAREA, nWorkAreas, TIntPtr(prc)));
 end;
 
 function ListView_GetSelectionMark(hwnd: HWND): Integer;
@@ -5736,7 +5736,7 @@ end;
 
 function ListView_GetWorkAreas(hwnd: HWND; nWorkAreas: Integer; prc: PRect): BOOL;
 begin
-  Result := BOOL(SendMessage(hwnd, LVM_GETWORKAREAS, nWorkAreas, Integer(prc)));
+  Result := BOOL(SendMessage(hwnd, LVM_GETWORKAREAS, nWorkAreas, TIntPtr(prc)));
 end;
 
 function ListView_SetHoverTime(hwndLV: HWND; dwHoverTimeMs: DWORD): DWORD;
@@ -5751,7 +5751,7 @@ end;
 
 function ListView_GetNumberOfWorkAreas(hwnd: HWND; pnWorkAreas: PInteger): Integer;
 begin
-  Result := SendMessage(hwnd, LVM_GETNUMBEROFWORKAREAS, 0, Integer(pnWorkAreas));
+  Result := SendMessage(hwnd, LVM_GETNUMBEROFWORKAREAS, 0, TIntPtr(pnWorkAreas));
 end;
 
 function ListView_SetToolTips(hwndLV: HWND; hwndNewHwnd: HWND): HWND;
@@ -5778,29 +5778,29 @@ end;
 
 function TreeView_InsertItem(hwnd: HWND; const lpis: TTVInsertStruct): HTreeItem;
 begin
-  Result := HTreeItem( SendMessage(hwnd, TVM_INSERTITEM, 0, Longint(@lpis)) );
+  Result := HTreeItem( SendMessage(hwnd, TVM_INSERTITEM, 0, TIntPtr(@lpis)) );
 end;
 
 function TreeView_DeleteItem(hwnd: HWND; hitem: HTreeItem): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, TVM_DELETEITEM, 0, Longint(hitem)) );
+  Result := Bool( SendMessage(hwnd, TVM_DELETEITEM, 0, TIntPtr(hitem)) );
 end;
 
 function TreeView_DeleteAllItems(hwnd: HWND): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, TVM_DELETEITEM, 0, Longint(TVI_ROOT)) );
+  Result := Bool( SendMessage(hwnd, TVM_DELETEITEM, 0, TIntPtr(TVI_ROOT)) );
 end;
 
 function TreeView_Expand(hwnd: HWND; hitem: HTreeItem; code: Integer): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, TVM_EXPAND, code, Longint(hitem)) );
+  Result := Bool( SendMessage(hwnd, TVM_EXPAND, code, TIntPtr(hitem)) );
 end;
 
 function TreeView_GetItemRect(hwnd: HWND; hitem: HTreeItem;
   var prc: TRect; code: Bool): Bool;
 begin
   HTreeItem(Pointer(@prc)^) := hitem;
-  Result := Bool( SendMessage(hwnd, TVM_GETITEMRECT, Integer(code), Longint(@prc)) );
+  Result := Bool( SendMessage(hwnd, TVM_GETITEMRECT, Integer(code), TIntPtr(@prc)) );
 end;
 
 function TreeView_GetCount(hwnd: HWND): UINT;
@@ -5834,7 +5834,7 @@ function TreeView_GetNextItem(hwnd: HWND; hitem: HTreeItem;
   code: Integer): HTreeItem;
 begin
   Result := HTreeItem( SendMessage(hwnd, TVM_GETNEXTITEM, code,
-    Longint(hitem)) );
+    TIntPtr(hitem)) );
 end;
 
 function TreeView_GetChild(hwnd: HWND; hitem: HTreeItem): HTreeItem;
@@ -5896,7 +5896,7 @@ function TreeView_Select(hwnd: HWND; hitem: HTreeItem;
   code: Integer): HTreeItem;
 begin
   Result := HTreeItem( SendMessage(hwnd, TVM_SELECTITEM, code,
-    Longint(hitem)) );
+    TIntPtr(hitem)) );
 end;
 
 function TreeView_SelectItem(hwnd: HWND; hitem: HTreeItem): HTreeItem;
@@ -5916,41 +5916,41 @@ end;
 
 function TreeView_GetItemA(hwnd: HWND; var pitem: TTVItemA): Bool;
 begin
-  Result := Bool( SendMessageA(hwnd, TVM_GETITEM, 0, Longint(@pitem)) );
+  Result := Bool( SendMessageA(hwnd, TVM_GETITEM, 0, TIntPtr(@pItem)) );
 end;
 function TreeView_GetItemW(hwnd: HWND; var pitem: TTVItemW): Bool;
 begin
-  Result := Bool( SendMessageW(hwnd, TVM_GETITEM, 0, Longint(@pitem)) );
+  Result := Bool( SendMessageW(hwnd, TVM_GETITEM, 0, TIntPtr(@pItem)) );
 end;
 function TreeView_GetItem(hwnd: HWND; var pitem: TTVItem): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, TVM_GETITEM, 0, Longint(@pitem)) );
+  Result := Bool( SendMessage(hwnd, TVM_GETITEM, 0, TIntPtr(@pItem)) );
 end;
 
 function TreeView_SetItemA(hwnd: HWND; const pitem: TTVItemA): Bool;
 begin
-  Result := Bool( SendMessageA(hwnd, TVM_SETITEM, 0, Longint(@pitem)) );
+  Result := Bool( SendMessageA(hwnd, TVM_SETITEM, 0, TIntPtr(@pItem)) );
 end;
 function TreeView_SetItemW(hwnd: HWND; const pitem: TTVItemW): Bool;
 begin
-  Result := Bool( SendMessageW(hwnd, TVM_SETITEM, 0, Longint(@pitem)) );
+  Result := Bool( SendMessageW(hwnd, TVM_SETITEM, 0, TIntPtr(@pItem)) );
 end;
 function TreeView_SetItem(hwnd: HWND; const pitem: TTVItem): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, TVM_SETITEM, 0, Longint(@pitem)) );
+  Result := Bool( SendMessage(hwnd, TVM_SETITEM, 0, TIntPtr(@pItem)) );
 end;
 
 function TreeView_EditLabelA(hwnd: HWND; hitem: HTreeItem): HWND;
 begin
-  Result := Windows.HWND( SendMessageA(hwnd, TVM_EDITLABEL, 0, Longint(hitem)) );
+  Result := Windows.HWND( SendMessageA(hwnd, TVM_EDITLABEL, 0, TIntPtr(hitem)) );
 end;
 function TreeView_EditLabelW(hwnd: HWND; hitem: HTreeItem): HWND;
 begin
-  Result := Windows.HWND( SendMessageW(hwnd, TVM_EDITLABEL, 0, Longint(hitem)) );
+  Result := Windows.HWND( SendMessageW(hwnd, TVM_EDITLABEL, 0, TIntPtr(hitem)) );
 end;
 function TreeView_EditLabel(hwnd: HWND; hitem: HTreeItem): HWND;
 begin
-  Result := Windows.HWND( SendMessage(hwnd, TVM_EDITLABEL, 0, Longint(hitem)) );
+  Result := Windows.HWND( SendMessage(hwnd, TVM_EDITLABEL, 0, TIntPtr(hitem)) );
 end;
 
 function TreeView_GetEditControl(hwnd: HWND): HWND;
@@ -5965,32 +5965,32 @@ end;
 
 function TreeView_HitTest(hwnd: HWND; var lpht: TTVHitTestInfo): HTreeItem;
 begin
-  Result := HTreeItem( SendMessage(hwnd, TVM_HITTEST, 0, Longint(@lpht)) );
+  Result := HTreeItem( SendMessage(hwnd, TVM_HITTEST, 0, TIntPtr(@lpht)) );
 end;
 
 function TreeView_CreateDragImage(hwnd: HWND; hitem: HTreeItem): HIMAGELIST;
 begin
   Result := HIMAGELIST( SendMessage(hwnd, TVM_CREATEDRAGIMAGE, 0,
-    Longint(hitem)) );
+    TIntPtr(hitem)) );
 end;
 
 function TreeView_SortChildren(hwnd: HWND; hitem: HTreeItem;
   recurse: Integer): Bool;
 begin
   Result := Bool( SendMessage(hwnd, TVM_SORTCHILDREN, recurse,
-    Longint(hitem)) );
+    TIntPtr(hitem)) );
 end;
 
 function TreeView_EnsureVisible(hwnd: HWND; hitem: HTreeItem): Bool;
 begin
-  Result := Bool( SendMessage(hwnd, TVM_ENSUREVISIBLE, 0, Longint(hitem)) );
+  Result := Bool( SendMessage(hwnd, TVM_ENSUREVISIBLE, 0, TIntPtr(hitem)) );
 end;
 
 function TreeView_SortChildrenCB(hwnd: HWND; const psort: TTVSortCB;
   recurse: Integer): Bool;
 begin
   Result := Bool( SendMessage(hwnd, TVM_SORTCHILDRENCB, recurse,
-    Longint(@psort)) );
+    TIntPtr(@psort)) );
 end;
 
 function TreeView_EndEditLabelNow(hwnd: HWND; fCancel: Bool): Bool;
@@ -6002,19 +6002,19 @@ end;
 function TreeView_GetISearchStringA(hwndTV: HWND; lpsz: PAnsiChar): Bool;
 begin
   Result := Bool( SendMessageA(hwndTV, TVM_GETISEARCHSTRING, 0,
-    Longint(lpsz)) );
+    TIntPtr(lpsz)) );
 end;
 
 function TreeView_GetISearchStringW(hwndTV: HWND; lpsz: PWideChar): Bool;
 begin
   Result := Bool( SendMessageW(hwndTV, TVM_GETISEARCHSTRING, 0,
-    Longint(lpsz)) );
+    TIntPtr(lpsz)) );
 end;
 
 function TreeView_GetISearchString(hwndTV: HWND; lpsz: PTChar): Bool;
 begin
   Result := Bool( SendMessage(hwndTV, TVM_GETISEARCHSTRING, 0,
-    Longint(lpsz)) );
+    TIntPtr(lpsz)) );
 end;
 
 function TreeView_SetToolTips(wnd: HWND; hwndTT: HWND): HWND;
@@ -6231,12 +6231,12 @@ end;
 
 function MonthCal_GetCurSel(hmc: HWND; var pst: TSystemTime): BOOL;
 begin
-  Result := BOOL(SendMessage(hmc, MCM_GETCURSEL, 0, Longint(@pst)));
+  Result := BOOL(SendMessage(hmc, MCM_GETCURSEL, 0, TIntPtr(@pst)));
 end;
 
 function MonthCal_SetCurSel(hmc: HWND; const pst: TSystemTime): BOOL;
 begin
-  Result := BOOL(SendMessage(hmc, MCM_SETCURSEL, 0, Longint(@pst)));
+  Result := BOOL(SendMessage(hmc, MCM_SETCURSEL, 0, TIntPtr(@pst)));
 end;
 
 function MonthCal_GetMaxSelCount(hmc: HWND): DWORD;
@@ -6251,42 +6251,42 @@ end;
 
 function MonthCal_GetSelRange(hmc: HWND; rgst: PSystemTime): BOOL;
 begin
-  Result := BOOL(SendMessage(hmc, MCM_GETSELRANGE, 0, Longint(rgst)));
+  Result := BOOL(SendMessage(hmc, MCM_GETSELRANGE, 0, TIntPtr(rgst)));
 end;
 
 function MonthCal_SetSelRange(hmc: HWND; rgst: PSystemTime): BOOL;
 begin
-  Result := BOOL(SendMessage(hmc, MCM_SETSELRANGE, 0, Longint(rgst)));
+  Result := BOOL(SendMessage(hmc, MCM_SETSELRANGE, 0, TIntPtr(rgst)));
 end;
 
 function MonthCal_GetMonthRange(hmc: HWND; gmr: DWORD; rgst: PSystemTime): DWORD;
 begin
-  Result := SendMessage(hmc, MCM_GETMONTHRANGE, gmr, Longint(rgst));
+  Result := SendMessage(hmc, MCM_GETMONTHRANGE, gmr, TIntPtr(rgst));
 end;
 
 function MonthCal_SetDayState(hmc: HWND; cbds: Integer; const rgds: TNMDayState): BOOL;
 begin
-  Result := BOOL(SendMessage(hmc, MCM_SETDAYSTATE, cbds, Longint(@rgds)));
+  Result := BOOL(SendMessage(hmc, MCM_SETDAYSTATE, cbds, TIntPtr(@rgds)));
 end;
 
 function MonthCal_GetMinReqRect(hmc: HWND; var prc: TRect): BOOL;
 begin
-  Result := BOOL(SendMessage(hmc, MCM_GETMINREQRECT, 0, Longint(@prc)));
+  Result := BOOL(SendMessage(hmc, MCM_GETMINREQRECT, 0, TIntPtr(@prc)));
 end;
 
 function MonthCal_SetToday(hmc: HWND; const pst: TSystemTime): BOOL;
 begin
-  Result := BOOL(SendMessage(hmc, MCM_SETTODAY, 0, Longint(@pst)));
+  Result := BOOL(SendMessage(hmc, MCM_SETTODAY, 0, TIntPtr(@pst)));
 end;
 
 function MonthCal_GetToday(hmc: HWND; var pst: TSystemTime): BOOL;
 begin
-  Result := BOOL(SendMessage(hmc, MCM_GETTODAY, 0, Longint(@pst)));
+  Result := BOOL(SendMessage(hmc, MCM_GETTODAY, 0, TIntPtr(@pst)));
 end;
 
 function MonthCal_HitTest(hmc: HWND; var info: TMCHitTestInfo): DWORD;
 begin
-  Result := SendMessage(hmc, MCM_HITTEST, 0, Longint(@info));
+  Result := SendMessage(hmc, MCM_HITTEST, 0, TIntPtr(@info));
 end;
 
 function MonthCal_SetColor(hmc: HWND; iColor: Integer; clr: TColorRef): TColorRef;
@@ -6311,12 +6311,12 @@ end;
 
 function MonthCal_GetRange(hmc: HWND; rgst: PSystemTime): DWORD;
 begin
-  Result := SendMessage(hmc, MCM_GETRANGE, 0, Longint(rgst));
+  Result := SendMessage(hmc, MCM_GETRANGE, 0, TIntPtr(rgst));
 end;
 
 function Monthcal_SetRange(hmc: HWND; gdtr: DWORD; rgst: PSystemTime): BOOL;
 begin
-  Result := BOOL(SendMessage(hmc, MCM_SETRANGE, gdtr, Longint(rgst)));
+  Result := BOOL(SendMessage(hmc, MCM_SETRANGE, gdtr, TIntPtr(rgst)));
 end;
 
 function MonthCal_GetMonthDelta(hmc: HWND): Integer;
@@ -6348,37 +6348,37 @@ end;
 
 function DateTime_GetSystemTime(hdp: HWND; var pst: TSystemTime): DWORD;
 begin
-  Result := SendMessage(hdp, DTM_GETSYSTEMTIME, 0, Longint(@pst));
+  Result := SendMessage(hdp, DTM_GETSYSTEMTIME, 0, TIntPtr(@pst));
 end;
 
 function DateTime_SetSystemTime(hdp: HWND; gd: DWORD; const pst: TSystemTime): BOOL;
 begin
-  Result := BOOL(SendMessage(hdp, DTM_SETSYSTEMTIME, gd, Longint(@pst)));
+  Result := BOOL(SendMessage(hdp, DTM_SETSYSTEMTIME, gd, TIntPtr(@pst)));
 end;
 
 function DateTime_GetRange(hdp: HWND; rgst: PSystemTime): DWORD;
 begin
-  Result := SendMessage(hdp, DTM_GETRANGE, 0, Longint(rgst));
+  Result := SendMessage(hdp, DTM_GETRANGE, 0, TIntPtr(rgst));
 end;
 
 function DateTime_SetRange(hdp: HWND; gdtr: DWORD; rgst: PSystemTime): BOOL;
 begin
-  Result := BOOL(SendMessage(hdp, DTM_SETRANGE, gdtr, Longint(rgst)));
+  Result := BOOL(SendMessage(hdp, DTM_SETRANGE, gdtr, TIntPtr(rgst)));
 end;
 
 function DateTime_SetFormatA(hdp: HWND; sz: PAnsiChar): BOOL;
 begin
-  Result := BOOL(SendMessageA(hdp, DTM_SETFORMATA, 0, Longint(sz)));
+  Result := BOOL(SendMessageA(hdp, DTM_SETFORMATA, 0, TIntPtr(sz)));
 end;
 
 function DateTime_SetFormatW(hdp: HWND; sz: PWideChar): BOOL;
 begin
-  Result := BOOL(SendMessageW(hdp, DTM_SETFORMATW, 0, Longint(sz)));
+  Result := BOOL(SendMessageW(hdp, DTM_SETFORMATW, 0, TIntPtr(sz)));
 end;
 
 function DateTime_SetFormat(hdp: HWND; sz: PTChar): BOOL;
 begin
-  Result := BOOL(SendMessage(hdp, DTM_SETFORMAT, 0, Longint(sz)));
+  Result := BOOL(SendMessage(hdp, DTM_SETFORMAT, 0, TIntPtr(sz)));
 end;
 
 function DateTime_SetMonthCalColor(hdp: HWND; iColor: DWORD; clr: TColorRef): TColorRef;

@@ -6,6 +6,9 @@ interface
 
   uses
     Windows,
+   {$ifdef bMemCheck}
+    MixMemCheck,
+   {$endif bMemCheck}
     MixTypes,
     MixDebug;
 
@@ -121,8 +124,8 @@ interface
   procedure TraceInitInfo;
   var
     vStr, vStr1 :TString;
-(*  vManagerName, vModuleName :TString;
-    vDebugMode :Boolean; *)
+//  vManagerName, vModuleName :TString;
+//  vDebugMode :Boolean;
     vPtr :PTChar;
   begin
 //  if IsMainInstance then begin
@@ -154,6 +157,11 @@ interface
    {$else}
     vStr := vStr + 'FreePascal ';
    {$endif b64}
+   
+    if IsMultiThread then
+      vStr := vStr + 'MT '
+    else
+      vStr := vStr + '!!!ST ';
 
    {ifopt O+ - не работает}
    {$ifdef bOptimization}

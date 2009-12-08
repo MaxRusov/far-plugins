@@ -11,8 +11,6 @@ uses
 
 
 type
-  TDateTime = Double;
-
   PDayTable = ^TDayTable;
   TDayTable = array[1..12] of Word;
 
@@ -46,6 +44,8 @@ type
   TFloatValue = (fvExtended, fvCurrency, fvSingle, fvReal, fvDouble, fvComp);
 
 Function Format (Const Fmt :TString; const Args : Array of const) :TString;
+
+function FormatFloat(const Format :TString; Value :Extended) :TString;
 
 Function FloatToStrF(Value: Extended; format: TFloatFormat; Precision, Digits: Integer) :TString;
 
@@ -277,34 +277,6 @@ begin
 end;
 
 
-function IntToStr(AInt :Integer) :TString;
-{$ifdef bDelphi12}
-var
-  vTmp :ShortString;
-begin
-  Str(AInt, vTmp);
-  Result := TString(vTmp);
-{$else}
-begin
-  Str(AInt, Result);
-{$endif bDelphi12}
-end;
-
-
-function Int64ToStr(AInt :Int64) :TString;
-{$ifdef bDelphi12}
-var
-  vTmp :ShortString;
-begin
-  Str(AInt, vTmp);
-  Result := TString(vTmp);
-{$else}
-begin
-  Str(AInt, Result);
-{$endif bDelphi12}
-end;
-
-
 function Space(ASize :Integer) :TString;
 begin
 //SetString(Result, nil, ASize);
@@ -329,7 +301,7 @@ begin
    feInvalidFormat : raise EConvertError.CreateResFmt(@SInvalidFormat,[s]);
    feMissingArgument : raise EConvertError.CreateResFmt(@SArgumentMissing,[s]);
    feInvalidArgIndex : raise EConvertError.CreateResFmt(@SInvalidArgIndex,[s]);
- end;
+  end;
 end;
 
 
@@ -560,7 +532,6 @@ begin
               else if CheckArg(vtExtended,true) then
                 ToAdd:=FloatToStrF(Args[doarg].VExtended^,ffNumber,9999,Prec);
               end;
-
         'M' : begin
               if CheckArg(vtExtended,false) then
                 ToAdd:=FloatToStrF(Args[doarg].VExtended^,ffCurrency,9999,Prec)
@@ -659,13 +630,30 @@ begin
 end;
 
 
-Function FloatToStrF(Value: Extended; format: TFloatFormat; Precision, Digits: Integer) :TString;
+{!!! ”прощенно}
+
+function FormatFloat(const Format :TString; Value :Extended) :TString;
+var
+  vPrecision :Integer;
+  vPtr :PTChar;
 begin
-  {!!!}
-(*Result := FloatToStrF(Value,Format,Precision,Digits,DefaultFormatSettings);*)
-  Result := '';
+  vPrecision := 0;
+  vPtr := StrScan(PTChar(Format), '.');
+  if vPtr <> nil then begin
+    Inc(vPtr);
+    while vPtr^ = '0' do begin
+      Inc(vPrecision);
+      Inc(vPtr);
+    end;
+  end;
+  Str(Value:1:vPrecision, Result);
 end;
 
+
+Function FloatToStrF(Value :Extended; Format :TFloatFormat; Precision, Digits :Integer) :TString;
+begin
+  Str(Value:Precision:Digits, Result);
+end;
 
 
 initialization

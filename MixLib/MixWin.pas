@@ -25,6 +25,34 @@ interface
     TBS_TRANSPARENTBKGND = $1000;
 
   type
+    TColor  = Integer;
+    TFontStyle = (fsBold, fsItalic, fsUnderline, fsStrikeOut);
+    TFontStyles = set of TFontStyle;
+
+  const
+    clBlack = TColor($000000);
+    clMaroon = TColor($000080);
+    clGreen = TColor($008000);
+    clOlive = TColor($008080);
+    clNavy = TColor($800000);
+    clPurple = TColor($800080);
+    clTeal = TColor($808000);
+    clGray = TColor($808080);
+    clSilver = TColor($C0C0C0);
+    clRed = TColor($0000FF);
+    clLime = TColor($00FF00);
+    clYellow = TColor($00FFFF);
+    clBlue = TColor($FF0000);
+    clFuchsia = TColor($FF00FF);
+    clAqua = TColor($FFFF00);
+    clLtGray = TColor($C0C0C0);
+    clDkGray = TColor($808080);
+    clWhite = TColor($FFFFFF);
+    clNone = TColor($1FFFFFFF);
+    clDefault = TColor($20000000);
+
+
+  type
     TCreateParams = record
       Caption :PTChar;
       Style :DWORD;
@@ -56,7 +84,7 @@ interface
       procedure SetWindowSize(CX, CY :Integer);
       function GetBoundsRect :TRect;
 
-      function Perform(Msg :Cardinal; WParam, LParam :Longint) :Longint;
+      function Perform(Msg :UINT; WParam :WPARAM; LParam :LPARAM) :LRESULT;
       procedure DefaultHandler(var Mess); override;
 
     protected
@@ -132,6 +160,19 @@ interface
     end;
 
 
+  function WinCreateFont(const AName :TString; ASize :Integer; AStyle :TFontStyles) :HFont;
+
+  const
+    WS_EX_LAYERED = $00080000;
+    LWA_COLORKEY = $00000001;
+    LWA_ALPHA = $00000002;
+
+  var
+    SetLayeredWindowAttributes :function(Hwnd: THandle; crKey: COLORREF; bAlpha: Byte; dwFlags: DWORD): Boolean; stdcall = nil;
+    
+  procedure InitLayeredWindow;
+
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -140,29 +181,27 @@ interface
     MixDebug;
 
 
-  function InitWndProc(HWindow: HWnd; Msg, WParam, LParam: Longint) :Longint; stdcall;
+  function InitWndProc(HWindow :HWnd; Msg :UINT; WParam :WPARAM; LParam :LPARAM) :LRESULT; stdcall;
   var
     vObj :TMSWindow;
     vMess :TMessage;
   begin
+//  TraceF('InitWndProc: hWnd=%d, Msg=%d', [HWindow, Msg]);
+
     if Msg = WM_NCCreate then begin
       vObj := PCreateStruct(LParam).lpCreateParams;
       vObj.FHandle := HWindow;
-      SetWindowLong(HWindow, GWL_USERDATA, Integer(vObj));
+      SetWindowLongPtr(HWindow, GWLP_USERDATA, TIntPtr(vObj));
     end else
-      vObj := Pointer(GetWindowLong(HWindow, GWL_USERDATA));
+      vObj := Pointer(GetWindowLongPtr(HWindow, GWLP_USERDATA));
 
     if vObj <> nil then begin
-
       vMess.Msg := Msg;
       vMess.WParam := WParam;
       vMess.LParam := LParam;
       vMess.Result := 0;
-
       vObj.MainWndProc(vMess);
-
       Result := vMess.Result;
-
     end else
       Result := DefWindowProc(HWindow, Msg, wParam, lParam);
   end;
@@ -264,7 +303,7 @@ interface
 
   procedure TMSWindow.MainWndProc(var Mess :TMessage);
   begin
-//  TraceF('TMSWindow.MainWndProc: %s', [WindowMessage2Str(Mess.Msg)]);
+//  TraceF('TMSWindow.MainWndProc: %d', [Mess.Msg {WindowMessage2Str(Mess.Msg)}]);
     try
       WndProc(Mess);
     except
@@ -294,7 +333,7 @@ interface
   end;
 
 
-  function TMSWindow.Perform(Msg :Cardinal; WParam, LParam :Longint) :Longint;
+  function TMSWindow.Perform(Msg :UINT; WParam :WPARAM; LParam :LPARAM) :LRESULT;
   var
     vMess :TMessage;
   begin
@@ -477,7 +516,7 @@ interface
     vInfo.dwMask := TBIF_IMAGE;
     vInfo.iImage := AImageID;
 //  Perform(TB_GETBUTTONINFO, AID, Integer(@vInfo));
-    Perform(TB_SETBUTTONINFO, AID, Integer(@vInfo));
+    Perform(TB_SETBUTTONINFO, AID, LPARAM(@vInfo));
   end;
 
 
@@ -495,6 +534,56 @@ interface
   begin
     inherited CreateParams(AParams);
     CreateSubClass(AParams, 'SysListView32');
+  end;
+
+
+
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
+
+  function WinCreateFont(const AName :TString; ASize :Integer; AStyle :TFontStyles) :HFont;
+  var
+    vDC :HDC;
+    vHeight, vPPI :Integer;
+  begin
+    vDC := CreateCompatibleDC(0);
+    vPPI := GetDeviceCaps(vDC, LogPixelsY);
+    DeleteDC(vDC);
+
+    vHeight := MulDiv(ASize, vPPI, 72);
+    Result := CreateFont(
+      {lfHeight}         -vHeight,
+      {lfWidth}          0,
+      {lfEscapement}     0,
+      {lfOrientation}    0,
+      {lfWeight}         IntIf(fsBold in AStyle, FW_Bold, FW_Normal),
+      {lfItalic}         IntIf(fsItalic in AStyle, 1, 0),
+      {lfUnderline}      IntIf(fsUnderline in AStyle, 1, 0),
+      {lfStrikeOut}      IntIf(fsStrikeOut in AStyle, 1, 0),
+      {lfCharSet}        DEFAULT_CHARSET,
+      {lfOutPrecision}   OUT_DEFAULT_PRECIS,
+      {lfClipPrecision}  CLIP_DEFAULT_PRECIS,
+      {lfQuality}        DEFAULT_QUALITY,
+      {lfPitchAndFamily} DEFAULT_PITCH,
+      {lfFaceName}       PTChar(AName)
+    );  
+  end;
+
+
+  var
+    LayeredWindowInited :Boolean;
+
+  procedure InitLayeredWindow;
+  var
+    ModH: HMODULE;
+  begin
+    if not LayeredWindowInited then begin
+      ModH := GetModuleHandle(user32);
+      if ModH <> 0 then
+        @SetLayeredWindowAttributes := GetProcAddress(ModH, 'SetLayeredWindowAttributes');
+      LayeredWindowInited := True;
+    end; 
   end;
 
 end.

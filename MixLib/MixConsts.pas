@@ -18,7 +18,7 @@ resourcestring
   SInternalError         = 'Internal error %d at %p';
   STimeEncodeError       = 'Invalid argument to time encode';
   SDateEncodeError       = 'Invalid argument to date encode';
-  SOSError               = 'System error, (OS Code %d):'+LineEnding+'%s';
+  SOSError               = 'System error (OS Code %d):'+LineEnding+'%s';
   SUnkOSError            = 'An operating system call failed.';
   SInvalidFormat         = 'Invalid format specifier : "%s"';
   SArgumentMissing       = 'Missing argument in format "%s"';
