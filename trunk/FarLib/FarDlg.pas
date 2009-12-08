@@ -142,6 +142,7 @@ interface
   var
     vDialog :TFarDialog;
   begin
+//  TraceF('ApiDlgProc: hDlg=%d, Msg=%d, Param1=%d, Param2=%d', [hDlg, Msg, Param1, Param2]);
     if Msg = DN_INITDIALOG then begin
       FARAPI.SendDlgMessage(hDlg, DM_SETDLGDATA, 0, Param2);
       TIntPtr(vDialog) := Param2;

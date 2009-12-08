@@ -357,7 +357,6 @@ interface
       vRowColor := FSelColor;
     if Assigned(FOnGetCellColor) then
       FOnGetCellColor(Self, -1, ARow, vRowColor);
-
     for I := 0 to FColumns.Count - 1 do begin
       vColumn := FColumns[I];
       vWidth := vColumn.FRealWidth;
@@ -438,6 +437,7 @@ interface
       Inc(vRow);
       Inc(Y);
     end;
+
 
     if vRow < FDeltaY + vHeight then begin
       FillFarChar(FRowBuf, vWidth, ' ');
