@@ -1,3 +1,3 @@
 @Echo off
 
-call _CompileAll Dcc*.bat %*
+call _CompileAll Dcc*.bat -dAnsi %*
