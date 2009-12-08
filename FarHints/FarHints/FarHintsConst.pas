@@ -47,7 +47,7 @@ interface
     HSplit1 = 4;  { ўель между картинкой и надписью }
     HSplit2 = 4;  { ўель между prompt'ом и строкой }
 
-    cPluginGUID       = $87654321;
+    cPluginGUID       = $544e4948;
 
     RegFolder         = 'FarHints';
     RegPluginsFolder  = 'Plugins';

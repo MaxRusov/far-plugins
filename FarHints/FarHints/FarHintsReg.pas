@@ -54,8 +54,8 @@ interface
 
      {$ifdef bSynchroCall}
      {$else}
-      FarHintsKey := RegQueryInt(vKey, 'CallKey2', FarHintsKey);  {!!!}
-      FarHintsShift := RegQueryInt(vKey, 'CallShift2', FarHintsShift);
+      FarHintsKey := RegQueryInt(vKey, 'CallKey', FarHintsKey);
+      FarHintsShift := RegQueryInt(vKey, 'CallShift', FarHintsShift);
      {$endif bSynchroCall}
 
     finally

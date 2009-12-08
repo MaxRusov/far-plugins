@@ -13,4 +13,4 @@ brcc32 FarHintsW.rc || exit
 dcc32.exe -B FarHints.dpr %* || exit
 
 copy Doc\* %BinPath%
-if /i "%1"=="-dunicode" (copy DocW\* %BinPath%)
+if /i "%1"=="-dansi" (copy DocA\* %BinPath%) else (copy DocW\* %BinPath%)
