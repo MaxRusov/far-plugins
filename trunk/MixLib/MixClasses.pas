@@ -56,6 +56,22 @@ interface
 
 
   type
+    TComBasis = class(TBasis, IUnknown)
+    public
+      function _AddRef :Integer; virtual; stdcall;
+      function _Release :Integer; virtual; stdcall;
+      function QueryInterface(const IID: TGUID; out Obj) :HResult; virtual; stdcall;
+
+    protected
+      FRefCount :Integer;
+
+    public
+      property RefCount :Integer read FRefCount;
+    end;
+
+
+
+  type
     TDuplicates = (
       dupIgnore,
       dupAccept,
@@ -107,8 +123,11 @@ interface
 
       procedure Delete(AIndex: Integer);
       procedure DeleteRange(AIndex, ACount :Integer);
-      function Remove(Item: Pointer): Integer;
+
+      procedure Remove(AIndex :Integer);
+      function RemoveItem(Item :Pointer) :Integer;
       function RemoveData(const Item) :Integer;
+      procedure RemoveRange(AIndex, ACount :Integer);
 
       procedure ReplaceRangeFrom(const ABuffer; AIndex, AOldCount, ANewCount :Integer);
 
@@ -147,8 +166,6 @@ interface
       procedure ItemToStream(PItem :Pointer; Stream :TStream); virtual;
       procedure ItemFromStream(PItem :Pointer; Stream :TStream); virtual;
      {$endif bUseStreams}
-
-      procedure RemoveRange(AIndex, ACount :Integer);
 
     protected
       function  GetItems(Index :Integer) :Pointer;
@@ -403,6 +420,41 @@ interface
     end;
 
 
+  type
+    TWaitResult = (wrSignaled, wrTimeout, wrAbandoned, wrError);
+
+    TEvent = class(TBasis)
+    public
+      constructor Create; override;
+      constructor CreateEx(EventAttributes: PSecurityAttributes; ManualReset, InitialState :Boolean; const Name :TString);
+      destructor Destroy; override;
+
+      function WaitFor(Timeout: DWORD): TWaitResult;
+      procedure SetEvent;
+      procedure ResetEvent;
+
+    private
+      FHandle :THandle;
+      FLastError :Integer;
+
+    public
+      property Handle :THandle read FHandle;
+      property LastError :Integer read FLastError;
+    end;
+
+    TCriticalSection = class(TBasis)
+    public
+      constructor Create; override;
+      destructor Destroy; override;
+
+      procedure Enter;
+      procedure Leave;
+
+    private
+      FSection :TRTLCriticalSection;
+    end;
+
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -532,6 +584,33 @@ interface
     {Nothing}
   end;
  {$endif bUseStreams}
+
+
+ {-----------------------------------------------------------------------------}
+ { TComBasis                                                                   }
+ {-----------------------------------------------------------------------------}
+
+  function TComBasis._AddRef :TInt32; {virtual;}
+  begin
+    Result := InterlockedIncrement(FRefCount);
+  end;
+
+
+  function TComBasis._Release :TInt32; {virtual;}
+  begin
+    Result := InterlockedDecrement(FRefCount);
+    if Result = 0 then
+      Destroy;
+  end;
+
+
+  function TComBasis.QueryInterface(const IID: TGUID; out Obj) :HResult; {virtual;}
+  begin
+    if GetInterface(IID, Obj) then
+      Result := S_OK
+    else
+      Result := E_NoInterface;
+  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -675,7 +754,7 @@ interface
   end;
 
 
-  procedure TExList.Delete(AIndex: Integer);
+  procedure TExList.Delete(AIndex :Integer);
   begin
     DeleteRange(AIndex, 1)
   end;
@@ -702,7 +781,13 @@ interface
   end;
 
 
-  function TExList.Remove(Item :Pointer) :Integer;
+  procedure TExList.Remove(AIndex :Integer);
+  begin
+    RemoveRange(AIndex, 1)
+  end;
+
+
+  function TExList.RemoveItem(Item :Pointer) :Integer;
   begin
     Assert(FItemSize = SizeOf(Pointer));
     Result := RemoveData(Item);
@@ -1851,6 +1936,81 @@ interface
         QS_SENDMESSAGE) = WAIT_OBJECT_0 + 1 do PeekMessage(Msg, 0, 0, 0, PM_NOREMOVE)
     else WaitForSingleObject(H, INFINITE);
     GetExitCodeThread(H, Result);
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TEvent                                                                      }
+ {-----------------------------------------------------------------------------}
+
+  constructor TEvent.Create; {override;}
+  begin
+    FHandle := CreateEvent(nil, True, False, nil);
+  end;
+
+  constructor TEvent.CreateEx(EventAttributes: PSecurityAttributes; ManualReset, InitialState :Boolean; const Name :TString);
+  begin
+    FHandle := CreateEvent(EventAttributes, ManualReset, InitialState, PTChar(Name));
+  end;
+
+  destructor TEvent.Destroy; {override;}
+  begin
+    CloseHandle(FHandle);
+    inherited Destroy;
+  end;
+
+  function TEvent.WaitFor(Timeout :DWORD) :TWaitResult;
+  begin
+    case WaitForSingleObject(Handle, Timeout) of
+      WAIT_ABANDONED:
+        Result := wrAbandoned;
+      WAIT_OBJECT_0:
+        Result := wrSignaled;
+      WAIT_TIMEOUT:
+        Result := wrTimeout;
+      WAIT_FAILED:
+        begin
+          Result := wrError;
+          FLastError := GetLastError;
+        end;
+    else
+      Result := wrError;
+    end;
+  end;
+
+  procedure TEvent.SetEvent;
+  begin
+    Windows.SetEvent(Handle);
+  end;
+
+  procedure TEvent.ResetEvent;
+  begin
+    Windows.ResetEvent(Handle);
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TCriticalSection                                                            }
+ {-----------------------------------------------------------------------------}
+
+  constructor TCriticalSection.Create; {override;}
+  begin
+    InitializeCriticalSection(FSection);
+  end;
+
+  destructor TCriticalSection.Destroy; {override;}
+  begin
+    DeleteCriticalSection(FSection);
+  end;
+
+  procedure TCriticalSection.Enter;
+  begin
+    EnterCriticalSection(FSection);
+  end;
+
+  procedure TCriticalSection.Leave;
+  begin
+    LeaveCriticalSection(FSection);
   end;
 
 

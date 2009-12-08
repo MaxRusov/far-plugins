@@ -697,6 +697,7 @@ interface
   end;
 
 
+(*
   function CardinalToString(Num :TUnsPtr; AGroup :Integer) :TString;
   var
     I, R :Integer;
@@ -718,25 +719,17 @@ interface
     until Num = 0;
     SetStringBackLight(Result, @Str[0], I);
   end;
-
+*)
 
   function Int2Str(Num :Integer) :TString;
   begin
-   {$ifdef b64}
-    Result := Int64ToString(Num, 0);
-   {$else}
     Result := Int32ToString(Num, 0);
-   {$endif b64}
   end;
 
 
   function Int2StrEx(Num :Integer) :TString;
   begin
-   {$ifdef b64}
-    Result := Int64ToString(Num, 3);
-   {$else}
     Result := Int32ToString(Num, 3);
-   {$endif b64}
   end;
 
 

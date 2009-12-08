@@ -73,6 +73,14 @@ type
   THandle = TUnsPtr;
   PHandle = ^THandle;
 
+  // From BaseTsd.h
+  INT_PTR = TIntPtr;
+  LONG_PTR = TIntPtr;
+  UINT_PTR = TUnsPtr;
+  ULONG_PTR = TUnsPtr;
+  DWORD_PTR = TUnsPtr;
+  HANDLE_PTR = TUnsPtr;
+
 const
   MAX_PATH = 260;
 
@@ -1483,7 +1491,7 @@ type
     RecursionCount: Longint;
     OwningThread: THandle;
     LockSemaphore: THandle;
-    Reserved: DWORD;
+    SpinCount: ULONG_PTR;
   end;
   TRTLCriticalSection = _RTL_CRITICAL_SECTION;
   RTL_CRITICAL_SECTION = _RTL_CRITICAL_SECTION;
@@ -1610,9 +1618,9 @@ const
 { END Translated from WINNT.H }
 
 type
-  WPARAM = Longint;
-  LPARAM = Longint;
-  LRESULT = Longint;
+  WPARAM = TIntPtr;
+  LPARAM = TIntPtr;
+  LRESULT = TIntPtr;
 
 function MakeWord(a, b: Byte): Word;
 function MakeLong(a, b: Word): Longint;
@@ -2583,11 +2591,14 @@ type
   TOFStruct = _OFSTRUCT;
   OFSTRUCT = _OFSTRUCT;
 
+{$ifdef b64}
+{$else}
 function InterlockedIncrement(var Addend: Integer): Integer; stdcall;
 function InterlockedDecrement(var Addend: Integer): Integer; stdcall;
 function InterlockedExchange(var Target: Integer; Value: Integer): Integer; stdcall;
 function InterlockedCompareExchange(var Destination: Pointer; Exchange: Pointer; Comperand: Pointer): Pointer stdcall;
 function InterlockedExchangeAdd(Addend: PLongint; Value: Longint): Longint stdcall;
+{$endif b64}
 
 function FreeResource(hResData: HGLOBAL): BOOL; stdcall;
 function LockResource(hResData: HGLOBAL): Pointer; stdcall;
@@ -8264,7 +8275,7 @@ type
 
 { Bitmap Header Definition }
   PBitmap = ^TBitmap;
-  tagBITMAP = packed record
+  tagBITMAP = record
     bmType: Longint;
     bmWidth: Longint;
     bmHeight: Longint;
@@ -12607,7 +12618,7 @@ type
   PCreateStructA = ^TCreateStructA;
   PCreateStructW = ^TCreateStructW;
   PCreateStruct = PCreateStructA;
-  tagCREATESTRUCTA = packed record
+  tagCREATESTRUCTA = record
     lpCreateParams: Pointer;
     hInstance: HINST;
     hMenu: HMENU;
@@ -12621,7 +12632,7 @@ type
     lpszClass: PAnsiChar;
     dwExStyle: DWORD;
   end;
-  tagCREATESTRUCTW = packed record
+  tagCREATESTRUCTW = record
     lpCreateParams: Pointer;
     hInstance: HINST;
     hMenu: HMENU;
@@ -12963,7 +12974,7 @@ type
   PWndClassW = ^TWndClassW;
   PWndClass = {$ifdef bUnicode}PWndClassW{$else}PWndClassA{$endif bUnicode};
 
-  tagWNDCLASSA = packed record
+  tagWNDCLASSA = record
     style: UINT;
     lpfnWndProc: TFNWndProc;
     cbClsExtra: Integer;
@@ -12975,7 +12986,7 @@ type
     lpszMenuName: PAnsiChar;
     lpszClassName: PAnsiChar;
   end;
-  tagWNDCLASSW = packed record
+  tagWNDCLASSW = record
     style: UINT;
     lpfnWndProc: TFNWndProc;
     cbClsExtra: Integer;
@@ -12999,7 +13010,7 @@ type
 
 { Message structure }
   PMsg = ^TMsg;
-  tagMSG = packed record
+  tagMSG = record
     hwnd: HWND;
     message: UINT;
     wParam: WPARAM;
@@ -13506,7 +13517,7 @@ type
   ACCEL = tagACCEL;
 
   PPaintStruct = ^TPaintStruct;
-  tagPAINTSTRUCT = packed record
+  tagPAINTSTRUCT = record
     hdc: HDC;
     fErase: BOOL;
     rcPaint: TRect;
@@ -13518,7 +13529,7 @@ type
   PAINTSTRUCT = tagPAINTSTRUCT;
 
   PWindowPlacement = ^TWindowPlacement;
-  tagWINDOWPLACEMENT = packed record
+  tagWINDOWPLACEMENT = record
     length: UINT;
     flags: UINT;
     showCmd: UINT;
@@ -15313,7 +15324,7 @@ function SetSystemCursor(hcur: HICON; id: DWORD): BOOL; stdcall;
 
 type
   PIconInfo = ^TIconInfo;
-  _ICONINFO = packed record
+  _ICONINFO = record
     fIcon: BOOL;
     xHotspot: DWORD;
     yHotspot: DWORD;
@@ -17521,7 +17532,7 @@ const
 
 type
   PMouseEventRecord = ^TMouseEventRecord;
-  _MOUSE_EVENT_RECORD = packed record
+  _MOUSE_EVENT_RECORD = record
     dwMousePosition: TCoord;
     dwButtonState: DWORD;
     dwControlKeyState: DWORD;
@@ -18837,6 +18848,24 @@ function HwndMSWheel(var puiMsh_MsgMouseWheel, puiMsh_Msg3DSupport,
   puiMsh_MsgScrollLines: UINT; var pf3DSupport: BOOL;
   var piScrollLines: Integer): HWND;
 
+//64-Bit longpointer constants
+
+const
+  GWLP_WNDPROC = -4;
+  GWLP_HINSTANCE = -6;
+  GWLP_HWNDPARENT = -8;
+  GWLP_USERDATA = -21;
+  GWLP_ID = -12;
+
+function GetWindowLongPtr(hWnd: HWND; nIndex: Integer): LONG_PTR; stdcall;
+function GetWindowLongPtrA(hWnd: HWND; nIndex: Integer): LONG_PTR; stdcall;
+function GetWindowLongPtrW(hWnd: HWND; nIndex: Integer): LONG_PTR; stdcall;
+
+function SetWindowLongPtr(hWnd: HWND; nIndex: Integer; dwNewLong: LONG_PTR): LONG_PTR; stdcall;
+function SetWindowLongPtrA(hWnd: HWND; nIndex: Integer; dwNewLong: LONG_PTR): LONG_PTR; stdcall;
+function SetWindowLongPtrW(hWnd: HWND; nIndex: Integer; dwNewLong: LONG_PTR): LONG_PTR; stdcall;
+
+
 const
   advapi32  = 'advapi32.dll';
   kernel32  = 'kernel32.dll';
@@ -19300,11 +19329,14 @@ function FreeEnvironmentStringsW; external kernel32 name 'FreeEnvironmentStrings
 function FreeEnvironmentStrings; external kernel32 name 'FreeEnvironmentStrings'+_X;
 function FreeLibrary; external kernel32 name 'FreeLibrary';
 procedure FreeLibraryAndExitThread; external kernel32 name 'FreeLibraryAndExitThread';
-function InterlockedCompareExchange; external kernel32 name 'InterlockedCompareExchange';
+{$ifdef b64}
+{$else}
+function InterlockedIncrement; external kernel32 name 'InterlockedIncrement';
 function InterlockedDecrement; external kernel32 name 'InterlockedDecrement';
 function InterlockedExchange; external kernel32 name 'InterlockedExchange';
+function InterlockedCompareExchange; external kernel32 name 'InterlockedCompareExchange';
 function InterlockedExchangeAdd; external kernel32 name 'InterlockedExchangeAdd';
-function InterlockedIncrement; external kernel32 name 'InterlockedIncrement';
+{$endif b64}
 function FreeResource; external kernel32 name 'FreeResource';
 function GenerateConsoleCtrlEvent; external kernel32 name 'GenerateConsoleCtrlEvent';
 function GetACP; external kernel32 name 'GetACP';
@@ -21046,6 +21078,26 @@ function wvsprintf; external user32 name 'wvsprintf'+_X;
 function WinLoadTrustProvider; external wintrust name 'WinLoadTrustProvider';
 function WinSubmitCertificate; external wintrust name 'WinSubmitCertificate';
 function WinVerifyTrust; external wintrust name 'WinVerifyTrust';
+
+{$ifdef b64}
+function GetWindowLongPtr; external user32 name 'GetWindowLongPtr'+_X;
+function GetWindowLongPtrA; external user32 name 'GetWindowLongPtrA';
+function GetWindowLongPtrW; external user32 name 'GetWindowLongPtrW';
+
+function SetWindowLongPtr; external user32 name 'SetWindowLongPtr'+_X;
+function SetWindowLongPtrA; external user32 name 'SetWindowLongPtrA';
+function SetWindowLongPtrW; external user32 name 'SetWindowLongPtrW';
+
+{$else}
+
+function GetWindowLongPtr; external user32 name 'GetWindowLong'+_X;
+function GetWindowLongPtrA; external user32 name 'GetWindowLongA';
+function GetWindowLongPtrW; external user32 name 'GetWindowLongW';
+
+function SetWindowLongPtr; external user32 name 'SetWindowLong'+_X;
+function SetWindowLongPtrA; external user32 name 'SetWindowLongA';
+function SetWindowLongPtrW; external user32 name 'SetWindowLongW';
+{$endif b64}
 
 
 { Translated from WINDEF.H }

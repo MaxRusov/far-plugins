@@ -1,3 +1,5 @@
+{$I Defines.inc}
+
       {******************************************************************}
       { GDI+ API                                                         }
       {                                                                  }
@@ -23,6 +25,10 @@ unit GDIPAPI;
 
 {$ALIGN ON}
 {$MINENUMSIZE 4}
+
+{$ifdef bFreePascal}
+ {$PACKRECORDS C} 
+{$endif bFreePascal}
 
 interface
 

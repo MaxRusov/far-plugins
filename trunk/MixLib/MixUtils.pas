@@ -43,6 +43,9 @@ interface
     PWordArray = ^TWordArray;
     TWordArray = array[0..16383] of Word;
 
+    PIntegerArray = ^TIntegerArray;
+    TIntegerArray = array[0..MaxInt div SizeOf(Integer) - 1] of Integer;
+
   { Type conversion records }
 
     WordRec = packed record
@@ -107,6 +110,10 @@ interface
 
   Function Format(const Fmt :TString; const Args : Array of const) :TString;
 
+  function IntToStr(AInt :Integer) :TString;
+  function Int64ToStr(AInt :Int64) :TString;
+  function HexStr(AVal :Int64; ACount :Integer) :TString;
+
   function LoadStr(Ident: Integer) :TString;
   function FmtLoadStr(Ident: Integer; const Args: array of const) :TString;
 
@@ -170,10 +177,7 @@ interface
   function AnsiQuotedStr(const S :TString; Quote :TChar) :TString;
   function AnsiExtractQuotedStr(var Src :PTChar; Quote :TChar) :TString;
 
-  function HexStr(AVal :Int64; ACount :Integer) :TString;
- {$ifdef bDelphi12}
-  function StringOfChar(AChar :TChar; ALen :Integer) :TString;
- {$endif bDelphi12}
+  function StringOfChar(AChr :TChar; ALen :Integer) :TString;
 
   procedure MemFill2(PBuf :Pointer; ACount :Integer; AFiller :Word);
   procedure MemFillChar(pBuf :Pointer; ACount :Integer; AChar :TChar);
@@ -203,6 +207,10 @@ interface
   function GetCurrentDir :TString;
   function SetCurrentDir(const Dir :TString): Boolean;
 
+  function LoadLibraryEx(const AName :TString; ARaise :Boolean = True) :THandle;
+  procedure FreeLibrarySafe(AModule :THandle);
+  function GetProcAddressEx(hDLL :THandle; const AProcName :TAnsiStr; ARaise :Boolean = True) :Pointer;
+
   procedure Beep;
 
   {$ifdef bFreePascal}
@@ -222,6 +230,7 @@ interface
     EUnderConstruction = class(TException);
 
   procedure FreeObj(var Obj {:TObject});
+  procedure FreeIntf(var Intf {:IUnknown});
 
   function MemAlloc(Size :Integer) :Pointer;
   function MemAllocZero(Size :Integer) :Pointer;
@@ -362,6 +371,50 @@ interface
     else
       raise Exception.CreateRes(@SNotImplemented);
   end;
+
+
+  function IntToStr(AInt :Integer) :TString;
+  {$ifdef bDelphi12}
+  var
+    vTmp :ShortString;
+  begin
+    Str(AInt, vTmp);
+    Result := TString(vTmp);
+  {$else}
+  begin
+    Str(AInt, Result);
+  {$endif bDelphi12}
+  end;
+
+
+  function Int64ToStr(AInt :Int64) :TString;
+  {$ifdef bDelphi12}
+  var
+    vTmp :ShortString;
+  begin
+    Str(AInt, vTmp);
+    Result := TString(vTmp);
+  {$else}
+  begin
+    Str(AInt, Result);
+  {$endif bDelphi12}
+  end;
+
+
+  const
+    HexChars :array[0..15] of TChar = ('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
+
+  function HexStr(AVal :Int64; ACount :Integer) :TString;
+  var
+    i :Integer;
+  begin
+    SetString(Result, nil, ACount);
+    for i := ACount downto 1 do begin
+      Result[i] := HexChars[AVal and $f];
+      AVal := AVal shr 4;
+    end;
+  end;
+
 
 
   function LoadStr(Ident :Integer) :TString;
@@ -547,8 +600,6 @@ interface
       Inc(Result);
     if (Result^ = #0) and (Chr <> #0) then
       Result := nil
-    else
-      NOP;
   end;
 
 
@@ -786,6 +837,7 @@ interface
     Result := Copy(S, 1, I);
   end;
 
+
   function AnsiStrLIComp(S1, S2 :PTChar; MaxLen: Cardinal): Integer;
   begin
     Result := CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE, S1, MaxLen, S2, MaxLen) - 2;
@@ -876,27 +928,14 @@ interface
   end;
 
 
-  const
-    HexChars :array[0..15] of TChar = ('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
-
-  function HexStr(AVal :Int64; ACount :Integer) :TString;
-  var
-    i :Integer;
+  function StringOfChar(AChr :TChar; ALen :Integer) :TString;
   begin
-    SetString(Result, nil, ACount);
-    for i := ACount downto 1 do begin
-      Result[i] := HexChars[AVal and $f];
-      AVal := AVal shr 4;
+    Result := '';
+    if ALen > 0 then begin
+      SetLength(Result, ALen);
+      MemFillChar(PTChar(Result), ALen, AChr);
     end;
   end;
-
-
- {$ifdef bDelphi12}
-  function StringOfChar(AChar :TChar; ALen :Integer) :TString;
-  begin
-    Result := System.StringOfChar(AChar, ALen)
-  end;
- {$endif bDelphi12}
 
 
  {-----------------------------------------------------------------------------}
@@ -1016,7 +1055,8 @@ interface
 
   function Win32Check(RetVal: BOOL): BOOL;
   begin
-    if not RetVal then RaiseLastWin32Error;
+    if not RetVal then
+      RaiseLastWin32Error;
     Result := RetVal;
   end;
 
@@ -1159,6 +1199,55 @@ interface
 
 {------------------------------------------------------------------------------}
 
+  function LoadLibraryEx(const AName :TString; ARaise :Boolean = True) :THandle;
+//var
+//  vTmp :Word;
+  begin
+//  asm
+//    FNSTCW vTmp
+//  end;
+//  try
+      Result := LoadLibrary(PTChar(AName));
+//  finally
+//    asm
+//      FNCLEX
+//      FLDCW vTmp
+//    end;
+//  end;
+
+    if (Result = 0) and ARaise then
+      RaiseLastWin32Error;
+  end;
+
+
+  procedure FreeLibrarySafe(AModule :THandle);
+//var
+//  vTmp :Word;
+  begin
+//  asm
+//    FNSTCW vTmp
+//  end;
+//  try
+      FreeLibrary(AModule);
+//  finally
+//    asm
+//      FNCLEX
+//      FLDCW vTmp
+//    end;
+//  end;
+  end;
+
+
+  function GetProcAddressEx(hDLL :THandle; const AProcName :TAnsiStr; ARaise :Boolean = True) :Pointer;
+  begin
+    Result := GetProcAddress(hDLL, PAnsiChar(AProcName));
+    if (Result = nil) and ARaise then
+      RaiseLastWin32Error;
+  end;
+
+
+{------------------------------------------------------------------------------}
+
   procedure FreeObj(var Obj {:TObject});
   var
     vTmp :TObject;
@@ -1167,6 +1256,18 @@ interface
       vTmp := TObject(Obj);
       TObject(Obj) := nil;
       vTmp.Destroy;
+    end;
+  end;
+
+
+  procedure FreeIntf(var Intf {:IUnknown});
+  var
+    vTmp :Pointer;
+  begin
+    if Pointer(Intf) <> nil then begin
+      vTmp := Pointer(Intf);
+      Pointer(Intf) := nil;
+      IUnknown(vTmp)._Release;
     end;
   end;
 
@@ -1327,7 +1428,7 @@ interface
 
  {$ifdef b64}
 
- {$ifdef Ver2_3}
+ {$ifdef bFPC23}
   function LocalAddr({rcx:@Result;} {rdx}Proc :Pointer) :TMethod; assembler; nostackframe;
   asm
     mov [rcx + 8], rbp
@@ -1339,7 +1440,7 @@ interface
     mov [rdx + 8], rbp
     mov [rdx], rcx
   end;
- {$endif Ver2_3}
+ {$endif bFPC23}
 
  {$else}
 

@@ -9,6 +9,15 @@ interface
     MixTypes,
     MixUtils;
 
+  procedure DebugBreak(AMess :PTChar);
+
+  function GetAllocAddr :Pointer;
+  procedure SetAllocAddr(Addr :Pointer);
+  function GetAndClearAllocAddr :Pointer;
+
+  function GetAllocFrame :Pointer;
+  procedure SetAllocFrame(Frame :Pointer);
+  function GetAndClearAllocFrame :Pointer;
 
   procedure SetReturnAddr;
   procedure SetReturnAddrNewInstance;
@@ -16,11 +25,18 @@ interface
   procedure TraceException(AAddr :Pointer; const AClass :TSysStr; const AMessage :TString);
 
  {$ifdef bTrace}
-  procedure TraceStr(AMsg :PAnsiChar);
-  procedure TraceStrF(AMsg :PAnsiChar; const Args: array of const);
+  procedure TraceStr(AMsg :PTChar);
+  procedure TraceStrA(AMsg :PAnsiChar);
+  procedure TraceStrW(AMsg :PWideChar);
+
+  procedure TraceStrF(AMsg :PTChar; const Args: array of const);
+  procedure TraceStrFA(AMsg :PAnsiChar; const Args: array of const);
+  procedure TraceStrFW(AMsg :PWideChar; const Args: array of const);
+
   procedure Trace(const AMsg :TString);
   procedure TraceA(const AMsg :TAnsiStr);
   procedure TraceW(const AMsg :TWideStr);
+  
   procedure TraceF(const AMsg :TString; const Args: array of const);
   procedure TraceFA(const AMsg :TAnsiStr; const Args: array of const);
   procedure TraceFW(const AMsg :TWideStr; const Args: array of const);
@@ -30,6 +46,12 @@ interface
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
+
+ {$ifdef bTrace}
+  uses
+    MixFormat;
+ {$endif bTrace}
+
 
   function IntMin(L1, L2 :Integer) :Integer;
   begin
@@ -87,19 +109,148 @@ interface
   end;
 
 
+  procedure DebugBreak(AMess :PTChar);
+  begin
+    try
+      raise EDebugRaise.Create(AMess)
+       {$ifopt W+} at ReturnAddr {$endif W+};
+    except
+      NOP;
+    end;
+  end;
+
  {-----------------------------------------------------------------------------}
+
+ {-----------------------------------------------------------------------------}
+
+  threadvar
+    AllocAddr :Pointer;
+
+
+  procedure SetAllocAddr(Addr :Pointer);
+  begin
+    AllocAddr := Addr;
+  end;
+
+  function GetAllocAddr :Pointer;
+  begin
+    Result := AllocAddr;
+  end;
+
+  function GetAndClearAllocAddr :Pointer;
+  var
+    vPtr :PPointer;
+  begin
+    vPtr := @AllocAddr;
+    Result := vPtr^;
+    if Result <> nil then
+      vPtr^ := nil;
+  end;
+
+
+  threadvar
+    AllocFrame :Pointer;
+
+  procedure SetAllocFrame(Frame :Pointer);
+  begin
+    AllocFrame := Frame;
+  end;
+
+  function GetAllocFrame :Pointer;
+  begin
+    Result := AllocFrame;
+  end;
+
+  function GetAndClearAllocFrame :Pointer;
+  var
+    vPtr :PPointer;
+  begin
+    vPtr := @AllocFrame;
+    Result := vPtr^;
+    if Result <> nil then
+      vPtr^ := nil;
+  end;
+
 
   procedure SetReturnAddr;
   begin
-    {!!!}
+   {$ifdef bFreePascal}
+    if GetAllocFrame = nil then
+      SetAllocFrame( GetStackFrame2 );
+   {$else}
+    if GetAllocAddr = nil then
+      SetAllocAddr( ReturnAddr2 );
+   {$endif bFreePascal}
   end;
 
 
   procedure SetReturnAddrNewInstance;
   begin
-    {!!!}
+   {$ifdef bFreePascal}
+    if GetAllocFrame = nil then
+      SetAllocFrame( GetStackFrame2 );
+   {$else}
+    if GetAllocAddr = nil then
+      SetAllocAddr( ReturnAddr3 );
+   {$endif bFreePascal}
   end;
 
+
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bTrace}
+
+  function ConvertAddr(Address :Pointer) :Pointer;
+  begin
+//  if (PChar(Address) > PChar($1)) and (PChar(Address) < PChar($10000000)) then
+//    Result := Pointer1(Address) - $00400000
+//  else
+      Result := Address;
+  end;
+
+ {$ifdef bLinux}
+  function IsBadWritePtr(AAddr :Pointer; ALen :TInteger) :Boolean;
+  begin
+    Result := False;
+  end;
+ {$endif bLinux}
+
+  procedure TraceCallstack(AAddr :Pointer);
+  const
+    MaxStackLen = 50;
+  var
+    I, J :Integer;
+    vPtr :Pointer;
+    vAdr :Pointer;
+    vStr :array[0..MaxStackLen * (SizeOf(Pointer)*2 + 3)] of AnsiChar;
+  begin
+    asm
+     {$ifdef b64}
+      MOV  vPtr, RBP
+     {$else}
+      MOV  vPtr, EBP
+     {$endif b64}
+    end;
+
+    I := 0;
+    J := 0;
+    while (vPtr <> nil) and not IsBadReadPtr(vPtr, SizeOf(Pointer)*2) and (J < MaxStackLen) do begin
+      vAdr := ConvertAddr(PPointer(Pointer1(vPtr) + SizeOf(Pointer))^);
+
+      lstrcpya(@vStr[I], ' : ');
+      Inc(I, 3);
+
+      ChrCopyPtrA(@vStr[I], vAdr);
+      Inc(I, SizeOf(Pointer)*2);
+
+      vPtr := PPointer(vPtr)^;
+      Inc(J);
+    end;
+
+    vStr[I] := #0;
+    TraceStrA(@vStr[0]);
+  end;
+ {$endif bTrace}
 
  {-----------------------------------------------------------------------------}
 
@@ -160,10 +311,10 @@ interface
     ChrCopyAL(vPtr, PTChar(AMessage), length(AMessage), vLen);
    {$endif bUnicode}
 
-    TraceStr(@vStr[0]);
+    TraceStrA(@vStr[0]);
 
 //  if not IsDebuggerPresent then
-//    TraceCallstack(AAddr);
+      TraceCallstack(AAddr);
  {$else}
   begin
  {$endif bTrace}
@@ -172,27 +323,65 @@ interface
 
  {$ifdef bTrace}
   const
+   {$ifdef bDelphi}
+    cTraceDll = 'MSTraceLib.dll';
+   {$else}
    {$ifdef b64}
     cTraceDll = 'MSTraceLib64.dll';
    {$else}
-    cTraceDll = 'MSTraceLib.dll';
+    cTraceDll = 'MSTraceLib32.dll';
    {$endif b64}
+   {$endif bDelphi}
 
 
-  procedure dllTrace(AInst :THandle; AMsg :PAnsiChar) stdcall;
-    external cTraceDll name 'Trace';
-  procedure dllTraceFmt(AInst :THandle; AMsg :PAnsiChar; const Args: array of const); stdcall;
-    external cTraceDll name 'TraceFmt';
+  procedure dllTraceA(AInst :THandle; AMsg :PAnsiChar) stdcall;
+    external cTraceDll name 'TraceA';
+  procedure dllTraceW(AInst :THandle; AMsg :PWideChar) stdcall;
+    external cTraceDll name 'TraceW';
+
+  procedure dllTraceFmtA(AInst :THandle; AMsg :PAnsiChar; const Args: array of const); stdcall;
+    external cTraceDll name 'TraceFmtA';
+  procedure dllTraceFmtW(AInst :THandle; AMsg :PWideChar; const Args: array of const); stdcall;
+    external cTraceDll name 'TraceFmtW';
 
 
-  procedure TraceStr(AMsg :PAnsiChar);
+  procedure TraceStr(AMsg :PTChar);
   begin
-    dllTrace(HInstance, AMsg);
+   {$ifdef bUnicode}
+    dllTraceW(HInstance, AMsg);
+   {$else}
+    dllTraceA(HInstance, AMsg);
+   {$endif bUnicode}
   end;
 
-  procedure TraceStrF(AMsg :PAnsiChar; const Args: array of const);
+  procedure TraceStrA(AMsg :PAnsiChar);
   begin
-    dllTraceFmt(HInstance, AMsg, Args);
+    dllTraceA(HInstance, AMsg);
+  end;
+
+  procedure TraceStrW(AMsg :PWideChar);
+  begin
+    dllTraceW(HInstance, AMsg);
+  end;
+
+
+  procedure TraceStrF(AMsg :PTChar; const Args: array of const);
+  begin
+   {$ifdef bUnicode}
+    dllTraceFmtW(HInstance, AMsg, Args);
+   {$else}
+    dllTraceFmtA(HInstance, AMsg, Args);
+   {$endif bUnicode}
+  end;
+
+  procedure TraceStrFA(AMsg :PAnsiChar; const Args: array of const);
+  begin
+    dllTraceFmtA(HInstance, AMsg, Args);
+  end;
+
+  procedure TraceStrFW(AMsg :PWideChar; const Args: array of const);
+  begin
+    dllTraceFmtW(HInstance, AMsg, Args);
   end;
 
 
@@ -205,14 +394,14 @@ interface
    {$endif bUnicode}
   end;
 
-  procedure TraceA(const AMsg :TAnsiStr); overload;
+  procedure TraceA(const AMsg :TAnsiStr);
   begin
-    dllTrace(HInstance, PAnsiChar(AMsg));
+    dllTraceA(HInstance, PAnsiChar(AMsg));
   end;
 
-  procedure TraceW(const AMsg :TWideStr); overload;
+  procedure TraceW(const AMsg :TWideStr); 
   begin
-    TraceA(TAnsiStr(AMsg));
+    dllTraceW(HInstance, PWideChar(AMsg));
   end;
 
 
@@ -227,12 +416,12 @@ interface
 
   procedure TraceFA(const AMsg :TAnsiStr; const Args: array of const);
   begin
-    Trace(Format(TString(AMsg), Args));
+    dllTraceFmtA(HInstance, PAnsiChar(AMsg), Args);
   end;
 
   procedure TraceFW(const AMsg :TWideStr; const Args: array of const);
   begin
-    Trace(Format(TString(AMsg), Args));
+    dllTraceFmtW(HInstance, PWideChar(AMsg), Args);
   end;
  {$endif bTrace}
 

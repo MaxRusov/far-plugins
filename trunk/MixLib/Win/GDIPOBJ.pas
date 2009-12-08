@@ -1,3 +1,6 @@
+{$I Defines.inc}
+{$TypedAddress Off}
+
       {******************************************************************}
       { GDI+ Class                                                       }
       {                                                                  }
@@ -89,8 +92,8 @@ type
     lastResult: TStatus;
     function SetStatus(status: TStatus): TStatus;
     procedure SetNativeRegion(nativeRegion: GpRegion);
-    constructor Create(nativeRegion: GpRegion); reintroduce; overload;
   public
+    constructor Create(nativeRegion: GpRegion); reintroduce; overload;
     constructor Create; reintroduce; overload;
     constructor Create(rect: TGPRectF); reintroduce; overload;
     constructor Create(rect: TGPRect); reintroduce; overload;
@@ -161,9 +164,8 @@ type
     nativeFamily: GpFontFamily;
     lastResult: TStatus;
     function SetStatus(status: TStatus): TStatus;
-    constructor Create(nativeOrig: GpFontFamily;
-      status: TStatus); reintroduce; overload;
   public
+    constructor Create(nativeOrig: GpFontFamily; status: TStatus); reintroduce; overload;
     constructor Create; reintroduce; overload;
     constructor Create(name: WideString; fontCollection: TGPFontCollection = nil); reintroduce; overload;
     destructor Destroy; override;
@@ -194,7 +196,7 @@ type
     constructor Create;
     destructor Destroy; override;
     function GetFamilyCount: Integer;
-    function GetFamilies(numSought: Integer; out gpfamilies: array of TGPFontFamily;
+    function GetFamilies(numSought: Integer; var gpfamilies: array of TGPFontFamily;
       out numFound: Integer): TStatus;
     function GetLastStatus: TStatus;
   end;
@@ -223,8 +225,8 @@ type
     lastResult: TStatus;
     procedure SetNativeFont(Font: GpFont);
     function SetStatus(status: TStatus): TStatus;
-    constructor Create(font: GpFont; status: TStatus); overload;
   public
+    constructor Create(font: GpFont; status: TStatus); overload;
     constructor Create(hdc: HDC); reintroduce; overload;
     constructor Create(hdc: HDC; logfont: PLogFontA); reintroduce; overload;
     constructor Create(hdc: HDC; logfont: PLogFontW); reintroduce; overload;
@@ -260,8 +262,8 @@ type
     loadStatus: TStatus;
     procedure SetNativeImage(nativeImage: GpImage);
     function SetStatus(status: TStatus): TStatus;
-    constructor Create(nativeImage: GpImage; status: TStatus); reintroduce; overload;
   public
+    constructor Create(nativeImage: GpImage; status: TStatus); reintroduce; overload;
     constructor Create(filename: WideString; useEmbeddedColorManagement: BOOL = FALSE); reintroduce; overload;
     constructor Create(stream: IStream; useEmbeddedColorManagement: BOOL  = FALSE); reintroduce; overload;
     function FromFile(filename: WideString; useEmbeddedColorManagement: BOOL = FALSE): TGPImage;
@@ -310,9 +312,8 @@ type
   end;
 
   TGPBitmap = class(TGPImage)
-  protected
-    constructor Create(nativeBitmap: GpBitmap);  reintroduce; overload;
   public
+    constructor Create(nativeBitmap: GpBitmap);  reintroduce; overload;
     constructor Create(filename: WideString; useEmbeddedColorManagement: BOOL = FALSE); reintroduce; overload;
     constructor Create(stream: IStream; useEmbeddedColorManagement: BOOL = FALSE); reintroduce; overload;
     function FromFile(filename: WideString; useEmbeddedColorManagement: BOOL = FALSE): TGPBitmap;
@@ -349,9 +350,8 @@ type
     lastResult: TStatus;
     procedure SetNativeCap(nativeCap: GpCustomLineCap);
     function SetStatus(status: TStatus): TStatus;
-    constructor Create(nativeCap: GpCustomLineCap;
-      status: TStatus); reintroduce; overload;
   public
+    constructor Create(nativeCap: GpCustomLineCap; status: TStatus); reintroduce; overload;
     constructor Create; reintroduce; overload;
     constructor Create(fillPath, strokePath: TGPGraphicsPath;
       baseCap: TLineCap = LineCapFlat;
@@ -412,9 +412,8 @@ type
     lastResult: TStatus;
     procedure SetNativeImageAttr(nativeImageAttr: GpImageAttributes);
     function SetStatus(status: TStatus): TStatus;
-    constructor Create(imageAttr: GpImageAttributes;
-      status: GpStatus); reintroduce; overload;
   public
+    constructor Create(imageAttr: GpImageAttributes; status: GpStatus); reintroduce; overload;
     constructor Create; reintroduce; overload;
     destructor Destroy; override;
     function Clone: TGPImageAttributes;
@@ -465,8 +464,8 @@ type
     lastResult: GpStatus ;
     procedure SetNativeMatrix(nativeMatrix: GpMatrix);
     function SetStatus(status: GpStatus): TStatus;
-    constructor Create(nativeMatrix: GpMatrix); reintroduce; overload;
   public
+    constructor Create(nativeMatrix: GpMatrix); reintroduce; overload;
     // Default constructor is set to identity matrix.
     constructor Create; reintroduce; overload;
     constructor Create(m11, m12, m21, m22, dx, dy: Single); reintroduce; overload;
@@ -515,8 +514,8 @@ type
     lastResult: TStatus;
     procedure SetNativeBrush(nativeBrush: GpBrush);
     function SetStatus(status: TStatus): TStatus;
-    constructor Create(nativeBrush: GpBrush; status: TStatus); overload;
   public
+    constructor Create(nativeBrush: GpBrush; status: TStatus); overload;
     constructor Create; overload;
     destructor Destroy; override;
     function Clone: TGPBrush; virtual;
@@ -637,8 +636,8 @@ type
     lastResult: TStatus;
     procedure SetNativePen(nativePen: GpPen);
     function SetStatus(status: TStatus): TStatus;
-    constructor Create(nativePen: GpPen; status: TStatus); reintroduce; overload;
   public
+    constructor Create(nativePen: GpPen; status: TStatus); reintroduce; overload;
     constructor Create(color: TGPColor; width: Single = 1.0); reintroduce; overload;
     constructor Create(brush: TGPBrush; width: Single = 1.0); reintroduce; overload;
     destructor Destroy; override;
@@ -701,8 +700,8 @@ type
     lastError: TStatus;
     function SetStatus(newStatus: GpStatus): TStatus;
     procedure Assign(source: TGPStringFormat);
-    constructor Create(clonedStringFormat: GpStringFormat; status: TStatus); reintroduce; overload;
   public
+    constructor Create(clonedStringFormat: GpStringFormat; status: TStatus); reintroduce; overload;
     constructor Create(formatFlags: Integer = 0; language: LANGID = LANG_NEUTRAL); reintroduce; overload;
     constructor Create(format: TGPStringFormat); reintroduce; overload;
     destructor Destroy; override;
@@ -742,8 +741,8 @@ type
     lastResult: TStatus;
     procedure SetNativePath(nativePath: GpPath);
     function SetStatus(status: TStatus): TStatus;
-    constructor Create(nativePath: GpPath); reintroduce; overload;
   public
+    constructor Create(nativePath: GpPath); reintroduce; overload;
     constructor Create(path: TGPGraphicsPath); reintroduce; overload;
     constructor Create(fillMode: TFillMode = FillModeAlternate); reintroduce; overload;      
     constructor Create(points: PGPPointF; types: PBYTE; count: Integer;
@@ -955,8 +954,8 @@ type
     function SetStatus(status: TStatus): TStatus;
     function GetNativeGraphics: GpGraphics;
     function GetNativePen(pen: TGPPen): GpPen;
-    constructor Create(graphics: GpGraphics); reintroduce; overload;
   public
+    constructor Create(graphics: GpGraphics); reintroduce; overload;
     function FromHDC(hdc: HDC): TGPGraphics; overload;
     function FromHDC(hdc: HDC; hdevice: THANDLE): TGPGraphics; overload;
     function FromHWND(hwnd: HWND; icm: BOOL = FALSE): TGPGraphics;
@@ -1706,8 +1705,10 @@ implementation
   end;
 
   function TGPMatrix.OffsetX: Single;
-  var elements: TMatrixArray;
+  var
+    elements: TMatrixArray;
   begin
+    FillChar(elements, 0, SizeOf(elements));
     if (GetElements(elements) = Ok) then
       result := elements[4]
     else
@@ -1715,10 +1716,14 @@ implementation
   end;
 
   function TGPMatrix.OffsetY: Single;
-  var elements: TMatrixArray;
+  var
+    elements: TMatrixArray;
   begin
-    if (GetElements(elements) = Ok) then result := elements[5]
-                                        else result := 0.0;
+    FillChar(elements, 0, SizeOf(elements));
+    if (GetElements(elements) = Ok) then
+      result := elements[5]
+    else
+      result := 0.0;
   end;
 
   function TGPMatrix.Reset: TStatus;
@@ -6738,8 +6743,7 @@ implementation
     result := numFound;
   end;
 
-  function TGPFontCollection.GetFamilies(numSought: Integer; out gpfamilies: array of TGPFontFamily;
-      out numFound: Integer): TStatus;
+  function TGPFontCollection.GetFamilies(numSought: Integer; var gpfamilies: array of TGPFontFamily; out numFound: Integer): TStatus;
   var
     nativeFamilyList: Pointer;
     Status: TStatus;
