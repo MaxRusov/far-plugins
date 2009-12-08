@@ -1,0 +1,39 @@
+REGEDIT4
+
+; Макросы для масштабирования эскизов с помощью колеса мыши
+
+[-HKEY_CURRENT_USER\Software\Far\KeyMacros\Shell\MsWheelUp]
+[HKEY_CURRENT_USER\Software\Far\KeyMacros\Common\MsWheelUp]
+"Sequence"="F11 ! 4 $if(checkhotkey(\"+\")) + $else Esc MsWheelUp $end"
+"Description"="Far Hints: Increase"
+"DisableOutput"=dword:00000001
+
+[-HKEY_CURRENT_USER\Software\Far\KeyMacros\Shell\MsWheelDown]
+[HKEY_CURRENT_USER\Software\Far\KeyMacros\Common\MsWheelDown]
+"Sequence"="F11 ! 4 $if(checkhotkey(\"-\")) - $else Esc MsWheelDown $end"
+"Description"="Far Hints: Decrease"
+"DisableOutput"=dword:00000001
+
+
+; Макросы для масштабирования эскизов с помощью кнопок +/-
+
+[HKEY_CURRENT_USER\Software\Far\KeyMacros\Common\Add]
+"Sequence"="F11 ! 4 $if(checkhotkey(\"+\")) + $else Esc Add $end"
+"Description"="Far Hints: Increase"
+"DisableOutput"=dword:1
+
+[HKEY_CURRENT_USER\Software\Far\KeyMacros\Common\Subtract]
+"Sequence"="F11 ! 4 $if(checkhotkey(\"-\")) - $else Esc Subtract $end"
+"Description"="Far Hints: Decrease"
+"DisableOutput"=dword:1
+
+
+[HKEY_CURRENT_USER\Software\Far\KeyMacros\Shell\Add]
+"Sequence"="F11 ! 4 $if(checkhotkey(\"+\")) + $else Esc $if(CmdLine.Value==\"\") Add $else + $end $end"
+"Description"="Far Hints: Increase"
+"DisableOutput"=dword:1
+
+[HKEY_CURRENT_USER\Software\Far\KeyMacros\Shell\Subtract]
+"Sequence"="F11 ! 4 $if(checkhotkey(\"-\")) - $else Esc $if(CmdLine.Value==\"\") Subtract $else - $end $end"
+"Description"="Far Hints: Decrease"
+"DisableOutput"=dword:1

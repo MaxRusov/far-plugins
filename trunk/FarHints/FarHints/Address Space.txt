@@ -1,0 +1,19 @@
+Распределение адресов для модулей
+
+4030 0000              - FarHints.dll
+4035 0000	       - FarHintsVerInfo.dll
+4036 0000              - FarHintsIcons.dll
+4037 0000	       - FarHintsFolders.dll
+4038 0000              - FarHintsImage.dll
+4039 0000              - FarHintsMP3.dll
+403A 0000              - FarHintsCursors.dll
+403B 0000              - FarHintsProcess.dll
+403C 0000              - FarHintsDFM.dll
+
+4050 0000              - PlugMenu
+4060 0000              - Noisy
+4070 0000              - FontMan
+4080 0000              - MoreHistory
+4090 0000              - UCharMap
+40A0 0000              - Visual Compare
+40B0 0000              - Panel Tabs

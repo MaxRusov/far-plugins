@@ -1,0 +1,74 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\Software\Far2\Plugins\FarHints]
+; Плугин работает
+"Enabled"=dword:1
+
+; Хинт автоматически появляется в позиции мыши
+"AutoMouse"=dword:1
+
+; Хинт автоматически появляется в текущей позиции
+"AutoKey"=dword:0
+
+; Клавиша для форсирования вызова хинта в позиции мыши (по умолчанию $10 - Shift)
+"ForceKey"=dword:10
+;"ForceKey"=dword:11
+;"ForceKey"=dword:12
+
+; Время до первого появления хинта (по умолчанию $1F4 - 500 ms)
+"FirstDelay"=dword:1F4
+
+; Время до повторного появления хинта (если = 0 то хинт не исчезает при перемещении мыши)
+"NextDelay"=dword:1F4
+;"NextDelay"=dword:0
+
+; Показывать иконки (или Thumbnail'ы) файлов и программ
+"ShowIcon"=dword:1
+
+; Показывать Shell Thumbnail, если возможно
+"UseThumbnail"=dword:1
+
+; Размер Thumbnail'ов для файлов 
+"MaxThumbnailSize"=dword:80
+
+; Размер Thumbnail'ов для папок (если = 0, не показывать Thumbnail'ы папок)
+"MaxFolderThumbnailSize"=dword:60
+
+; Показывать еще и иконки поверх Thumbnail'ов
+"IconOnThumbnail"=dword:1
+
+; Показывать имена свойств
+"ShowPrompt"=dword:1
+
+; Время плавного появления хинта (если = 0 - отключено, по умолчанию $64 - 100 ms)
+"ShowPeriod"=dword:64
+;"ShowPeriod"=dword:0
+
+; Плавное перемещение хинта (количестов шагов)
+"SmoothStep"=dword:0
+
+; Цвет хинта (в формате RGB - 0x00BBGGRR)
+; Color2 - второй цвет, для градиентной закраски. Если Color2 не задан, используется
+; параметр ColorFade для изменения относителной яркости (по умолчанию -48)
+"Color"=dword:00FFFFFF
+;"Color2"=dword:00AFAFAF
+;"ColorFade"=dword:FFFFFFD0
+
+; Прозрачность хинта (0..255, 0 - полностью прозрачный, 255 - непрозрачный)
+"Transparency"=dword:000000FF
+
+; Шрифт которым выводятся значения свойств 
+"FontName"="Tahoma"
+"FontSize"=dword:8
+"FontColor"=dword:0
+"FontStyle"=dword:0
+
+; Шрифт которым выводятся имена свойств 
+"FontName2"="Tahoma"
+"FontSize2"=dword:7
+"FontColor2"=dword:808080
+"FontStyle2"=dword:0
+
+; Формат отображения дат, по умолчанию "c" - системный формат
+;"DateFormat"="c"
+;"DateFormat"="dd mmmmm yyyy hh:nn"

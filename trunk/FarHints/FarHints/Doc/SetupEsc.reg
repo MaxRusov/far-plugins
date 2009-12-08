@@ -1,0 +1,11 @@
+REGEDIT4
+
+; Макрос для закрытия хинта по нажатию Esc
+
+[-HKEY_CURRENT_USER\Software\Far\KeyMacros\Shell\Esc]
+[HKEY_CURRENT_USER\Software\Far\KeyMacros\Shell\Esc]
+"Sequence"="F11 ! 4 $if(checkhotkey(\"c\")) c $else Esc CtrlO $end"
+"Description"="Far Hints: Close hint or toggle panels"
+"DisableOutput"=dword:1
+"EmptyCommandLine"=dword:00000001
+"NotEmptyCommandLine"=dword:00000000
