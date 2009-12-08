@@ -1,0 +1,84 @@
+.Language=English,English
+
+"English"
+
+"Font manager"
+
+"Error"
+
+"Copy"
+"Move"
+"&Copy"
+"&Move"
+"&Cancel"
+"Absolute path must be specified"
+
+"Copy font to:"
+"Move font to:"
+"Copy selected fonts to:"
+"Move selected fonts to:"
+"Copying"
+"Moving"
+
+"Install"
+"Do you wish to install the font:"
+"Do you wish to install\n%d fonts"
+"&Install"
+"Scanning"
+"Installing"
+"No TrueType Fonts to install"
+
+"Delete"
+"Do you wish to delete the font:"
+"Do you wish to delete\n%d fonts"
+"&Delete"
+"Deleting"
+
+"Warning"
+"File already exists:"
+"Font already installed:"
+"&Overwrite"
+"&All"
+"&Skip"
+"S&kip all"
+
+"Interrupt"
+"Interrupt current operation?"
+"&Yes"
+"&No"
+
+"Font"
+"Family"
+"Style"
+"Size"
+"Sizes"
+"Type"
+"Pitch"
+"Charsets"
+"Copyright"
+"File name"
+"File names"
+"File size"
+"Files size"
+"Modified"
+
+"Font Manager"
+"&Group Mode        >"
+"Filter by &type    >"
+"Filter by &charset >"
+
+"Group mode"
+"&None"
+"By &Family"
+"Group &all fonts"
+
+"Filter by type"
+"&True Type"
+"&Open Type"
+"&Vector"
+"&Raster"
+"V&ariable pitch"
+"&Fixed pitch"
+
+"Filter by Charset"
+
