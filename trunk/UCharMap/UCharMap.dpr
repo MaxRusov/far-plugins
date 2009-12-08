@@ -1,9 +1,7 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{$ifdef bDelphi}
- {$ImageBase $40900000}
-{$endif bDelphi}
+{$ImageBase $40900000}
 
 library UCharMap;
 
