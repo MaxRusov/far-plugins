@@ -321,9 +321,5 @@ interface
   end;
 
 
-initialization
-
-finalization
-  NOP;
 end.
 
