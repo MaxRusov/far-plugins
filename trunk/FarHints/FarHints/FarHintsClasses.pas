@@ -829,6 +829,9 @@ interface
         while FWinThread.Window = nil do
           Sleep(0);
         FWindow := FWinThread.Window;
+
+        { ”станавливаем Hint, дл€ использовани€ в макросах }
+        SetEnvironmentVariable('FarHint', '1');
       end;
 
       SetItemToWindow(vPlugin, vItem, AContext, ACallMode, ShowX, ShowY);
@@ -850,6 +853,7 @@ interface
     FCreateLock.Enter;
     try
       if FWinThread <> nil then begin
+        SetEnvironmentVariable('FarHint', nil);
 
         FWinThread.Terminate;
         FWinThread.WaitFor;

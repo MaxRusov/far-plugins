@@ -1,16 +1,17 @@
 REGEDIT4
 
+[HKEY_CURRENT_USER\Software\Far\KeyMacros\Consts]
+"FarHints"=dword:544e4948
+
 ; Макросы для масштабирования эскизов с помощью колеса мыши
 
-[-HKEY_CURRENT_USER\Software\Far\KeyMacros\Shell\MsWheelUp]
 [HKEY_CURRENT_USER\Software\Far\KeyMacros\Common\MsWheelUp]
-"Sequence"="F11 ! 4 $if(checkhotkey(\"+\")) + $else Esc MsWheelUp $end"
+"Sequence"="$if (Env(\"FarHint\") == \"1\") CallPlugin(FarHints, 41) $else MsWheelUp $end"
 "Description"="Far Hints: Increase"
 "DisableOutput"=dword:00000001
 
-[-HKEY_CURRENT_USER\Software\Far\KeyMacros\Shell\MsWheelDown]
 [HKEY_CURRENT_USER\Software\Far\KeyMacros\Common\MsWheelDown]
-"Sequence"="F11 ! 4 $if(checkhotkey(\"-\")) - $else Esc MsWheelDown $end"
+"Sequence"="$if (Env(\"FarHint\") == \"1\") CallPlugin(FarHints, 42) $else MsWheelDown $end"
 "Description"="Far Hints: Decrease"
 "DisableOutput"=dword:00000001
 
@@ -18,22 +19,23 @@ REGEDIT4
 ; Макросы для масштабирования эскизов с помощью кнопок +/-
 
 [HKEY_CURRENT_USER\Software\Far\KeyMacros\Common\Add]
-"Sequence"="F11 ! 4 $if(checkhotkey(\"+\")) + $else Esc Add $end"
+"Sequence"="$if (Env(\"FarHint\") == \"1\") CallPlugin(FarHints, 41) $else Add $end"
 "Description"="Far Hints: Increase"
 "DisableOutput"=dword:1
 
 [HKEY_CURRENT_USER\Software\Far\KeyMacros\Common\Subtract]
-"Sequence"="F11 ! 4 $if(checkhotkey(\"-\")) - $else Esc Subtract $end"
+"Sequence"="$if (Env(\"FarHint\") == \"1\") CallPlugin(FarHints, 42) $else Subtract $end"
 "Description"="Far Hints: Decrease"
 "DisableOutput"=dword:1
 
 
 [HKEY_CURRENT_USER\Software\Far\KeyMacros\Shell\Add]
-"Sequence"="F11 ! 4 $if(checkhotkey(\"+\")) + $else Esc $if(CmdLine.Value==\"\") Add $else + $end $end"
+"Sequence"="$if (Env(\"FarHint\") == \"1\") CallPlugin(FarHints, 41) $else $if(CmdLine.Value==\"\") Add $else + $end $end"
+
 "Description"="Far Hints: Increase"
 "DisableOutput"=dword:1
 
 [HKEY_CURRENT_USER\Software\Far\KeyMacros\Shell\Subtract]
-"Sequence"="F11 ! 4 $if(checkhotkey(\"-\")) - $else Esc $if(CmdLine.Value==\"\") Subtract $else - $end $end"
+"Sequence"="$if (Env(\"FarHint\") == \"1\") CallPlugin(FarHints, 42) $else $if(CmdLine.Value==\"\") Subtract $else - $end $end"
 "Description"="Far Hints: Decrease"
 "DisableOutput"=dword:1
