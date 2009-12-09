@@ -1234,6 +1234,16 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  procedure SubpluginCommandsRun(ACmd :Integer);
+  begin
+    case ACmd of
+      1: FarHints.HintCommand(0);
+      2: FarHints.HintCommand(1);
+      3: FarHints.HideHint;
+    end;
+  end;
+
+
   procedure ShowSubpluginCommands;
   const
     vCount = 4;
@@ -1266,10 +1276,10 @@ interface
       vCount);
 
     case vRes of
-      0: FarHints.HintCommand(0);
-      1: FarHints.HintCommand(1);
+      0: SubpluginCommandsRun(1);
+      1: SubpluginCommandsRun(2);
       2: {};
-      3: FarHints.HideHint;
+      3: SubpluginCommandsRun(3);
     end;
   end;
 
@@ -1465,6 +1475,9 @@ interface
         4: ShowSubpluginCommands;
 
         5: OptionsMenu;
+
+        41..49:
+          SubpluginCommandsRun(ACode mod 10);
       end;
     end;
 
