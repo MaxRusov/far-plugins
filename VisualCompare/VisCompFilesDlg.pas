@@ -93,11 +93,15 @@ interface
       FFilterMask     :TString;
       FFilterColumn   :Integer;
       FTotalCount     :Integer;
-      FSelectedCount  :Integer;
+      FSelectedCount  :array[0..1] of Integer;
       FMenuMaxWidth   :Integer;
 
-//    FResFile        :TString;
+//    FCurSide        :Integer;
+      FWholeLine      :Boolean;
+
       FResCmd         :Integer;
+      FResLog         :Boolean;
+      FResStr         :TString;
 
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
       procedure GridPosChange(ASender :TFarGrid);
@@ -112,6 +116,7 @@ interface
       procedure SetCurrent(AIndex :Integer; AMode :TLocationMode);
       function FindItem(AItem :TCmpFileItem) :Integer;
       function GetCurSide :Integer;
+      procedure GetSelected(AList :TStringList; AVer :Integer; AFullPath :Boolean);
 
       procedure ReinitAndSaveCurrent;
       procedure ToggleOption(var AOption :Boolean; ANeedUpdateDigest :Boolean = False);
@@ -119,10 +124,13 @@ interface
 
       procedure SelectCurrent(ACommand :Integer);
       procedure GotoCurrent;
+      procedure CopySelected;
+      procedure SendToTempPanel;
       procedure LeaveGroup;
       procedure CompareCurrent(AForcePrompt :Boolean);
       procedure ViewOrEditCurrent(AEdit :Boolean);
       procedure CompareSelectedContents;
+      procedure SortByDlg;
       procedure OptionsMenu;
 
     public
@@ -269,6 +277,8 @@ interface
     FFoundColor    := optFoundColor;
     FDiffColor     := optDiffColor;
     FSelColor      := optSelColor;
+
+    FWholeLine     := True;
   end;
 
 
@@ -302,7 +312,7 @@ interface
     );
 
     FGrid := TFarGrid.CreateEx(Self, IdList);
-    FGrid.Options := [goRowSelect {, goFollowMouse} {,goWheelMovePos} ];
+    FGrid.Options := [{goRowSelect} {, goFollowMouse} {,goWheelMovePos} ];
     FGrid.NormColor := GetOptColor(0, COL_DIALOGTEXT);
     FGrid.SelColor := GetOptColor(optCurColor, COL_DIALOGLISTSELECTEDTEXT);
 
@@ -478,6 +488,9 @@ interface
     vColor :Integer;
   begin
     if ARow < FFilter.Count then begin
+      if (ARow = FGrid.CurRow) and FWholeLine then
+        AColor := FGrid.SelColor;
+
       vRec := FFilter.PItems[ARow];
       vItem := vRec.FItem;
       if vItem = nil then
@@ -497,7 +510,7 @@ interface
             if vItem.GetResume <> crSame then
               AColor := optDiffColor
             else begin
-              if not FUnfold and vItem.HasAttr(faDirectory) and ([crDiff, crOrphan1, crOrphan2] * vItem.GetFolderResume <> []) then
+              if not FUnfold and vItem.HasAttr(faDirectory) and ([crDiff, crOrphan] * vItem.GetFolderResume <> []) then
                 AColor := optDiffColor;
             end;
 
@@ -510,6 +523,9 @@ interface
         vVer := (vTag and $00FF) - 1;
         vTag := (vTag and $FF00) shr 8;
 
+        if (ARow = FGrid.CurRow) and (GetCurSide = vVer) then
+          AColor := FGrid.SelColor;
+
         vColor := -1;
         if vItem.BothAttr(faPresent) then begin
           { Подсвечивается ячейка, в которой обнаружены различия }
@@ -520,7 +536,7 @@ interface
                 { Сравниваем содержимое }
                 if vItem.HasAttr(faDirectory) then begin
 
-                  if not FUnfold and (vItem.Subs <> nil) and ([crUncomp, crDiff, crOrphan1, crOrphan2] * vItem.GetFolderResume = []) then
+                  if not FUnfold and (vItem.Subs <> nil) and ([crUncomp, crDiff, crOrphan] * vItem.GetFolderResume = []) then
                     vColor := FSameColor
 
                 end else
@@ -571,8 +587,7 @@ interface
             vColor := FOrphanColor;
         end;
 
-        {!!!}
-        if vRec.FSel and (1 shl vVer) <> 0 then
+        if (vRec.FSel and (1 shl vVer) <> 0) and (AColor <> FGrid.SelColor) then
           AColor := FSelColor;
 
         if vColor <> -1 then
@@ -627,11 +642,6 @@ interface
       vTag := FGrid.Column[ACol].Tag;
       vVer := (vTag and $00FF) - 1;
       vTag := (vTag and $FF00) shr 8;
-
-      if (ARow = FGrid.CurRow) and (vVer = GetCurSide) then begin
-        FGrid.DrawChr(X-1, Y, '>', 1, AColor);
-      end;
-
 
       vAttr := vItem.Attr[vVer];
       if faPresent and vAttr <> 0 then begin
@@ -698,8 +708,7 @@ interface
       case AItem.GetResume of
         crSame   : Result := optShowSame;
         crDiff   : Result := optShowDiff;
-        crOrphan1,
-        crOrphan2: Result := optShowOrphan;
+        crOrphan : Result := optShowOrphan;
       else
         Result := True;
       end;
@@ -778,6 +787,7 @@ interface
 
         AFilter.Add(vItem, vPos, vLen);
 
+        {!!! Учесть Folder Summary}
         vMaxLen := IntMax(vMaxLen, Length(vTitle));
         if vItem.Size[0] > vMaxSize then
           vMaxSize := vItem.Size[0];
@@ -898,7 +908,8 @@ interface
         if Width <> 0 then
           Inc(FMenuMaxWidth, Width + IntIf(coNoVertLine in Options, 0, 1) );
 
-    FSelectedCount := 0;
+    FSelectedCount[0] := 0;
+    FSelectedCount[1] := 0;
     FGrid.RowCount := FFilter.Count;
 
     SendMsg(DM_ENABLEREDRAW, 0, 0);
@@ -946,10 +957,66 @@ interface
 
   function TFilesDlg.GetCurSide :Integer;
   begin
-    if FGrid.CurCol < FGrid.Columns.Count div 2 then
-      Result := 0
-    else
-      Result := 1;
+    if FWholeLine then
+      Result := -1
+    else begin
+      if FGrid.CurCol < FGrid.Columns.Count div 2 then
+        Result := 0
+      else
+        Result := 1;
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  procedure TFilesDlg.SortByDlg;
+  const
+    cSortMenuCount = 6;
+  var
+    vRes :Integer;
+    vChr :TChar;
+    vItems :PFarMenuItemsArray;
+    vItem :PFarMenuItemEx;
+  begin
+    vItems := MemAllocZero(cSortMenuCount * SizeOf(TFarMenuItemEx));
+    try
+      vItem := @vItems[0];
+      SetMenuItemChrEx(vItem, GetMsg(StrSortByName));
+      SetMenuItemChrEx(vItem, GetMsg(StrSortByExt));
+      SetMenuItemChrEx(vItem, GetMsg(StrSortByDate));
+      SetMenuItemChrEx(vItem, GetMsg(StrSortBySize));
+      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
+      SetMenuItemChrEx(vItem, GetMsg(strDiffAtTop));
+
+      vRes := Abs(optFileSortMode) - 1;
+      vChr := '+';
+      if optFileSortMode < 0 then
+        vChr := '-';
+      if (vRes >= 0) and (vRes < 4) then
+        vItems[vRes].Flags := SetFlag(0, MIF_CHECKED or Word(vChr), True);
+      vItems[5].Flags := SetFlag(0, MIF_CHECKED, optDiffAtTop);
+
+      vRes := FARAPI.Menu(hModule, -1, -1, 0,
+        FMENU_WRAPMODE or FMENU_USEEXT,
+        GetMsg(StrSortByTitle),
+        '',
+        '',
+        nil, nil,
+        Pointer(vItems),
+        cSortMenuCount);
+
+      case vRes of
+        0: SetOrder(smByName, optDiffAtTop);
+        1: SetOrder(smByExt, optDiffAtTop);
+        2: SetOrder(-smByDate, optDiffAtTop);
+        3: SetOrder(-smBySize, optDiffAtTop);
+        5: SetOrder(0, not optDiffAtTop);
+      end;
+
+    finally
+      MemFree(vItems);
+    end;
   end;
 
 
@@ -957,7 +1024,7 @@ interface
 
   procedure TFilesDlg.OptionsMenu;
   const
-    cMenuCount = 18;
+    cMenuCount = 20;
   var
     I, vRes :Integer;
     vItems :PFarMenuItemsArray;
@@ -966,25 +1033,27 @@ interface
     vItems := MemAllocZero(cMenuCount * SizeOf(TFarMenuItemEx));
     try
       vItem := @vItems[0];
-      {!!!Локализация}
-      SetMenuItemChrEx(vItem, 'Show Folder Summary   Ctrl+1');
-      SetMenuItemChrEx(vItem, 'Show Size             Ctrl+2');
-      SetMenuItemChrEx(vItem, 'Show Time             Ctrl+3');
-      SetMenuItemChrEx(vItem, 'Show Attrs            Ctrl+4');
-      SetMenuItemChrEx(vItem, 'Show folder attrs');
+
+      SetMenuItemChrEx(vItem, GetMsg(StrMShowFolderSummary));
+      SetMenuItemChrEx(vItem, GetMsg(StrMShowSize));
+      SetMenuItemChrEx(vItem, GetMsg(StrMShowTime));
+      SetMenuItemChrEx(vItem, GetMsg(StrMShowAttrs));
+      SetMenuItemChrEx(vItem, GetMsg(StrMShowFolderAttrs));
       SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, 'Compare Contents');
-      SetMenuItemChrEx(vItem, 'Compare Size');
-      SetMenuItemChrEx(vItem, 'Compare Time');
-      SetMenuItemChrEx(vItem, 'Compare Attr');
-      SetMenuItemChrEx(vItem, 'Compare folder attrs');
+      SetMenuItemChrEx(vItem, GetMsg(StrMSortBy));
       SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, 'Show Same');
-      SetMenuItemChrEx(vItem, 'Show Diff');
-      SetMenuItemChrEx(vItem, 'Show Orphan');
+      SetMenuItemChrEx(vItem, GetMsg(StrMCompContents));
+      SetMenuItemChrEx(vItem, GetMsg(StrMCompSize));
+      SetMenuItemChrEx(vItem, GetMsg(StrMCompTime));
+      SetMenuItemChrEx(vItem, GetMsg(StrMCompAttr));
+      SetMenuItemChrEx(vItem, GetMsg(StrMCompFolderAttrs));
       SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, 'Hilight difference');
-      SetMenuItemChrEx(vItem, 'Unfold                Ctrl+U');
+      SetMenuItemChrEx(vItem, GetMsg(StrMShowSame));
+      SetMenuItemChrEx(vItem, GetMsg(StrMShowDiff));
+      SetMenuItemChrEx(vItem, GetMsg(StrMShowOrphan));
+      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
+      SetMenuItemChrEx(vItem, GetMsg(StrMHilightDiff));
+      SetMenuItemChrEx(vItem, GetMsg(StrMUnfold));
 
       vRes := 0;
       while True do begin
@@ -994,25 +1063,25 @@ interface
         vItems[3].Flags := SetFlag(0, MIF_CHECKED1, optShowAttr);
         vItems[4].Flags := SetFlag(0, MIF_CHECKED1, optShowFolderAttrs);
         {}
-        vItems[6].Flags  := SetFlag(0, MIF_CHECKED1, optCompareContents);
-        vItems[7].Flags  := SetFlag(0, MIF_CHECKED1, optCompareSize);
-        vItems[8].Flags  := SetFlag(0, MIF_CHECKED1, optCompareTime);
-        vItems[9].Flags  := SetFlag(0, MIF_CHECKED1, optCompareAttr);
-        vItems[10].Flags := SetFlag(0, MIF_CHECKED1, optCompareFolderAttrs);
+        vItems[8].Flags  := SetFlag(0, MIF_CHECKED1, optCompareContents);
+        vItems[9].Flags  := SetFlag(0, MIF_CHECKED1, optCompareSize);
+        vItems[10].Flags  := SetFlag(0, MIF_CHECKED1, optCompareTime);
+        vItems[11].Flags  := SetFlag(0, MIF_CHECKED1, optCompareAttr);
+        vItems[12].Flags := SetFlag(0, MIF_CHECKED1, optCompareFolderAttrs);
         {}
-        vItems[12].Flags  := SetFlag(0, MIF_CHECKED1, optShowSame);
-        vItems[13].Flags  := SetFlag(0, MIF_CHECKED1, optShowDiff);
-        vItems[14].Flags  := SetFlag(0, MIF_CHECKED1, optShowOrphan);
+        vItems[14].Flags  := SetFlag(0, MIF_CHECKED1, optShowSame);
+        vItems[15].Flags  := SetFlag(0, MIF_CHECKED1, optShowDiff);
+        vItems[16].Flags  := SetFlag(0, MIF_CHECKED1, optShowOrphan);
         {}
-        vItems[16].Flags := SetFlag(0, MIF_CHECKED1, optHilightDiff);
-        vItems[17].Flags := SetFlag(0, MIF_CHECKED1, FUnfold);
+        vItems[18].Flags := SetFlag(0, MIF_CHECKED1, optHilightDiff);
+        vItems[19].Flags := SetFlag(0, MIF_CHECKED1, FUnfold);
 
         for I := 0 to cMenuCount - 1 do
           vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
 
         vRes := FARAPI.Menu(hModule, -1, -1, 0,
           FMENU_WRAPMODE or FMENU_USEEXT,
-          'Options',
+          GetMsg(strOptions),
           '',
           '',
           nil, nil,
@@ -1029,18 +1098,20 @@ interface
           3: ToggleOption(optShowAttr);
           4: ToggleOption(optShowFolderAttrs);
           5: {};
-          6: ToggleOption(optCompareContents, True);
-          7: ToggleOption(optCompareSize, True);
-          8: ToggleOption(optCompareTime, True);
-          9: ToggleOption(optCompareAttr, True);
-          10: ToggleOption(optCompareFolderAttrs, True);
-          11: {};
-          12: ToggleOption(optShowSame);
-          13: ToggleOption(optShowDiff);
-          14: ToggleOption(optShowOrphan);
-          15: {};
-          16: ToggleOption(optHilightDiff);
-          17: ToggleOption(FUnfold);
+          6: SortByDlg;
+          7: {};
+          8: ToggleOption(optCompareContents, True);
+          9: ToggleOption(optCompareSize, True);
+          10: ToggleOption(optCompareTime, True);
+          11: ToggleOption(optCompareAttr, True);
+          12: ToggleOption(optCompareFolderAttrs, True);
+          13: {};
+          14: ToggleOption(optShowSame);
+          15: ToggleOption(optShowDiff);
+          16: ToggleOption(optShowOrphan);
+          17: {};
+          18: ToggleOption(optHilightDiff);
+          19: ToggleOption(FUnfold);
         end;
       end;
 
@@ -1147,9 +1218,11 @@ interface
     if vItem <> nil then begin
       vList := TCmpFolder.Create;
       try
+        vList.Options := [];
         vList.Folder1 := vItem.ParentGroup.Folder1;
         vList.Folder2 := vItem.ParentGroup.Folder2;
 
+        {!!!Selected}
         vList.Add(vItem);
         CompareContents(vList);
 
@@ -1157,7 +1230,6 @@ interface
         ReinitAndSaveCurrent;
 
       finally
-        vList.Clear;
         FreeObj(vList);
       end;
     end else
@@ -1180,10 +1252,10 @@ interface
 
       if (optCompareCmd = '') or AForcePrompt then begin
         vCmd := optCompareCmd;
-        {!!!Локализация}
+
         vRes := FARAPI.InputBox(
-          'Compare',
-          'Command:',
+          GetMsg(strCompareTitle),
+          GetMsg(strCompareCommand),
           '',
           PFarChar(vCmd),
           @vStr[0],
@@ -1213,24 +1285,17 @@ interface
   var
     vItem :TCmpFileItem;
     vVer :Integer;
-    vName :TFarStr;
     vSave :THandle;
   begin
     vItem := GetCurrentItem;
     vVer := GetCurSide;
-
-    if (vItem <> nil) and (faPresent and vItem.Attr[vVer] <> 0) and not vItem.IsFolder then begin
+    if (vItem <> nil) and (vVer <> -1) and (faPresent and vItem.Attr[vVer] <> 0) and not vItem.IsFolder then begin
 
       { Глючит, если в процессе просмотра/редактирования файла изменить размер консоли...}
       SendMsg(DM_ShowDialog, 0, 0);
       vSave := FARAPI.SaveScreen(0, 0, -1, -1);
       try
-
-        vName := vItem.GetFullFileName(vVer);
-        if AEdit then
-          FARAPI.Editor(PFarChar(vName), nil, 0, 0, -1, -1, EF_ENABLE_F6, 0, 1, CP_AUTODETECT)
-        else
-          FARAPI.Viewer(PFarChar(vName), nil, 0, 0, -1, -1, VF_ENABLE_F6, CP_AUTODETECT);
+        FarEditOrView(vItem.GetFullFileName(vVer), AEdit, EF_ENABLE_F6);
 
         if vItem.UpdateInfo then
           UpdateFolderDidgets(FRootItems);
@@ -1247,10 +1312,11 @@ interface
   end;
 
 
-  procedure JumpToFile(Active :Boolean; const AFileName :TString);
+  function JumpToFile(Active :Boolean; const AFileName :TString) :Boolean;
   var
-    vStr :TFarStr;
+    vStr :TString;
   begin
+    Result := False;
 //  TraceF('Jump to file: %s', [AFileName]);
     vStr := RemoveBackSlash(ExtractFilePath(AFileName));
     if WinFolderExists(vStr) then begin
@@ -1259,14 +1325,18 @@ interface
       vStr := ExtractFileName(AFileName);
       if vStr <> '' then
         FarPanelSetCurrentItem(Active, vStr);
-    end;    
+
+      Result := True;
+    end;
   end;
 
 
   procedure TFilesDlg.GotoCurrent;
   var
     vItem :TCmpFileItem;
-    vVer :Integer;
+    vName :TString;
+    vVer, vSide :Integer;
+    vSelected :TStringList;
   begin
     vItem := GetCurrentItem;
     vVer := GetCurSide;
@@ -1276,18 +1346,124 @@ interface
       vItem := FItems.ParentItem;
 
     if (vItem <> nil) then begin
+      vSelected := TStringList.Create;
+      try
+        vSelected.Sorted := True;
 
-      if vItem.ParentGroup.Folder1 <> '' then
-        JumpToFile( True, vItem.GetFullFileName(0) );
-      if vItem.ParentGroup.Folder2 <> '' then
-        JumpToFile( False, vItem.GetFullFileName(1) );
+        vName := vItem.Name;
+        if vItem <> FItems.ParentItem then
+          vName := RemoveBackSlash(vName);
 
-      FResCmd  := 0;
+        vSide := CurrentPanelSide;
+
+        if vItem.ParentGroup.Folder1 <> '' then
+          if JumpToFile( vSide = 0, AddFileName(vItem.ParentGroup.Folder1, vName) ) then
+            if FSelectedCount[0] > 0 then begin
+              GetSelected(vSelected, 0, False);
+              FarPanelSetSelectedItems( vSide = 0, vSelected);
+            end;
+
+        if vItem.ParentGroup.Folder2 <> '' then
+          if JumpToFile( vSide <> 0, AddFileName(vItem.ParentGroup.Folder2, vName) ) then
+            if FSelectedCount[1] > 0 then begin
+              GetSelected(vSelected, 1, False);
+              FarPanelSetSelectedItems(vSide <> 0, vSelected);
+            end;
+
+      finally
+        FreeObj(vSelected);
+      end;
+
+      FResLog := (vVer <> -1) and (vSide <> GetCurSide);
+      FResCmd := 1;
       SendMsg(DM_CLOSE, -1, 0);
     end;
   end;
 
-  
+
+  procedure TFilesDlg.CopySelected;
+  var
+    vVer :Integer;
+    vItem :TCmpFileItem;
+    vSelected :TStringList;
+  begin
+    vVer := GetCurSide;
+    if vVer = -1 then
+      vVer := 0; {???}
+
+    if FSelectedCount[vVer] = 0 then begin
+      vItem := GetCurrentItem;
+      if (vItem <> nil) and (faPresent and vItem.Attr[vVer] <> 0) then
+        CopyToClipboard(vItem.GetFullFileName(vVer))
+      else
+        Beep;
+    end else
+    begin
+      vSelected := TStringList.Create;
+      try
+        GetSelected(vSelected, vVer, True);
+        CopyToClipboard(vSelected.Text)
+      finally
+        FreeObj(vSelected);
+      end;
+    end
+  end;
+
+
+  procedure TFilesDlg.SendToTempPanel;
+  var
+    vVer :Integer;
+    vSelected :TStringList;
+    vFileName :TString;
+  begin
+    vSelected := TStringList.Create;
+    try
+      vVer := GetCurSide;
+      if vVer = -1 then
+        vVer := 0; {???}
+
+      GetSelected(vSelected, vVer, True);
+
+      if vSelected.Count > 0 then begin
+        vFileName := StrGetTempFileName(StrGetTempPath, 'tmp');
+       {$ifdef bUnicodeFar}
+        vSelected.SaveToFile(vFileName);
+       {$else}
+        vSelected.SaveToFile(vFileName, sffAnsi);
+       {$endif bUnicodeFar}
+
+        FResStr := vFileName;
+        FResLog := CurrentPanelSide <> vVer;
+        FResCmd := 2;
+        SendMsg(DM_CLOSE, -1, 0);
+      end else
+        Beep;
+
+    finally
+      FreeObj(vSelected);
+    end;
+  end;
+
+
+  procedure TFilesDlg.GetSelected(AList :TStringList; AVer :Integer; AFullPath :Boolean);
+  var
+    I :Integer;
+    vRec :PFilterRec;
+    vMask :Integer;
+  begin
+    AList.Clear;
+    vMask := 1 shl AVer;
+    for I := 0 to FGrid.RowCount - 1 do begin
+      vRec := FFilter.PItems[I];
+      if (vRec.FItem <> nil) and (faPresent and vRec.FItem.Attr[AVer] <> 0) and (vRec.FSel and vMask <> 0) then begin
+        if AFullPath then
+          AList.Add( vRec.FItem.GetFullFileName(AVer) )
+        else
+          AList.Add( RemoveBackSlash(vRec.FItem.Name) );
+      end;
+    end;
+  end;
+
  {-----------------------------------------------------------------------------}
 
   function TFilesDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; {override;}
@@ -1313,19 +1489,18 @@ interface
     end;
 
 
-    procedure LocSetCheck(AIndex :Integer; ASetOn :Integer);
+    procedure LocSetCheck(AIndex, AVer :Integer; ASetOn :Integer);
     var
-      vVer, vMask :Integer;
+      vMask :Integer;
       vRec :PFilterRec;
       vOldOn :Boolean;
     begin
-      vVer := GetCurSide;
-      vMask := 1 shl vVer;
+      vMask := 1 shl AVer;
       vRec := FFilter.PItems[AIndex];
-      if (vRec.FItem <> nil) and (faPresent and vRec.FItem.Attr[vVer] <> 0) then begin
+      if (vRec.FItem <> nil) and (faPresent and vRec.FItem.Attr[AVer] <> 0) then begin
 
-//      if FUnfold and (faDirectory and vRec.FItem.Attr[vVer] <> 0) then
-//        Exit;
+        if FUnfold and (faDirectory and vRec.FItem.Attr[AVer] <> 0) then
+          Exit;
 
         vOldOn := vRec.FSel and vMask <> 0;
         if ASetOn = -1 then
@@ -1335,21 +1510,31 @@ interface
         else
           vRec.FSel := vRec.FSel and not vMask;
         if vOldOn then
-          Dec(FSelectedCount);
+          Dec(FSelectedCount[AVer]);
         if ASetOn = 1 then
-          Inc(FSelectedCount);
+          Inc(FSelectedCount[AVer]);
       end;
+    end;
+
+
+    procedure LocSetCheckEx(AIndex, AVer :Integer; ASetOn :Integer);
+    begin
+      if (AVer = 0) or (AVer = -1) then
+        LocSetCheck(AIndex, 0, ASetOn);
+      if (AVer = 1) or (AVer = -1) then
+        LocSetCheck(AIndex, 1, ASetOn);
     end;
 
 
     procedure LocSelectCurrent;
     var
-      vIndex :Integer;
+      vIndex, vVer :Integer;
     begin
       vIndex := FGrid.CurRow;
       if vIndex = -1 then
         Exit;
-      LocSetCheck(vIndex, -1);
+      vVer := GetCurSide;
+      LocSetCheckEx(vIndex, vVer, -1);
       if vIndex < FGrid.RowCount - 1 then
         SetCurrent(vIndex + 1, lmScroll);
     end;
@@ -1357,10 +1542,37 @@ interface
 
     procedure LocSelectAll(AFrom :Integer; ASetOn :Integer);
     var
-      I :Integer;
+      I, vVer :Integer;
     begin
+      vVer := GetCurSide;
       for I := AFrom to FGrid.RowCount - 1 do
-        LocSetCheck(I, ASetOn);
+        LocSetCheckEx(I, vVer, ASetOn);
+      SendMsg(DM_REDRAW, 0, 0);
+    end;
+
+
+    procedure LocSelectSameColor(AFrom :Integer; ASetOn :Integer);
+    var
+      I, vVer :Integer;
+      vItem :TCmpFileItem;
+      vRec :PFilterRec;
+      vResume :TCompareResume;
+    begin
+      vVer := GetCurSide;
+      vItem := GetCurrentItem;
+      if (vItem = nil) then
+        Exit;
+
+      vResume := vItem.GetResume;
+
+      for I := AFrom to FGrid.RowCount - 1 do begin
+        vRec := FFilter.PItems[I];
+        if vRec.FItem = nil then
+          Continue;
+        if vRec.FItem.GetResume <> vResume then
+          Continue;
+        LocSetCheckEx(I, vVer, ASetOn);
+      end;
       SendMsg(DM_REDRAW, 0, 0);
     end;
 
@@ -1402,16 +1614,40 @@ interface
               ReinitGrid;
               SetCurrent( 0, lmScroll );
             end;
+          KEY_CTRLINS:
+            CopySelected;
+          KEY_ALTP:
+            SendToTempPanel;
 
           KEY_TAB:
-            if GetCurSide = 0 then
-              FGrid.GotoLocation(FGrid.Columns.Count div 2, FGrid.CurRow, lmSimple)
-            else
-              FGrid.GotoLocation(0, FGrid.CurRow, lmSimple);
+            begin
+              if GetCurSide = 0 then
+                FGrid.GotoLocation(FGrid.Columns.Count div 2, FGrid.CurRow, lmSimple)
+              else
+                FGrid.GotoLocation(0, FGrid.CurRow, lmSimple);
+              FWholeLine := False;
+              SendMsg(DM_REDRAW, 0, 0);
+            end;
           KEY_LEFT:
-            FGrid.GotoLocation(0, FGrid.CurRow, lmSimple);
+            begin
+              if GetCurSide = 0 then
+                FWholeLine := True
+              else begin
+                FWholeLine := False;
+                FGrid.GotoLocation(0, FGrid.CurRow, lmSimple);
+              end;
+              SendMsg(DM_REDRAW, 0, 0);
+            end;
           KEY_RIGHT:
-            FGrid.GotoLocation(FGrid.Columns.Count div 2, FGrid.CurRow, lmSimple);
+            begin
+              if GetCurSide = 1 then
+                FWholeLine := True
+              else begin
+                FWholeLine := False;
+                FGrid.GotoLocation(FGrid.Columns.Count div 2, FGrid.CurRow, lmSimple);
+              end;
+              SendMsg(DM_REDRAW, 0, 0);
+            end;
 
           KEY_F2:
             OptionsMenu;
@@ -1435,6 +1671,10 @@ interface
             LocSelectAll(0, 0);
           KEY_CTRLMULTIPLY:
             LocSelectAll(0, -1);
+          KEY_ALTADD:
+            LocSelectSameColor(0, 1);
+          KEY_ALTSUBTRACT:
+            LocSelectSameColor(0, -1);
 
           KEY_CTRLU:
             LocFoldUnfold;
@@ -1475,13 +1715,13 @@ interface
           KEY_CTRLF4, KEY_CTRLSHIFTF4:
             SetOrder(smByExt, optDiffAtTop);
           KEY_CTRLF5, KEY_CTRLSHIFTF5:
-            SetOrder(smByDate, optDiffAtTop);
+            SetOrder(-smByDate, optDiffAtTop);
           KEY_CTRLF6, KEY_CTRLSHIFTF6:
-            SetOrder(smBySize, optDiffAtTop);
+            SetOrder(-smBySize, optDiffAtTop);
           KEY_CTRLF7, KEY_CTRLSHIFTF7:
             SetOrder(0, not optDiffAtTop);
           KEY_CTRLF12:
-            Sorry {SortByDlg};
+            SortByDlg;
 
           { Фильтрация }
           KEY_DEL, KEY_ALT, KEY_RALT:
@@ -1506,7 +1746,7 @@ interface
            {$ifdef bUnicodeFar}
             LocSetFilter(FFilterMask + WideChar(Param2));
            {$else}
-            LocSetFilter(FFilterMask + StrDos2Win(AnsiChar(Param2)));
+            LocSetFilter(FFilterMask + StrOEMToAnsi(AnsiChar(Param2)));
            {$endif bUnicodeFar}
           end else
             Result := inherited DialogHandler(Msg, Param1, Param2);
@@ -1529,6 +1769,50 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
+  procedure GotoPanel(Another :Boolean);
+  var
+    vStr :TFarStr;
+    vMacro :TActlKeyMacro;
+  begin
+    if Another then begin
+      vStr := 'Tab';
+      vMacro.Command := MCMD_POSTMACROSTRING;
+      vMacro.Param.PlainText.SequenceText := PFarChar(vStr);
+      vMacro.Param.PlainText.Flags := {KSFLAGS_DISABLEOUTPUT or} KSFLAGS_NOSENDKEYSTOPLUGINS;
+      FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+    end;
+  end;
+
+
+  procedure OpenTempPanel(const AFileName :TString; Another :Boolean);
+  var
+    vStr :TFarStr;
+    vMacro :TActlKeyMacro;
+  begin
+   {$ifdef bUnicodeFar}
+    vStr := 'Tmp:' + AFileName;
+   {$else}
+    vStr := 'Tmp: +ansi +replace ' + AFileName;
+   {$endif bUnicodeFar}
+
+   {$ifdef bUnicodeFar}
+    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(vStr));
+   {$else}
+    vStr := StrAnsiToOem(vStr);
+    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, PFarChar(vStr));
+   {$endif bUnicodeFar}
+
+    if Another then
+      vStr := 'Tab Enter'
+    else
+      vStr := 'Enter';
+    vMacro.Command := MCMD_POSTMACROSTRING;
+    vMacro.Param.PlainText.SequenceText := PFarChar(vStr);
+    vMacro.Param.PlainText.Flags := {KSFLAGS_DISABLEOUTPUT or} KSFLAGS_NOSENDKEYSTOPLUGINS;
+    FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+  end;
+
+
   procedure ShowFilesDlg(AFiles :TCmpFolder);
   var
     vDlg :TFilesDlg;
@@ -1546,11 +1830,12 @@ interface
         if (vDlg.Run = -1) or (vDlg.FResCmd = 0) then
           Exit;
 
-        vFinish := True;
-(*
         if vDlg.FResCmd = 1 then
-          JumpToFile(vDlg.FResFile);
-*)
+          GotoPanel(vDlg.FResLog);
+        if vDlg.FResCmd = 2 then
+          OpenTempPanel(vDlg.FResStr, vDlg.FResLog);
+
+        vFinish := True;
       end;
 
     finally
