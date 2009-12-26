@@ -33,10 +33,49 @@ interface
       strTitle,
       strError,
 
+      strLeftFolder,
+      strRightFolder,
+      strFileMask,
+      strRecursive,
+      strSkipHidden,
+      strDoNotScanOrphan,
+      strCompareContents,
+
+      strCompareTitle,
+      strCompareCommand,
+
+      strOptions,
+      strMShowFolderSummary,
+      strMShowSize,
+      strMShowTime,
+      strMShowAttrs,
+      strMShowFolderAttrs,
+      strMSortBy,
+      strMCompContents,
+      strMCompSize,
+      strMCompTime,
+      strMCompAttr,
+      strMCompFolderAttrs,
+      strMShowSame,
+      strMShowDiff,
+      strMShowOrphan,
+      strMHilightDiff,
+      strMUnfold,
+
+      strSortByTitle,
+      strSortByName,
+      strSortByExt,
+      strSortByDate,
+      strSortBySize,
+      strDiffAtTop,
+
       strInterrupt,
       strInterruptPrompt,
       strYes,
-      strNo
+      strNo,
+
+      strOk,
+      strCancel
     );
 
 
@@ -98,7 +137,7 @@ interface
     optOlderColor         :Integer = $04;
     optNewerColor         :Integer = $0C;
     optFoundColor         :Integer = $0A;
-    optDiffColor          :Integer = $F0;
+    optDiffColor          :Integer = $B0; //$F0;
 
   var
     FRegRoot              :TString;
@@ -113,6 +152,10 @@ interface
   procedure WriteSetup;
 
   function ShellOpen(AWnd :THandle; const FName, Param :TString) :Boolean;
+
+  function CurrentPanelSide :Integer;
+  function GetPanelDir(Active :Boolean) :TString;
+  procedure CopyToClipboard(const AStr :TString);
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -249,6 +292,54 @@ interface
   function ShellOpen(AWnd :THandle; const FName, Param :TString) :Boolean;
   begin
     Result := ShellOpenEx(AWnd, FName, Param, 0{ or SEE_MASK_FLAG_NO_UI}, SW_Show, nil);
+  end;
+
+
+  function CurrentPanelSide :Integer;
+  var
+    vInfo  :TPanelInfo;
+  begin
+    FillChar(vInfo, SizeOf(vInfo), 0);
+   {$ifdef bUnicodeFar}
+    FARAPI.Control(THandle(PANEL_ACTIVE), FCTL_GetPanelInfo, 0, @vInfo);
+   {$else}
+    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelShortInfo, @vInfo);
+   {$endif bUnicodeFar}
+    if PFLAGS_PANELLEFT and vInfo.Flags <> 0 then
+      Result := 0  {Left}
+    else
+      Result := 1; {Right}
+  end;
+
+
+  function GetPanelDir(Active :Boolean) :TString;
+ {$ifdef bUnicodeFar}
+ {$else}
+  var
+    vInfo :TPanelInfo;
+ {$endif bUnicodeFar}
+  begin
+   {$ifdef bUnicodeFar}
+    Result := FarPanelGetCurrentDirectory(THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE)));
+   {$else}
+    FillChar(vInfo, SizeOf(vInfo), 0);
+    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
+    Result := StrOEMToAnsi(vInfo.CurDir);
+   {$endif bUnicodeFar}
+  end;
+
+
+  procedure CopyToClipboard(const AStr :TString);
+ {$ifdef bUnicodeFar}
+  begin
+    FARSTD.CopyToClipboard(PTChar(AStr));
+ {$else}
+  var
+    vStr :TFarStr;
+  begin
+    vStr := StrAnsiToOEM(AStr);
+    FARSTD.CopyToClipboard(PFarChar(vStr));
+ {$endif bUnicodeFar}
   end;
 
 

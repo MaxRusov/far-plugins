@@ -54,8 +54,7 @@ interface
       crSame,
       crDiff,
       crUncomp,
-      crOrphan1,
-      crOrphan2
+      crOrphan
     );
 
     TFolderResume = set of TCompareResume;
@@ -256,7 +255,7 @@ interface
   begin
     if FSubMasks = nil then begin
       if FExact then
-        Result := StringMatch(FMask, PWideChar(AStr), APos, ALen)
+        Result := StringMatch(FMask, PTChar(AStr), APos, ALen)
       else
         Result := CheckMask(FMask, AStr, FREgExp, APos, ALen);
       if FNot then
@@ -338,12 +337,7 @@ interface
       end;
 
     end else
-    begin
-      if faPresent and Attr[0] <> 0 then
-        Result := crOrphan2
-      else
-        Result := crOrphan1;
-    end
+      Result := crOrphan;
   end;
 
 
@@ -359,9 +353,9 @@ interface
         if UncompCount > 0 then
           Result := Result + [crUncomp];
         if OrphanCount[0] > 0 then
-          Result := Result + [crOrphan1];
+          Result := Result + [crOrphan];
         if OrphanCount[1] > 0 then
-          Result := Result + [crOrphan2];
+          Result := Result + [crOrphan];
       end;
   end;
 
@@ -627,20 +621,21 @@ interface
 
     procedure UpdateMessage1(const AFolder :TString);
     var
-      vMess, vFolder :TString;
+      vMess, vFolder :TFarStr;
     begin
       if vSave = 0 then
         InitProgress;
      {$ifdef bUnicodeFar}
       vFolder := AFolder;
      {$else}
-      vFolder := StrWin2Dos(AFolder);
+      vFolder := StrAnsiToOEM(AFolder);
      {$endif bUnicodeFar}
+      {!!!Localize}
       vMess :=
         'Compare folders'#10 +
         Format('Files: %d   Folders: %d   Time: %d sec', [vFiles, vFolders, TickCountDiff(GetTickCount, vStart) div 1000]) + #10 +
         StrLeftAjust(vFolder, vWidth);
-      FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PTChar(vMess)), 0, 0);
+      FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PFarChar(vMess)), 0, 0);
       Assert(cTrue);
     end;
 
@@ -822,21 +817,22 @@ interface
 
     procedure UpdateMessage2(AList :TCmpFolder; AItem :TCmpFileItem);
     var
-      vMess, vFileName :TString;
+      vMess, vFileName :TFarStr;
     begin
       if vSave = 0 then
         InitProgress;
       vFileName := AddFileName('...' + Copy(AList.Folder1, vBaseLen, MaxInt), AItem.FName);
      {$ifdef bUnicodeFar}
      {$else}
-      vFileName := StrWin2Dos(AFileName);
+      vFileName := StrAnsiToOEM(vFileName);
      {$endif bUnicodeFar}
+      {!!!Localize}
       vMess :=
         'Compare files'#10 +
         Format('Files: %d   Time: %d sec', [vCompFiles, TickCountDiff(GetTickCount, vStart) div 1000]) + #10 +
         StrLeftAjust(vFileName, vWidth) + #10 +
         GetProgressStr(vWidth, MulDiv(vCompFiles, 100, vTotalCompFiles));
-      FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PTChar(vMess)), 0, 0);
+      FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PFarChar(vMess)), 0, 0);
       Assert(cTrue);
     end;
 

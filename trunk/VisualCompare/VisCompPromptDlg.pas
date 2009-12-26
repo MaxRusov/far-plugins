@@ -86,26 +86,26 @@ interface
       [
         NewItemApi(DI_DoubleBox, 3,  1,   DX-6, DY-2, 0, GetMsg(strTitle)),
 
-        NewItemApi(DI_Text,     5,   2,   DX-10,  -1,   0, 'Left folder' ),
+        NewItemApi(DI_Text,     5,   2,   DX-10,  -1,   0, GetMsg(strLeftFolder) ),
         NewItemApi(DI_Edit,     5,   3,   DX-10,  -1,   DIF_HISTORY, '', 'VisCompare.Folder' ),
 
-        NewItemApi(DI_Text,     5,   4,   DX-10,  -1,   0, 'Right Folder' ),
+        NewItemApi(DI_Text,     5,   4,   DX-10,  -1,   0, GetMsg(strRightFolder) ),
         NewItemApi(DI_Edit,     5,   5,   DX-10,  -1,   DIF_HISTORY, '', 'VisCompare.Folder' ),
 
-        NewItemApi(DI_Text,     5,   6,   DX-10, -1,   0, 'File &mask' ),
+        NewItemApi(DI_Text,     5,   6,   DX-10, -1,   0, GetMsg(strFileMask) ),
         NewItemApi(DI_Edit,     5,   7,   DX-10, -1,   DIF_HISTORY, '', 'VisCompare.FileMasks' ),
 
         NewItemApi(DI_Text,     0,   8,   -1,    -1,   DIF_SEPARATOR),
 
-        NewItemApi(DI_CHECKBOX, 5,   9,   -1,    -1,   0, '&Recursive'),
-        NewItemApi(DI_CHECKBOX, 5,  10,   -1,    -1,   0, 'Skip &hidden files/folders'),
-        NewItemApi(DI_CHECKBOX, 5,  11,   vX2-6, -1,   0, 'Do not scan &orphan folders'),
+        NewItemApi(DI_CHECKBOX, 5,   9,   -1,    -1,   0, GetMsg(strRecursive)),
+        NewItemApi(DI_CHECKBOX, 5,  10,   -1,    -1,   0, GetMsg(strSkipHidden)),
+        NewItemApi(DI_CHECKBOX, 5,  11,   vX2-6, -1,   0, GetMsg(strDoNotScanOrphan)),
 
-        NewItemApi(DI_CHECKBOX, vX2, 9,   DX-vX2-5,  -1,  0, 'Compare &contents'),
+        NewItemApi(DI_CHECKBOX, vX2, 9,   DX-vX2-5,  -1,  0, GetMsg(strCompareContents)),
 
         NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, 'Ok' (* 'GetMsg(strOkBut)*) ),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, 'Cancel' (* 'GetMsg(strCancelBut)*) )
+        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strOk) ),
+        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancel) )
       ]
     );
   end;

@@ -35,7 +35,7 @@ interface
   function GetMinFarVersionW :Integer; stdcall;
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
   procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;  
+  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
  {$else}
   procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
   procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
@@ -52,23 +52,6 @@ interface
     MixDebug;
 
 
-  function GetPanelDir(Active :Boolean) :TString;
- {$ifdef bUnicodeFar}
- {$else}
-  var
-    vInfo :TPanelInfo;
- {$endif bUnicodeFar}
-  begin
-   {$ifdef bUnicodeFar}
-    Result := FarPanelGetCurrentDirectory(THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE)));
-   {$else}
-    FillChar(vInfo, SizeOf(vInfo), 0);
-    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
-    Result := StrDos2Win(vInfo.CurDir);
-   {$endif bUnicodeFar}
-  end;
-
-
  {-----------------------------------------------------------------------------}
  { Ёкспортируемые процедуры                                                    }
  {-----------------------------------------------------------------------------}
@@ -76,10 +59,8 @@ interface
  {$ifdef bUnicodeFar}
   function GetMinFarVersionW :Integer; stdcall;
   begin
-    { Need 2.0.756 }
-//  Result := $02F40200;
-    { Need 2.0.789 }
-    Result := $03150200;
+//  Result := $02F40200; { Need 2.0.756 }
+    Result := $03150200; { Need 2.0.789 }
   end;
  {$endif bUnicodeFar}
 
@@ -115,7 +96,7 @@ interface
   begin
 //  TraceF('GetPluginInfo: %s', ['']);
     pi.StructSize:= SizeOf(pi);
-    pi.Flags:= PF_EDITOR or PF_VIEWER or PF_DIALOG;
+    pi.Flags:= 0 {PF_EDITOR or PF_VIEWER or PF_DIALOG};
 
     PluginMenuStrings[0] := GetMsg(strTitle);
     pi.PluginMenuStringsNumber := 1;
@@ -146,6 +127,7 @@ interface
   var
     vPath1, vPath2 :TString;
     vList :TCmpFolder;
+    vSide  :Integer;
   begin
     Result:= INVALID_HANDLE_VALUE;
 //  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
@@ -160,8 +142,9 @@ interface
       try
         ReadSetup;
 
-        vPath1 := GetPanelDir(True);
-        vPath2 := GetPanelDir(False);
+        vSide  := CurrentPanelSide;
+        vPath1 := GetPanelDir(vSide = 0);
+        vPath2 := GetPanelDir(vSide <> 0);
 
         if not CompareDlg(vPath1, vPath2) then
           Exit;

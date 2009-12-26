@@ -3,7 +3,7 @@
 if not exist ..\Units\VisualCompare md ..\Units\VisualCompare
 if not exist ..\Bin\VisualCompare md ..\Bin\VisualCompare
 
-if exist VisualCompare.cfg del VisualCompare.cfg
+if exist VisComp.cfg del VisComp.cfg
 
 brcc32 VisCompA.rc || exit
 brcc32 VisCompW.rc || exit

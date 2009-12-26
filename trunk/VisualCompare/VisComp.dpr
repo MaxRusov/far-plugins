@@ -13,7 +13,7 @@ uses
   VisCompMain;
 
 exports
- {$ifdef bUnicode}
+ {$ifdef bUnicodeFar}
   SetStartupInfoW,
   GetMinFarVersionW,
   GetPluginInfoW,
@@ -24,14 +24,14 @@ exports
   GetPluginInfo,
   OpenPlugin,
   ExitFAR;
- {$endif bUnicode}
+ {$endif bUnicodeFar}
 
   
- {$ifdef bUnicode}
+ {$ifdef bUnicodeFar}
   {$R VisCompW.res}   
  {$else}
   {$R VisCompA.res}
- {$endif False}
+ {$endif bUnicodeFar}
 
 
 end.
