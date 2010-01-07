@@ -12617,7 +12617,8 @@ const
 type
   PCreateStructA = ^TCreateStructA;
   PCreateStructW = ^TCreateStructW;
-  PCreateStruct = PCreateStructA;
+  PCreateStruct = {$ifdef bUnicode}PCreateStructW{$else}PCreateStructA{$endif bUnicode};
+
   tagCREATESTRUCTA = record
     lpCreateParams: Pointer;
     hInstance: HINST;
@@ -12646,13 +12647,15 @@ type
     lpszClass: PWideChar;
     dwExStyle: DWORD;
   end;
-  tagCREATESTRUCT = tagCREATESTRUCTA;
+  tagCREATESTRUCT = {$ifdef bUnicode}tagCREATESTRUCTW{$else}tagCREATESTRUCTA{$endif bUnicode};
+
   TCreateStructA = tagCREATESTRUCTA;
   TCreateStructW = tagCREATESTRUCTW;
-  TCreateStruct = TCreateStructA;
+  TCreateStruct = {$ifdef bUnicode}TCreateStructW{$else}TCreateStructA{$endif bUnicode};
+
   CREATESTRUCTA = tagCREATESTRUCTA;
   CREATESTRUCTW = tagCREATESTRUCTW;
-  CREATESTRUCT = CREATESTRUCTA;
+  CREATESTRUCT = {$ifdef bUnicode}CREATESTRUCTW{$else}CREATESTRUCTA{$endif bUnicode};
 
   { HCBT_CREATEWND parameters pointed to by lParam }
   PCBTCreateWnd = ^TCBTCreateWnd;

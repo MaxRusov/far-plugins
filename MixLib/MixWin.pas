@@ -159,7 +159,7 @@ interface
       procedure CreateParams(var AParams :TCreateParams); override;
     end;
 
-
+  function ColorToRGB(AColor :TColor) :TColor;
   function WinCreateFont(const AName :TString; ASize :Integer; AStyle :TFontStyles) :HFont;
 
   const
@@ -169,7 +169,7 @@ interface
 
   var
     SetLayeredWindowAttributes :function(Hwnd: THandle; crKey: COLORREF; bAlpha: Byte; dwFlags: DWORD): Boolean; stdcall = nil;
-    
+
   procedure InitLayeredWindow;
 
 
@@ -542,6 +542,15 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
+  function ColorToRGB(AColor :TColor) :TColor;
+  begin
+    if AColor < 0 then
+      Result := GetSysColor(AColor and $000000FF)
+    else
+      Result := AColor;
+  end;
+
+
   function WinCreateFont(const AName :TString; ASize :Integer; AStyle :TFontStyles) :HFont;
   var
     vDC :HDC;
@@ -567,7 +576,7 @@ interface
       {lfQuality}        DEFAULT_QUALITY,
       {lfPitchAndFamily} DEFAULT_PITCH,
       {lfFaceName}       PTChar(AName)
-    );  
+    );
   end;
 
 
@@ -583,7 +592,7 @@ interface
       if ModH <> 0 then
         @SetLayeredWindowAttributes := GetProcAddress(ModH, 'SetLayeredWindowAttributes');
       LayeredWindowInited := True;
-    end; 
+    end;
   end;
 
 end.
