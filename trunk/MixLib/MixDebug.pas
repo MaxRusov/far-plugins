@@ -40,6 +40,9 @@ interface
   procedure TraceF(const AMsg :TString; const Args: array of const);
   procedure TraceFA(const AMsg :TAnsiStr; const Args: array of const);
   procedure TraceFW(const AMsg :TWideStr; const Args: array of const);
+
+  procedure TraceBeg(const AMsg :TString);
+  procedure TraceEnd(const AMsg :TString);
  {$endif bTrace}
 
 
@@ -422,6 +425,22 @@ interface
   procedure TraceFW(const AMsg :TWideStr; const Args: array of const);
   begin
     dllTraceFmtW(HInstance, PWideChar(AMsg), Args);
+  end;
+
+
+
+  threadvar
+    gStart :DWORD;
+
+  procedure TraceBeg(const AMsg :TString);
+  begin
+    Trace(AMsg);
+    gStart := GetTickCount;
+  end;
+
+  procedure TraceEnd(const AMsg :TString);
+  begin
+    TraceF('%s (%d ms)', [AMsg, TickCountDiff(GetTickCount, gStart)]);
   end;
  {$endif bTrace}
 
