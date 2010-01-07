@@ -80,7 +80,11 @@ interface
   begin
     Result := 0;
 
+   {$ifdef b64}
+    vDLLHandle := GetModuleHandle('conemu.x64.dll');
+   {$else}
     vDLLHandle := GetModuleHandle('conemu.dll');
+   {$endif b64}
     if vDLLHandle <> 0 then begin
 //    Trace('ConEmu detected...');
       vGetFarHWND := GetProcAddress( vDLLHandle, 'GetFarHWND' );
