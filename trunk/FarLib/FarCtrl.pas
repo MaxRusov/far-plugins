@@ -164,6 +164,7 @@ interface
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   function FarPanelGetCurrentItem(Active :Boolean) :TString;
   function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
+  procedure FarPanelGetSelectedItems(Active :Boolean; AItems :TStringList);
   procedure FarPanelSetSelectedItems(Active :Boolean; AItems :TStringList; AClearAll :Boolean = True);
   procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = 0; ACol :Integer = 1);
   procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName, ATypeName :PTString);
@@ -755,6 +756,75 @@ interface
   end;
 
 
+  procedure FarPanelGetSelectedItems(Active :Boolean; AItems :TStringList);
+ {$ifdef bUnicodeFar}
+  var
+    I :Integer;
+    vStr :TString;
+    vInfo :TPanelInfo;
+    vHandle :THandle;
+    vItem :PPluginPanelItem;
+  begin
+   {$ifdef bDebug}
+    TraceBeg('FarPanelGetSelectedItems...');
+   {$endif bDebug}
+
+    vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
+
+    FillChar(vInfo, SizeOf(vInfo), 0);
+    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+
+    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
+      for I := 0 to vInfo.SelectedItemsNumber - 1 do begin
+        vItem := FarPanelItem(vHandle, FCTL_GETSELECTEDPANELITEM, I);
+        try
+
+          { Требуется проверка флага, потому что даже если не выделено ни одного элемента }
+          { SelectedItemsNumber = 1, и возвращает текущий элемент...}
+          if PPIF_SELECTED and vItem.Flags <> 0 then begin
+            vStr := vItem.FindData.cFileName;
+            AItems.Add(vStr)
+          end;
+
+        finally
+          MemFree(vItem);
+        end;
+      end;
+    end;
+
+   {$ifdef bDebug}
+    TraceEnd('   Done');
+   {$endif bDebug}
+ {$else}
+  var
+    I :Integer;
+    vStr :TString;
+    vInfo :TPanelInfo;
+  begin
+   {$ifdef bDebug}
+    TraceBeg('FarPanelGetSelectedItems...');
+   {$endif bDebug}
+
+    FillChar(vInfo, SizeOf(vInfo), 0);
+    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
+
+    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
+      for I := 0 to vInfo.ItemsNumber - 1 do
+        with vInfo.PanelItems[I] do begin
+          if PPIF_SELECTED and Flags <> 0 then begin
+            vStr := FarChar2Str(FindData.cFileName);
+            AItems.Add(vStr)
+          end;
+        end;
+    end;
+
+   {$ifdef bDebug}
+    TraceEnd('   Done');
+   {$endif bDebug}
+ {$endif bUnicodeFar}
+  end;
+
+
   procedure FarPanelSetSelectedItems(Active :Boolean; AItems :TStringList; AClearAll :Boolean = True);
  {$ifdef bUnicodeFar}
   var
@@ -763,6 +833,10 @@ interface
     vInfo :TPanelInfo;
     vHandle :THandle;
   begin
+   {$ifdef bDebug}
+    TraceBeg('FarPanelSetSelectedItems...');
+   {$endif bDebug}
+
     vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
 
     FillChar(vInfo, SizeOf(vInfo), 0);
@@ -781,14 +855,23 @@ interface
       finally
         FARAPI.Control(vHandle, FCTL_ENDSELECTION, 0, nil);
       end;
+
+      FARAPI.Control(vHandle, FCTL_REDRAWPANEL, 0, nil);
     end;
 
+   {$ifdef bDebug}
+    TraceEnd('   Done');
+   {$endif bDebug}
  {$else}
   var
     I :Integer;
     vStr :TString;
     vInfo :TPanelInfo;
   begin
+   {$ifdef bDebug}
+    TraceBeg('FarPanelSetSelectedItems...');
+   {$endif bDebug}
+
     FillChar(vInfo, SizeOf(vInfo), 0);
     FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
 
@@ -804,7 +887,11 @@ interface
         end;
 
       FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_SetSelection, FCTL_SetAnotherSelection), @vInfo);
+      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_REDRAWPANEL, FCTL_REDRAWANOTHERPANEL), nil);
     end;
+   {$ifdef bDebug}
+    TraceEnd('   Done');
+   {$endif bDebug}
  {$endif bUnicodeFar}
   end;
 
