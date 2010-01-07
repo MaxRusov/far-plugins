@@ -2,6 +2,8 @@
 
 = Описание =
 
+[http://code.google.com/p/far-plugins/source/browse/trunk/FarTabs/Image/Sample.png]
+
 Плагин добавляет к панелям FAR строку закладок, которые можно переключать при помощи мыши или с клавиатуры.
 
 Обсуждение: http://forum.farmanager.com/viewtopic.php?f=5&t=4243
