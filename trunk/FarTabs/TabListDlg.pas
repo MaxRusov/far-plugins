@@ -1,12 +1,12 @@
-{$I Defines.inc}
-
-unit TabListDlg;
-
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* PanelTabs Far plugin                                                       *}
 {******************************************************************************}
+
+{$I Defines.inc}
+
+unit TabListDlg;
 
 interface
 
@@ -96,6 +96,7 @@ interface
 
   destructor TTabsList.Destroy; {override;}
   begin
+    FreeObj(FGrid);
     inherited Destroy;
   end;
 
@@ -120,7 +121,7 @@ interface
     FGrid.OnGetCellText := GridGetDlgText;
     FGrid.OnPaintCell := GridPaintCell;
     FGrid.Options := [goRowSelect, goWrapMode, goFollowMouse];
-    FGrid.Columns.FreeAll;
+    FGrid.Columns.Clear;
     FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coOwnerDraw, coColMargin], 1) );
     FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coColMargin], 2) );
   end;
@@ -282,7 +283,7 @@ interface
     procedure LocDelete;
     begin
       if FGrid.CurRow < FGrid.RowCount then begin
-        FTabs.FreeAt( FGrid.CurRow );
+        FTabs.Delete( FGrid.CurRow );
         FTabs.StoreReg('');
         ReinitListControl;
       end else

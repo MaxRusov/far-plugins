@@ -1,13 +1,13 @@
-{$I Defines.inc}
-{$Typedaddress Off}
-
-unit PanelTabsMain;
-
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* PanelTabs Far plugin                                                       *}
 {******************************************************************************}
+
+{$I Defines.inc}
+{$Typedaddress Off}
+
+unit PanelTabsMain;
 
 interface
 
@@ -187,7 +187,7 @@ interface
       end else
       begin
         vInput := CheckInput;
-//      TraceF('Input=%d', [Byte(vInput)]);
+//      TraceF('Input=%d, WasInput=%d', [Byte(vInput), Byte(vWasInput)]);
 
         if vInput = [] then begin
           vTitle := GetConsoleTitleStr;
@@ -200,6 +200,7 @@ interface
           begin
             if TabsManager.NeedCheck(X, Y) then begin
               vCh := ReadScreenChar(X, Y);
+
               if vCh <> '+' then begin
 //              Trace('Screen need repaint...');
                 CallPlugin(1);
@@ -224,7 +225,7 @@ interface
             end;
           end;
         end else
-          vWasInput := vWasInput or (cetKeyDown in vInput);
+          vWasInput := vWasInput or ([cetKeyDown{, cetKeyUp}] * vInput <> []);
 
         if (vInput <> []) or vWasInput then begin
           Sleep(10)
@@ -243,9 +244,13 @@ interface
   function TTabsThread.CallPlugin(ACmd :Integer) :Boolean;
   begin
     Result := False;
-    if not TabsManager.CanPaintTabs(True) then
+//  Trace('Can call?');
+    if not TabsManager.CanPaintTabs(True) then begin
+//    Trace('Can not paint...');
       Exit;
+    end;
 
+//  TraceF('Call plugin: ACmd=%d', [ACmd]);
     FARAPI.AdvControl(hModule, ACTL_SYNCHRO, Pointer(TIntPtr(ACmd)));
   end;
 
@@ -266,7 +271,6 @@ interface
       Exit;
 
 //  TraceF('Call plugin: ACmd=%d', [ACmd]);
-    
     GlobalCommand := ACmd;
     { Вызовем плагин в основном потоке, через механизм макросов... }
     SendKeys(vKey, vCtrl);
@@ -450,7 +454,8 @@ interface
  {$ifdef bUnicodeFar}
   function GetMinFarVersionW :Integer; stdcall;
   begin
-    Result := $03ED0200;  { Need 2.0.1005 }   { ProcessSynchroEvent }
+//  Result := MakeFarVersion(2, 0, 1005);   { ProcessSynchroEvent }
+    Result := MakeFarVersion(2, 0, 1148);   { ConvertPath }
   end;
  {$endif bUnicodeFar}
 
