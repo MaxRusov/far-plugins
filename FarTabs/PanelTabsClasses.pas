@@ -1,12 +1,12 @@
-{$I Defines.inc}
-
-unit PanelTabsClasses;
-
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* PanelTabs Far plugin                                                       *}
 {******************************************************************************}
+
+{$I Defines.inc}
+
+unit PanelTabsClasses;
 
 interface
 
@@ -62,6 +62,7 @@ interface
     TPanelTab = class(TBasis)
     public
       constructor CreateEx(const ACaption, AFolder :TString);
+      destructor Destroy; override;
 
       function GetTabCaption :TString;
       function IsFixed :Boolean;
@@ -75,7 +76,8 @@ interface
       FHotkey   :TChar;
       FHotPos   :Integer;
 
-      FCurrent  :TString;    { Текущий Item на данном Tab'е }
+      FCurrent  :TString;     { Текущий Item на данном Tab'е }
+      FSelected :TStringList; { Список выделенных элементов }
 
     public
       property Caption :TString read FCaption write FCaption;
@@ -133,6 +135,9 @@ interface
       FRects :array[TTabKind] of TRect;
       FTabs  :array[TTabKind] of TPanelTabs;
 
+      FPressedKind  :TTabKind;
+      FPressedIndex :Integer;
+
       function KindOfTab(Active :Boolean) :TTabKind;
       function GetTabs(Active :Boolean) :TPanelTabs;
       procedure RememberTabState(Active :Boolean; AKind :TTabKind);
@@ -143,6 +148,8 @@ interface
       procedure DeleteTabEx(Active :Boolean; AKind :TTabKind);
       procedure FixUnfixTabEx(Active :Boolean; AKind :TTabKind);
       procedure ListTabEx(Active :Boolean; AKind :TTabKind);
+
+      procedure SetPressed(AKind :TTabKind; AIndex :Integer);
     end;
 
 
@@ -159,54 +166,7 @@ interface
     TabListDlg,
     MixDebug;
 
-
  {-----------------------------------------------------------------------------}
-
-  var
-    BOM_UTF16_LE  :array[1..2] of Byte = ($FF, $FE);
-
-    CRLF :array[1..2] of TChar = (#13, #10);
-
-
-  function ReadFileAsStr(const AFileName :TString) :TString;
-  var
-    vFile, vSize :Integer;
-    vBOM :Word;
-    vWStr :TWideStr;
-    vAStr :TAnsiStr;
-  begin
-    Result := '';
-    vFile := FileOpen(AFileName, fmOpenRead or fmShareDenyWrite);
-    if vFile < 0 then
-      ApiCheck(False);
-    try
-      vSize := GetFileSize(vFile, nil);
-      if (FileRead(vFile, vBOM, SizeOf(vBOM)) = SizeOf(vBOM)) and (vBOM = Word(BOM_UTF16_LE)) then begin
-        Dec(vSize, SizeOf(vBOM));
-        if vSize > 0 then begin
-          SetString(vWStr, nil, (vSize + 1) div SizeOf(WideChar));
-          FileRead(vFile, PWideChar(vWStr)^, vSize);
-          Result := vWStr;
-        end;
-      end else
-      if vSize > 0 then begin
-        SetString(vAStr, nil, vSize);
-        FileSeek(vFile, 0, 0);
-        FileRead(vFile, PAnsiChar(vAStr)^, vSize);
-        Result := vAStr;
-      end;
-    finally
-      FileClose(vFile);
-    end;
-  end;
-
-
-  procedure StrToFile(AFile :Integer; const AStr :TString);
-  begin
-    FileWrite(AFile, PTChar(AStr)^, length(AStr) * SizeOf(TChar));
-    FileWrite(AFile, CRLF, 2 * SizeOf(TChar));
-  end;
-
 
   function SafeMaskStr(const AStr :TString) :TSTring;
   begin
@@ -313,6 +273,15 @@ interface
     inherited Create;
     FCaption := ACaption;
     FFolder := AFolder;
+    FSelected := TStringList.Create;
+    FSelected.Sorted := True; { Для ускорения FarPanelSetSelectedItems }
+  end;
+
+
+  destructor TPanelTab.Destroy; {override;}
+  begin
+    FreeObj(FSelected);
+    inherited Destroy;
   end;
 
 
@@ -599,29 +568,19 @@ interface
   procedure TPanelTabs.StoreFile(const AFileName :TString);
   var
     I :Integer;
-    vFile :Integer;
     vTab :TPanelTab;
     vFileName, vStr :TString;
   begin
-    vFileName := SafeChangeFileExtension(ExpandFileName(AFileName), cTabFileExt);
+    vFileName := SafeChangeFileExtension(FarExpandFileName(AFileName), cTabFileExt);
 //  TraceF('TPanelTabs.StoreFile: %s', [vFileName]);
 
-    vFile := FileCreate(vFileName);
-    if vFile < 0 then
-      ApiCheck(False);
-    try
-     {$ifdef bUnicode}
-      FileWrite(vFile, BOM_UTF16_LE, 2);
-     {$endif bUnicode}
-      for I := 0 to Count - 1 do begin
-        vTab := Items[I];
-        vStr := SafeMaskStr(vTab.Caption) + ',' + SafeMaskStr(vTab.FFolder);
-        StrToFile(vFile, vStr);
-      end;
-
-    finally
-      FileClose(vFile);
+    vStr := '';
+    for I := 0 to Count - 1 do begin
+      vTab := Items[I];
+      vStr := vStr + SafeMaskStr(vTab.Caption) + ',' + SafeMaskStr(vTab.FFolder) + CRLF;
     end;
+
+    StrToFile(vFileName, vStr);
   end;
 
 
@@ -630,12 +589,12 @@ interface
     vFileName, vStr, vStr1, vCaption, vFolder :TString;
     vPtr, vPtr1 :PTChar;
   begin
-    vFileName := SafeChangeFileExtension(ExpandFileName(AFileName), cTabFileExt);
+    vFileName := SafeChangeFileExtension(FarExpandFileName(AFileName), cTabFileExt);
 //  TraceF('TPanelTabs.RestoreFile: %s', [vFileName]);
 
-    vStr := ReadFileAsStr(vFileName);
+    vStr := StrFromFile(vFileName);
 
-    FreeAll;
+    Clear;
     FAllWidth := -1;
 
     vPtr := PTChar(vStr);
@@ -663,6 +622,8 @@ interface
     FTabs[tkLeft] := TPanelTabs.CreateEx(cLeftRegFolder);
     FTabs[tkRight] := TPanelTabs.CreateEx(cRightRegFolder);
     FTabs[tkCommon] := TPanelTabs.CreateEx(cCommonRegFolder);
+
+    FPressedIndex := -1;
 
     RestoreTabs;
   end;
@@ -746,6 +707,8 @@ interface
   begin
 //  TraceF('HitTest: %d, %d', [X, Y]);
     Result := hsNone;
+    AIndex := -1;
+    APanelKind := tkCommon;
     if not CanPaintTabs then
       Exit;
 
@@ -825,6 +788,11 @@ interface
   end;
 
 
+  function SwapFgBgColors(AColor :Byte) :Byte;
+  begin
+    Result := ((AColor and $0F) shl 4) + ((AColor and $F0) shr 4);
+  end;
+
 
   procedure TTabsManager.PaintTabs(ACheckCursor :Boolean = False);
   var
@@ -899,6 +867,8 @@ interface
         if not RectEmpty(FRects[tkLeft]) and not RectEmpty(FRects[tkRight]) then begin
           FRects[tkCommon] := FRects[tkLeft];
           FRects[tkCommon].Right := FRects[tkRight].Right;
+          FRects[tkCommon].Top := IntMax(FRects[tkLeft].Top, FRects[tkRight].Top);
+          FRects[tkCommon].Bottom := FRects[tkCommon].Top + 1; 
         end else
         if not RectEmpty(FRects[tkLeft]) then
           FRects[tkCommon] := FRects[tkLeft]
@@ -925,6 +895,9 @@ interface
         Exit;
 
       vCurrentIndex := -1;
+      if (FPressedIndex <> -1) and (FPressedKind = AKind) then begin
+        vCurrentIndex := FPressedIndex;
+      end else
       if vTabs.FCurrent <> -1 then begin
         if vTabs.FCurrent < vTabs.Count then begin
           vTab := vTabs[vTabs.FCurrent];
@@ -972,7 +945,8 @@ interface
           vCurrentIndex := I;
 
         if vCurrentIndex = I then begin
-          DrawTextChr(cSide2, X-1, vRect.Top, vColorSide1);
+//        DrawTextChr(cSide2, X-1, vRect.Top, vColorSide1);
+          DrawTextChr(cSide1, X-1, vRect.Top, SwapFgBgColors(vColorSide1));
 
           vHotColor := (vColor4 and $0F) or (vColor1 and $F0);
           if vStr1 <> '' then begin
@@ -997,7 +971,8 @@ interface
       end;
 
       if optShowButton then begin
-        DrawTextChr(cSide2, vRect.Right - 3, vRect.Top, vColorSide2);
+//      DrawTextChr(cSide2, vRect.Right - 3, vRect.Top, vColorSide2);
+        DrawTextChr(cSide1, vRect.Right - 3, vRect.Top, SwapFgBgColors(vColorSide2));
         DrawTextChr('+', vRect.Right - 2, vRect.Top, vColor3);
         DrawTextChr(cSide1, vRect.Right - 1, vRect.Top, vColorSide2);
       end else
@@ -1073,16 +1048,21 @@ interface
     vTabs := FTabs[AKind];
     if (vTabs.FCurrent >= 0) and (vTabs.FCurrent < vTabs.FCount) then begin
       vTab := vTabs[vTabs.FCurrent];
-      vTab.FCurrent := GetCurrentItem(Active);
+      vTab.FCurrent := FarPanelGetCurrentItem(Active);
+      if optStoreSelection then begin
+        vTab.FSelected.Clear;
+        FarPanelGetSelectedItems(Active, vTab.FSelected);
+      end;
     end;
   end;
 
 
   procedure TTabsManager.RestoreTabState(Active :Boolean; ATab :TPanelTab);
   begin
-    if (ATab.FCurrent <> '') and (ATab.FCurrent <> '..') then begin
-      SetCurrentItem(Active, ATab.FCurrent);
-    end;
+    if (ATab.FCurrent <> '') and (ATab.FCurrent <> '..') then
+      FarPanelSetCurrentItem(Active, ATab.FCurrent);
+    if optStoreSelection and (ATab.FSelected.Count > 0) then
+      FarPanelSetSelectedItems(Active, ATab.FSelected, True);
   end;
 
 
@@ -1096,11 +1076,11 @@ interface
       vTab := vTabs[AIndex];
       if not AOnPassive then begin
         RememberTabState(Active, AKind);
-        JumpToPath(vTab.FFolder, Active);
+        FarPanelJumpToPath(Active, vTab.FFolder);
         RestoreTabState(Active, vTab);
         vTabs.FCurrent := AIndex;
       end else
-        JumpToPath(vTab.FFolder, not Active);
+        FarPanelJumpToPath(not Active, vTab.FFolder);
       PaintTabs;
     end else
       Beep;
@@ -1148,7 +1128,7 @@ interface
   begin
     vTabs := FTabs[AKind];
     if vTabs.FCurrent <> -1 then begin
-      vTabs.FreeAt(vTabs.FCurrent);
+      vTabs.Delete(vTabs.FCurrent);
       vTabs.FCurrent := -1;
       vTabs.StoreReg('');
       vTabs.FAllWidth := -1;
@@ -1227,6 +1207,17 @@ interface
   end;
 
 
+  procedure TTabsManager.SetPressed(AKind :TTabKind; AIndex :Integer);
+  begin
+    if (AIndex <> FPressedIndex) or (AKind <> FPressedKind) then begin
+      FPressedIndex := AIndex;
+      FPressedKind := AKind;
+      PaintTabs;
+      FARAPI.Text(0, 0, 0, nil);
+    end;
+  end;
+
+
   procedure TTabsManager.MouseClick;
 
     procedure LocGotoTab(AKind :TTabKind; AIndex :Integer);
@@ -1278,35 +1269,60 @@ interface
     end;
 
   var
-    vPoint :TPoint;
-    vIndex :Integer;
-    vKind :TTabKind;
-    vHotSpot :THotSpot;
-    vButton2 :Boolean;
+    vPoint, vPoint1 :TPoint;
+    vIndex, vIndex1 :Integer;
+    vKind, vKind1 :TTabKind;
+    vHotSpot, vHotSpot1 :THotSpot;
+    vRButton :Boolean;
+    vPressed :Boolean;
   begin
-    vButton2 := GetKeyState(VK_RBUTTON) < 0;
-    while (GetKeyState(VK_LBUTTON) < 0) or (GetKeyState(VK_RBUTTON) < 0) do
-      Sleep(10);
-
-    { Чтобы выбрать событие отпускания мыши (?)... }
-    if vButton2 then
-      CheckForEsc;
+    vRButton := GetKeyState(VK_RBUTTON) < 0;
 
     vPoint := GetConsoleMousePos;
     vHotSpot := HitTest(vPoint.X, vPoint.Y, vKind, vIndex);
-    case vHotSpot of
-      hsTab:
-        if not vButton2 then
-          LocGotoTab(vKind, vIndex)
-        else
-          LocEditTab(vKind, vIndex);
-      hsButtom:
-        if not vButton2 then
-          LocAddTab(vKind)
-        else
-          LocListTab(vKind);
-      hsPanel:
-        {};
+    if {not vRButton and} (vHotSpot = hsTab) then
+      SetPressed(vKind, vIndex);
+    vPressed := True;
+    try
+
+      while (GetKeyState(VK_LBUTTON) < 0) or (GetKeyState(VK_RBUTTON) < 0) do begin
+        Sleep(10);
+        vPoint1 := GetConsoleMousePos;
+        if (vPoint1.X <> vPoint.X) or (vPoint1.Y <> vPoint.Y) then begin
+          vPoint := vPoint1;
+          vHotSpot1 := HitTest(vPoint1.X, vPoint1.Y, vKind1, vIndex1);
+          vPressed := (vHotSpot = vHotSpot1) and (vKind = vKind1) and (vIndex = vIndex1);
+          if vPressed then begin
+            if {not vRButton and} (vHotSpot = hsTab) then
+              SetPressed(vKind, vIndex);
+          end else
+            SetPressed(tkCommon, -1);
+        end;
+      end;
+
+      { Чтобы выбрать событие отпускания мыши (?)... }
+//    if vRButton then
+        CheckForEsc;
+
+      if vPressed then begin
+        case vHotSpot of
+          hsTab:
+            if not vRButton then
+              LocGotoTab(vKind, vIndex)
+            else
+              LocEditTab(vKind, vIndex);
+          hsButtom:
+            if not vRButton then
+              LocAddTab(vKind)
+            else
+              LocListTab(vKind);
+          hsPanel:
+            {};
+        end;
+      end;
+
+    finally
+      SetPressed(tkCommon, -1);
     end;
   end;
 

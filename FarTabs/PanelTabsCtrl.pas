@@ -1,12 +1,12 @@
-{$I Defines.inc}
-
-unit PanelTabsCtrl;
-
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* PanelTabs Far plugin                                                       *}
 {******************************************************************************}
+
+{$I Defines.inc}
+
+unit PanelTabsCtrl;
 
 interface
 
@@ -82,6 +82,7 @@ interface
     optShowNumbers     :Boolean = True;
     optShowButton      :Boolean = True;
     optSeparateTabs    :Boolean = True;
+    optStoreSelection  :Boolean = True;
 
     optFixedMark       :TString = '*';
     optNotFixedMark    :TString = '';
@@ -130,10 +131,6 @@ interface
 
   function CurrentPanelIsRight :Boolean;
   function GetPanelDir(Active :Boolean) :TString;
-  function GetCurrentItem(Active :Boolean) :TString;
-  procedure SetCurrentItem(Active :Boolean; const AItem :TString);
-  procedure JumpToPath(const APath :TString; Active :Boolean);
-
   function PathToCaption(const APath :TString) :TString;
 
   procedure ReadSetup;
@@ -250,23 +247,75 @@ interface
     vReadRect :TSmallRect;
   begin
     Result := #0;
-    GetConsoleScreenBufferInfo(hStdOut, vInfo);
-    if (X < vInfo.dwSize.X) and (Y < vInfo.dwSize.Y) then begin
+    if not GetConsoleScreenBufferInfo(hStdOut, vInfo) then
+      Exit;
 
+    if (X < vInfo.dwSize.X) and (Y < vInfo.dwSize.Y) then begin
       vSize.X := 1; vSize.Y := 1; vCoord.X := 0; vCoord.Y := 0;
       vReadRect := SBounds(X, Y, 1, 1);
       FillChar(vBuf, SizeOf(vBuf), 0);
 
-      if ReadConsoleOutput(hStdOut, @vBuf, vSize, vCoord, vReadRect) then
+//    TraceF('ReadConsoleOutput: %d, %d, %d, %d', [X, Y, vInfo.dwSize.X, vInfo.dwSize.Y]);
+      if ReadConsoleOutput(hStdOut, @vBuf, vSize, vCoord, vReadRect) then begin
        {$ifdef bUnicode}
         Result := vBuf[0, 0].UnicodeChar;
        {$else}
         Result := vBuf[0, 0].AsciiChar;
        {$endif bUnicode}
-
+      end else
+        {RaiseLastWin32Error};
     end;
   end;
 
+(*
+  function ReadScreenChar(X, Y :Integer) :TChar;
+  var
+    vInfo :TConsoleScreenBufferInfo;
+//  vTst1 :Integer;
+    vBuf :array[0..128, 0..2] of TCharInfo;
+//  vTst2 :Integer;
+
+    vSize, vCoord :TCoord;
+    vReadRect :TSmallRect;
+  begin
+    Result := #0;
+
+//  vTst1 := $12345678;
+//  vTst2 := $12345678;
+
+//  Trace('GetConsoleScreenBufferInfo...');
+    if not GetConsoleScreenBufferInfo(hStdOut, vInfo) then begin
+      NOP;
+      Exit;
+    end;
+//  Trace('Done');
+
+    if (X < vInfo.dwSize.X) and (Y < vInfo.dwSize.Y) then begin
+
+      if (X < 0) or (Y < 0) then
+        NOP;
+
+      vSize.X := 1; vSize.Y := 1; vCoord.X := 0; vCoord.Y := 0;
+      vReadRect := SBounds(X, Y, 1, 1);
+      FillChar(vBuf, SizeOf(vBuf), 0);
+
+//    TraceF('ReadConsoleOutput: %d, %d, %d, %d', [X, Y, vInfo.dwSize.X, vInfo.dwSize.Y]);
+      if ReadConsoleOutput(hStdOut, @vBuf, vSize, vCoord, vReadRect) then begin
+       {$ifdef bUnicode}
+        Result := vBuf[0, 0].UnicodeChar;
+       {$else}
+        Result := vBuf[0, 0].AsciiChar;
+       {$endif bUnicode}
+      end else
+        RaiseLastWin32Error;
+//    Trace('Done');
+
+    end;
+
+//  Assert(vTst1 = $12345678);
+//  Assert(vTst2 = $12345678);
+  end;
+*)
 
   function CurrentPanelIsRight :Boolean;
   var
@@ -295,131 +344,6 @@ interface
     FillChar(vInfo, SizeOf(vInfo), 0);
     FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
     Result := StrOemToAnsi(vInfo.CurDir);
-   {$endif bUnicodeFar}
-  end;
-
-
-  function GetCurrentItem(Active :Boolean) :TString;
-  var
-    vInfo :TPanelInfo;
-    vIndex :Integer;
-   {$ifdef bUnicodeFar}
-    vHandle :THandle;
-   {$endif bUnicodeFar}
-  begin
-    Result := '';
-
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodeFar}
-    vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
-    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
-   {$endif bUnicodeFar}
-
-    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
-
-      vIndex := vInfo.CurrentItem;
-      if (vIndex < 0) or (vIndex >= vInfo.ItemsNumber) then
-        Exit;
-
-     {$ifdef bUnicodeFar}
-      Result := FarPanelItemName(vHandle, FCTL_GETPANELITEM, vIndex);
-     {$else}
-      Result := FarChar2Str(vInfo.PanelItems[vIndex].FindData.cFileName);
-     {$endif bUnicodeFar}
-    end;
-  end;
-
-
-  procedure SetCurrentItem(Active :Boolean; const AItem :TString);
-  var
-    I :Integer;
-    vStr :TString;
-    vInfo :TPanelInfo;
-    vRedrawInfo :TPanelRedrawInfo;
-   {$ifdef bUnicodeFar}
-    vHandle :THandle;
-   {$endif bUnicodeFar}
-  begin
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodeFar}
-    vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
-    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
-   {$endif bUnicodeFar}
-
-    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
-      vRedrawInfo.TopPanelItem := vInfo.TopPanelItem;
-      vRedrawInfo.CurrentItem := vInfo.CurrentItem;
-
-      for I := 0 to vInfo.ItemsNumber - 1 do begin
-       {$ifdef bUnicodeFar}
-        vStr := FarPanelItemName(vHandle, FCTL_GETPANELITEM, I);
-       {$else}
-        vStr := FarChar2Str(vInfo.PanelItems[I].FindData.cFileName);
-       {$endif bUnicodeFar}
-
-        if StrEqual(vStr, AItem) then begin
-//        vRedrawInfo.TopPanelItem := I; {???}
-          vRedrawInfo.CurrentItem := I;
-          Break;
-        end;
-      end;
-
-     {$ifdef bUnicodeFar}
-      FARAPI.Control(vHandle, FCTL_REDRAWPANEL, 0, @vRedrawInfo);
-     {$else}
-      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_REDRAWPANEL, FCTL_REDRAWANOTHERPANEL), @vRedrawInfo);
-     {$endif bUnicodeFar}
-    end;
-  end;
-
-
-  procedure JumpToPath(const APath :TString; Active :Boolean);
-  var
-    vStr :TFarStr;
-    vMacro :TActlKeyMacro;
-  begin
-   {$ifndef bUnicodeFar}
-    SetFileApisToOEM;
-    try
-   {$endif bUnicodeFar}
-
-    if IsFullFilePath(APath) then begin
-     {$ifdef bUnicodeFar}
-      FARAPI.Control(THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE)), FCTL_SETPANELDIR, 0, PFarChar(APath));
-      FARAPI.Control(THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE)), FCTL_REDRAWPANEL, 0, nil);
-     {$else}
-      vStr := StrAnsiToOem(APath);
-      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_SETPANELDIR, FCTL_SETANOTHERPANELDIR), PFarChar(vStr));
-      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_REDRAWPANEL, FCTL_REDRAWANOTHERPANEL), nil);
-     {$endif bUnicodeFar}
-    end else
-    if APath <> '' then begin
-     {$ifdef bUnicodeFar}
-      FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(APath));
-     {$else}
-      vStr := StrAnsiToOem(APath);
-      FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, PFarChar(vStr));
-     {$endif bUnicodeFar}
-
-      if Active then
-        vStr := 'Enter'
-      else
-        vStr := 'Tab Enter Tab';
-      vMacro.Command := MCMD_POSTMACROSTRING;
-      vMacro.Param.PlainText.SequenceText := PFarChar(vStr);
-      vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
-      FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
-    end else
-      Beep;
-
-   {$ifndef bUnicodeFar}
-    finally
-      SetFileApisToAnsi;
-    end;
    {$endif bUnicodeFar}
   end;
 
@@ -487,6 +411,7 @@ interface
       optShowNumbers := RegQueryLog(vKey, 'ShowNumbers', optShowNumbers);
 //    optShowButton := RegQueryLog(vKey, 'ShowButton', optShowButton);
       optSeparateTabs := RegQueryLog(vKey, 'SeparateTabs', optSeparateTabs);
+      optStoreSelection := RegQueryLog(vKey, 'StoreSelection', optStoreSelection);
 
     finally
       RegCloseKey(vKey);
@@ -505,6 +430,7 @@ interface
       RegWriteLog(vKey, 'ShowNumbers', optShowNumbers);
 //    RegWriteLog(vKey, 'ShowButton', optShowButton);
       RegWriteLog(vKey, 'SeparateTabs', optSeparateTabs);
+      RegWriteLog(vKey, 'StoreSelection', optStoreSelection);
 
     finally
       RegCloseKey(vKey);

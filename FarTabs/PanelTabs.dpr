@@ -12,6 +12,7 @@ uses
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
+  MixFormat,
   PanelTabsMain;
 
 exports

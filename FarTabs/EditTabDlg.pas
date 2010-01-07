@@ -1,12 +1,12 @@
-{$I Defines.inc}
-
-unit EditTabDlg;
-
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* PanelTabs Far plugin                                                       *}
 {******************************************************************************}
+
+{$I Defines.inc}
+
+unit EditTabDlg;
 
 interface
 
@@ -202,7 +202,7 @@ interface
         Exit;
 
       if vRes = IdDelete then
-        ATabs.FreeAt(AIndex);
+        ATabs.Delete(AIndex);
 
       Result := True;
 
