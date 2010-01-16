@@ -52,7 +52,7 @@ interface
       procedure Add(AItem :TCmpFileItem; APos, ALen :Integer; AIndex :Integer = -1);
 
     public
-      function ItemCompare(PItem, PAnother :Pointer; Context :Integer) :Integer; override;
+      function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
     end;
 
 
@@ -67,7 +67,7 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer) :Integer; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
       procedure ErrorHandler(E :Exception); override;
 
     private
@@ -175,15 +175,6 @@ interface
   end;
 
 
-  function GetOptColor(AColor, ASysColor :Integer) :Integer;
-  begin
-    Result := AColor;
-    if Result = 0 then
-      Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(ASysColor));
-  end;
-
-
-
  {-----------------------------------------------------------------------------}
  { TMyFilter                                                                   }
  {-----------------------------------------------------------------------------}
@@ -203,7 +194,7 @@ interface
   end;
 
 
-  function TMyFilter.ItemCompare(PItem, PAnother :Pointer; Context :Integer) :Integer; {override;}
+  function TMyFilter.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
   var
     vItem1, vItem2 :TCmpFileItem;
   begin
@@ -304,8 +295,8 @@ interface
       [
         NewItemApi(DI_DoubleBox,   2, 1, DX - 4, DY - 2, 0, ''),
         NewItemApi(DI_Text,        DX-7, 1, 3, 1, 0, cNormalIcon),
-        NewItemApi(DI_Text,        3, 2, DX div 2, 1, DIF_SETCOLOR or optHeadColor, '...'),
-        NewItemApi(DI_Text,        DX div 2 + 1, 2, DX - 6, 1, DIF_SETCOLOR or optHeadColor, '...'),
+        NewItemApi(DI_Text,        3, 2, DX div 2, 1, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optHeadColor, '...'),
+        NewItemApi(DI_Text,        DX div 2 + 1, 2, DX - 6, 1, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optHeadColor, '...'),
         NewItemApi(DI_USERCONTROL, 3, 3, DX - 6, DY - 4, 0, '' )
 //      NewItemApi(DI_Text,        3, 3, DX - 6, 1, DIF_CENTERTEXT, '...')
       ]
@@ -591,7 +582,7 @@ interface
           AColor := FSelColor;
 
         if vColor <> -1 then
-          AColor := (AColor and not $0F) or (vColor and $0F)
+          AColor := (AColor and $F0) or (vColor and $0F)
 
       end;
     end;
@@ -606,14 +597,17 @@ interface
     vAttr :Word;
     vStr :TString;
 
-    procedure LocDraw(ACount :Integer; ATxtColor :Integer);
+    procedure LocDrawCount(ACount :Integer; ATxtColor :Integer);
     var
       vStr :TString;
     begin
       if (AWidth > 0) and (ACount <> 0) then begin
         Inc(X); Dec(AWidth);
         vStr := Int2Str(ACount);
-        ATxtColor := (AColor and not $0F) or (ATxtColor and $0F);
+        if (AColor = FGrid.SelColor) and (((AColor and $F0) shr 4) = (ATxtColor and $0F)) then
+          { Чтобы не пропадали цифры, если их цвет совпадает с фоном текущей строки }
+          ATxtColor := FGrid.SelColor;
+        ATxtColor := (AColor and $F0) or (ATxtColor and $0F);
         FGrid.DrawChr(X, Y, PTChar(vStr), AWidth, ATxtColor);
         Inc(X, Length(vStr)); Dec(AWidth, Length(vStr));
       end;
@@ -623,7 +617,7 @@ interface
     begin
       if (ALen > 0) (*and (FGrid.Column[ACol].Tag = FFilterColumn)*) then
         { Выделение части строки, совпадающей с фильтром... }
-        FGrid.DrawChrEx(X, Y, PTChar(AStr), AWidth, APos, ALen, AColor, (AColor and not $0F) or (FFoundColor and $0F))
+        FGrid.DrawChrEx(X, Y, PTChar(AStr), AWidth, APos, ALen, AColor, (AColor and $F0) or (FFoundColor and $0F))
       else
         FGrid.DrawChr(X, Y, PTChar(AStr), AWidth, AColor);
       Inc(X, Length(AStr)); Dec(AWidth, Length(AStr));
@@ -673,10 +667,10 @@ interface
               LocDrawEx(vItem.Name, vRec.FPos, vRec.FLen);
 
               if optShowFilesInFolders and (vItem.Subs <> nil) then begin
-                LocDraw(vItem.Subs.OrphanCount[vVer], FOrphanColor);
-                LocDraw(vItem.Subs.DiffCount, FNewerColor);
-                LocDraw(vItem.Subs.SameCount, FSameColor);
-                LocDraw(vItem.Subs.UncompCount, FGrid.NormColor);
+                LocDrawCount(vItem.Subs.OrphanCount[vVer], FOrphanColor);
+                LocDrawCount(vItem.Subs.DiffCount, FNewerColor);
+                LocDrawCount(vItem.Subs.SameCount, FSameColor);
+                LocDrawCount(vItem.Subs.UncompCount, FGrid.NormColor);
               end;
 
             end else
@@ -1203,40 +1197,33 @@ interface
 
   procedure TFilesDlg.CompareSelectedContents;
   var
-    vIndex :Integer;
-    vRec  :PFilterRec;
+    vVer :Integer;
     vItem :TCmpFileItem;
-    vList :TCmpFolder;
+    vList :TStringList;
   begin
-    vItem := nil;
-    vIndex := FGrid.CurRow;
-    if (vIndex >= 0) and (vIndex < FFilter.Count) then begin
-      vRec := FFilter.PItems[vIndex];
-      vItem := vRec.FItem;
+    vList := TStringList.Create;
+    try
+      vVer := GetCurSide;
+      if vVer = -1 then
+        vVer := 0; {???}
+
+      if FSelectedCount[vVer] = 0 then begin
+        vItem := GetCurrentItem;
+        vList.AddObject('', vItem);
+      end else
+        GetSelected(vList, vVer, False);
+
+      CompareFilesContents('', vList);
+
+      UpdateFolderDidgets(FRootItems);
+      ReinitAndSaveCurrent;
+
+    finally
+      FreeObj(vList);
     end;
-
-    if vItem <> nil then begin
-      vList := TCmpFolder.Create;
-      try
-        vList.Options := [];
-        vList.Folder1 := vItem.ParentGroup.Folder1;
-        vList.Folder2 := vItem.ParentGroup.Folder2;
-
-        {!!!Selected}
-        vList.Add(vItem);
-        CompareContents(vList);
-
-        UpdateFolderDidgets(FRootItems);
-        ReinitAndSaveCurrent;
-
-      finally
-        FreeObj(vList);
-      end;
-    end else
-      Beep;
   end;
 
-
+  
  {-----------------------------------------------------------------------------}
 
   procedure TFilesDlg.CompareCurrent(AForcePrompt :Boolean);
@@ -1348,6 +1335,7 @@ interface
     if (vItem <> nil) then begin
       vSelected := TStringList.Create;
       try
+        { Строим сортированный список, чтобы быстрее работал FarPanelSetSelectedItems }
         vSelected.Sorted := True;
 
         vName := vItem.Name;
@@ -1457,16 +1445,16 @@ interface
       vRec := FFilter.PItems[I];
       if (vRec.FItem <> nil) and (faPresent and vRec.FItem.Attr[AVer] <> 0) and (vRec.FSel and vMask <> 0) then begin
         if AFullPath then
-          AList.Add( vRec.FItem.GetFullFileName(AVer) )
+          AList.AddObject( vRec.FItem.GetFullFileName(AVer), vRec.FItem )
         else
-          AList.Add( RemoveBackSlash(vRec.FItem.Name) );
+          AList.AddObject( RemoveBackSlash(vRec.FItem.Name), vRec.FItem );
       end;
     end;
   end;
 
  {-----------------------------------------------------------------------------}
 
-  function TFilesDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; {override;}
+  function TFilesDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr): TIntPtr; {override;}
 
     procedure LocFoldUnfold;
     begin
