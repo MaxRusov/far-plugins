@@ -137,7 +137,7 @@ interface
     optOlderColor         :Integer = $04;
     optNewerColor         :Integer = $0C;
     optFoundColor         :Integer = $0A;
-    optDiffColor          :Integer = $B0; //$F0;
+    optDiffColor          :Integer = $B0; // $F0;
 
   var
     FRegRoot              :TString;

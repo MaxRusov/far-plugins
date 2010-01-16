@@ -51,8 +51,10 @@ interface
 
   type
     TCompareDlg = class(TFarDialog)
-    protected
+    public
       constructor Create; override;
+      
+    protected
       procedure Prepare; override;
       procedure InitDialog; override;
       function CloseDialog(ItemID :Integer) :Boolean; override;

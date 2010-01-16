@@ -102,13 +102,14 @@ interface
       function GetFullFileName(AVer :Integer) :TString;
 
       function UpdateInfo :Boolean;
-      function CompareContents :Boolean;
+      function CompareContents(const AProgressProc :TMethod) :Boolean;
     end;
 
 
   function CompareFolders(const ACmpFolder1, ACmpFolder2 :TString) :TCmpFolder;
 
-  procedure CompareContents(AAList :TCmpFolder);
+  procedure CompareFilesContents(const ABaseFolder :TString; AList :TStringList);
+  procedure CompareFolderContents(AFolder :TCmpFolder);
 
   procedure UpdateFolderDidgets(AList :TCmpFolder);
 
@@ -449,9 +450,29 @@ interface
   end;
 
 
+  type
+    TProgressProc = procedure(ASize :Int64)
+      {$ifdef bFreePascal}of object{$endif bFreePascal};
+
+  procedure CallCallback(const AProc :TMethod; ASize :Int64);
+ {$ifdef bDelphi}
+  var
+    vTmp :Pointer;
+  begin
+    vTmp := AProc.Data;
+    asm push vTmp; end;
+    TProgressProc(aProc.Code)(ASize);
+    asm pop ECX; end;
+ {$else}
+  begin
+    TProgressProc(aProc)(ASize);
+ {$endif bDelphi}
+  end;
+
+
  {$ifdef bUseCRC}
 
-  function TCmpFileItem.CompareContents :Boolean;
+  function TCmpFileItem.CompareContents(const AProgressProc :TMethod) :Boolean;
 
     function LocCalc(const AFileName :TString; var ACRC :TCRC) :Boolean;
     var
@@ -520,7 +541,7 @@ interface
 
  {$else}
 
-  function TCmpFileItem.CompareContents :Boolean;
+  function TCmpFileItem.CompareContents(const AProgressProc :TMethod) :Boolean;
   var
     vFileName1, vFileName2 :TString;
     vFile1, vFile2, vPart :Integer;
@@ -555,13 +576,13 @@ interface
         vLast := GetTickCount;
         vSize := Size[0];
         while vSize > 0 do begin
-          SafeCheck(vLast);
+          if SafeCheck(vLast) and (AProgressProc.Code <> nil) then
+            CallCallback(AProgressProc, Size[0] - vSize);
 
           {!!!}
           vPart := cTmpBufSize;
           if vPart > vSize then
             vPart := vSize;
-
 
           if FileRead(vFile1, vTmpBuf1^, vPart) <> vPart then
             Exit;
@@ -771,7 +792,7 @@ interface
         LocCompare(Result, ACmpFolder1, ACmpFolder2);
 
         if optScanContents then
-          CompareContents(Result);
+          CompareFolderContents(Result);
 
       except
         on E :ECtrlBreak do
@@ -794,11 +815,20 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure CompareContents(AAList :TCmpFolder);
+  function MulDiv64(A, B, C :Int64) :Int64;
+  begin
+    Result := 0;
+    if C > 0 then
+      Result := (A * B) div C;
+  end;
+
+
+  procedure CompareFilesContents(const ABaseFolder :TString; AList :TStringList);
   var
     vSave :THandle;
     vStart, vLast :Cardinal;
     vCompFiles, vTotalCompFiles :Integer;
+    vCompSize, vTotalCompSize :Int64;
     vScnWidth, vWidth, vBaseLen :Integer;
 
 
@@ -815,13 +845,18 @@ interface
     end;
 
 
-    procedure UpdateMessage2(AList :TCmpFolder; AItem :TCmpFileItem);
+    procedure UpdateMessage2({AList :TCmpFolder;} AItem :TCmpFileItem; AddSize :Int64);
     var
       vMess, vFileName :TFarStr;
     begin
       if vSave = 0 then
         InitProgress;
-      vFileName := AddFileName('...' + Copy(AList.Folder1, vBaseLen, MaxInt), AItem.FName);
+
+      if ABaseFolder = '' then
+        vFileName := AItem.FName
+      else
+        vFileName := Copy(AItem.GetFullFileName(0), vBaseLen + 1, MaxInt);
+
      {$ifdef bUnicodeFar}
      {$else}
       vFileName := StrAnsiToOEM(vFileName);
@@ -829,78 +864,86 @@ interface
       {!!!Localize}
       vMess :=
         'Compare files'#10 +
-        Format('Files: %d   Time: %d sec', [vCompFiles, TickCountDiff(GetTickCount, vStart) div 1000]) + #10 +
+        Format('Files: %s  Size: %s  Time: %d sec', [Int2StrEx(vCompFiles + 1), Int64ToStrEx(vCompSize + AddSize), TickCountDiff(GetTickCount, vStart) div 1000]) + #10 +
         StrLeftAjust(vFileName, vWidth) + #10 +
-        GetProgressStr(vWidth, MulDiv(vCompFiles, 100, vTotalCompFiles));
+        GetProgressStr(vWidth, MulDiv64(vCompSize + AddSize, 100, vTotalCompSize));
+//      GetProgressStr(vWidth, MulDiv(vCompFiles, 100, vTotalCompFiles));
       FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PFarChar(vMess)), 0, 0);
       Assert(cTrue);
     end;
 
 
-    function CalcFiles(AList :TCmpFolder) :Integer;
+    procedure CompareFile(AItem :TCmpFileItem);
+
+      procedure UpdateProgress(ASize :Int64);
+      begin
+        UpdateMessage2(AItem, ASize);
+      end;
+
     var
       I :Integer;
-      vItem :TCmpFileItem;
     begin
-      Result := 0;
-      for I := 0 to AList.Count - 1 do begin
-        vItem := AList[I];
-        if vItem.BothAttr(faPresent) then begin
-          if not vItem.HasAttr(faDirectory) and (vItem.Size[0] = vItem.Size[1]) then
-            Inc(Result);
-          if vItem.BothAttr(faDirectory) and (vItem.Subs <> nil) then
-            Inc(Result, CalcFiles(vItem.Subs));
+      if not AItem.BothAttr(faPresent) then
+        Exit;
+
+      if not AItem.HasAttr(faDirectory) then begin
+        if AItem.Size[0] <> AItem.Size[1] then
+          { Ќе совпадает размер - незачем сравнивать }
+          AItem.Content := ccDiff
+        else begin
+          if SafeCheck(vLast) or (AItem.Size[0] > 1*1024*1024) then
+            UpdateMessage2(AItem, 0);
+
+          if AItem.CompareContents(LocalAddr(@UpdateProgress)) then
+            AItem.Content := ccSame
+          else
+            AItem.Content := ccDiff;
+
+          Inc(vCompFiles);
+          Inc(vCompSize, AItem.Size[0]);
         end;
+
       end;
+      if AItem.BothAttr(faDirectory) and (AItem.Subs <> nil) then
+        for I := 0 to AItem.Subs.Count - 1 do
+          CompareFile(AItem.Subs[I]);
     end;
 
 
-    procedure CompareFiles(AList :TCmpFolder);
+    procedure CalcFile(AItem :TCmpFileItem; var ACount :Integer; var ASize :Int64);
     var
       I :Integer;
-      vItem :TCmpFileItem;
     begin
-      for I := 0 to AList.Count - 1 do begin
-        vItem := AList[I];
-        if vItem.BothAttr(faPresent) then begin
-
-          if not vItem.HasAttr(faDirectory) then begin
-            if vItem.Size[0] <> vItem.Size[1] then
-              { Ќе совпадает размер - незачем сравнивать }
-              vItem.Content := ccDiff
-            else begin
-              Inc(vCompFiles);
-              if SafeCheck(vLast) or (vItem.Size[0] > 1*1024*1024) then
-                UpdateMessage2(AList, vItem);
-
-              if vItem.CompareContents then
-                vItem.Content := ccSame
-              else
-                vItem.Content := ccDiff;
-            end;
-          end;
-
-          if vItem.BothAttr(faDirectory) and (vItem.Subs <> nil) then
-            CompareFiles(vItem.Subs);
-
-        end;
+      if not AItem.BothAttr(faPresent) then
+        Exit;
+      if not AItem.HasAttr(faDirectory) and (AItem.Size[0] = AItem.Size[1]) then begin
+        Inc(ACount);
+        Inc(ASize, AItem.Size[0]);
       end;
+      if AItem.BothAttr(faDirectory) and (AItem.Subs <> nil) then
+        for I := 0 to AItem.Subs.Count - 1 do
+          CalcFile(AItem.Subs[I], ACount, ASize);
     end;
 
+  var
+    I :Integer;
   begin
     vSave := 0;
     try
       vStart := GetTickCount;
 
-      vBaseLen := Length(AAList.Folder1);
-      if (vBaseLen > 0) and (AAList.Folder1[vBaseLen] <> '\') then
+      vBaseLen := Length(ABaseFolder);
+      if (vBaseLen > 0) and (ABaseFolder[vBaseLen] <> '\') then
         Inc(vBaseLen);
 
-      vCompFiles := 0;
-      vTotalCompFiles := CalcFiles(AAList);
+      vTotalCompFiles := 0; vTotalCompSize := 0;
+      for I := 0 to AList.Count - 1 do
+        CalcFile(AList.Objects[I] as TCmpFileItem, vTotalCompFiles, vTotalCompSize);
 
       try
-        CompareFiles(AAList);
+        vCompFiles := 0; vCompSize := 0;
+        for I := 0 to AList.Count - 1 do
+          CompareFile(AList.Objects[I] as TCmpFileItem);
       except
         on E :ECtrlBreak do
           {Nothing};
@@ -911,6 +954,22 @@ interface
     finally
       if vSave <> 0 then
         FARAPI.RestoreScreen(vSave);
+    end;
+  end;
+
+
+  procedure CompareFolderContents(AFolder :TCmpFolder);
+  var
+    I :Integer;
+    vList :TStringList;
+  begin
+    vList := TStringList.Create;
+    try
+      for I := 0 to AFolder.Count - 1 do
+        vList.AddObject('',  AFolder[I]);
+      CompareFilesContents(AFolder.Folder1, vList);
+    finally
+      FreeObj(vList);
     end;
   end;
 
