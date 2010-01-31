@@ -927,14 +927,14 @@ interface
     AInfo.Pos := APos;
 
    {$ifdef bUnicodeFar}
-    FARAPI.AdvControl(hModule, ACTL_GETWINDOWINFO_W, @AInfo);
+    FARAPI.AdvControl(hModule, ACTL_GETWINDOWINFO, @AInfo);
     try
       if (AName <> nil) and (AInfo.NameSize > 0) then
         AInfo.Name := MemAlloc(AInfo.NameSize * SizeOf(TChar));
       if (ATypeName <> nil) and (AInfo.TypeNameSize > 0) then
         AInfo.TypeName := MemAlloc(AInfo.TypeNameSize * SizeOf(TChar));
       if (AInfo.Name <> nil) or (AInfo.TypeName <> nil) then
-        FARAPI.AdvControl(hModule, ACTL_GETWINDOWINFO_W, @AInfo);
+        FARAPI.AdvControl(hModule, ACTL_GETWINDOWINFO, @AInfo);
    {$else}
     FARAPI.AdvControl(hModule, ACTL_GETWINDOWINFO, @AInfo);
    {$endif bUnicodeFar}
