@@ -80,7 +80,7 @@ type
   TIntegerArray = packed array[0..Pred(MaxLongint div SizeOf(Integer))] of Integer;
 
 const
-  NM = 260;
+//NM = 260;
   FARMACRO_KEY_EVENT = KEY_EVENT or $8000;
 
   CP_UNICODE = 1200;
@@ -166,13 +166,14 @@ const
   DIF_HISTORY               = $00040000;
   DIF_BTNNOCLOSE            = $00040000;
   DIF_CENTERTEXT            = $00040000;
-  DIF_NOTCVTUSERCONTROL     = $00040000;
+//DIF_NOTCVTUSERCONTROL     = $00040000;
   DIF_EDITEXPAND            = $00080000;
   DIF_DROPDOWNLIST          = $00100000;
   DIF_USELASTHISTORY        = $00200000;
   DIF_MASKEDIT              = $00400000;
   DIF_SELECTONENTRY         = $00800000;
   DIF_3STATE                = $00800000;
+  DIF_EDITPATH              = $01000000;
   DIF_LISTWRAPMODE          = $01000000;
   DIF_NOAUTOCOMPLETE        = $02000000;
   DIF_LISTAUTOHIGHLIGHT     = $02000000;
@@ -812,7 +813,7 @@ const
   MIF_DISABLE    = $00080000;
   MIF_GRAYED     = $00100000;
   MIF_HIDDEN     = $00200000;
-  MIF_USETEXTPTR = $80000000;
+//MIF_USETEXTPTR = $80000000;
 
 (*
 struct FarMenuItemEx
@@ -1328,7 +1329,7 @@ const
   ACTL_EJECTMEDIA           = 6;
   ACTL_KEYMACRO             = 7;
   ACTL_POSTKEYSEQUENCE      = 8;
-  ACTL_GETWINDOWINFO_W      = 9;
+  ACTL_GETWINDOWINFO        = 9;
   ACTL_GETWINDOWCOUNT       = 10;
   ACTL_SETCURRENTWINDOW     = 11;
   ACTL_COMMIT               = 12;
@@ -1339,12 +1340,15 @@ const
   ACTL_GETCONFIRMATIONS     = 17;
   ACTL_GETDESCSETTINGS      = 18;
   ACTL_SETARRAYCOLOR        = 19;
-  ACTL_GETWCHARMODE         = 20;
+//ACTL_GETWCHARMODE         = 20;
   ACTL_GETPLUGINMAXREADDATA = 21;
   ACTL_GETDIALOGSETTINGS    = 22;
   ACTL_GETSHORTWINDOWINFO   = 23;
   ACTL_REDRAWALL            = 27;
   ACTL_SYNCHRO              = 28;
+  ACTL_SETPROGRESSSTATE     = 29;
+  ACTL_SETPROGRESSVALUE     = 30;
+  ACTL_QUIT                 = 31;
 
   
 { FarSystemSettings }
@@ -1581,6 +1585,30 @@ type
     TypeNameSize :Integer;
     Name :PFarChar;
     NameSize :Integer;
+  end;
+
+
+{ PROGRESSTATE }
+
+const
+  PS_NOPROGRESS    = 0;
+  PS_INDETERMINATE = 1;
+  PS_NORMAL        = 2;
+  PS_ERROR         = 4;
+  PS_PAUSED        = 8;
+
+(*
+struct PROGRESSVALUE
+{
+	unsigned __int64 Completed;
+	unsigned __int64 Total;
+};
+*)
+type
+  PProgressValue = ^TProgressValue;
+  TProgressValue = record
+    Completed :Int64;
+    Total :Int64;
   end;
 
 (*
@@ -1861,6 +1889,7 @@ const
   ESPT_LOCKMODE         = 7;
   ESPT_SETWORDDIV       = 8;
   ESPT_GETWORDDIV       = 9;
+  ESPT_SHOWWHITESPACE   = 10;
 
 (*
 struct EditorSetParameter
@@ -1970,6 +1999,7 @@ const
   EOPT_AUTODETECTCODEPAGE = $00000020;
   EOPT_CURSORBEYONDEOL    = $00000040;
   EOPT_EXPANDONLYNEWTABS  = $00000080;
+  EOPT_SHOWWHITESPACE     = $00000100;
 
 
 { EDITOR_BLOCK_TYPES }
@@ -2176,6 +2206,7 @@ const
   FIB_NOUSELASTHISTORY = $00000008;
   FIB_BUTTONS          = $00000010;
   FIB_NOAMPERSAND      = $00000020;
+  FIB_EDITPATH         = $01000000;
 
 (*
 typedef int (WINAPI *FARAPIINPUTBOX)(
@@ -2380,15 +2411,17 @@ typedef int (WINAPI *FRSUSERFUNC)(
   const wchar_t *FullName,
   void *Param
 );
-typedef void    (WINAPI *FARSTDRECURSIVESEARCH)(const wchar_t *InitDir,const wchar_t *Mask,FRSUSERFUNC Func,DWORD Flags,void *Param);
+typedef void     (WINAPI *FARSTDRECURSIVESEARCH)(const wchar_t *InitDir,const wchar_t *Mask,FRSUSERFUNC Func,DWORD Flags,void *Param);
 typedef wchar_t* (WINAPI *FARSTDMKTEMP)(wchar_t *Dest, DWORD size, const wchar_t *Prefix);
-typedef void    (WINAPI *FARSTDDELETEBUFFER)(void *Buffer);
+->
+typedef int      (WINAPI *FARSTDMKTEMP)(wchar_t *Dest, DWORD size, const wchar_t *Prefix);
+typedef void     (WINAPI *FARSTDDELETEBUFFER)(void *Buffer);
 *)
 type
   TFRSUserFunc = function (const FData :PFarFindData; const FullName :PFarChar; Param :Pointer) :Integer; stdcall;
 
   TFarStdRecursiveSearch = procedure (InitDir, Mask :PFarChar; Func :TFRSUserFunc; Flags :DWORD; Param :Pointer); stdcall;
-  TFarStdMkTemp = function (Dest :PFarChar; Size :DWORD; Prefix :PFarChar) :PFarChar; stdcall;
+  TFarStdMkTemp = function (Dest :PFarChar; Size :DWORD; Prefix :PFarChar) :Integer; stdcall;
   TFarStdDeleteBuffer = procedure(Buffer :Pointer); stdcall;
 
 
@@ -2752,7 +2785,7 @@ const
   OPIF_SHOWNAMESONLY       = $00000040;
   OPIF_SHOWRIGHTALIGNNAMES = $00000080;
   OPIF_SHOWPRESERVECASE    = $00000100;
-  OPIF_FINDFOLDERS         = $00000200;
+//OPIF_FINDFOLDERS         = $00000200;
   OPIF_COMPAREFATTIME      = $00000400;
   OPIF_EXTERNALGET         = $00000800;
   OPIF_EXTERNALPUT         = $00001000;
