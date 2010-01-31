@@ -80,7 +80,6 @@ type
   TIntegerArray = packed array[0..Pred(MaxLongint div SizeOf(Integer))] of Integer;
 
 const
-//NM = 260;
   FARMACRO_KEY_EVENT = KEY_EVENT or $8000;
 
   CP_UNICODE = 1200;
@@ -813,7 +812,6 @@ const
   MIF_DISABLE    = $00080000;
   MIF_GRAYED     = $00100000;
   MIF_HIDDEN     = $00200000;
-//MIF_USETEXTPTR = $80000000;
 
 (*
 struct FarMenuItemEx
@@ -1082,7 +1080,7 @@ const
   FCTL_GETPANELITEM             = 22;
   FCTL_GETSELECTEDPANELITEM     = 23;
   FCTL_GETCURRENTPANELITEM      = 24;
-  FCTL_GETPANELDIR              = 25;  //FCTL_GETCURRENTDIRECTORY = FCTL_GETPANELDIR;
+  FCTL_GETCURRENTDIRECTORY      = 25;
   FCTL_GETCOLUMNTYPES           = 26;
   FCTL_GETCOLUMNWIDTHS          = 27;
   FCTL_BEGINSELECTION           = 28;
@@ -1677,7 +1675,7 @@ type
 
     Param : record case Integer of
       0 : (iParam : Integer);
-      1 : (cParam : PFarChar);
+      1 : (wszParam : PFarChar);
     end;
 
     Flags : DWORD;
@@ -1910,7 +1908,7 @@ type
     ParamType : Integer;
     Param : record case Integer of
        0 : (iParam : Integer);
-       1 : (cParam : PFarChar);
+       1 : (wszParam : PFarChar);
        2 : (Reserved : DWORD);
     end;
     Flags : DWORD;
