@@ -15,7 +15,7 @@ interface
     MixTypes,
     MixUtils,
     MixStrings,
-    MixWinUtils,
+    MixClasses,
 
     PluginW,
     FarKeysW,
@@ -27,10 +27,6 @@ interface
 
   type
     TFindDlg = class(TFarDialog)
-    public
-      constructor Create; override;
-      destructor Destroy; override;
-
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
@@ -43,9 +39,11 @@ interface
       FInitExpr   :TString;
 
       procedure EnableControls;
+      procedure InsertRegexp(AEdtID :Integer);
     end;
 
   procedure OptionsMenu;
+  function RegexpMenu(var ARegexp :TString) :Boolean;
   function GetWordUnderCursor(ACol :PInteger = nil) :TString;
   function FindDlg(APickWord :Boolean; var AFromBeg :Boolean) :Boolean;
 
@@ -91,6 +89,8 @@ interface
   end;
 
 
+ {-----------------------------------------------------------------------------}
+
   procedure OptionsMenu;
   const
     cMenuCount = 9;
@@ -127,8 +127,7 @@ interface
 
         vRes := FARAPI.Menu(hModule, -1, -1, 0,
           FMENU_WRAPMODE or FMENU_USEEXT,
-          {!!!Localize}
-          'Options' {GetMsg(strOptions)},
+          GetMsg(strOptions),
           '',
           'Options',
           nil, nil,
@@ -160,19 +159,76 @@ interface
 
 
  {-----------------------------------------------------------------------------}
+
+  var
+    RegexpList :TStrList;
+
+
+  procedure InitRegexpList;
+  var
+    I :Integer;
+    vStr :TString;
+  begin
+    if RegexpList = nil then
+      RegexpList := TStrList.Create;
+    RegexpList.Clear;
+
+    I := Byte(strRegaexpBase);
+    while True do begin
+      vStr := FarCtrl.GetMsgStr(I);
+      if vStr = '' then
+        Break;
+      if vStr = '-' then
+        vStr := '';
+      RegexpList.Add(vStr);
+      Inc(I);
+    end;
+  end;
+
+
+  function RegexpMenu(var ARegexp :TString) :Boolean;
+  var
+    I, vRes :Integer;
+    vStr :TString;
+    vItems :PFarMenuItemsArray;
+  begin
+    Result := False;
+    if RegexpList = nil then
+      InitRegexpList;
+
+    vItems := MemAllocZero(RegexpList.Count * SizeOf(TFarMenuItemEx));
+    try
+      for I := 0 to RegexpList.Count - 1 do begin
+        vStr := RegexpList[I];
+        SetMenuItemStr(@vItems[I], vStr, IntIf(vStr <> '', 0, MIF_SEPARATOR));
+      end;
+
+      vRes := FARAPI.Menu(hModule, -1, -1, 0,
+        FMENU_WRAPMODE or FMENU_USEEXT,
+        GetMsg(strRegexpTitle),
+        '',
+        ':RegExp',
+        nil, nil,
+        Pointer(vItems),
+        RegexpList.Count);
+
+      if vRes <> -1 then begin
+        ARegexp := ExtractWord(1, RegexpList[vRes], [' ']);
+        if ARegexp[1] = '\' then
+          ARegexp := '\' + ARegexp;
+        Result := True;
+      end;
+
+    finally
+      CleanupMenu(@vItems[0], RegexpList.Count);
+      MemFree(vItems);
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
  { TFindDlg                                                                    }
  {-----------------------------------------------------------------------------}
-
-  constructor TFindDlg.Create; {override;}
-  begin
-    inherited Create;
-  end;
-
-
-  destructor TFindDlg.Destroy; {override;}
-  begin
-    inherited Destroy;
-  end;
 
 (*
   const
@@ -254,13 +310,14 @@ interface
 
   const
     IdFrame        = 0;
-    IdFindEdt      = 2;
-    IdCaseSensChk  = 4;
-    IdWholeWordChk = 5;
-    IdRegexpChk    = 6;
-    IdFromBeg      = 9;
-    IdCancel       = 10;
-//  IdOptions      = 11;
+    IdRegexpBut    = 1;
+    IdFindEdt      = 3;
+    IdCaseSensChk  = 5;
+    IdWholeWordChk = 6;
+    IdRegexpChk    = 7;
+    IdFromBeg      = 10;
+    IdCancel       = 11;
+//  IdOptions      = 12;
 
   procedure TFindDlg.Prepare; {override;}
   const
@@ -272,21 +329,24 @@ interface
     FHelpTopic := 'Find';
     FWidth := DX;
     FHeight := DY;
-    FItemCount := 11;
+    FItemCount := 12;
 //  vX2 := DX div 2;
 
     FDialog := CreateDialog(
       [
         NewItemApi(DI_DoubleBox, 3,  1,   DX-6, DY-2, 0, GetMsg(strFind)),
 
-        NewItemApi(DI_Text,     5,   2,   DX-10,  -1,   0, GetMsg(strSearchFor) ),
-        NewItemApi(DI_Edit,     5,   3,   DX-10,  -1,   DIF_HISTORY or DIF_USELASTHISTORY, '', cFindHistory ),
+//      NewItemApi(DI_Button,   DX-11, 2, -1, -1, DIF_BTNNOCLOSE or DIF_NOBRACKETS or DIF_NOFOCUS, 'Rege&xp' {GetMsg(strSearchBut)} ),
+        NewItemApi(DI_Text,     DX-11, 2, -1, -1, 0, 'Rege&xp' {GetMsg(strSearchBut)} ),
 
-        NewItemApi(DI_Text,     0,   4,   -1,    -1,   DIF_SEPARATOR),
+        NewItemApi(DI_Text,     5,  2, -1,    -1, 0, GetMsg(strSearchFor) ),
+        NewItemApi(DI_Edit,     5,  3, DX-10, -1,   DIF_HISTORY or DIF_USELASTHISTORY, '', cFindHistory ),
 
-        NewItemApi(DI_CheckBox, 5,  5,  -1,   -1,   0, GetMsg(strCaseSens)),
-        NewItemApi(DI_CheckBox, 5,  6,  -1,   -1,   0, GetMsg(strWholeWords)),
-        NewItemApi(DI_CheckBox, 5,  7,  -1,   -1,   0, GetMsg(strRegExp)),
+        NewItemApi(DI_Text,     0,  4, -1, -1,   DIF_SEPARATOR),
+
+        NewItemApi(DI_CheckBox, 5,  5, -1, -1,   0, GetMsg(strCaseSens)),
+        NewItemApi(DI_CheckBox, 5,  6, -1, -1,   0, GetMsg(strWholeWords)),
+        NewItemApi(DI_CheckBox, 5,  7, -1, -1,   0, GetMsg(strRegExp)),
 
         NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strSearchBut) ),
@@ -337,20 +397,31 @@ interface
     SendMsg(DM_Enable, IdWholeWordChk, Byte(not vRegExp));
     if vRegExp then
       SetChecked(IdWholeWordChk, False);
+    SendMsg(DM_ShowItem, IdRegexpBut, Byte(vRegExp));
+  end;
+
+
+  procedure TFindDlg.InsertRegexp(AEdtID :Integer);
+  var
+    vRes :Boolean;
+    vRegexp :TString;
+  begin
+    vRes := RegexpMenu(vRegexp);
+    SendMsg(DM_SetFocus, AEdtID, 0);
+    if vRes then
+      InsertText(vRegExp);
   end;
 
 
   function TFindDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
   begin
-//  TraceF('InfoDialogProc: FHandle=%d, Msg=%d, Param1=%d, Param2=%d', [FHandle, Msg, Param1, Param2]);
-
     Result := 1;
     case Msg of
-//    DN_RESIZECONSOLE:
-//      ResizeDialog;
-
-      DN_MOUSECLICK:
-        Result := inherited DialogHandler(Msg, Param1, Param2);
+      DN_MOUSECLICK, DN_HOTKEY:
+        if Param1 = IdRegexpBut then
+          InsertRegexp(IdFindEdt)
+        else
+          Result := inherited DialogHandler(Msg, Param1, Param2);
 
       DN_BTNCLICK:
         if Param1 = IdRegexpChk then
@@ -359,7 +430,6 @@ interface
           Result := inherited DialogHandler(Msg, Param1, Param2);
 
       DN_KEY: begin
-//      TraceF('Key = %d', [Param2]);
         case Param2 of
           KEY_F9:
             OptionsMenu;
@@ -451,5 +521,9 @@ interface
   end;
 
 
+initialization
+
+finalization
+  FreeObj(RegexpList);
 end.
 
