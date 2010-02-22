@@ -330,6 +330,7 @@ interface
         if Tag <> 3 then
           Inc(FMaxWidth, Width + 1);
 *)
+    FMaxWidth := 70;
 
     FGrid.RowCount := FCode.Count;
     SendMsg(DM_REDRAW, 0, 0);
