@@ -19,6 +19,7 @@ interface
 
   function IntIf(Cond :Boolean; L1, L2 :Integer) :Integer;
   function StrIf(Cond :Boolean; const S1, S2 :TString) :TString;
+  function HandleIf(Cond :Boolean; H1, H2 :THandle) :THandle;
   function IntMin(L1, L2 :Integer) :Integer;
   function IntMax(L1, L2 :Integer) :Integer;
   function Int64Max(const N1, N2 :TInt64) :TInt64;
@@ -154,6 +155,15 @@ interface
       Result := S1
     else
       Result := S2;
+  end;
+
+
+  function HandleIf(Cond :Boolean; H1, H2 :THandle) :THandle;
+  begin
+    if Cond then
+      Result := H1
+    else
+      Result := H2;
   end;
 
 

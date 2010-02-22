@@ -46,6 +46,7 @@ interface
 
   function WinFileExists(const AFileName :TString) :Boolean;
   function WinFolderExists(const AFolderName :TString) :Boolean;
+  function WinFolderNotEmpty(const aFolderName :TString) :Boolean;
 
   
  {-----------------------------------------------------------------------------}
@@ -304,6 +305,43 @@ interface
     vCode := FileGetAttr(aFolderName);
     Result := (vCode <> -1) and (vCode and FILE_ATTRIBUTE_DIRECTORY <> 0);
   end;
+
+
+
+  function WinFolderNotEmpty(const aFolderName :TString) :Boolean;
+  var
+    vMask :TString;
+    vHandle :THandle;
+    vFindData :TWin32FindData;
+  begin
+    Result := False;
+    if WinFolderExists(aFolderName) then begin
+      vMask := AddFileName(aFolderName, '*.*');
+      vHandle := FindFirstFile(PTChar(vMask), vFindData);
+      if vHandle <> INVALID_HANDLE_VALUE then begin
+        try
+
+          while True do begin
+
+            if
+              not ((vFindData.cFileName[0] = '.') and (vFindData.cFileName[1] = #0)) and
+              not ((vFindData.cFileName[0] = '.') and (vFindData.cFileName[1] = '.') and (vFindData.cFileName[2] = #0))
+            then begin
+              Result := True;
+              Break;
+            end;
+
+            if not FindNextFile(vHandle, vFindData) then
+              Break;
+          end;
+
+        finally
+          Windows.FindClose(vHandle);
+        end;
+      end;
+    end;
+  end;
+
 
 
  {-----------------------------------------------------------------------------}
