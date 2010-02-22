@@ -826,7 +826,7 @@ interface
         Result := False;
         FillChar(vInfo, SizeOf(vInfo), 0);
        {$ifdef bUnicodeFar}
-        FARAPI.Control(THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE)), FCTL_GetPanelInfo, 0, @vInfo);
+        FARAPI.Control(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_GetPanelInfo, 0, @vInfo);
        {$else}
         FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelShortInfo, FCTL_GetAnotherPanelShortInfo), @vInfo);
        {$endif bUnicodeFar}
