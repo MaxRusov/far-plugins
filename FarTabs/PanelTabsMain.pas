@@ -177,8 +177,8 @@ interface
     while not Terminated do begin
 
       if ((GetKeyState(VK_LBUTTON) < 0) or (GetKeyState(VK_RBUTTON) < 0)) and IsActiveConsole then begin
-//      Trace('Mouse down...');
         vPoint := GetConsoleMousePos;
+//      TraceF('Mouse down: %d x %d...', [vPoint.X, vPoint.Y]);
         if TabsManager.HitTest(vPoint.X, vPoint.Y, vKind, vIndex) <> hsNone then
           CallPlugin(2);
         while not Terminated and ((GetKeyState(VK_LBUTTON) < 0) or (GetKeyState(VK_RBUTTON) < 0)) do
