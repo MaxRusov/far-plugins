@@ -165,12 +165,6 @@ interface
   uses
     MixDebug;
 
-  {!!!}
-  function ColorToRGB(AColor :TColor) :TColor;
-  begin
-    Result := AColor;
-  end;
-
 
   function TextSize(AFont :HFont; const AStr :TString; AMaxWidth :Integer) :TSize;
   var
@@ -505,7 +499,9 @@ interface
     vCmdIntf :IHintPluginCommand;
   begin
     if FPlugin <> nil then begin
-//    TraceF('CMRunCommand %d...', [Mess.WParam]);
+     {$ifdef bTrace1}
+      TraceF('CMRunCommand %d...', [Mess.WParam]);
+     {$endif bTrace1}
 
       FPlugin.QueryInterface(IHintPluginCommand, vCmdIntf); 
       if vCmdIntf <> nil then begin

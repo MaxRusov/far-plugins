@@ -54,11 +54,33 @@ interface
     MixDebug;
 
 
+  var
+    Win32Platform: Integer = 0;
+    Win32MajorVersion: Integer = 0;
+    Win32MinorVersion: Integer = 0;
+//  Win32BuildNumber: Integer = 0;
+
+
+  procedure InitPlatformId;
+  var
+    OSVersionInfo: TOSVersionInfo;
+  begin
+    FillChar(OSVersionInfo, SizeOf(OSVersionInfo), 0);
+    OSVersionInfo.dwOSVersionInfoSize := SizeOf(OSVersionInfo);
+    if GetVersionEx(OSVersionInfo) then
+      with OSVersionInfo do begin
+        Win32Platform := dwPlatformId;
+        Win32MajorVersion := dwMajorVersion;
+        Win32MinorVersion := dwMinorVersion;
+//      Win32BuildNumber := dwBuildNumber;
+//      Win32CSDVersion := szCSDVersion;
+      end;
+  end;
+
+
   function CheckWin32Version(AMajor: Integer; AMinor: Integer): Boolean;
   begin
-    {!!!}
-    Result := True;
-(*    Result := (Win32MajorVersion > AMajor) or ((Win32MajorVersion = AMajor) and (Win32MinorVersion >= AMinor));  *)
+    Result := (Win32MajorVersion > AMajor) or ((Win32MajorVersion = AMajor) and (Win32MinorVersion >= AMinor));
   end;
 
 
@@ -395,6 +417,10 @@ interface
     if not Assigned(SHCreateItemFromParsingName) then
       Exit;
 
+   {$ifdef bTrace1}
+    TraceF('GetThumbnailVista: %s', [AName]);
+   {$endif bTrace1}
+
     if not Succeeded( SHCreateItemFromParsingName( PWideChar(AName), nil, IShellItem, @vItem) ) then
       Exit;
 
@@ -467,6 +493,10 @@ interface
     Result := 0;
     if not Assigned(FMalloc) or not Assigned(FDesktop) then
       Exit;
+
+   {$ifdef bTrace1}
+    TraceF('GetThumbnailXP: %s', [AName]);
+   {$endif bTrace1}
 
     vPath := RemoveBackSlash(ExtractFilePath(AName));
     if not Succeeded( FDesktop.ParseDisplayName(0, nil, PWideChar(vPath), vEaten, vItems, vAttrs) ) then
@@ -582,4 +612,6 @@ interface
   end;
 
 
+initialization
+  InitPlatformId;
 end.
