@@ -225,7 +225,7 @@ interface
         8: EvaluateDlg;
         9: AddBreakpoint;
        10: FindAddrs;
-       11: {$ifdef bDebug}Disassemble;{$else}DisassembleCurrentLine;{$endif bDebug}
+       11: Disassemble; //{$ifdef bDebug}Disassemble;{$else}DisassembleCurrentLine;{$endif bDebug}
        12: WindowsMenu;
        13: {};
        14: ShowConsoleDlg('')
