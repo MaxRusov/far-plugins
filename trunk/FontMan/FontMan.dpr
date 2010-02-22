@@ -1,7 +1,9 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{$ImageBase $40700000}
+{$ifdef bDelphi}
+ {$ImageBase $40700000}
+{$endif bDelphi}
 
 library FontMan;
 

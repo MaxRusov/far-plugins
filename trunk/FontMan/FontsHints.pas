@@ -349,7 +349,7 @@ interface
 
     FillChar(vInfo, SizeOf(vInfo), 0);
    {$ifdef bUnicodefar}
-    FARAPI.Control(THandle(IntIf(AItem.IsPrimaryPanel, PANEL_ACTIVE, PANEL_PASSIVE)), FCTL_GetPanelInfo, 0, @vInfo);
+    FARAPI.Control(HandleIf(AItem.IsPrimaryPanel, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_GetPanelInfo, 0, @vInfo);
    {$else}
     FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(AItem.IsPrimaryPanel, FCTL_GetPanelShortInfo, FCTL_GetAnotherPanelShortInfo), @vInfo);
    {$endif bUnicodefar}
