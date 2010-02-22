@@ -51,6 +51,7 @@ interface
       strFromBegBut,
       strOptionsBut,
 
+      strOptions,
       strMSelectFound,
       strMCursorAtEnd,
       strMCenterAlways,
@@ -81,7 +82,10 @@ interface
       strInterrupt,
       strInterruptPrompt,
       strYes,
-      strNo
+      strNo,
+
+      strRegexpTitle,
+      strRegaexpBase
     );
 
 
@@ -139,6 +143,7 @@ interface
   procedure SetFindOptions(var AOptions :TFindOptions; AOption :TFindOption; AOn :Boolean);
   function RegexpQuote(const AExpr :TString) :TString;
   function CheckRegexp(const AStr :TString) :Boolean;
+  procedure InsertText(const AStr :TString);
 
   procedure AddToHistory(const AHist, AStr :TString);
   function GetLastHistory(const AHist :TString) :TString;
@@ -218,6 +223,19 @@ interface
   end;
 
 
+  procedure InsertText(const AStr :TString);
+  var
+    vStr :TFarStr;
+    vMacro :TActlKeyMacro;
+  begin
+    vStr := '$text "' + AStr + '"';
+    vMacro.Command := MCMD_POSTMACROSTRING;
+    vMacro.Param.PlainText.SequenceText := PFarChar(vStr);
+    vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
+    FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+  end;
+
+  
  {-----------------------------------------------------------------------------}
 
   procedure AddToHistory(const AHist, AStr :TString);
