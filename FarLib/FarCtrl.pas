@@ -140,7 +140,7 @@ interface
   function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
   function CreateDialog(const AItems :array of TFarDialogItem) :PFarDialogItemArray;
   function RunDialog( APluginNumber :Integer; X1, Y1, DX, DY :Integer; AHelpTopic :PFarChar;
-    AItems :PFarDialogItemArray; ACount :Integer; AFlags :DWORD; ADlgProc :TFarApiWindowProc; AParam :Integer) :Integer;
+    AItems :PFarDialogItemArray; ACount :Integer; AFlags :DWORD; ADlgProc :TFarApiWindowProc; AParam :TIntPtr) :Integer;
 
   function StrRightAjust(const AStr :TString; ALen :Integer) :TString;
   function StrLeftAjust(const AStr :TString; ALen :Integer) :TString;
@@ -444,6 +444,49 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+(*
+  function NewDlgItem(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; const AText :TString) :TFarDialogItem;
+  begin
+    FillChar(Result, SizeOf(Result), 0);
+    with Result do begin
+      ItemType := AType;
+      //
+      PtrData := StrNew( PTChar(AText) );
+    end;
+  end;
+
+
+  procedure CleanupDialog1(AItem :PFarDialogItemArray; ACount :Integer);
+  var
+    I :Integer;
+  begin
+    for I := 0 to ACount - 1 do
+      StrDispose(AItem[I].PtrData);
+  end;
+
+
+
+  function NewDlgItem2(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; const AText :TString) :TFarDialogItem;
+  begin
+    FillChar(Result, SizeOf(Result), 0);
+    with Result do begin
+      ItemType := AType;
+      //
+      TString(UserData) := AText;
+      PtrData := PTChar(AText);
+    end;
+  end;
+
+
+  procedure CleanupDialog2(AItem :PFarDialogItemArray; ACount :Integer);
+  var
+    I :Integer;
+  begin
+    for I := 0 to ACount - 1 do
+      TString(AItem[I].UserData) := '';
+  end;
+*)
+
   function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
   begin
     FillChar(Result, SizeOf(Result), 0);
@@ -483,7 +526,7 @@ interface
 
 
   function RunDialog( APluginNumber :Integer; X1, Y1, DX, DY :Integer; AHelpTopic :PFarChar;
-    AItems :PFarDialogItemArray; ACount :Integer; AFlags :DWORD; ADlgProc :TFarApiWindowProc; AParam :Integer) :Integer;
+    AItems :PFarDialogItemArray; ACount :Integer; AFlags :DWORD; ADlgProc :TFarApiWindowProc; AParam :TIntPtr) :Integer;
  {$ifdef bUnicodeFar}
   var
     hDlg :THandle;
@@ -641,8 +684,8 @@ interface
 
     if IsFullFilePath(APath) then begin
      {$ifdef bUnicodeFar}
-      FARAPI.Control(THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE)), FCTL_SETPANELDIR, 0, PFarChar(APath));
-      FARAPI.Control(THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE)), FCTL_REDRAWPANEL, 0, nil);
+      FARAPI.Control(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_SETPANELDIR, 0, PFarChar(APath));
+      FARAPI.Control(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_REDRAWPANEL, 0, nil);
      {$else}
       vStr := StrAnsiToOem(APath);
       FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_SETPANELDIR, FCTL_SETANOTHERPANELDIR), PFarChar(vStr));
@@ -688,7 +731,7 @@ interface
 
     FillChar(vInfo, SizeOf(vInfo), 0);
    {$ifdef bUnicodeFar}
-    vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
+    vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
     FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
    {$else}
     FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
@@ -722,7 +765,7 @@ interface
     Result := False;
     FillChar(vInfo, SizeOf(vInfo), 0);
    {$ifdef bUnicodeFar}
-    vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
+    vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
     FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
    {$else}
     FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
@@ -769,7 +812,7 @@ interface
     TraceBeg('FarPanelGetSelectedItems...');
    {$endif bDebug}
 
-    vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
+    vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
 
     FillChar(vInfo, SizeOf(vInfo), 0);
     FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
@@ -837,7 +880,7 @@ interface
     TraceBeg('FarPanelSetSelectedItems...');
    {$endif bDebug}
 
-    vHandle := THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
+    vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
 
     FillChar(vInfo, SizeOf(vInfo), 0);
     FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);

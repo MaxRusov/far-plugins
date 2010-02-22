@@ -245,7 +245,7 @@ interface
 
   function TFarDialog.Run :Integer;
   begin
-    Result := RunDialog(hModule, FLeft, FTop, FWidth, FHeight, PFarChar(FHelpTopic), FDialog, FItemCount, FFlags, ApiDlgProc, Integer(Self));
+    Result := RunDialog(hModule, FLeft, FTop, FWidth, FHeight, PFarChar(FHelpTopic), FDialog, FItemCount, FFlags, ApiDlgProc, TIntPtr(Self));
   end;
 
 
