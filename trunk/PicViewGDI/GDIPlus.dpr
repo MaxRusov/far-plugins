@@ -1,9 +1,10 @@
 {$I Defines.inc}
-{$E pvd}
 
 {$APPTYPE CONSOLE}
+{-$ImageBase $41000000}
+
 {$ifdef bDelphi}
- {$ImageBase $41000000}
+ {$E pvd}
 {$endif bDelphi}
 
 library GDIPlus;
