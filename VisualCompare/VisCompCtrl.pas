@@ -74,6 +74,23 @@ interface
       strYes,
       strNo,
 
+      strDelete,
+      strDeleteFile,
+      strDeleteFolder,
+      strDeleteNItems,
+      strBothSides,
+      strLeftSide,
+      strRightSide,
+      strDeleteBut,
+
+      strWarning,
+      strDeleteReadOnlyFile,
+      strDeleteNotEmptyFolder,
+      strDelete1But,
+      strAllBut,
+      strSkipBut,
+      strSkipAllBut,
+
       strOk,
       strCancel
     );
@@ -301,7 +318,7 @@ interface
   begin
     FillChar(vInfo, SizeOf(vInfo), 0);
    {$ifdef bUnicodeFar}
-    FARAPI.Control(THandle(PANEL_ACTIVE), FCTL_GetPanelInfo, 0, @vInfo);
+    FARAPI.Control(PANEL_ACTIVE, FCTL_GetPanelInfo, 0, @vInfo);
    {$else}
     FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelShortInfo, @vInfo);
    {$endif bUnicodeFar}
@@ -320,7 +337,7 @@ interface
  {$endif bUnicodeFar}
   begin
    {$ifdef bUnicodeFar}
-    Result := FarPanelGetCurrentDirectory(THandle(IntIf(Active, PANEL_ACTIVE, PANEL_PASSIVE)));
+    Result := FarPanelGetCurrentDirectory(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
    {$else}
     FillChar(vInfo, SizeOf(vInfo), 0);
     FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);

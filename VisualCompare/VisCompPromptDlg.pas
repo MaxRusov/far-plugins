@@ -126,7 +126,7 @@ interface
   end;
 
 
-  function TCompareDlg.CloseDialog(ItemID :Integer) :Boolean; {virtual;}
+  function TCompareDlg.CloseDialog(ItemID :Integer) :Boolean; {override;}
   begin
     if (ItemID <> -1) and (ItemID <> IdCancel) then begin
       FFolder1 := Trim(GetText(IdEdtFolder1));

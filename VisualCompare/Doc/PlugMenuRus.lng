@@ -45,5 +45,22 @@
 "&Да"
 "&Нет"
 
+"strDelete"
+"strDeleteFile"
+"strDeleteFolder"
+"strDeleteNItems"
+"strBothSides"
+"strLeftSide"
+"strRightSide"
+"strDeleteBut"
+
+"strWarning"
+"strDeleteReadOnlyFile"
+"strDeleteNotEmptyFolder"
+"strDelete1But"
+"strAllBut"
+"strSkipBut"
+"strSkipAllBut"
+
 "Ok"
 "Cancel"
