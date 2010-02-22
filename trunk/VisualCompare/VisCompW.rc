@@ -4,8 +4,8 @@
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0
- PRODUCTVERSION 1,0
+ FILEVERSION 0,9
+ PRODUCTVERSION 0,9
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0x0L
  FILEOS 0x10004L
@@ -19,9 +19,9 @@ BEGIN
             VALUE "FileDescription", "Visual Compare Far plugin (unicode)\0"
             VALUE "InternalName", "VisComp\0"
             VALUE "OriginalFilename", "viscomp.dll\0"
-            VALUE "FileVersion", "1.0." BuildS "\0"
+            VALUE "FileVersion", "0.9." BuildS "\0"
             VALUE "CompanyName", "Max Rusov\0"
-            VALUE "LegalCopyright", "(c) 2009, Max Rusov\0"
+            VALUE "LegalCopyright", "(c) 2010, Max Rusov\0"
             VALUE "ProductName", "VisComp\0"
             VALUE "ProductVersion", "1.0\0"
         END

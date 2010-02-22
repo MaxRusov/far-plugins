@@ -74,6 +74,9 @@ interface
       DiffCount    :Integer;
       UncompCount  :Integer;
       OrphanCount  :array[0..1] of Integer;
+
+    public
+      procedure CleanupDeletedItems;
     end;
 
 
@@ -269,6 +272,27 @@ interface
           Result := True;
           Exit;
         end;
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
+
+  procedure TCmpFolder.CleanupDeletedItems;
+  var
+    I :Integer;
+    vItem :TCmpFileItem;
+  begin
+    for I := Count - 1 downto 0 do begin
+      vItem := Items[I];
+      if not vItem.HasAttr(faPresent) then
+        Delete(I)
+      else begin
+        if vItem.IsFolder and (vItem.Subs <> nil) then
+          vItem.Subs.CleanupDeletedItems;
+      end;
     end;
   end;
 

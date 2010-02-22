@@ -33,7 +33,8 @@ interface
     FarGrid,
 
     VisCompCtrl,
-    VisCompFiles;
+    VisCompFiles,
+    VisCompOpers;
 
 
   type
@@ -117,8 +118,10 @@ interface
       function FindItem(AItem :TCmpFileItem) :Integer;
       function GetCurSide :Integer;
       procedure GetSelected(AList :TStringList; AVer :Integer; AFullPath :Boolean);
+      procedure GetSelectedOrCurrent(AList :TStringList; AVer :Integer; AFullPath :Boolean);
+      function GetNearestPresentItem(ARow :Integer) :TCmpFileItem;
 
-      procedure ReinitAndSaveCurrent;
+      procedure ReinitAndSaveCurrent(AItem :TCmpFileItem = nil);
       procedure ToggleOption(var AOption :Boolean; ANeedUpdateDigest :Boolean = False);
       procedure SetOrder(AOrder :Integer; ADiffAtTop :Boolean);
 
@@ -130,6 +133,7 @@ interface
       procedure CompareCurrent(AForcePrompt :Boolean);
       procedure ViewOrEditCurrent(AEdit :Boolean);
       procedure CompareSelectedContents;
+      procedure DeleteSelected;
       procedure SortByDlg;
       procedure OptionsMenu;
 
@@ -1117,16 +1121,16 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure TFilesDlg.ReinitAndSaveCurrent;
+  procedure TFilesDlg.ReinitAndSaveCurrent(AItem :TCmpFileItem = nil);
   var
-    vItem :TCmpFileItem;
     vIndex :Integer;
   begin
     SendMsg(DM_ENABLEREDRAW, 0, 0);
     try
-      vItem := GetCurrentItem;
+      if AItem = nil then
+        AItem := GetCurrentItem;
       ReinitGrid;
-      vIndex := FindItem(vItem);
+      vIndex := FindItem(AItem);
       if vIndex < 0 then
         vIndex := 0;
       SetCurrent( vIndex, lmSafe );
@@ -1198,20 +1202,14 @@ interface
   procedure TFilesDlg.CompareSelectedContents;
   var
     vVer :Integer;
-    vItem :TCmpFileItem;
     vList :TStringList;
   begin
     vList := TStringList.Create;
     try
       vVer := GetCurSide;
-      if vVer = -1 then
-        vVer := 0; {???}
-
-      if FSelectedCount[vVer] = 0 then begin
-        vItem := GetCurrentItem;
-        vList.AddObject('', vItem);
-      end else
-        GetSelected(vList, vVer, False);
+      GetSelectedOrCurrent(vList, vVer, False);
+      if vList.Count = 0 then
+        begin Beep; Exit; end;
 
       CompareFilesContents('', vList);
 
@@ -1223,7 +1221,58 @@ interface
     end;
   end;
 
-  
+
+  procedure TFilesDlg.DeleteSelected;
+  var
+    vVer :Integer;
+    vList :TStringList;
+    vItem :TCmpFileItem;
+  begin
+    vList := TStringList.Create;
+    try
+      vVer := GetCurSide;
+      GetSelectedOrCurrent(vList, vVer, False);
+      if vList.Count = 0 then
+        begin Beep; Exit; end;
+
+      if not PromptDeleteFile(vVer, vList) then
+        Exit;
+
+      vItem := GetCurrentItem;
+
+      DeleteFiles(vVer, vList);
+
+      if not vItem.HasAttr(faPresent) then
+        vItem := GetNearestPresentItem(FGrid.CurRow);
+
+      FRootItems.CleanupDeletedItems;
+      UpdateFolderDidgets(FRootItems);
+      ReinitAndSaveCurrent(vItem);
+
+    finally
+      FreeObj(vList);
+    end;
+  end;
+
+
+  function TFilesDlg.GetNearestPresentItem(ARow :Integer) :TCmpFileItem;
+  var
+    I :Integer;
+  begin
+    for I := ARow to FGrid.RowCount - 1 do begin
+      Result := GetFileItem(I);
+      if (Result <> nil) and Result.HasAttr(faPresent) then
+        Exit;
+    end;
+    for I := ARow - 1 downto 0 do begin
+      Result := GetFileItem(I);
+      if (Result <> nil) and Result.HasAttr(faPresent) then
+        Exit;
+    end;
+    Result := nil;
+  end;
+
+
  {-----------------------------------------------------------------------------}
 
   procedure TFilesDlg.CompareCurrent(AForcePrompt :Boolean);
@@ -1440,17 +1489,46 @@ interface
     vMask :Integer;
   begin
     AList.Clear;
-    vMask := 1 shl AVer;
+    if AVer = -1 then
+      vMask := 3
+    else
+      vMask := 1 shl AVer;
     for I := 0 to FGrid.RowCount - 1 do begin
       vRec := FFilter.PItems[I];
-      if (vRec.FItem <> nil) and (faPresent and vRec.FItem.Attr[AVer] <> 0) and (vRec.FSel and vMask <> 0) then begin
-        if AFullPath then
-          AList.AddObject( vRec.FItem.GetFullFileName(AVer), vRec.FItem )
-        else
-          AList.AddObject( RemoveBackSlash(vRec.FItem.Name), vRec.FItem );
+      if (vRec.FItem <> nil) and ((AVer = -1) or (faPresent and vRec.FItem.Attr[AVer] <> 0)) and (vRec.FSel <> 0) then begin
+        if (vRec.FSel and vMask = vMask) or ((AVer = -1) and not vRec.FItem.BothAttr(faPresent)) then begin
+          if AFullPath then
+            AList.AddObject( vRec.FItem.GetFullFileName(AVer), vRec.FItem )
+          else
+            AList.AddObject( RemoveBackSlash(vRec.FItem.Name), vRec.FItem );
+        end;
       end;
     end;
   end;
+
+
+  procedure TFilesDlg.GetSelectedOrCurrent(AList :TStringList; AVer :Integer; AFullPath :Boolean);
+  var
+    vItem :TCmpFileItem;
+  begin
+    if AVer = -1 then begin
+      if (FSelectedCount[0] = 0) and (FSelectedCount[1] = 0) then begin
+        vItem := GetCurrentItem;
+        if vItem <> nil then
+          AList.AddObject('', vItem);
+      end else
+        GetSelected(AList, AVer, False);
+    end else
+    begin
+      if FSelectedCount[AVer] = 0 then begin
+        vItem := GetCurrentItem;
+        if (vItem <> nil) and (faPresent and vItem.Attr[AVer] <> 0) then
+          AList.AddObject('', vItem);
+      end else
+        GetSelected(AList, AVer, False);
+    end;
+  end;
+
 
  {-----------------------------------------------------------------------------}
 
@@ -1648,7 +1726,7 @@ interface
           KEY_F6:
             Sorry;
           KEY_F8:
-            Sorry;
+            DeleteSelected;
 
           { Выделение }
           KEY_INS:
