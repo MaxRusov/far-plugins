@@ -2,10 +2,12 @@ REGEDIT4
 
 ; Макрос для закрытия хинта по нажатию Esc
 
-[-HKEY_CURRENT_USER\Software\Far2\KeyMacros\Shell\Esc]
+[HKEY_CURRENT_USER\Software\Far2\KeyMacros\Consts]
+"FarHints"=dword:544e4948
+
 [HKEY_CURRENT_USER\Software\Far2\KeyMacros\Shell\Esc]
-"Sequence"="F11 ! 4 $if(checkhotkey(\"c\")) c $else Esc CtrlO $end"
+"Sequence"="$if (Env(\"FarHint\") == \"1\") CallPlugin(FarHints, 43) $else CtrlO $end"
 "Description"="Far Hints: Close hint or toggle panels"
 "DisableOutput"=dword:1
-"EmptyCommandLine"=dword:00000001
-"NotEmptyCommandLine"=dword:00000000
+"EmptyCommandLine"=dword:1
+"NotEmptyCommandLine"=dword:0

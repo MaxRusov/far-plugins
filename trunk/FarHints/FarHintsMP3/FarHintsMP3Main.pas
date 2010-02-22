@@ -13,7 +13,8 @@ interface
   uses
     Windows,
     MixTypes,
-    FarHintsAPI;
+    FarHintsAPI,
+    FarHintsTags;
 
 
   function GetPluginInterface :IHintPlugin; stdcall;
@@ -36,27 +37,6 @@ interface
       strComment,
       strGenre
     );
-
-    
-  type
-    TID3v1Tag = packed record
-      cID     :array[0..2] of Char;
-      cTitle  :array[0..29] of Char;
-      cArtist :array[0..29] of Char;
-      cAlbum  :array[0..29] of Char;
-      cYear   :array[0..3] of Char;
-      case Byte of
-        0: (
-          cComment  :array[0..29] of Char;
-          btGenre   :Byte;
-        );
-        1: (
-          cComment2 :array[0..27] of Char;
-          cZero     :Char;
-          btTrack   :Byte;
-//        btGenre   :Byte;
-        );
-    end;
 
 
   type
@@ -89,32 +69,16 @@ interface
 
   function TPluginObject.Process(const AItem :IFarItem) :Boolean; {stdcall;}
 
-    function GetLen(AStr :PChar; ALen :Integer) :Integer;
-    var
-      vStr :PChar;
+    procedure LocAdd(APrompt :TStrMessage; const AStr :TString);
     begin
-      vStr := AStr;
-      while (vStr < AStr + ALen) and (vStr^ <> #0) do
-        Inc(vStr);
-      while (vStr > AStr) and ((vStr - 1)^ = ' ') do
-        Dec(vStr);
-      Result := vStr - AStr;
-    end;
-
-    procedure LocAdd(APrompt :TStrMessage; AStr :PChar; ALen :Integer);
-    var
-      vStr :TString;
-    begin
-      SetString(vStr, AStr, GetLen(AStr, ALen));
-      if vStr <> '' then
-        AItem.AddStringInfo(GetMsg(APrompt), vStr);
+      if AStr <> '' then
+        AItem.AddStringInfo(GetMsg(APrompt), AStr);
     end;
 
   var
     vName :TString;
     vFile :THandle;
-    vTag  :TID3v1Tag;
-    vRes  :DWORD;
+    vTags :TID3Tags;
   begin
     Result := False;
     vName := AItem.FullName;
@@ -122,23 +86,22 @@ interface
       vFile := CreateFile(PTChar(vName), GENERIC_READ, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING, 0, 0);
       if vFile <> INVALID_HANDLE_VALUE then begin
         try
-          SetFilePointer(vFile, -SizeOf(vTag), nil, FILE_END);
-          ReadFile(vFile, vTag, SizeOf(vTag), vRes, nil);
-          if vTag.cID = 'TAG' then begin
+          if ReadID3v2(vFile, vTags) or ReadID3v1(vFile, vTags) then begin
 
             AItem.AddStringInfo(GetMsg(strName), AItem.Name);
 
-            LocAdd(strTitle, vTag.cTitle, SizeOf(vTag.cTitle));
-            LocAdd(strArtist, vTag.cArtist, SizeOf(vTag.cArtist));
-            LocAdd(strAlbum, vTag.cAlbum, SizeOf(vTag.cAlbum));
-            LocAdd(strYear, vTag.cYear, SizeOf(vTag.cYear));
-            LocAdd(strComment, vTag.cComment, SizeOf(vTag.cComment));
+            LocAdd(strTitle, vTags.FTitle);
+            LocAdd(strArtist, vTags.FArtist);
+            LocAdd(strAlbum, vTags.FAlbum);
+            LocAdd(strYear, vTags.FYear);
+            LocAdd(strComment, vTags.FComment);
 
             AItem.AddDateInfo(GetMsg(strModified), AItem.Modified);
             AItem.AddInt64Info(GetMsg(strSize), AItem.Size);
 
             Result := True;
           end;
+
         finally
           CloseHandle(vFile);
         end;

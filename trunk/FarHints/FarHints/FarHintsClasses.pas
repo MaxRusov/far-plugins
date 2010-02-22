@@ -755,6 +755,13 @@ interface
     if (AItem <> nil) and (AItem.FindData.cFileName = '..') then
       Exit;
 
+   {$ifdef bTrace1}
+    if AItem <> nil then
+      TraceF('ShowHint, Folder=%s, File=%s', [AFolder, AItem.FindData.cFileName])
+    else
+      TraceF('ShowHint, Folder=%s', [AFolder]);
+   {$endif bTrace1}
+
     if AItem <> nil then
       { Обычный Hint для файловой или плагинной панели }
       vObj := TFarItem.CreateEx(APlugin, APrimary, ATitle, AFolder, AItem)
@@ -812,6 +819,9 @@ interface
     for i := 0 to FPlugins.Count - 1 do
       with TPlugin(FPlugins[I]) do
         if Inited and CanProcess(vItem) and Plugin.Process(vItem) then begin
+         {$ifdef bTrace1}
+          TraceF('Selected plugin: %s (%s), Flags=%x', [Info.Name, Info.Caption, Integer(Info.Flags)]);
+         {$endif bTrace1}
           vPlugin := Plugin;
           Break;
         end;

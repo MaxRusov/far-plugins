@@ -652,11 +652,15 @@ interface
       Exit;
 
     gCallMode := ACallMode;
-//  TraceF('Call plugin: CallMode=%d', [ACallMode]);
+   {$ifdef bTrace1}
+    TraceF('Call plugin: CallMode=%d', [ACallMode]);
+   {$endif bTrace1}
     { Вызовем плагин в основном потоке, через механизм макросов... }
     SendKeys(FarHintsKey, FarHintsShift);
     WaitForCallComplete;
-//  Trace('  Done call');
+   {$ifdef bTrace1}
+    Trace('  Done call');
+   {$endif bTrace1}
     Result := True;
   end;
  {$endif bSynchroCall}
@@ -759,7 +763,7 @@ interface
         Result := 0;
 
        {$ifdef bUnicodeFar}
-        vTypesStr := FarPanelString(THandle(IntIf(APrimary, PANEL_ACTIVE, PANEL_PASSIVE)), FCTL_GETCOLUMNTYPES);
+        vTypesStr := FarPanelString(HandleIf(APrimary, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_GETCOLUMNTYPES);
         vStr := PFarChar(vTypesStr);
        {$else}
         vStr := vInfo.ColumnTypes;
@@ -811,7 +815,7 @@ interface
         vCol := 0;
         vSubCol := 0;
        {$ifdef bUnicodeFar}
-        vWidthsStr := FarPanelString(THandle(IntIf(APrimary, PANEL_ACTIVE, PANEL_PASSIVE)), FCTL_GETCOLUMNWIDTHS);
+        vWidthsStr := FarPanelString(HandleIf(APrimary, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_GETCOLUMNWIDTHS);
         vStr := PFarChar(vWidthsStr);
        {$else}
         vStr := vInfo.ColumnWidths;
@@ -918,7 +922,7 @@ interface
 
       FillChar(vInfo, SizeOf(vInfo), 0);
      {$ifdef bUnicodefar}
-      FARAPI.Control(THandle(IntIf(APrimary, PANEL_ACTIVE, PANEL_PASSIVE)), FCTL_GetPanelInfo, 0, @vInfo);
+      FARAPI.Control(HandleIf(APrimary, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_GetPanelInfo, 0, @vInfo);
      {$else}
       FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(APrimary, FCTL_GetPanelShortInfo, FCTL_GetAnotherPanelShortInfo), @vInfo);
      {$endif bUnicodefar}
@@ -1017,7 +1021,7 @@ interface
 
     FillChar(vInfo, SizeOf(vInfo), 0);
    {$ifdef bUnicodefar}
-    vHandle := THandle(IntIf(vPrimary, PANEL_ACTIVE, PANEL_PASSIVE));
+    vHandle := HandleIf(vPrimary, PANEL_ACTIVE, PANEL_PASSIVE);
     FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
     vCurDir := FarPanelGetCurrentDirectory(vHandle);
    {$else}
@@ -1033,9 +1037,9 @@ interface
     if vPlugin and vPrimary then
       vTitle := ExtractWord(1, GetConsoleTitleStr, ['{', '}']);
 
-   {$ifdef bTrace}
+   {$ifdef bTrace1}
 //  TraceF('ShowMouseHint: %d', [vIndex]);
-   {$endif bTrace}
+   {$endif bTrace1}
 
    {$ifdef bUnicodeFar}
     vPItem := FarPanelItem(vHandle, FCTL_GETPANELITEM, vIndex);
@@ -1089,9 +1093,9 @@ interface
       with vInfo.PanelRect do
         vPos := ConsolePosToWindowPos(Left + 2, Bottom {- 2});
 
-     {$ifdef bTrace}
+     {$ifdef bTrace1}
 //    TraceF('ShowKeyHint: For tree (%s)', [vInfo.CurDir]);
-     {$endif bTrace}
+     {$endif bTrace1}
 
       if FarHints.ShowHint(hccPanel, hcmCurrent, False, True, '', -1, -1, vPos.X, vPos.Y, @vItemRect, vCurDir, nil) then
         {}
@@ -1112,9 +1116,9 @@ interface
 
       vPos := ConsolePosToWindowPos(vItemRect.Left + 2, vItemRect.Top + 1);
 
-     {$ifdef bTrace}
+     {$ifdef bTrace1}
 //    TraceF('ShowKeyHint: %d', [vIndex]);
-     {$endif bTrace}
+     {$endif bTrace1}
 
      {$ifdef bUnicodeFar}
       vPItem := FarPanelItem(THandle(PANEL_ACTIVE), FCTL_GETPANELITEM, vIndex);
@@ -1487,7 +1491,9 @@ interface
   begin
     Result:= INVALID_HANDLE_VALUE;
     try
-//    TraceF('OpenPlugin: From=%d, Item=%d, CallMode=%d', [OpenFrom, Item, gCallMode]);
+     {$ifdef bTrace1}
+      TraceF('OpenPlugin: From=%x, Item=%d, CallMode=%d', [OpenFrom, Item, gCallMode]);
+     {$endif bTrace1}
 
       gHintCommand := True;
 
