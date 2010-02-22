@@ -1050,9 +1050,9 @@ type
 { FILE_CONTROL_COMMANDS }
 
 const
-  PANEL_NONE	                = -1;
-  PANEL_ACTIVE	                = -1;
-  PANEL_PASSIVE	                = -2;
+  PANEL_NONE	                = THandle(-1);
+  PANEL_ACTIVE	                = THandle(-1);
+  PANEL_PASSIVE	                = THandle(-2);
 
 const
   FCTL_CLOSEPLUGIN              = 0;
