@@ -41,6 +41,7 @@ interface
   function SRect(X, Y, X2, Y2 :Integer) :TSmallRect;
   function SBounds(X, Y, W, H :Integer) :TSmallRect;
   procedure SRectGrow(var AR :TSmallRect; ADX, ADY :Integer);
+  procedure SRectMove(var AR :TSmallRect; ADX, ADY :Integer);
   function RectEmpty(const AR :TRect) :Boolean;
   function RectContainsXY(const AR :TRect; X, Y :Integer) :Boolean;
   procedure RectMove(var AR :TRect; ADX, ADY :Integer);
@@ -366,10 +367,19 @@ interface
 
   procedure SRectGrow(var AR :TSmallRect; ADX, ADY :Integer);
   begin
-    dec(AR.Left,   ADX);
-    inc(AR.Right,  ADX);
-    dec(AR.Top,    ADY);
-    inc(AR.Bottom, ADY);
+    Dec(AR.Left,   ADX);
+    Inc(AR.Right,  ADX);
+    Dec(AR.Top,    ADY);
+    Inc(AR.Bottom, ADY);
+  end;
+
+
+  procedure SRectMove(var AR :TSmallRect; ADX, ADY :Integer);
+  begin
+    Inc(AR.Left,   ADX);
+    Inc(AR.Right,  ADX);
+    Inc(AR.Top,    ADY);
+    Inc(AR.Bottom, ADY);
   end;
 
 
@@ -394,7 +404,7 @@ interface
     Inc(AR.Top,    ADY);
     Inc(AR.Bottom, ADY);
   end;
-  
+
 
   function ChrInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
   begin
