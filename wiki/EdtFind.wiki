@@ -8,3 +8,5 @@
  * Выделение всех найденных вхождений
  * Быстрый поиск текущего слова
  * Циклический поиск/замена
+
+http://far-plugins.googlecode.com/svn/trunk/EdtFind/Image/Sample.png
