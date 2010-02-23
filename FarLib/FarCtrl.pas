@@ -138,7 +138,7 @@ interface
  {$endif bUnicodeFar}
 
   function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
-  function CreateDialog(const AItems :array of TFarDialogItem) :PFarDialogItemArray;
+  function CreateDialog(const AItems :array of TFarDialogItem; AItemCount :PInteger = nil) :PFarDialogItemArray;
   function RunDialog( APluginNumber :Integer; X1, Y1, DX, DY :Integer; AHelpTopic :PFarChar;
     AItems :PFarDialogItemArray; ACount :Integer; AFlags :DWORD; ADlgProc :TFarApiWindowProc; AParam :TIntPtr) :Integer;
 
@@ -174,11 +174,8 @@ interface
 {******************************} implementation {******************************}
 {******************************************************************************}
 
-
- {$ifdef bTrace}
   uses
     MixDebug;
- {$endif bTrace}
 
 
   function FarChar2Str(AStr :PFarChar) :TString;
@@ -357,37 +354,6 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function SRect(X, Y, X2, Y2 :Integer) :TSmallRect;
-  begin
-    with Result do begin
-      Left := X;
-      Top := Y;
-      Right := X2;
-      Bottom := Y2;
-    end;
-  end;
-
-
-  function SBounds(X, Y, W, H :Integer) :TSmallRect;
-  begin
-    with Result do begin
-      Left := X;
-      Top := Y;
-      Right := X + W;
-      Bottom := Y + H;
-    end;
-  end;
-
-
-  procedure SRectGrow(var AR :TSmallRect; ADX, ADY :Integer);
-  begin
-    dec(AR.Left,   ADX);
-    inc(AR.Right,  ADX);
-    dec(AR.Top,    ADY);
-    inc(AR.Bottom, ADY);
-  end;
-
-
   function StrRightAjust(const AStr :TString; ALen :Integer) :TString;
   var
     vlen :Integer;
@@ -442,50 +408,29 @@ interface
   end;
 
 
- {-----------------------------------------------------------------------------}
-
 (*
-  function NewDlgItem(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; const AText :TString) :TFarDialogItem;
-  begin
-    FillChar(Result, SizeOf(Result), 0);
-    with Result do begin
-      ItemType := AType;
-      //
-      PtrData := StrNew( PTChar(AText) );
-    end;
-  end;
-
-
-  procedure CleanupDialog1(AItem :PFarDialogItemArray; ACount :Integer);
+  function FarInputBox(const ATitle, APrompt :TString; var AValue :TString; const AHist :TString = '';
+    const AMaxLen :Integer = 1024; const AOptions :Integer = 0) :Boolean;
   var
-    I :Integer;
+    vNewVal :TString;
   begin
-    for I := 0 to ACount - 1 do
-      StrDispose(AItem[I].PtrData);
-  end;
-
-
-
-  function NewDlgItem2(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; const AText :TString) :TFarDialogItem;
-  begin
-    FillChar(Result, SizeOf(Result), 0);
-    with Result do begin
-      ItemType := AType;
-      //
-      TString(UserData) := AText;
-      PtrData := PTChar(AText);
-    end;
-  end;
-
-
-  procedure CleanupDialog2(AItem :PFarDialogItemArray; ACount :Integer);
-  var
-    I :Integer;
-  begin
-    for I := 0 to ACount - 1 do
-      TString(AItem[I].UserData) := '';
+    SetLength(vNewVal, AMaxLen);
+    Result := FARAPI.InputBox(
+      PTChar(ATitle),
+      PTChar(APrompt),
+      PTChar(AHist),
+      PTChar(AValue),
+      PTChar(vNewVal),
+      Length(vNewVal),
+      nil,
+      AOptions) = 1;
+    if Result then
+      AValue := vNewVal;
   end;
 *)
+
+
+ {-----------------------------------------------------------------------------}
 
   function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
   begin
@@ -510,7 +455,7 @@ interface
   end;
 
 
-  function CreateDialog(const AItems :array of TFarDialogItem) :PFarDialogItemArray;
+  function CreateDialog(const AItems :array of TFarDialogItem; AItemCount :PInteger = nil) :PFarDialogItemArray;
   var
     I, vCount :Integer;
     vItem :PFarDialogItem;
@@ -522,6 +467,8 @@ interface
       Move(AItems[I], vItem^, SizeOf(TFarDialogItem));
       Inc(PChar(vItem), SizeOf(TFarDialogItem));
     end;
+    if AItemCount <> nil then
+      AItemCount^ := vCount;
   end;
 
 

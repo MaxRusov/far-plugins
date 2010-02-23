@@ -46,8 +46,10 @@ interface
       function SendMsg(AMsg, AParam1 :Integer; AParam2 :Pointer) :TIntPtr; overload;
       function GetDlgRect :TSmallrect;
       procedure SetDlgPos(ALeft, ATop, AWidth, AHeight :Integer);
+      function GetScreenItemRect(AItemID :Integer) :TSmallRect;
       function GetChecked(AItemID :Integer) :Boolean;
       procedure SetChecked(AItemID :Integer; AChecked :Boolean);
+      function GetRadioIndex(AItemID, ACount :Integer) :Integer;
       function GetTextApi(AItemID :Integer) :TFarStr;
       procedure SetTextApi(AItemID :Integer; const AStr :TFarStr);
       function GetText(AItemID :Integer) :TString;
@@ -304,6 +306,14 @@ interface
   end;
 
 
+  function TFarDialog.GetScreenItemRect(AItemID :Integer) :TSmallRect;
+  begin
+    SendMsg(DM_GETITEMPOSITION, AItemID, @Result);
+    with GetDlgRect do
+      SRectMove(Result, Left, Top);
+  end;
+
+
   function TFarDialog.GetChecked(AItemID :Integer) :Boolean;
   begin
     Result := SendMsg(DM_GetCheck, AItemID, 0) = BSTATE_CHECKED;
@@ -313,6 +323,19 @@ interface
   procedure TFarDialog.SetChecked(AItemID :Integer; AChecked :Boolean);
   begin
     SendMsg(DM_SetCheck, AItemID, IntIf(AChecked, BSTATE_CHECKED, BSTATE_UNCHECKED));
+  end;
+
+
+  function TFarDialog.GetRadioIndex(AItemID, ACount :Integer) :Integer;
+  var
+    I :Integer;
+  begin
+    for I := 0 to ACount - 1 do
+      if GetChecked(AItemID + I) then begin
+        Result := I;
+        Exit;
+      end;
+    Result := -1;
   end;
 
 
