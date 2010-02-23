@@ -21,6 +21,7 @@ interface
     FarKeysW,
     FarCtrl,
     FarDlg,
+    FarColorDlg,
 
     EdtFindCtrl;
 
@@ -55,41 +56,14 @@ interface
     MixDebug;
 
 
-  function FarInputBox(const ATitle, APrompt :TString; var AValue :TString; const AHist :TString = '';
-    const AMaxLen :Integer = 1024; const AOptions :Integer = 0) :Boolean;
-  var
-    vNewVal :TString;
+  function EdtColorDlg(const ASample :TString; var AColor :Integer) :Boolean;
   begin
-    SetLength(vNewVal, AMaxLen);
-    Result := FARAPI.InputBox(
-      PTChar(ATitle),
-      PTChar(APrompt),
-      PTChar(AHist),
-      PTChar(AValue),
-      PTChar(vNewVal),
-      Length(vNewVal),
-      nil,
-      AOptions) = 1;
+    ColorDlgResBase := Byte(strColorDialog);
+    Result := ColorDlg('', AColor);
     if Result then
-      AValue := vNewVal;
-  end;
-
-
-  function ColorDlg(var AColor :Integer) :Boolean;
-  var
-    vVal :TString;
-  begin
-    vVal := HexStr(AColor, 2);
-    {!!!Localize}
-    Result := FarInputBox('Color', 'Color value:', vVal, '', 2, FIB_BUTTONS {or FIB_NOUSELASTHISTORY or FIB_ENABLEEMPTY});
-    if Result then begin
-      AColor := Hex2Int64(vVal);
       FARAPI.EditorControl(ECTL_REDRAW, nil);
-    end;
   end;
 
-
- {-----------------------------------------------------------------------------}
 
   procedure OptionsMenu;
   const
@@ -145,8 +119,8 @@ interface
           4: optShowAllFound := not optShowAllFound;
           5: optShowProgress := not optShowProgress;
           6: optGroupUndo := not optGroupUndo;
-          7: ColorDlg(optCurFindColor);
-          8: ColorDlg(optMatchColor);
+          7: EdtColorDlg('', optCurFindColor);
+          8: EdtColorDlg('', optMatchColor);
         end;
 
         WriteSetup;
@@ -329,7 +303,6 @@ interface
     FHelpTopic := 'Find';
     FWidth := DX;
     FHeight := DY;
-    FItemCount := 12;
 //  vX2 := DX div 2;
 
     FDialog := CreateDialog(
@@ -353,7 +326,8 @@ interface
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strFromBegBut) ),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancelBut) )
 //      NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strOptionsBut) )
-      ]
+      ],
+      @FItemCount
     );
   end;
 
