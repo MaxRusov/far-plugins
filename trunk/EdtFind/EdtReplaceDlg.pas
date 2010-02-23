@@ -80,7 +80,6 @@ interface
     FHelpTopic := 'Replace';
     FWidth := DX;
     FHeight := DY;
-    FItemCount := 15;
     vX2 := DX div 2;
 
     FDialog := CreateDialog(
@@ -109,7 +108,8 @@ interface
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strFromBegBut) ),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancelBut) )
 //      NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strOptionsBut) )
-      ]
+      ],
+      @FItemCount
     );
   end;
 

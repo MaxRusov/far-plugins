@@ -84,6 +84,13 @@ interface
       strYes,
       strNo,
 
+      strColorDialog,
+      str_CD_Foreground,
+      str_CD_Background,
+      str_CD_Sample,
+      str_CD_Set,
+      str_CD_Cancel,
+
       strRegexpTitle,
       strRegaexpBase
     );
