@@ -15,19 +15,20 @@ if /i "%1"=="fpc64" (
 if not exist "%BinPath%" md %BinPath%
 if not exist "%DcuPath%" md %DcuPath%
 
-brcc32 %3.rc || exit
-
 if /i "%1"=="dcc" (
   if exist FarHints*.cfg del FarHints*.cfg
   if exist "%DcuPath%\*.dcu" del %DcuPath%\*.dcu
+  brcc32 %3.rc || exit
   dcc32.exe -B %3.dpr %4 %5 %6 || exit
 ) 
 
 if /i "%1"=="fpc" (
+  windres -i %3.rc -o %3.RES || exit
   fpc.exe -B %3.dpr %4 %5 %6 || exit
 )
 
 if /i "%1"=="fpc64" (
+  windres -i %3.rc -o %3.RES || exit
   ppcrossx64.exe -B %3.dpr %4 %5 %6 || exit
 )
 

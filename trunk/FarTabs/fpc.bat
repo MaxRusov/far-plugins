@@ -3,8 +3,8 @@
 if not exist ..\Units\PanelTabs md ..\Units\PanelTabs
 if not exist ..\Bin\PanelTabs md ..\Bin\PanelTabs
 
-rem windres -i PanelTabsA.rc -o PanelTabsA.res || exit
-rem windres -i PanelTabsW.rc -o PanelTabsW.res || exit
+windres -i PanelTabsA.rc -o PanelTabsA.RES || exit
+windres -i PanelTabsW.rc -o PanelTabsW.RES || exit
 
 fpc.exe -B PanelTabs.dpr %* || exit
 

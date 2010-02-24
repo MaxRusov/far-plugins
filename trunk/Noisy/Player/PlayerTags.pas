@@ -311,7 +311,7 @@ interface
 
 
   var
-    FTagsDLL :Integer;
+    FTagsDLL :THandle;
 
   var
     TAGS_Read :function(handle: DWORD; const fmt: PChar): PChar; stdcall;
@@ -323,7 +323,7 @@ interface
   begin
     FTagsDLL := LoadLibrary('tags.dll');
     if FTagsDLL = 0 then begin
-      FTagsDLL := -1;
+      FTagsDLL := INVALID_HANDLE_VALUE;
       Exit;
     end;
 

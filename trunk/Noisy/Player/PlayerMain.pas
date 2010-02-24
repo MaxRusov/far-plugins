@@ -28,6 +28,7 @@ interface
     NoisyConsts,
     NoisyUtil,
     PlayerTags,
+    PlayerMidi,
     PlayerWin,
     PlayerReg,
     PlayerHist;
@@ -798,7 +799,10 @@ interface
       LocLoadPlugin('basswma.dll');
       LocLoadPlugin('bassflac.dll');
       LocLoadPlugin('bass_ape.dll');
+      LocLoadPlugin('bassmidi.dll');
     end;
+
+    InitMidi;
 
     LocMakeExtsList;
 
