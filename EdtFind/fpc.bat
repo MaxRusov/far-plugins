@@ -3,7 +3,7 @@
 if not exist ..\Units\EdtFind md ..\Units\EdtFind
 if not exist ..\Bin\EdtFind md ..\Bin\EdtFind
 
-rem windres -i EdtFindW.rc  -o EdtFindW.res || exit
+windres -i EdtFindW.rc  -o EdtFindW.RES || exit
 
 fpc.exe -B EdtFind.dpr %* || exit
 

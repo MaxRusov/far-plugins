@@ -3,8 +3,8 @@
 if not exist ..\Units64\PanelTabs md ..\Units64\PanelTabs
 if not exist ..\Bin64\PanelTabs md ..\Bin64\PanelTabs
 
-rem windres -i PanelTabsA.rc -o PanelTabsA.res || exit
-rem windres -i PanelTabsW.rc -o PanelTabsW.res || exit
+windres -i PanelTabsA.rc -o PanelTabsA.RES || exit
+windres -i PanelTabsW.rc -o PanelTabsW.RES || exit
 
 ppcrossx64.exe -B PanelTabs.dpr %* || exit
 
