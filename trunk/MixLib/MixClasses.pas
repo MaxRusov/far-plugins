@@ -146,7 +146,7 @@ interface
       { Следующие функции работают только для частного случая : FItemSize = 4 }
 
       procedure Exchange(Index1, Index2: Integer); virtual;
-      procedure Move(CurIndex, NewIndex: Integer);
+      procedure Move(CurIndex, NewIndex: Integer; ACount :Integer = 1);
 
     protected
       FItemSize  : Integer;
@@ -1111,6 +1111,39 @@ interface
   end;
 
 
+  procedure TExList.Move(CurIndex, NewIndex: Integer; ACount :Integer = 1);
+  const
+    cTmpBufSize = 128;
+  var
+    vPtr1, vPtr2 :Pointer1;
+    vTmp :Pointer;
+    vSize :Integer;
+    vBuf :array[0..cTmpBufSize - 1] of Byte;
+  begin
+    if (CurIndex <> NewIndex) and (ACount > 0) then begin
+      if CurIndex + ACount > FCount then
+        AppErrorResFmt(@SListIndexError, [CurIndex + ACount]);
+      vTmp := @vBuf;
+      vSize := FItemSize * ACount;
+      if vSize > cTmpBufSize then
+        vTmp := MemAlloc(vSize);
+      try
+        vPtr1 := GetPItems(CurIndex);
+        vPtr2 := GetPItems(NewIndex);
+        System.Move(vPtr1^, vTmp^, vSize);
+        if NewIndex > CurIndex then
+          System.Move((vPtr1 + vSize)^, vPtr1^, vPtr2 - vPtr1)
+        else
+          System.Move(vPtr2^, (vPtr2 + vSize)^, vPtr1 - vPtr2);
+        System.Move(vTmp^, vPtr2^, vSize);
+      finally
+        if vSize > cTmpBufSize then
+          MemFree(vTmp);
+      end;
+    end;
+  end;
+
+(*
   procedure TExList.Move(CurIndex, NewIndex: Integer);
   const
     cTmpBufSize = 128;
@@ -1138,7 +1171,7 @@ interface
       end;
     end;
   end;
-
+*)
 
  {-----------------------------------------------------------------------------}
  { TObjList                                                                    }
