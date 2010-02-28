@@ -46,7 +46,7 @@ interface
   procedure OptionsMenu;
   function RegexpMenu(var ARegexp :TString) :Boolean;
   function GetWordUnderCursor(ACol :PInteger = nil) :TString;
-  function FindDlg(APickWord :Boolean; var AFromBeg :Boolean) :Boolean;
+  function FindDlg(APickWord :Boolean; var AEntire, ACount :Boolean) :Boolean;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -67,7 +67,7 @@ interface
 
   procedure OptionsMenu;
   const
-    cMenuCount = 9;
+    cMenuCount = 10;
   var
     vRes, I :Integer;
     vItems :PFarMenuItemsArray;
@@ -81,6 +81,7 @@ interface
       SetMenuItemChrEx(vItem, GetMsg(strMCenterAlways));
       SetMenuItemChrEx(vItem, GetMsg(strMLoopSearch));
       SetMenuItemChrEx(vItem, GetMsg(strMShowAllFound));
+      SetMenuItemChrEx(vItem, GetMsg(strMPersistMatch));
       SetMenuItemChrEx(vItem, GetMsg(strMShowProgress));
       SetMenuItemChrEx(vItem, GetMsg(strMGroupUndo));
       SetMenuItemChrEx(vItem, GetMsg(strMFoundColor));
@@ -93,8 +94,9 @@ interface
         vItems[2].Flags := SetFlag(0, MIF_CHECKED1, optCenterAlways);
         vItems[3].Flags := SetFlag(0, MIF_CHECKED1, optLoopSearch);
         vItems[4].Flags := SetFlag(0, MIF_CHECKED1, optShowAllFound);
-        vItems[5].Flags := SetFlag(0, MIF_CHECKED1, optShowProgress);
-        vItems[6].Flags := SetFlag(0, MIF_CHECKED1, optGroupUndo);
+        vItems[5].Flags := SetFlag(0, MIF_CHECKED1, optPersistMatch);
+        vItems[6].Flags := SetFlag(0, MIF_CHECKED1, optShowProgress);
+        vItems[7].Flags := SetFlag(0, MIF_CHECKED1, optGroupUndo);
 
         for I := 0 to cMenuCount - 1 do
           vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
@@ -117,10 +119,11 @@ interface
           2: optCenterAlways := not optCenterAlways;
           3: optLoopSearch := not optLoopSearch;
           4: optShowAllFound := not optShowAllFound;
-          5: optShowProgress := not optShowProgress;
-          6: optGroupUndo := not optGroupUndo;
-          7: EdtColorDlg('', optCurFindColor);
-          8: EdtColorDlg('', optMatchColor);
+          5: optPersistMatch := not optPersistMatch;
+          6: optShowProgress := not optShowProgress;
+          7: optGroupUndo := not optGroupUndo;
+          8: EdtColorDlg('', optCurFindColor);
+          9: EdtColorDlg('', optMatchColor);
         end;
 
         WriteSetup;
@@ -204,126 +207,71 @@ interface
  { TFindDlg                                                                    }
  {-----------------------------------------------------------------------------}
 
-(*
-  const
-    IdFrame        = 0;
-    IdInput        = 2;
-    IdSubstrChk    = 4;
-    IdWholeWordChk = 5;
-    IdRegexpChk    = 6;
-    IdCaseSensChk  = 7;
-
-    IdCancel       = 10;
-
-
-  procedure TFindDlg.Prepare; {override;}
-  const
-    DX = 76;
-    DY = 12;
-  var
-    vX2 :Integer;
-  begin
-    FHelpTopic := 'Evaluate';
-    FWidth := DX;
-    FHeight := DY;
-    FItemCount := 11;
-    vX2 := DX div 2;
-    FDialog := CreateDialog(
-      [
-        NewItemApi(DI_DoubleBox, 3,  1,   DX-6, DY-2, 0, GetMsg(strFind)),
-
-        NewItemApi(DI_Text,     5,   2,   DX-10,  -1,   0, '&Search for'{GetMsg(strLeftFolder)} ),
-        NewItemApi(DI_Edit,     5,   3,   DX-10,  -1,   DIF_HISTORY or DIF_USELASTHISTORY, '', 'SearchText' ),
-
-        NewItemApi(DI_Text,     0,   4,   -1,    -1,   DIF_SEPARATOR),
-
-        NewItemApi(DI_RADIOBUTTON, 5,  5,  -1,   -1,   0, 'S&ubstring'),
-        NewItemApi(DI_RADIOBUTTON, 5,  6,  -1,   -1,   0, '&Whole words'),
-        NewItemApi(DI_RADIOBUTTON, 5,  7,  -1,   -1,   0, '&Regular expressions'),
-
-        NewItemApi(DI_CHECKBOX,   vX2, 5,  DX-vX2-5,  -1,  0, '&Case sensitive' {GetMsg(strCompareContents)}),
-
-        NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, 'Search' {GetMsg(strOk)} ),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, 'Cancel' {GetMsg(strCancel)} )
-      ]
-    );
-  end;
-
-  procedure TFindDlg.InitDialog; {override;}
-  begin
-//  SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
-    SendMsg(DM_SETFOCUS, IdInput, 0);
-    if FInitExpr <> '' then
-      SetText(IdInput, FInitExpr);
-
-    if [foWholeWords, foRegexp] * gOptions = [] then
-      SetChecked(IdSubstrChk, True);
-    if [foWholeWords, foRegexp] * gOptions = [foWholeWords] then
-      SetChecked(IdWholeWordChk, True);
-    if [foWholeWords, foRegexp] * gOptions = [foRegexp] then
-      SetChecked(IdRegexpChk, True);
-
-    SetChecked(IdCaseSensChk, foCaseSensitive in gOptions);
-  end;
-
-
-  function TFindDlg.CloseDialog(ItemID :Integer) :Boolean; {override;}
-  begin
-    if (ItemID <> -1) and (ItemID <> IdCancel) then begin
-      gStrFind := GetText(IdInput);
-
-      SetFindOptions(gOptions, foWholeWords, GetChecked(IdWholeWordChk));
-      SetFindOptions(gOptions, foRegexp, GetChecked(IdRegexpChk));
-      SetFindOptions(gOptions, foCaseSensitive, GetChecked(IdCaseSensChk));
-    end;
-    Result := True;
-  end;
-*)
-
-
   const
     IdFrame        = 0;
     IdRegexpBut    = 1;
     IdFindEdt      = 3;
     IdCaseSensChk  = 5;
+   {$ifdef bComboMode}
+    IdSubstrChk    = 6;
+    IdWholeWordChk = 7;
+    IdRegexpChk    = 8;
+    IdReverse      = 9;
+    IdFromBeg      = 12;
+    IdCount        = 13;
+    IdCancel       = 14;
+//  IdOptions      = 15;
+   {$else}
     IdWholeWordChk = 6;
     IdRegexpChk    = 7;
-    IdFromBeg      = 10;
-    IdCancel       = 11;
-//  IdOptions      = 12;
+    IdReverse      = 8;
+    IdFromBeg      = 11;
+    IdCount        = 12;
+    IdCancel       = 13;
+//  IdOptions      = 14;
+   {$endif bComboMode}
+
 
   procedure TFindDlg.Prepare; {override;}
   const
     DX = 76;
-    DY = 12;
-//var
-//  vX2 :Integer;
+    DY = {$ifdef bComboMode}13{$else}12{$endif bComboMode};
+  var
+    vX2 :Integer;
   begin
     FHelpTopic := 'Find';
     FWidth := DX;
     FHeight := DY;
-//  vX2 := DX div 2;
+    vX2 := DX div 2;
 
     FDialog := CreateDialog(
       [
         NewItemApi(DI_DoubleBox, 3,  1,   DX-6, DY-2, 0, GetMsg(strFind)),
 
-//      NewItemApi(DI_Button,   DX-11, 2, -1, -1, DIF_BTNNOCLOSE or DIF_NOBRACKETS or DIF_NOFOCUS, 'Rege&xp' {GetMsg(strSearchBut)} ),
-        NewItemApi(DI_Text,     DX-11, 2, -1, -1, 0, 'Rege&xp' {GetMsg(strSearchBut)} ),
+        NewItemApi(DI_Text,     DX-11, 2, -1, -1, 0, GetMsg(strInsRegexp)),
 
         NewItemApi(DI_Text,     5,  2, -1,    -1, 0, GetMsg(strSearchFor) ),
         NewItemApi(DI_Edit,     5,  3, DX-10, -1,   DIF_HISTORY or DIF_USELASTHISTORY, '', cFindHistory ),
 
         NewItemApi(DI_Text,     0,  4, -1, -1,   DIF_SEPARATOR),
 
-        NewItemApi(DI_CheckBox, 5,  5, -1, -1,   0, GetMsg(strCaseSens)),
-        NewItemApi(DI_CheckBox, 5,  6, -1, -1,   0, GetMsg(strWholeWords)),
-        NewItemApi(DI_CheckBox, 5,  7, -1, -1,   0, GetMsg(strRegExp)),
+        NewItemApi(DI_CheckBox,    5,  5, -1, -1,   0, GetMsg(strCaseSens)),
+
+       {$ifdef bComboMode}
+        NewItemApi(DI_RADIOBUTTON, 5,  6, -1, -1, 0, GetMsg(strSubstring)),
+        NewItemApi(DI_RADIOBUTTON, 5,  7, -1, -1, 0, GetMsg(strWholeWords)),
+        NewItemApi(DI_RADIOBUTTON, 5,  8, -1, -1, 0, GetMsg(strRegExp)),
+       {$else}
+        NewItemApi(DI_CheckBox,    5,  6, -1, -1, 0, GetMsg(strWholeWords)),
+        NewItemApi(DI_CheckBox,    5,  7, -1, -1, 0, GetMsg(strRegExp)),
+       {$endif bComboMode}
+
+        NewItemApi(DI_CheckBox, vX2, 5, -1, -1,  0, GetMsg(strReverse)),
 
         NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strSearchBut) ),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strFromBegBut) ),
+        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strEntireBut) ),
+        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCountBut) ),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancelBut) )
 //      NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strOptionsBut) )
       ],
@@ -336,26 +284,47 @@ interface
   begin
     if FInitExpr <> '' then
       SetText(IdFindEdt, FInitExpr);
+      
     SetChecked(IdCaseSensChk, foCaseSensitive in gOptions);
+   {$ifdef bComboMode}
+    if [foWholeWords, foRegexp] * gOptions = [] then
+      SetChecked(IdSubstrChk, True);
+    if [foWholeWords, foRegexp] * gOptions = [foWholeWords] then
+      SetChecked(IdWholeWordChk, True);
+    if [foWholeWords, foRegexp] * gOptions = [foRegexp] then
+      SetChecked(IdRegexpChk, True);
+   {$else}
     SetChecked(IdWholeWordChk, foWholeWords in gOptions);
     SetChecked(IdRegexpChk, foRegexp in gOptions);
+   {$endif bComboMode}
+
     EnableControls;
   end;
 
 
   function TFindDlg.CloseDialog(ItemID :Integer) :Boolean; {override;}
+  var
+    vStr :TString;
   begin
     if (ItemID <> -1) and (ItemID <> IdCancel) then begin
-      gStrFind := GetText(IdFindEdt);
+      vStr := GetText(IdFindEdt);
 
-      SetFindOptions(gOptions, foCaseSensitive, GetChecked(IdCaseSensChk));
-      SetFindOptions(gOptions, foWholeWords, GetChecked(IdWholeWordChk));
-      SetFindOptions(gOptions, foRegexp, GetChecked(IdRegexpChk));
-
-      if (foRegexp in gOptions) and (gStrFind <> '') then
-        if not CheckRegexp(gStrFind) then
+      if GetChecked(IdRegexpChk) and (vStr <> '') then
+        if not CheckRegexp(vStr) then
           AppErrorId(strBadRegexp);
 
+      gStrFind := vStr;
+
+      SetFindOptions(gOptions, foCaseSensitive, GetChecked(IdCaseSensChk));
+     {$ifdef bComboMode}
+      SetFindOptions(gOptions, foWholeWords, GetChecked(IdWholeWordChk));
+      SetFindOptions(gOptions, foRegexp, GetChecked(IdRegexpChk));
+     {$else}
+      SetFindOptions(gOptions, foWholeWords, GetChecked(IdWholeWordChk));
+      SetFindOptions(gOptions, foRegexp, GetChecked(IdRegexpChk));
+     {$endif bComboMode}
+
+      gReverse := GetChecked(IdReverse);
     end;
     Result := True;
   end;
@@ -368,9 +337,6 @@ interface
     vRegExp :Boolean;
   begin
     vRegExp := GetChecked(IdRegexpChk);
-    SendMsg(DM_Enable, IdWholeWordChk, Byte(not vRegExp));
-    if vRegExp then
-      SetChecked(IdWholeWordChk, False);
     SendMsg(DM_ShowItem, IdRegexpBut, Byte(vRegExp));
   end;
 
@@ -398,9 +364,22 @@ interface
           Result := inherited DialogHandler(Msg, Param1, Param2);
 
       DN_BTNCLICK:
-        if Param1 = IdRegexpChk then
+       {$ifdef bComboMode}
+        if Param1 in [IdSubstrChk, IdWholeWordChk, IdRegexpChk] then
           EnableControls
         else
+       {$else}
+        if Param1 = IdWholeWordChk then begin
+          if GetChecked(IdWholeWordChk) then
+            SetChecked(IdRegexpChk, False);
+          EnableControls;
+        end else
+        if Param1 = IdRegexpChk then begin
+          if GetChecked(IdRegexpChk) then
+            SetChecked(IdWholeWordChk, False);
+          EnableControls;
+        end else
+       {$endif bComboMode}
           Result := inherited DialogHandler(Msg, Param1, Param2);
 
       DN_KEY: begin
@@ -433,7 +412,7 @@ interface
     Result := CharIsWordChar(AChr) {or (AChr = '.')};
   end;
 
-  
+
   function GetWordUnderCursor(ACol :PInteger = nil) :TString;
   var
     vInfo :TEditorInfo;
@@ -474,7 +453,7 @@ interface
   end;
 
 
-  function FindDlg(APickWord :Boolean; var AFromBeg :Boolean) :Boolean;
+  function FindDlg(APickWord :Boolean; var AEntire, ACount :Boolean) :Boolean;
   var
     vDlg :TFindDlg;
     vRes :Integer;
@@ -486,7 +465,8 @@ interface
 
       vRes := vDlg.Run;
 
-      AFromBeg := vRes = IdFromBeg;
+      AEntire := vRes = IdFromBeg;
+      ACount := vRes = IdCount;
       Result := (vRes <> -1) and (vRes <> IdCancel);
 
     finally
@@ -500,4 +480,3 @@ initialization
 finalization
   FreeObj(RegexpList);
 end.
-

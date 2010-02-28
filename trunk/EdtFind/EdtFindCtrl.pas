@@ -38,17 +38,22 @@ interface
       strMFindWordNext,
       strMFindWordPrev,
       strMFindPickWord,
+      strMRemoveHilight,
       strMOptions,
 
       strSearchFor,
       strReplaceWith,
+      strInsRegexp,
       strCaseSens,
+      strSubstring,
       strWholeWords,
       strRegExp,
+      strReverse,
       strPromptOnReplace,
       strSearchBut,
+      strEntireBut,
+      strCountBut,
       strCancelBut,
-      strFromBegBut,
       strOptionsBut,
 
       strOptions,
@@ -57,6 +62,7 @@ interface
       strMCenterAlways,
       strMLoopSearch,
       strMShowAllFound,
+      strMPersistMatch,
       strMShowProgress,
       strMGroupUndo,
       strMFoundColor,
@@ -65,7 +71,9 @@ interface
       strFind,
       strReplace,
       strFindFor,
+      strFoundCount,
       strFoundReplaced,
+      strCountResult,
       strNotFound,
       strBadRegexp,
 
@@ -113,6 +121,7 @@ interface
     optCenterAlways  :Boolean = False;
     optLoopSearch    :Boolean = True;
     optShowAllFound  :Boolean = True;
+    optPersistMatch  :Boolean = False;
     optShowProgress  :Boolean = True;
 
     optGroupUndo     :Boolean = True;
@@ -134,6 +143,8 @@ interface
     gStrFind :TString;
     gStrRepl :TString;
     gOptions :TFindOptions = [foPromptOnReplace];
+
+    gReverse :Boolean;
 
     gLastIsReplace :Boolean;
 
@@ -335,6 +346,7 @@ interface
       optCenterAlways := RegQueryLog(vKey, 'CenterAlways', optCenterAlways);
       optLoopSearch := RegQueryLog(vKey, 'LoopSearch', optLoopSearch);
       optShowAllFound := RegQueryLog(vKey, 'ShowAllFound', optShowAllFound);
+      optPersistMatch := RegQueryLog(vKey, 'PersistentMatches', optPersistMatch);
       optShowProgress := RegQueryLog(vKey, 'ShowProgress', optShowProgress);
 
       optGroupUndo := RegQueryLog(vKey, 'GroupUndo', optGroupUndo);
@@ -364,6 +376,7 @@ interface
       RegWriteLog(vKey, 'CenterAlways', optCenterAlways);
       RegWriteLog(vKey, 'LoopSearch', optLoopSearch);
       RegWriteLog(vKey, 'ShowAllFound', optShowAllFound);
+      RegWriteLog(vKey, 'PersistentMatches', optPersistMatch);
       RegWriteLog(vKey, 'ShowProgress', optShowProgress);
 
       RegWriteLog(vKey, 'GroupUndo', optGroupUndo);

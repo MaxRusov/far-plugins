@@ -42,7 +42,7 @@ interface
       procedure InsertRegexp(AEdtID :Integer);
     end;
 
-  function ReplaceDlg(APickWord :Boolean; var AFromBeg :Boolean) :Boolean;
+  function ReplaceDlg(APickWord :Boolean; var AEntire :Boolean) :Boolean;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -62,18 +62,30 @@ interface
     IdFindEdt      = 3;
     IdReplaceEdt   = 5;
     IdCaseSensChk  = 7;
+   {$ifdef bComboMode}
+    IdSubstrChk    = 8;
+    IdWholeWordChk = 9;
+    IdRegexpChk    = 10;
+    IdReverse      = 11;
+    IdPromptChk    = 12;
+    IdFromBeg      = 15;
+    IdCancel       = 16;
+//  IdOptions      = 17;
+   {$else}
     IdWholeWordChk = 8;
     IdRegexpChk    = 9;
-    IdPromptChk    = 10;
-    IdFromBeg      = 13;
-    IdCancel       = 14;
-//  IdOptions      = 15;
+    IdReverse      = 10;
+    IdPromptChk    = 11;
+    IdFromBeg      = 14;
+    IdCancel       = 15;
+//  IdOptions      = 16;
+   {$endif bComboMode}
 
 
   procedure TReplaceDlg.Prepare; {override;}
   const
     DX = 76;
-    DY = 14;
+    DY = {$ifdef bComboMode}15{$else}14{$endif bComboMode};
   var
     vX2 :Integer;
   begin
@@ -86,8 +98,7 @@ interface
       [
         NewItemApi(DI_DoubleBox, 3,  1,   DX-6, DY-2, 0, GetMsg(strReplace)),
 
-//      NewItemApi(DI_Button,   DX-11, 2, -1, -1, DIF_BTNNOCLOSE or DIF_NOBRACKETS or DIF_NOFOCUS, 'Rege&xp' {GetMsg(strSearchBut)} ),
-        NewItemApi(DI_Text,     DX-11, 2, -1, -1, 0, 'Rege&xp' {GetMsg(strSearchBut)} ),
+        NewItemApi(DI_Text,     DX-11, 2, -1, -1, 0, GetMsg(strInsRegexp)),
 
         NewItemApi(DI_Text,     5,   2,  -1,    -1,   0, GetMsg(strSearchFor) ),
         NewItemApi(DI_Edit,     5,   3,  DX-10, -1,   DIF_HISTORY or DIF_USELASTHISTORY, '', cFindHistory ),
@@ -97,15 +108,23 @@ interface
 
         NewItemApi(DI_Text,     0,   6,  -1, -1,   DIF_SEPARATOR),
 
-        NewItemApi(DI_CheckBox, 5,   7,  -1, -1,   0, GetMsg(strCaseSens)),
-        NewItemApi(DI_CheckBox, 5,   8,  -1, -1,   0, GetMsg(strWholeWords)),
-        NewItemApi(DI_CheckBox, 5,   9,  -1, -1,   0, GetMsg(strRegExp)),
+        NewItemApi(DI_CheckBox,    5,  7, -1, -1, 0, GetMsg(strCaseSens)),
 
-        NewItemApi(DI_CheckBox, vX2, 7,  -1, -1,   0, GetMsg(strPromptOnReplace)),
+       {$ifdef bComboMode}
+        NewItemApi(DI_RADIOBUTTON, 5,  8, -1, -1, 0, GetMsg(strSubstring)),
+        NewItemApi(DI_RADIOBUTTON, 5,  9, -1, -1, 0, GetMsg(strWholeWords)),
+        NewItemApi(DI_RADIOBUTTON, 5, 10, -1, -1, 0, GetMsg(strRegExp)),
+       {$else}
+        NewItemApi(DI_CheckBox,    5,  8, -1, -1, 0, GetMsg(strWholeWords)),
+        NewItemApi(DI_CheckBox,    5,  9, -1, -1, 0, GetMsg(strRegExp)),
+       {$endif bComboMode}
+
+        NewItemApi(DI_CheckBox, vX2, 7, -1, -1, 0, GetMsg(strReverse)),
+        NewItemApi(DI_CheckBox, vX2, 8, -1, -1, 0, GetMsg(strPromptOnReplace)),
 
         NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strSearchBut) ),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strFromBegBut) ),
+        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strEntireBut) ),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancelBut) )
 //      NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strOptionsBut) )
       ],
@@ -120,28 +139,46 @@ interface
       SetText(IdFindEdt, FInitExpr);
 
     SetChecked(IdCaseSensChk, foCaseSensitive in gOptions);
+   {$ifdef bComboMode}
+    if [foWholeWords, foRegexp] * gOptions = [] then
+      SetChecked(IdSubstrChk, True);
+    if [foWholeWords, foRegexp] * gOptions = [foWholeWords] then
+      SetChecked(IdWholeWordChk, True);
+    if [foWholeWords, foRegexp] * gOptions = [foRegexp] then
+      SetChecked(IdRegexpChk, True);
+   {$else}
     SetChecked(IdWholeWordChk, foWholeWords in gOptions);
     SetChecked(IdRegexpChk, foRegexp in gOptions);
+   {$endif bComboMode}
     SetChecked(IdPromptChk, foPromptOnReplace in gOptions);
     EnableControls;
   end;
 
 
   function TReplaceDlg.CloseDialog(ItemID :Integer) :Boolean; {override;}
+  var
+    vStr :TString;
   begin
     if (ItemID <> -1) and (ItemID <> IdCancel) then begin
-      gStrFind := GetText(IdFindEdt);
+      vStr := GetText(IdFindEdt);
+
+      if GetChecked(IdRegexpChk) and (vStr <> '') then
+        if not CheckRegexp(vStr) then
+          AppErrorId(strBadRegexp);
+
+      gStrFind := vStr;
       gStrRepl := GetText(IdReplaceEdt);
 
       SetFindOptions(gOptions, foCaseSensitive, GetChecked(IdCaseSensChk));
+     {$ifdef bComboMode}
       SetFindOptions(gOptions, foWholeWords, GetChecked(IdWholeWordChk));
       SetFindOptions(gOptions, foRegexp, GetChecked(IdRegexpChk));
+     {$else}
+      SetFindOptions(gOptions, foWholeWords, GetChecked(IdWholeWordChk));
+      SetFindOptions(gOptions, foRegexp, GetChecked(IdRegexpChk));
+     {$endif bComboMode}
       SetFindOptions(gOptions, foPromptOnReplace, GetChecked(IdPromptChk));
-
-      if (foRegexp in gOptions) and (gStrFind <> '') then
-        if not CheckRegexp(gStrFind) then
-          AppErrorId(strBadRegexp);
-
+      gReverse := GetChecked(IdReverse);
     end;
     Result := True;
   end;
@@ -154,9 +191,6 @@ interface
     vRegExp :Boolean;
   begin
     vRegExp := GetChecked(IdRegexpChk);
-    SendMsg(DM_Enable, IdWholeWordChk, Byte(not vRegExp));
-    if vRegExp then
-      SetChecked(IdWholeWordChk, False);
     SendMsg(DM_ShowItem, IdRegexpBut, Byte(vRegExp));
   end;
 
@@ -184,9 +218,22 @@ interface
           Result := inherited DialogHandler(Msg, Param1, Param2);
 
       DN_BTNCLICK:
-        if Param1 = IdRegexpChk then
+       {$ifdef bComboMode}
+        if Param1 in [IdSubstrChk, IdWholeWordChk, IdRegexpChk] then
           EnableControls
         else
+       {$else}
+        if Param1 = IdWholeWordChk then begin
+          if GetChecked(IdWholeWordChk) then
+            SetChecked(IdRegexpChk, False);
+          EnableControls;
+        end else
+        if Param1 = IdRegexpChk then begin
+          if GetChecked(IdRegexpChk) then
+            SetChecked(IdWholeWordChk, False);
+          EnableControls;
+        end else
+       {$endif bComboMode}
           Result := inherited DialogHandler(Msg, Param1, Param2);
 
       DN_KEY: begin
@@ -214,7 +261,7 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  function ReplaceDlg(APickWord :Boolean; var AFromBeg :Boolean) :Boolean;
+  function ReplaceDlg(APickWord :Boolean; var AEntire :Boolean) :Boolean;
   var
     vDlg :TReplaceDlg;
     vRes :Integer;
@@ -226,7 +273,7 @@ interface
 
       vRes := vDlg.Run;
 
-      AFromBeg := vRes = IdFromBeg;
+      AEntire := vRes = IdFromBeg;
       Result := (vRes <> -1) and (vRes <> IdCancel);
 
     finally

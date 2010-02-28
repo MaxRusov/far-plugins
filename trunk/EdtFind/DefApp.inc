@@ -4,5 +4,6 @@
 {$Define bUnicode}
 
 {$define bAdvSelect}
+{$define bComboMode}
 
 {------------------------------------------------------------------------------}
