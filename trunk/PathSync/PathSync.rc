@@ -17,9 +17,9 @@ BEGIN
             VALUE "FileDescription", "PathSync Far plugin\0"
             VALUE "InternalName", "PathSync\0"
             VALUE "OriginalFilename", "PathSync.dll\0"
-            VALUE "FileVersion", "1.0.2\0"
+            VALUE "FileVersion", "1.0.3\0"
             VALUE "CompanyName", "Max Rusov\0"
-            VALUE "LegalCopyright", "(c) 2009, Max Rusov\0"
+            VALUE "LegalCopyright", "(c) 2010, Max Rusov\0"
             VALUE "ProductName", "PathSync\0"
             VALUE "ProductVersion", "1.0\0"
         END
