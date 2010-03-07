@@ -30,6 +30,7 @@ interface
   var
     optSyncFolder  :Boolean = True;
     optNotifyError :Boolean = True;
+    optStoreFolder :Boolean = True;
 
     optNormColor   :Integer = $00;
     optErrorColor  :Integer = $0C;
@@ -55,6 +56,7 @@ interface
   var
     FLastPath  :TString;
     FLastColor :Integer = -1;
+
 
  {-----------------------------------------------------------------------------}
 
@@ -106,6 +108,7 @@ interface
     try
       optSyncFolder := RegQueryLog(vKey, 'SyncFolder', optSyncFolder);
       optNotifyError := RegQueryLog(vKey, 'NotifyError', optNotifyError);
+      optStoreFolder := RegQueryLog(vKey, 'StoreFolder', optStoreFolder);
 
       optNormColor := RegQueryInt(vKey, 'NormColor', optNormColor);
       optErrorColor := RegQueryInt(vKey, 'ErrorColor', optErrorColor);
@@ -123,6 +126,7 @@ interface
     try
       RegWriteLog(vKey, 'SyncFolder', optSyncFolder);
       RegWriteLog(vKey, 'NotifyError', optNotifyError);
+      RegWriteLog(vKey, 'StoreFolder', optStoreFolder);
 
       RegWriteInt(vKey, 'NormColor', optNormColor);
       RegWriteInt(vKey, 'ErrorColor', optErrorColor);
@@ -152,8 +156,7 @@ interface
       vStr := GetConsoleTitleStr;
       if vStr <> vLastTitle then begin
         vLastTitle := vStr;
-        if optSyncFolder then
-          FARAPI.AdvControl(hModule, ACTL_SYNCHRO, nil);
+        FARAPI.AdvControl(hModule, ACTL_SYNCHRO, nil);
       end;
       Sleep(10);
     end;
@@ -168,14 +171,10 @@ interface
   procedure SetCheckThread(AOn :Boolean);
   begin
     if AOn <> (CheckThread <> nil) then begin
-      if AOn then begin
-        CheckThread := TCheckThread.Create(False);
-      end else
-      begin
-        CheckThread.Terminate;
-        CheckThread.WaitFor;
+      if AOn then
+        CheckThread := TCheckThread.Create(False)
+      else
         FreeObj(CheckThread);
-      end;
     end;
   end;
 
@@ -186,7 +185,7 @@ interface
 
   procedure OptionsMenu;
   var
-    vItems :array[0..1] of TFarMenuItemEx;
+    vItems :array[0..2] of TFarMenuItemEx;
     vRes :Integer;
   begin
     FillChar(vItems, SizeOf(vItems), 0);
@@ -198,6 +197,10 @@ interface
     SetMenuItemChr(@vItems[1], 'Notify error');
     if optSyncFolder and optNotifyError then
       vItems[1].Flags := MIF_CHECKED;
+
+    SetMenuItemChr(@vItems[2], 'Store folder');
+    if optStoreFolder then
+      vItems[2].Flags := MIF_CHECKED;
 
     vRes := FARAPI.Menu(hModule, -1, -1, 0,
       FMENU_WRAPMODE or FMENU_USEEXT,
@@ -213,6 +216,7 @@ interface
     case vRes of
       0: optSyncFolder := not optSyncFolder;
       1: optNotifyError := not optNotifyError;
+      2: optStoreFolder := not optStoreFolder;
     end;
 
     WriteSettings;
@@ -274,12 +278,20 @@ interface
 
     vPath := FarGetCurrentDirectory;
     if vPath <> FLastPath then begin
-//    TraceF('Len=%d, Path=%s', [Length(vPath), vPath]);
-      vSetOk := SetCurrentDir(vPath);
-      if vSetOk then
-        vSetOk := StrEqual(vPath, GetCurrentDir);
-      UpdateColor(vSetOk);
-      FLastPath := vPath;
+     {$ifdef bTrace}
+      TraceF('Len=%d, Path=%s', [Length(vPath), vPath]);
+     {$endif bTrace}
+
+      if optSyncFolder then begin
+        vSetOk := SetCurrentDir(vPath);
+        if vSetOk then
+          vSetOk := StrEqual(vPath, GetCurrentDir);
+        UpdateColor(vSetOk);
+        FLastPath := vPath;
+      end;
+
+      if optStoreFolder then
+        RegSetStrValue(HKCU, 'Software\Far2\Panel', 'CurrentFolder', vPath);
     end;
   end;
 
