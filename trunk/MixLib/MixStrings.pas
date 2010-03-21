@@ -14,6 +14,8 @@ interface
   const
     charTAB = #09;
 
+    DefTabSize = 8;
+
   type
     TReplaceFlags = set of (rfReplaceAll, rfIgnoreCase);
 
@@ -83,7 +85,9 @@ interface
   function StrDeleteChars(const Str :TString; const Chars :TAnsiCharSet) :TString;
   function StrReplaceChars(const Str :TString; const Chars :TAnsiCharSet; Chr :TChar) :TString;
   function StrReplace(const S, OldPattern, NewPattern :TString; Flags :TReplaceFlags) :TString;
-  function StrExpandTabs(s :TString) :TString;
+  function ChrExpandTabsLen(AStr :PTChar; ALen :Integer; ATabLen :Integer = DefTabSize) :Integer;
+  function ChrExpandTabs(AStr :PTChar; ALen :Integer; ATabLen :Integer = DefTabSize) :TString;
+  function StrExpandTabs(const AStr :TString; ATabLen :Integer = DefTabSize) :TString;
 
   function WordCount(const S :TString; const Del :TAnsiCharSet) :Integer;
   function ExtractWordsPos(Number, Count :Integer; const S :TString; const Del :TAnsiCharSet; var B :Integer) :TString;
@@ -255,10 +259,10 @@ interface
 
   function PtrCompare(P1, P2 :Pointer) :Integer;
   begin
-    if Pointer1(P1) > Pointer1(P2) then
+    if TUnsPtr(P1) > TUnsPtr(P2) then
       Result := 1
     else
-    if Pointer1(P1) < Pointer1(P2) then
+    if TUnsPtr(P1) < TUnsPtr(P2) then
       Result := -1
     else
       Result := 0;
@@ -887,33 +891,55 @@ interface
   end;
 
 
-  function StrExpandTabs(s :TString) :TString;
+  function ChrExpandTabsLen(AStr :PTChar; ALen :Integer; ATabLen :Integer = DefTabSize) :Integer;
   var
-    ix :Integer;
+    vEnd :PTChar;
   begin
-    Result := '';
-    while TRUE do begin
-      ix := Pos(charTab, s);
-      if ix <= 0 then begin
-        Result := Result + s;
-        Exit;
-      end else
-      if ix = 1 then begin
-        Result := Result + StringOfChar(' ', 8 - (Length(Result) mod 8));
-        s := System.Copy(s, 2, Length(s)-1);
-      end else
-      if ix = Length(s) then begin
-        Result := Result + System.Copy(s, 1, Length(s)-1);
-        Result := Result + StringOfChar(' ', 8 - (Length(Result) mod 8));
-        s := '';
-      end else begin
-        Result := Result + System.Copy(s, 1, ix-1);
-        Result := Result + StringOfChar(' ', 8 - (Length(Result) mod 8));
-        s := System.Copy(s, ix+1, Length(s)-ix);
-      end;
+    Result := 0;
+    vEnd := AStr + ALen;
+    while AStr < vEnd do begin
+      if AStr^ <> charTab then
+        Inc(Result)
+      else
+        Inc(Result, ATabLen - (Result mod ATabLen));
+      Inc(AStr);
     end;
   end;
 
+
+  function ChrExpandTabs(AStr :PTChar; ALen :Integer; ATabLen :Integer = DefTabSize) :TString;
+  var
+    vEnd, vDst :PTChar;
+    vPos, vDstLen, vSize :Integer;
+  begin
+    vDstLen := ChrExpandTabsLen(AStr, ALen, ATabLen);
+    SetString(Result, nil, vDstLen);
+    vDst := PTChar(Result);
+    vEnd := AStr + ALen;
+    vPos := 0;
+    while AStr < vEnd do begin
+      if AStr^ <> charTab then begin
+        Assert(vPos < vDstLen);
+        vDst^ := AStr^;
+        Inc(vDst);
+        Inc(vPos);
+      end else
+      begin
+        vSize := ATabLen - (vPos mod ATabLen);
+        Assert(vPos + vSize <= vDstLen);
+        MemFillChar(vDst, vSize, ' ');
+        Inc(vDst, vSize);
+        Inc(vPos, vSize);
+      end;
+      Inc(AStr);
+    end;
+  end;
+
+
+  function StrExpandTabs(const AStr :TString; ATabLen :Integer = DefTabSize) :TString;
+  begin
+    Result := ChrExpandTabs(PTChar(AStr), Length(AStr), ATabLen)
+  end;
 
 
   function WordCount(const S :TString; const Del :TAnsiCharSet) :Integer;

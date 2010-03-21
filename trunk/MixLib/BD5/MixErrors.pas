@@ -77,7 +77,7 @@ begin
   SetErrorAddress(ErrorAddr);
  {$endif bTraceError}
   E := CreateAssertException(Message, Filename, LineNumber);
-  RaiseAssertException(E, ErrorAddr, PChar(@ErrorAddr)+4);
+  RaiseAssertException(E, ErrorAddr, Pointer1(@ErrorAddr)+4);
 end;
 
 

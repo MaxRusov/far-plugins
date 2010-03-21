@@ -45,6 +45,8 @@ interface
   procedure TraceEnd(const AMsg :TString);
  {$endif bTrace}
 
+  var
+    cTrue :Boolean = True;
 
 {******************************************************************************}
 {******************************} implementation {******************************}

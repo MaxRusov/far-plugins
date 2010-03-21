@@ -127,9 +127,17 @@
    {$Define bInline}
    {$Define bUnicodeStr}  { Поддерживается тип UnicodeString }
    {$Define bUnicodeRTL}
+
+   {$Undef bMemCheck}     { Пока не поддерживается }
   {$endif}
 
 {$endif FPC}
+
+
+{-$ifndef bUnicodeStr}
+ {$Define bWideStr}       { Поддерживается тип WideString }
+{-$endif bUnicodeStr}
+
 
 {------------------------------------------------------------------------------}
 
@@ -153,6 +161,9 @@
 {$OpenStrings On}
 {$VarStringChecks On}
 
+{$ifdef bDelphi12}
+ {$StringChecks Off}
+{$endif bDelphi12}
 
 {$ifdef bFreePascal}
   {Free Pascal}

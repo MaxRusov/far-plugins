@@ -10924,9 +10924,9 @@ function GetEnhMetaFilePixelFormat(p1: HENHMETAFILE; p2: Cardinal;  var p3: TPix
 function GetWinMetaFileBits(p1: HENHMETAFILE; p2: UINT; p3: PByte; p4: Integer; p5: HDC): UINT; stdcall;
 function PlayEnhMetaFile(DC: HDC; p2: HENHMETAFILE; const p3: TRect): BOOL; stdcall;
 function PlayEnhMetaFileRecord(DC: HDC; var p2: THandleTable; const p3: TEnhMetaRecord; p4: UINT): BOOL; stdcall;
-function SetEnhMetaFileBits(p1: UINT; p2: PChar): HENHMETAFILE; stdcall;
-function SetWinMetaFileBits(p1: UINT; p2: PChar; p3: HDC; const p4: TMetaFilePict): HENHMETAFILE; stdcall;
-function GdiComment(DC: HDC; p2: UINT; p3: PChar): BOOL; stdcall;
+function SetEnhMetaFileBits(cbBuffer :UINT; lpData :Pointer): HENHMETAFILE; stdcall;
+function SetWinMetaFileBits(cbBuffer: UINT; lpbBuffer :Pointer; hdcRef :HDC; const lpmfp :TMetaFilePict): HENHMETAFILE; stdcall;
+function GdiComment(DC: HDC; p2: UINT; p3: Pointer): BOOL; stdcall;
 function GetTextMetricsA(DC: HDC; var TM: TTextMetricA): BOOL; stdcall;
 function GetTextMetricsW(DC: HDC; var TM: TTextMetricW): BOOL; stdcall;
 function GetTextMetrics(DC: HDC; var TM: TTextMetric): BOOL; stdcall;
@@ -18881,10 +18881,6 @@ const
   wintrust  = 'wintrust.dll';
   msimg32   = 'msimg32.dll';
 
-var
-  cTrue :Boolean = True;
-
-  
 implementation
 
 { Externals from advapi32.dll }
