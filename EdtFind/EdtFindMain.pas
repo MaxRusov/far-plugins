@@ -1373,7 +1373,7 @@ interface
       SetMenuItemChrEx(vItem, GetMsg(strMFindWordNext));
       SetMenuItemChrEx(vItem, GetMsg(strMFindWordPrev));
       SetMenuItemChrEx(vItem, GetMsg(strMFindPickWord));
-      SetMenuItemChrEx(vItem, GetMsg(strMRemoveHilight), IntIf(gMatchStr <> '', 0, MIF_DISABLE), );
+      SetMenuItemChrEx(vItem, GetMsg(strMRemoveHilight), IntIf(gMatchStr <> '', 0, MIF_DISABLE));
       SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
       SetMenuItemChrEx(vItem, GetMsg(strMOptions));
 
