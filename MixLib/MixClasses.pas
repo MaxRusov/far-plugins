@@ -337,6 +337,8 @@ interface
       procedure PutStrItems(Index :Integer; const Value :TString);
       function GetObject(Index :Integer) :TObject;
       procedure PutObject(Index :Integer; Value :TObject);
+      function GetPStrItems(Index :Integer) :PTString;
+      function GetStrPtrs(Index :Integer) :PTChar;
 
     public
       property Sorted :Boolean read FSorted write FSorted {SetSorted};
@@ -344,6 +346,8 @@ interface
 
       property Strings[I :Integer] :TString read GetStrItems write PutStrItems; default;
       property Objects[I :Integer] :TObject read GetObject write PutObject;
+      property PStrings[I :Integer] :PTString read GetPStrItems;
+      property StrPtrs[I :Integer] :PTChar read GetStrPtrs;
       property Text :TString read GetTextStr write SetTextStr;
     end;
 
@@ -1582,6 +1586,16 @@ interface
   procedure TStringList.PutObject(Index :Integer; Value :TObject);
   begin
     PStringItem(GetPItems(Index)).FObject := Value;
+  end;
+
+  function TStringList.GetPStrItems(Index :Integer) :PTString;
+  begin
+    Result := @PStringItem(GetPItems(Index)).FString;
+  end;
+
+  function TStringList.GetStrPtrs(Index :Integer) :PTChar;
+  begin
+    Result := PTChar(PStringItem(GetPItems(Index)).FString);
   end;
 
 

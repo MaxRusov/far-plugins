@@ -728,14 +728,14 @@ interface
   begin
     GetMem(Result, Size + SizeOf(Cardinal));
     Cardinal(Pointer(Result)^) := Size;
-    Inc(PChar(Result), SizeOf(Cardinal));
+    Inc(TUnsPtr(Result), SizeOf(Cardinal));
   end;
 
   function StrAllocW(Size :Cardinal) :PWideChar;
   begin
     GetMem(Result, Size * 2 + SizeOf(Cardinal));
     Cardinal(Pointer(Result)^) := Size;
-    Inc(PChar(Result), SizeOf(Cardinal));
+    Inc(TUnsPtr(Result), SizeOf(Cardinal));
   end;
 
 
@@ -785,7 +785,7 @@ interface
   procedure StrDisposeA(Str :PAnsiChar);
   begin
     if Str <> nil then begin
-      Dec(PChar(Str), SizeOf(Cardinal));
+      Dec(TUnsPtr(Str), SizeOf(Cardinal));
       FreeMem(Str);
     end;
   end;
@@ -793,7 +793,7 @@ interface
   procedure StrDisposeW(Str :PWideChar);
   begin
     if Str <> nil then begin
-      Dec(PChar(Str), SizeOf(Cardinal));
+      Dec(TUnsPtr(Str), SizeOf(Cardinal));
       FreeMem(Str);
     end;
   end;
@@ -981,13 +981,13 @@ interface
   begin
     Result := ASize;
     while (ASize >= cPtrSize) and (TUnsPtr(APtr1^) = TUnsPtr(APtr2^)) do begin
-      Inc(Pointer1(APtr1), cPtrSize);
-      Inc(Pointer1(APtr2), cPtrSize);
+      Inc(TUnsPtr(APtr1), cPtrSize);
+      Inc(TUnsPtr(APtr2), cPtrSize);
       Dec(ASize, cPtrSize);
     end;
     while (ASize > 0) and (Byte(APtr1^) = Byte(APtr2^)) do begin
-      Inc(Pointer1(APtr1));
-      Inc(Pointer1(APtr2));
+      Inc(TUnsPtr(APtr1));
+      Inc(TUnsPtr(APtr2));
       Dec(ASize);
     end;
     Dec(Result, ASize);
@@ -995,26 +995,26 @@ interface
 
 
   procedure MemExchange(APtr1, APtr2 :Pointer; ASize :Integer);
+  const
+    cPtrSize = SizeOf(Pointer);
   var
-    vCnt :Integer;
     vInt :TUnsPtr;
     vByte :Byte;
   begin
-    vCnt := SizeOf(Pointer);
-    while ASize >= vCnt do begin
+    while ASize >= cPtrSize do begin
       vInt := TUnsPtr(APtr1^);
       TUnsPtr(APtr1^) := TUnsPtr(APtr2^);
       TUnsPtr(APtr2^) := vInt;
-      Inc(Pointer1(APtr1), vCnt);
-      Inc(Pointer1(APtr2), vCnt);
-      Dec(ASize, vCnt);
+      Inc(TUnsPtr(APtr1), cPtrSize);
+      Inc(TUnsPtr(APtr2), cPtrSize);
+      Dec(ASize, cPtrSize);
     end;
     while ASize >=1 do begin
       vByte := Byte(APtr1^);
       Byte(APtr1^) := Byte(APtr2^);
       Byte(APtr2^) := vByte;
-      Inc(Pointer1(APtr1));
-      Inc(Pointer1(APtr2));
+      Inc(TUnsPtr(APtr1));
+      Inc(TUnsPtr(APtr2));
       Dec(ASize);
     end;
   end;

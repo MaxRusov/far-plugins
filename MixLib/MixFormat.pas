@@ -545,9 +545,11 @@ begin
                   hs:=TString(UnicodeString(Args[doarg].VUnicodeString))
                 else
                {$endif bUnicodeStr}
+               {$ifdef bWideStr}
                 if CheckArg(vtWidestring,false) then
                   hs:=TString(WideString(Args[doarg].VWideString))
                 else
+               {$endif bWideStr}
                 if CheckArg(vtAnsiString,false) then
                   hs:=TString(AnsiString(Args[doarg].VAnsiString))
                 else
@@ -636,6 +638,7 @@ function FormatFloat(const Format :TString; Value :Extended) :TString;
 var
   vPrecision :Integer;
   vPtr :PTChar;
+  vStr :Shortstring;
 begin
   vPrecision := 0;
   vPtr := StrScan(PTChar(Format), '.');
@@ -646,13 +649,18 @@ begin
       Inc(vPtr);
     end;
   end;
-  Str(Value:1:vPrecision, Result);
+  Str(Value:1:vPrecision, vStr);
+  Result := TString(vStr);
 end;
 
 
+
 Function FloatToStrF(Value :Extended; Format :TFloatFormat; Precision, Digits :Integer) :TString;
+var
+  vStr :Shortstring;
 begin
-  Str(Value:Precision:Digits, Result);
+  Str(Value:Precision:Digits, vStr);
+  Result := TString(vStr);
 end;
 
 

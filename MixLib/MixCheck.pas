@@ -190,13 +190,9 @@ interface
     vStr := vStr + 'Delphi7 ';
    {$endif Ver150}
 
-   {$ifdef Ver170}
-    vStr := vStr + 'Delphi9 ';
-   {$endif Ver170}
-
-   {$ifdef Ver180}
-    vStr := vStr + 'Delphi10 ';
-   {$endif Ver180}
+   {$ifdef Ver210}
+    vStr := vStr + 'Delphi2010 ';
+   {$endif Ver210}
 
    {$ifopt O+}
     vStr := vStr + 'Optimize ';

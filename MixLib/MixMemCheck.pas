@@ -264,33 +264,33 @@ interface
 
   function IsGetMem(Addr :Pointer) :Boolean;
   begin
-    Result := PWord(PChar(Addr) - 8)^ = $0A74;
+    Result := PWord(Pointer1(Addr) - 8)^ = $0A74;
   end;
 
   function IsReallocMem(Addr :Pointer) :Boolean;
   begin
-    Result := PWord(PChar(Addr) - 8)^ = $D089;
+    Result := PWord(Pointer1(Addr) - 8)^ = $D089;
   end;
 
   function IsObjSetup(Addr :Pointer) :Boolean;
   begin
    {$ifdef Ver120} {Delphi 4}
-    Result := PCardinal(PChar(Addr) - 10)^ = $523674C0;
+    Result := PCardinal(Pointer1(Addr) - 10)^ = $523674C0;
    {$else}
-    Result := PWord(PChar(Addr) - 8)^ = $521E;
+    Result := PWord(Pointer1(Addr) - 8)^ = $521E;
    {$endif Ver120}
   end;
 
 
   function IsNewAnsiString(Addr :Pointer) :Boolean;
   begin
-    Result := PUnsPtr(PChar(Addr) - 9)^ = $09C08350;
+    Result := PUnsPtr(Pointer1(Addr) - 9)^ = $09C08350;
   end;
 
 
   function IsStrSetLength(Addr :Pointer) :Boolean;
   begin
-    Result := PUnsPtr(PChar(Addr) - 9)^ = $E0895009;
+    Result := PUnsPtr(Pointer1(Addr) - 9)^ = $E0895009;
   end;
 
   function IsNewRecord(Addr :Pointer) :Boolean;
@@ -307,7 +307,7 @@ interface
 //    POP     EAX             C3
 //    @@exit:
 //  end;
-    Result := PUnsPtr(PChar(Addr))^ = $74C0855A;
+    Result := PUnsPtr(Pointer1(Addr))^ = $74C0855A;
   end;
 
   function IsNewInstance(Addr :Pointer) :Boolean;
@@ -316,13 +316,13 @@ interface
   begin
     P1 := @TObject.NewInstance;
     if PWord(P1)^ = JumpCode then
-      P1 := PPointer(PPointer(PChar(P1) + 2)^)^;
+      P1 := PPointer(PPointer(Pointer1(P1) + 2)^)^;
 
     P2 := @TObject.FreeInstance;
     if PWord(P2)^ = JumpCode then
-      P2 := PPointer(PPointer(PChar(P2) + 2)^)^;
+      P2 := PPointer(PPointer(Pointer1(P2) + 2)^)^;
 
-    Result := (PChar(Addr) > PChar(P1)) and (PChar(Addr) < PChar(P2));
+    Result := (Pointer1(Addr) > Pointer1(P1)) and (Pointer1(Addr) < Pointer1(P2));
   end;
 
 
@@ -340,13 +340,13 @@ interface
   begin
     P1 := @TObject.Create;
     if PWord(P1)^ = JumpCode then
-      P1 := PPointer(PPointer(PChar(P1) + 2)^)^;
+      P1 := PPointer(PPointer(Pointer1(P1) + 2)^)^;
 
     P2 := @TObject.Destroy;
     if PWord(P2)^ = JumpCode then
-      P2 := PPointer(PPointer(PChar(P2) + 2)^)^;
+      P2 := PPointer(PPointer(Pointer1(P2) + 2)^)^;
 
-    Result := (PChar(Addr) > PChar(P1)) and (PChar(Addr) < PChar(P2));
+    Result := (Pointer1(Addr) > Pointer1(P1)) and (Pointer1(Addr) < Pointer1(P2));
   end;
 
 
@@ -414,20 +414,20 @@ interface
   function IsGetMem(Addr :Pointer) :Boolean;
   begin
     Result :=
-      (PCardinal(PChar(Addr) - 10)^ = $157EC085) or  {Release signature}
-      (PCardinal(PChar(Addr) - 10)^ = $04438D21);    {Debug Signature}
+      (PCardinal(Pointer1(Addr) - 10)^ = $157EC085) or  {Release signature}
+      (PCardinal(Pointer1(Addr) - 10)^ = $04438D21);    {Debug Signature}
   end;
 
 
   function IsObjSetup(Addr :Pointer) :Boolean;
   begin
-    Result := PCardinal(PChar(Addr) - 9)^ = $523574C0;
+    Result := PCardinal(Pointer1(Addr) - 9)^ = $523574C0;
   end;
 
 
   function IsReallocMem(Addr :Pointer) :Boolean;
   begin
-    Result := PCardinal(PChar(Addr) - 9)^ = $C28BC35B;
+    Result := PCardinal(Pointer1(Addr) - 9)^ = $C28BC35B;
   end;
 
 
@@ -437,13 +437,13 @@ interface
   begin
     P1 := @TObject.NewInstance;
     if PWord(P1)^ = JumpCode then
-      P1 := PPointer(PPointer(PChar(P1) + 2)^)^;
+      P1 := PPointer(PPointer(Pointer1(P1) + 2)^)^;
 
     P2 := @TObject.FreeInstance;
     if PWord(P2)^ = JumpCode then
-      P2 := PPointer(PPointer(PChar(P2) + 2)^)^;
+      P2 := PPointer(PPointer(Pointer1(P2) + 2)^)^;
 
-    Result := (PChar(Addr) > PChar(P1)) and (PChar(Addr) < PChar(P2));
+    Result := (Pointer1(Addr) > Pointer1(P1)) and (Pointer1(Addr) < Pointer1(P2));
   end;
 
 
@@ -731,10 +731,10 @@ interface
 
   function GuardCheck(P :Pointer; Size :Integer) :Boolean;
   var
-    PC :PChar;
+    PC :Pointer1;
     I  :Integer;
   begin
-    PC := PChar(P);
+    PC := Pointer1(P);
     for I := 0 to Size - 1 do begin
       if PC^ <> GuardFiller then begin
         Result := False;
@@ -747,7 +747,7 @@ interface
 
   function SizeOfData(DataPtr :Pointer) :TIntPtr;
   begin
-    with PAllocFrame( PChar(DataPtr) - SizeOf(TAllocFrame) )^ do
+    with PAllocFrame( Pointer1(DataPtr) - SizeOf(TAllocFrame) )^ do
       Result := MSize;
   end;
 
@@ -758,14 +758,14 @@ interface
     DataSize  :TIntPtr;
     AllocSize :TIntPtr;
   begin
-    AllocPtr  := Pointer(PChar(DataPtr) - SizeOf(TAllocFrame));
+    AllocPtr  := Pointer(Pointer1(DataPtr) - SizeOf(TAllocFrame));
     DataSize  := AllocPtr.MSize;
     AllocSize := SizeAlign(DataSize) + SizeOf(TAllocFrame) + SizeOf(TAllocGuard);
 
     { Проверяем, не был ли переописан блок }
     Result :=
       GuardCheck(@PAllocFrame(AllocPtr).MGuard, SizeOf(TAllocGuard)) and
-      GuardCheck(PChar(DataPtr) + DataSize, AllocSize - SizeOf(TAllocFrame) - DataSize);
+      GuardCheck(Pointer1(DataPtr) + DataSize, AllocSize - SizeOf(TAllocFrame) - DataSize);
 
     if not Result and ANotify then 
       Trace('Overrun: ' + StrInt(DataSize) + ' bytes allocated at ' + StrPtr(PAllocFrame(AllocPtr).MStack[0]));
@@ -784,7 +784,7 @@ interface
       I := 0; J := 0;
       P := FFirst;
       while (P <> nil) and (P <> EmptyFillerPtr) and (I < MemAllocCount) do begin
-        if not MemBlockValid(PChar(P) + SizeOf(TAllocFrame), True) then
+        if not MemBlockValid(Pointer1(P) + SizeOf(TAllocFrame), True) then
           Inc(J);
         P := P.MNext;
         Inc(I);
@@ -1017,11 +1017,11 @@ interface
       if AllocPtr = BreakPtr then
         NOP;  { Stop in debugger }
 
-      Result := PChar(AllocPtr) + SizeOf(TAllocFrame);
+      Result := Pointer1(AllocPtr) + SizeOf(TAllocFrame);
 
       FillChar(AllocPtr^, AllocSize, EmptyFiller);
       FillChar(AllocPtr.MGuard, SizeOf(TAllocGuard), GuardFiller);
-      FillChar((PChar(Result) + DataSize)^, AllocSize - SizeOf(TAllocFrame) - DataSize, GuardFiller);
+      FillChar((Pointer1(Result) + DataSize)^, AllocSize - SizeOf(TAllocFrame) - DataSize, GuardFiller);
 
       AllocPtr.MSize   := DataSize;
       AllocPtr.MStack  := vStack;
@@ -1078,7 +1078,7 @@ interface
       if IsMultiThread then
         EnterCriticalSection(HeapLock);;
 
-      AllocPtr  := Pointer(PChar(DataPtr) - SizeOf(TAllocFrame));
+      AllocPtr  := Pointer(Pointer1(DataPtr) - SizeOf(TAllocFrame));
       DataSize  := AllocPtr.MSize;
       AllocSize := SizeAlign(DataSize) + SizeOf(TAllocFrame) + SizeOf(TAllocGuard);
 
