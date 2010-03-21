@@ -1,12 +1,12 @@
-{$I Defines.inc}
-
-unit VisCompFilesDlg;
-
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* Visual Compare Far plugin                                                  *}
 {******************************************************************************}
+
+{$I Defines.inc}
+
+unit VisCompFilesDlg;
 
 interface
 
@@ -34,7 +34,8 @@ interface
 
     VisCompCtrl,
     VisCompFiles,
-    VisCompOpers;
+    VisCompOpers,
+    VisCompTextsDlg;
 
 
   type
@@ -78,7 +79,6 @@ interface
       FItems          :TCmpFolder;
 
       FUnfold         :Boolean;
-      FExpandAll      :Boolean;
 
       FHeadColor      :Integer;
       FSameColor      :Integer;
@@ -133,9 +133,10 @@ interface
       procedure CompareCurrent(AForcePrompt :Boolean);
       procedure ViewOrEditCurrent(AEdit :Boolean);
       procedure CompareSelectedContents;
-      procedure DeleteSelected;
-      procedure SortByDlg;
+      procedure DeleteSelected;  
+      procedure MainMenu;
       procedure OptionsMenu;
+      procedure SortByDlg;
 
     public
       property Grid :TFarGrid read FGrid;
@@ -291,7 +292,7 @@ interface
     DX = 20;
     DY = 10;
   begin
-    FHelpTopic := '';
+    FHelpTopic := 'CompareFolders';
     FWidth := DX;
     FHeight := DY;
     FItemCount := 5;
@@ -975,18 +976,16 @@ interface
     vRes :Integer;
     vChr :TChar;
     vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
   begin
-    vItems := MemAllocZero(cSortMenuCount * SizeOf(TFarMenuItemEx));
+    vItems := FarCreateMenu([
+      GetMsg(StrSortByName),
+      GetMsg(StrSortByExt),
+      GetMsg(StrSortByDate),
+      GetMsg(StrSortBySize),
+      '',
+      GetMsg(strDiffAtTop)
+    ]);
     try
-      vItem := @vItems[0];
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByName));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByExt));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByDate));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortBySize));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(strDiffAtTop));
-
       vRes := Abs(optFileSortMode) - 1;
       vChr := '+';
       if optFileSortMode < 0 then
@@ -1020,96 +1019,145 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure TFilesDlg.OptionsMenu;
-  const
-    cMenuCount = 20;
+  procedure TFilesDlg.MainMenu;
   var
-    I, vRes :Integer;
+    N, vRes :Integer;
     vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
   begin
-    vItems := MemAllocZero(cMenuCount * SizeOf(TFarMenuItemEx));
+    vItems := FarCreateMenu([
+      GetMsg(StrMCompareFiles),
+      '',
+      GetMsg(StrMView1),
+      GetMsg(StrMEdit1),
+      GetMsg(StrMCopy1),
+      GetMsg(StrMMove1),
+      GetMsg(StrMDelete1),
+      '',
+      GetMsg(StrMCompareContents),
+      GetMsg(StrMGotoFile),
+      GetMsg(StrMSendToTemp),
+      '',
+      GetMsg(StrMSortBy1),
+      GetMsg(StrMOptions1)
+    ], @N);
     try
-      vItem := @vItems[0];
 
-      SetMenuItemChrEx(vItem, GetMsg(StrMShowFolderSummary));
-      SetMenuItemChrEx(vItem, GetMsg(StrMShowSize));
-      SetMenuItemChrEx(vItem, GetMsg(StrMShowTime));
-      SetMenuItemChrEx(vItem, GetMsg(StrMShowAttrs));
-      SetMenuItemChrEx(vItem, GetMsg(StrMShowFolderAttrs));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(StrMSortBy));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(StrMCompContents));
-      SetMenuItemChrEx(vItem, GetMsg(StrMCompSize));
-      SetMenuItemChrEx(vItem, GetMsg(StrMCompTime));
-      SetMenuItemChrEx(vItem, GetMsg(StrMCompAttr));
-      SetMenuItemChrEx(vItem, GetMsg(StrMCompFolderAttrs));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(StrMShowSame));
-      SetMenuItemChrEx(vItem, GetMsg(StrMShowDiff));
-      SetMenuItemChrEx(vItem, GetMsg(StrMShowOrphan));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(StrMHilightDiff));
-      SetMenuItemChrEx(vItem, GetMsg(StrMUnfold));
+      vRes := FARAPI.Menu(hModule, -1, -1, 0,
+        FMENU_WRAPMODE or FMENU_USEEXT,
+        GetMsg(strCompareFoldersTitle),
+        '',
+        '',
+        nil, nil,
+        Pointer(vItems),
+        N);
 
+      if vRes = -1 then
+        Exit;
+
+      case vRes of
+        0:  SelectCurrent(1);
+        1:  {-};
+        2:  ViewOrEditCurrent(False);
+        3:  ViewOrEditCurrent(True);
+        4:  Sorry;
+        5:  Sorry;
+        6:  Sorry;
+        7:  {-};
+        8:  CompareSelectedContents;
+        9:  GotoCurrent;
+        10: SendToTempPanel;
+        11: {-};
+        12: SortByDlg;
+        13: OptionsMenu;
+      end;
+
+    finally
+      MemFree(vItems);
+    end;
+  end;
+
+
+  procedure TFilesDlg.OptionsMenu;
+  var
+    I, N, vRes :Integer;
+    vItems :PFarMenuItemsArray;
+  begin
+    vItems := FarCreateMenu([
+      GetMsg(StrMShowSame),
+      GetMsg(StrMShowDiff),
+      GetMsg(StrMShowOrphan),
+      '',
+      GetMsg(StrMCompContents),
+      GetMsg(StrMCompSize),
+      GetMsg(StrMCompTime),
+      GetMsg(StrMCompAttr),
+      GetMsg(StrMCompFolderAttrs),
+      '',
+      GetMsg(StrMShowFolderSummary),
+      GetMsg(StrMShowSize),
+      GetMsg(StrMShowTime),
+      GetMsg(StrMShowAttrs),
+      GetMsg(StrMShowFolderAttrs),
+      '',
+      GetMsg(StrMHilightDiff),
+      GetMsg(StrMUnfold)
+    ], @N);
+    try
       vRes := 0;
       while True do begin
-        vItems[0].Flags := SetFlag(0, MIF_CHECKED1, optShowFilesInFolders);
-        vItems[1].Flags := SetFlag(0, MIF_CHECKED1, optShowSize);
-        vItems[2].Flags := SetFlag(0, MIF_CHECKED1, optShowTime);
-        vItems[3].Flags := SetFlag(0, MIF_CHECKED1, optShowAttr);
-        vItems[4].Flags := SetFlag(0, MIF_CHECKED1, optShowFolderAttrs);
+        vItems[0].Flags  := SetFlag(0, MIF_CHECKED1, optShowSame);
+        vItems[1].Flags  := SetFlag(0, MIF_CHECKED1, optShowDiff);
+        vItems[2].Flags  := SetFlag(0, MIF_CHECKED1, optShowOrphan);
         {}
-        vItems[8].Flags  := SetFlag(0, MIF_CHECKED1, optCompareContents);
-        vItems[9].Flags  := SetFlag(0, MIF_CHECKED1, optCompareSize);
-        vItems[10].Flags  := SetFlag(0, MIF_CHECKED1, optCompareTime);
-        vItems[11].Flags  := SetFlag(0, MIF_CHECKED1, optCompareAttr);
-        vItems[12].Flags := SetFlag(0, MIF_CHECKED1, optCompareFolderAttrs);
+        vItems[4].Flags  := SetFlag(0, MIF_CHECKED1, optCompareContents);
+        vItems[5].Flags  := SetFlag(0, MIF_CHECKED1, optCompareSize);
+        vItems[6].Flags  := SetFlag(0, MIF_CHECKED1, optCompareTime);
+        vItems[7].Flags  := SetFlag(0, MIF_CHECKED1, optCompareAttr);
+        vItems[8].Flags  := SetFlag(0, MIF_CHECKED1, optCompareFolderAttrs);
         {}
-        vItems[14].Flags  := SetFlag(0, MIF_CHECKED1, optShowSame);
-        vItems[15].Flags  := SetFlag(0, MIF_CHECKED1, optShowDiff);
-        vItems[16].Flags  := SetFlag(0, MIF_CHECKED1, optShowOrphan);
+        vItems[10].Flags := SetFlag(0, MIF_CHECKED1, optShowFilesInFolders);
+        vItems[11].Flags := SetFlag(0, MIF_CHECKED1, optShowSize);
+        vItems[12].Flags := SetFlag(0, MIF_CHECKED1, optShowTime);
+        vItems[13].Flags := SetFlag(0, MIF_CHECKED1, optShowAttr);
+        vItems[14].Flags := SetFlag(0, MIF_CHECKED1, optShowFolderAttrs);
         {}
-        vItems[18].Flags := SetFlag(0, MIF_CHECKED1, optHilightDiff);
-        vItems[19].Flags := SetFlag(0, MIF_CHECKED1, FUnfold);
+        vItems[16].Flags := SetFlag(0, MIF_CHECKED1, optHilightDiff);
+        vItems[17].Flags := SetFlag(0, MIF_CHECKED1, FUnfold);
 
-        for I := 0 to cMenuCount - 1 do
+        for I := 0 to N - 1 do
           vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
 
         vRes := FARAPI.Menu(hModule, -1, -1, 0,
           FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strOptions),
+          GetMsg(strOptionsTitle1),
           '',
           '',
           nil, nil,
           Pointer(vItems),
-          cMenuCount);
+          N);
 
         if vRes = -1 then
           Exit;
 
         case vRes of
-          0: ToggleOption(optShowFilesInFolders);
-          1: ToggleOption(optShowSize);
-          2: ToggleOption(optShowTime);
-          3: ToggleOption(optShowAttr);
-          4: ToggleOption(optShowFolderAttrs);
-          5: {};
-          6: SortByDlg;
-          7: {};
-          8: ToggleOption(optCompareContents, True);
-          9: ToggleOption(optCompareSize, True);
-          10: ToggleOption(optCompareTime, True);
-          11: ToggleOption(optCompareAttr, True);
-          12: ToggleOption(optCompareFolderAttrs, True);
-          13: {};
-          14: ToggleOption(optShowSame);
-          15: ToggleOption(optShowDiff);
-          16: ToggleOption(optShowOrphan);
-          17: {};
-          18: ToggleOption(optHilightDiff);
-          19: ToggleOption(FUnfold);
+          0:  ToggleOption(optShowSame);
+          1:  ToggleOption(optShowDiff);
+          2:  ToggleOption(optShowOrphan);
+          3:  {};
+          4:  ToggleOption(optCompareContents, True);
+          5:  ToggleOption(optCompareSize, True);
+          6:  ToggleOption(optCompareTime, True);
+          7:  ToggleOption(optCompareAttr, True);
+          8:  ToggleOption(optCompareFolderAttrs, True);
+          9:  {};
+          10: ToggleOption(optShowFilesInFolders);
+          11: ToggleOption(optShowSize);
+          12: ToggleOption(optShowTime);
+          13: ToggleOption(optShowAttr);
+          14: ToggleOption(optShowFolderAttrs);
+          15: {};
+          16: ToggleOption(optHilightDiff);
+          17: ToggleOption(FUnfold);
         end;
       end;
 
@@ -1288,6 +1336,8 @@ interface
 
       if (optCompareCmd = '') or AForcePrompt then begin
         vCmd := optCompareCmd;
+        if vCmd = '' then
+          vCmd := cPlugMenuPrefix + ':';
 
         vRes := FARAPI.InputBox(
           GetMsg(strCompareTitle),
@@ -1309,8 +1359,12 @@ interface
         WriteSetup;
       end;
 
-      vParam := '"' + vItem.GetFullFileName(0) + '" "' + vItem.GetFullFileName(1) + '"';
-      ShellOpen(0, optCompareCmd, vParam);
+      if StrEqual(optCompareCmd, cPlugMenuPrefix + ':') then
+        CompareTexts(vItem.GetFullFileName(0), vItem.GetFullFileName(1))
+      else begin
+        vParam := '"' + vItem.GetFullFileName(0) + '" "' + vItem.GetFullFileName(1) + '"';
+        ShellOpen(0, optCompareCmd, vParam);
+      end;
 
     end else
       Beep;
@@ -1682,8 +1736,6 @@ interface
             end;
           KEY_CTRLINS:
             CopySelected;
-          KEY_ALTP:
-            SendToTempPanel;
 
           KEY_TAB:
             begin
@@ -1716,7 +1768,7 @@ interface
             end;
 
           KEY_F2:
-            OptionsMenu;
+            MainMenu;
           KEY_F3:
             ViewOrEditCurrent(False);
           KEY_F4:
@@ -1726,7 +1778,9 @@ interface
           KEY_F6:
             Sorry;
           KEY_F8:
-            DeleteSelected;
+            Sorry; //DeleteSelected;
+          KEY_F9:
+            OptionsMenu;
 
           { Выделение }
           KEY_INS:
@@ -1742,20 +1796,19 @@ interface
           KEY_ALTSUBTRACT:
             LocSelectSameColor(0, -1);
 
+          KEY_CTRLP:
+            SendToTempPanel;
+          KEY_CTRLC:
+            CompareSelectedContents;
           KEY_CTRLU:
             LocFoldUnfold;
-          KEY_CTRLA:
-            begin
-              FExpandAll := not FExpandAll;
-              ReinitAndSaveCurrent;
-            end;
-          KEY_CTRL + Byte('='):
-            CompareSelectedContents;
 
-(*
+          KEY_CTRL + Byte('='):
+            ToggleOption(optShowSame);
           KEY_CTRL + Byte('-'):
-            ToggleFilter(fmShowDiff);
-*)
+            ToggleOption(optShowDiff);
+          KEY_CTRL + Byte('/'):
+            ToggleOption(optShowOrphan);
 
           KEY_CTRLM:
             ToggleOption(optMaximized);
@@ -1768,14 +1821,9 @@ interface
             ToggleOption(optShowTime);
           KEY_CTRL4:
             ToggleOption(optShowAttr);
-(*
-          KEY_CTRLF10:
-            SetOrder(0);
-          KEY_CTRLF1, KEY_CTRLSHIFTF1:
-            SetOrder(1);
-          KEY_CTRLF2, KEY_CTRLSHIFTF2:
-            SetOrder(2);
-*)
+          KEY_CTRL5:
+            ToggleOption(optShowFolderAttrs);
+
           KEY_CTRLF3, KEY_CTRLSHIFTF3:
             SetOrder(smByName, optDiffAtTop);
           KEY_CTRLF4, KEY_CTRLSHIFTF4:

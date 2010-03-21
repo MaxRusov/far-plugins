@@ -18,6 +18,7 @@ exports
   GetMinFarVersionW,
   GetPluginInfoW,
   OpenPluginW,
+  ProcessEditorEventW,
   ExitFARW;
  {$else}
   SetStartupInfo,   

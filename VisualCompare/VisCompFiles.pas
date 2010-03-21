@@ -1,14 +1,14 @@
-{$I Defines.inc}
-
-{-$Define bUseCRC}
-
-unit VisCompFiles;
-
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* Visual Compare Far plugin                                                  *}
 {******************************************************************************}
+
+{$I Defines.inc}
+
+{-$Define bUseCRC}
+
+unit VisCompFiles;
 
 interface
 
