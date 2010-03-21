@@ -4,6 +4,14 @@
 
  Плагин предназначен для сравнения каталогов и текстовый файлов. Результаты сравнения отображаются в виде наглядного двухколоночного списка, в котором все различия выделены цветом.
 
+ Обсуждение: http://forum.farmanager.com/viewtopic.php?f=5&t=5194
+
+== Загрузить ==
+
+ * [http://far-plugins.googlecode.com/files/VisualCompareW.v0.1.rar VisualCompare 0.9.1 for FAR 2]
+
+== Примеры ==
+
 http://far-plugins.googlecode.com/svn/trunk/VisualCompare/Image/Sample1.png
 
 http://far-plugins.googlecode.com/svn/trunk/VisualCompare/Image/Sample2.png
