@@ -1,13 +1,13 @@
-{$I Defines.inc}
-{$Typedaddress Off}
-
-unit VisCompMain;
-
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* Visual Compare Far plugin                                                  *}
 {******************************************************************************}
+
+{$I Defines.inc}
+{$Typedaddress Off}
+
+unit VisCompMain;
 
 interface
 
@@ -16,6 +16,7 @@ interface
     MixTypes,
     MixUtils,
     MixStrings,
+    MixWinUtils,
 
    {$ifdef bUnicodeFar}
     PluginW,
@@ -26,8 +27,10 @@ interface
 
     VisCompCtrl,
     VisCompFiles,
+    VisCompTexts,
     VisCompPromptDlg,
-    VisCompFilesDlg;
+    VisCompFilesDlg,
+    VisCompTextsDlg;
 
 
  {$ifdef bUnicodeFar}
@@ -36,6 +39,7 @@ interface
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
   procedure ExitFARW; stdcall;
   function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
  {$else}
   procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
   procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
@@ -50,6 +54,55 @@ interface
 
   uses
     MixDebug;
+
+
+  procedure CompareFolders2(const AFolder1, AFolder2 :TString);
+  var
+    vPath1, vPath2 :TString;
+    vList :TCmpFolder;
+    vSide  :Integer;
+  begin
+    vSide  := CurrentPanelSide;
+
+    vPath1 := RemoveBackSlash(AFolder1);
+    if vPath1 = '' then
+      vPath1 := GetPanelDir(vSide = 0);
+
+    vPath2 := RemoveBackSlash(AFolder2);
+    if vPath2 = '' then
+      vPath2 := GetPanelDir(vSide <> 0);
+
+    if not CompareDlg(vPath1, vPath2) then
+      Exit;
+
+    vList := CompareFolders(vPath1, vPath2);
+    try
+      ShowFilesDlg(vList);
+    finally
+      FreeObj(vList);
+    end
+  end;
+
+
+
+  procedure OpenCmdLine(const AStr :TString);
+  var
+    vPtr :PTChar;
+    vStr1, vStr2 :TString;
+  begin
+    if AStr <> '' then begin
+      vPtr := PTChar(AStr);
+      vStr1 := FarExpandFileName(ExtractParamStr(vPtr));
+      vStr2 := FarExpandFileName(ExtractParamStr(vPtr));
+
+      if (vStr1 <> '') and WinFileExists(vStr1) and (vStr2 <> '') and WinFileExists(vStr2) then
+        CompareTexts(vStr1, vStr2)
+      else
+        CompareFolders2(vStr1, vStr2);
+
+    end else
+      CompareFolders2('', '');
+  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -124,10 +177,6 @@ interface
  {$else}
   function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
  {$endif bUnicodeFar}
-  var
-    vPath1, vPath2 :TString;
-    vList :TCmpFolder;
-    vSide  :Integer;
   begin
     Result:= INVALID_HANDLE_VALUE;
 //  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
@@ -142,19 +191,10 @@ interface
       try
         ReadSetup;
 
-        vSide  := CurrentPanelSide;
-        vPath1 := GetPanelDir(vSide = 0);
-        vPath2 := GetPanelDir(vSide <> 0);
-
-        if not CompareDlg(vPath1, vPath2) then
-          Exit;
-
-        vList := CompareFolders(vPath1, vPath2);
-        try
-          ShowFilesDlg(vList);
-        finally
-          FreeObj(vList);
-        end
+        if OpenFrom = OPEN_COMMANDLINE then
+          OpenCmdLine(FarChar2Str(PFarChar(Item)))
+        else
+          CompareFolders2('', '');
 
       finally
        {$ifndef bUnicodeFar}
@@ -166,6 +206,24 @@ interface
     except
       on E :Exception do
         HandleError(E);
+    end;
+  end;
+
+
+  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
+  var
+    vPos :TEditorSetPosition;
+  begin
+//  TraceF('ProcessEditorEvent: %d, %x', [AEvent, TIntPtr(AParam)]);
+    Result := 0;
+    case AEvent of
+      EE_READ:
+        if GEditorTopRow <> -1 then begin
+          vPos.TopScreenLine := GEditorTopRow;
+          vPos.CurLine := -1; vPos.CurPos := -1; vPos.CurTabPos := -1; vPos.LeftPos := -1; vPos.Overtype := -1;
+          FARAPI.EditorControl(ECTL_SETPOSITION, @vPos);
+          GEditorTopRow := -1;
+        end;
     end;
   end;
 

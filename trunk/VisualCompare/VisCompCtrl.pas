@@ -1,13 +1,13 @@
-{$I Defines.inc}
-
-unit VisCompCtrl;
-
 {******************************************************************************}
 {* (c) 2008 Max Rusov                                                         *}
 {*                                                                            *}
 {* Noisy Far plugin                                                           *}
 {* Процедуры взаимодействия с плеером                                         *}
 {******************************************************************************}
+
+{$I Defines.inc}
+
+unit VisCompCtrl;
 
 interface
 
@@ -44,21 +44,33 @@ interface
       strCompareTitle,
       strCompareCommand,
 
-      strOptions,
-      strMShowFolderSummary,
-      strMShowSize,
-      strMShowTime,
-      strMShowAttrs,
-      strMShowFolderAttrs,
-      strMSortBy,
+      strCompareFoldersTitle,
+      strMCompareFiles,
+      strMView1,
+      strMEdit1,
+      strMCopy1,
+      strMMove1,
+      strMDelete1,
+      strMCompareContents,
+      strMGotoFile,
+      strMSendToTemp,
+      strMSortBy1,
+      strMOptions1,
+
+      strOptionsTitle1,
+      strMShowSame,
+      strMShowDiff,
+      strMShowOrphan,
       strMCompContents,
       strMCompSize,
       strMCompTime,
       strMCompAttr,
       strMCompFolderAttrs,
-      strMShowSame,
-      strMShowDiff,
-      strMShowOrphan,
+      strMShowFolderSummary,
+      strMShowSize,
+      strMShowTime,
+      strMShowAttrs,
+      strMShowFolderAttrs,
       strMHilightDiff,
       strMUnfold,
 
@@ -68,6 +80,21 @@ interface
       strSortByDate,
       strSortBySize,
       strDiffAtTop,
+
+      strCompTextsTitle,
+      strMNextDiff,
+      strMPrevDiff,
+      strMView2,
+      strMEdit2,
+      strMOptions2,
+
+      strOptionsTitle2,
+      strMIgnoreEmptyLines,
+      strMIgnoreSpaces,
+      strMIgnoreCase,
+      strMShowLineNumbers,
+      strMShowSpaces,
+      strMColors,
 
       strInterrupt,
       strInterruptPrompt,
@@ -116,45 +143,59 @@ interface
     cMaximizedIcon = '['#$12']';
 
   var
-    optCompareCmd         :TString = '';
+    optCompareCmd          :TString = '';
 
-    optScanRecursive      :Boolean = True;
-    optNoScanHidden       :Boolean = True;
-    optNoScanOrphan       :Boolean = True;
-    optScanContents       :Boolean = True;
-    optScanFileMask       :TString = '*.*';
+    optScanRecursive       :Boolean = True;
+    optNoScanHidden        :Boolean = True;
+    optNoScanOrphan        :Boolean = True;
+    optScanContents        :Boolean = True;
+    optScanFileMask        :TString = '*.*';
 
-    optShowFilesInFolders :Boolean = True;
-    optShowSize           :Boolean = True;
-    optShowTime           :Boolean = True;
-    optShowAttr           :Boolean = False;
-    optShowFolderAttrs    :Boolean = False;
+    optShowFilesInFolders  :Boolean = True;
+    optShowSize            :Boolean = True;
+    optShowTime            :Boolean = True;
+    optShowAttr            :Boolean = False;
+    optShowFolderAttrs     :Boolean = False;
 
-    optCompareContents    :Boolean = True;
-    optCompareSize        :Boolean = True;
-    optCompareTime        :Boolean = True;
-    optCompareAttr        :Boolean = True;
-    optCompareFolderAttrs :Boolean = False;
+    optShowLinesNumber     :Boolean = True;
+    optShowSpaces          :Boolean = False;
 
-    optShowSame           :Boolean = True;
-    optShowDiff           :Boolean = True;
-    optShowOrphan         :Boolean = True;
+    optCompareContents     :Boolean = True;
+    optCompareSize         :Boolean = True;
+    optCompareTime         :Boolean = True;
+    optCompareAttr         :Boolean = True;
+    optCompareFolderAttrs  :Boolean = False;
 
-    optHilightDiff        :Boolean = True;
-    optDiffAtTop          :Boolean = True;
-    optFileSortMode       :Integer = smByName;
+    optShowSame            :Boolean = True;
+    optShowDiff            :Boolean = True;
+    optShowOrphan          :Boolean = True;
 
-    optMaximized          :Boolean = False;
+    optHilightDiff         :Boolean = True;
+    optDiffAtTop           :Boolean = True;
+    optFileSortMode        :Integer = smByName;
 
-    optHeadColor          :Integer = $2F;
-    optCurColor           :Integer = 0;
-    optSelColor           :Integer = $30;
-    optSameColor          :Integer = $08;
-    optOrphanColor        :Integer = $09;
-    optOlderColor         :Integer = $04;
-    optNewerColor         :Integer = $0C;
-    optFoundColor         :Integer = $0A;
-    optDiffColor          :Integer = $B0; // $F0;
+    optTextIgnoreEmptyLine :Boolean = True;
+    optTextIgnoreSpace     :Boolean = True;
+    optTextIgnoreCase      :Boolean = True;
+
+    optMaximized           :Boolean = False;
+
+    optHeadColor           :Integer = $2F;
+    optCurColor            :Integer = 0;
+    optSelColor            :Integer = $30;
+    optSameColor           :Integer = $08;
+    optOrphanColor         :Integer = $09;
+    optOlderColor          :Integer = $04;
+    optNewerColor          :Integer = $0C;
+    optFoundColor          :Integer = $0A;
+    optDiffColor           :Integer = $B0; // $F0;
+
+    optTextNumColor        :Integer = $08;
+    optTextDiffColor       :Integer = $B0;
+
+    optSpaceChar           :TChar   = #$B7;
+    optTabChar             :TChar   = #$1A; //#$BB;
+    optTabSpaceChar        :TChar   = ' ';
 
   var
     FRegRoot              :TString;
@@ -221,6 +262,9 @@ interface
       optShowAttr := RegQueryLog(vKey, 'ShowAttr', optShowAttr);
       optShowFolderAttrs := RegQueryLog(vKey, 'ShowFolderAttrs', optShowFolderAttrs);
 
+      optShowLinesNumber := RegQueryLog(vKey, 'ShowLinesNumber', optShowLinesNumber);
+      optShowSpaces := RegQueryLog(vKey, 'ShowSpaces', optShowSpaces);
+
       optCompareContents := RegQueryLog(vKey, 'CompareContents', optCompareContents);
       optCompareSize := RegQueryLog(vKey, 'CompareSize', optCompareSize);
       optCompareTime := RegQueryLog(vKey, 'CompareTime', optCompareTime);
@@ -230,6 +274,10 @@ interface
       optHilightDiff := RegQueryLog(vKey, 'HilightDiff', optHilightDiff);
       optDiffAtTop := RegQueryLog(vKey, 'DiffAtTop', optDiffAtTop);
       optFileSortMode := RegQueryInt(vKey, 'SortMode', optFileSortMode);
+
+      optTextIgnoreEmptyLine := RegQueryLog(vKey, 'TextIgnoreEmptyLine', optTextIgnoreEmptyLine);
+      optTextIgnoreSpace := RegQueryLog(vKey, 'TextIgnoreSpace', optTextIgnoreSpace);
+      optTextIgnoreCase := RegQueryLog(vKey, 'TextIgnoreCase', optTextIgnoreCase);
 
       optMaximized := RegQueryLog(vKey, 'Maximized', optMaximized);
 
@@ -269,9 +317,16 @@ interface
       RegWriteLog(vKey, 'ShowAttr', optShowAttr);
       RegWriteLog(vKey, 'ShowFolderAttrs', optShowFolderAttrs);
 
+      RegWriteLog(vKey, 'ShowLinesNumber', optShowLinesNumber);
+      RegWriteLog(vKey, 'ShowSpaces', optShowSpaces);
+
       RegWriteLog(vKey, 'HilightDiff', optHilightDiff);
       RegWriteLog(vKey, 'DiffAtTop', optDiffAtTop);
       RegWriteInt(vKey, 'SortMode', optFileSortMode);
+
+      RegWriteLog(vKey, 'TextIgnoreEmptyLine', optTextIgnoreEmptyLine);
+      RegWriteLog(vKey, 'TextIgnoreSpace', optTextIgnoreSpace);
+      RegWriteLog(vKey, 'TextIgnoreCase', optTextIgnoreCase);
 
       RegWriteLog(vKey, 'Maximized', optMaximized);
 
