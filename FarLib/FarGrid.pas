@@ -364,7 +364,7 @@ interface
         vWidth := AWidth;
 
       vCellColor := vRowColor;
-      if (ARow = FCurRow) and (I = FCurCol) then
+      if (ARow = FCurRow) and (I = FCurCol) and not (goRowSelect in FOptions) then
         vCellColor := FSelColor;
 
       if Assigned(FOnGetCellColor) then
