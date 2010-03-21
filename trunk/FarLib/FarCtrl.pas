@@ -132,6 +132,7 @@ interface
 
   procedure SetListItem(AItem :PFarListItem; AStr :PFarChar; AFlags :DWORD);
 
+  function FarCreateMenu(const AItems :array of PFarChar; AItemCount :PInteger = nil) :PFarMenuItemsArray;
  {$ifdef bUnicodeFar}
   procedure CleanupMenu(AItem :PFarMenuItemEx; ACount :Integer);
   procedure CleanupList(AItem :PFarListItem; ACount :Integer);
@@ -289,7 +290,7 @@ interface
   procedure SetMenuItemChrEx(var AItem :PFarMenuItemEx; AStr :PFarChar; AFlags :DWORD = 0);
   begin
     SetMenuItemChr(AItem, AStr, AFlags);
-    Inc(PChar(AItem), SizeOf(TFarMenuItemEx));
+    Inc(Pointer1(AItem), SizeOf(TFarMenuItemEx));
   end;
 
 
@@ -313,7 +314,7 @@ interface
   procedure SetMenuItemStrEx(var AItem :PFarMenuItemEx; const AStr :TString; AFlags :DWORD = 0);
   begin
     SetMenuItemStr(AItem, AStr, AFlags);
-    Inc(PChar(AItem), SizeOf(TFarMenuItemEx));
+    Inc(Pointer1(AItem), SizeOf(TFarMenuItemEx));
   end;
 
 
@@ -329,6 +330,25 @@ interface
   end;
 
 
+  function FarCreateMenu(const AItems :array of PFarChar; AItemCount :PInteger = nil) :PFarMenuItemsArray;
+  var
+    I, vCount :Integer;
+    vItem :PFarMenuItemEx;
+  begin
+    vCount := High(AItems) + 1;
+    Result := MemAllocZero(vCount * SizeOf(TFarMenuItemEx));
+    vItem := @Result[0];
+    for I := 0 to vCount - 1 do begin
+      if AItems[I]^ <> #0 then
+        SetMenuItemChrEx(vItem, AItems[I])
+      else
+        SetMenuItemChrEx(vItem, '', MIF_SEPARATOR)
+    end;
+    if AItemCount <> nil then
+      AItemCount^ := vCount;
+  end;
+
+  
  {$ifdef bUnicodeFar}
   procedure CleanupMenu(AItem :PFarMenuItemEx; ACount :Integer);
   var
@@ -336,7 +356,7 @@ interface
   begin
     for I := 0 to ACount - 1 do begin
       StrDispose(AItem.TextPtr);
-      Inc(PChar(AItem), SizeOf(TFarMenuItemEx));
+      Inc(Pointer1(AItem), SizeOf(TFarMenuItemEx));
     end;
   end;
 
@@ -346,7 +366,7 @@ interface
   begin
     for I := 0 to ACount - 1 do begin
       StrDispose(AItem.TextPtr);
-      Inc(PChar(AItem), SizeOf(TFarListItem));
+      Inc(Pointer1(AItem), SizeOf(TFarListItem));
     end;
   end;
  {$endif bUnicodeFar}
@@ -465,7 +485,7 @@ interface
     vItem := @Result[0];
     for I := 0 to vCount - 1 do begin
       Move(AItems[I], vItem^, SizeOf(TFarDialogItem));
-      Inc(PChar(vItem), SizeOf(TFarDialogItem));
+      Inc(Pointer1(vItem), SizeOf(TFarDialogItem));
     end;
     if AItemCount <> nil then
       AItemCount^ := vCount;
@@ -949,11 +969,13 @@ interface
     vLen :Integer;
   begin
     Result := '';
-    vLen := FARSTD.ConvertPath(CPM_FULL, PTChar(AFileName), nil, 0);
-    if vLen > 0 then begin
-      SetLength(Result, vLen - 1);
-      FARSTD.ConvertPath(CPM_FULL, PTChar(AFileName), PTChar(Result), vLen);
-    end;
+    if AFileName <> '' then begin
+      vLen := FARSTD.ConvertPath(CPM_FULL, PTChar(AFileName), nil, 0);
+      if vLen > 0 then begin
+        SetLength(Result, vLen - 1);
+        FARSTD.ConvertPath(CPM_FULL, PTChar(AFileName), PTChar(Result), vLen);
+      end;
+    end;  
  {$else}
   begin
     Result := ExpandFileName(AFileName);
