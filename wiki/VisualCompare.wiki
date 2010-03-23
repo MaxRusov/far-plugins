@@ -28,3 +28,7 @@ http://far-plugins.googlecode.com/svn/trunk/VisualCompare/Image/Sample2.png
  * Изменения в меню и клавиатурных командах
 
  * Добавлен небольшой HELP
+
+== Ver 0.9.2 ==
+
+ * Возможность смены кодовых страниц при сравнении текстов (F8). Поддерживаются только Ansi/OEM/UTF16LE/UTF8
