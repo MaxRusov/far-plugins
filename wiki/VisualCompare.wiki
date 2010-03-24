@@ -8,7 +8,7 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/VisualCompareW.v0.2.rar VisualCompare 0.9.2 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/VisualCompareW.v0.3.rar VisualCompare 0.9.3 for FAR 2]
 
 == Примеры ==
 
@@ -32,3 +32,7 @@ http://far-plugins.googlecode.com/svn/trunk/VisualCompare/Image/Sample2.png
 == Ver 0.9.2 ==
 
  * Возможность смены кодовых страниц при сравнении текстов (F8). Поддерживаются только Ansi/OEM/UTF16LE/UTF8
+
+== Ver 0.9.3 ==
+
+ * Настройка цветов
