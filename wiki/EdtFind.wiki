@@ -23,6 +23,10 @@ http://far-plugins.googlecode.com/svn/trunk/EdtFind/Image/Sample.png
 
 = История изменений =
 
+== Ver 1.0.3 ==
+
+  * Исправлено несколько ошибок
+
 == Ver 1.0.2 ==
 
   * Режим Persistent Matches. В этом режиме выделение не сбрасывается автоматически при перемещению по тексту. Для сброса выделения добавлена команда Remove Highlight.
