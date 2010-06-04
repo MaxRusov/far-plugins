@@ -45,7 +45,7 @@ interface
 
   procedure OptionsMenu;
   function RegexpMenu(var ARegexp :TString) :Boolean;
-  function GetWordUnderCursor(ACol :PInteger = nil) :TString;
+  function GetWordUnderCursor(ACol :PInteger = nil; APickSelection :boolean = True) :TString;
   function FindDlg(APickWord :Boolean; var AEntire, ACount :Boolean) :Boolean;
 
 {******************************************************************************}
@@ -413,7 +413,7 @@ interface
   end;
 
 
-  function GetWordUnderCursor(ACol :PInteger = nil) :TString;
+  function GetWordUnderCursor(ACol :PInteger = nil; APickSelection :boolean = True) :TString;
   var
     vInfo :TEditorInfo;
     vStrInfo :TEditorGetString;
@@ -429,7 +429,7 @@ interface
           vStr := StringText;
           if vStr = '' then
             Exit;
-          if SelStart >= 0 then begin
+          if APickSelection and (SelStart >= 0) then begin
             Result := Copy(vStr, SelStart + 1, SelEnd - SelStart);
             if ACol <> nil then
               ACol^ := SelStart;

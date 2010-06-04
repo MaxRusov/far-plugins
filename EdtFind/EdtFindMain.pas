@@ -1014,7 +1014,7 @@ interface
   var
     vStr :TString;
   begin
-    vStr := GetWordUnderCursor;
+    vStr := GetWordUnderCursor(nil, False);
     if vStr <> '' then begin
       gStrFind := vStr;
       gOptions := gOptions + [foWholeWords] - [foRegexp];
@@ -1031,7 +1031,7 @@ interface
     vCol :Integer;
   begin
     vCol := -1;
-    vStr := GetWordUnderCursor(@vCol);
+    vStr := GetWordUnderCursor(@vCol, False);
     if vStr <> '' then begin
       gStrFind := vStr;
       gOptions := gOptions + [foWholeWords] - [foRegexp];
@@ -1218,7 +1218,7 @@ interface
             vStrSet.StringNumber := -1 {vRow};
             vStrSet.StringText := vTmpBuf;
             vStrSet.StringLength := vRowLen;
-            vStrSet.StringEOL := nil;
+            vStrSet.StringEOL := vStrInfo.StringEOL;
 
             FARAPI.EditorControl(ECTL_SETSTRING, @vStrSet);
             if vPrompt then begin
