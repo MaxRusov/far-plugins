@@ -13,7 +13,7 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/EdtFindW.v2.rar EdtFind 1.0.2 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/EdtFindW.v3.rar EdtFind 1.0.3 for FAR 2]
 
 == Пример ==
 
