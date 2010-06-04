@@ -9,5 +9,3 @@ brcc32 EdtFindW.rc || exit
 dcc32.exe -B EdtFind.dpr %* || exit
 
 copy Doc\* ..\Bin\EdtFind
-
-
