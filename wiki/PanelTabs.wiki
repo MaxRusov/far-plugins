@@ -8,7 +8,7 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/PanelTabsW.v6.rar PanelTabs 1.0.6 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/PanelTabsW.v7.rar PanelTabs 1.0.7 for FAR 2]
  * [http://far-plugins.googlecode.com/files/PanelTabs64.v5.rar PanelTabs 1.0.5 for FAR 2 x64]
  * [http://far-plugins.googlecode.com/files/PanelTabs_v5.rar PanelTabs 1.0.5 for FAR 1.7x]
 
@@ -20,7 +20,7 @@ http://far-plugins.googlecode.com/svn/trunk/FarTabs/Image/Sample.png
 
 = История изменений =
 
-==Ver 1.0.6==
+==Ver 1.0.6 - 1.0.7 ==
 
  * Поддержка большого экранного буфера. Требуется Far 2 build 1573+
 
