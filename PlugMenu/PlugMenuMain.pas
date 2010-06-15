@@ -131,6 +131,7 @@ interface
    {$endif bUnicode}
   end;
 
+
  {-----------------------------------------------------------------------------}
  { Экспортируемые процедуры                                                    }
  {-----------------------------------------------------------------------------}
@@ -140,7 +141,8 @@ interface
   begin
 //  Result := MakeFarVersion(2, 0, 910);    { Новый формат кэша плагинов. }
 //  Result := MakeFarVersion(2, 0, 995);    { Изменена TWindowInfo }
-    Result := MakeFarVersion(2, 0, 1148);   { ConvertPath }
+//  Result := MakeFarVersion(2, 0, 1148);   { ConvertPath }
+    Result := MakeFarVersion(2, 0, 1573);   { ACTL_GETFARRECT }
   end;
  {$endif bUnicodeFar}
 

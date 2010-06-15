@@ -108,10 +108,10 @@ interface
   var
     I :Integer;
     vDX1, vDX2, vMaxWidth :Integer;
-    vScreenInfo :TConsoleScreenBufferInfo;
+    vSize :TSize;
   begin
-    GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
-    vMaxWidth := vScreenInfo.dwSize.X - 4;
+    vSize := FarGetWindowSize;
+    vMaxWidth := vSize.CX - 4;
 
     FPrompts[0] := GetMsg(strInfoFileName);
     FPrompts[1] := GetMsg(strInfoFolder);
