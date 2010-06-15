@@ -19,14 +19,15 @@ exports
   GetPluginInfoW,
   OpenPluginW,
   ProcessEditorEventW,
-  ExitFARW;
+  ExitFARW,
  {$else}
-  SetStartupInfo,   
+  SetStartupInfo,
   GetPluginInfo,
   OpenPlugin,
-  ExitFAR;
+  ExitFAR,
  {$endif bUnicodeFar}
 
+  CompareFiles;
   
  {$ifdef bUnicodeFar}
   {$R VisCompW.res}   

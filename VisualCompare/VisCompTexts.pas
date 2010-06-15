@@ -41,13 +41,15 @@ interface
     TText = class(TStringList)
     public
       constructor CreateEx(const AName :TString);
-      procedure LoadFile;
+      procedure LoadFile(AForceFormat :TStrFileFormat);
 
     private
-      FName :TString;
+      FName   :TString;
+      FFormat :TStrFileFormat;
 
     public
       property Name :TString read FName;
+      property Format :TStrFileFormat read FFormat;
     end;
 
 
@@ -98,6 +100,16 @@ interface
   end;
 
 
+  procedure StrZeroToSpace(var AStr :TString);
+  var
+    I :Integer;
+  begin
+    for I := 1 to Length(AStr) do
+      if AStr[I] = #0 then
+        AStr[I] := ' ';
+  end;
+
+
  {-----------------------------------------------------------------------------}
  { TText                                                                       }
  {-----------------------------------------------------------------------------}
@@ -106,15 +118,25 @@ interface
   begin
     Create;
     FName := AName;
-    LoadFile;
+    LoadFile(sffAuto);
   end;
 
 
-  procedure TText.LoadFile;
+
+  procedure TText.LoadFile(AForceFormat :TStrFileFormat);
   var
     vStr :TString;
   begin
-    vStr := StrFromFile(FName);
+    FFormat := AForceFormat;
+    if FFormat = sffAuto then begin
+      FFormat := StrDetectFormat(FName);
+      if FFormat = sffAnsi then
+        FFormat := optDefaultFormat;
+    end;
+
+    vStr := StrFromFile(FName, FFormat);
+    
+    StrZeroToSpace(vStr);
     Text := vStr;
   end;
 
@@ -144,8 +166,8 @@ interface
 
   procedure TTextDiff.ReloadAndCompare;
   begin
-    FText[0].LoadFile;
-    FText[1].LoadFile;
+    FText[0].LoadFile(FText[0].FFormat);
+    FText[1].LoadFile(FText[0].FFormat);
     Compare;
   end;
 

@@ -28,6 +28,7 @@ interface
     FarCtrl,
     FarDlg,
     FarGrid,
+    FarColorDlg,
 
     VisCompCtrl,
     VisCompTexts;
@@ -49,14 +50,6 @@ interface
       FGrid           :TFarGrid;
 
       FDiff           :TTextDiff;
-
-      FHeadColor      :Integer;
-      FSameColor      :Integer;
-      FDiffColor      :Integer;
-//    FOrphanColor    :Integer;
-//    FFoundColor     :Integer;
-//    FSelColor       :Integer;
-
 (*
       FFilter         :TMyFilter;
       FFilterMode     :Boolean;
@@ -68,7 +61,6 @@ interface
       FMenuMaxWidth   :Integer;
 
       FCurSide        :Integer;
-      FWholeLine      :Boolean;
       FStrDelta       :Integer;
 
       FResCmd         :Integer;
@@ -79,6 +71,7 @@ interface
       procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
       procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
 
+      procedure InitColors;
       procedure ResizeDialog;
       procedure UpdateHeader;
       procedure UpdateFooter;
@@ -98,8 +91,11 @@ interface
 
       procedure GotoNextDiff(AForward :Boolean);
       procedure ViewOrEditCurrent(AEdit :Boolean);
+      procedure ChangeFileFormat;
+      function GetFileFormat(var AFormat :TStrFileFormat) :Boolean;
       procedure MainMenu;
       procedure OptionsMenu;
+      procedure ColorsMenu;
 
     public
       property Grid :TFarGrid read FGrid;
@@ -170,26 +166,16 @@ interface
     cDlgMinHeight = 5;
 
     IdFrame  = 0;
-    IdIcon   = 1;
-    IdHead1  = 2;
-    IdHead2  = 3;
-    IdList   = 4;
-    IdStatus = 5;
+    IdHead1  = 1;
+    IdHead2  = 2;
+    IdList   = 3;
+    IdStatus = 4;
 
 
   constructor TTextsDlg.Create; {override;}
   begin
     inherited Create;
 (*  FFilter := TMyFilter.CreateSize(SizeOf(TFilterRec)); *)
-
-    FHeadColor     := optHeadColor;
-    FSameColor     := optSameColor;
-    FDiffColor     := optTextDiffColor;
-//  FOrphanColor   := optOrphanColor;
-//  FFoundColor    := optFoundColor;
-//  FSelColor      := optSelColor;
-
-    FWholeLine     := True;
   end;
 
 
@@ -210,22 +196,18 @@ interface
     FHelpTopic := 'CompareTexts';
     FWidth := DX;
     FHeight := DY;
-    FItemCount := 5;
     FDialog := CreateDialog(
       [
         NewItemApi(DI_DoubleBox,   2, 1, DX - 4, DY - 2, 0, ''),
-        NewItemApi(DI_Text,        DX-7, 1, 3, 1, 0, cNormalIcon),
-        NewItemApi(DI_Text,        3, 2, DX div 2, 1, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optHeadColor, '...'),
-        NewItemApi(DI_Text,        DX div 2 + 1, 2, DX - 6, 1, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optHeadColor, '...'),
+        NewItemApi(DI_Text,        3, 2, DX div 2, 1, DIF_SHOWAMPERSAND, '...'),
+        NewItemApi(DI_Text,        DX div 2 + 1, 2, DX - 6, 1, DIF_SHOWAMPERSAND, '...'),
         NewItemApi(DI_USERCONTROL, 3, 3, DX - 6, DY - 4, 0, '' )
-//      NewItemApi(DI_Text,        3, 3, DX - 6, 1, DIF_CENTERTEXT, '...')
-      ]
+      ],
+      @FItemCount
     );
 
     FGrid := TFarGrid.CreateEx(Self, IdList);
     FGrid.Options := [goRowSelect {, goFollowMouse} {,goWheelMovePos} ];
-    FGrid.NormColor := GetOptColor(0, COL_DIALOGTEXT);
-    FGrid.SelColor := GetOptColor(optCurColor, COL_DIALOGLISTSELECTEDTEXT);
 
     FGrid.OnCellClick := GridCellClick;
     FGrid.OnPosChange := GridPosChange;
@@ -239,6 +221,17 @@ interface
   begin
     SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
     ReinitGrid;
+    InitColors;
+  end;
+
+
+  procedure TTextsDlg.InitColors;
+  begin
+    FGrid.NormColor := GetOptColor(optTextColor, COL_DIALOGTEXT);
+    FGrid.SelColor  := GetOptColor(optTextSelColor, COL_DIALOGLISTSELECTEDTEXT);
+
+    SetItemFlags(IdHead1, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optTextHeadColor);
+    SetItemFlags(IdHead2, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optTextHeadColor);
   end;
 
 
@@ -246,19 +239,15 @@ interface
   var
     vWidth, vHeight :Integer;
     vRect, vRect1 :TSmallRect;
-    vScreenInfo :TConsoleScreenBufferInfo;
+    vSize :TSize;
   begin
-    GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
+    vSize := FarGetWindowSize;
 
-    vWidth := vScreenInfo.dwSize.X;
-    vHeight := vScreenInfo.dwSize.Y;
+    vWidth := vSize.CX;
+    vHeight := vSize.CY;
 
     vRect := SBounds(0, 0, vWidth-1, vHeight-1);
     SendMsg(DM_SHOWITEM, IdFrame, 0);
-
-    vRect1 := SBounds(vRect.Right - 2, vRect.Top, 2, 0);
-    SendMsg(DM_SETITEMPOSITION, IdIcon, @vRect1);
-    SetTextApi(IdIcon, cMaximizedIcon);
 
     vRect1 := vRect;
     Inc(vRect1.Top);
@@ -268,7 +257,6 @@ interface
     vRect1 := SRect(vRect.Left, vRect.Top, vRect.Left + (vRect.Right - vRect.Left) div 2 - 1, 2);
     SendMsg(DM_SETITEMPOSITION, IdHead1, @vRect1);
     vRect1 := SRect(vRect1.Right + 2, vRect.Top, vRect.Right, 2);
-    Dec(vRect1.Right, 3);
     SendMsg(DM_SETITEMPOSITION, IdHead2, @vRect1);
 
     SetDlgPos(-1, -1, vWidth, vHeight);
@@ -374,7 +362,7 @@ interface
         if vItem.FFlags = 0 then
           AColor := FGrid.NormColor
         else
-          AColor := FDiffColor;
+          AColor := optTextDiffColor;
 
       end else
       begin
@@ -689,6 +677,93 @@ interface
   end;
 
 
+  procedure TTextsDlg.ChangeFileFormat;
+  const
+    cFormatNames :array[TStrFileFormat] of TString = ('Ansi', 'OEM', 'Unicode', 'UTF8', '');
+  var
+    N, vRes :Integer;
+    vItems :PFarMenuItemsArray;
+    vText :TText;
+    vStr :TFarStr;
+  begin
+    vText := FDiff.Text[FCurSide];
+
+    vStr := GetMsgStr(strMDefault) + ' ' + cFormatNames[optDefaultFormat];
+
+    vItems := FarCreateMenu([
+      GetMsg(StrMAnsi),
+      GetMsg(StrMOEM),
+      GetMsg(StrMUnicode),
+      GetMsg(StrMUTF8),
+      '',
+      PFarChar(vStr)
+    ], @N);
+    try
+      if Byte(vText.Format) <= 3 then
+        vItems[Byte(vText.Format)].Flags := MIF_SELECTED;
+
+      vRes := FARAPI.Menu(hModule, -1, -1, 0,
+        FMENU_WRAPMODE or FMENU_USEEXT,
+        GetMsg(StrCodePages),
+        '',
+        '',
+        nil, nil,
+        Pointer(vItems),
+        N);
+
+      if vRes = -1 then
+        Exit;
+
+      if vRes = 5 then begin
+        if GetFileFormat(optDefaultFormat) then
+          WriteSetup;
+      end else
+      if vRes <> Byte(vText.Format) then begin
+        vText.LoadFile(TStrFileFormat(vRes));
+        ReinitAndSaveCurrent(True);
+      end;
+
+    finally
+      MemFree(vItems);
+    end;
+  end;
+
+
+  function TTextsDlg.GetFileFormat(var AFormat :TStrFileFormat) :Boolean;
+  var
+    N, vRes :Integer;
+    vItems :PFarMenuItemsArray;
+  begin
+    vItems := FarCreateMenu([
+      GetMsg(StrMAnsi),
+      GetMsg(StrMOEM),
+      GetMsg(StrMUnicode),
+      GetMsg(StrMUTF8)
+    ], @N);
+    try
+      if Byte(AFormat) <= 3 then
+        vItems[Byte(AFormat)].Flags := MIF_SELECTED;
+
+      vRes := FARAPI.Menu(hModule, -1, -1, 0,
+        FMENU_WRAPMODE or FMENU_USEEXT,
+        GetMsg(StrCodePages),
+        '',
+        '',
+        nil, nil,
+        Pointer(vItems),
+        N);
+
+      Result := vRes <> -1;
+
+      if Result then
+        Byte(AFormat) := vRes;
+
+    finally
+      MemFree(vItems);
+    end;
+  end;
+
+
  {-----------------------------------------------------------------------------}
 
   procedure TTextsDlg.MainMenu;
@@ -702,6 +777,7 @@ interface
       '',
       GetMsg(StrMView2),
       GetMsg(StrMEdit2),
+      GetMsg(strMCodePage),
       '',
       GetMsg(StrMOptions2)
     ], @N);
@@ -729,8 +805,9 @@ interface
           2: {};
           3: ViewOrEditCurrent(False);
           4: ViewOrEditCurrent(True);
-          5: {};
-          6: OptionsMenu;
+          5: ChangeFileFormat;
+          6: {};
+          7: OptionsMenu;
         end;
 
         Exit;
@@ -755,7 +832,7 @@ interface
       GetMsg(StrMShowLineNumbers),
       GetMsg(StrMShowSpaces),
       '',
-      GetMsg(StrMColors)
+      GetMsg(StrMColors2)
     ], @N);
     try
       vRes := 0;
@@ -790,7 +867,7 @@ interface
           4: ToggleOption(optShowLinesNumber);
           5: ToggleOption(optShowSpaces);
           6: {};
-          7: Sorry;
+          7: ColorsMenu;
         end;
       end;
 
@@ -798,6 +875,60 @@ interface
       MemFree(vItems);
     end;
   end;
+
+
+  procedure TTextsDlg.ColorsMenu;
+  var
+    I, N, vRes :Integer;
+    vItems :PFarMenuItemsArray;
+  begin
+    vItems := FarCreateMenu([
+      GetMsg(strClNormalText),
+      GetMsg(strClSelectedText),
+      GetMsg(strClDifference),
+      GetMsg(strClLineNumbers),
+      GetMsg(strClCaption2),
+      '',
+      GetMsg(strRestoreDefaults)
+    ], @N);
+    try
+      vRes := 0;
+      while True do begin
+        for I := 0 to N - 1 do
+          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
+
+        vRes := FARAPI.Menu(hModule, -1, -1, 0,
+          FMENU_WRAPMODE or FMENU_USEEXT,
+          GetMsg(strColorsTitle),
+          '',
+          '',
+          nil, nil,
+          Pointer(vItems),
+          N);
+
+        if vRes = -1 then
+          Exit;
+
+        case vRes of
+          0: ColorDlg('', optTextColor);
+          1: ColorDlg('', optTextSelColor);
+          2: ColorDlg('', optTextDiffColor);
+          3: ColorDlg('', optTextNumColor, FGrid.NormColor);
+          4: ColorDlg('', optTextHeadColor);
+          5: {};
+          6: RestoreDefTextColor;
+        end;
+
+        WriteSetupColors;
+        InitColors;
+        SendMsg(DM_REDRAW, 0, 0);
+      end;
+
+    finally
+      MemFree(vItems);
+    end;
+  end;
+
 
  {-----------------------------------------------------------------------------}
 
@@ -871,6 +1002,8 @@ interface
             ViewOrEditCurrent(False);
           KEY_F4:
             ViewOrEditCurrent(True);
+          KEY_F8:
+            ChangeFileFormat;
           KEY_F9:
             OptionsMenu;
 

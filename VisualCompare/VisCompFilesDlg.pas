@@ -31,6 +31,7 @@ interface
     FarMatch,
     FarDlg,
     FarGrid,
+    FarColorDlg,
 
     VisCompCtrl,
     VisCompFiles,
@@ -80,15 +81,6 @@ interface
 
       FUnfold         :Boolean;
 
-      FHeadColor      :Integer;
-      FSameColor      :Integer;
-      FOrphanColor    :Integer;
-      FOlderColor     :Integer;
-      FNewerColor     :Integer;
-      FFoundColor     :Integer;
-      FDiffColor      :Integer;
-      FSelColor       :Integer;
-
       FFilter         :TMyFilter;
       FFilterMode     :Boolean;
       FFilterMask     :TString;
@@ -110,6 +102,7 @@ interface
       procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
       procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
 
+      procedure InitColors;
       procedure ResizeDialog;
       procedure UpdateHeader;
       procedure UpdateFooter;
@@ -119,7 +112,7 @@ interface
       function GetCurSide :Integer;
       procedure GetSelected(AList :TStringList; AVer :Integer; AFullPath :Boolean);
       procedure GetSelectedOrCurrent(AList :TStringList; AVer :Integer; AFullPath :Boolean);
-      function GetNearestPresentItem(ARow :Integer) :TCmpFileItem;
+//    function GetNearestPresentItem(ARow :Integer) :TCmpFileItem;
 
       procedure ReinitAndSaveCurrent(AItem :TCmpFileItem = nil);
       procedure ToggleOption(var AOption :Boolean; ANeedUpdateDigest :Boolean = False);
@@ -133,9 +126,10 @@ interface
       procedure CompareCurrent(AForcePrompt :Boolean);
       procedure ViewOrEditCurrent(AEdit :Boolean);
       procedure CompareSelectedContents;
-      procedure DeleteSelected;  
+//    procedure DeleteSelected;  
       procedure MainMenu;
       procedure OptionsMenu;
+      procedure ColorsMenu;
       procedure SortByDlg;
 
     public
@@ -264,16 +258,6 @@ interface
     inherited Create;
 //  RegisterHints(Self);
     FFilter := TMyFilter.CreateSize(SizeOf(TFilterRec));
-
-    FHeadColor     := optHeadColor;
-    FSameColor     := optSameColor;
-    FOrphanColor   := optOrphanColor;
-    FOlderColor    := optOlderColor;
-    FNewerColor    := optNewerColor;
-    FFoundColor    := optFoundColor;
-    FDiffColor     := optDiffColor;
-    FSelColor      := optSelColor;
-
     FWholeLine     := True;
   end;
 
@@ -295,22 +279,19 @@ interface
     FHelpTopic := 'CompareFolders';
     FWidth := DX;
     FHeight := DY;
-    FItemCount := 5;
     FDialog := CreateDialog(
       [
         NewItemApi(DI_DoubleBox,   2, 1, DX - 4, DY - 2, 0, ''),
         NewItemApi(DI_Text,        DX-7, 1, 3, 1, 0, cNormalIcon),
-        NewItemApi(DI_Text,        3, 2, DX div 2, 1, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optHeadColor, '...'),
-        NewItemApi(DI_Text,        DX div 2 + 1, 2, DX - 6, 1, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optHeadColor, '...'),
+        NewItemApi(DI_Text,        3, 2, DX div 2, 1, DIF_SHOWAMPERSAND, '...'),
+        NewItemApi(DI_Text,        DX div 2 + 1, 2, DX - 6, 1, DIF_SHOWAMPERSAND, '...'),
         NewItemApi(DI_USERCONTROL, 3, 3, DX - 6, DY - 4, 0, '' )
-//      NewItemApi(DI_Text,        3, 3, DX - 6, 1, DIF_CENTERTEXT, '...')
-      ]
+      ],
+      @FItemCount
     );
 
     FGrid := TFarGrid.CreateEx(Self, IdList);
     FGrid.Options := [{goRowSelect} {, goFollowMouse} {,goWheelMovePos} ];
-    FGrid.NormColor := GetOptColor(0, COL_DIALOGTEXT);
-    FGrid.SelColor := GetOptColor(optCurColor, COL_DIALOGLISTSELECTEDTEXT);
 
     FGrid.OnCellClick := GridCellClick;
     FGrid.OnPosChange := GridPosChange;
@@ -324,6 +305,17 @@ interface
   begin
     SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
     ReinitGrid;
+    InitColors;
+  end;
+
+
+  procedure TFilesDlg.InitColors;
+  begin
+    FGrid.NormColor := GetOptColor(0, COL_DIALOGTEXT);
+    FGrid.SelColor  := GetOptColor(optCurColor, COL_DIALOGLISTSELECTEDTEXT);
+
+    SetItemFlags(IdHead1, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optHeadColor);
+    SetItemFlags(IdHead2, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optHeadColor);
   end;
 
 
@@ -331,13 +323,13 @@ interface
   var
     vWidth, vHeight :Integer;
     vRect, vRect1 :TSmallRect;
-    vScreenInfo :TConsoleScreenBufferInfo;
+    vSize :TSize;
   begin
-    GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
+    vSize := FarGetWindowSize;
 
     if optMaximized then begin
-      vWidth := vScreenInfo.dwSize.X;
-      vHeight := vScreenInfo.dwSize.Y;
+      vWidth := vSize.CX;
+      vHeight := vSize.CY;
 
       vRect := SBounds(0, 0, vWidth-1, vHeight-1);
       SendMsg(DM_SHOWITEM, IdFrame, 0);
@@ -348,13 +340,13 @@ interface
     end else
     begin
       vWidth := FMenuMaxWidth + 6;
-      if vWidth > vScreenInfo.dwSize.X - 4 then
-        vWidth := vScreenInfo.dwSize.X - 4;
+      if vWidth > vSize.CX - 4 then
+        vWidth := vSize.CX - 4;
       vWidth := IntMax(vWidth, cDlgMinWidth);
 
       vHeight := FGrid.RowCount + 5;
-      if vHeight > vScreenInfo.dwSize.Y - 2 then
-        vHeight := vScreenInfo.dwSize.Y - 2;
+      if vHeight > vSize.CY - 2 then
+        vHeight := vSize.CY - 2;
       vHeight := IntMax(vHeight, cDlgMinHeight);
 
       vRect := SBounds(2, 1, vWidth - 5, vHeight - 3);
@@ -533,15 +525,15 @@ interface
                 if vItem.HasAttr(faDirectory) then begin
 
                   if not FUnfold and (vItem.Subs <> nil) and ([crUncomp, crDiff, crOrphan] * vItem.GetFolderResume = []) then
-                    vColor := FSameColor
+                    vColor := optSameColor
 
                 end else
                 begin
                   if vItem.Content <> ccNoCompare then
                     if vItem.Content = ccDiff then
-                      vColor := FNewerColor
+                      vColor := optNewerColor
                     else
-                      vColor := FSameColor;
+                      vColor := optSameColor;
                 end;
               end;
 
@@ -549,30 +541,30 @@ interface
               if (optCompareSize and (faDirectory and vItem.Attr[vVer] = 0)) then begin
                 { Сравнимаем размер }
                 if vItem.Size[vVer] <> vItem.Size[1-vVer] then
-                  vColor := FNewerColor
+                  vColor := optNewerColor
                 else
-                  vColor := FSameColor;
+                  vColor := optSameColor;
               end;
 
             3:
               if optCompareTime and (optCompareFolderAttrs or (faDirectory and vItem.Attr[vVer] = 0)) then begin
                 { Сравнимаем даты }
                 if vItem.Time[vVer] > vItem.Time[1-vVer] then
-                  vColor := FNewerColor
+                  vColor := optNewerColor
                 else
                 if vItem.Time[vVer] < vItem.Time[1-vVer] then
-                  vColor := FOlderColor
+                  vColor := optOlderColor
                 else
-                  vColor := FSameColor;
+                  vColor := optSameColor;
               end;
 
             4:
               if optCompareAttr and (optCompareFolderAttrs or (faDirectory and vItem.Attr[vVer] = 0)) then begin
                 { Сравнимаем атрибуты }
                 if vItem.Attr[vVer] and faComparedAttrs <> vItem.Attr[1-vVer] and faComparedAttrs then
-                  vColor := FNewerColor
+                  vColor := optNewerColor
                 else
-                  vColor := FSameColor;
+                  vColor := optSameColor;
               end;
           end;
 
@@ -580,11 +572,11 @@ interface
         begin
           if faPresent and vItem.Attr[vVer] <> 0 then
             { Непарный элемент (сирота) }
-            vColor := FOrphanColor;
+            vColor := optOrphanColor;
         end;
 
         if (vRec.FSel and (1 shl vVer) <> 0) and (AColor <> FGrid.SelColor) then
-          AColor := FSelColor;
+          AColor := optSelColor;
 
         if vColor <> -1 then
           AColor := (AColor and $F0) or (vColor and $0F)
@@ -622,7 +614,7 @@ interface
     begin
       if (ALen > 0) (*and (FGrid.Column[ACol].Tag = FFilterColumn)*) then
         { Выделение части строки, совпадающей с фильтром... }
-        FGrid.DrawChrEx(X, Y, PTChar(AStr), AWidth, APos, ALen, AColor, (AColor and $F0) or (FFoundColor and $0F))
+        FGrid.DrawChrEx(X, Y, PTChar(AStr), AWidth, APos, ALen, AColor, (AColor and $F0) or (optFoundColor and $0F))
       else
         FGrid.DrawChr(X, Y, PTChar(AStr), AWidth, AColor);
       Inc(X, Length(AStr)); Dec(AWidth, Length(AStr));
@@ -672,9 +664,9 @@ interface
               LocDrawEx(vItem.Name, vRec.FPos, vRec.FLen);
 
               if optShowFilesInFolders and (vItem.Subs <> nil) then begin
-                LocDrawCount(vItem.Subs.OrphanCount[vVer], FOrphanColor);
-                LocDrawCount(vItem.Subs.DiffCount, FNewerColor);
-                LocDrawCount(vItem.Subs.SameCount, FSameColor);
+                LocDrawCount(vItem.Subs.OrphanCount[vVer], optOrphanColor);
+                LocDrawCount(vItem.Subs.DiffCount, optNewerColor);
+                LocDrawCount(vItem.Subs.SameCount, optSameColor);
                 LocDrawCount(vItem.Subs.UncompCount, FGrid.NormColor);
               end;
 
@@ -1100,7 +1092,9 @@ interface
       GetMsg(StrMShowFolderAttrs),
       '',
       GetMsg(StrMHilightDiff),
-      GetMsg(StrMUnfold)
+      GetMsg(StrMUnfold),
+      '',
+      GetMsg(StrMColors1)
     ], @N);
     try
       vRes := 0;
@@ -1158,7 +1152,70 @@ interface
           15: {};
           16: ToggleOption(optHilightDiff);
           17: ToggleOption(FUnfold);
+          18: {};
+          19: ColorsMenu;
         end;
+      end;
+
+    finally
+      MemFree(vItems);
+    end;
+  end;
+
+
+  procedure TFilesDlg.ColorsMenu;
+  var
+    I, N, vRes :Integer;
+    vItems :PFarMenuItemsArray;
+  begin
+    vItems := FarCreateMenu([
+      GetMsg(strClCurrentLine),
+      GetMsg(strClSelectedLine),
+      GetMsg(strClHilightedLine),
+      GetMsg(strClSameItem),
+      GetMsg(strClOrphanItem),
+      GetMsg(strClDiffItem),
+      GetMsg(strClOlderItem),
+      GetMsg(strClFoundText),
+      GetMsg(strClCaption1),
+      '',
+      GetMsg(strRestoreDefaults)
+    ], @N);
+    try
+      vRes := 0;
+      while True do begin
+        for I := 0 to N - 1 do
+          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
+
+        vRes := FARAPI.Menu(hModule, -1, -1, 0,
+          FMENU_WRAPMODE or FMENU_USEEXT,
+          GetMsg(strColorsTitle),
+          '',
+          '',
+          nil, nil,
+          Pointer(vItems),
+          N);
+
+        if vRes = -1 then
+          Exit;
+
+        case vRes of
+          0: ColorDlg('', optCurColor);
+          1: ColorDlg('', optSelColor);
+          2: ColorDlg('', optDiffColor);
+          3: ColorDlg('', optSameColor, FGrid.NormColor);
+          4: ColorDlg('', optOrphanColor, FGrid.NormColor);
+          5: ColorDlg('', optNewerColor, FGrid.NormColor);
+          6: ColorDlg('', optOlderColor, FGrid.NormColor);
+          7: ColorDlg('', optFoundColor, FGrid.NormColor);
+          8: ColorDlg('', optHeadColor);
+          9: {};
+          10: RestoreDefFilesColor;
+        end;
+
+        WriteSetupColors;
+        InitColors;
+        SendMsg(DM_REDRAW, 0, 0);
       end;
 
     finally
@@ -1270,7 +1327,7 @@ interface
   end;
 
 
-  procedure TFilesDlg.DeleteSelected;
+(*procedure TFilesDlg.DeleteSelected;
   var
     vVer :Integer;
     vList :TStringList;
@@ -1318,7 +1375,7 @@ interface
         Exit;
     end;
     Result := nil;
-  end;
+  end;*)
 
 
  {-----------------------------------------------------------------------------}
