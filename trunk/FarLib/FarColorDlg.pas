@@ -37,6 +37,8 @@ interface
     private
       FColor   :Integer;
       FSample  :TString;
+      FFixedBG :Integer;
+      FFixedFG :Integer;
 
       procedure DrawSample;
 
@@ -45,7 +47,7 @@ interface
     end;
 
 
-  function ColorDlg(const ATitle :TString; var AColor :Integer) :Boolean;
+  function ColorDlg(const ATitle :TString; var AColor :Integer; AFixedBG :Integer = -1; AFixedFG :Integer = -1) :Boolean;
 
 
 {******************************************************************************}
@@ -136,15 +138,26 @@ interface
 
 
   procedure TColorDlg.InitDialog; {override;}
+  var
+    I, vColor :Integer;
   begin
-    SetColor(FColor);
+    vColor := FColor;
+    if FFixedBG <> -1 then begin
+      vColor := (vColor and $0F) + (FFixedBG and $F0);
+      for I := 0 to 16 do
+        SendMsg(DM_ENABLE, IdRadio2 - 1 + I, 0);
+    end;
+    SetColor(vColor);
   end;
 
 
   function TColorDlg.CloseDialog(ItemID :Integer) :Boolean; {override;}
   begin
-    if (ItemID <> -1) and (ItemID <> IdCancel) then
+    if (ItemID <> -1) and (ItemID <> IdCancel) then begin
       FColor := GetColor;
+      if FFixedBG <> -1 then
+        FColor := FColor and $0F;
+    end;
     Result := True;
   end;
 
@@ -201,7 +214,7 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  function ColorDlg(const ATitle :TString; var AColor :Integer) :Boolean;
+  function ColorDlg(const ATitle :TString; var AColor :Integer; AFixedBG :Integer = -1; AFixedFG :Integer = -1) :Boolean;
   var
     vDlg :TColorDlg;
     vRes :Integer;
@@ -210,6 +223,8 @@ interface
     try
       vDlg.FColor   := AColor;
       vDlg.FSample  := 'Text Text Text Text Text';
+      vDlg.FFixedBG := AFixedBG;
+      vDlg.FFixedFG := AFixedFG;
 
       vRes := vDlg.Run;
 
