@@ -10,6 +10,8 @@
 
  * [http://far-plugins.googlecode.com/files/UCharMap.v4.rar Unicode CharMap 1.0.4 for FAR 2]
 
+---
+
 = История изменений =
 
 ==Ver 1.0.4==
