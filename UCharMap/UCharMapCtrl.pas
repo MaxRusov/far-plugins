@@ -332,7 +332,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function EnumFontsProc(const ALogFont :TEnumLogFontEx; const ATextMetric :TNewTextMetricEx; AFontType :Integer; AParam :Pointer): Integer; stdcall;
+  function EnumFontsProc(const ALogFont :TEnumLogFontEx; const ATextMetric :TNewTextMetricExW; AFontType :Integer; AParam :Pointer): Integer; stdcall;
   var
     vName :TString;
   begin

@@ -208,18 +208,18 @@ interface
   var
     vHeight :Integer;
     vRect :TSmallRect;
-    vScreenInfo :TConsoleScreenBufferInfo;
+    vSize :TSize;
   begin
     if ANeedLock then
       SendMsg(DM_ENABLEREDRAW, 0, 0);
     try
-      GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
+      vSize := FarGetWindowSize;
 
       vHeight := cDlgHeight;
       if optMaximized then begin
         vHeight := FGrid.RowCount + 10;
-        if vHeight > vScreenInfo.dwSize.Y - 4 then
-          vHeight := vScreenInfo.dwSize.Y - 4;
+        if vHeight > vSize.CY - 4 then
+          vHeight := vSize.CY - 4;
         vHeight := IntMax(vHeight, cDlgHeight);
       end;
 
