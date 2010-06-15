@@ -170,6 +170,8 @@ interface
   procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = 0; ACol :Integer = 1);
   procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName, ATypeName :PTString);
   function FarExpandFileName(const AFileName :TString) :TString;
+  function FarGetWindowRect :TSmallRect;
+  function FarGetWindowSize :TSize;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -982,6 +984,49 @@ interface
  {$endif bUnicodeFar}
   end;
 
+
+  function FarGetWindowRect :TSmallRect;
+ {$ifdef bUnicodeFar}
+  begin
+    FillChar(Result, SizeOf(Result), 0);
+    FARAPI.AdvControl(hModule, ACTL_GETFARRECT, @Result);
+ {$else}
+  var
+    vScreenInfo :TConsoleScreenBufferInfo;
+  begin
+    GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
+    with vScreenInfo.dwSize do
+      Result := Rect(0, 0, X - 1, Y - 1);
+ {$endif bUnicodeFar}
+  end;
+
+(*
+  function FarGetWindowSize :TSize;
+ {$ifdef bUnicodeFar}
+  var
+    vRect :TSmallRect;
+  begin
+    FillChar(vRect, SizeOf(vRect), 0);
+    FARAPI.AdvControl(hModule, ACTL_GETFARRECT, @vRect);
+    with vRect do
+      Result := Size(Right - Left + 1, Bottom - Top + 1);
+ {$else}
+  var
+    vScreenInfo :TConsoleScreenBufferInfo;
+  begin
+    GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
+    with vScreenInfo.dwSize do
+      Result := Size(X, Y);
+ {$endif bUnicodeFar}
+  end;
+*)
+
+
+  function FarGetWindowSize :TSize;
+  begin
+    with FarGetWindowRect do
+      Result := Size(Right - Left + 1, Bottom - Top + 1);
+  end;
 
 
 end.

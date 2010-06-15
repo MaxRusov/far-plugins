@@ -54,6 +54,7 @@ interface
       procedure SetTextApi(AItemID :Integer; const AStr :TFarStr);
       function GetText(AItemID :Integer) :TString;
       procedure SetText(AItemID :Integer; const AStr :TString);
+      procedure SetItemFlags(AItemID :Integer; AFlags :DWORD);
       procedure AddHistory(AItemID :Integer; const AStr :TString);
 
       procedure AddCustomControl(AControl :TFarCustomControl);
@@ -382,6 +383,17 @@ interface
    {$else}
     Result := StrOemToAnsi(GetTextApi(AItemID));
    {$endif bUnicodeFar}
+  end;
+
+
+  procedure TFarDialog.SetItemFlags(AItemID :Integer; AFlags :DWORD);
+  var
+    vItem :TFarDialogItem;
+  begin
+    if SendMsg(DM_GETDLGITEMSHORT, AItemID, @vItem) <> 0 then begin
+      vItem.Flags := AFlags;
+      SendMsg(DM_SETDLGITEMSHORT, AItemID, @vItem);
+    end;
   end;
 
 
