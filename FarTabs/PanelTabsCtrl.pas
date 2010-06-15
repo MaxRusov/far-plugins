@@ -232,9 +232,15 @@ interface
     GetConsoleScreenBufferInfo(hStdOut, vInfo);
 
     with vInfo.srWindow do begin
-//    TraceF('%d, %d - %d, %d', [Left, Top, Right, Bottom]);
       Result.Y := Top + MulDivTrunc(vPos.Y, Bottom - Top + 1, vRect.Bottom - vRect.Top);
       Result.X := Left + MulDivTrunc(vPos.X, Right - Left + 1, vRect.Right - vRect.Left);
+    end;
+
+    { Коррекция для режима "большого буфера" (/w) }
+    with FarGetWindowRect do begin
+//    TraceF('FWR: %d-%d, %d-%d', [Top, Bottom, Left, Right]);
+      Dec(Result.Y, Top);
+      Dec(Result.X, Left);
     end;
   end;
 
@@ -249,6 +255,12 @@ interface
     Result := #0;
     if not GetConsoleScreenBufferInfo(hStdOut, vInfo) then
       Exit;
+
+    { Коррекция для режима "большого буфера" (/w) }
+    with FarGetWindowRect do begin
+      Inc(Y, Top);
+      Inc(X, Left);
+    end;
 
     if (X < vInfo.dwSize.X) and (Y < vInfo.dwSize.Y) then begin
       vSize.X := 1; vSize.Y := 1; vCoord.X := 0; vCoord.Y := 0;

@@ -455,7 +455,8 @@ interface
   function GetMinFarVersionW :Integer; stdcall;
   begin
 //  Result := MakeFarVersion(2, 0, 1005);   { ProcessSynchroEvent }
-    Result := MakeFarVersion(2, 0, 1148);   { ConvertPath }
+//  Result := MakeFarVersion(2, 0, 1148);   { ConvertPath }
+    Result := MakeFarVersion(2, 0, 1573);   { ACTL_GETFARRECT }
   end;
  {$endif bUnicodeFar}
 
