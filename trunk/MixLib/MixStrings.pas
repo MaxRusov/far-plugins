@@ -124,14 +124,19 @@ interface
   type
     TStrFileFormat = (
       sffAnsi,
+      sffOEM,
       sffUnicode,
+      sffUTF8,
       sffAuto
     );
 
   var
-    BOM_UTF16_LE  :array[1..2] of Byte = ($FF, $FE);
+    BOM_UTF16 :ShortString = #$FF#$FE;
+    BOM_UTF8  :ShortString = #$EF#$BB#$BF;
+
     CRLF :array[1..2] of TChar = (#13, #10);
 
+  function StrDetectFormat(const AFileName :TString) :TStrFileFormat;
   function StrFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto) :TString;
   procedure StrToFile(const AFileName :TString; const AStr :TString; AMode :TStrFileFormat = sffAuto);
 
@@ -1362,43 +1367,102 @@ interface
   end;
 
 
-
  {-----------------------------------------------------------------------------}
+
+  function LocReadAnsiStr(AFile :THandle; ASize :Integer; AMode :TStrFileFormat) :TAnsiStr;
+  begin
+    SetString(Result, nil, ASize);
+    FileRead(AFile, PAnsiChar(Result)^, ASize);
+    if AMode = sffOEM then
+      {Windows.}OemToCharBuffA(PAnsiChar(Result), PAnsiChar(Result), ASize);
+  end;
+
+
+  function ReadUnicodeStr(AFile :THandle; ASize :Integer) :TWideStr;
+  begin
+    SetString(Result, nil, (ASize + 1) div 2);
+    FileRead(AFile, PWideChar(Result)^, ASize);
+  end;
+
+
+  function ReadUTF8Str(AFile :THandle; ASize :Integer) :TWideStr;
+  var
+    vAStr :TAnsiStr;
+    vSize1 :Integer;
+  begin
+    SetString(vAStr, nil, ASize);
+    FileRead(AFile, PAnsiChar(vAStr)^, ASize);
+    vSize1 := MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(vAStr), ASize, nil, 0);
+    if vSize1 > 0 then begin
+      SetString(Result, nil, vSize1);
+      MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(vAStr), ASize, PWideChar(Result), vSize1);
+    end;
+  end;
+
+
+  function CheckBOM(AFile :THandle; const aHeader :ShortString) :Boolean;
+  var
+    vHeader :String[10];
+  begin
+    Byte(vHeader[0]) := FileRead(AFile, vHeader[1], Length(aHeader));
+    Result := aHeader = vHeader;
+    if not Result then
+      FileSeek(AFile, 0, 0);
+  end;
+
+
+  function StrDetectFormat(const AFileName :TString) :TStrFileFormat;
+  var
+    vFile :THandle;
+  begin
+    vFile := FileOpen(AFileName, fmOpenRead or fmShareDenyWrite);
+    if vFile = INVALID_HANDLE_VALUE then
+      ApiCheck(False);
+    try
+      if CheckBOM(vFile, BOM_UTF16) then
+        Result := sffUnicode
+      else
+      if CheckBOM(vFile, BOM_UTF8) then
+        Result := sffUTF8
+      else
+        Result := sffAnsi;
+    finally
+      FileClose(vFile);
+    end;
+  end;
+
 
   function StrFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto) :TString;
   var
-    vFile, vSize :Integer;
-    vBOM :Word;
-    vWStr :TWideStr;
-    vAStr :TAnsiStr;
+    vFile :THandle;
+    vSize :Integer;
   begin
     Result := '';
     vFile := FileOpen(AFileName, fmOpenRead or fmShareDenyWrite);
-    if vFile < 0 then
+    if vFile = INVALID_HANDLE_VALUE then
       ApiCheck(False);
     try
       vSize := GetFileSize(vFile, nil);
-      if AMode = sffAuto then begin
-        if (FileRead(vFile, vBOM, SizeOf(vBOM)) = SizeOf(vBOM)) and (vBOM = Word(BOM_UTF16_LE)) then begin
-          AMode := sffUnicode;
-          Dec(vSize, SizeOf(vBOM));
-        end else
-        begin
-          AMode := sffAnsi;
-          FileSeek(vFile, 0, 0);
-        end;
-      end;
+
+      if ((AMode = sffAuto) or (AMode = sffUnicode)) and CheckBOM(vFile, BOM_UTF16) then begin
+        AMode := sffUnicode;
+        Dec(vSize, Length(BOM_UTF16));
+      end else
+      if ((AMode = sffAuto) or (AMode = sffUTF8)) and CheckBOM(vFile, BOM_UTF8) then begin
+        AMode := sffUTF8;
+        Dec(vSize, Length(BOM_UTF8));
+      end else
+      if AMode = sffAuto then
+        AMode := sffAnsi;
 
       if vSize > 0 then begin
-        if AMode = sffUnicode then begin
-          SetString(vWStr, nil, (vSize + 1) div SizeOf(WideChar));
-          FileRead(vFile, PWideChar(vWStr)^, vSize);
-          Result := vWStr;
-        end else
-        begin
-          SetString(vAStr, nil, vSize);
-          FileRead(vFile, PAnsiChar(vAStr)^, vSize);
-          Result := TString(vAStr);
+        case AMode of
+          sffAnsi,sffOEM:
+            Result := LocReadAnsiStr(vFile, vSize, AMode);
+          sffUnicode:
+            Result := ReadUnicodeStr(vFile, vSize);
+          sffUTF8:
+            Result := ReadUTF8Str(vFile, vSize);
         end;
       end;
 
@@ -1410,11 +1474,11 @@ interface
 
   procedure StrToFile(const AFileName :TString; const AStr :TString; AMode :TStrFileFormat = sffAuto);
   var
-    vFile :Integer;
+    vFile :THandle;
 
     procedure LocWriteUnicode(const AStr :TWideStr);
     begin
-      FileWrite(vFile, BOM_UTF16_LE, SizeOf(BOM_UTF16_LE));
+      FileWrite(vFile, BOM_UTF16[1], length(BOM_UTF16));
       FileWrite(vFile, PWideChar(AStr)^, Length(AStr) * SizeOf(WideChar));
     end;
 
@@ -1432,7 +1496,7 @@ interface
      {$endif bUnicode}
 
     vFile := FileCreate(AFileName);
-    if vFile < 0 then
+    if vFile = INVALID_HANDLE_VALUE then
       ApiCheck(False);
     try
       if AMode = sffUnicode then
@@ -1444,5 +1508,5 @@ interface
     end;
   end;
 
-  
+
 end.

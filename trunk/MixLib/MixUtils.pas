@@ -189,13 +189,13 @@ interface
   function Win32Check(RetVal: BOOL): BOOL;
   procedure RaiseLastWin32Error;
 
-  function FileOpen(const FileName :TString; Mode: LongWord): Integer;
-  function FileCreate(const FileName :TString): Integer;
-  function FileRead(Handle: Integer; var Buffer; Count: LongWord): Integer;
-  function FileWrite(Handle: Integer; const Buffer; Count: LongWord): Integer;
-  function FileSeek(Handle, Offset, Origin: Integer): Integer; overload;
-  function FileSeek(Handle: Integer; const Offset: Int64; Origin: Integer): Int64; overload;
-  procedure FileClose(Handle: Integer);
+  function FileOpen(const FileName :TString; Mode: LongWord) :THandle;
+  function FileCreate(const FileName :TString) :THandle;
+  function FileRead(Handle :THandle; var Buffer; Count: LongWord): Integer;
+  function FileWrite(Handle :THandle; const Buffer; Count: LongWord): Integer;
+  function FileSeek(Handle :THandle; Offset, Origin: Integer): Integer; overload;
+  function FileSeek(Handle :THandle; const Offset: Int64; Origin: Integer): Int64; overload;
+  procedure FileClose(Handle :THandle);
   function FileTimeToDosFileDate(const AFileTime :TFileTime) :Integer;
   function FileAge(const FileName :TString): Integer;
   function FileGetAttr(const FileName :TString): Integer;
@@ -1068,7 +1068,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function FileOpen(const FileName :TString; Mode: LongWord): Integer;
+  function FileOpen(const FileName :TString; Mode: LongWord) :THandle;
   const
     AccessMode: array[0..2] of LongWord = (
       GENERIC_READ,
@@ -1081,44 +1081,44 @@ interface
       FILE_SHARE_WRITE,
       FILE_SHARE_READ or FILE_SHARE_WRITE);
   begin
-    Result := Integer(CreateFile(PTChar(FileName), AccessMode[Mode and 3],
+    Result := CreateFile(PTChar(FileName), AccessMode[Mode and 3],
       ShareMode[(Mode and $F0) shr 4], nil, OPEN_EXISTING,
-      FILE_ATTRIBUTE_NORMAL, 0));
+      FILE_ATTRIBUTE_NORMAL, 0);
   end;
 
-  function FileCreate(const FileName :TString): Integer;
+  function FileCreate(const FileName :TString) :THandle;
   begin
-    Result := Integer(CreateFile(PTChar(FileName), GENERIC_READ or GENERIC_WRITE,
-      0, nil, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0));
+    Result := CreateFile(PTChar(FileName), GENERIC_READ or GENERIC_WRITE,
+      0, nil, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
   end;
 
-  function FileRead(Handle: Integer; var Buffer; Count: LongWord): Integer;
+  function FileRead(Handle :THandle; var Buffer; Count: LongWord): Integer;
   begin
-    if not ReadFile(THandle(Handle), Buffer, Count, LongWord(Result), nil) then
+    if not ReadFile(Handle, Buffer, Count, LongWord(Result), nil) then
       Result := -1;
   end;
 
-  function FileWrite(Handle: Integer; const Buffer; Count: LongWord): Integer;
+  function FileWrite(Handle :THandle; const Buffer; Count: LongWord): Integer;
   begin
-    if not WriteFile(THandle(Handle), Buffer, Count, LongWord(Result), nil) then
+    if not WriteFile(Handle, Buffer, Count, LongWord(Result), nil) then
       Result := -1;
   end;
 
-  function FileSeek(Handle, Offset, Origin: Integer): Integer;
+  function FileSeek(Handle :THandle; Offset, Origin: Integer): Integer;
   begin
-    Result := SetFilePointer(THandle(Handle), Offset, nil, Origin);
+    Result := SetFilePointer(Handle, Offset, nil, Origin);
   end;
 
-  function FileSeek(Handle: Integer; const Offset: Int64; Origin: Integer): Int64;
+  function FileSeek(Handle :THandle; const Offset: Int64; Origin: Integer): Int64;
   begin
     Result := Offset;
-    Int64Rec(Result).Lo := SetFilePointer(THandle(Handle), Int64Rec(Result).Lo,
+    Int64Rec(Result).Lo := SetFilePointer(Handle, Int64Rec(Result).Lo,
       @Int64Rec(Result).Hi, Origin);
   end;
 
-  procedure FileClose(Handle: Integer);
+  procedure FileClose(Handle :THandle);
   begin
-    CloseHandle(THandle(Handle));
+    CloseHandle(Handle);
   end;
 
 
