@@ -49,9 +49,7 @@ interface
 
   function GetMinFarVersionW :Integer; stdcall;
   begin
-//  Result := $02F40200;  { Need 2.0.756 }
-//  Result := $03150200;  { Need 2.0.789 }
-    Result := $03E30200;  { Need 2.0.995 }   { Изменена TWindowInfo }
+    Result := MakeFarVersion(2, 0, 1573);   { ACTL_GETFARRECT }
   end;
 
 
