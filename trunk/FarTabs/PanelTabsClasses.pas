@@ -801,18 +801,17 @@ interface
     vCmdLineY :Integer;
     vFolders :array[TTabKind] of TString;
 
-
     procedure DetectPanelSettings;
     var
       vRes :Integer;
-      vInfo :TConsoleScreenBufferInfo;
+      vSize :TSize;
     begin
 //    vRes := FARAPI.AdvControl(hModule, ACTL_GETPANELSETTINGS, nil);
       vRes := FARAPI.AdvControl(hModule, ACTL_GETINTERFACESETTINGS, nil);
 
-      GetConsoleScreenBufferInfo(hStdOut, vInfo);
-      vCmdLineY := vInfo.dwSize.Y - 1 - IntIf(FIS_SHOWKEYBAR and vRes <> 0, 1, 0);
-      vWinWidth := vInfo.dwSize.X;
+      vSize := FarGetWindowSize;
+      vCmdLineY := vSize.CY - 1 - IntIf(FIS_SHOWKEYBAR and vRes <> 0, 1, 0);
+      vWinWidth := vSize.CX;
     end;
 
 
