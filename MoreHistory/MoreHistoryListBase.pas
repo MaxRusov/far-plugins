@@ -245,18 +245,18 @@ interface
   var
     vWidth, vHeight :Integer;
     vRect :TSmallRect;
-    vScreenInfo :TConsoleScreenBufferInfo;
+    vSize :TSize;
   begin
-    GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
+    vSize := FarGetWindowSize;
 
     vWidth := FMenuMaxWidth + 6;
-    if vWidth > vScreenInfo.dwSize.X - 4 then
-      vWidth := vScreenInfo.dwSize.X - 4;
+    if vWidth > vSize.CX - 4 then
+      vWidth := vSize.CX - 4;
     vWidth := IntMax(vWidth, cDlgMinWidth);
 
     vHeight := FGrid.RowCount + 4;
-    if vHeight > vScreenInfo.dwSize.Y - 2 then
-      vHeight := vScreenInfo.dwSize.Y - 2;
+    if vHeight > vSize.CY - 2 then
+      vHeight := vSize.CY - 2;
     vHeight := IntMax(vHeight, cDlgMinHeight);
 
     SetDlgPos(-1, -1, vWidth, vHeight);
