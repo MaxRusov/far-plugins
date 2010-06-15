@@ -653,12 +653,12 @@ interface
 
     procedure InitProgress;
     var
-      vScreenInfo :TConsoleScreenBufferInfo;
+      vSize :TSize;
     begin
       if vSave = 0 then begin
         vSave := FARAPI.SaveScreen(0, 0, -1, -1);
-        GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
-        vScnWidth := vScreenInfo.dwSize.X;
+        vSize := FarGetWindowSize;
+        vScnWidth := vSize.CX;
         vWidth := IntMin(IntMax(vScnWidth div 2, 50), vScnWidth-2);
       end;
     end;
@@ -858,12 +858,12 @@ interface
 
     procedure InitProgress;
     var
-      vScreenInfo :TConsoleScreenBufferInfo;
+      vSize :TSize;
     begin
       if vSave = 0 then begin
         vSave := FARAPI.SaveScreen(0, 0, -1, -1);
-        GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
-        vScnWidth := vScreenInfo.dwSize.X;
+        vSize := FarGetWindowSize;
+        vScnWidth := vSize.CX;
         vWidth := IntMin(IntMax(vScnWidth div 2, 50), vScnWidth-2);
       end;
     end;

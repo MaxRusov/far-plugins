@@ -47,6 +47,8 @@ interface
   function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
  {$endif bUnicodeFar}
 
+  function CompareFiles(AFileName1, AFileName2 :PTChar; AOptions :DWORD) :Integer; stdcall;
+    { Экспорт, для межплагинного взаимодействия... }
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -54,6 +56,19 @@ interface
 
   uses
     MixDebug;
+
+
+  function CompareFiles(AFileName1, AFileName2 :PTChar; AOptions :DWORD) :Integer;
+    { Экспорт, для межплагинного взаимодействия... }
+  begin
+    try
+      CompareTexts(AFileName1, AFileName2);
+    except
+      on E :Exception do
+        HandleError(E);
+    end;
+    Result := 0;
+  end;
 
 
   procedure CompareFolders2(const AFolder1, AFolder2 :TString);
@@ -112,8 +127,7 @@ interface
  {$ifdef bUnicodeFar}
   function GetMinFarVersionW :Integer; stdcall;
   begin
-//  Result := $02F40200; { Need 2.0.756 }
-    Result := $03150200; { Need 2.0.789 }
+    Result := MakeFarVersion(2, 0, 1573);   { ACTL_GETFARRECT }
   end;
  {$endif bUnicodeFar}
 
@@ -133,6 +147,9 @@ interface
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
     FRegRoot := psi.RootKey;
 
+    RestoreDefFilesColor;
+    RestoreDefTextColor;
+    
 (*  ReadSetup;  *)
   end;
 
@@ -190,6 +207,7 @@ interface
      {$endif bUnicodeFar}
       try
         ReadSetup;
+        ReadSetupColors;
 
         if OpenFrom = OPEN_COMMANDLINE then
           OpenCmdLine(FarChar2Str(PFarChar(Item)))
