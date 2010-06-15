@@ -2,15 +2,15 @@
 
 = Описание =
 
-Она и есть
+ Она и есть
 
-Обсуждение: http://forum.farmanager.com/viewtopic.php?f=5&t=3883
+ Обсуждение: http://forum.farmanager.com/viewtopic.php?f=5&t=3883
 
 == Загрузить ==
 
  * [http://far-plugins.googlecode.com/files/UCharMap.v4.rar Unicode CharMap 1.0.4 for FAR 2]
 
----
+----
 
 = История изменений =
 
