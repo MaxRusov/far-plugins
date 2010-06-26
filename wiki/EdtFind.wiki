@@ -13,7 +13,7 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/EdtFindW.v3.rar EdtFind 1.0.3 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/EdtFindW.v4.rar EdtFind 1.0.4 for FAR 2]
 
 == Пример ==
 
@@ -22,6 +22,10 @@ http://far-plugins.googlecode.com/svn/trunk/EdtFind/Image/Sample.png
 ----
 
 = История изменений =
+
+== Ver 1.0.4 ==
+
+  * Исправлены проблемы совместимости с плагином Word Completion
 
 == Ver 1.0.3 ==
 
