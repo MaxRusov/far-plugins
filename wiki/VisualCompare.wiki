@@ -8,7 +8,7 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/VisualCompareW.v0.4.rar VisualCompare 0.9.4 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/VisualCompareW.v0.5.rar VisualCompare 0.9.5 for FAR 2]
 
 == Примеры ==
 
@@ -19,6 +19,12 @@ http://far-plugins.googlecode.com/svn/trunk/VisualCompare/Image/Sample2.png
 
 = История изменений =
 
+==Ver 0.9.5==
+
+ * Возможность сравнение с локальной базой SVN. Для сравнения наберите "SVN:" в качестве одного из сравниваемых каталогов. Или через командную строку:
+
+   VC: SVN: .
+
 ==Ver 0.9.4==
 
  * Поддержка большого экранного буфера. Требуется Far 2 build 1573+
@@ -26,7 +32,6 @@ http://far-plugins.googlecode.com/svn/trunk/VisualCompare/Image/Sample2.png
  * Добавлен экспортируемый вызов для межплагинного взаимодействия. 
 
  * Исправлено несколько ошибок.
-
 
 == Ver 0.9.3 ==
 
@@ -46,4 +51,3 @@ http://far-plugins.googlecode.com/svn/trunk/VisualCompare/Image/Sample2.png
  * Изменения в меню и клавиатурных командах
 
  * Добавлен небольшой HELP
-
