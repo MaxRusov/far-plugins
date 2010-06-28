@@ -71,11 +71,24 @@ interface
   end;
 
 
+  function MakeProvider(const AFolder :TString) :TDataProvider;
+  begin
+    if UpCompareSubStr(cSVNFakeDrive, AFolder) = 0 then
+      Result := TSVNProvider.CreateEx(AFolder)
+    else
+    if UpCompareSubStr(cPlugFakeDrive, AFolder) = 0 then
+      Result := TPluginProvider.CreateEx(AFolder)
+    else
+      Result := TFileProvider.CreateEx(AFolder);
+  end;
+
+
   procedure CompareFolders2(const AFolder1, AFolder2 :TString);
   var
     vPath1, vPath2 :TString;
-    vList :TCmpFolder;
-    vSide  :Integer;
+    vSource1, vSource2 :TDataProvider;
+    vComp :TComparator;
+    vSide :Integer;
   begin
     vSide  := CurrentPanelSide;
 
@@ -90,14 +103,22 @@ interface
     if not CompareDlg(vPath1, vPath2) then
       Exit;
 
-    vList := CompareFolders(vPath1, vPath2);
+    vSource1 := nil; vSource2 := nil; vComp := nil;
     try
-      ShowFilesDlg(vList);
+      vSource1 := MakeProvider(vPath1);
+      vSource2 := MakeProvider(vPath2);
+
+      vComp := TComparator.CreateEx(vSource1, vSource2);
+      vComp.CompareFolders;
+
+      ShowFilesDlg(vComp);
+
     finally
-      FreeObj(vList);
+      FreeObj(vComp);
+      FreeObj(vSource1);
+      FreeObj(vSource2);
     end
   end;
-
 
 
   procedure OpenCmdLine(const AStr :TString);
@@ -107,8 +128,8 @@ interface
   begin
     if AStr <> '' then begin
       vPtr := PTChar(AStr);
-      vStr1 := FarExpandFileName(ExtractParamStr(vPtr));
-      vStr2 := FarExpandFileName(ExtractParamStr(vPtr));
+      vStr1 := FarExpandFileNameEx(ExtractParamStr(vPtr));
+      vStr2 := FarExpandFileNameEx(ExtractParamStr(vPtr));
 
       if (vStr1 <> '') and WinFileExists(vStr1) and (vStr2 <> '') and WinFileExists(vStr2) then
         CompareTexts(vStr1, vStr2)

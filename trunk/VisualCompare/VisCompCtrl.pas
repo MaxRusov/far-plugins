@@ -174,6 +174,8 @@ interface
     cPlugColorRegFolder = 'Colors';
 
     cPlugMenuPrefix = 'vc';
+    cSVNFakeDrive = 'svn:';
+    cPlugFakeDrive = 'plugin:';
 
     cNormalIcon = '['#$18']';
     cMaximizedIcon = '['#$12']';
@@ -262,6 +264,9 @@ interface
   function CurrentPanelSide :Integer;
   function GetPanelDir(Active :Boolean) :TString;
   procedure CopyToClipboard(const AStr :TString);
+
+  function IsSpecialPath(const AName :TString) :boolean;
+  function FarExpandFileNameEx(const AName :TString) :TString;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -509,19 +514,26 @@ interface
 
 
   function GetPanelDir(Active :Boolean) :TString;
- {$ifdef bUnicodeFar}
- {$else}
   var
-    vInfo :TPanelInfo;
- {$endif bUnicodeFar}
+    vInfo  :TPanelInfo;
   begin
-   {$ifdef bUnicodeFar}
-    Result := FarPanelGetCurrentDirectory(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
-   {$else}
+    Result := '';
     FillChar(vInfo, SizeOf(vInfo), 0);
+   {$ifdef bUnicodeFar}
+    FARAPI.Control(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_GetPanelInfo, 0, @vInfo);
+   {$else}
     FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
-    Result := StrOEMToAnsi(vInfo.CurDir);
    {$endif bUnicodeFar}
+    if vInfo.PanelType = PTYPE_FILEPANEL then begin
+      if vInfo.Plugin = 0 then begin
+       {$ifdef bUnicodeFar}
+        Result := FarPanelGetCurrentDirectory(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
+       {$else}
+        Result := StrOEMToAnsi(vInfo.CurDir);
+       {$endif bUnicodeFar}
+      end else
+        Result := cPlugFakeDrive;
+    end;
   end;
 
 
@@ -536,6 +548,21 @@ interface
     vStr := StrAnsiToOEM(AStr);
     FARSTD.CopyToClipboard(PFarChar(vStr));
  {$endif bUnicodeFar}
+  end;
+
+
+  function IsSpecialPath(const AName :TString) :boolean;
+  begin
+    Result := (UpCompareSubStr(cPlugFakeDrive, AName) = 0) or (UpCompareSubStr(cSVNFakeDrive, AName) = 0);
+  end;
+
+
+  function FarExpandFileNameEx(const AName :TString) :TString;
+  begin
+    if IsSpecialPath(AName) then
+      Result := AName
+    else
+      Result := FarExpandFileName( AName );
   end;
 
 

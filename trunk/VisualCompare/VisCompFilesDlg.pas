@@ -76,7 +76,7 @@ interface
     private
       FGrid           :TFarGrid;
 
-      FRootItems      :TCmpFolder;
+      FComp           :TComparator;
       FItems          :TCmpFolder;
 
       FUnfold         :Boolean;
@@ -137,7 +137,7 @@ interface
     end;
 
 
-  procedure ShowFilesDlg(AFiles :TCmpFolder);
+  procedure ShowFilesDlg(AComp :TComparator);
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -400,11 +400,11 @@ interface
 
     SetText(IdFrame, vStr);
 
-    vStr := ' ' + FItems.Folder1;
-    SetText(IdHead1, vStr);
+    vStr := FComp.ViewFileName(FItems.GetFolder(0), '', 0);
+    SetText(IdHead1, ' ' + vStr);
 
-    vStr := ' ' + FItems.Folder2;
-    SetText(IdHead2, vStr);
+    vStr := FComp.ViewFileName(FItems.GetFolder(1), '', 1);
+    SetText(IdHead2, ' ' + vStr);
   end;
 
 
@@ -642,11 +642,7 @@ interface
           if FUnfold then begin
 
             if faDirectory and vAttr <> 0 then begin
-              if vVer = 0 then
-                vStr := vItem.ParentGroup.Folder1
-              else
-                vStr := vItem.ParentGroup.Folder2;
-              vStr := AddBackSlash(vStr);
+              vStr := AddBackSlash(FComp.ViewFileName(vItem.ParentGroup.GetFolder(vVer), '', vVer));
               LocDrawEx(vStr + vItem.Name, Length(vStr) + vRec.FPos, vRec.FLen);
             end else
             begin
@@ -849,7 +845,7 @@ interface
     if not FUnfold then begin
       LocAddList(FFilter, FItems);
       FFilter.SortList(True, 0);
-      if FRootItems <> FItems then
+      if FComp.Results <> FItems then
         { Ёлемент ".." дл€ выхода из группы }
         FFilter.Add(nil, 0, 0, 0);
     end else
@@ -1249,7 +1245,7 @@ interface
   begin
     AOption := not AOption;
     if ANeedUpdateDigest then
-      UpdateFolderDidgets(FRootItems);
+      UpdateFolderDidgets(FComp.Results);
     ReinitAndSaveCurrent;
     WriteSetup;
   end;
@@ -1316,9 +1312,9 @@ interface
       if vList.Count = 0 then
         begin Beep; Exit; end;
 
-      CompareFilesContents('', vList);
+      FComp.CompareFilesContents('', vList); 
 
-      UpdateFolderDidgets(FRootItems);
+      UpdateFolderDidgets(FComp.Results);
       ReinitAndSaveCurrent;
 
     finally
@@ -1327,7 +1323,8 @@ interface
   end;
 
 
-(*procedure TFilesDlg.DeleteSelected;
+(*
+  procedure TFilesDlg.DeleteSelected;
   var
     vVer :Integer;
     vList :TStringList;
@@ -1375,7 +1372,8 @@ interface
         Exit;
     end;
     Result := nil;
-  end;*)
+  end;
+*)
 
 
  {-----------------------------------------------------------------------------}
@@ -1416,13 +1414,17 @@ interface
         WriteSetup;
       end;
 
-      if StrEqual(optCompareCmd, cPlugMenuPrefix + ':') then
-        CompareTexts(vItem.GetFullFileName(0), vItem.GetFullFileName(1))
-      else begin
-        vParam := '"' + vItem.GetFullFileName(0) + '" "' + vItem.GetFullFileName(1) + '"';
+      if StrEqual(optCompareCmd, cPlugMenuPrefix + ':') then begin
+        CompareTextsEx(
+          FComp.RealFileName(vItem, 0),
+          FComp.RealFileName(vItem, 1),
+          FComp.ViewFileName(vItem, 0),
+          FComp.ViewFileName(vItem, 1));
+      end else
+      begin
+        vParam := '"' + FComp.RealFileName(vItem, 0) + '" "' + FComp.RealFileName(vItem, 1) + '"';
         ShellOpen(0, optCompareCmd, vParam);
       end;
-
     end else
       Beep;
   end;
@@ -1442,10 +1444,10 @@ interface
       SendMsg(DM_ShowDialog, 0, 0);
       vSave := FARAPI.SaveScreen(0, 0, -1, -1);
       try
-        FarEditOrView(vItem.GetFullFileName(vVer), AEdit, EF_ENABLE_F6);
+        FarEditOrView(FComp.RealFileName(vItem, vVer), AEdit, EF_ENABLE_F6);
 
-        if vItem.UpdateInfo then
-          UpdateFolderDidgets(FRootItems);
+        if FComp.UpdateItemInfo(vItem) then
+          UpdateFolderDidgets(FComp.Results);
 
       finally
         FARAPI.RestoreScreen(vSave);
@@ -1505,6 +1507,7 @@ interface
         vSide := CurrentPanelSide;
 
         if vItem.ParentGroup.Folder1 <> '' then
+          {!!!}
           if JumpToFile( vSide = 0, AddFileName(vItem.ParentGroup.Folder1, vName) ) then
             if FSelectedCount[0] > 0 then begin
               GetSelected(vSelected, 0, False);
@@ -1512,6 +1515,7 @@ interface
             end;
 
         if vItem.ParentGroup.Folder2 <> '' then
+          {!!!}
           if JumpToFile( vSide <> 0, AddFileName(vItem.ParentGroup.Folder2, vName) ) then
             if FSelectedCount[1] > 0 then begin
               GetSelected(vSelected, 1, False);
@@ -1542,6 +1546,7 @@ interface
     if FSelectedCount[vVer] = 0 then begin
       vItem := GetCurrentItem;
       if (vItem <> nil) and (faPresent and vItem.Attr[vVer] <> 0) then
+        {!!!-???}
         CopyToClipboard(vItem.GetFullFileName(vVer))
       else
         Beep;
@@ -1609,6 +1614,7 @@ interface
       if (vRec.FItem <> nil) and ((AVer = -1) or (faPresent and vRec.FItem.Attr[AVer] <> 0)) and (vRec.FSel <> 0) then begin
         if (vRec.FSel and vMask = vMask) or ((AVer = -1) and not vRec.FItem.BothAttr(faPresent)) then begin
           if AFullPath then
+            {!!!-???}
             AList.AddObject( vRec.FItem.GetFullFileName(AVer), vRec.FItem )
           else
             AList.AddObject( RemoveBackSlash(vRec.FItem.Name), vRec.FItem );
@@ -1787,7 +1793,7 @@ interface
           KEY_CTRL + Byte('\'):
             begin
               {Go to root...}
-              FItems := FRootItems;
+              FItems := FComp.Results;
               ReinitGrid;
               SetCurrent( 0, lmScroll );
             end;
@@ -1984,16 +1990,16 @@ interface
   end;
 
 
-  procedure ShowFilesDlg(AFiles :TCmpFolder);
+  procedure ShowFilesDlg(AComp :TComparator);
   var
     vDlg :TFilesDlg;
     vFinish :Boolean;
   begin
     vDlg := TFilesDlg.Create;
     try
-      UpdateFolderDidgets(AFiles);
-      vDlg.FRootItems := AFiles;
-      vDlg.FItems := AFiles;
+      UpdateFolderDidgets(AComp.Results);
+      vDlg.FComp := AComp;
+      vDlg.FItems := AComp.Results;
 
       vFinish := False;
       while not vFinish do begin

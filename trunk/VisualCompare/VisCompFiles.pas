@@ -20,9 +20,7 @@ interface
     MixFormat,
     MixClasses,
     MixWinUtils,
-   {$ifdef bUseCRC}
     MixCRC,
-   {$endif bUseCRC}
 
    {$ifdef bUnicodeFar}
     PluginW,
@@ -62,6 +60,7 @@ interface
 
   type
     TCmpFileItem = class;
+    TComparator = class;
 
     TCmpFolder = class(TObjList)
     public
@@ -77,6 +76,7 @@ interface
 
     public
       procedure CleanupDeletedItems;
+      function GetFolder(AVer :Integer) :TString;
     end;
 
 
@@ -93,7 +93,7 @@ interface
 
     public
       destructor Destroy; override;
-      procedure SetInfo(AVer :Integer; const aSRec :TWin32FindData);
+      procedure SetInfo(AVer :Integer; AAttr :Word; ASize :Int64; ATime :Integer);
 
       function HasAttr(A :Word) :boolean;
       function BothAttr(A :Word) :boolean;
@@ -103,16 +103,111 @@ interface
       function GetResume :TCompareResume;
       function GetFolderResume :TFolderResume;
       function GetFullFileName(AVer :Integer) :TString;
-
-      function UpdateInfo :Boolean;
-      function CompareContents(const AProgressProc :TMethod) :Boolean;
     end;
 
 
-  function CompareFolders(const ACmpFolder1, ACmpFolder2 :TString) :TCmpFolder;
+    TFilterMask = class(TBasis)
+    public
+      constructor CreateFileMask(const AMask :TString);
+      destructor Destroy; override;
+      function Check(const AStr :TString; var APos, ALen :Integer) :Boolean;
 
-  procedure CompareFilesContents(const ABaseFolder :TString; AList :TStringList);
-  procedure CompareFolderContents(AFolder :TCmpFolder);
+    private
+      FSubMasks :TObjList;
+      FMask     :TString;
+      FExact    :Boolean;
+      FRegExp   :Boolean;
+      FNot      :Boolean;
+    end;
+
+
+    TDataProvider = class(TBasis)
+    public
+      constructor CreateEx(const AFolder :TString); virtual;
+      procedure Enumerate(const AFolder :TString); virtual; abstract;
+      function GetInfo(const AFolder, AFileName :TString; var Attr :Word; var ASize :Int64; var ATime :Integer) :boolean; virtual;
+
+      function MakePath(const AFolder :TString) :TString; virtual;
+      function GetRealFileName(const AFolder, AFileName :TString) :TString; virtual;
+      function GetViewFileName(const AFolder, AFileName :TString) :TString; virtual;
+
+    private
+      FFolder     :TString;
+      FComparator :TComparator;
+    end;
+
+    TFileProvider = class(TDataProvider)
+    public
+      procedure Enumerate(const AFolder :TString); override;
+    end;
+
+    TSVNProvider = class(TDataProvider)
+    public
+      constructor CreateEx(const AFolder :TString); override;
+      procedure Enumerate(const AFolder :TString); override;
+
+      function GetRealFileName(const AFolder, AFileName :TString) :TString; override;
+      function GetViewFileName(const AFolder, AFileName :TString) :TString; override;
+    end;
+
+    TPluginProvider = class(TDataProvider)
+    public
+      constructor CreateEx(const AFolder :TString); override;
+    end;
+
+
+    TComparator = class(TBasis)
+    public
+      constructor CreateEx(ASource1, ASource2 :TDataProvider);
+      destructor Destroy; override;
+
+      procedure CompareFolders; virtual;
+      procedure CompareFolderContents(AFolder :TCmpFolder);
+      procedure CompareFilesContents(const ABaseFolder :TString; AList :TStringList);
+
+      function CompareContents(const AFileName1, AFileName2 :TString) :Boolean;
+      function CompareCRC(const AFileName1, AFileName2 :TString) :Boolean;
+
+      function UpdateItemInfo(AItem :TCmpFileItem) :Boolean;
+
+      function RealFileName(AItem :TCmpFileItem; AVer :Integer) :TString;
+      function ViewFileName(AItem :TCmpFileItem; AVer :Integer) :TString; overload;
+      function ViewFileName(const AFolder, AName :TString; AVer :Integer) :TString; overload;
+
+    private
+      FSources   :array[0..1] of TDataProvider;
+
+      FResults   :TCmpFolder;
+      FInclMasks :TFilterMask;
+      FExclMasks :TFilterMask;
+
+      FSave      :THandle;
+      FWidth     :Integer;
+
+      FStart     :Cardinal;
+      FLast      :Cardinal;
+
+      FFolders   :Integer;
+      FFiles     :Integer;
+      FTotFiles  :Integer;
+      FSize      :TInt64;
+      FTotSize   :TInt64;
+
+      FCurList   :TCmpFolder;
+      FCurVer    :Integer;
+      FCurFile   :TString;
+
+      procedure InitMasks;
+      procedure InitProgress;
+      procedure DoneProgress;
+      procedure ShowProgress(const AMess :TString; APerc :Integer);
+      procedure UpdateProgress2(AddSize :Int64);
+      procedure AddItem(const AName :TString; Attr :Word; ASize :Int64; ATime :Integer);
+
+    public
+      property Results :TCmpFolder read FResults;
+    end;
+
 
   procedure UpdateFolderDidgets(AList :TCmpFolder);
 
@@ -133,7 +228,7 @@ interface
 
 
   type
-    ECtrlBreak = class(TException);  
+    ECtrlBreak = class(TException);
 
 
   procedure CtrlBreakException;
@@ -165,60 +260,17 @@ interface
   end;
 
 
- {-----------------------------------------------------------------------------}
- {                                                                             }
- {-----------------------------------------------------------------------------}
-
-  type
-    TFilterMask = class(TBasis)
-    public
-(*    constructor CreateEx(const AMask :TString; AExact :Boolean); *)
-      constructor CreateFileMask(const AMask :TString);
-      destructor Destroy; override;
-      function Check(const AStr :TString; var APos, ALen :Integer) :Boolean;
-
-    private
-      FSubMasks :TObjList;
-      FMask     :TString;
-      FExact    :Boolean;
-      FRegExp   :Boolean;
-      FNot      :Boolean;
-    end;
-
-
-
-(*
-  constructor TFilterMask.CreateEx(const AMask :TString; AExact :Boolean);
-  var
-    vPos :Integer;
-    vStr :TString;
+  function MulDiv64(A, B, C :Int64) :Int64;
   begin
-    Create;
-    FExact := AExact;
-    vPos := ChrPos('|', AMask);
-    if vPos = 0 then begin
-      FMask := AMask;
-      if (FMask <> '') and (FMask[1] = '!') then begin
-        FNot := True;
-        Delete(FMask, 1, 1);
-      end;
-      FRegExp := (ChrPos('*', FMask) <> 0) or (ChrPos('?', FMask) <> 0);
-      if FRegExp and not AExact and (FMask[Length(FMask)] <> '*') {and (FMask[Length(FMask)] <> '?')} then
-        FMask := FMask + '*';
-    end else
-    begin
-      FSubMasks := TObjList.Create;
-      vStr := AMask;
-      repeat
-        FSubMasks.Add( TFilterMask.CreateEx(Copy(vStr, 1, vPos - 1), AExact) );
-        vStr := Copy(vStr, vPos + 1, MaxInt);
-        vPos := ChrPos('|', vStr);
-      until vPos = 0;
-      if vStr <> '' then
-        FSubMasks.Add( TFilterMask.CreateEx(vStr, AExact) );
-    end;
+    Result := 0;
+    if C > 0 then
+      Result := (A * B) div C;
   end;
-*)
+
+
+ {-----------------------------------------------------------------------------}
+ { TFilterMask                                                                 }
+ {-----------------------------------------------------------------------------}
 
   constructor TFilterMask.CreateFileMask(const AMask :TString);
   var
@@ -297,6 +349,15 @@ interface
   end;
 
 
+  function TCmpFolder.GetFolder(AVer :Integer) :TString;
+  begin
+    if AVer = 0 then
+      Result := Folder1
+    else
+      Result := Folder2;
+  end;
+
+
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
@@ -308,11 +369,11 @@ interface
   end;
 
 
-  procedure TCmpFileItem.SetInfo(AVer :Integer; const aSRec :TWin32FindData);
+  procedure TCmpFileItem.SetInfo(AVer :Integer; AAttr :Word; ASize :Int64; ATime :Integer);
   begin
-    Size[AVer] := MakeInt64(aSRec.nFileSizeLow, aSRec.nFileSizeHigh);
-    Time[AVer] := FileTimeToDosFileDate(aSRec.ftLastWriteTime);
-    Attr[AVer] := aSRec.dwFileAttributes or faPresent;
+    Attr[AVer] := AAttr or faPresent;
+    Size[AVer] := ASize;
+    Time[AVer] := ATime;
   end;
 
 
@@ -416,351 +477,322 @@ interface
   end;
 *)
 
+
   function TCmpFileItem.GetFullFileName(AVer :Integer) :TString;
   begin
-    if AVer = 0 then
-      Result := ParentGroup.Folder1
+    Result := AddFileName(ParentGroup.GetFolder(AVer), FName);
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TDataProvider                                                               }
+ {-----------------------------------------------------------------------------}
+
+  constructor TDataProvider.CreateEx(const AFolder :TString);
+  begin
+    Create;
+    FFolder := AFolder;
+  end;
+
+
+  function TDataProvider.MakePath(const AFolder :TString) :TString; {virtual;}
+  begin
+    Result := AddFileName(FFolder, AFolder)
+  end;
+
+
+  function TDataProvider.GetRealFileName(const AFolder, AFileName :TString) :TString; {virtual;}
+  begin
+    Result := AddFileName(AFolder, AFileName);
+  end;
+
+
+  function TDataProvider.GetViewFileName(const AFolder, AFileName :TString) :TString; {virtual;}
+  begin
+    Result := AddFileName(AFolder, AFileName);
+  end;
+
+
+  function TDataProvider.GetInfo(const AFolder, AFileName :TString; var Attr :Word; var ASize :Int64; var ATime :Integer) :boolean; {virtual;}
+  var
+    vFileName :TString;
+    vHandle :THandle;
+    vSRec :TWin32FindData;
+  begin
+    Result := False;
+    vFileName := GetRealFileName(AFolder, AFileName);
+
+    vHandle := FindFirstFile(PTChar(vFileName), vSRec);
+    if vHandle <> INVALID_HANDLE_VALUE then begin
+      FindClose(vHandle);
+
+      ASize := MakeInt64(vSRec.nFileSizeLow, vSRec.nFileSizeHigh);
+      ATime := FileTimeToDosFileDate(vSRec.ftLastWriteTime);
+      Attr  := vSRec.dwFileAttributes;
+
+      Result := True;
+    end;
+  end;
+
+ {-----------------------------------------------------------------------------}
+
+  procedure TFileProvider.Enumerate(const AFolder :TString); {override;}
+
+    procedure LocAddItem(const aPath :TString; const aSRec :TWin32FindData);
+    begin
+      with aSRec do
+        FComparator.AddItem(cFileName, dwFileAttributes, MakeInt64(nFileSizeLow, nFileSizeHigh), FileTimeToDosFileDate(aSRec.ftLastWriteTime));
+    end;
+
+  var
+    vFolder :TString;
+  begin
+    vFolder := MakePath(AFolder);
+    WinEnumFiles(vFolder, '*.*', faEnumFilesAndFolders, LocalAddr(@LocAddItem));
+  end;
+
+ {-----------------------------------------------------------------------------}
+
+  constructor TSVNProvider.CreateEx(const AFolder :TString); {override;}
+  var
+    vPath :TString;
+  begin
+    Create;
+
+    vPath := ExtractWords(2, MaxInt, AFolder, [':']);
+    if vPath <> '' then
+      vPath := FarExpandFileName(vPath)
     else
-      Result := ParentGroup.Folder2;
-    Result := AddFileName(Result, FName);
+      vPath := FarGetCurrentDirectory;
+
+    FFolder := vPath;
   end;
 
 
- {-----------------------------------------------------------------------------}
+  function TSVNProvider.GetRealFileName(const AFolder, AFileName :TString) :TString; {override;}
+  begin
+    Result := AddFileName(AddFileName(AFolder, '.svn\text-base'), AFileName) + '.svn-base';
+  end;
 
-  function TCmpFileItem.UpdateInfo :Boolean;
 
-    procedure LocUpdateInfo(const AFileName :TString; AVer :Integer);
+  function TSVNProvider.GetViewFileName(const AFolder, AFileName :TString) :TString; {virtual;}
+  begin
+    Result := 'SVN:' + AddFileName(AFolder, AFileName);
+  end;
+
+
+  procedure TSVNProvider.Enumerate(const AFolder :TString); {override;}
+
+    procedure LocAddFolder(const aPath :TString; const aSRec :TWin32FindData);
     var
-      vHandle :THandle;
-      vSRec :TWin32FindData;
+      vName, vPath :TString;
     begin
-      vHandle := FindFirstFile(PTChar(AFileName), vSRec);
-      if vHandle <> INVALID_HANDLE_VALUE then begin
-        FindClose(vHandle);
-
-        Size[AVer] := MakeInt64(vSRec.nFileSizeLow, vSRec.nFileSizeHigh);
-        Time[AVer] := FileTimeToDosFileDate(vSRec.ftLastWriteTime);
-        Attr[AVer] := vSRec.dwFileAttributes or faPresent;
-      end else
-      begin
-        Size[AVer] := 0;
-        Time[AVer] := 0;
-        Attr[AVer] := 0;
-      end;
-    end;
-
-  var
-    vOldTime :array[0..1] of Integer;
-    vOldSize :array[0..1] of Int64;
-    vOldAttr :array[0..1] of Word;
-  begin
-    vOldTime[0] := Time[0]; vOldTime[1] := Time[1];
-    vOldSize[0] := Size[0]; vOldSize[1] := Size[1];
-    vOldAttr[0] := Attr[0]; vOldAttr[1] := Attr[1];
-
-    if ParentGroup.Folder1 <> '' then
-      LocUpdateInfo(GetFullFileName(0), 0);
-    if ParentGroup.Folder2 <> '' then
-      LocUpdateInfo(GetFullFileName(1), 1);
-
-    Result :=
-      ((vOldTime[0] <> Time[0]) or (vOldTime[1] <> Time[1])) or
-      ((vOldSize[0] <> Size[0]) or (vOldSize[1] <> Size[1])) or
-      ((vOldAttr[0] <> Attr[0]) or (vOldAttr[1] <> Attr[1]));
-
-    if Result then
-      Content := ccNoCompare;
-  end;
-
-
-  type
-    TProgressProc = procedure(ASize :Int64)
-      {$ifdef bFreePascal}of object{$endif bFreePascal};
-
-  procedure CallCallback(const AProc :TMethod; ASize :Int64);
- {$ifdef bDelphi}
-  var
-    vTmp :Pointer;
-  begin
-    vTmp := AProc.Data;
-    asm push vTmp; end;
-    TProgressProc(aProc.Code)(ASize);
-    asm pop ECX; end;
- {$else}
-  begin
-    TProgressProc(aProc)(ASize);
- {$endif bDelphi}
-  end;
-
-
- {$ifdef bUseCRC}
-
-  function TCmpFileItem.CompareContents(const AProgressProc :TMethod) :Boolean;
-
-    function LocCalc(const AFileName :TString; var ACRC :TCRC) :Boolean;
-    var
-      vFile :Integer;
-      vPart :Integer;
-      vSize :Int64;
-      vLast :Cardinal;
-    begin
-      Result := False;
-
-//    vFile := FileOpen(AFileName, fmOpenRead or fmShareDenyNone);
-
-      vFile := Integer(CreateFile(PTChar(AFileName), GENERIC_READ, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL or FILE_FLAG_SEQUENTIAL_SCAN {or FILE_FLAG_NO_BUFFERING}, 0));
-
-      if vFile < 0 then
-        Exit;
-      try
-        ACRC := CRC0;
-        vLast := GetTickCount;
-        vSize := Size[0];
-        while vSize > 0 do begin
-          SafeCheck(vLast);
-
-          vPart := cTmpBufSize;
-          if vPart > vSize then
-            vPart := vSize;
-
-          if FileRead(vFile, vTmpBuf1^, vPart) <> vPart then
-            Exit;
-
-          AddCRC(ACRC, vTmpBuf1^, vPart);
-
-          Dec(vSize, vPart);
-        end;
-        Result := True;
-
-      finally
-        if vFile <> 0 then
-          FileClose(vFile);
-      end;
-    end;
-
-  var
-    vFileName1, vFileName2 :TString;
-    vCRC1, vCRC2 :TCRC;
-  begin
-    Result := False;
-    if BothAttr(faPresent) and not HasAttr(faDirectory) and (Size[0] = Size[1]) then begin
-      vFileName1 := GetFullFileName(0);
-      vFileName2 := GetFullFileName(1);
-//    TraceF('Compare: %s <-> %s', [ vFileName1, vFileName2 ]);
-
-      if vTmpBuf1 = nil then
-//      vTmpBuf1 := GlobalAllocMem(HeapAllocFlags, cTmpBufSize);
-        vTmpBuf1 := VirtualAlloc(nil, cTmpBufSize, MEM_COMMIT, PAGE_READWRITE);
-
-      if not LocCalc(vFileName1, vCRC1) then
-        Exit;
-      if not LocCalc(vFileName2, vCRC2) then
+      vName := aSRec.cFileName;
+      if StrEqual(vName, '.svn') then
         Exit;
 
-      Result := vCRC1 = vCRC2;
+      vPath := AddFileName(AddFileName(APath, vName), '.svn');
+      if not WinFolderExists(vPath) then
+        Exit;
+
+      with aSRec do
+        FComparator.AddItem(vName, dwFileAttributes, 0, 0);
     end;
-  end;
 
- {$else}
-
-  function TCmpFileItem.CompareContents(const AProgressProc :TMethod) :Boolean;
-  var
-    vFileName1, vFileName2 :TString;
-    vFile1, vFile2, vPart :Integer;
-    vSize :Int64;
-    vLast :Cardinal;
-  begin
-    Result := False;
-    if BothAttr(faPresent) and not HasAttr(faDirectory) and (Size[0] = Size[1]) then begin
-      vFileName1 := GetFullFileName(0);
-      vFileName2 := GetFullFileName(1);
-//    TraceF('Compare: %s <-> %s', [ vFileName1, vFileName2 ]);
-
-      if vTmpBuf1 = nil then begin
-        vTmpBuf1 := VirtualAlloc(nil, cTmpBufSize, MEM_COMMIT, PAGE_READWRITE);
-        vTmpBuf2 := VirtualAlloc(nil, cTmpBufSize, MEM_COMMIT, PAGE_READWRITE);
-      end;
-
-      vFile1 := -1; vFile2 := -1;
-      try
-//      vFile1 := FileOpen(vFileName1, fmOpenRead or fmShareDenyWrite);
-        vFile1 := Integer(CreateFile(PTChar(vFileName1), GENERIC_READ, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING,
-          FILE_ATTRIBUTE_NORMAL or FILE_FLAG_SEQUENTIAL_SCAN {or FILE_FLAG_NO_BUFFERING}, 0));
-        if vFile1 < 0 then
-          Exit;
-
-//      vFile2 := FileOpen(vFileName2, fmOpenRead or fmShareDenyWrite);
-        vFile2 := Integer(CreateFile(PTChar(vFileName2), GENERIC_READ, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING,
-          FILE_ATTRIBUTE_NORMAL or FILE_FLAG_SEQUENTIAL_SCAN {or FILE_FLAG_NO_BUFFERING}, 0));
-        if vFile2 < 0 then
-          Exit;
-
-        vLast := GetTickCount;
-        vSize := Size[0];
-        while vSize > 0 do begin
-          if SafeCheck(vLast) and (AProgressProc.Code <> nil) then
-            CallCallback(AProgressProc, Size[0] - vSize);
-
-          {!!!}
-          vPart := cTmpBufSize;
-          if vPart > vSize then
-            vPart := vSize;
-
-          if FileRead(vFile1, vTmpBuf1^, vPart) <> vPart then
-            Exit;
-          if FileRead(vFile2, vTmpBuf2^, vPart) <> vPart then
-            Exit;
-
-          if MemCompare(vTmpBuf1, vTmpBuf2, vPart) < vPart then begin
-            NOP;
-            Exit;
-          end;
-
-          Dec(vSize, vPart);
-        end;
-        Result := True;
-
-      finally
-        if vFile1 <> 0 then
-          FileClose(vFile1);
-        if vFile2 <> 0 then
-          FileClose(vFile2);
-      end;
-
-    end;
-  end;
-
- {$endif bUseCRC}
-
-
-
- {-----------------------------------------------------------------------------}
- {                                                                             }
- {-----------------------------------------------------------------------------}
-
-  function CompareFolders(const ACmpFolder1, ACmpFolder2 :TString) :TCmpFolder;
-  var
-    vSave :THandle;
-    vStart, vLast :Cardinal;
-    vFolders, vFiles :Integer;
-    vScnWidth, vWidth :Integer;
-
-    vInclMasks :TFilterMask;
-    vExclMasks :TFilterMask;
-
-
-    procedure InitProgress;
-    var
-      vSize :TSize;
+    procedure LocAddItem(const aPath :TString; const aSRec :TWin32FindData);
     begin
-      if vSave = 0 then begin
-        vSave := FARAPI.SaveScreen(0, 0, -1, -1);
-        vSize := FarGetWindowSize;
-        vScnWidth := vSize.CX;
-        vWidth := IntMin(IntMax(vScnWidth div 2, 50), vScnWidth-2);
-      end;
+      with aSRec do
+        FComparator.AddItem(ClearFileExt(cFileName), dwFileAttributes, MakeInt64(nFileSizeLow, nFileSizeHigh), FileTimeToDosFileDate(aSRec.ftLastWriteTime));
     end;
 
+  var
+    vFolder :TString;
+  begin
+    vFolder := MakePath(AFolder);
+    WinEnumFiles(vFolder, '*.*', faEnumFolders, LocalAddr(@LocAddFolder));
+
+    vFolder := AddFileName(vFolder, '.svn\text-base');
+    WinEnumFiles(vFolder, '*.*', faEnumFiles, LocalAddr(@LocAddItem));
+  end;
+
+  
+ {-----------------------------------------------------------------------------}
+
+  constructor TPluginProvider.CreateEx(const AFolder :TString); {override;}
+  begin
+    Sorry;
+  end;
+
+  
+ {-----------------------------------------------------------------------------}
+ { TComparator                                                                 }
+ {-----------------------------------------------------------------------------}
+
+  constructor TComparator.CreateEx(ASource1, ASource2 :TDataProvider);
+  begin
+    inherited Create;
+
+    FSources[0] := ASource1;
+    ASource1.FComparator := Self;
+
+    FSources[1] := ASource2;
+    ASource2.FComparator := Self;
+
+    FResults := TCmpFolder.Create;
+
+    InitMasks;
+  end;
+
+
+  destructor TComparator.Destroy; {override;}
+  begin
+    FreeObj(FResults);
+    FreeObj(FInclMasks);
+    FreeObj(FExclMasks);
+    inherited Destroy;
+  end;
+
+
+  procedure TComparator.InitMasks;
+  var
+    vStr :TString;
+  begin
+    vStr := ExtractWord(1, optScanFileMask, ['|']);
+    if vStr <> '' then
+      FInclMasks := TFilterMask.CreateFileMask(vStr);
+
+    vStr := ExtractWord(2, optScanFileMask, ['|']);
+    if vStr <> '' then
+      FExclMasks := TFilterMask.CreateFileMask(vStr);
+  end;
+
+
+  procedure TComparator.InitProgress;
+  var
+    vSize :TSize;
+  begin
+    if FSave = 0 then begin
+      FSave := FARAPI.SaveScreen(0, 0, -1, -1);
+      vSize := FarGetWindowSize;
+      FWidth := IntMin(IntMax(vSize.CX div 2, 50), vSize.CX - 2);
+    end;
+  end;
+
+
+  procedure TComparator.DoneProgress;
+  begin
+    if FSave <> 0 then begin
+      FARAPI.RestoreScreen(FSave);
+      FSave := 0;
+    end;
+  end;
+
+
+  procedure TComparator.ShowProgress(const AMess :TString; APerc :Integer);
+  var
+    vMess :TFarStr;
+  begin
+    if FSave = 0 then
+      InitProgress;
+
+    {!!!Localize}
+    vMess :=
+      'Compare files'#10 +
+     {$ifdef bUnicodeFar}
+      AMess;
+     {$else}
+      StrAnsiToOEM(AMess);
+     {$endif bUnicodeFar}
+
+    if APerc <> -1 then
+      vMess := vMess + #10 + GetProgressStr(FWidth, APerc);
+
+    FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PFarChar(vMess)), 0, 0);
+  end;
+
+
+  procedure TComparator.AddItem(const AName :TString; Attr :Word; ASize :Int64; ATime :Integer);
+  var
+    vName :TString;
+    vNeedPoint :Boolean;
+    vIndex, vPos, vLen :Integer;
+    vItem :TCmpFileItem;
+  begin
+//  TraceF('File: %s %s', ['', AName]);
+    if optNoScanHidden and (faHidden and Attr <> 0) then
+      Exit;
+
+    vName := AName;
+    if faDirectory and Attr <> 0 then begin
+      { Маска каталогов... }
+    end else
+    begin
+      vNeedPoint := ChrPos('.', vName) = 0;
+      if vNeedPoint then
+        vName := vName + '.'; { Чтобы работали маски, типа "*."}
+
+      if (FInclMasks <> nil) and not FInclMasks.Check(vName, vPos, vLen) then
+        Exit;
+      if (FExclMasks <> nil) and FExclMasks.Check(vName, vPos, vLen) then
+        Exit;
+
+      if vNeedPoint then
+        Delete(vName, Length(vName), 1);
+    end;
+
+    if faDirectory and Attr <> 0 then
+      vName := vName + '\'
+    else
+      Inc(FFiles);
+
+    if FCurList.FindKey(Pointer(vName), 0, [foBinary], vIndex) then
+      vItem := FCurList[vIndex]
+    else begin
+      vItem := TCmpFileItem.CreateName(vName);
+      vItem.ParentGroup := FCurList;
+      FCurList.Insert(vIndex, vItem);
+    end;
+    vItem.SetInfo(FCurVer, Attr, ASize, ATime);
+  end;
+
+
+  procedure TComparator.CompareFolders; {virtual;}
 
     procedure UpdateMessage1(const AFolder :TString);
     var
-      vMess, vFolder :TFarStr;
+      vFolder :TFarStr;
     begin
-      if vSave = 0 then
-        InitProgress;
-     {$ifdef bUnicodeFar}
-      vFolder := AFolder;
-     {$else}
-      vFolder := StrAnsiToOEM(AFolder);
-     {$endif bUnicodeFar}
       {!!!Localize}
-      vMess :=
-        'Compare folders'#10 +
-        Format('Files: %d   Folders: %d   Time: %d sec', [vFiles, vFolders, TickCountDiff(GetTickCount, vStart) div 1000]) + #10 +
-        StrLeftAjust(vFolder, vWidth);
-      FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PFarChar(vMess)), 0, 0);
-      Assert(cTrue);
+      ShowProgress(
+        Format('Files: %d   Folders: %d   Time: %d sec', [FFiles, FFolders, TickCountDiff(GetTickCount, FStart) div 1000]) + #10 +
+        StrLeftAjust(vFolder, FWidth), -1);
     end;
 
 
     procedure LocCompare(AList :TCmpFolder; const AFolder1, AFolder2 :TString);
     var
-      vVer :Integer;
-
-      procedure LocAddItem(const aPath :TString; const aSRec :TWin32FindData);
-      var
-        vName :TString;
-        vIndex, vPos, vLen :Integer;
-        vItem :TCmpFileItem;
-        vNeedPoint :Boolean;
-      begin
-//      TraceF('File: %s %s', [aPath, aSRec.Name]);
-        vName := aSRec.cFileName;
-        if optNoScanHidden and (faHidden and aSRec.dwFileAttributes <> 0) then
-          Exit;
-
-        if faDirectory and ASRec.dwFileAttributes <> 0 then begin
-          { Маска каталогов... }
-        end else
-        begin
-          vNeedPoint := ChrPos('.', vName) = 0;
-          if vNeedPoint then
-            vName := vName + '.'; { Чтобы работали маски, типа "*."}
-
-          if (vInclMasks <> nil) and not vInclMasks.Check(vName, vPos, vLen) then
-            Exit;
-          if (vExclMasks <> nil) and vExclMasks.Check(vName, vPos, vLen) then
-            Exit;
-
-          if vNeedPoint then
-            Delete(vName, Length(vName), 1);
-        end;
-
-        if faDirectory and ASRec.dwFileAttributes <> 0 then
-          vName := vName + '\'
-        else
-          Inc(vFiles);
-        if AList.FindKey(Pointer(vName), 0, [foBinary], vIndex) then
-          vItem := AList[vIndex]
-        else begin
-          vItem := TCmpFileItem.CreateName(vName);
-          vItem.ParentGroup := AList;
-          AList.Insert(vIndex, vItem);
-        end;
-        vItem.SetInfo(vVer, aSRec);
-      end;
-
-    var
       I :Integer;
       vItem :TCmpFileItem;
       vFolder1, vFolder2 :TString;
     begin
-      AList.Folder1 := AFolder1;
-      AList.Folder2 := AFolder2;
+      FCurList := AList;
 
-      vVer := 0;
-      if AFolder1 <> '' then begin
-        Inc(vFolders);
-        if SafeCheck(vLast) then
-          UpdateMessage1(AFolder1);
-        try
-          WinEnumFiles(AFolder1, '*.*', faEnumFilesAndFolders, LocalAddr(@LocAddItem));
-        except
-          {!!!}
-        end;
+      if AFolder1 <> #1 then begin
+        AList.Folder1 := FSources[0].MakePath(AFolder1);
+        Inc(FFolders);
+        if SafeCheck(FLast) then
+          UpdateMessage1(AList.Folder1);
+        FCurVer := 0;
+        FSources[0].Enumerate(AFolder1);
       end;
-      vVer := 1;
-      if AFolder2 <> '' then begin
-        Inc(vFolders);
-        if SafeCheck(vLast) then
-          UpdateMessage1(AFolder2);
-        try
-          WinEnumFiles(AFolder2, '*.*', faEnumFilesAndFolders, LocalAddr(@LocAddItem));
-        except
-          {!!!}
-        end;
+
+      if AFolder2 <> #1 then begin
+        AList.Folder2 := FSources[1].MakePath(AFolder2);
+        Inc(FFolders);
+        if SafeCheck(FLast) then
+          UpdateMessage1(AList.Folder2);
+        FCurVer := 1;
+        FSources[1].Enumerate(AFolder2);
       end;
 
       if optScanRecursive then begin
@@ -774,10 +806,10 @@ interface
             vItem.Subs := TCmpFolder.Create;
             vItem.Subs.ParentItem := vItem;
 
-            vFolder1 := '';
+            vFolder1 := #1;
             if faDirectory and vItem.Attr[0] <> 0 then
               vFolder1 := AddFileName(AFolder1, RemoveBackSlash(vItem.Name));
-            vFolder2 := '';
+            vFolder2 := #1;
             if faDirectory and vItem.Attr[1] <> 0 then
               vFolder2 := AddFileName(AFolder2, RemoveBackSlash(vItem.Name));
 
@@ -787,125 +819,66 @@ interface
       end;
     end;
 
-
-    procedure InitMasks;
-    var
-      vStr :TString;
-    begin
-      vStr := ExtractWord(1, optScanFileMask, ['|']);
-      if vStr <> '' then
-        vInclMasks := TFilterMask.CreateFileMask(vStr);
-
-      vStr := ExtractWord(2, optScanFileMask, ['|']);
-      if vStr <> '' then
-        vExclMasks := TFilterMask.CreateFileMask(vStr);
-    end;
-
-
   begin
-    vSave := 0; vInclMasks := nil; vExclMasks := nil;
-
-    InitMasks;
+    InitProgress;
     try
-      vFiles := 0;
-      vFolders := 0;
-      vStart := GetTickCount;
+      FFiles := 0;
+      FFolders := 0;
+      FStart := GetTickCount;
 
-      Result := TCmpFolder.Create;
       try
-        LocCompare(Result, ACmpFolder1, ACmpFolder2);
+        LocCompare(FResults, '', '');
 
         if optScanContents then
-          CompareFolderContents(Result);
+          CompareFolderContents(FResults);
 
       except
         on E :ECtrlBreak do
           {Nothing};
-        else begin
-          FreeObj(Result);
+        else
           raise;
-        end;
       end;
 
     finally
-      FreeObj(vInclMasks);
-      FreeObj(vExclMasks);
-
-      if vSave <> 0 then
-        FARAPI.RestoreScreen(vSave);
+      DoneProgress;
     end;
   end;
 
 
- {-----------------------------------------------------------------------------}
-
-  function MulDiv64(A, B, C :Int64) :Int64;
-  begin
-    Result := 0;
-    if C > 0 then
-      Result := (A * B) div C;
-  end;
-
-
-  procedure CompareFilesContents(const ABaseFolder :TString; AList :TStringList);
+  procedure TComparator.CompareFolderContents(AFolder :TCmpFolder);
   var
-    vSave :THandle;
-    vStart, vLast :Cardinal;
-    vCompFiles, vTotalCompFiles :Integer;
-    vCompSize, vTotalCompSize :Int64;
-    vScnWidth, vWidth, vBaseLen :Integer;
-
-
-    procedure InitProgress;
-    var
-      vSize :TSize;
-    begin
-      if vSave = 0 then begin
-        vSave := FARAPI.SaveScreen(0, 0, -1, -1);
-        vSize := FarGetWindowSize;
-        vScnWidth := vSize.CX;
-        vWidth := IntMin(IntMax(vScnWidth div 2, 50), vScnWidth-2);
-      end;
+    I :Integer;
+    vList :TStringList;
+  begin
+    vList := TStringList.Create;
+    try
+      for I := 0 to AFolder.Count - 1 do
+        vList.AddObject('',  AFolder[I]);
+      CompareFilesContents(AFolder.Folder1, vList);
+    finally
+      FreeObj(vList);
     end;
+  end;
 
 
-    procedure UpdateMessage2({AList :TCmpFolder;} AItem :TCmpFileItem; AddSize :Int64);
-    var
-      vMess, vFileName :TFarStr;
-    begin
-      if vSave = 0 then
-        InitProgress;
+  procedure TComparator.UpdateProgress2(AddSize :Int64);
+  begin
+    {!!!Localize}
+    ShowProgress(
+      Format('Files: %s  Size: %s  Time: %d sec', [Int2StrEx(FFiles + 1), Int64ToStrEx(FSize + AddSize), TickCountDiff(GetTickCount, FStart) div 1000]) + #10 +
+      StrLeftAjust(FCurFile, FWidth),
+      MulDiv64(FSize + AddSize, 100, FTotSize));
+  end;
 
-      if ABaseFolder = '' then
-        vFileName := AItem.FName
-      else
-        vFileName := Copy(AItem.GetFullFileName(0), vBaseLen + 1, MaxInt);
 
-     {$ifdef bUnicodeFar}
-     {$else}
-      vFileName := StrAnsiToOEM(vFileName);
-     {$endif bUnicodeFar}
-      {!!!Localize}
-      vMess :=
-        'Compare files'#10 +
-        Format('Files: %s  Size: %s  Time: %d sec', [Int2StrEx(vCompFiles + 1), Int64ToStrEx(vCompSize + AddSize), TickCountDiff(GetTickCount, vStart) div 1000]) + #10 +
-        StrLeftAjust(vFileName, vWidth) + #10 +
-        GetProgressStr(vWidth, MulDiv64(vCompSize + AddSize, 100, vTotalCompSize));
-//      GetProgressStr(vWidth, MulDiv(vCompFiles, 100, vTotalCompFiles));
-      FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PFarChar(vMess)), 0, 0);
-      Assert(cTrue);
-    end;
-
+  procedure TComparator.CompareFilesContents(const ABaseFolder :TString; AList :TStringList);
+  var
+    vBaseLen :Integer;
 
     procedure CompareFile(AItem :TCmpFileItem);
-
-      procedure UpdateProgress(ASize :Int64);
-      begin
-        UpdateMessage2(AItem, ASize);
-      end;
-
     var
       I :Integer;
+      vFileName1, vFileName2 :TString;
     begin
       if not AItem.BothAttr(faPresent) then
         Exit;
@@ -915,16 +888,25 @@ interface
           { Не совпадает размер - незачем сравнивать }
           AItem.Content := ccDiff
         else begin
-          if SafeCheck(vLast) or (AItem.Size[0] > 1*1024*1024) then
-            UpdateMessage2(AItem, 0);
+          {!!!}
+          if ABaseFolder = '' then
+            FCurFile := AItem.FName
+          else
+            FCurFile := Copy(AItem.GetFullFileName(0), vBaseLen + 1, MaxInt);
 
-          if AItem.CompareContents(LocalAddr(@UpdateProgress)) then
+          if SafeCheck(FLast) or (AItem.Size[0] > 1*1024*1024) then
+            UpdateProgress2(0);
+
+          vFileName1 := RealFileName(AItem, 0);
+          vFileName2 := RealFileName(AItem, 1);
+
+          if CompareContents(vFileName1, vFileName2) then
             AItem.Content := ccSame
           else
             AItem.Content := ccDiff;
 
-          Inc(vCompFiles);
-          Inc(vCompSize, AItem.Size[0]);
+          Inc(FFiles);
+          Inc(FSize, AItem.Size[0]);
         end;
 
       end;
@@ -952,20 +934,20 @@ interface
   var
     I :Integer;
   begin
-    vSave := 0;
+    InitProgress;
     try
-      vStart := GetTickCount;
+      FStart := GetTickCount;
 
       vBaseLen := Length(ABaseFolder);
       if (vBaseLen > 0) and (ABaseFolder[vBaseLen] <> '\') then
         Inc(vBaseLen);
 
-      vTotalCompFiles := 0; vTotalCompSize := 0;
+      FTotFiles := 0; FTotSize := 0;
       for I := 0 to AList.Count - 1 do
-        CalcFile(AList.Objects[I] as TCmpFileItem, vTotalCompFiles, vTotalCompSize);
+        CalcFile(AList.Objects[I] as TCmpFileItem, FTotFiles, FTotSize);
 
       try
-        vCompFiles := 0; vCompSize := 0;
+        FFiles := 0; FSize := 0;
         for I := 0 to AList.Count - 1 do
           CompareFile(AList.Objects[I] as TCmpFileItem);
       except
@@ -976,28 +958,202 @@ interface
       end;
 
     finally
-      if vSave <> 0 then
-        FARAPI.RestoreScreen(vSave);
+      DoneProgress;
     end;
   end;
 
 
-  procedure CompareFolderContents(AFolder :TCmpFolder);
-  var
-    I :Integer;
-    vList :TStringList;
+  function TComparator.RealFileName(AItem :TCmpFileItem; AVer :Integer) :TString;
   begin
-    vList := TStringList.Create;
+    Result := FSources[AVer].GetRealFileName(AItem.ParentGroup.GetFolder(AVer), AItem.Name);
+  end;
+
+
+  function TComparator.ViewFileName(AItem :TCmpFileItem; AVer :Integer) :TString;
+  begin
+    Result := FSources[AVer].GetViewFileName(AItem.ParentGroup.GetFolder(AVer), AItem.Name);
+  end;
+
+  function TComparator.ViewFileName(const AFolder, AName :TString; AVer :Integer) :TString;
+  begin
+    Result := FSources[AVer].GetViewFileName(AFolder, AName);
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  function TComparator.CompareContents(const AFileName1, AFileName2 :TString) :Boolean;
+  var
+    vFile1, vFile2 :THandle;
+    vFileSize, vRestSize :Int64;
+    vPart :Integer;
+    vLast :DWORD;
+  begin
+    Result := False;
+//  TraceF('Compare: %s <-> %s', [ AFileName1, AFileName2 ]);
+
+    if vTmpBuf1 = nil then begin
+      vTmpBuf1 := VirtualAlloc(nil, cTmpBufSize, MEM_COMMIT, PAGE_READWRITE);
+      vTmpBuf2 := VirtualAlloc(nil, cTmpBufSize, MEM_COMMIT, PAGE_READWRITE);
+    end;
+
+    vFile1 := INVALID_HANDLE_VALUE; vFile2 := INVALID_HANDLE_VALUE;
     try
-      for I := 0 to AFolder.Count - 1 do
-        vList.AddObject('',  AFolder[I]);
-      CompareFilesContents(AFolder.Folder1, vList);
+      vFile1 := CreateFile(PTChar(AFileName1), GENERIC_READ, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL or FILE_FLAG_SEQUENTIAL_SCAN {or FILE_FLAG_NO_BUFFERING}, 0);
+      if vFile1 = INVALID_HANDLE_VALUE then
+        Exit;
+
+      vFile2 := CreateFile(PTChar(AFileName2), GENERIC_READ, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL or FILE_FLAG_SEQUENTIAL_SCAN {or FILE_FLAG_NO_BUFFERING}, 0);
+      if vFile2 = INVALID_HANDLE_VALUE then
+        Exit;
+
+      vLast := GetTickCount;
+      vFileSize := FileSize(vFile1);
+      vRestSize := vFileSize;
+      while vRestSize > 0 do begin
+
+        if SafeCheck(vLast) then
+          UpdateProgress2(vFileSize - vRestSize);
+
+        {!!!}
+        vPart := cTmpBufSize;
+        if vPart > vRestSize then
+          vPart := vRestSize;
+
+        if FileRead(vFile1, vTmpBuf1^, vPart) <> vPart then
+          Exit;
+        if FileRead(vFile2, vTmpBuf2^, vPart) <> vPart then
+          Exit;
+
+        if MemCompare(vTmpBuf1, vTmpBuf2, vPart) < vPart then begin
+          NOP;
+          Exit;
+        end;
+
+        Dec(vRestSize, vPart);
+      end;
+      Result := True;
+
     finally
-      FreeObj(vList);
+      if vFile1 <> INVALID_HANDLE_VALUE then
+        FileClose(vFile1);
+      if vFile2 <> INVALID_HANDLE_VALUE then
+        FileClose(vFile2);
     end;
   end;
 
 
+  function TComparator.CompareCRC(const AFileName1, AFileName2 :TString) :Boolean;
+
+    function LocCalc(const AFileName :TString; var ACRC :TCRC) :Boolean;
+    var
+      vFile :THandle;
+      vPart :Integer;
+      vSize :Int64;
+      vLast :DWORD;
+    begin
+      Result := False;
+
+      vFile := CreateFile(PTChar(AFileName), GENERIC_READ, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL or FILE_FLAG_SEQUENTIAL_SCAN {or FILE_FLAG_NO_BUFFERING}, 0);
+      if vFile = INVALID_HANDLE_VALUE then
+        Exit;
+
+      try
+        ACRC  := 0;
+        vLast := GetTickCount;
+        vSize := FileSize(vFile);
+        while vSize > 0 do begin
+          SafeCheck(vLast);
+
+          vPart := cTmpBufSize;
+          if vPart > vSize then
+            vPart := vSize;
+
+          if FileRead(vFile, vTmpBuf1^, vPart) <> vPart then
+            Exit;
+
+          AddCRC(ACRC, vTmpBuf1^, vPart);
+
+          Dec(vSize, vPart);
+        end;
+        Result := True;
+
+      finally
+        FileClose(vFile);
+      end;
+    end;
+
+  var
+    vCRC1, vCRC2 :TCRC;
+  begin
+    Result := False;
+//  TraceF('Compare: %s <-> %s', [ AFileName1, AFileName2 ]);
+
+    if vTmpBuf1 = nil then
+//    vTmpBuf1 := GlobalAllocMem(HeapAllocFlags, cTmpBufSize);
+      vTmpBuf1 := VirtualAlloc(nil, cTmpBufSize, MEM_COMMIT, PAGE_READWRITE);
+
+    if not LocCalc(AFileName1, vCRC1) then
+      Exit;
+    if not LocCalc(AFileName2, vCRC2) then
+      Exit;
+
+    Result := vCRC1 = vCRC2;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  function TComparator.UpdateItemInfo(AItem :TCmpFileItem) :Boolean;
+
+    procedure LocUpdateInfo(AVer :Integer);
+    var
+      vPath :TString;
+      vAttr :Word;
+      vSize :TInt64;
+      vTime :Integer;
+    begin
+      vPath := AItem.ParentGroup.GetFolder(AVer);
+      if vPath <> '' then
+        if FSources[AVer].GetInfo(vPath, AItem.Name, vAttr, vSize, vTime) then
+          AItem.SetInfo(AVer, vAttr, vSize, vTime)
+        else begin
+          AItem.SetInfo(AVer, 0, 0, 0);
+          AItem.Attr[AVer] := 0;
+        end;
+    end;
+
+  var
+    vOldTime :array[0..1] of Integer;
+    vOldSize :array[0..1] of Int64;
+    vOldAttr :array[0..1] of Word;
+  begin
+    with AItem do begin
+      vOldTime[0] := Time[0]; vOldTime[1] := Time[1];
+      vOldSize[0] := Size[0]; vOldSize[1] := Size[1];
+      vOldAttr[0] := Attr[0]; vOldAttr[1] := Attr[1];
+    end;
+
+    LocUpdateInfo(0);
+    LocUpdateInfo(1);
+
+    with AItem do begin
+      Result :=
+        ((vOldTime[0] <> Time[0]) or (vOldTime[1] <> Time[1])) or
+        ((vOldSize[0] <> Size[0]) or (vOldSize[1] <> Size[1])) or
+        ((vOldAttr[0] <> Attr[0]) or (vOldAttr[1] <> Attr[1]));
+    end;
+
+    if Result then
+      AItem.Content := ccNoCompare;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
  {-----------------------------------------------------------------------------}
 
   procedure UpdateFolderDidgets(AList :TCmpFolder);

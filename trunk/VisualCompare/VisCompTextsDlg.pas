@@ -108,7 +108,8 @@ interface
 
   procedure ShowTextsDlg(ADiff :TTextDiff);
 
-  procedure CompareTexts(const AName1, AName2 :TString);
+  procedure CompareTexts(const AFileName1, AFileName2 :TString);
+  procedure CompareTextsEx(const AFileName1, AFileName2, AViewName1, AViewName2 :TString);
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -169,7 +170,7 @@ interface
     IdHead1  = 1;
     IdHead2  = 2;
     IdList   = 3;
-    IdStatus = 4;
+//  IdStatus = 4;
 
 
   constructor TTextsDlg.Create; {override;}
@@ -254,9 +255,9 @@ interface
     SendMsg(DM_SETITEMPOSITION, IdList, @vRect1);
     FGrid.UpdateSize(vRect1.Left, vRect1.Top, vRect1.Right - vRect1.Left + 1, vRect1.Bottom - vRect1.Top + 1);
 
-    vRect1 := SRect(vRect.Left, vRect.Top, vRect.Left + (vRect.Right - vRect.Left) div 2 - 1, 2);
+    vRect1 := SRect(vRect.Left, vRect.Top, vRect.Left + (vRect.Right - vRect.Left) div 2 - 1, 1);
     SendMsg(DM_SETITEMPOSITION, IdHead1, @vRect1);
-    vRect1 := SRect(vRect1.Right + 2, vRect.Top, vRect.Right, 2);
+    vRect1 := SRect(vRect1.Right + 2, vRect.Top, vRect.Right, 1);
     SendMsg(DM_SETITEMPOSITION, IdHead2, @vRect1);
 
     SetDlgPos(-1, -1, vWidth, vHeight);
@@ -284,11 +285,15 @@ interface
 
     SetText(IdFrame, vStr);
 
-    vStr := ' ' + FDiff.Text[0].Name;
-    SetText(IdHead1, vStr);
+    vStr := FDiff.Text[0].ViewName;
+    if vStr = '' then
+      vStr := FDiff.Text[0].Name;
+    SetText(IdHead1, ' ' + vStr);
 
-    vStr := ' ' + FDiff.Text[1].Name;
-    SetText(IdHead2, vStr);
+    vStr := FDiff.Text[1].ViewName;
+    if vStr = '' then
+      vStr := FDiff.Text[1].Name;
+    SetText(IdHead2, ' ' + vStr);
   end;
 
 
@@ -1079,17 +1084,26 @@ interface
   end;
 
 
-  procedure CompareTexts(const AName1, AName2 :TString);
+  procedure CompareTexts(const AFileName1, AFileName2 :TString);
+  begin
+    CompareTextsEx(AFileName1, AFileName2, '', '');
+  end;
+
+
+  procedure CompareTextsEx(const AFileName1, AFileName2, AViewName1, AViewName2 :TString);
   var
     vDiff :TTextDiff;
   begin
-    vDiff := GetTextDiffs(AName1, AName2);
+    vDiff := GetTextDiffs(AFileName1, AFileName2);
     try
+      vDiff.Text[0].ViewName := AViewName1;
+      vDiff.Text[1].ViewName := AViewName2;
       ShowTextsDlg(vDiff);
     finally
       FreeObj(vDiff);
     end;
   end;
+
 
 end.
 
