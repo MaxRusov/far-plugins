@@ -131,9 +131,9 @@ interface
     if (ItemID <> -1) and (ItemID <> IdCancel) then begin
       FFolder1 := Trim(GetText(IdEdtFolder1));
       FFolder2 := Trim(GetText(IdEdtFolder2));
-      if not IsFullFilePath(FFolder1) then
+      if not IsFullFilePath(FFolder1) and not IsSpecialPath(FFolder1) then
         AppErrorFmt('Invalid path: %s', [FFolder1]);
-      if not IsFullFilePath(FFolder2) then
+      if not IsFullFilePath(FFolder2) and not IsSpecialPath(FFolder2) then
         AppErrorFmt('Invalid path: %s', [FFolder2]);
 
       optScanFileMask := Trim(GetText(IdEdtMask));

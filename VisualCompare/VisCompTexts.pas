@@ -44,11 +44,13 @@ interface
       procedure LoadFile(AForceFormat :TStrFileFormat);
 
     private
-      FName   :TString;
-      FFormat :TStrFileFormat;
+      FName     :TString;
+      FViewName :TString;
+      FFormat   :TStrFileFormat;
 
     public
       property Name :TString read FName;
+      property ViewName :TString read FViewName write FViewName;
       property Format :TStrFileFormat read FFormat;
     end;
 
