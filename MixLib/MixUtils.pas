@@ -110,6 +110,7 @@ interface
 
   Function Format(const Fmt :TString; const Args : Array of const) :TString;
 
+  function MakeInt64(ALo, AHi :DWORD) :TInt64;
   function IntToStr(AInt :Integer) :TString;
   function Int64ToStr(AInt :Int64) :TString;
   function HexStr(AVal :Int64; ACount :Integer) :TString;
@@ -197,6 +198,7 @@ interface
   function FileSeek(Handle :THandle; const Offset: Int64; Origin: Integer): Int64; overload;
   procedure FileClose(Handle :THandle);
   function FileTimeToDosFileDate(const AFileTime :TFileTime) :Integer;
+  function FileSize(AHandle :THandle) :TInt64;
   function FileAge(const FileName :TString): Integer;
   function FileGetAttr(const FileName :TString): Integer;
   function FileSetAttr(const FileName :TString; Attr: Integer): Integer;
@@ -370,6 +372,13 @@ interface
       Result := FormatFunc(Fmt, Args)
     else
       raise Exception.CreateRes(@SNotImplemented);
+  end;
+
+
+  function MakeInt64(ALo, AHi :DWORD) :TInt64;
+  begin
+    Int64Rec(Result).Lo := ALo;
+    Int64Rec(Result).Hi := AHi;
   end;
 
 
@@ -1129,6 +1138,15 @@ interface
     FileTimeToLocalFileTime(AFileTime, vLocalTime);
     if not FileTimeToDosDateTime(vLocalTime, LongRec(Result).Hi, LongRec(Result).Lo) then
       Result := -1;
+  end;
+
+
+  function FileSize(AHandle :THandle) :TInt64;
+  var
+    vSizeLo, vSizeHi :DWORD;
+  begin
+    vSizeLo := GetFileSize(AHandle, @vSizeHi);
+    Result := MakeInt64(vSizeLo, vSizeHi);
   end;
 
 
