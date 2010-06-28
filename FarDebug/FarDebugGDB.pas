@@ -430,6 +430,34 @@ Line 761 of "FPTest.dpr" is at address 0x1001ab0 <Test1> but contains no code.
 
  {-----------------------------------------------------------------------------}
 
+  const
+    cCygDrive = '\cygdrive\';
+
+  function GDBPathToLocalPath(const AName :TString) :TString;
+  var
+    vPath :TString;
+  begin
+    vPath := StrReplaceChars(AName, ['/'], '\');
+    if (optCygwinRoot <> '') and (UpCompareSubStr(cCygDrive, vPath) = 0) then begin
+      vPath := Copy(vPath, length(cCygDrive) + 1, MaxInt);
+      if (length(vPath) >= 2) and (vPath[2] = '\') then
+        vPath := TString(vPath[1]) + ':' + Copy(vPath, 2, MaxInt);
+      Result := CombineFileName(optCygwinRoot, vPath);
+    end else
+      Result := vPath;
+  end;
+
+
+  function LocalPathToGDBPath(const AName :TString) :TString;
+  begin
+    if (optCygwinRoot <> '') and FileNameIsLocal(AName) then begin
+      Result := cCygDrive + AName[1] + Copy(AName, 3, MaxInt);
+    end else
+      Result := AName;
+    Result := StrReplaceChars(Result, ['\'], '/');
+  end;
+
+
   procedure UpdateSourcesList;
   var
     vRes, vStr, vName, vFullName, vFileName, vFilePath :TString;
@@ -451,7 +479,7 @@ Line 761 of "FPTest.dpr" is at address 0x1001ab0 <Test1> but contains no code.
           while vTmp^ <> #0 do begin
             vName := Trim(ExtractNextWord(vTmp, [',']));
             if (vName <> '') and (ChrsPos(['<', '>'], vName) = 0) then begin
-              vFullName := StrReplaceChars(vName, ['/'], '\');
+              vFullName := GDBPathToLocalPath(vName);
               vFileName := ExtractFileName(vFullName);
               if vFileName <> '' then begin
                 if SrcFiles.FindKey(Pointer(vFileName), 0, [foBinary], vIndex) then
@@ -491,7 +519,7 @@ Line 761 of "FPTest.dpr" is at address 0x1001ab0 <Test1> but contains no code.
     if APrompt and ((Result = '') or not WinFileExists(Result)) then begin
       if PromptFolderDlg(AFileName, vFolder) then begin
 
-        RedirCall('directory ' + StrReplaceChars(vFolder, ['\'], '/'));
+        RedirCall('directory ' + LocalPathToGDBPath(vFolder));
         UpdateSourcesList;
 
         Result := FullNameToSourceFile(AFileName, APrompt);

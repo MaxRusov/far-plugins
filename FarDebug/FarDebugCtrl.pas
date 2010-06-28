@@ -109,6 +109,7 @@ interface
   var
     optGDBName        :TString = 'gdb';   { Например, "GDB64" }
     optGDBPresets     :TString = '';
+    optCygwinRoot     :TString = '';
 
     optShowCodeLine   :Boolean = False;
 
@@ -197,6 +198,9 @@ interface
     while (P^ <> #0) and (P^ <> #13) and (P^ <> #10) do
       Inc(P);
     SetString(Result, AStr, P - AStr);
+    if P^ = #10 then
+      Inc(P)
+    else
     if P^ = #13 then begin
       Inc(P);
       if P^ = #10 then
@@ -354,6 +358,7 @@ interface
     try
       optGDBName := RegQueryStr(vKey, 'GDBName', optGDBName);
       optGDBPresets := RegQueryStr(vKey, 'GDBPresets', optGDBPresets);
+      optCygwinRoot := RegQueryStr(vKey, 'CygwinRoot', optCygwinRoot);
 
       optEdtExecColor := RegQueryInt(vKey, 'ExecColor', optEdtExecColor);
       optEdtBreakColor := RegQueryInt(vKey, 'BreakColor', optEdtBreakColor);
