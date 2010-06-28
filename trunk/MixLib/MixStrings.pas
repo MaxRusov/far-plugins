@@ -34,7 +34,6 @@ interface
   function FloatCompare(const E1, E2 :TFloat) :Integer;
   function DateTimeCompare(const aD1, aD2 :TDateTime) :Integer;
 
-  function MakeInt64(ALo, AHi :DWORD) :TInt64;
   function Point(AX, AY: Integer): TPoint;
   function SmallPoint(AX, AY: SmallInt): TSmallPoint;
   function Size(ACX, ACY :Integer) :TSize;
@@ -295,13 +294,6 @@ interface
       Result := -1
     else
       Result := 0;
-  end;
-
-
-  function MakeInt64(ALo, AHi :DWORD) :TInt64;
-  begin
-    Int64Rec(Result).Lo := ALo;
-    Int64Rec(Result).Hi := AHi;
   end;
 
 
