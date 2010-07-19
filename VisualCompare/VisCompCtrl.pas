@@ -268,6 +268,8 @@ interface
   function IsSpecialPath(const AName :TString) :boolean;
   function FarExpandFileNameEx(const AName :TString) :TString;
 
+  function ReduceFileName(const AName :TString; ALen :Integer) :TString;
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -565,6 +567,23 @@ interface
       Result := FarExpandFileName( AName );
   end;
 
+
+  function ReduceFileName(const AName :TString; ALen :Integer) :TString;
+  var
+    vLen, vPos :Integer;
+  begin
+    vLen := length(AName);
+    if vLen > ALen then begin
+
+      vPos := ChrPos(':', AName);
+      if (vPos > 0) and (vPos < ALen - 3) then
+        Result := Copy(AName, 1, vPos) + '...' + Copy(AName, vLen - ALen + vPos + 4, MaxInt)
+      else
+        Result := '...' + Copy(AName, vLen - ALen + 4, MaxInt);
+
+    end else
+      Result := AName;
+  end;
 
 initialization
   ColorDlgResBase := Byte(strColorDialog);

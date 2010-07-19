@@ -38,13 +38,13 @@ interface
   function GetMinFarVersionW :Integer; stdcall;
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
   procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
   function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
  {$else}
   procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
   procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
   procedure ExitFAR; stdcall;
-  function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
  {$endif bUnicodeFar}
 
   function CompareFiles(AFileName1, AFileName2 :PTChar; AOptions :DWORD) :Integer; stdcall;
@@ -211,9 +211,9 @@ interface
 
 
  {$ifdef bUnicodeFar}
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
  {$else}
-  function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
  {$endif bUnicodeFar}
   begin
     Result:= INVALID_HANDLE_VALUE;
