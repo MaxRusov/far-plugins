@@ -9,6 +9,8 @@
 == Загрузить ==
 
  * [http://far-plugins.googlecode.com/files/VisualCompareW.v0.5.rar VisualCompare 0.9.5 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/VisualCompareW64.v0.5.rar VisualCompare 0.9.5 for FAR 2 x64]
+
 
 == Примеры ==
 
