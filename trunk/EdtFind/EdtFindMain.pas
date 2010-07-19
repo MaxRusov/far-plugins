@@ -652,6 +652,8 @@ interface
     gMatchRow1 :Integer;
     gMatchRow2 :Integer;
 
+    gEdtMess   :TString;
+
 
   procedure EdtMark(ARow, ACol, ALen :Integer);
   begin
@@ -662,20 +664,32 @@ interface
 
 
   procedure EdtClearMark(AClearMatches :Boolean = True; ARedraw :Boolean = True);
+  var
+    vWasChange :Boolean;
   begin
-    if (gFound.FLen > 0) or (gMatches <> nil) then begin
-      if AClearMatches then
-        gEdtID := -1;
+    vWasChange := False;
+    if AClearMatches then
+      gEdtID := -1;
 
+    if gFound.FLen > 0 then begin
       EdtMark(0, 0, 0);
+      vWasChange := True;
+    end;
 
-      if AClearMatches then begin
-        gMatchStr := '';
-        FreeObj(gMatches);
-      end;
+    if AClearMatches and (gMatches <> nil) then begin
+      gMatchStr := '';
+      FreeObj(gMatches);
+      vWasChange := True;
+    end;
 
-      if ARedraw then
-        FARAPI.EditorControl(ECTL_REDRAW, nil);
+    if ARedraw and vWasChange then
+      FARAPI.EditorControl(ECTL_REDRAW, nil);
+
+    if gEdtMess <> '' then begin
+      gEdtMess := '';
+//    vWasChange := True;
+      FARAPI.EditorControl(ECTL_REDRAW, nil);
+      FARAPI.AdvControl(hModule, ACTL_REDRAWALL, nil);
     end;
   end;
 
@@ -697,6 +711,8 @@ interface
     vRow2 := vRow1 + AInfo.WindowSizeY;
 
     if (vRow1 <> gMatchRow1) or (vRow2 <> gMatchRow2) then begin
+//    TraceF('UpdateMatches', [0]);
+
       if gMatches = nil then
         gMatches := TExList.CreateSize(SizeOf(TEdtSelection));
 
@@ -949,8 +965,15 @@ interface
           end;
 
         end else
-          ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AStr,
-            FMSG_WARNING or FMSG_MB_OK);
+        begin
+          if optNoModalMess then begin
+            {xxx}
+            gEdtMess := GetMsgStr(strNotFound);
+            FARAPI.EditorControl(ECTL_REDRAW, nil);
+          end else
+            ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AStr,
+              FMSG_WARNING or FMSG_MB_OK);
+        end;
       end;
 
       Break;
@@ -1373,7 +1396,7 @@ interface
       SetMenuItemChrEx(vItem, GetMsg(strMFindWordNext));
       SetMenuItemChrEx(vItem, GetMsg(strMFindWordPrev));
       SetMenuItemChrEx(vItem, GetMsg(strMFindPickWord));
-      SetMenuItemChrEx(vItem, GetMsg(strMRemoveHilight), IntIf(gMatchStr <> '', 0, MIF_DISABLE));
+      SetMenuItemChrEx(vItem, GetMsg(strMRemoveHilight), IntIf((gMatchStr <> '') or (gEdtMess <> ''), 0, MIF_DISABLE));
       SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
       SetMenuItemChrEx(vItem, GetMsg(strMOptions));
 
@@ -1423,7 +1446,7 @@ interface
     Move(psi.fsf^, FARSTD, SizeOf(FARSTD));
 
 //  hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
-//  hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
+    hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
     FRegRoot := psi.RootKey;
 
     ReadSetup;
@@ -1553,6 +1576,33 @@ interface
       end;
     end;
 
+
+    procedure EdtShowMessage;
+    var
+      vCoord :TCoord;
+      vWIdth :Integer;
+      vRes :DWORD;
+      vBuf :PWord;
+    begin
+      with FarGetWindowRect do begin
+        vCoord.X := Left;
+        vCoord.Y := Bottom;
+        vWidth := Right - Left;
+      end;
+
+      vBuf := MemAlloc( SizeOf(Word) * vWidth);
+      try
+        WriteConsoleOutputCharacter(hStdOut, PTChar(gEdtMess), length(gEdtMess), vCoord, vRes);
+
+        MemFill2(vBuf, vWidth, $CE); 
+        WriteConsoleOutputAttribute(hStdOut, vBuf, vWidth, vCoord, vRes);
+      finally
+        MemFree(vBuf);
+      end;
+//    FARAPI.Text(0, 1, $CE, PTChar(gEdtMess));
+//    FARAPI.Text(0, 0, 0, nil);
+    end;
+
   var
     I :Integer;
     vInfo :TEditorInfo;
@@ -1563,6 +1613,7 @@ interface
 
     case AEvent of
       EE_CLOSE: begin
+        EdtClearMark(True, False);
         DeleteEdtHelper(Integer(AParam^));
         { Чтобы при следующем поиске отработал SyncFindStr, синхронизируя }
         { поиск в редакторе с файловым поиском }
@@ -1620,6 +1671,9 @@ interface
                 end;
               end;
             end;
+
+            if gEdtMess <> '' then
+              EdtShowMessage;
 
           finally
             if vChangePos then
