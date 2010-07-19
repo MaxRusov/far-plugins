@@ -15,6 +15,7 @@
 == Загрузить ==
 
  * [http://far-plugins.googlecode.com/files/EdtFindW.v4.rar EdtFind 1.0.4 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/EdtFindW64.v4.rar EdtFind 1.0.4 for FAR 2 x64]
 
 == Пример ==
 
