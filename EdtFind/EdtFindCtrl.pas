@@ -123,6 +123,7 @@ interface
     optShowAllFound  :Boolean = True;
     optPersistMatch  :Boolean = False;
     optShowProgress  :Boolean = True;
+    optNoModalMess   :Boolean = False;
 
     optGroupUndo     :Boolean = True;
 
