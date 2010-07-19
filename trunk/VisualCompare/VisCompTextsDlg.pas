@@ -59,6 +59,8 @@ interface
       FSelectedCount  :array[0..1] of Integer;
 *)
       FMenuMaxWidth   :Integer;
+      FHeadWidth1     :Integer;
+      FHeadWidth2     :Integer;
 
       FCurSide        :Integer;
       FStrDelta       :Integer;
@@ -257,8 +259,11 @@ interface
 
     vRect1 := SRect(vRect.Left, vRect.Top, vRect.Left + (vRect.Right - vRect.Left) div 2 - 1, 1);
     SendMsg(DM_SETITEMPOSITION, IdHead1, @vRect1);
+    FHeadWidth1 := vRect1.Right - vRect1.Left;
+
     vRect1 := SRect(vRect1.Right + 2, vRect.Top, vRect.Right, 1);
     SendMsg(DM_SETITEMPOSITION, IdHead2, @vRect1);
+    FHeadWidth2 := vRect1.Right - vRect1.Left;
 
     SetDlgPos(-1, -1, vWidth, vHeight);
   end;
@@ -288,11 +293,13 @@ interface
     vStr := FDiff.Text[0].ViewName;
     if vStr = '' then
       vStr := FDiff.Text[0].Name;
+    vStr := ReduceFileName(vStr, FHeadWidth1 - 1);
     SetText(IdHead1, ' ' + vStr);
 
     vStr := FDiff.Text[1].ViewName;
     if vStr = '' then
       vStr := FDiff.Text[1].Name;
+    vStr := ReduceFileName(vStr, FHeadWidth2 - 1);
     SetText(IdHead2, ' ' + vStr);
   end;
 
@@ -488,8 +495,8 @@ interface
 
     SendMsg(DM_ENABLEREDRAW, 0, 0);
     try
-      UpdateHeader;
       ResizeDialog;
+      UpdateHeader;
       UpdateFooter;
     finally
       SendMsg(DM_ENABLEREDRAW, 1, 0);
@@ -667,14 +674,17 @@ interface
   function TTextsDlg.GetNearestPresentRow(AVer, ARow :Integer) :Integer;
   var
     I :Integer;
+    vItem :TRowsPair;
   begin
     for I := ARow to FGrid.RowCount - 1 do begin
-      Result := GetItemAt(I)[AVer];
+      vItem := GetItemAt(I);
+      Result := vItem[AVer];
       if Result <> -1 then
         Exit;
     end;
     for I := ARow - 1 downto 0 do begin
-      Result := GetItemAt(I)[AVer];
+      vItem := GetItemAt(I);
+      Result := vItem[AVer];
       if Result <> -1 then
         Exit;
     end;
@@ -944,6 +954,7 @@ interface
     case Msg of
       DN_RESIZECONSOLE: begin
         ResizeDialog;
+        UpdateHeader;
         UpdateFooter; { Чтобы центрировался status-line }
         SetCurrent(FGrid.CurRow, lmScroll);
       end;

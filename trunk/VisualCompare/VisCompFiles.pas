@@ -759,13 +759,11 @@ interface
   procedure TComparator.CompareFolders; {virtual;}
 
     procedure UpdateMessage1(const AFolder :TString);
-    var
-      vFolder :TFarStr;
     begin
       {!!!Localize}
       ShowProgress(
         Format('Files: %d   Folders: %d   Time: %d sec', [FFiles, FFolders, TickCountDiff(GetTickCount, FStart) div 1000]) + #10 +
-        StrLeftAjust(vFolder, FWidth), -1);
+        StrLeftAjust(AFolder, FWidth), -1);
     end;
 
 

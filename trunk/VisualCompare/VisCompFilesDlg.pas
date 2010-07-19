@@ -88,6 +88,8 @@ interface
       FTotalCount     :Integer;
       FSelectedCount  :array[0..1] of Integer;
       FMenuMaxWidth   :Integer;
+      FHeadWidth1     :Integer;
+      FHeadWidth2     :Integer;
 
 //    FCurSide        :Integer;
       FWholeLine      :Boolean;
@@ -105,6 +107,7 @@ interface
       procedure InitColors;
       procedure ResizeDialog;
       procedure UpdateHeader;
+      procedure UpdateTitles;
       procedure UpdateFooter;
       procedure ReinitGrid;
       procedure SetCurrent(AIndex :Integer; AMode :TLocationMode);
@@ -369,10 +372,13 @@ interface
 
     vRect1 := SRect(vRect.Left, vRect.Top, vRect.Left + (vRect.Right - vRect.Left) div 2 - 1, 2);
     SendMsg(DM_SETITEMPOSITION, IdHead1, @vRect1);
+    FHeadWidth1 := vRect1.Right - vRect1.Left;
+
     vRect1 := SRect(vRect1.Right + 2, vRect.Top, vRect.Right, 2);
     if optMaximized then
       Dec(vRect1.Right, 3);
     SendMsg(DM_SETITEMPOSITION, IdHead2, @vRect1);
+    FHeadWidth2 := vRect1.Right - vRect1.Left;
 
     SetDlgPos(-1, -1, vWidth, vHeight);
   end;
@@ -395,15 +401,21 @@ interface
     else
       vStr := Format('%s [%s] (%d/%d)', [vStr, FFilterMask, FFilter.Count, FTotalCount ]);
 
-    if length(vStr)+2 > FMenuMaxWidth then
-      FMenuMaxWidth := length(vStr)+2;
+    if length(vStr)+2+6 > FMenuMaxWidth then
+      FMenuMaxWidth := length(vStr)+2+6;
 
     SetText(IdFrame, vStr);
+  end;
 
-    vStr := FComp.ViewFileName(FItems.GetFolder(0), '', 0);
+
+  procedure TFilesDlg.UpdateTitles;
+  var
+    vStr :TString;
+  begin
+    vStr := ReduceFileName(FComp.ViewFileName(FItems.GetFolder(0), '', 0), FHeadWidth1 - 1);
     SetText(IdHead1, ' ' + vStr);
 
-    vStr := FComp.ViewFileName(FItems.GetFolder(1), '', 1);
+    vStr := ReduceFileName(FComp.ViewFileName(FItems.GetFolder(1), '', 1), FHeadWidth2 - 1);
     SetText(IdHead2, ' ' + vStr);
   end;
 
@@ -903,6 +915,7 @@ interface
     try
       UpdateHeader;
       ResizeDialog;
+      UpdateTitles;
       UpdateFooter;
     finally
       SendMsg(DM_ENABLEREDRAW, 1, 0);
@@ -1765,7 +1778,9 @@ interface
     Result := 1;
     case Msg of
       DN_RESIZECONSOLE: begin
+        UpdateHeader;
         ResizeDialog;
+        UpdateTitles;
         UpdateFooter; { Чтобы центрировался status-line }
         SetCurrent(FGrid.CurRow, lmScroll);
       end;
