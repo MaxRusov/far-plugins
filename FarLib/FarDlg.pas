@@ -130,7 +130,7 @@ interface
 
   destructor TFarDialog.Destroy; {override;}
   begin
-    FreeMem(FControls);
+    MemFree(FControls);
     MemFree(FDialog);
     inherited Destroy;
   end;
@@ -225,7 +225,7 @@ interface
   var
     vNewCount :Integer;
   begin
-    if FCtrlCount < AControl.ControlID then begin
+    if FCtrlCount <= AControl.ControlID then begin
       vNewCount := AControl.ControlID + 1;
       ReallocMem(FControls, vNewCount * SizeOf(Pointer));
       FillChar(FControls[FCtrlCount], (vNewCount - FCtrlCount) * SizeOf(Pointer), 0);
