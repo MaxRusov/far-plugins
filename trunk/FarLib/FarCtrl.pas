@@ -1000,27 +1000,6 @@ interface
  {$endif bUnicodeFar}
   end;
 
-(*
-  function FarGetWindowSize :TSize;
- {$ifdef bUnicodeFar}
-  var
-    vRect :TSmallRect;
-  begin
-    FillChar(vRect, SizeOf(vRect), 0);
-    FARAPI.AdvControl(hModule, ACTL_GETFARRECT, @vRect);
-    with vRect do
-      Result := Size(Right - Left + 1, Bottom - Top + 1);
- {$else}
-  var
-    vScreenInfo :TConsoleScreenBufferInfo;
-  begin
-    GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
-    with vScreenInfo.dwSize do
-      Result := Size(X, Y);
- {$endif bUnicodeFar}
-  end;
-*)
-
 
   function FarGetWindowSize :TSize;
   begin
