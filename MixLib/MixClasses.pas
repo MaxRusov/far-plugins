@@ -364,6 +364,8 @@ interface
     TBits = class
     public
       destructor Destroy; override;
+
+      procedure SetBits(AIndex, ACount :Integer; AValue: Boolean);
       function OpenBit: Integer;
 
     private
@@ -1674,6 +1676,7 @@ interface
     end;
   end;
 
+  
  {-----------------------------------------------------------------------------}
  { TBits                                                                       }
  {-----------------------------------------------------------------------------}
@@ -1739,35 +1742,22 @@ interface
 
   procedure TBits.SetSize(Value: Integer);
   var
-    NewMem: Pointer;
-    NewMemSize: Integer;
-    OldMemSize: Integer;
-
-    function Min(X, Y: Integer): Integer;
-    begin
-      Result := X;
-      if X > Y then
-        Result := Y;
-    end;
-
+    vNewMem :Pointer;
+    vOldMemSize, vNewMemSize :Integer;
   begin
     if Value <> Size then begin
       if Value < 0 then
         Error;
-      NewMemSize := ((Value + BitsPerInt - 1) div BitsPerInt) * SizeOf(Integer);
-      OldMemSize := ((Size + BitsPerInt - 1) div BitsPerInt) * SizeOf(Integer);
-      if NewMemSize <> OldMemSize then begin
-        NewMem := nil;
-        if NewMemSize <> 0 then begin
-          GetMem(NewMem, NewMemSize);
-          FillChar(NewMem^, NewMemSize, 0);
+      vNewMemSize := ((Value + BitsPerInt - 1) div BitsPerInt) * SizeOf(Integer);
+      vOldMemSize := ((Size + BitsPerInt - 1) div BitsPerInt) * SizeOf(Integer);
+      if vNewMemSize <> vOldMemSize then begin
+        vNewMem := MemAllocZero(vNewMemSize);
+        if vOldMemSize <> 0 then begin
+          if vNewMem <> nil then
+            Move(FBits^, vNewMem^, IntMin(vOldMemSize, vNewMemSize));
+          FreeMem(FBits, vOldMemSize);
         end;
-        if OldMemSize <> 0 then begin
-          if NewMem <> nil then
-            Move(FBits^, NewMem^, Min(OldMemSize, NewMemSize));
-          FreeMem(FBits, OldMemSize);
-        end;
-        FBits := NewMem;
+        FBits := vNewMem;
       end;
       FSize := Value;
     end;
@@ -1816,6 +1806,15 @@ interface
         end;
       end;
     Result := Size;
+  end;
+
+
+  procedure TBits.SetBits(AIndex, ACount :Integer; AValue: Boolean);
+  var
+    I :Integer;
+  begin
+    for I := AIndex to AIndex + ACount - 1 do
+      SetBit(I, AValue);
   end;
 
 
