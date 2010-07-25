@@ -1,8 +1,7 @@
 {******************************************************************************}
-{* (c) 2008 Max Rusov                                                         *}
+{* (c) 2010 Max Rusov                                                         *}
 {*                                                                            *}
-{* Noisy Far plugin                                                           *}
-{* Процедуры взаимодействия с плеером                                         *}
+{* Visual Compare Far plugin                                                  *}
 {******************************************************************************}
 
 {$I Defines.inc}
@@ -97,6 +96,8 @@ interface
       strMIgnoreCase,
       strMShowLineNumbers,
       strMShowSpaces,
+      strMShowCurrentRows,
+      strMHilightRowDiff,
       strMColors2,
 
       strCodePages,
@@ -119,7 +120,10 @@ interface
 
       strClNormalText,
       strClSelectedText,
-      strClDifference,
+      strClNewLine,
+      strClDelLine,
+      strClDiffLine,
+      strClDiffChars,
       strClLineNumbers,
       strClCaption2,
       strRestoreDefaults,
@@ -195,8 +199,10 @@ interface
     optShowAttr            :Boolean = False;
     optShowFolderAttrs     :Boolean = False;
 
-    optShowLinesNumber     :Boolean = True;
-    optShowSpaces          :Boolean = False;
+    optShowLinesNumber     :Boolean = True;    { Показывать номера строк }
+    optShowSpaces          :Boolean = False;   { Показывать пробелы и символы табуляции }
+    optShowCurrentRows     :Boolean = True;    { Показывать снизу сравнение для текущей строки }
+    optHilightRowsDiff     :Boolean = True;    { Выделять цветом различия в строке }
 
     optCompareContents     :Boolean = True;
     optCompareSize         :Boolean = True;
@@ -237,7 +243,10 @@ interface
 
     optTextColor           :Integer;
     optTextSelColor        :Integer;
-    optTextDiffColor       :Integer;
+    optTextNewColor        :Integer;
+    optTextDelColor        :Integer;
+    optTextDiffStrColor1   :Integer;
+    optTextDiffStrColor2   :Integer;
     optTextNumColor        :Integer;
     optTextHeadColor       :Integer;
 
@@ -319,6 +328,8 @@ interface
 
       optShowLinesNumber := RegQueryLog(vKey, 'ShowLinesNumber', optShowLinesNumber);
       optShowSpaces := RegQueryLog(vKey, 'ShowSpaces', optShowSpaces);
+      optShowCurrentRows := RegQueryLog(vKey, 'ShowCurrentRows', optShowCurrentRows);
+      optHilightRowsDiff := RegQueryLog(vKey, 'HilightRowsDiff', optHilightRowsDiff);
 
       optHilightDiff := RegQueryLog(vKey, 'HilightDiff', optHilightDiff);
       optDiffAtTop := RegQueryLog(vKey, 'DiffAtTop', optDiffAtTop);
@@ -367,6 +378,8 @@ interface
 
       RegWriteLog(vKey, 'ShowLinesNumber', optShowLinesNumber);
       RegWriteLog(vKey, 'ShowSpaces', optShowSpaces);
+      RegWriteLog(vKey, 'ShowCurrentRows', optShowCurrentRows);
+      RegWriteLog(vKey, 'HilightRowsDiff', optHilightRowsDiff);
 
       RegWriteLog(vKey, 'HilightDiff', optHilightDiff);
       RegWriteLog(vKey, 'DiffAtTop', optDiffAtTop);
@@ -411,7 +424,10 @@ interface
 
       optTextColor  := RegQueryInt(vKey, 'TColor', optTextColor);
       optTextSelColor  := RegQueryInt(vKey, 'TSelColor', optTextSelColor);
-      optTextDiffColor  := RegQueryInt(vKey, 'TDiffColor', optTextDiffColor);
+      optTextNewColor  := RegQueryInt(vKey, 'TDiffColor', optTextNewColor);
+      optTextDelColor  := RegQueryInt(vKey, 'TDiffColor2', optTextDelColor);
+      optTextDiffStrColor1  := RegQueryInt(vKey, 'TDiffStrColor1', optTextDiffStrColor1);
+      optTextDiffStrColor2  := RegQueryInt(vKey, 'TDiffStrColor2', optTextDiffStrColor2);
       optTextNumColor  := RegQueryInt(vKey, 'TNumColor', optTextNumColor);
       optTextHeadColor  := RegQueryInt(vKey, 'THeadColor', optTextHeadColor);
     finally
@@ -438,7 +454,10 @@ interface
 
       RegWriteInt(vKey, 'TColor', optTextColor);
       RegWriteInt(vKey, 'TSelColor', optTextSelColor);
-      RegWriteInt(vKey, 'TDiffColor', optTextDiffColor);
+      RegWriteInt(vKey, 'TDiffColor', optTextNewColor);
+      RegWriteInt(vKey, 'TDiffColor2', optTextDelColor);
+      RegWriteInt(vKey, 'TDiffStrColor1', optTextDiffStrColor1);
+      RegWriteInt(vKey, 'TDiffStrColor2', optTextDiffStrColor2);
       RegWriteInt(vKey, 'TNumColor', optTextNumColor);
       RegWriteInt(vKey, 'THeadColor', optTextHeadColor);
     finally
@@ -463,11 +482,14 @@ interface
 
   procedure RestoreDefTextColor;
   begin
-    optTextColor     := 0;
-    optTextSelColor  := 0;
-    optTextDiffColor := $B0;
-    optTextNumColor  := $08;
-    optTextHeadColor := $2F;
+    optTextColor         := 0;
+    optTextSelColor      := 0;
+    optTextNewColor      := $B0;
+    optTextDelColor      := $70;
+    optTextDiffStrColor1 := $F0;
+    optTextDiffStrColor2 := $B0;
+    optTextNumColor      := $08;
+    optTextHeadColor     := $2F;
   end;
 
 

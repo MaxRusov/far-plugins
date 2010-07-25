@@ -1,4 +1,4 @@
-.Language=English,English
+﻿.Language=English,English
 
 "English"
 "Visual Compare"
@@ -65,8 +65,10 @@
 "Ignore &empty lines"
 "Ignore &spaces"
 "Ignore &case"
-"Show &Line Numbers"
-"Show S&paces"
+"Show &line numbers"
+"Show s&paces"
+"Show current &rows"
+"&Hilight row difference"
 "C&olors..."
 
 "Code Pages"
@@ -89,9 +91,12 @@
 
 "&1 Normal text"
 "&2 Selected text"
-"&3 Difference"
-"&4 Line numbers"
-"&5 Caption"
+"&3 New line"
+"&4 Deleted line"
+"&5 Modified line"
+"&6 Modified chars"
+"&7 Line numbers"
+"&8 Caption"
 "&Restore defaults"
 
 "Interrupt"

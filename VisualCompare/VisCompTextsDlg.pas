@@ -48,6 +48,7 @@ interface
 
     private
       FGrid           :TFarGrid;
+      FRowDiff        :TFarGrid;
 
       FDiff           :TTextDiff;
 (*
@@ -65,6 +66,7 @@ interface
       FCurSide        :Integer;
       FStrDelta       :Integer;
 
+      FTmpBits        :TBits;
       FResCmd         :Integer;
 
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
@@ -72,6 +74,10 @@ interface
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
       procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
       procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+
+      function RowDiffGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
+      procedure RowDiffGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
+      procedure RowDiffPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
 
       procedure InitColors;
       procedure ResizeDialog;
@@ -123,39 +129,71 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function ChrExpandTabsEx(AStr :PTChar; ALen :Integer; ATabLen :Integer = DefTabSize) :TString;
+  function ChrExpandTabsEx(AStr :PTChar; ALen :Integer;
+    ASrcBits :TBits = nil; ADstBits :TBits = nil; ATabLen :Integer = DefTabSize) :TString;
   var
     vEnd, vDst :PTChar;
-    vPos, vDstLen, vSize :Integer;
+    vSPos, vDPos, vDstLen, vSize :Integer;
   begin
     vDstLen := ChrExpandTabsLen(AStr, ALen, ATabLen);
     SetString(Result, nil, vDstLen);
+    if (ASrcBits <> nil) and (ASrcBits.Size > ADstBits.Size) then
+      ADstBits.Size := ASrcBits.Size;
     vDst := PTChar(Result);
     vEnd := AStr + ALen;
-    vPos := 0;
+    vSPos := 0; vDPos := 0;
     while AStr < vEnd do begin
       if AStr^ <> charTab then begin
-        Assert(vPos < vDstLen);
+        Assert(vDPos < vDstLen);
         if (AStr^ = ' ') and optShowSpaces then
           vDst^ := optSpaceChar
         else
           vDst^ := AStr^;
+        if ASrcBits <> nil then
+          ADstBits[vDPos] := ASrcBits[vSPos];
         Inc(vDst);
-        Inc(vPos);
+        Inc(vDPos);
       end else
       begin
-        vSize := ATabLen - (vPos mod ATabLen);
-        Assert(vPos + vSize <= vDstLen);
+        vSize := ATabLen - (vDPos mod ATabLen);
+        Assert(vDPos + vSize <= vDstLen);
         if optShowSpaces then begin
           vDst^ := optTabChar;
           if vSize > 1 then
             MemFillChar(vDst + 1, vSize - 1, optTabSpaceChar);
         end else
           MemFillChar(vDst, vSize, ' ');
+        if ASrcBits <> nil then
+          ADstBits.SetBits(vDPos, vSize, ASrcBits[vSPos]);
         Inc(vDst, vSize);
-        Inc(vPos, vSize);
+        Inc(vDPos, vSize);
       end;
       Inc(AStr);
+      Inc(vSPos);
+    end;
+  end;
+
+
+  procedure GridDrawChrBits(AGrid :TFarGrid; X, Y, AWidth :Integer; AStr :PTChar; ALen, ADelta :Integer; ABits :TBits; AColor1, AColor2 :Integer);
+  var
+    I, J, vPartLen :Integer;
+    vDiff :Boolean;
+  begin
+    Assert(ABits.Size >= ALen);
+    Inc(AStr, ADelta);
+    I := ADelta;
+    while I < ALen do begin
+      vDiff := ABits[I];
+
+      J := I + 1;
+      while (J < ABits.Size) and (ABits[J] = vDiff) do
+        Inc(J);
+      vPartLen := J - I;
+
+      AGrid.DrawChr(X, Y, AStr, vPartLen, IntIf(vDiff, AColor2, AColor1));
+      Inc(AStr, vPartLen);
+      Inc(X, vPartLen);
+      Inc(I, vPartLen);
     end;
   end;
 
@@ -172,19 +210,24 @@ interface
     IdHead1  = 1;
     IdHead2  = 2;
     IdList   = 3;
-//  IdStatus = 4;
+    IdLine1  = 4;
+    IdRows   = 5;
+//  IdStatus = 5;
 
 
   constructor TTextsDlg.Create; {override;}
   begin
     inherited Create;
 (*  FFilter := TMyFilter.CreateSize(SizeOf(TFilterRec)); *)
+    FTmpBits := TBits.Create;
   end;
 
 
   destructor TTextsDlg.Destroy; {override;}
   begin
+    FreeObj(FTmpBits);
     FreeObj(FGrid);
+    FreeObj(FRowDiff);
 (*  FreeObj(FFilter); *)
 //  UnregisterHints;
     inherited Destroy;
@@ -204,7 +247,10 @@ interface
         NewItemApi(DI_DoubleBox,   2, 1, DX - 4, DY - 2, 0, ''),
         NewItemApi(DI_Text,        3, 2, DX div 2, 1, DIF_SHOWAMPERSAND, '...'),
         NewItemApi(DI_Text,        DX div 2 + 1, 2, DX - 6, 1, DIF_SHOWAMPERSAND, '...'),
-        NewItemApi(DI_USERCONTROL, 3, 3, DX - 6, DY - 4, 0, '' )
+        NewItemApi(DI_USERCONTROL, 3, 3, DX - 6, DY - 4, 0 ),
+//      NewItemApi(DI_Text,        0, DY - 7, -1, -1, DIF_SEPARATOR),
+        NewItemApi(DI_SINGLEBOX,   0, DY - 7, DX, 0, 0),
+        NewItemApi(DI_USERCONTROL, 3, DY - 6, DX - 6, 2, 0 )
       ],
       @FItemCount
     );
@@ -217,6 +263,13 @@ interface
     FGrid.OnGetCellText := GridGetDlgText;
     FGrid.OnGetCellColor := GridGetCellColor;
     FGrid.OnPaintCell := GridPaintCell;
+
+    FRowDiff := TFarGrid.CreateEx(Self, IdRows);
+    FRowDiff.Options := [goRowSelect {, goFollowMouse} {,goWheelMovePos} ];
+    FRowDiff.OnGetCellText := RowDiffGetDlgText;
+    FRowDiff.OnGetCellColor := RowDiffGetCellColor;
+    FRowDiff.OnPaintCell := RowDiffPaintCell;
+    FRowDiff.RowCount := 2;
   end;
 
 
@@ -254,8 +307,16 @@ interface
 
     vRect1 := vRect;
     Inc(vRect1.Top);
+    if optShowCurrentRows then
+      Dec(vRect1.Bottom, 3);
     SendMsg(DM_SETITEMPOSITION, IdList, @vRect1);
     FGrid.UpdateSize(vRect1.Left, vRect1.Top, vRect1.Right - vRect1.Left + 1, vRect1.Bottom - vRect1.Top + 1);
+
+    vRect1 := SBounds(0, vRect1.Bottom + 1, vWidth-1, 0);
+    SendMsg(DM_SETITEMPOSITION, IdLine1, @vRect1);
+
+    vRect1 := SBounds(0, vRect1.Bottom + 1, vWidth-1, 2);
+    SendMsg(DM_SETITEMPOSITION, IdRows, @vRect1);
 
     vRect1 := SRect(vRect.Left, vRect.Top, vRect.Left + (vRect.Right - vRect.Left) div 2 - 1, 1);
     SendMsg(DM_SETITEMPOSITION, IdHead1, @vRect1);
@@ -310,6 +371,8 @@ interface
   end;
 
 
+ {-----------------------------------------------------------------------------}
+
   procedure TTextsDlg.GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
   begin
 //  TraceF('GridCellClick: Pos=%d x %d, Button=%d, Double=%d', [ACol, ARow, AButton, Byte(ADouble)]);
@@ -320,8 +383,9 @@ interface
 
   procedure TTextsDlg.GridPosChange(ASender :TFarGrid);
   begin
-    { Обновляем status-line }
-    UpdateFooter;
+//  if optShowCurrentRows then
+//    {}
+//  UpdateFooter;
   end;
 
 
@@ -329,7 +393,6 @@ interface
   var
     vItem :PCmpTextRow;
     vTag, vVer, vRow :Integer;
-//  vPtr :PTString;
   begin
     Result := '';
     if ARow < FDiff.DiffCount then begin
@@ -342,11 +405,6 @@ interface
       vRow := vItem.FRow[vVer];
 
       case vTag of
-//      1:
-//        if vRow <> -1 then begin
-//          vPtr := FDiff.Text[vVer].PStrings[vRow];
-//          Result := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^));
-//        end;
         2:
           if vRow <> -1 then
             Result := Int2Str(vRow + 1) + ' ';
@@ -358,34 +416,40 @@ interface
   procedure TTextsDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
   var
     vItem :PCmpTextRow;
-    vTag :Integer;
+    vTag, vVer, vRow :Integer;
+    vDiff :TRowDiff;
   begin
     if ARow < FDiff.DiffCount then begin
       vItem := FDiff[ARow];
 
       if ACol < 0 then begin
 
-(*
-        if (ARow = FGrid.CurRow) {and (ACol = FGrid.CurCol)} then
-          {}
+        vDiff := nil;
+        if optHilightRowsDiff then
+          vDiff := FDiff.GetRowDiff(ARow);
+
+        if vDiff <> nil then
+          AColor := optTextDiffStrColor1
         else
-*)        
-//      if (vItem.FRow[0] = -1) or (vItem.FRow[1] = -1) then
         if vItem.FFlags = 0 then
           AColor := FGrid.NormColor
         else
-          AColor := optTextDiffColor;
+          AColor := optTextNewColor
 
       end else
       begin
         vTag := FGrid.Column[ACol].Tag;
-        vTag := (vTag and $FF00) shr 8;
+        vVer := (vTag and $00FF) - 1;
+        vRow := vItem.FRow[vVer];
 
+        if (vItem.FFlags <> 0) and (vRow = -1) then
+          AColor := optTextDelColor;
+
+        vTag := (vTag and $FF00) shr 8;
         case vTag of
           2:
             AColor := (AColor and $F0) or (optTextNumColor and $0F)
         end;
-
       end;
     end;
   end;
@@ -395,8 +459,11 @@ interface
   var
     vItem :PCmpTextRow;
     vTag, vVer, vRow :Integer;
+    vDiff :TRowDiff;
     vPtr :PTString;
     vStr :TString;
+    vBits :TBits;
+    vChr :TChar;
   begin
     if ARow < FDiff.DiffCount then begin
       vItem := FDiff[ARow];
@@ -404,21 +471,126 @@ interface
       vVer := (vTag and $00FF) - 1;
       vRow := vItem.FRow[vVer];
 
+      vStr := '';
       if vRow <> -1 then begin
         vPtr := FDiff.Text[vVer].PStrings[vRow];
-        vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^));
 
-        if length(vStr) > FStrDelta then begin
-          if (ARow = FGrid.CurRow) and (vVer = FCurSide) then
-            FGrid.DrawChrEx(X, Y, PTChar(vStr) + FStrDelta, length(vStr) - FStrDelta, 0, 1, AColor, FGrid.SelColor)
-          else
+        vDiff := nil;
+        if optHilightRowsDiff then
+          vDiff := FDiff.GetRowDiff(ARow);
+
+        if vDiff <> nil then begin
+          vBits := vDiff.GetDiffBits(vVer);
+          vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^), vBits, FTmpBits);
+          if Length(vStr) > FStrDelta then
+            GridDrawChrBits(FGrid, X, Y, AWidth, PTChar(vStr), Length(vStr), FStrDelta, FTmpBits, optTextDiffStrColor1, optTextDiffStrColor2);
+        end else
+        begin
+          vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^));
+          if Length(vStr) > FStrDelta then
             FGrid.DrawChr(X, Y, PTChar(vStr) + FStrDelta, length(vStr) - FStrDelta, AColor);
-          Exit;
         end;
       end;
 
-      if (ARow = FGrid.CurRow) and (vVer = FCurSide) then
-        FGrid.DrawChrEx(X, Y, ' ', 1, 0, 1, AColor, FGrid.SelColor)
+      if (ARow = FGrid.CurRow) and (vVer = FCurSide) then begin
+        vChr := ' ';
+        if Length(vStr) > FStrDelta then
+          vChr := vStr[FStrDelta + 1];
+        FGrid.DrawChr(X, Y, @vChr, 1, FGrid.SelColor);
+      end;
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  function TTextsDlg.RowDiffGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
+  var
+    vDiffRow, vVer, vRow :Integer;
+    vItem :PCmpTextRow;
+  begin
+    Result := '';
+    vDiffRow := FGrid.CurRow;
+    if vDiffRow < FDiff.DiffCount then begin
+      vItem := FDiff[vDiffRow];
+      vVer := ARow;
+      vRow := vItem.FRow[vVer];
+      case FRowDiff.Column[ACol].Tag of
+        2:
+          if vRow <> -1 then
+            Result := Int2Str(vRow + 1) + ' ';
+      end;
+    end;
+  end;
+
+
+  procedure TTextsDlg.RowDiffGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
+  var
+    vDiffRow, vVer, vRow :Integer;
+    vItem :PCmpTextRow;
+    vDiff :TRowDiff;
+  begin
+    vDiffRow := FGrid.CurRow;
+    if vDiffRow < FDiff.DiffCount then begin
+      vItem := FDiff[vDiffRow];
+
+      if ACol < 0 then begin
+
+        vDiff := FDiff.GetRowDiff(vDiffRow);
+
+        if vDiff <> nil then
+          AColor := optTextDiffStrColor1
+        else
+        if vItem.FFlags = 0 then
+          AColor := FGrid.NormColor
+        else
+          AColor := optTextNewColor;
+      end else
+      begin
+        vVer := ARow;
+        vRow := vItem.FRow[vVer];
+
+        if (vItem.FFlags <> 0) and (vRow = -1) then
+          AColor := optTextDelColor;
+
+        case FRowDiff.Column[ACol].Tag of
+          2:
+            AColor := (AColor and $F0) or (optTextNumColor and $0F)
+        end;
+      end;
+    end;
+  end;
+
+
+  procedure TTextsDlg.RowDiffPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+  var
+    vDiffRow, vVer, vRow :Integer;
+    vItem :PCmpTextRow;
+    vDiff :TRowDiff;
+    vPtr :PTString;
+    vStr :TString;
+    vBits :TBits;
+  begin
+    vDiffRow := FGrid.CurRow;
+    if vDiffRow < FDiff.DiffCount then begin
+      vItem := FDiff[vDiffRow];
+      vVer := ARow;
+      vRow := vItem.FRow[vVer];
+      if vRow <> -1 then begin
+        vPtr := FDiff.Text[vVer].PStrings[vRow];
+
+        vDiff := FDiff.GetRowDiff(vDiffRow);
+
+        if vDiff <> nil then begin
+          vBits := vDiff.GetDiffBits(vVer);
+          vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^), vBits, FTmpBits);
+          GridDrawChrBits(FRowDiff, X, Y, AWidth, PTChar(vStr), Length(vStr), 0, FTmpBits, optTextDiffStrColor1, optTextDiffStrColor2);
+        end else
+        begin
+          vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^));
+          FRowDiff.DrawChr(X, Y, PTChar(vStr), length(vStr), AColor);
+        end;
+      end;
     end;
   end;
 
@@ -488,6 +660,12 @@ interface
     if optShowLinesNumber then
       FGrid.Columns.Add( TColumnFormat.CreateEx('', '', Length(Int2Str(vMaxRow2))+1, taRightJustify, [coNoVertLine], $0202) );
     FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coOwnerDraw], $0102) );
+
+    FRowDiff.ResetSize;
+    FRowDiff.Columns.FreeAll;
+    if optShowLinesNumber then
+      FRowDiff.Columns.Add( TColumnFormat.CreateEx('', '', Length(Int2Str(vMaxRow1))+1, taRightJustify, [coNoVertLine], 2) );
+    FRowDiff.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coOwnerDraw], 1) );
 
 (*  FSelectedCount[0] := 0;
     FSelectedCount[1] := 0;  *)
@@ -846,6 +1024,8 @@ interface
       '',
       GetMsg(StrMShowLineNumbers),
       GetMsg(StrMShowSpaces),
+      GetMsg(strMShowCurrentRows),
+      GetMsg(strMHilightRowDiff),
       '',
       GetMsg(StrMColors2)
     ], @N);
@@ -858,6 +1038,8 @@ interface
 
         vItems[4].Flags := SetFlag(0, MIF_CHECKED1, optShowLinesNumber);
         vItems[5].Flags := SetFlag(0, MIF_CHECKED1, optShowSpaces);
+        vItems[6].Flags := SetFlag(0, MIF_CHECKED1, optShowCurrentRows);         
+        vItems[7].Flags := SetFlag(0, MIF_CHECKED1, optHilightRowsDiff);
 
         for I := 0 to N - 1 do
           vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
@@ -881,8 +1063,10 @@ interface
           3: {};
           4: ToggleOption(optShowLinesNumber);
           5: ToggleOption(optShowSpaces);
-          6: {};
-          7: ColorsMenu;
+          6: ToggleOption(optShowCurrentRows);
+          7: ToggleOption(optHilightRowsDiff);
+          8: {};
+          9: ColorsMenu;
         end;
       end;
 
@@ -900,7 +1084,10 @@ interface
     vItems := FarCreateMenu([
       GetMsg(strClNormalText),
       GetMsg(strClSelectedText),
-      GetMsg(strClDifference),
+      GetMsg(strClNewLine),
+      GetMsg(strClDelLine),
+      GetMsg(strClDiffLine),
+      GetMsg(strClDiffChars),
       GetMsg(strClLineNumbers),
       GetMsg(strClCaption2),
       '',
@@ -927,11 +1114,14 @@ interface
         case vRes of
           0: ColorDlg('', optTextColor);
           1: ColorDlg('', optTextSelColor);
-          2: ColorDlg('', optTextDiffColor);
-          3: ColorDlg('', optTextNumColor, FGrid.NormColor);
-          4: ColorDlg('', optTextHeadColor);
-          5: {};
-          6: RestoreDefTextColor;
+          2: ColorDlg('', optTextNewColor);
+          3: ColorDlg('', optTextDelColor);
+          4: ColorDlg('', optTextDiffStrColor1);
+          5: ColorDlg('', optTextDiffStrColor2);
+          6: ColorDlg('', optTextNumColor, FGrid.NormColor);
+          7: ColorDlg('', optTextHeadColor);
+          8: {};
+          9: RestoreDefTextColor;
         end;
 
         WriteSetupColors;
