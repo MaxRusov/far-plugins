@@ -1,13 +1,13 @@
-{*******************************************************}
-{                                                       }
-{       Borland Delphi Run-time Library                 }
-{       Win32 API Interface Unit                        }
-{                                                       }
-{       Copyright (c) 1985-1999, Microsoft Corporation  }
-{                                                       }
-{       Translator: Inprise Corporation                 }
-{                                                       }
-{*******************************************************}
+{******************************************************* }
+{                                                        } 
+{       Borland Delphi Run-time Library                  }
+{       Win32 API Interface Unit                         }
+{                                                        }
+{       Copyright (c) 1985-1999, Microsoft Corporation   }
+{                                                        }
+{       Translator: Inprise Corporation                  }
+{                                                        }
+{******************************************************* }
 
 {$I Defines.inc}
 

@@ -17,7 +17,7 @@ uses
  {-----------------------------------------------------------------------------}
 
   type
-    TCRC = Cardinal;
+    TCRC = TUns32;
 
   function CalcCRC32(p :Pointer; Count :Integer; InitCRC :TCRC): TCRC;
   function CalcCRC32Str(const AStr :TString) :TCRC;
