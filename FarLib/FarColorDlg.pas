@@ -128,9 +128,9 @@ interface
         NewItemApi(DI_SingleBox,   5, 8, DX-10, 3,  0,  GetMsg(ColorDlgResBase+3){'Sample'}),
         NewItemApi(DI_USERCONTROL, 6, 9, DX-12, 1,  DIF_NOFOCUS),
 
-        NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(ColorDlgResBase+4){'Set'} ),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(ColorDlgResBase+5){'Cancel'} )
+        NewItemApi(DI_Text,      0, DY-4, -1, -1, DIF_SEPARATOR),
+        NewItemApi(DI_DefButton, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(ColorDlgResBase+4){'Set'} ),
+        NewItemApi(DI_Button,    0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(ColorDlgResBase+5){'Cancel'} )
       ],
       @FItemCount
     );
