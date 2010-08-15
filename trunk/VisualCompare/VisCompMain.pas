@@ -30,7 +30,8 @@ interface
     VisCompTexts,
     VisCompPromptDlg,
     VisCompFilesDlg,
-    VisCompTextsDlg;
+    VisCompTextsDlg,
+    VisCompOptionsDlg;
 
 
  {$ifdef bUnicodeFar}
@@ -40,12 +41,15 @@ interface
   procedure ExitFARW; stdcall;
   function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
   function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
+  function ConfigureW(Item: integer) :Integer; stdcall;
  {$else}
   procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
   procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
   procedure ExitFAR; stdcall;
   function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
+  function Configure(Item: integer) :Integer; stdcall;
  {$endif bUnicodeFar}
+
 
   function CompareFiles(AFileName1, AFileName2 :PTChar; AOptions :DWORD) :Integer; stdcall;
     { Экспорт, для межплагинного взаимодействия... }
@@ -71,13 +75,13 @@ interface
   end;
 
 
-  function MakeProvider(const AFolder :TString) :TDataProvider;
+  function MakeProvider(const AFolder :TString; ASide :Integer) :TDataProvider;
   begin
     if UpCompareSubStr(cSVNFakeDrive, AFolder) = 0 then
       Result := TSVNProvider.CreateEx(AFolder)
     else
     if UpCompareSubStr(cPlugFakeDrive, AFolder) = 0 then
-      Result := TPluginProvider.CreateEx(AFolder)
+      Result := TPluginProvider.CreateEx(AFolder, ASide)
     else
       Result := TFileProvider.CreateEx(AFolder);
   end;
@@ -105,8 +109,8 @@ interface
 
     vSource1 := nil; vSource2 := nil; vComp := nil;
     try
-      vSource1 := MakeProvider(vPath1);
-      vSource2 := MakeProvider(vPath2);
+      vSource1 := MakeProvider(vPath1, 0);
+      vSource2 := MakeProvider(vPath2, 1);
 
       vComp := TComparator.CreateEx(vSource1, vSource2);
       vComp.CompareFolders;
@@ -177,6 +181,7 @@ interface
 
   var
     PluginMenuStrings: array[0..0] of PFarChar;
+    ConfigMenuStrings: array[0..0] of PFarChar;
 
 
  {$ifdef bUnicodeFar}
@@ -190,8 +195,13 @@ interface
     pi.Flags:= 0 {PF_EDITOR or PF_VIEWER or PF_DIALOG};
 
     PluginMenuStrings[0] := GetMsg(strTitle);
-    pi.PluginMenuStringsNumber := 1;
     pi.PluginMenuStrings := @PluginMenuStrings;
+    pi.PluginMenuStringsNumber := 1;
+
+    ConfigMenuStrings[0]:= GetMsg(strTitle);
+    pi.PluginConfigStrings := @ConfigMenuStrings;
+    pi.PluginConfigStringsNumber := 1;
+
     pi.CommandPrefix := cPlugMenuPrefix;
   end;
 
@@ -263,6 +273,22 @@ interface
           FARAPI.EditorControl(ECTL_SETPOSITION, @vPos);
           GEditorTopRow := -1;
         end;
+    end;
+  end;
+
+
+ {$ifdef bUnicodeFar}
+  function ConfigureW(Item: integer) :Integer; stdcall;
+ {$else}
+  function Configure(Item: integer) :Integer; stdcall;
+ {$endif bUnicodeFar}
+  begin
+    Result := 1;
+    try
+      OptionsDlg;
+    except
+      on E :Exception do
+        HandleError(E);
     end;
   end;
 

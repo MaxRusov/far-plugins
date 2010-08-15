@@ -19,11 +19,13 @@ exports
   GetPluginInfoW,
   OpenPluginW,
   ProcessEditorEventW,
+  ConfigureW,
   ExitFARW,
  {$else}
   SetStartupInfo,
   GetPluginInfo,
   OpenPlugin,
+  Configure,
   ExitFAR,
  {$endif bUnicodeFar}
 
