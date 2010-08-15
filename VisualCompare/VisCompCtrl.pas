@@ -40,6 +40,7 @@ interface
       strSkipHidden,
       strDoNotScanOrphan,
       strCompareContents,
+      strInvalidPath,
 
       strCompareTitle,
       strCompareCommand,
@@ -127,6 +128,14 @@ interface
       strClLineNumbers,
       strClCaption2,
       strRestoreDefaults,
+
+      strAutoscroll,
+      strTabSize,
+      strErrInvalidTabSize,
+
+      strCompareProgress,
+      strProgressInfo1,
+      strProgressInfo2,
 
       strInterrupt,
       strInterruptPrompt,
@@ -228,6 +237,9 @@ interface
     optTabChar             :TChar   = #$1A; //#$BB;
     optTabSpaceChar        :TChar   = ' ';
 
+    optTabSize             :Integer = 8;
+    optEdtAutoscroll       :Boolean = False;
+
     optDefaultFormat       :TStrFileFormat = sffAnsi;
 
   var
@@ -257,6 +269,9 @@ interface
 
   function GetMsg(AMess :TMessages) :PFarChar;
   function GetMsgStr(AMess :TMessages) :TString;
+
+  procedure AppErrorID(AMess :TMessages);
+  procedure AppErrorIdFmt(AMess :TMessages; const Args: array of const);
 
   procedure HandleError(AError :Exception);
 
@@ -295,6 +310,17 @@ interface
   function GetMsgStr(AMess :TMessages) :TString;
   begin
     Result := FarCtrl.GetMsgStr(Integer(AMess));
+  end;
+
+
+  procedure AppErrorID(AMess :TMessages);
+  begin
+    FarCtrl.AppErrorID(Integer(AMess));
+  end;
+
+  procedure AppErrorIdFmt(AMess :TMessages; const Args: array of const);
+  begin
+    FarCtrl.AppErrorIdFmt(Integer(AMess), Args);
   end;
 
 
@@ -349,6 +375,9 @@ interface
 
       Byte(optDefaultFormat) := IntMin(RegQueryInt(vKey, 'DefaultFormat', Byte(optDefaultFormat)), Byte(sffAuto) - 1);
 
+      optEdtAutoscroll := RegQueryLog(vKey, 'AutoScroll', optEdtAutoscroll);
+      optTabSize := RegQueryInt(vKey, 'TabSize', optTabSize);
+
     finally
       RegCloseKey(vKey);
     end;
@@ -398,6 +427,9 @@ interface
       RegWriteLog(vKey, 'Maximized', optMaximized);
 
       RegWriteInt(vKey, 'DefaultFormat', Byte(optDefaultFormat));
+
+      RegWriteLog(vKey, 'AutoScroll', optEdtAutoscroll);
+      RegWriteInt(vKey, 'TabSize', optTabSize);
 
     finally
       RegCloseKey(vKey);

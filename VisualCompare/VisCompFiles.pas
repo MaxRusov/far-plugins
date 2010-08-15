@@ -123,13 +123,17 @@ interface
 
     TDataProvider = class(TBasis)
     public
-      constructor CreateEx(const AFolder :TString); virtual;
+      constructor CreateEx(const AFolder :TString);
       procedure Enumerate(const AFolder :TString); virtual; abstract;
       function GetInfo(const AFolder, AFileName :TString; var Attr :Word; var ASize :Int64; var ATime :Integer) :boolean; virtual;
 
       function MakePath(const AFolder :TString) :TString; virtual;
       function GetRealFileName(const AFolder, AFileName :TString) :TString; virtual;
       function GetViewFileName(const AFolder, AFileName :TString) :TString; virtual;
+      function GetPanelTitle(const AFolder :TString) :TString; virtual;
+
+      function CanRecurse :Boolean; virtual;
+      function CanGetFile :Boolean; virtual;
 
     private
       FFolder     :TString;
@@ -143,7 +147,7 @@ interface
 
     TSVNProvider = class(TDataProvider)
     public
-      constructor CreateEx(const AFolder :TString); override;
+      constructor CreateEx(const AFolder :TString);
       procedure Enumerate(const AFolder :TString); override;
 
       function GetRealFileName(const AFolder, AFileName :TString) :TString; override;
@@ -152,7 +156,18 @@ interface
 
     TPluginProvider = class(TDataProvider)
     public
-      constructor CreateEx(const AFolder :TString); override;
+      constructor CreateEx(const AFolder :TString; ASide :Integer);
+      procedure Enumerate(const AFolder :TString); override;
+
+      function CanRecurse :Boolean; override;
+      function CanGetFile :Boolean; override;
+      function GetPanelTitle(const AFolder :TString) :TString; override;
+
+    private
+      FSide     :Integer;
+      FActive   :Boolean;
+      FRealFile :Boolean;
+      FTitle    :TString;
     end;
 
 
@@ -173,6 +188,10 @@ interface
       function RealFileName(AItem :TCmpFileItem; AVer :Integer) :TString;
       function ViewFileName(AItem :TCmpFileItem; AVer :Integer) :TString; overload;
       function ViewFileName(const AFolder, AName :TString; AVer :Integer) :TString; overload;
+      function PanelTitle(const AFolder :TString; AVer :Integer) :TString;
+
+      function CanCompareContents :Boolean;
+      function CanGetFile(ASide :Integer) :Boolean;
 
     private
       FSources   :array[0..1] of TDataProvider;
@@ -495,6 +514,18 @@ interface
   end;
 
 
+  function TDataProvider.CanRecurse :Boolean; {virtual;}
+  begin
+    Result := True;
+  end;
+
+
+  function TDataProvider.CanGetFile :Boolean; {virtual;}
+  begin
+    Result := True;
+  end;
+
+
   function TDataProvider.MakePath(const AFolder :TString) :TString; {virtual;}
   begin
     Result := AddFileName(FFolder, AFolder)
@@ -510,6 +541,12 @@ interface
   function TDataProvider.GetViewFileName(const AFolder, AFileName :TString) :TString; {virtual;}
   begin
     Result := AddFileName(AFolder, AFileName);
+  end;
+
+
+  function TDataProvider.GetPanelTitle(const AFolder :TString) :TString; {virtual;}
+  begin
+    Result := GetViewFileName(AFolder, '');
   end;
 
 
@@ -534,6 +571,7 @@ interface
     end;
   end;
 
+
  {-----------------------------------------------------------------------------}
 
   procedure TFileProvider.Enumerate(const AFolder :TString); {override;}
@@ -553,7 +591,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  constructor TSVNProvider.CreateEx(const AFolder :TString); {override;}
+  constructor TSVNProvider.CreateEx(const AFolder :TString);
   var
     vPath :TString;
   begin
@@ -615,15 +653,68 @@ interface
     WinEnumFiles(vFolder, '*.*', faEnumFiles, LocalAddr(@LocAddItem));
   end;
 
-  
+
  {-----------------------------------------------------------------------------}
 
-  constructor TPluginProvider.CreateEx(const AFolder :TString); {override;}
+  constructor TPluginProvider.CreateEx(const AFolder :TString; ASide :Integer); {override;}
   begin
-    Sorry;
+    Create;
+    FSide := ASide;
+    FActive := CurrentPanelSide = FSide;
+    FTitle := FarPanelGetCurrentDirectory(HandleIf(FActive, PANEL_ACTIVE, PANEL_PASSIVE));
   end;
 
-  
+
+  function TPluginProvider.CanRecurse :Boolean; {override;}
+  begin
+    Result := False;
+  end;
+
+
+  function TPluginProvider.CanGetFile :Boolean; {override;}
+  begin
+    Result := FRealFile;
+  end;
+
+
+  function TPluginProvider.GetPanelTitle(const AFolder :TString) :TString; {override;}
+  begin
+    Result := cPlugFakeDrive + FTitle;
+  end;
+
+
+  procedure TPluginProvider.Enumerate(const AFolder :TString); {override;}
+  var
+    I :Integer;
+    vInfo :TPanelInfo;
+    vHandle :THandle;
+    vItem :PPluginPanelItem;
+    vName :TString;
+  begin
+    vHandle := HandleIf( FActive, PANEL_ACTIVE, PANEL_PASSIVE );
+
+    FillChar(vInfo, SizeOf(vInfo), 0);
+    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+
+    FRealFile := PFLAGS_REALNAMES and vInfo.Flags <> 0;
+
+    for I := 0 to vInfo.ItemsNumber - 1 do begin
+      vItem := FarPanelItem(vHandle, FCTL_GETPANELITEM, I);
+      if vItem = nil then
+        Break;
+      try
+        with vItem.FindData do begin
+          vName := cFileName;
+          if {(vName <> '.') and} (vName <> '..') then
+            FComparator.AddItem(vName, dwFileAttributes, nFileSize, FileTimeToDosFileDate(ftLastWriteTime));
+        end;
+      finally
+        MemFree(vItem);
+      end;
+    end;
+  end;
+
+
  {-----------------------------------------------------------------------------}
  { TComparator                                                                 }
  {-----------------------------------------------------------------------------}
@@ -695,9 +786,8 @@ interface
     if FSave = 0 then
       InitProgress;
 
-    {!!!Localize}
     vMess :=
-      'Compare files'#10 +
+      GetMsgStr(strCompareProgress) + #10 +
      {$ifdef bUnicodeFar}
       AMess;
      {$else}
@@ -760,9 +850,9 @@ interface
 
     procedure UpdateMessage1(const AFolder :TString);
     begin
-      {!!!Localize}
       ShowProgress(
-        Format('Files: %d   Folders: %d   Time: %d sec', [FFiles, FFolders, TickCountDiff(GetTickCount, FStart) div 1000]) + #10 +
+//      Format('Files: %d   Folders: %d   Time: %d sec', [FFiles, FFolders, TickCountDiff(GetTickCount, FStart) div 1000]) + #10 +
+        Format(GetMsgStr(strProgressInfo1), [FFiles, FFolders, TickCountDiff(GetTickCount, FStart) div 1000]) + #10 +
         StrLeftAjust(AFolder, FWidth), -1);
     end;
 
@@ -793,7 +883,7 @@ interface
         FSources[1].Enumerate(AFolder2);
       end;
 
-      if optScanRecursive then begin
+      if optScanRecursive and FSources[0].CanRecurse and FSources[1].CanRecurse then begin
         for I := 0 to AList.Count - 1 do begin
           vItem := AList[I];
           if vItem.IsFolder then begin
@@ -805,10 +895,10 @@ interface
             vItem.Subs.ParentItem := vItem;
 
             vFolder1 := #1;
-            if faDirectory and vItem.Attr[0] <> 0 then
+            if (faDirectory and vItem.Attr[0] <> 0) and FSources[0].CanRecurse then
               vFolder1 := AddFileName(AFolder1, RemoveBackSlash(vItem.Name));
             vFolder2 := #1;
-            if faDirectory and vItem.Attr[1] <> 0 then
+            if (faDirectory and vItem.Attr[1] <> 0) and FSources[1].CanRecurse then
               vFolder2 := AddFileName(AFolder2, RemoveBackSlash(vItem.Name));
 
             LocCompare(vItem.Subs, vFolder1, vFolder2);
@@ -827,7 +917,7 @@ interface
       try
         LocCompare(FResults, '', '');
 
-        if optScanContents then
+        if optScanContents and CanCompareContents then
           CompareFolderContents(FResults);
 
       except
@@ -840,6 +930,18 @@ interface
     finally
       DoneProgress;
     end;
+  end; {CompareFolders}
+
+
+  function TComparator.CanGetFile(ASide :Integer) :Boolean;
+  begin
+    Result := FSources[ASide].CanGetFile;
+  end;
+
+
+  function TComparator.CanCompareContents :Boolean;
+  begin
+    Result := FSources[0].CanGetFile and FSources[1].CanGetFile;
   end;
 
 
@@ -861,9 +963,9 @@ interface
 
   procedure TComparator.UpdateProgress2(AddSize :Int64);
   begin
-    {!!!Localize}
     ShowProgress(
-      Format('Files: %s  Size: %s  Time: %d sec', [Int2StrEx(FFiles + 1), Int64ToStrEx(FSize + AddSize), TickCountDiff(GetTickCount, FStart) div 1000]) + #10 +
+//    Format('Files: %s  Size: %s  Time: %d sec', [Int2StrEx(FFiles + 1), Int64ToStrEx(FSize + AddSize), TickCountDiff(GetTickCount, FStart) div 1000]) + #10 +
+      Format(GetMsgStr(strProgressInfo2), [Int2StrEx(FFiles + 1), Int64ToStrEx(FSize + AddSize), TickCountDiff(GetTickCount, FStart) div 1000]) + #10 +
       StrLeftAjust(FCurFile, FWidth),
       MulDiv64(FSize + AddSize, 100, FTotSize));
   end;
@@ -958,14 +1060,13 @@ interface
     finally
       DoneProgress;
     end;
-  end;
+  end; {CompareFilesContents}
 
 
   function TComparator.RealFileName(AItem :TCmpFileItem; AVer :Integer) :TString;
   begin
     Result := FSources[AVer].GetRealFileName(AItem.ParentGroup.GetFolder(AVer), AItem.Name);
   end;
-
 
   function TComparator.ViewFileName(AItem :TCmpFileItem; AVer :Integer) :TString;
   begin
@@ -975,6 +1076,11 @@ interface
   function TComparator.ViewFileName(const AFolder, AName :TString; AVer :Integer) :TString;
   begin
     Result := FSources[AVer].GetViewFileName(AFolder, AName);
+  end;
+
+  function TComparator.PanelTitle(const AFolder :TString; AVer :Integer) :TString;
+  begin
+    Result := FSources[AVer].GetPanelTitle(AFolder);
   end;
 
 
@@ -1135,8 +1241,10 @@ interface
       vOldAttr[0] := Attr[0]; vOldAttr[1] := Attr[1];
     end;
 
-    LocUpdateInfo(0);
-    LocUpdateInfo(1);
+    if CanGetFile(0) then
+      LocUpdateInfo(0);
+    if CanGetFile(1) then
+      LocUpdateInfo(1);
 
     with AItem do begin
       Result :=

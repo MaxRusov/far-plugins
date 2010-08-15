@@ -97,7 +97,7 @@ interface
 
       procedure SelectCurrent(ACommand :Integer);
 
-      procedure GotoNextDiff(AForward :Boolean);
+      procedure GotoNextDiff(AForward :Boolean; AFirst :Boolean = False);
       procedure ViewOrEditCurrent(AEdit :Boolean);
       procedure ChangeFileFormat;
       function GetFileFormat(var AFormat :TStrFileFormat) :Boolean;
@@ -276,8 +276,11 @@ interface
   procedure TTextsDlg.InitDialog; {override;}
   begin
     SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
-    ReinitGrid;
     InitColors;
+    ReinitGrid;
+
+    if optEdtAutoscroll then 
+      GotoNextDiff(True, True);
   end;
 
 
@@ -288,6 +291,8 @@ interface
 
     SetItemFlags(IdHead1, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optTextHeadColor);
     SetItemFlags(IdHead2, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optTextHeadColor);
+
+    SetItemFlags(IdLine1, DIF_SETCOLOR or FGrid.NormColor);
   end;
 
 
@@ -481,12 +486,12 @@ interface
 
         if vDiff <> nil then begin
           vBits := vDiff.GetDiffBits(vVer);
-          vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^), vBits, FTmpBits);
+          vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^), vBits, FTmpBits, optTabSize);
           if Length(vStr) > FStrDelta then
             GridDrawChrBits(FGrid, X, Y, AWidth, PTChar(vStr), Length(vStr), FStrDelta, FTmpBits, optTextDiffStrColor1, optTextDiffStrColor2);
         end else
         begin
-          vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^));
+          vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^), nil, nil, optTabSize);
           if Length(vStr) > FStrDelta then
             FGrid.DrawChr(X, Y, PTChar(vStr) + FStrDelta, length(vStr) - FStrDelta, AColor);
         end;
@@ -583,11 +588,11 @@ interface
 
         if vDiff <> nil then begin
           vBits := vDiff.GetDiffBits(vVer);
-          vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^), vBits, FTmpBits);
+          vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^), vBits, FTmpBits, optTabSize);
           GridDrawChrBits(FRowDiff, X, Y, AWidth, PTChar(vStr), Length(vStr), 0, FTmpBits, optTextDiffStrColor1, optTextDiffStrColor2);
         end else
         begin
-          vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^));
+          vStr := ChrExpandTabsEx(PTChar(vPtr^), Length(vPtr^), nil, nil, optTabSize);
           FRowDiff.DrawChr(X, Y, PTChar(vStr), length(vStr), AColor);
         end;
       end;
@@ -789,20 +794,26 @@ interface
   end;
 
 
-  procedure TTextsDlg.GotoNextDiff(AForward :Boolean);
+  procedure TTextsDlg.GotoNextDiff(AForward :Boolean; AFirst :Boolean = False);
   var
     vRow :Integer;
   begin
     vRow := FGrid.CurRow;
     if AForward then begin
-      while (vRow < FDiff.DiffCount) and (FDiff[vRow].FFlags <> 0) do
-        Inc(vRow);
+      if AFirst then
+        vRow := 0;
+      if not AFirst then
+        while (vRow < FDiff.DiffCount) and (FDiff[vRow].FFlags <> 0) do
+          Inc(vRow);
       while (vRow < FDiff.DiffCount) and (FDiff[vRow].FFlags = 0) do
         Inc(vRow);
       if vRow = FDiff.DiffCount then
         vRow := -1;
     end else
     begin
+      if AFirst then
+        vRow := FDiff.DiffCount;
+
       Dec(vRow);
       while (vRow >= 0) and (FDiff[vRow].FFlags = 0) do
         Dec(vRow);
@@ -816,6 +827,7 @@ interface
     if vRow <> -1 then
       SetCurrent(vRow, lmSafe)
     else
+    if not AFirst then
       Beep;
   end;
 
@@ -1168,6 +1180,10 @@ interface
           KEY_CTRLPGDN:
             FGrid.GotoLocation(FGrid.CurCol, FGrid.RowCount - 1, lmScroll);
 
+          KEY_ALTHOME:
+            GotoNextDiff(True, True);
+          KEY_ALTEND:
+            GotoNextDiff(False, True);
           KEY_ALTUP:
             GotoNextDiff(False);
           KEY_ALTDOWN:

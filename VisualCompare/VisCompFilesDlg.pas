@@ -412,10 +412,10 @@ interface
   var
     vStr :TString;
   begin
-    vStr := ReduceFileName(FComp.ViewFileName(FItems.GetFolder(0), '', 0), FHeadWidth1 - 1);
+    vStr := ReduceFileName(FComp.PanelTitle(FItems.GetFolder(0), 0), FHeadWidth1 - 1);
     SetText(IdHead1, ' ' + vStr);
 
-    vStr := ReduceFileName(FComp.ViewFileName(FItems.GetFolder(1), '', 1), FHeadWidth2 - 1);
+    vStr := ReduceFileName(FComp.PanelTitle(FItems.GetFolder(1), 1), FHeadWidth2 - 1);
     SetText(IdHead2, ' ' + vStr);
   end;
 
@@ -1318,6 +1318,9 @@ interface
     vVer :Integer;
     vList :TStringList;
   begin
+    if not FComp.CanCompareContents then
+      begin Beep; Exit; end;
+
     vList := TStringList.Create;
     try
       vVer := GetCurSide;
@@ -1325,7 +1328,7 @@ interface
       if vList.Count = 0 then
         begin Beep; Exit; end;
 
-      FComp.CompareFilesContents('', vList); 
+      FComp.CompareFilesContents('', vList);
 
       UpdateFolderDidgets(FComp.Results);
       ReinitAndSaveCurrent;
@@ -1399,6 +1402,9 @@ interface
     vCmd :TFarStr;
     vStr :array[0..256] of TFarChar;
   begin
+    if not FComp.CanCompareContents then
+      begin Beep; Exit; end;
+
     vItem := GetCurrentItem;
     if (vItem <> nil) and not vItem.IsFolder and vItem.BothAttr(faPresent) then begin
 
@@ -1452,6 +1458,9 @@ interface
     vItem := GetCurrentItem;
     vVer := GetCurSide;
     if (vItem <> nil) and (vVer <> -1) and (faPresent and vItem.Attr[vVer] <> 0) and not vItem.IsFolder then begin
+
+      if not FComp.CanGetFile(vVer) then
+        begin Beep; Exit; end;
 
       { Глючит, если в процессе просмотра/редактирования файла изменить размер консоли...}
       SendMsg(DM_ShowDialog, 0, 0);

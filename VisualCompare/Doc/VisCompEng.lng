@@ -11,6 +11,7 @@
 "Skip &hidden files/folders"
 "Do not scan &orphan folders"
 "&Compare contents"
+"Invalid path: %s"
 
 "Compare texts"
 "Compare command (internal compare - VC:):"
@@ -99,6 +100,14 @@
 "&8 Caption"
 "&Restore defaults"
 
+"&Autoscroll to first difference"
+"&Tab size"
+"Valid tab size is: %d - %d"
+
+"Compare files"
+"Files: %d   Folders: %d   Time: %d sec"
+"Files: %s   Size: %s   Time: %d sec"
+
 "Interrupt"
 "Interrupt current operation?"
 "&Yes"
@@ -128,5 +137,5 @@
 "strSkipBut"
 "strSkipAllBut"
 
-"Ok"
+"OK"
 "Cancel"

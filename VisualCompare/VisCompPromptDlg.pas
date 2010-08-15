@@ -78,7 +78,7 @@ interface
   var
     vX2 :Integer;
   begin
-//  FHelpTopic := 'Compare';
+    FHelpTopic := 'Compare';
     FWidth := DX;
     FHeight := DY;
     FItemCount := 15;
@@ -105,9 +105,9 @@ interface
 
         NewItemApi(DI_CHECKBOX, vX2, 9,   DX-vX2-5,  -1,  0, GetMsg(strCompareContents)),
 
-        NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strOk) ),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancel) )
+        NewItemApi(DI_Text,      0, DY-4, -1, -1, DIF_SEPARATOR),
+        NewItemApi(DI_DefButton, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strOk) ),
+        NewItemApi(DI_Button,    0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancel) )
       ]
     );
   end;
@@ -132,9 +132,9 @@ interface
       FFolder1 := Trim(GetText(IdEdtFolder1));
       FFolder2 := Trim(GetText(IdEdtFolder2));
       if not IsFullFilePath(FFolder1) and not IsSpecialPath(FFolder1) then
-        AppErrorFmt('Invalid path: %s', [FFolder1]);
+        AppErrorIdFmt(strInvalidPath, [FFolder1]);
       if not IsFullFilePath(FFolder2) and not IsSpecialPath(FFolder2) then
-        AppErrorFmt('Invalid path: %s', [FFolder2]);
+        AppErrorIdFmt(strInvalidPath, [FFolder2]);
 
       optScanFileMask := Trim(GetText(IdEdtMask));
 
