@@ -87,6 +87,8 @@ interface
   const
     MIF_CHECKED1 = MIF_CHECKED { or Byte(chrCheck)};
 
+    DI_DefButton = DI_USERCONTROL - 1;
+
   type
     PFarMenuItemsArray = ^TFarMenuItemsArray;
     TFarMenuItemsArray = array[0..MaxInt div SizeOf(TFarMenuItemEx) - 1] of TFarMenuItemEx;
@@ -458,7 +460,7 @@ interface
   begin
     FillChar(Result, SizeOf(Result), 0);
     with Result do begin
-      ItemType := AType;
+      ItemType := IntIf(AType = DI_DefButton, DI_Button, AType);
       X1 := X;
       Y1 := Y;
       if W >= 0 then
@@ -466,6 +468,7 @@ interface
       if H >= 0 then
         Y2 := Y + H - 1;
       Flags := AFlags;
+      DefaultButton := IntIf(AType = DI_DefButton, 1, 0);
       Param.History := AHist;
      {$ifdef bUnicodeFar}
       PtrData := AText;
@@ -571,9 +574,12 @@ interface
   var
     vSize :Integer;
   begin
+    Result := nil;
     vSize := FARAPI.Control(AHandle, ACmd, AIndex, nil);
-    Result := MemAlloc( vSize );
-    FARAPI.Control(AHandle, ACmd, AIndex, Result);
+    if vSize > 0 then begin
+      Result := MemAlloc( vSize );
+      FARAPI.Control(AHandle, ACmd, AIndex, Result);
+    end;
   end;
 
 
@@ -581,11 +587,14 @@ interface
   var
     vItem :PPluginPanelItem;
   begin
+    Result := '';
     vItem := FarPanelItem(AHandle, ACmd, AIndex);
-    try
-      Result := vItem.FindData.cFileName;
-    finally
-      MemFree(vItem);
+    if vItem <> nil then begin
+      try
+        Result := vItem.FindData.cFileName;
+      finally
+        MemFree(vItem);
+      end;
     end;
   end;
 
