@@ -164,13 +164,15 @@ interface
   function EditorControlString(ACmd :Integer) :TFarStr;
  {$endif bUnicodeFar}
 
+  function FarPanelGetSide :Integer;
+  procedure FarPostMacro(const AStr :TFarStr);
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   function FarPanelGetCurrentItem(Active :Boolean) :TString;
   function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
   procedure FarPanelGetSelectedItems(Active :Boolean; AItems :TStringList);
   procedure FarPanelSetSelectedItems(Active :Boolean; AItems :TStringList; AClearAll :Boolean = True);
   procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = 0; ACol :Integer = 1);
-  procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName, ATypeName :PTString);
+  procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName :PTString = nil; ATypeName :PTString = nil);
   function FarExpandFileName(const AFileName :TString) :TString;
   function FarGetWindowRect :TSmallRect;
   function FarGetWindowSize :TSize;
@@ -568,6 +570,23 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  function FarPanelGetSide :Integer;
+  var
+    vInfo  :TPanelInfo;
+  begin
+    FillChar(vInfo, SizeOf(vInfo), 0);
+   {$ifdef bUnicodeFar}
+    FARAPI.Control(PANEL_ACTIVE, FCTL_GetPanelInfo, 0, @vInfo);
+   {$else}
+    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelShortInfo, @vInfo);
+   {$endif bUnicodeFar}
+    if PFLAGS_PANELLEFT and vInfo.Flags <> 0 then
+      Result := 0  {Left}
+    else
+      Result := 1; {Right}
+  end;
+
+
  {$ifdef bUnicodeFar}
 
   function FarPanelItem(AHandle :THandle; ACmd, AIndex :Integer) :PPluginPanelItem;
@@ -650,13 +669,26 @@ interface
  {$endif bUnicodeFar}
 
 
+  procedure FarPostMacro(const AStr :TFarStr);
+  var
+    vMacro :TActlKeyMacro;
+  begin
+   {$ifdef bTrace}
+    TraceF('PostMacro: %s', [AStr]);
+   {$endif bTrace}
+    vMacro.Command := MCMD_POSTMACROSTRING;
+    vMacro.Param.PlainText.SequenceText := PFarChar(AStr);
+    vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
+    FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+  end;
+
+
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   var
     vStr :TFarStr;
-    vMacro :TActlKeyMacro;
   begin
    {$ifndef bUnicodeFar}
-    SetFileApisToOEM; 
+    SetFileApisToOEM;
     try
    {$endif bUnicodeFar}
 
@@ -682,10 +714,7 @@ interface
         vStr := 'Enter'
       else
         vStr := 'Tab Enter Tab';
-      vMacro.Command := MCMD_POSTMACROSTRING;
-      vMacro.Param.PlainText.SequenceText := PFarChar(vStr);
-      vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
-      FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+      FarPostMacro(vStr);
     end else
       Beep;
 
@@ -942,7 +971,7 @@ interface
   end;
 
 
-  procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName, ATypeName :PTString);
+  procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName :PTString = nil; ATypeName :PTString = nil);
   begin
     FillChar(AInfo, SizeOf(AInfo), 0);
     AInfo.Pos := APos;

@@ -45,7 +45,8 @@ interface
      goRowSelect,
      goWrapMode,
      goFollowMouse,
-     goWheelMovePos
+     goWheelMovePos,
+     goNoVScroller
    );
 
    TColumnFormat = class(TBasis)
@@ -124,6 +125,7 @@ interface
 
    protected
      procedure PosChange; virtual;
+     procedure DeltaChange; virtual;
 
      procedure PaintRow(X, Y, AWidth :Integer; ARow :Integer); virtual;
      procedure PaintCell(X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); virtual;
@@ -133,7 +135,7 @@ interface
      function MouseEvent(var AMouse :TMouseEventRecord) :Boolean; override;
      function MouseClick(const AMouse :TMouseEventRecord) :Boolean; override;
 
-   private
+   protected
      FNormColor      :Integer;
      FSelColor       :Integer;
 
@@ -169,6 +171,7 @@ interface
      FOnPaintCell    :TPaintCell;
      FOnCellClick    :TCellClick;
      FOnPosChange    :TPosChange;
+     FOnDeltaChange  :TPosChange;
 
      procedure PaintVScroller(X, Y  :Integer);
      procedure DrawBuf(X, Y :Integer; AColor :Integer);
@@ -206,6 +209,7 @@ interface
      property OnPaintCell :TPaintCell read FOnPaintCell write FOnPaintCell;
      property OnCellClick :TCellClick read FOnCellClick write FOnCellClick;
      property OnPosChange :TPosChange read FOnPosChange write FOnPosChange;
+     property OnDeltaChange :TPosChange read FOnDeltaChange write FOnDeltaChange;
    end;
 
 
@@ -449,7 +453,7 @@ interface
       end;
     end;
 
-    if FRowCount > FHeight then
+    if (FRowCount > FHeight) and not (goNoVScroller in FOptions) then
       PaintVScroller(vRect.Left + AItem.X2, vRect.Top + AItem.Y1);
   end;
 
@@ -647,10 +651,13 @@ interface
 
 
   procedure TFarGrid.GotoLocation(ACol, ARow :Integer; AMode :TLocationMode);
+  var
+    vPosChanged :Boolean;
   begin
     ARow := RangeLimit(ARow, 0, FRowCount - 1);
     ACol := RangeLimit(ACol, FFixedCol, FColumns.Count - 1);
 
+    vPosChanged := False;
     if (ARow <> FCurRow) or (ACol <> FCurCol) then begin
 //    HideEditor(True);
 
@@ -663,7 +670,7 @@ interface
       FCurCol := ACol;
       FOwner.SendMsg(DM_REDRAW, 0, 0);
 
-      PosChange;
+      vPosChanged := True;
     end;
 
 //  if (gloRangeSelect in FOptions) and (glocClearSelection in AOpt) then
@@ -671,6 +678,9 @@ interface
 
     if (AMode <> lmSimple) and (FHeight > 0) then
       EnsureOnScreen(ACol, ARow, ARow, AMode);
+
+    if vPosChanged then
+      PosChange;
 
 //  if (glocCurrent in AOpt) and (gloAlwaysShowEditor in FOptions) then
 //    ShowEditor;
@@ -724,9 +734,17 @@ interface
     FDeltaX := ADeltaX;
     FDeltaY := ADeltaY;
 
+    DeltaChange;
+
     FOwner.SendMsg(DM_REDRAW, 0, 0);
   end;
 
+
+  procedure TFarGrid.DeltaChange; {dynamic;}
+  begin
+    if Assigned(FOnDeltaChange) then
+      FOnDeltaChange(Self);
+  end;
 
 
   procedure TFarGrid.RecalcSize;
@@ -752,7 +770,7 @@ interface
 
       if K > 0 then begin
         W := FWidth - FAllWidth;
-        if FRowCount > FHeight then
+        if (FRowCount > FHeight) and not (goNoVScroller in FOptions) then
           Dec(W); { Есть скроллер }
 
         for I := 0 to M - 1 do begin
