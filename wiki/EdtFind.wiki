@@ -25,6 +25,10 @@ http://far-plugins.googlecode.com/svn/trunk/EdtFind/Image/Sample.png
 
 = История изменений =
 
+== Ver 1.0.5 ==
+
+  * Исправлено несколько ошибок
+
 == Ver 1.0.4 ==
 
   * Исправлены проблемы совместимости с плагином Word Completion
