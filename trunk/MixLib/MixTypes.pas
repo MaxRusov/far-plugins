@@ -20,10 +20,8 @@ interface
     qword = Int64;
    {$endif bDelphi}
 
-   {$ifdef b64}
     TUns64 = qword;
     PUns64 = ^TUns64;
-   {$endif b64}
 
     { Платформозависимые целые }
 
