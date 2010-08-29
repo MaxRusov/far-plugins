@@ -81,6 +81,8 @@ type
   DWORD_PTR = TUnsPtr;
   HANDLE_PTR = TUnsPtr;
 
+  UInt64 = TUns64;
+
 const
   MAX_PATH = 260;
 
@@ -103,6 +105,8 @@ type
   TLargeInteger = Int64;
   LARGE_INTEGER = _LARGE_INTEGER;
 
+  DWORDLONG = UInt64;
+  ULONGLONG = UInt64;
   ULARGE_INTEGER = record
     case Integer of
     0: (
@@ -1086,6 +1090,139 @@ type
   TImageExportDirectory = _IMAGE_EXPORT_DIRECTORY;
   IMAGE_EXPORT_DIRECTORY = _IMAGE_EXPORT_DIRECTORY;
 
+  { Import Format }
+
+  _IMAGE_IMPORT_BY_NAME = packed record
+    Hint: Word;
+    Name: array[0..0] of Byte;
+  end;
+  IMAGE_IMPORT_BY_NAME = _IMAGE_IMPORT_BY_NAME;
+  TImageImportByName = _IMAGE_IMPORT_BY_NAME;
+  PIMAGE_IMPORT_BY_NAME = ^_IMAGE_IMPORT_BY_NAME;
+  PImageImportByName = ^_IMAGE_IMPORT_BY_NAME;
+
+  { #include "pshpack8.h"                       // Use align 8 for the 64-bit IAT. }
+
+  _IMAGE_THUNK_DATA64 = record
+    case Byte of
+      0: (ForwarderString: ULONGLONG); // PBYTE
+      1: (_Function: ULONGLONG);       // PDWORD Function -> _Function
+      2: (Ordinal: ULONGLONG);
+      3: (AddressOfData: ULONGLONG);   // PIMAGE_IMPORT_BY_NAME
+  end;
+  IMAGE_THUNK_DATA64 = _IMAGE_THUNK_DATA64;
+  TImageThunkData64 = _IMAGE_THUNK_DATA64;
+  PIMAGE_THUNK_DATA64 = ^_IMAGE_THUNK_DATA64;
+  PImageThunkData64 = ^_IMAGE_THUNK_DATA64;
+
+  { #include "poppack.h"                        // Back to 4 byte packing  }
+
+  _IMAGE_THUNK_DATA32 = record
+    case Byte of
+      0: (ForwarderString: DWORD); // PBYTE
+      1: (_Function: DWORD);       // PDWORD Function -> _Function
+      2: (Ordinal: DWORD);
+      3: (AddressOfData: DWORD);   // PIMAGE_IMPORT_BY_NAME
+  end;
+  IMAGE_THUNK_DATA32 = _IMAGE_THUNK_DATA32;
+  TImageThunkData32 = _IMAGE_THUNK_DATA32;
+  PIMAGE_THUNK_DATA32 = ^_IMAGE_THUNK_DATA32;
+  PImageThunkData32 = ^_IMAGE_THUNK_DATA32;
+
+const
+  IMAGE_ORDINAL_FLAG64 = UInt64($8000000000000000);
+  IMAGE_ORDINAL_FLAG32 = LongWord($80000000);
+//  IMAGE_ORDINAL64(Ordinal) (Ordinal & 0xffff)
+//  IMAGE_ORDINAL32(Ordinal) (Ordinal & 0xffff)
+//  IMAGE_SNAP_BY_ORDINAL64(Ordinal) ((Ordinal & IMAGE_ORDINAL_FLAG64) != 0)
+//  IMAGE_SNAP_BY_ORDINAL32(Ordinal) ((Ordinal & IMAGE_ORDINAL_FLAG32) != 0)
+
+type
+  { Thread Local Storage }
+
+  PIMAGE_TLS_CALLBACK = procedure (DllHandle: Pointer; Reason: DWORD; Reserved: Pointer) stdcall;
+  TImageTLSCallback = PIMAGE_TLS_CALLBACK;
+
+  _IMAGE_TLS_DIRECTORY64 = record
+    StartAddressOfRawData: ULONGLONG;
+    EndAddressOfRawData: ULONGLONG;
+    AddressOfIndex: ULONGLONG;         // PDWORD
+    AddressOfCallBacks: ULONGLONG;     // PIMAGE_TLS_CALLBACK *;
+    SizeOfZeroFill: DWORD;
+    Characteristics: DWORD;
+  end;
+  IMAGE_TLS_DIRECTORY64 = _IMAGE_TLS_DIRECTORY64;
+  TImageTLSDirectory64 = _IMAGE_TLS_DIRECTORY64;
+  PIMAGE_TLS_DIRECTORY64 = ^_IMAGE_TLS_DIRECTORY64;
+  PImageTLSDirectory64 = ^_IMAGE_TLS_DIRECTORY64;
+
+  _IMAGE_TLS_DIRECTORY32 = record
+    StartAddressOfRawData: DWORD;
+    EndAddressOfRawData: DWORD;
+    AddressOfIndex: DWORD;         // PDWORD
+    AddressOfCallBacks: DWORD;     // PIMAGE_TLS_CALLBACK *;
+    SizeOfZeroFill: DWORD;
+    Characteristics: DWORD;
+  end;
+  IMAGE_TLS_DIRECTORY32 = _IMAGE_TLS_DIRECTORY32;
+  TImageTLSDirectory32 = _IMAGE_TLS_DIRECTORY32;
+  PIMAGE_TLS_DIRECTORY32 = ^_IMAGE_TLS_DIRECTORY32;
+  PImageTLSDirectory32 = ^_IMAGE_TLS_DIRECTORY32;
+
+const
+  IMAGE_ORDINAL_FLAG              = IMAGE_ORDINAL_FLAG32;
+  //IMAGE_ORDINAL(Ordinal)          IMAGE_ORDINAL32(Ordinal)
+  //IMAGE_SNAP_BY_ORDINAL(Ordinal)  IMAGE_SNAP_BY_ORDINAL32(Ordinal)
+
+type
+  IMAGE_THUNK_DATA              = IMAGE_THUNK_DATA32;
+  PIMAGE_THUNK_DATA             = PIMAGE_THUNK_DATA32;
+  IMAGE_TLS_DIRECTORY           = IMAGE_TLS_DIRECTORY32;
+  PIMAGE_TLS_DIRECTORY          = PIMAGE_TLS_DIRECTORY32;
+
+type
+  _IMAGE_IMPORT_DESCRIPTOR = record
+    case Byte of
+      0: (Characteristics: DWORD);          // 0 for terminating null import descriptor
+      1: (OriginalFirstThunk: DWORD;        // RVA to original unbound IAT (PIMAGE_THUNK_DATA)
+          TimeDateStamp: DWORD;             // 0 if not bound,
+                                            // -1 if bound, and real date\time stamp
+                                            //     in IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT (new BIND)
+                                            // O.W. date/time stamp of DLL bound to (Old BIND)
+
+          ForwarderChain: DWORD;            // -1 if no forwarders
+          Name: DWORD;
+          FirstThunk: DWORD);                // RVA to IAT (if bound this IAT has actual addresses)
+  end;
+  IMAGE_IMPORT_DESCRIPTOR = _IMAGE_IMPORT_DESCRIPTOR;
+  TImageImportDescriptor = _IMAGE_IMPORT_DESCRIPTOR;
+  PIMAGE_IMPORT_DESCRIPTOR = ^_IMAGE_IMPORT_DESCRIPTOR;
+  PImageImportDescriptor = ^_IMAGE_IMPORT_DESCRIPTOR;
+
+  { New format import descriptors pointed to by DataDirectory[ IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT ] }
+
+  _IMAGE_BOUND_IMPORT_DESCRIPTOR = record
+    TimeDateStamp: DWORD;
+    OffsetModuleName: Word;
+    NumberOfModuleForwarderRefs: Word;
+    // Array of zero or more IMAGE_BOUND_FORWARDER_REF follows
+  end;
+  IMAGE_BOUND_IMPORT_DESCRIPTOR = _IMAGE_BOUND_IMPORT_DESCRIPTOR;
+  TImageBoundImportDescriptor = _IMAGE_BOUND_IMPORT_DESCRIPTOR;
+  PIMAGE_BOUND_IMPORT_DESCRIPTOR = ^_IMAGE_BOUND_IMPORT_DESCRIPTOR;
+  PImageBountImportDescriptor = ^_IMAGE_BOUND_IMPORT_DESCRIPTOR;
+
+  _IMAGE_BOUND_FORWARDER_REF = record
+    TimeDateStamp: DWORD;
+    OffsetModuleName: Word;
+    Reserved: Word;
+  end;
+  IMAGE_BOUND_FORWARDER_REF = _IMAGE_BOUND_FORWARDER_REF;
+  TImageBoundForwarderRef = _IMAGE_BOUND_FORWARDER_REF;
+  PIMAGE_BOUND_FORWARDER_REF = ^_IMAGE_BOUND_FORWARDER_REF;
+  PImageBoundForwarderRef = ^_IMAGE_BOUND_FORWARDER_REF;
+
+
 const
   IMAGE_SIZEOF_FILE_HEADER                 = 20;
 
@@ -1094,6 +1231,7 @@ const
   IMAGE_FILE_LINE_NUMS_STRIPPED            = $0004;  { Line nunbers stripped from file. }
   IMAGE_FILE_LOCAL_SYMS_STRIPPED           = $0008;  { Local symbols stripped from file. }
   IMAGE_FILE_AGGRESIVE_WS_TRIM             = $0010;  { Agressively trim working set }
+  IMAGE_FILE_LARGE_ADDRESS_AWARE           = $0020;  { App can handle >2gb addresses }
   IMAGE_FILE_BYTES_REVERSED_LO             = $0080;  { Bytes of machine word are reversed. }
   IMAGE_FILE_32BIT_MACHINE                 = $0100;  { 32 bit word machine. }
   IMAGE_FILE_DEBUG_STRIPPED                = $0200;  { Debugging info stripped from file in .DBG file }
@@ -18821,7 +18959,7 @@ const
 
   // MSH_WHEELSUPPORT
   //    wParam - not used
-  //    lParam - not used
+  //  lParam - not used
   //    returns BOOL - TRUE if wheel support is active, FALSE otherwise
   MSH_WHEELSUPPORT = 'MSH_WHEELSUPPORT_MSG';  // name of msg to send
                                               // to query for wheel support
