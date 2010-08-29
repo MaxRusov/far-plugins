@@ -6,4 +6,6 @@
 {$define bAdvSelect}
 {$define bComboMode}
 
+{$define bGetStrOpt}
+
 {------------------------------------------------------------------------------}

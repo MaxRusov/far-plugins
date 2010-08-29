@@ -104,7 +104,7 @@ interface
         NewItemApi(DI_Edit,     5,   3,  DX-10, -1,   DIF_HISTORY or DIF_USELASTHISTORY, '', cFindHistory ),
 
         NewItemApi(DI_Text,     5,   4,  -1,    -1,   0, GetMsg(strReplaceWith) ),
-        NewItemApi(DI_Edit,     5,   5,  DX-10, -1,   DIF_HISTORY or DIF_USELASTHISTORY, '', cReplHistory ),
+        NewItemApi(DI_Edit,     5,   5,  DX-10, -1,   DIF_HISTORY or IntIf(gLastReplEmpty, 0, DIF_USELASTHISTORY), '', cReplHistory ),
 
         NewItemApi(DI_Text,     0,   6,  -1, -1,   DIF_SEPARATOR),
 
@@ -123,7 +123,7 @@ interface
         NewItemApi(DI_CheckBox, vX2, 8, -1, -1, 0, GetMsg(strPromptOnReplace)),
 
         NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strSearchBut) ),
+        NewItemApi(DI_DefButton,0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strSearchBut) ),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strEntireBut) ),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancelBut) )
 //      NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strOptionsBut) )
@@ -168,6 +168,7 @@ interface
 
       gStrFind := vStr;
       gStrRepl := GetText(IdReplaceEdt);
+      gLastReplEmpty := gStrRepl = '';
 
       SetFindOptions(gOptions, foCaseSensitive, GetChecked(IdCaseSensChk));
      {$ifdef bComboMode}
