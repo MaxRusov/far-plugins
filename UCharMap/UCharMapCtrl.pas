@@ -119,11 +119,11 @@ interface
 
   function ReadTextFile(const AFileName :TString; var ASize :Integer) :PAnsiChar;
   var
-    vFile :Integer;
+    vFile :THandle;
   begin
     Result := nil;
     vFile := FileOpen(AFileName, fmOpenRead or fmShareDenyWrite);
-    if vFile < 0 then
+    if vFile = INVALID_HANDLE_VALUE then
       Exit;
     try
       ASize := GetFileSize(vFile, nil);

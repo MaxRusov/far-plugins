@@ -575,7 +575,7 @@ interface
       DN_KEY: begin
 //      TraceF('Key = %d', [Param2]);
         case Param2 of
-          KEY_ENTER:
+          KEY_ENTER, KEY_NUMENTER:
             SelectChar;
 
         else
@@ -645,16 +645,29 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
+  function MaskStr(const AStr :TString) :TString;
+  var
+    I :Integer;
+    C :TChar;
+  begin
+    Result := '';
+    for I := 1 to length(AStr) do begin
+      C := AStr[I];
+      if (Ord(C) < $20) or (C = '"') or (C = '\') then
+//      Result := Result + '\' + Int2Str(Ord(c))
+        Result := Result + '\x' + Format('%.2x', [Ord(c)])
+      else
+        Result := Result + C;
+    end;
+  end;
+
+
   procedure InsertText(const AStr :TString);
   var
-    vStr :TFarStr;
-    vMacro :TActlKeyMacro;
+    vStr :TString;
   begin
-    vStr := '$text "' + AStr + '"';
-    vMacro.Command := MCMD_POSTMACROSTRING;
-    vMacro.Param.PlainText.SequenceText := PFarChar(vStr);
-    vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
-    FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+    vStr := 'print("' + MaskStr(AStr) + '")';
+    FarPostMacro(vStr);
   end;
 
 
