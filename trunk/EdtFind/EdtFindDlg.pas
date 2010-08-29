@@ -269,7 +269,7 @@ interface
         NewItemApi(DI_CheckBox, vX2, 5, -1, -1,  0, GetMsg(strReverse)),
 
         NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strSearchBut) ),
+        NewItemApi(DI_DefButton,0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strSearchBut) ),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strEntireBut) ),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCountBut) ),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancelBut) )

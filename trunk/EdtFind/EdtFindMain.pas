@@ -422,11 +422,13 @@ interface
   var
     vFinder :TFinder;
     vEdtInfo :TEditorInfo;
-    vPosInfo :TEditorSetPosition;
     vStrInfo :TEditorGetString;
     vRow, vCol, vLen, vBegRow, vEndRow, vCol1, vCol2, vDelta :Integer;
     vSel :TEdtSelection;
     vLocalProgress :Boolean;
+   {$ifdef bGetStrOpt}
+    vPosInfo :TEditorSetPosition;
+   {$endif bGetStrOpt}
   begin
     Result := False;
 
@@ -445,11 +447,13 @@ interface
 
     vFinder := TFinder.CreateEx(AStr, AOpt);
     try
+     {$ifdef bGetStrOpt}
       vPosInfo.CurPos := -1;
       vPosInfo.LeftPos := -1;
       vPosInfo.TopScreenLine := -1;
       vPosInfo.Overtype := -1;
       vPosInfo.CurTabPos := -1;
+     {$endif bGetStrOpt}
 
       if ARow2 > ARow1 then begin
         vBegRow := ARow1;
@@ -491,10 +495,13 @@ interface
           LocShowMessage(AStr, (100 * vRow) div vEdtInfo.TotalLines);
 //        LocShowMessage(AStr, (100 * (vRow - vBegRow)) div (vEndRow - vBegRow));
 
+       {$ifdef bGetStrOpt}
         vPosInfo.CurLine := vRow;
         FARAPI.EditorControl(ECTL_SETPOSITION, @vPosInfo);
-
         vStrInfo.StringNumber := -1;
+       {$else}
+        vStrInfo.StringNumber := vRow;
+       {$endif bGetStrOpt}
         if FARAPI.EditorControl(ECTL_GETSTRING, @vStrInfo) = 1 then begin
 //        if soSelectedOnly in Options then begin
 //          FBlock.ColRange(Loc.Row, Col1, Col2);
@@ -545,11 +552,13 @@ interface
       end;
 
     finally
+     {$ifdef bGetStrOpt}
       if Result and (efoChangePos in AddOpt) then
         { Сохраним найденную позицию текущей }
       else
         { восстановим старую позицию }
         RestoreOldPos(vEdtInfo);
+     {$endif bGetStrOpt}
 
       if vLocalProgress then begin
         gProgressLast := 0;
@@ -653,6 +662,8 @@ interface
     gMatchRow2 :Integer;
 
     gEdtMess   :TString;
+
+    gLastOpt   :TFindOptions;
 
 
   procedure EdtMark(ARow, ACol, ALen :Integer);
@@ -1025,11 +1036,12 @@ interface
    {$ifdef bAdvSelect}
     EdtClearMark;
    {$endif bAdvSelect}
+    gLastOpt := gOptions;
     gLastIsReplace := False;
     if vCount then
-      CountStr(gStrFind, gOptions)
+      CountStr(gStrFind, gLastOpt)
     else
-      FindStr(gStrFind, gOptions, vEntire, False, not gReverse);
+      FindStr(gStrFind, gLastOpt, vEntire, False, not gReverse);
   end;
 
 
@@ -1040,9 +1052,10 @@ interface
     vStr := GetWordUnderCursor(nil, False);
     if vStr <> '' then begin
       gStrFind := vStr;
-      gOptions := gOptions + [foWholeWords] - [foRegexp];
+      gLastOpt := gLastOpt + [foWholeWords] - [foRegexp];
+      gLastIsReplace := False;
       AddToHistory(cFindHistory, gStrFind);
-      FindStr(gStrFind, gOptions, False, True, AForward)
+      FindStr(gStrFind, gLastOpt, False, True, AForward)
     end else
       Beep;
   end;
@@ -1057,10 +1070,11 @@ interface
     vStr := GetWordUnderCursor(@vCol, False);
     if vStr <> '' then begin
       gStrFind := vStr;
-      gOptions := gOptions + [foWholeWords] - [foRegexp];
+      gLastOpt := gLastOpt + [foWholeWords] - [foRegexp];
+      gLastIsReplace := False;
       AddToHistory(cFindHistory, gStrFind);
       GotoPosition(-1, -1, -1, vCol, False);
-      FindStr(gStrFind, gOptions, False, False, True);
+      FindStr(gStrFind, gLastOpt, False, False, True);
     end else
       Beep;
   end;
@@ -1193,7 +1207,11 @@ interface
 
           Inc(gFoundCount);
 
-          vStrInfo.StringNumber := -1{vRow};
+         {$ifdef bGetStrOpt}
+          vStrInfo.StringNumber := -1;
+         {$else}
+          vStrInfo.StringNumber := vRow;
+         {$endif bGetStrOpt}
           if FARAPI.EditorControl(ECTL_GETSTRING, @vStrInfo) <> 1 then
             Wrong;
           if vStrInfo.StringLength < vCol + vFindLen then
@@ -1337,8 +1355,9 @@ interface
    {$ifdef bAdvSelect}
     EdtClearMark;
    {$endif bAdvSelect}
+    gLastOpt := gOptions;
     gLastIsReplace := True;
-    ReplaceStr(gStrFind, gStrRepl, gOptions, vEntire, False, not gReverse);
+    ReplaceStr(gStrFind, gStrRepl, gLastOpt, vEntire, False, not gReverse);
   end;
 
 
@@ -1349,9 +1368,9 @@ interface
       Find(False)
     else
     if gLastIsReplace then
-      ReplaceStr(gStrFind, gStrRepl, gOptions, False, True, AForward)
+      ReplaceStr(gStrFind, gStrRepl, gLastOpt, False, True, AForward)
     else
-      FindStr(gStrFind, gOptions, False, True, AForward);
+      FindStr(gStrFind, gLastOpt, False, True, AForward);
   end;
 
 
@@ -1450,6 +1469,7 @@ interface
     FRegRoot := psi.RootKey;
 
     ReadSetup;
+    gLastOpt := gOptions;
   end;
 
 
@@ -1546,8 +1566,10 @@ interface
 
 
   function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
+ {$ifdef bGetStrOpt}
   var
     vChangePos :Boolean;
+ {$endif bGetStrOpt}
 
     procedure EdtSetColor(const ASel :TEdtSelection; AColor :Integer);
     var
@@ -1555,10 +1577,12 @@ interface
     begin
       if ASel.FLen > 0 then begin
 
+       {$ifdef bGetStrOpt}
         { Оптимизация, аналогичная установке текущей позиции при поиске.}
         { Без этого тормозит удаление раскраски при "длинных" перескоках, например, с конца в начало. }
         vChangePos := True;
         GotoPosition(ASel.FRow, -1, -1, -1, False);
+       {$endif bGetStrOpt}
 
         vColor.StringNumber := ASel.FRow;
         vColor.ColorItem := 0;
@@ -1594,7 +1618,7 @@ interface
       try
         WriteConsoleOutputCharacter(hStdOut, PTChar(gEdtMess), length(gEdtMess), vCoord, vRes);
 
-        MemFill2(vBuf, vWidth, $CE); 
+        MemFill2(vBuf, vWidth, $CE);
         WriteConsoleOutputAttribute(hStdOut, vBuf, vWidth, vCoord, vRes);
       finally
         MemFree(vBuf);
@@ -1629,7 +1653,10 @@ interface
           if AParam = EEREDRAW_LINE then
             Exit;
 
+         {$ifdef bGetStrOpt}
           vChangePos := False;
+         {$endif bGetStrOpt}
+
           FARAPI.EditorControl(ECTL_GETINFO, @vInfo);
           vHelper := FindEdtHelper(vInfo.EditorID, False);
           try
@@ -1676,8 +1703,10 @@ interface
               EdtShowMessage;
 
           finally
+           {$ifdef bGetStrOpt}
             if vChangePos then
               RestoreOldPos(vInfo);
+           {$endif bGetStrOpt}
           end;
 
         end;

@@ -148,6 +148,7 @@ interface
     gReverse :Boolean;
 
     gLastIsReplace :Boolean;
+    gLastReplEmpty :Boolean;  { Затычка, чтобы диалог замены запоминал пустую строку замены }
 
   var
     FRegRoot :TString;
