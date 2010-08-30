@@ -8,7 +8,7 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/PanelTabsW.v7.rar PanelTabs 1.0.7 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/PanelTabsW.v8.rar PanelTabs 1.0.8 for FAR 2]
  * [http://far-plugins.googlecode.com/files/PanelTabs64.v5.rar PanelTabs 1.0.5 for FAR 2 x64]
  * [http://far-plugins.googlecode.com/files/PanelTabs_v5.rar PanelTabs 1.0.5 for FAR 1.7x]
 
@@ -19,6 +19,16 @@ http://far-plugins.googlecode.com/svn/trunk/FarTabs/Image/Sample.png
 ----
 
 = История изменений =
+
+==Ver 1.0.8==
+
+ * Если каталог фиксированной закладки начинается с "macro:" то при выборе этой закладки остаток строки исполняется как макропоследовательность. Если вы использовали закладки для запуска макросов через Macro:post xxx - просто удалите "post".
+
+ * Настройка кликов мыши. Можно назначить разные действия на одинарное/двойное нажатие левой/правой кнопки мыши (с учетом модификаторов Shift/Ctrl/Tab) на разные области панели закладок.
+
+ * Настройка цветов через меню настроек
+
+ * Исправлено несколько ошибок
 
 ==Ver 1.0.6 - 1.0.7 ==
 
