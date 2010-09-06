@@ -19,6 +19,7 @@ interface
   function GetLocalComputerName :TString;
   function GetLocalUserName :TString;
 
+  function StrExpandEnvironment(const AStr :TString) :TString;
 
   const
     HKCR = HKEY_CLASSES_ROOT;
@@ -140,7 +141,23 @@ interface
     SetString(Result, vNameBuf, vNameLen - 1);
   end;
 
-  
+
+  function StrExpandEnvironment(const AStr :TString) :TString;
+  var
+    vLen :Integer;
+    vTmp :TString;
+  begin
+    Result := '';
+    vLen := ExpandEnvironmentStrings(PTChar(AStr), nil, 0);
+    if vLen > 0 then begin
+      SetLength(vTmp, vLen + 1);
+      vLen := ExpandEnvironmentStrings(PTChar(AStr), PTChar(vTmp), vLen + 1);
+      if vLen > 0 then
+        SetString(Result, PTChar(vTmp), IntMin(vLen - 1, length(vTmp)));
+    end;
+  end;
+
+
  {-----------------------------------------------------------------------------}
 
   function RegOpenRead(ARoot :HKEY; const APath :TString; var AKey :HKey) :Boolean;

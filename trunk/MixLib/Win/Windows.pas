@@ -18108,8 +18108,7 @@ function VerQueryValue(pBlock: Pointer; lpSubBlock: PTChar;
 type
   REGSAM = ACCESS_MASK;  { Requested Key access mask type. }
 
-  HKEY = type LongWord;
-
+  HKEY = THandle;
   PHKEY = ^HKEY;
 
 const
