@@ -22,10 +22,11 @@ interface
    {$else}
     Plugin,
    {$endif bUnicodeFar}
+    FarColor,
 
     FarCtrl,
     FarConMan,
-    FarMatch;
+    FarColorDlg;
 
 
   type
@@ -46,6 +47,16 @@ interface
       strMShowNumbers,
       strMShowButton,
       strMSeparateTabs,
+      strMMouseActions,
+      strColors,
+
+      strColorsTitle,
+      strColBackground,
+      strColInactiveTab,
+      strColActiveTab,
+      strColAddButton,
+      strColShortcut,
+      strRestoreDefaults,
 
       strEditTab,
       strAddTab,
@@ -57,7 +68,30 @@ interface
       strDelete,
 
       strEmptyCaption,
-      strUnknownCommand
+      strUnknownCommand,
+
+      strMouseActions,
+      strEditAction,
+      strAddAction,
+      strArea,
+      strClickType,
+      strShift,
+      strCtrl,
+      strAlt,
+      strAction,
+
+      strClickTypeNotDefined,
+      strActionNotDefined,
+      strActionAlreadyDefined,
+
+      strColorDialog,
+      str_CD_Foreground,
+      str_CD_Background,
+      str_CD_Sample,
+      str_CD_Set,
+      str_CD_Cancel,
+
+      strMouseActionBase
     );
 
 
@@ -66,6 +100,9 @@ interface
     cFarTabPrefix      = 'tab';
 
     cTabFileExt        = 'tab';
+
+    cMacroPrefix       = 'macro:';
+    cExecPrefix        = 'exec:';
 
     cPlugRegFolder     = 'PanelTabs';
     cTabsRegFolder     = 'Tabs';
@@ -77,6 +114,22 @@ interface
     cFolderRegKey      = 'Folder';
     cCurrentRegKey     = 'Current';
 
+    cActionsRegFolder  = 'Actions';
+    cActionRegFolder   = 'Action';
+    cAreaRegKey        = 'Area';
+    cClickRegKey       = 'Click';
+    cShiftsRegKey      = 'Shifts';
+    cActionRegKey      = 'Action';
+
+
+  const
+    { Команды, доступные через префикс tab: }
+    cAddCmd            = 'Add';
+    cEditCmd           = 'Edit';
+    cSaveCmd           = 'Save';
+    cLoadCmd           = 'Load';
+
+
   var
     optShowTabs        :Boolean = True;
     optShowNumbers     :Boolean = True;
@@ -86,6 +139,8 @@ interface
 
     optFixedMark       :TString = '*';
     optNotFixedMark    :TString = '';
+
+    optDblClickDelay   :Integer = 500;
 
     optBkColor         :Integer = 0;
     optActiveTabColor  :Integer = 0;
@@ -102,7 +157,6 @@ interface
     TabKey1            :Word    = 0; {VK_F24 - $87}
     TabShift1          :Word    = 0; {LEFT_ALT_PRESSED or SHIFT_PRESSED}
    {$endif bUnicodeFar}
-
 
 
   var
@@ -123,16 +177,14 @@ interface
   function GetConsoleTitleStr :TString;
   function GetConsoleMousePos :TPoint;
     { Вычисляем позицию мыши в консольных координатах }
-  function ReadScreenChar(X, Y :Integer) :TChar;
-    { Получаем символ из позиции X, Y }
 
   function VKeyToIndex(AKey :Integer) :Integer;
   function IndexToChar(AIndex :Integer) :TChar;
 
-  function CurrentPanelIsRight :Boolean;
   function GetPanelDir(Active :Boolean) :TString;
   function PathToCaption(const APath :TString) :TString;
 
+  procedure RestoreDefColor;
   procedure ReadSetup;
   procedure WriteSetup;
 
@@ -245,104 +297,6 @@ interface
   end;
 
 
-  function ReadScreenChar(X, Y :Integer) :TChar;
-  var
-    vInfo :TConsoleScreenBufferInfo;
-    vBuf :array[0..1, 0..1] of TCharInfo;
-    vSize, vCoord :TCoord;
-    vReadRect :TSmallRect;
-  begin
-    Result := #0;
-    if not GetConsoleScreenBufferInfo(hStdOut, vInfo) then
-      Exit;
-
-    { Коррекция для режима "большого буфера" (/w) }
-    with FarGetWindowRect do begin
-      Inc(Y, Top);
-      Inc(X, Left);
-    end;
-
-    if (X < vInfo.dwSize.X) and (Y < vInfo.dwSize.Y) then begin
-      vSize.X := 1; vSize.Y := 1; vCoord.X := 0; vCoord.Y := 0;
-      vReadRect := SBounds(X, Y, 1, 1);
-      FillChar(vBuf, SizeOf(vBuf), 0);
-
-//    TraceF('ReadConsoleOutput: %d, %d, %d, %d', [X, Y, vInfo.dwSize.X, vInfo.dwSize.Y]);
-      if ReadConsoleOutput(hStdOut, @vBuf, vSize, vCoord, vReadRect) then begin
-       {$ifdef bUnicode}
-        Result := vBuf[0, 0].UnicodeChar;
-       {$else}
-        Result := vBuf[0, 0].AsciiChar;
-       {$endif bUnicode}
-      end else
-        {RaiseLastWin32Error};
-    end;
-  end;
-
-(*
-  function ReadScreenChar(X, Y :Integer) :TChar;
-  var
-    vInfo :TConsoleScreenBufferInfo;
-//  vTst1 :Integer;
-    vBuf :array[0..128, 0..2] of TCharInfo;
-//  vTst2 :Integer;
-
-    vSize, vCoord :TCoord;
-    vReadRect :TSmallRect;
-  begin
-    Result := #0;
-
-//  vTst1 := $12345678;
-//  vTst2 := $12345678;
-
-//  Trace('GetConsoleScreenBufferInfo...');
-    if not GetConsoleScreenBufferInfo(hStdOut, vInfo) then begin
-      NOP;
-      Exit;
-    end;
-//  Trace('Done');
-
-    if (X < vInfo.dwSize.X) and (Y < vInfo.dwSize.Y) then begin
-
-      if (X < 0) or (Y < 0) then
-        NOP;
-
-      vSize.X := 1; vSize.Y := 1; vCoord.X := 0; vCoord.Y := 0;
-      vReadRect := SBounds(X, Y, 1, 1);
-      FillChar(vBuf, SizeOf(vBuf), 0);
-
-//    TraceF('ReadConsoleOutput: %d, %d, %d, %d', [X, Y, vInfo.dwSize.X, vInfo.dwSize.Y]);
-      if ReadConsoleOutput(hStdOut, @vBuf, vSize, vCoord, vReadRect) then begin
-       {$ifdef bUnicode}
-        Result := vBuf[0, 0].UnicodeChar;
-       {$else}
-        Result := vBuf[0, 0].AsciiChar;
-       {$endif bUnicode}
-      end else
-        RaiseLastWin32Error;
-//    Trace('Done');
-
-    end;
-
-//  Assert(vTst1 = $12345678);
-//  Assert(vTst2 = $12345678);
-  end;
-*)
-
-  function CurrentPanelIsRight :Boolean;
-  var
-    vInfo  :TPanelInfo;
-  begin
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodeFar}
-    FARAPI.Control(THandle(PANEL_ACTIVE), FCTL_GetPanelInfo, 0, @vInfo);
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelShortInfo, @vInfo);
-   {$endif bUnicodeFar}
-    Result := (PFLAGS_PANELLEFT and vInfo.Flags = 0);
-  end;
-
-
   function GetPanelDir(Active :Boolean) :TString;
  {$ifdef bUnicodeFar}
  {$else}
@@ -406,24 +360,20 @@ interface
       TabShift1 := RegQueryInt(vKey, 'CallShift', TabShift1);
      {$endif bUnicodeFar}
 
+      optShowTabs := RegQueryLog(vKey, 'ShowTabs', optShowTabs);
+      optShowNumbers := RegQueryLog(vKey, 'ShowNumbers', optShowNumbers);
+//    optShowButton := RegQueryLog(vKey, 'ShowButton', optShowButton);
+      optSeparateTabs := RegQueryLog(vKey, 'SeparateTabs', optSeparateTabs);
+      optStoreSelection := RegQueryLog(vKey, 'StoreSelection', optStoreSelection);
+
       optBkColor := RegQueryInt(vKey, 'TabBkColor', optBkColor);
       optActiveTabColor := RegQueryInt(vKey, 'ActiveTabColor', optActiveTabColor);
       optPassiveTabColor := RegQueryInt(vKey, 'PassiveTabColor', optPassiveTabColor);
       optNumberColor := RegQueryInt(vKey, 'NumberColor', optNumberColor);
       optButtonColor := RegQueryInt(vKey, 'ButtonColor', optButtonColor);
 
-//    optHiddenColor := RegQueryInt(vKey, 'HiddenColor', optHiddenColor);
-//    optFoundColor := RegQueryInt(vKey, 'FoundColor', optFoundColor);
-//    optSelectedColor := RegQueryInt(vKey, 'SelectedColor', optSelectedColor);
-
       optFixedMark := RegQueryStr(vKey, 'LockedMark', optFixedMark);
       optNotFixedMark := RegQueryStr(vKey, 'UnlockedMark', optNotFixedMark);
-
-      optShowTabs := RegQueryLog(vKey, 'ShowTabs', optShowTabs);
-      optShowNumbers := RegQueryLog(vKey, 'ShowNumbers', optShowNumbers);
-//    optShowButton := RegQueryLog(vKey, 'ShowButton', optShowButton);
-      optSeparateTabs := RegQueryLog(vKey, 'SeparateTabs', optSeparateTabs);
-      optStoreSelection := RegQueryLog(vKey, 'StoreSelection', optStoreSelection);
 
     finally
       RegCloseKey(vKey);
@@ -444,11 +394,29 @@ interface
       RegWriteLog(vKey, 'SeparateTabs', optSeparateTabs);
       RegWriteLog(vKey, 'StoreSelection', optStoreSelection);
 
+      RegWriteInt(vKey, 'TabBkColor', optBkColor);
+      RegWriteInt(vKey, 'ActiveTabColor', optActiveTabColor);
+      RegWriteInt(vKey, 'PassiveTabColor', optPassiveTabColor);
+      RegWriteInt(vKey, 'NumberColor', optNumberColor);
+      RegWriteInt(vKey, 'ButtonColor', optButtonColor);
+
     finally
       RegCloseKey(vKey);
     end;
   end;
 
 
+  procedure RestoreDefColor;
+  begin
+    optBkColor         := GetOptColor(0, COL_COMMANDLINE);
+    optActiveTabColor  := GetOptColor(0, COL_PANELTEXT);
+    optPassiveTabColor := GetOptColor(0, COL_COMMANDLINE);
+    optNumberColor     := GetOptColor(0, COL_PANELCOLUMNTITLE);
+    optButtonColor     := GetOptColor(0, COL_PANELTEXT);
+  end;
+
+
+initialization
+  ColorDlgResBase := Byte(strColorDialog);
 end.
 

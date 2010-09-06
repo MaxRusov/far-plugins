@@ -24,7 +24,6 @@ interface
    {$endif bUnicodeFar}
     FarColor,
     FarCtrl,
-    FarMatch,
     FarDlg,
     FarGrid,
     PanelTabsCtrl,
@@ -33,17 +32,33 @@ interface
 
 
   const
-    cDlgMinWidth  = 20;
+    cDlgMinWidth  = 30;
     cDlgMinHeight = 5;
 
     IdFrame = 0;
     IdList = 1;
 
   type
-    TTabsList = class(TFarDialog)
+    TFarListDlg = class(TFarDialog)
+    public
+      destructor Destroy; override;
+
+    protected
+      procedure Prepare; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
+
+    protected
+      FGrid           :TFarGrid;
+      FMenuMaxWidth   :Integer;
+
+      procedure ResizeDialog;
+      procedure SetCurrent(AIndex :Integer; AMode :TLocationMode = lmScroll);
+    end;
+
+
+    TTabsList = class(TFarListDlg)
     public
       constructor Create; override;
-      destructor Destroy; override;
 
     protected
       procedure Prepare; override;
@@ -51,24 +66,20 @@ interface
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
       procedure SelectItem(ACode :Integer); virtual;
-      procedure ReinitListControl; virtual;
+      procedure ReInitGrid; virtual;
 
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean); virtual;
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; virtual;
       procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); virtual;
 
     protected
-      FGrid           :TFarGrid;
       FTabs           :TPanelTabs;
       FHotkeyColor1   :Integer;
       FHotkeyColor2   :Integer;
-      FMenuMaxWidth   :Integer;
       FResInd         :Integer;
       FResCmd         :Integer;
 
-      procedure ResizeDialog;
       procedure EditCurrent;
-      procedure SetCurrent(AIndex :Integer; AMode :TLocationMode = lmScroll);
     end;
 
 
@@ -83,60 +94,35 @@ interface
     MixDebug;
 
  {-----------------------------------------------------------------------------}
- { TTabsList                                                                  }
+ { TFarListDlg                                                                 }
  {-----------------------------------------------------------------------------}
 
-  constructor TTabsList.Create; {override;}
-  begin
-    inherited Create;
-    FHotkeyColor1 := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUHIGHLIGHT));
-    FHotkeyColor2 := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUSELECTEDHIGHLIGHT));
-  end;
-
-
-  destructor TTabsList.Destroy; {override;}
+  destructor TFarListDlg.Destroy; {override;}
   begin
     FreeObj(FGrid);
     inherited Destroy;
   end;
 
 
-  procedure TTabsList.Prepare; {override;}
+  procedure TFarListDlg.Prepare; {override;}
   const
     DX = 20;
     DY = 10;
   begin
-    FHelpTopic := 'List';
     FWidth := DX;
     FHeight := DY;
-    FItemCount := 2;
     FDialog := CreateDialog(
       [
-        NewItemApi(DI_DoubleBox, 2, 1, DX - 4, DY - 2, 0, GetMsg(strTabs)),
+        NewItemApi(DI_DoubleBox, 2, 1, DX - 4, DY - 2, 0, ''),
         NewItemApi(DI_USERCONTROL, 3, 2, DX - 6, DY - 4, 0, '' )
-      ]
+      ],
+      @FItemCount
     );
     FGrid := TFarGrid.CreateEx(Self, IdList);
-    FGrid.OnCellClick := GridCellClick;
-    FGrid.OnGetCellText := GridGetDlgText;
-    FGrid.OnPaintCell := GridPaintCell;
-    FGrid.Options := [goRowSelect, goWrapMode, goFollowMouse];
-    FGrid.Columns.Clear;
-    FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coOwnerDraw, coColMargin], 1) );
-    FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coColMargin], 2) );
   end;
 
 
-  procedure TTabsList.InitDialog; {override;}
-  begin
-    SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
-    ReinitListControl;
-    if FResInd <> -1 then
-      SetCurrent(FResInd);
-  end;
-
-
-  procedure TTabsList.ResizeDialog;
+  procedure TFarListDlg.ResizeDialog;
   var
     vWidth, vHeight :Integer;
     vRect :TSmallRect;
@@ -169,13 +155,74 @@ interface
   end;
 
 
-  procedure TTabsList.SetCurrent(AIndex :Integer; AMode :TLocationMode);
+  procedure TFarListDlg.SetCurrent(AIndex :Integer; AMode :TLocationMode);
   begin
     FGrid.GotoLocation(FGrid.CurCol, AIndex, AMode);
   end;
 
 
-  procedure TTabsList.ReinitListControl; {virtual;}
+  function TFarListDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  begin
+    Result := 1;
+    case Msg of
+      DN_RESIZECONSOLE:
+        begin
+          ResizeDialog;
+          SetCurrent(FGrid.CurRow);
+        end;
+
+      DN_CTLCOLORDIALOG:
+        Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUTEXT));
+
+      DN_CTLCOLORDLGITEM:
+        if Param1 = IdFrame then
+          Result := CtrlPalette([COL_MENUTITLE, COL_MENUHIGHLIGHT, COL_MENUBOX])
+        else
+          Result := Param2;
+    else
+      Result := inherited DialogHandler(Msg, Param1, Param2);
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TTabsList                                                                   }
+ {-----------------------------------------------------------------------------}
+
+  constructor TTabsList.Create; {override;}
+  begin
+    inherited Create;
+    FHotkeyColor1 := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUHIGHLIGHT));
+    FHotkeyColor2 := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUSELECTEDHIGHLIGHT));
+  end;
+
+
+  procedure TTabsList.Prepare; {override;}
+  begin
+    inherited Prepare;
+    FHelpTopic := 'List';
+
+    FGrid.OnCellClick := GridCellClick;
+    FGrid.OnGetCellText := GridGetDlgText;
+    FGrid.OnPaintCell := GridPaintCell;
+    FGrid.Options := [goRowSelect, goWrapMode, goFollowMouse];
+    FGrid.Columns.Clear;
+    FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coOwnerDraw, coColMargin], 1) );
+    FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coColMargin], 2) );
+  end;
+
+
+  procedure TTabsList.InitDialog; {override;}
+  begin
+    SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
+    SetText(IdFrame, GetMsg(strTabs));
+    ReInitGrid;
+    if FResInd <> -1 then
+      SetCurrent(FResInd);
+  end;
+
+
+  procedure TTabsList.ReInitGrid; {virtual;}
   var
     I, vMaxLen1, vMaxLen2 :Integer;
     vTab :TPanelTab;
@@ -256,7 +303,7 @@ interface
     if FGrid.CurRow < FGrid.RowCount then begin
       if EditTab(FTabs, FGrid.CurRow) then begin
         FTabs.StoreReg('');
-        ReinitListControl;
+        ReInitGrid;
       end;
     end else
       Beep;
@@ -274,18 +321,17 @@ interface
         Inc(vIndex);
       if NewTab(FTabs, vIndex) then begin
         FTabs.StoreReg('');
-        ReinitListControl;
+        ReInitGrid;
         SetCurrent(vIndex);
       end;
     end;
-
 
     procedure LocDelete;
     begin
       if FGrid.CurRow < FGrid.RowCount then begin
         FTabs.Delete( FGrid.CurRow );
         FTabs.StoreReg('');
-        ReinitListControl;
+        ReInitGrid;
       end else
         Beep;
     end;
@@ -295,7 +341,7 @@ interface
       if (FGrid.CurRow < FGrid.RowCount) and (FGrid.CurRow + ADelta >= 0) and (FGrid.CurRow + ADelta < FGrid.RowCount) then begin
         FTabs.Move(FGrid.CurRow, FGrid.CurRow + ADelta);
         FTabs.StoreReg('');
-        ReinitListControl;
+        ReInitGrid;
         SetCurrent(FGrid.CurRow + ADelta);
       end else
         Beep;
@@ -313,26 +359,9 @@ interface
   var
     vIndex :Integer;
   begin
-//  TraceF('InfoDialogProc: FHandle=%d, Msg=%d, Param1=%d, Param2=%d', [FHandle, Msg, Param1, Param2]);
     Result := 1;
     case Msg of
-      DN_CTLCOLORDIALOG:
-        Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUTEXT));
-
-      DN_CTLCOLORDLGITEM:
-        if Param1 = IdFrame then
-          Result := CtrlPalette([COL_MENUTITLE, COL_MENUHIGHLIGHT, COL_MENUBOX])
-        else
-          Result := Param2;
-
-      DN_RESIZECONSOLE:
-        begin
-          ResizeDialog;
-          SetCurrent(FGrid.CurRow);
-        end;
-
       DN_KEY: begin
-//      TraceF('Key = %d', [Param2]);
         case Param2 of
           KEY_ENTER:
             SelectItem(1);

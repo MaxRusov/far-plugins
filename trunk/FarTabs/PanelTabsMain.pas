@@ -27,6 +27,7 @@ interface
    {$endif bUnicodeFar}
     FarCtrl,
     FarConMan,
+
     PanelTabsCtrl,
     PanelTabsClasses;
 
@@ -55,6 +56,225 @@ interface
   uses
     MixDebug;
 
+
+ {-----------------------------------------------------------------------------}
+ { Injecting                                                                   }
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bUseInjecting}
+
+  var
+    NeedRedrawTabs :Boolean;
+
+  const
+    ImagehlpLib = 'IMAGEHLP.DLL';
+
+
+  function ImageDirectoryEntryToData(Base :Pointer; MappedAsImage :ByteBool;
+    DirectoryEntry :Word; var Size: ULONG): Pointer; stdcall; external ImagehlpLib name 'ImageDirectoryEntryToData';
+
+
+  var
+    OldWriteConsoleOutputW :function (hConsoleOutput :THandle; lpBuffer :Pointer;
+      dwBufferSize, dwBufferCoord :TCoord; var lpWriteRegion :TSmallRect) :BOOL; stdcall;
+
+    WriteConsoleOutputPtr :PPointer;
+
+
+  function XYInSRect(X, Y :Integer; const ARect :TSmallRect) :Boolean;
+  begin
+    with ARect do
+      Result := (X >= Left) and (X <= Right) and (Y >= Top) and (Y <= Bottom)
+  end;
+
+
+  function MyWriteConsoleOutputW(hConsoleOutput :THandle; lpBuffer :Pointer;
+    dwBufferSize, dwBufferCoord :TCoord; var lpWriteRegion :TSmallRect): BOOL; stdcall;
+  var
+    X, Y :Integer;
+  begin
+//  TraceF('MyWriteConsoleOutputW (Coord=%dx%d, Size=%dx%d, Out:%d-%d, %d-%d)', [dwBufferCoord.X, dwBufferCoord.Y, dwBufferSize.X, dwBufferSize.Y,
+//    lpWriteRegion.Top, lpWriteRegion.Bottom, lpWriteRegion.Left, lpWriteRegion.Right]);
+
+    Result := OldWriteConsoleOutputW(hConsoleOutput, lpBuffer, dwBufferSize, dwBufferCoord, lpWriteRegion);
+//  Result := True;
+
+    if (TabsManager.DrawLock = 0) and TabsManager.NeedCheck(X, Y) and XYInSRect(X, Y, lpWriteRegion) then begin
+      TraceF('NeedRedraw (Coord=%dx%d, Size=%dx%d, Out:%d-%d, %d-%d)', [dwBufferCoord.X, dwBufferCoord.Y, dwBufferSize.X, dwBufferSize.Y,
+        lpWriteRegion.Top, lpWriteRegion.Bottom, lpWriteRegion.Left, lpWriteRegion.Right]);
+      NeedRedrawTabs := True;
+    end;
+
+  end;
+
+
+
+  function InjectFunc(AFuncPtr :PPointer; ANewFunc :Pointer) :Pointer;
+  var
+    vMem :MEMORY_BASIC_INFORMATION;
+    vTmp :DWORD;
+  begin
+    VirtualQuery(AFuncPtr, vMem, SizeOf(MEMORY_BASIC_INFORMATION));
+    VirtualProtect(vMem.BaseAddress, vMem.RegionSize, PAGE_READWRITE, @vTmp);
+    Result := AFuncPtr^;
+    AFuncPtr^ := ANewFunc;
+    VirtualProtect(vMem.BaseAddress, vMem.RegionSize, vTmp, @vTmp);
+  end;
+
+
+  function InjectHandlers :Boolean;
+  var
+    vHandle :THandle;
+    vImport :PIMAGE_IMPORT_DESCRIPTOR;
+    vThunk :PIMAGE_THUNK_DATA;
+    vAddr :Pointer;
+    vName :PAnsiChar;
+    vSize :ULONG;
+  begin
+    Result := False;
+    vAddr := GetProcAddress(GetModuleHandle(kernel32), 'WriteConsoleOutputW');
+
+    vHandle := GetModuleHandle(nil);
+    vImport := ImageDirectoryEntryToData(Pointer(vHandle), True, IMAGE_DIRECTORY_ENTRY_IMPORT, vSize);
+
+    while vImport.OriginalFirstThunk <> 0 do begin
+      vName := PAnsiChar(vHandle + vImport.Name);
+
+      if lstrcmpiA(vName, kernel32) = 0 then begin
+        vThunk := Pointer(vHandle + vImport.FirstThunk);
+
+        while (vThunk._Function <> 0) and (Pointer(vThunk._Function) <> vAddr) do
+          Inc(vThunk);
+
+        if vThunk._Function <> 0 then begin
+          WriteConsoleOutputPtr := @vThunk._Function;
+          OldWriteConsoleOutputW := InjectFunc(WriteConsoleOutputPtr, @MyWriteConsoleOutputW);
+          Result := True;
+        end;
+
+        Exit;
+      end;
+      Inc(vImport);
+    end;
+  end;
+
+
+  procedure RemoveHandlers;
+  begin
+    if (WriteConsoleOutputPtr <> nil) {and (WriteConsoleOutputPtr^ = @MyWriteConsoleOutputW)} then begin
+//    TraceF('RemoveHandlers... Old=%p', [@OldWriteConsoleOutputW]);
+      InjectFunc(WriteConsoleOutputPtr, @OldWriteConsoleOutputW);
+      WriteConsoleOutputPtr := nil;
+    end;
+  end;
+
+ {$endif bUseInjecting}
+
+
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
+
+  function GetConsoleWindowSize :TSize;
+  var
+    vScreenInfo :TConsoleScreenBufferInfo;
+  begin
+    GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
+    with vScreenInfo.srWindow do
+      Result := Size(Right - Left, Bottom - Top);
+  end;
+
+
+
+  { Получаем символ из позиции X, Y }
+
+  function ReadScreenChar(X, Y :Integer) :TChar;
+  var
+    vInfo :TConsoleScreenBufferInfo;
+    vBuf :array[0..1, 0..1] of TCharInfo;
+    vSize, vCoord :TCoord;
+    vReadRect :TSmallRect;
+  begin
+    Result := #0;
+    if not GetConsoleScreenBufferInfo(hStdOut, vInfo) then
+      Exit;
+
+    { Коррекция для режима "большого буфера" (/w) }
+    with FarGetWindowRect do begin
+      Inc(Y, Top);
+      Inc(X, Left);
+    end;
+
+    if (X < vInfo.dwSize.X) and (Y < vInfo.dwSize.Y) then begin
+      vSize.X := 1; vSize.Y := 1; vCoord.X := 0; vCoord.Y := 0;
+      vReadRect := SBounds(X, Y, 1, 1);
+      FillChar(vBuf, SizeOf(vBuf), 0);
+
+//    TraceF('ReadConsoleOutput: %d, %d, %d, %d', [X, Y, vInfo.dwSize.X, vInfo.dwSize.Y]);
+      if ReadConsoleOutput(hStdOut, @vBuf, vSize, vCoord, vReadRect) then begin
+       {$ifdef bUnicode}
+        Result := vBuf[0, 0].UnicodeChar;
+       {$else}
+        Result := vBuf[0, 0].AsciiChar;
+       {$endif bUnicode}
+      end else
+        {RaiseLastWin32Error};
+    end;
+  end;
+
+
+(*
+  function ReadScreenChar(X, Y :Integer) :TChar;
+  var
+    vInfo :TConsoleScreenBufferInfo;
+//  vTst1 :Integer;
+    vBuf :array[0..128, 0..2] of TCharInfo;
+//  vTst2 :Integer;
+
+    vSize, vCoord :TCoord;
+    vReadRect :TSmallRect;
+  begin
+    Result := #0;
+
+//  vTst1 := $12345678;
+//  vTst2 := $12345678;
+
+//  Trace('GetConsoleScreenBufferInfo...');
+    if not GetConsoleScreenBufferInfo(hStdOut, vInfo) then begin
+      NOP;
+      Exit;
+    end;
+//  Trace('Done');
+
+    if (X < vInfo.dwSize.X) and (Y < vInfo.dwSize.Y) then begin
+
+      if (X < 0) or (Y < 0) then
+        NOP;
+
+      vSize.X := 1; vSize.Y := 1; vCoord.X := 0; vCoord.Y := 0;
+      vReadRect := SBounds(X, Y, 1, 1);
+      FillChar(vBuf, SizeOf(vBuf), 0);
+
+//    TraceF('ReadConsoleOutput: %d, %d, %d, %d', [X, Y, vInfo.dwSize.X, vInfo.dwSize.Y]);
+      if ReadConsoleOutput(hStdOut, @vBuf, vSize, vCoord, vReadRect) then begin
+       {$ifdef bUnicode}
+        Result := vBuf[0, 0].UnicodeChar;
+       {$else}
+        Result := vBuf[0, 0].AsciiChar;
+       {$endif bUnicode}
+      end else
+        RaiseLastWin32Error;
+//    Trace('Done');
+
+    end;
+
+//  Assert(vTst1 = $12345678);
+//  Assert(vTst2 = $12345678);
+  end;
+*)
+
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
  {-----------------------------------------------------------------------------}
 
   var
@@ -69,7 +289,9 @@ interface
 
   function AlertableSleep(APeriod :Cardinal) :Boolean;
   begin
+//  Trace('Sleep...');
     Result := WaitForSingleObject(hStdin, APeriod) <> WAIT_TIMEOUT;
+//  TraceF('...Awake (%d)', [byte(Result)]);
   end;
 
 
@@ -161,17 +383,22 @@ interface
     cRetryPeriod = 300;
    {$endif bUnicodeFar}
   var
+    X, Y :Integer;
     vInput :TEventTypes;
     vTitle, vLastTitle :TString;
+    vSize, vLastSize :TSize;
     vWasInput :Boolean;
     vPoint :TPoint;
     vIndex :Integer;
     vKind :TTabKind;
-    X, Y :Integer;
     vTick :DWORD;
+   {$ifdef bUseInjecting}
+   {$else}
     vCh :TChar;
+   {$endif bUseInjecting}
   begin
     vLastTitle := '';
+    vLastSize := GetConsoleWindowSize;
     vWasInput := False;
 
     while not Terminated do begin
@@ -190,40 +417,65 @@ interface
 //      TraceF('Input=%d, WasInput=%d', [Byte(vInput), Byte(vWasInput)]);
 
         if vInput = [] then begin
+
           vTitle := GetConsoleTitleStr;
+
           if vTitle <> vLastTitle then begin
-//          Trace('Title changed...');
+//          TraceF('Title changed (%s)...', [vTitle]);
             vLastTitle := vTitle;
             CallPlugin(1);
             vWasInput := False;
           end else
           begin
-            if TabsManager.NeedCheck(X, Y) then begin
-              vCh := ReadScreenChar(X, Y);
+            vSize := GetConsoleWindowSize;
 
-              if vCh <> '+' then begin
-//              Trace('Screen need repaint...');
-                CallPlugin(1);
-              end;
+            if (vSize.CX <> vLastSize.CX) or (vSize.CY <> vLastSize.CY) then begin
+//            TraceF('Window size changed (%d x %d)...', [vSize.CX, vSize.CY]);
+              vLastSize := vSize;
+              CallPlugin(1);
               vWasInput := False;
             end else
-            if vWasInput then begin
-
-              vTick := GetTickCount;
-              while not Terminated and (TickCountDiff(GetTickCount, vTick) < cRetryPeriod) do begin
-                vInput := CheckInput;
-                if vInput <> [] then
-                  Break;
-              end;
-
-              if vInput = [] then begin
-//              Trace('Possible need repaint???...');
-                CallPlugin(1);
+            begin
+             {$ifdef bUseInjecting}
+              if TabsManager.NeedCheck(X, Y) then begin
+                if NeedRedrawTabs then begin
+                  NeedRedrawTabs := False;
+                  Trace('Screen need repaint...');
+                  CallPlugin(1);
+                end;
                 vWasInput := False;
+              end else
+             {$else}
+              if TabsManager.NeedCheck(X, Y) then begin
+                vCh := ReadScreenChar(X, Y);
+                if vCh <> '+' then begin
+//                Trace('Screen need repaint...');
+                  CallPlugin(1);
+                end;
+                vWasInput := False;
+              end else
+             {$endif bUseInjecting}
+
+              if vWasInput then begin
+
+                vTick := GetTickCount;
+                while not Terminated and (TickCountDiff(GetTickCount, vTick) < cRetryPeriod) do begin
+                  vInput := CheckInput;
+                  if vInput <> [] then
+                    Break;
+                end;
+
+                if vInput = [] then begin
+//                Trace('Possible need repaint???...');
+                  CallPlugin(1);
+                  vWasInput := False;
+                end;
+
               end;
 
-            end;
-          end;
+            end; {Size}
+          end; {Title}
+
         end else
           vWasInput := vWasInput or ([cetKeyDown{, cetKeyUp}] * vInput <> []);
 
@@ -306,126 +558,6 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  procedure OptionsMenu;
-  const
-    cMenuCount = 3;
-  var
-    vRes, I :Integer;
-    vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
-  begin
-    vItems := MemAllocZero(cMenuCount * SizeOf(TFarMenuItemEx));
-    try
-      vItem := @vItems[0];
-      SetMenuItemChrEx(vItem, GetMsg(strMShowTabs));
-      SetMenuItemChrEx(vItem, GetMsg(strMShowNumbers));
-//    SetMenuItemChrEx(vItem, GetMsg(strMShowButton));
-      SetMenuItemChrEx(vItem, GetMsg(strMSeparateTabs));
-
-      vRes := 0;
-      while True do begin
-        vItems[0].Flags := SetFlag(0, MIF_CHECKED1, optShowTabs);
-        vItems[1].Flags := SetFlag(0, MIF_CHECKED1, optShowNumbers);
-//      vItems[2].Flags := SetFlag(0, MIF_CHECKED1, optShowButton);
-        vItems[2].Flags := SetFlag(0, MIF_CHECKED1, optSeparateTabs);
-
-        for I := 0 to cMenuCount - 1 do
-          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
-
-        vRes := FARAPI.Menu(hModule, -1, -1, 0,
-          FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strOptions),
-          '',
-          ''{'Options'},
-          nil, nil,
-          Pointer(vItems),
-          cMenuCount);
-
-        if vRes = -1 then
-          Exit;
-
-        case vRes of
-          0: TabsManager.ToggleOption(optShowTabs);
-          1: TabsManager.ToggleOption(optShowNumbers);
-//        2: TabsManager.ToggleOption(optShowButton);
-          2: TabsManager.ToggleOption(optSeparateTabs);
-        end;
-
-//      Exit;
-      end;
-
-    finally
-      MemFree(vItems);
-    end;
-  end;
-
-
-  procedure SelectTabByKey;
-  var
-    vKey :Integer;
-    vChr :TChar;
-  begin
-    vKey := FARAPI.AdvControl(hModule, ACTL_WAITKEY, nil);
-    case vKey of
-      KEY_ESC:
-        {};
-      KEY_INS:
-        TabsManager.AddTab(True);
-      KEY_DEL:
-        TabsManager.DeleteTab(True);
-      KEY_SPACE:
-        TabsManager.ListTab(True);
-      KEY_MULTIPLY:
-        TabsManager.FixUnfixTab(True);
-    else
-//    TabsManager.SelectTab(True, VKeyToIndex(vKey));
-     {$ifdef bUnicodeFar}
-      if (vKey > 32) and (vKey < $FFFF) then begin
-     {$else}
-      if (vKey > 32) and (vKey <= $FF) then begin
-     {$endif bUnicodeFar}
-        vChr := TChar(vKey);
-       {$ifndef bUnicodeFar}
-        ChrOemToAnsi(vChr, 1);
-       {$endif bUnicodeFar}
-        TabsManager.SelectTabByKey(True, vChr);
-      end;
-    end;
-  end;
-
-
-  procedure OpenMenu;
-  var
-    vItems :array[0..4] of TFarMenuItemEx;
-    vRes :Integer;
-  begin
-    TabsManager.PaintTabs;
-
-    FillChar(vItems, SizeOf(vItems), 0);
-    SetMenuItemChr(@vItems[0], GetMsg(strMAddTab));
-    SetMenuItemChr(@vItems[1], GetMsg(strMEditTabs));
-    SetMenuItemChr(@vItems[2], GetMsg(strMSelectTab));
-    SetMenuItemChr(@vItems[3], '', MIF_SEPARATOR);
-    SetMenuItemChr(@vItems[4], GetMsg(strMOptions));
-
-    vRes := FARAPI.Menu(hModule, -1, -1, 0,
-      FMENU_WRAPMODE or FMENU_USEEXT,
-      GetMsg(strTitle),
-      '',
-      'Contents',
-      nil, nil,
-      @vItems,
-      High(vItems)+1);
-
-    case vRes of
-      0: TabsManager.AddTab(True);
-      1: TabsManager.ListTab(True);
-      2: SelectTabByKey;
-      4: OptionsMenu;
-    end;
-  end;
-
-
   procedure OpenCmdLine(const AStr :TString);
   var
     vStr :PTChar;
@@ -443,7 +575,7 @@ interface
         end;
       end;
     end else
-      OpenMenu;
+      MainMenu;
   end;
 
 
@@ -470,8 +602,8 @@ interface
 //  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
 
     hModule := psi.ModuleNumber;
-    Move(psi, FARAPI, SizeOf(FARAPI));
-    Move(psi.fsf^, FARSTD, SizeOf(FARSTD));
+    FARAPI := psi;
+    FARSTD := psi.fsf^;
 
     hStdin := GetStdHandle(STD_INPUT_HANDLE);
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
@@ -479,15 +611,16 @@ interface
 
     { Получаем Handle консоли Far'а }
     hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
-(*
-    InitConsoleProc;
-//  hConWindow := GetConsoleWindow;
-    CanCheckWindow := GetConsoleWindow = hFarWindow;
-*)
+
+    RestoreDefColor;
     ReadSetup;
 
     TabsManager := TTabsManager.Create;
     SetTabsThread(True);
+
+   {$ifdef bUseInjecting}
+    InjectHandlers;
+   {$endif bUseInjecting}
   end;
 
 
@@ -527,6 +660,10 @@ interface
   procedure ExitFAR; stdcall;
  {$endif bUnicodeFar}
   begin
+   {$ifdef bUseInjecting}
+    RemoveHandlers;
+   {$endif bUseInjecting}
+
     SetTabsThread(False);
     try
       TabsManager.StoreTabs;
@@ -564,7 +701,7 @@ interface
           case Item of
             1: TabsManager.AddTab(True);
             2: TabsManager.ListTab(True);
-            3: SelectTabByKey;
+            3: ProcessSelectMode;
             4: OptionsMenu;
           end;
         end;
@@ -572,7 +709,7 @@ interface
       if OpenFrom = OPEN_COMMANDLINE then
         OpenCmdLine(FarChar2Str(PFarChar(Item)))
       else
-        OpenMenu;
+        MainMenu;
 
      {$ifndef bUnicodeFar}
       finally
@@ -627,8 +764,5 @@ interface
   end;
 
 
-initialization
-finalization
-//FreeObj(TabsThread);
 end.
 
