@@ -166,6 +166,7 @@ interface
 
   function FarPanelGetSide :Integer;
   procedure FarPostMacro(const AStr :TFarStr);
+  function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean) :Boolean;
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   function FarPanelGetCurrentItem(Active :Boolean) :TString;
   function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
@@ -680,6 +681,18 @@ interface
     vMacro.Param.PlainText.SequenceText := PFarChar(AStr);
     vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
     FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+  end;
+
+
+  function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean) :Boolean;
+  var
+    vMacro :TActlKeyMacro;
+  begin
+    vMacro.Command := MCMD_CHECKMACRO;
+    vMacro.Param.PlainText.SequenceText := PFarChar(AStr);
+    vMacro.Param.PlainText.Flags := IntIf(ASilent, KSFLAGS_SILENTCHECK, 0);
+    FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+    Result := vMacro.Param.MacroResult.ErrCode = MPEC_SUCCESS;
   end;
 
 
