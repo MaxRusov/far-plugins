@@ -91,10 +91,10 @@ interface
 
         NewItemApi(DI_Checkbox, 5,   7,   DX-10,  -1,   0, GetMsg(strFixed) ),
 
-        NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strOk) ),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancel) ),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strDelete) )
+        NewItemApi(DI_Text,      0, DY-4, -1, -1, DIF_SEPARATOR),
+        NewItemApi(DI_DefButton, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strOk) ),
+        NewItemApi(DI_Button,    0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancel) ),
+        NewItemApi(DI_Button,    0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strDelete) )
       ]
     );
   end;
@@ -118,6 +118,8 @@ interface
     vCaption, vFolder :TString;
   begin
     if (ItemID <> -1) and (ItemID <> IdCancel) and (ItemID <> IdDelete) then begin
+      Result := False;
+
       vCaption := Trim(GetText(IdEdtCaption));
       vFolder := GetText(IdEdtFolder);
 //    if vCaption = '' then
@@ -127,6 +129,10 @@ interface
 
       if (vCaption = '') and (vFolder <> '') then
         vCaption := '*';
+
+      if UpCompareSubStr(cMacroPrefix, vFolder) = 0 then
+        if not FarCheckMacro(Copy(vFolder, length(cMacroPrefix) + 1, MaxInt), False) then
+          Exit;
 
       FTab.Caption := vCaption;
       FTab.Folder := vFolder;
@@ -166,7 +172,6 @@ interface
         SendMsg(DM_SETCHECK, IdChkFixed, IntIf(vCaption <> '', BSTATE_CHECKED, BSTATE_UNCHECKED));
       end;
     end;
-
 
   begin
 //  TraceF('InfoDialogProc: FHandle=%d, Msg=%d, Param1=%d, Param2=%d', [FHandle, Msg, Param1, Param2]);

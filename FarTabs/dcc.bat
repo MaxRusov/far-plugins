@@ -10,4 +10,5 @@ brcc32 PanelTabsW.rc || exit
 dcc32.exe -B PanelTabs.dpr %* || exit
 
 copy Doc\* ..\Bin\PanelTabs
-if /i "%1"=="-dunicode" (copy DocW\* ..\Bin\PanelTabs) else (copy DocA\* ..\Bin\PanelTabs)
+copy DocW\* ..\Bin\PanelTabs
+rem if /i "%1"=="-dunicode" (copy DocW\* ..\Bin\PanelTabs) else (copy DocA\* ..\Bin\PanelTabs)
