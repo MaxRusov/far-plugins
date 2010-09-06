@@ -54,6 +54,8 @@ interface
       procedure SetTextApi(AItemID :Integer; const AStr :TFarStr);
       function GetText(AItemID :Integer) :TString;
       procedure SetText(AItemID :Integer; const AStr :TString);
+      procedure SetListItems(AItemID :Integer; const AItems :array of TString);
+      procedure SetListIndex(AItemID :Integer; AIndex :Integer; ATopPos :Integer = -1);
       procedure SetItemFlags(AItemID :Integer; AFlags :DWORD);
       procedure AddHistory(AItemID :Integer; const AStr :TString);
 
@@ -384,6 +386,34 @@ interface
     Result := StrOemToAnsi(GetTextApi(AItemID));
    {$endif bUnicodeFar}
   end;
+
+
+  procedure TFarDialog.SetListItems(AItemID :Integer; const AItems :array of TFarStr);
+  var
+    I :Integer;
+    vList :TFarList;
+  begin
+    vList.ItemsNumber := High(AItems) + 1;
+    vList.Items := MemAllocZero(vList.ItemsNumber * SizeOf(TFarListItem));
+    try
+      for I := 0 to vList.ItemsNumber - 1 do
+        vList.Items[I].TextPtr := PFarChar(AItems[I]);
+      SendMsg(DM_LISTSET, AItemID, @vList);
+    finally
+      MemFree(vList.Items);
+    end;
+  end;
+
+
+  procedure TFarDialog.SetListIndex(AItemID :Integer; AIndex :Integer; ATopPos :Integer = -1);
+  var
+    vPos :TFarListPos;
+  begin
+    vPos.SelectPos := AIndex;
+    vPos.TopPos := ATopPos;
+    SendMsg(DM_LISTSETCURPOS, AItemID, @vPos);
+  end;
+
 
 
   procedure TFarDialog.SetItemFlags(AItemID :Integer; AFlags :DWORD);
