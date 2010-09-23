@@ -8,7 +8,7 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/VisualCompareW.v7.rar VisualCompare 0.9.7 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/VisualCompareW.v8.rar VisualCompare 0.9.8 for FAR 2]
  * [http://far-plugins.googlecode.com/files/VisualCompareW64.v0.5.rar VisualCompare 0.9.5 for FAR 2 x64]
 
 
@@ -20,6 +20,17 @@ http://far-plugins.googlecode.com/svn/trunk/VisualCompare/Image/Sample2.png
 ----
 
 = История изменений =
+
+==Ver 0.9.8==
+
+ * При сравнении текстов поддержан полноценный курсор, работает выделение блоков с клавиатуры и мышью, копирование в буфер обмена.
+
+ * В заголовке окна сравнения текстов выводится текущая кодировка.
+
+ * Опциональный режим горизонтального разделения окна сравнения текстов (F9).
+
+ * Исправлено несколько ошибок.
+
 
 ==Ver 0.9.7==
 
