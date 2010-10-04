@@ -8,13 +8,14 @@
  * Выделение всех найденных вхождений
  * Быстрый поиск текущего слова
  * Циклический поиск/замена
+ * Показ всех найденных вхождений в едином списке
  * Подсчет количества вхождений
 
  Обсуждение: http://forum.farmanager.com/viewtopic.php?f=5&t=5098
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/EdtFindW.v5.rar EdtFind 1.0.5 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/EdtFindW.v6.rar EdtFind 1.0.6 for FAR 2]
  * [http://far-plugins.googlecode.com/files/EdtFindW64.v4.rar EdtFind 1.0.4 for FAR 2 x64]
 
 == Пример ==
@@ -24,6 +25,15 @@ http://far-plugins.googlecode.com/svn/trunk/EdtFind/Image/Sample.png
 ----
 
 = История изменений =
+
+== Ver 1.0.6 ==
+
+  * Новый режим поиска - поиск всех вхождений (Grep). Фичи:
+    # Высокая скорость
+    # Дополнительная фильтрация в окне результатов
+    # Автоматическая синхронизация редактора
+    # Интеграция с FarHints (удобно просматривать длинные строки)
+
 
 == Ver 1.0.5 ==
 
