@@ -30,7 +30,7 @@ interface
     FarColor,
 
     FarCtrl,
-    FarMatch,
+    FarMenu,
     FarConMan,
     FarColorDlg,
 
@@ -560,10 +560,11 @@ interface
 
   procedure ColorsMenu;
   var
-    I, N, vRes :Integer;
-    vItems :PFarMenuItemsArray;
+    vMenu :TFarMenu;
   begin
-    vItems := FarCreateMenu([
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strColorsTitle),
+    [
       GetMsg(strColBackground),
       GetMsg(strColInactiveTab),
       GetMsg(strColActiveTab),
@@ -571,26 +572,15 @@ interface
       GetMsg(strColShortcut),
       '',
       GetMsg(strRestoreDefaults)
-    ], @N);
+    ]);
     try
-      vRes := 0;
       while True do begin
-        for I := 0 to N - 1 do
-          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
+        vMenu.SetSelected(vMenu.ResIdx);
 
-        vRes := FARAPI.Menu(hModule, -1, -1, 0,
-          FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strColorsTitle),
-          '',
-          '',
-          nil, nil,
-          Pointer(vItems),
-          N);
-
-        if vRes = -1 then
+        if not vMenu.Run then
           Exit;
 
-        case vRes of
+        case vMenu.ResIdx of
           0: ColorDlg('', optBkColor);
           1: ColorDlg('', optPassiveTabColor);
           2: ColorDlg('', optActiveTabColor);
@@ -605,17 +595,18 @@ interface
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
 
   procedure OptionsMenu;
   var
-    I, N, vRes :Integer;
-    vItems :PFarMenuItemsArray;
+    vMenu :TFarMenu;
   begin
-    vItems := FarCreateMenu([
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strOptions),
+    [
       GetMsg(strMShowTabs),
       GetMsg(strMShowNumbers),
 //    GetMsg(strMShowButton),
@@ -624,31 +615,20 @@ interface
       GetMsg(strMMouseActions),
       '',
       GetMsg(strColors)
-    ], @N);
+    ]);
     try
-      vRes := 0;
       while True do begin
-        vItems[0].Flags := SetFlag(0, MIF_CHECKED1, optShowTabs);
-        vItems[1].Flags := SetFlag(0, MIF_CHECKED1, optShowNumbers);
-//      vItems[2].Flags := SetFlag(0, MIF_CHECKED1, optShowButton);
-        vItems[2].Flags := SetFlag(0, MIF_CHECKED1, optSeparateTabs);
+        vMenu.Checked[0] := optShowTabs;
+        vMenu.Checked[1] := optShowNumbers;
+//      vMenu.Checked[2] := optShowButton;
+        vMenu.Checked[2] := optSeparateTabs;
 
-        for I := 0 to N - 1 do
-          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
+        vMenu.SetSelected(vMenu.ResIdx);
 
-        vRes := FARAPI.Menu(hModule, -1, -1, 0,
-          FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strOptions),
-          '',
-          ''{'Options'},
-          nil, nil,
-          Pointer(vItems),
-          N);
-
-        if vRes = -1 then
+        if not vMenu.Run then
           Exit;
 
-        case vRes of
+        case vMenu.ResIdx of
           0: TabsManager.ToggleOption(optShowTabs);
           1: TabsManager.ToggleOption(optShowNumbers);
 //        2: TabsManager.ToggleOption(optShowButton);
@@ -661,7 +641,7 @@ interface
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
@@ -719,32 +699,34 @@ interface
 
   procedure MainMenu;
   var
-    vItems :array[0..4] of TFarMenuItemEx;
-    vRes :Integer;
+    vMenu :TFarMenu;
   begin
     TabsManager.PaintTabs;
 
-    FillChar(vItems, SizeOf(vItems), 0);
-    SetMenuItemChr(@vItems[0], GetMsg(strMAddTab));
-    SetMenuItemChr(@vItems[1], GetMsg(strMEditTabs));
-    SetMenuItemChr(@vItems[2], GetMsg(strMSelectTab));
-    SetMenuItemChr(@vItems[3], '', MIF_SEPARATOR);
-    SetMenuItemChr(@vItems[4], GetMsg(strMOptions));
-
-    vRes := FARAPI.Menu(hModule, -1, -1, 0,
-      FMENU_WRAPMODE or FMENU_USEEXT,
+    vMenu := TFarMenu.CreateEx(
       GetMsg(strTitle),
+    [
+      GetMsg(strMAddTab),
+      GetMsg(strMEditTabs),
+      GetMsg(strMSelectTab),
       '',
-      'Contents',
-      nil, nil,
-      Pointer(@vItems),
-      High(vItems)+1);
+      GetMsg(strMOptions)
+    ]);
+    try
+      vMenu.Help := 'Contents';
 
-    case vRes of
-      0: TabsManager.AddTab(True);
-      1: TabsManager.ListTab(True);
-      2: ProcessSelectMode;
-      4: OptionsMenu;
+      if not vMenu.Run then
+        Exit;
+
+      case vMenu.ResIdx of
+        0: TabsManager.AddTab(True);
+        1: TabsManager.ListTab(True);
+        2: ProcessSelectMode;
+        4: OptionsMenu;
+      end;
+
+    finally
+      FreeObj(vMenu);
     end;
   end;
 
