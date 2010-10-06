@@ -1,4 +1,4 @@
-{******************************************************************************}
+{)*****************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* Visual Compare Far plugin                                                  *}
@@ -30,6 +30,7 @@ interface
     FarCtrl,
     FarMatch,
     FarDlg,
+    FarMenu,
     FarGrid,
     FarColorDlg,
 
@@ -971,14 +972,14 @@ interface
  {-----------------------------------------------------------------------------}
 
   procedure TFilesDlg.SortByDlg;
-  const
-    cSortMenuCount = 6;
   var
+    vMenu :TFarMenu;
     vRes :Integer;
     vChr :TChar;
-    vItems :PFarMenuItemsArray;
   begin
-    vItems := FarCreateMenu([
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(StrSortByTitle),
+    [
       GetMsg(StrSortByName),
       GetMsg(StrSortByExt),
       GetMsg(StrSortByDate),
@@ -992,19 +993,14 @@ interface
       if optFileSortMode < 0 then
         vChr := '-';
       if (vRes >= 0) and (vRes < 4) then
-        vItems[vRes].Flags := SetFlag(0, MIF_CHECKED or Word(vChr), True);
-      vItems[5].Flags := SetFlag(0, MIF_CHECKED, optDiffAtTop);
+        vMenu.Items[vRes].Flags := SetFlag(0, MIF_CHECKED or Word(vChr), True);
 
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        GetMsg(StrSortByTitle),
-        '',
-        '',
-        nil, nil,
-        Pointer(vItems),
-        cSortMenuCount);
+      vMenu.Checked[5] := optDiffAtTop;
 
-      case vRes of
+      if not vMenu.Run then
+        Exit;
+
+      case vMenu.ResIdx of
         0: SetOrder(smByName, optDiffAtTop);
         1: SetOrder(smByExt, optDiffAtTop);
         2: SetOrder(-smByDate, optDiffAtTop);
@@ -1013,7 +1009,7 @@ interface
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
@@ -1022,10 +1018,11 @@ interface
 
   procedure TFilesDlg.MainMenu;
   var
-    N, vRes :Integer;
-    vItems :PFarMenuItemsArray;
+    vMenu :TFarMenu;
   begin
-    vItems := FarCreateMenu([
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strCompareFoldersTitle),
+    [
       GetMsg(StrMCompareFiles),
       '',
       GetMsg(StrMView1),
@@ -1040,22 +1037,12 @@ interface
       '',
       GetMsg(StrMSortBy1),
       GetMsg(StrMOptions1)
-    ], @N);
+    ]);
     try
-
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        GetMsg(strCompareFoldersTitle),
-        '',
-        '',
-        nil, nil,
-        Pointer(vItems),
-        N);
-
-      if vRes = -1 then
+      if not vMenu.Run then
         Exit;
 
-      case vRes of
+      case vMenu.ResIdx of
         0:  SelectCurrent(1);
         1:  {-};
         2:  ViewOrEditCurrent(False);
@@ -1073,17 +1060,18 @@ interface
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
 
   procedure TFilesDlg.OptionsMenu;
   var
-    I, N, vRes :Integer;
-    vItems :PFarMenuItemsArray;
+    vMenu :TFarMenu;
   begin
-    vItems := FarCreateMenu([
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strOptionsTitle1),
+    [
       GetMsg(StrMShowSame),
       GetMsg(StrMShowDiff),
       GetMsg(StrMShowOrphan),
@@ -1104,45 +1092,34 @@ interface
       GetMsg(StrMUnfold),
       '',
       GetMsg(StrMColors1)
-    ], @N);
+    ]);
     try
-      vRes := 0;
       while True do begin
-        vItems[0].Flags  := SetFlag(0, MIF_CHECKED1, optShowSame);
-        vItems[1].Flags  := SetFlag(0, MIF_CHECKED1, optShowDiff);
-        vItems[2].Flags  := SetFlag(0, MIF_CHECKED1, optShowOrphan);
+        vMenu.Checked[0] := optShowSame;
+        vMenu.Checked[1] := optShowDiff;
+        vMenu.Checked[2] := optShowOrphan;
         {}
-        vItems[4].Flags  := SetFlag(0, MIF_CHECKED1, optCompareContents);
-        vItems[5].Flags  := SetFlag(0, MIF_CHECKED1, optCompareSize);
-        vItems[6].Flags  := SetFlag(0, MIF_CHECKED1, optCompareTime);
-        vItems[7].Flags  := SetFlag(0, MIF_CHECKED1, optCompareAttr);
-        vItems[8].Flags  := SetFlag(0, MIF_CHECKED1, optCompareFolderAttrs);
+        vMenu.Checked[4] := optCompareContents;
+        vMenu.Checked[5] := optCompareSize;
+        vMenu.Checked[6] := optCompareTime;
+        vMenu.Checked[7] := optCompareAttr;
+        vMenu.Checked[8] := optCompareFolderAttrs;
         {}
-        vItems[10].Flags := SetFlag(0, MIF_CHECKED1, optShowFilesInFolders);
-        vItems[11].Flags := SetFlag(0, MIF_CHECKED1, optShowSize);
-        vItems[12].Flags := SetFlag(0, MIF_CHECKED1, optShowTime);
-        vItems[13].Flags := SetFlag(0, MIF_CHECKED1, optShowAttr);
-        vItems[14].Flags := SetFlag(0, MIF_CHECKED1, optShowFolderAttrs);
+        vMenu.Checked[10] := optShowFilesInFolders;
+        vMenu.Checked[11] := optShowSize;
+        vMenu.Checked[12] := optShowTime;
+        vMenu.Checked[13] := optShowAttr;
+        vMenu.Checked[14] := optShowFolderAttrs;
         {}
-        vItems[16].Flags := SetFlag(0, MIF_CHECKED1, optHilightDiff);
-        vItems[17].Flags := SetFlag(0, MIF_CHECKED1, FUnfold);
+        vMenu.Checked[16] := optHilightDiff;
+        vMenu.Checked[17] := FUnfold;
 
-        for I := 0 to N - 1 do
-          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
+        vMenu.SetSelected(vMenu.ResIdx);
 
-        vRes := FARAPI.Menu(hModule, -1, -1, 0,
-          FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strOptionsTitle1),
-          '',
-          '',
-          nil, nil,
-          Pointer(vItems),
-          N);
-
-        if vRes = -1 then
+        if not vMenu.Run then
           Exit;
 
-        case vRes of
+        case vMenu.ResIdx of
           0:  ToggleOption(optShowSame);
           1:  ToggleOption(optShowDiff);
           2:  ToggleOption(optShowOrphan);
@@ -1167,17 +1144,18 @@ interface
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
 
   procedure TFilesDlg.ColorsMenu;
   var
-    I, N, vRes :Integer;
-    vItems :PFarMenuItemsArray;
+    vMenu :TFarMenu;
   begin
-    vItems := FarCreateMenu([
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strColorsTitle),
+    [
       GetMsg(strClCurrentLine),
       GetMsg(strClSelectedLine),
       GetMsg(strClHilightedLine),
@@ -1189,26 +1167,15 @@ interface
       GetMsg(strClCaption1),
       '',
       GetMsg(strRestoreDefaults)
-    ], @N);
+    ]);
     try
-      vRes := 0;
       while True do begin
-        for I := 0 to N - 1 do
-          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
+        vMenu.SetSelected(vMenu.ResIdx);
 
-        vRes := FARAPI.Menu(hModule, -1, -1, 0,
-          FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strColorsTitle),
-          '',
-          '',
-          nil, nil,
-          Pointer(vItems),
-          N);
-
-        if vRes = -1 then
+        if not vMenu.Run then
           Exit;
 
-        case vRes of
+        case vMenu.ResIdx of
           0: ColorDlg('', optCurColor);
           1: ColorDlg('', optSelColor);
           2: ColorDlg('', optDiffColor);
@@ -1228,7 +1195,7 @@ interface
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
@@ -1569,7 +1536,7 @@ interface
       vItem := GetCurrentItem;
       if (vItem <> nil) and (faPresent and vItem.Attr[vVer] <> 0) then
         {!!!-???}
-        CopyToClipboard(vItem.GetFullFileName(vVer))
+        FarCopyToClipboard(vItem.GetFullFileName(vVer))
       else
         Beep;
     end else
@@ -1577,7 +1544,7 @@ interface
       vSelected := TStringList.Create;
       try
         GetSelected(vSelected, vVer, True);
-        CopyToClipboard(vSelected.Text)
+        FarCopyToClipboard(vSelected.Text)
       finally
         FreeObj(vSelected);
       end;

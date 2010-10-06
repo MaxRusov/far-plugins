@@ -27,6 +27,7 @@ interface
 
   const
     cTextEqualFactor = 8;  // 8..4..2..1
+//  cTextEqualFactor =16;  // 16..8..4..2..1
     cStrEqualFactor = 12;  // 12..6..3
 
 
@@ -305,8 +306,6 @@ interface
     FTextCRCs2 := TIntList.Create;
     FIndexes1 := TTextIndex.CreateEx(FTextCRCs1);
     FIndexes2 := TTextIndex.CreateEx(FTextCRCs2);
-    CalcCrcs;
-    ReindexCRCs;
    {$endif bFastCompare}
     Compare;
   end;
@@ -330,11 +329,7 @@ interface
   procedure TTextDiff.ReloadAndCompare;
   begin
     FText[0].LoadFile(FText[0].FFormat);
-    FText[1].LoadFile(FText[0].FFormat);
-   {$ifdef bFastCompare}
-    CalcCrcs;
-    ReindexCRCs;
-   {$endif bFastCompare}
+    FText[1].LoadFile(FText[1].FFormat);
     Compare;
   end;
 
@@ -608,6 +603,11 @@ interface
    {$endif bTrace}
 
     FDiff.Clear;
+   {$ifdef bFastCompare}
+    CalcCrcs;
+    ReindexCRCs;
+   {$endif bFastCompare}
+
     ComparePart(0, 0, FText[0].Count, FText[1].Count, cTextEqualFactor);
 //  OptimizeEmptyLines;
 
@@ -615,7 +615,6 @@ interface
     TraceF('  done: %d compares, %d ms', [FRowCompare, TickCountDiff(GetTickCount, vStart)]);
    {$endif bTrace}
   end;
-
 
 
 

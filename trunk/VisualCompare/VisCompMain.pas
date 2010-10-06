@@ -60,7 +60,7 @@ interface
 
   uses
     MixDebug;
-
+ 
 
   function CompareFiles(AFileName1, AFileName2 :PTChar; AOptions :DWORD) :Integer;
     { Экспорт, для межплагинного взаимодействия... }

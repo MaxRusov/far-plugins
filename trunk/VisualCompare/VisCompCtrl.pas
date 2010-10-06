@@ -96,9 +96,10 @@ interface
       strMIgnoreSpaces,
       strMIgnoreCase,
       strMShowLineNumbers,
-      strMShowSpaces,
       strMShowCurrentRows,
       strMHilightRowDiff,
+      strMShowSpaces,
+      strMHorizontalDivide,
       strMColors2,
 
       strCodePages,
@@ -127,6 +128,8 @@ interface
       strClDiffChars,
       strClLineNumbers,
       strClCaption2,
+      strClCursor,
+      strClPCursor,
       strRestoreDefaults,
 
       strAutoscroll,
@@ -193,6 +196,10 @@ interface
     cNormalIcon = '['#$18']';
     cMaximizedIcon = '['#$12']';
 
+  const
+    cFormatNames :array[TStrFileFormat] of TString = ('Ansi', 'OEM', 'Unicode', 'UTF8', '');
+
+
   var
     optCompareCmd          :TString = '';
 
@@ -212,6 +219,7 @@ interface
     optShowSpaces          :Boolean = False;   { Показывать пробелы и символы табуляции }
     optShowCurrentRows     :Boolean = True;    { Показывать снизу сравнение для текущей строки }
     optHilightRowsDiff     :Boolean = True;    { Выделять цветом различия в строке }
+    optTextHorzDiv         :Boolean = False;   { Горизонтальное разделение окна сравнения}
 
     optCompareContents     :Boolean = True;
     optCompareSize         :Boolean = True;
@@ -236,9 +244,10 @@ interface
     optSpaceChar           :TChar   = #$B7;
     optTabChar             :TChar   = #$1A; //#$BB;
     optTabSpaceChar        :TChar   = ' ';
+    optShowCursor          :Boolean = False;   { Показывать мигающий курсор (сильно тормозит :( ) }
 
     optTabSize             :Integer = 8;
-    optEdtAutoscroll       :Boolean = False;
+    optEdtAutoscroll       :Boolean = False;   { Автоматически переходить на первое различие }
 
     optDefaultFormat       :TStrFileFormat = sffAnsi;
 
@@ -261,6 +270,8 @@ interface
     optTextDiffStrColor2   :Integer;
     optTextNumColor        :Integer;
     optTextHeadColor       :Integer;
+    optTextActCursorColor  :Integer;
+    optTextPasCursorColor  :Integer;
 
 
   var
@@ -287,7 +298,6 @@ interface
 
   function CurrentPanelSide :Integer;
   function GetPanelDir(Active :Boolean) :TString;
-  procedure CopyToClipboard(const AStr :TString);
 
   function IsSpecialPath(const AName :TString) :boolean;
   function FarExpandFileNameEx(const AName :TString) :TString;
@@ -356,6 +366,7 @@ interface
       optShowSpaces := RegQueryLog(vKey, 'ShowSpaces', optShowSpaces);
       optShowCurrentRows := RegQueryLog(vKey, 'ShowCurrentRows', optShowCurrentRows);
       optHilightRowsDiff := RegQueryLog(vKey, 'HilightRowsDiff', optHilightRowsDiff);
+      optTextHorzDiv := RegQueryLog(vKey, 'TextHorzDiv', optTextHorzDiv);
 
       optHilightDiff := RegQueryLog(vKey, 'HilightDiff', optHilightDiff);
       optDiffAtTop := RegQueryLog(vKey, 'DiffAtTop', optDiffAtTop);
@@ -409,6 +420,7 @@ interface
       RegWriteLog(vKey, 'ShowSpaces', optShowSpaces);
       RegWriteLog(vKey, 'ShowCurrentRows', optShowCurrentRows);
       RegWriteLog(vKey, 'HilightRowsDiff', optHilightRowsDiff);
+      RegWriteLog(vKey, 'TextHorzDiv', optTextHorzDiv);
 
       RegWriteLog(vKey, 'HilightDiff', optHilightDiff);
       RegWriteLog(vKey, 'DiffAtTop', optDiffAtTop);
@@ -462,6 +474,8 @@ interface
       optTextDiffStrColor2  := RegQueryInt(vKey, 'TDiffStrColor2', optTextDiffStrColor2);
       optTextNumColor  := RegQueryInt(vKey, 'TNumColor', optTextNumColor);
       optTextHeadColor  := RegQueryInt(vKey, 'THeadColor', optTextHeadColor);
+      optTextActCursorColor := RegQueryInt(vKey, 'TCursorColor', optTextActCursorColor);
+      optTextPasCursorColor := RegQueryInt(vKey, 'TPCursorColor', optTextPasCursorColor);
     finally
       RegCloseKey(vKey);
     end;
@@ -492,6 +506,8 @@ interface
       RegWriteInt(vKey, 'TDiffStrColor2', optTextDiffStrColor2);
       RegWriteInt(vKey, 'TNumColor', optTextNumColor);
       RegWriteInt(vKey, 'THeadColor', optTextHeadColor);
+      RegWriteInt(vKey, 'TCursorColor', optTextActCursorColor);
+      RegWriteInt(vKey, 'TPCursorColor', optTextPasCursorColor);
     finally
       RegCloseKey(vKey);
     end;
@@ -514,14 +530,16 @@ interface
 
   procedure RestoreDefTextColor;
   begin
-    optTextColor         := 0;
-    optTextSelColor      := 0;
-    optTextNewColor      := $B0;
-    optTextDelColor      := $70;
-    optTextDiffStrColor1 := $F0;
-    optTextDiffStrColor2 := $B0;
-    optTextNumColor      := $08;
-    optTextHeadColor     := $2F;
+    optTextColor          := 0;
+    optTextSelColor       := 0;
+    optTextNewColor       := $B0;
+    optTextDelColor       := $70;
+    optTextDiffStrColor1  := $F0;
+    optTextDiffStrColor2  := $B0;
+    optTextNumColor       := $08;
+    optTextHeadColor      := $2F;
+    optTextActCursorColor := $CE;
+    optTextPasCursorColor := $E0;
   end;
 
 
@@ -593,20 +611,6 @@ interface
   end;
 
 
-  procedure CopyToClipboard(const AStr :TString);
- {$ifdef bUnicodeFar}
-  begin
-    FARSTD.CopyToClipboard(PTChar(AStr));
- {$else}
-  var
-    vStr :TFarStr;
-  begin
-    vStr := StrAnsiToOEM(AStr);
-    FARSTD.CopyToClipboard(PFarChar(vStr));
- {$endif bUnicodeFar}
-  end;
-
-
   function IsSpecialPath(const AName :TString) :boolean;
   begin
     Result := (UpCompareSubStr(cPlugFakeDrive, AName) = 0) or (UpCompareSubStr(cSVNFakeDrive, AName) = 0);
@@ -638,6 +642,7 @@ interface
     end else
       Result := AName;
   end;
+
 
 initialization
   ColorDlgResBase := Byte(strColorDialog);
