@@ -114,6 +114,9 @@ interface
     cPlugRegFolder = 'FontMan';
     cHintFontSizeRegValue = 'HintFontSize';
 
+  const
+    BOM_UTF16_LE :array[0..1] of byte = ($FF, $FE);
+
   var
     FRegRoot     :TString;
     FModuleName  :TString;
