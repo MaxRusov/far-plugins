@@ -322,6 +322,8 @@ interface
       procedure SaveToFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto);
       procedure LoadFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto);
 
+      function GetTextStrEx(const ADel :TString; AddLast :Boolean = False) :TString;
+
     protected
       procedure ItemFree(Item :Pointer); override;
       function ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; override;
@@ -1501,6 +1503,10 @@ interface
  { TStringList = class(TStringList)                                            }
  {-----------------------------------------------------------------------------}
 
+  type
+    PStringItems = ^TStringItems;
+    TStringItems = array[0 .. MaxInt div SizeOf(TStringItem) - 1] of TStringItem;
+
   constructor TStringList.Create; {override;}
   begin
     inherited Create;
@@ -1601,34 +1607,40 @@ interface
   end;
 
 
-  function TStringList.GetTextStr :TString;
+  function TStringList.GetTextStrEx(const ADel :TString; AddLast :Boolean = False) :TString;
   var
-    I, vLen, vSize :Integer;
-    vFrame :PStringItem;
-    vPtr :PTChar;
+    I, vLen, vSize, vDelLen :Integer;
+    vPtr, vDelPtr :PTChar;
   begin
     vSize := 0;
-    vFrame := Pointer(FList);
-    for I := 0 to FCount - 1 do begin
-      Inc(vSize, Length(vFrame.FString) + 2);
-      Inc(Pointer1(vFrame), FItemSize);
-    end;
+    vDelPtr := PTChar(ADel);
+    vDelLen := Length(ADel);
+    for I := 0 to FCount - 1 do
+      Inc(vSize, Length(PStringItems(FList)[I].FString) + vDelLen);
+    if (FCount > 0) and not AddLast then
+      Dec(vSize, vDelLen);
 
     SetString(Result, nil, vSize);
     vPtr := Pointer(Result);
-    vFrame := Pointer(FList);
     for I := 0 to FCount - 1 do begin
-      vLen := Length(vFrame.FString);
-      if vLen > 0 then begin
-        StrMove(vPtr, PTChar(vFrame.FString), vLen);
-        Inc(vPtr, vLen);
+      with PStringItems(FList)[I] do begin
+        vLen := Length(FString);
+        if vLen > 0 then begin
+          StrMove(vPtr, PTChar(FString), vLen);
+          Inc(vPtr, vLen);
+        end;
       end;
-      Inc(Pointer1(vFrame), FItemSize);
-      vPtr^ := #13;
-      Inc(vPtr);
-      vPtr^ := #10;
-      Inc(vPtr);
+      if ((I < FCount - 1) or AddLast) and (vDelLen > 0) then begin
+        StrMove(vPtr, vDelPtr, vDelLen);
+        Inc(vPtr, vDelLen);
+      end;
     end;
+  end;
+
+  
+  function TStringList.GetTextStr :TString;
+  begin
+    Result := GetTextStrEx(#13#10, True);
   end;
 
 
