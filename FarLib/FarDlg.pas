@@ -92,6 +92,8 @@ interface
     public
       constructor CreateEx(AOwner :TFarDialog; AControlID :Integer);
 
+      procedure Redraw;
+
     protected
       procedure Paint(const AItem :TFarDialogItem); virtual;
       function KeyDown(AKey :Integer) :Boolean; virtual;
@@ -216,6 +218,10 @@ interface
           end;
           Result := FARAPI.DefDlgProc(FHandle, Msg, Param1, Param2);
         end;
+
+//    DN_ENTERIDLE:
+//      begin
+//      end;
 
     else
       Result := FARAPI.DefDlgProc(FHandle, Msg, Param1, Param2);
@@ -453,6 +459,19 @@ interface
   end;
 
 
+  procedure TFarCustomControl.Redraw;
+(*  “ак нельз€, остаютс€ следы при закрытии диалога...
+  var
+    vItem :TFarDialogItem;
+  begin
+    FOwner.SendMsg(DM_GETDLGITEMSHORT, FControlID, @vItem);
+    Paint(vItem);
+*)
+  begin
+    FOwner.SendMsg(DM_REDRAW, 0, 0);
+  end;
+
+
   procedure TFarCustomControl.Paint(const AItem :TFarDialogItem); {virtual;}
   begin
     {Abstract}
@@ -479,7 +498,7 @@ interface
 
   function TFarCustomControl.EventHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :Integer; {virtual;}
   begin
-    Result := -1;
+    Result := 1;
     case Msg of
 //    DN_GOTFOCUS:
 //    DN_KILLFOCUS:

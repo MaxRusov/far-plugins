@@ -30,7 +30,10 @@ interface
 
 
  const
-   MinColWidth = 1;
+   MinColWidth  = 1;
+
+   cScrollFirstDelay = 500;
+   cScrollNextDelay  = 10;
 
  type
    TFarGrid = class;
@@ -93,10 +96,13 @@ interface
    TGridDragWhat = (
      dwNone,
      dwCell,
-     dwScrollThumb
+     dwScrollThumb,
 //   dwColumnSize,
 //   dwHeaderPress,
 //   dwFooterPress
+     dwUser1,
+     dwUser2,
+     dwUser3
    );
 
    TGetCellText = function(ASender :TFarGrid; ACol, ARow :Integer) :TString of object;
@@ -132,7 +138,11 @@ interface
      procedure Paint(const AItem :TFarDialogItem); override;
 
      function KeyDown(AKey :Integer) :Boolean; override;
+
      function MouseEvent(var AMouse :TMouseEventRecord) :Boolean; override;
+     procedure MouseDown(const APos :TCoord; AButton :Integer; ADouble :Boolean); virtual;
+     procedure MouseMove(const APos :TCoord; AButton :Integer); virtual;
+     procedure MouseUp(const APos :TCoord; AButton :Integer); virtual;
      function MouseClick(const AMouse :TMouseEventRecord) :Boolean; override;
 
    protected
@@ -141,6 +151,7 @@ interface
 
      FOptions        :TGridOptions;
      FWheelDY        :Integer;
+     FShowCurrent    :Boolean;
 
      FColumns        :TObjList;
      FAllWidth       :Integer;
@@ -193,6 +204,7 @@ interface
      property SelColor :Integer read FSelColor write FSelColor;
      property Options :TGridOptions read FOptions write FOptions;
      property WheelDY :Integer read FWheelDY write FWheelDY;
+     property ShowCurrent :Boolean read FShowCurrent write FShowCurrent;
 
      property Columns :TObjList read FColumns;
      property Column[I :Integer] :TColumnFormat read GetColumn;
@@ -251,6 +263,7 @@ interface
 
     FWheelDY := 3;
     FMousePos.X := -1;
+    FShowCurrent := True;
   end;
 
 
@@ -417,6 +430,8 @@ interface
     X, Y, vRow, vLimit, vWidth, vHeight :Integer;
     vRect :TSmallRect;
   begin
+//  TraceF('%p Paint', [Pointer(Self)]);
+
     vWidth := AItem.X2 - AItem.X1 + 1;
     vHeight := AItem.Y2 - AItem.Y1 + 1;
 
@@ -490,10 +505,109 @@ interface
   end;
 
 
+  procedure TFarGrid.MouseDown(const APos :TCoord; AButton :Integer; ADouble :Boolean); {override;}
+
+    procedure LocScrollUntilRelease(ADelta :Integer);
+    var
+      vTick :DWORD;
+      vDelay :Integer;
+    begin
+      ScrollTo(FDeltaX, FDeltaY + ADelta);
+      FARAPI.Text(0, 0, 0, nil);
+      vTick := GetTickCount;
+      vDelay := cScrollFirstDelay;
+      while GetKeyState(VK_LBUTTON) < 0 do begin
+        Sleep(1);
+        if TickCountDiff(GetTickCount, vTick) >= vDelay then begin
+          ScrollTo(FDeltaX, FDeltaY + ADelta);
+          FARAPI.Text(0, 0, 0, nil);
+          vTick := GetTickCount;
+          vDelay := cScrollNextDelay;
+        end;
+      end;
+    end;
+
+  var
+    vCol, vRow :Integer;
+  begin
+    { Нажатие }
+    case HitTest( APos.X, APos.Y, vCol, vRow) of
+      ghsCell:
+        begin
+          GotoLocation(vCol, vRow, lmSimple);
+          if ADouble then begin
+            FDragWhat := dwNone;
+            if Assigned(FOnCellClick) then
+              FOnCellClick(Self, vCol, vRow, AButton, True);
+          end else
+          begin
+            FDragButton := AButton;
+            FDragWhat := dwCell;
+          end;
+        end;
+
+      ghsScrollUp:   LocScrollUntilRelease(-1);
+      ghsScrollDn:   LocScrollUntilRelease(+1);
+      ghsScrollPgUp: LocScrollUntilRelease(-FHeight);
+      ghsScrollPgDn: LocScrollUntilRelease(+FHeight);
+
+      ghsScrollThumb:
+        begin
+          ScrollTo(FDeltaX, vRow);
+          FDragWhat := dwScrollThumb;
+        end;
+    end;
+  end;
+
+
+  procedure TFarGrid.MouseMove(const APos :TCoord; AButton :Integer); {override;}
+  var
+    vCol, vRow :Integer;
+  begin
+    if AButton = 0 then
+      FDragWhat := dwNone;
+
+    if (FDragWhat = dwCell) and (FDragButton = 1) then begin
+      CoordFromPoint(APos.X, APos.Y, vCol, vRow);
+      GotoLocation(vCol, vRow, lmSimple);
+    end else
+    if FDragWhat = dwScrollThumb then begin
+      vRow := MulDiv(APos.Y - 1, FRowCount - FHeight, FHeight - 3 );
+      ScrollTo(FDeltaX, vRow);
+    end else
+    if goFollowMouse in FOptions then begin
+      if FMousePos.X = -1 then
+        FMousePos := APos;
+      if (APos.X <> FMousePos.X) or (APos.Y <> FMousePos.Y) then begin
+        FMousePos := APos;
+        case HitTest( APos.X, APos.Y, vCol, vRow) of
+          ghsCell:
+            GotoLocation(CurCol{vCol}, vRow, lmSimple);
+        end;
+      end;
+    end;
+  end;
+
+
+  procedure TFarGrid.MouseUp(const APos :TCoord; AButton :Integer); {override;}
+  var
+    vCol, vRow :Integer;
+  begin
+    if FDragWhat = dwCell then begin
+      FDragWhat := dwNone;
+      case HitTest( APos.X, APos.Y, vCol, vRow) of
+        ghsCell:
+          if Assigned(FOnCellClick) then
+            FOnCellClick(Self, vCol, vRow, FDragButton, False{!!!});
+      end;
+    end;
+  end;
+
+
   function TFarGrid.MouseEvent(var AMouse :TMouseEventRecord) :Boolean; {override;}
   var
     vPos :TCoord;
-    vCol, vRow, vButton :Integer;
+    vButton :Integer;
   begin
     Result := True;
     vPos := AMouse.dwMousePosition;
@@ -512,71 +626,15 @@ interface
 
     if ((AMouse.dwEventFlags = 0) or (AMouse.dwEventFlags = DOUBLE_CLICK)) and (vButton <> 0) then begin
       { Нажатие }
-      case HitTest( vPos.X, vPos.Y, vCol, vRow) of
-        ghsCell:
-          begin
-            GotoLocation(vCol, vRow, lmSimple);
-            if AMouse.dwEventFlags = DOUBLE_CLICK then begin
-              FDragWhat := dwNone;
-              if Assigned(FOnCellClick) then
-                FOnCellClick(Self, vCol, vRow, vButton, True);
-            end else
-            begin
-              FDragButton := vButton;
-              FDragWhat := dwCell;
-            end;
-          end;
-        ghsScrollUp:
-          ScrollTo(FDeltaX, FDeltaY - 1);
-        ghsScrollDn:
-          ScrollTo(FDeltaX, FDeltaY + 1);
-        ghsScrollPgUp:
-          ScrollTo(FDeltaX, FDeltaY - FHeight);
-        ghsScrollPgDn:
-          ScrollTo(FDeltaX, FDeltaY + FHeight);
-        ghsScrollThumb:
-          begin
-            ScrollTo(FDeltaX, vRow);
-            FDragWhat := dwScrollThumb;
-          end;
-      end;
+      MouseDown(vPos, vButton, AMouse.dwEventFlags = DOUBLE_CLICK)
     end else
     if (AMouse.dwEventFlags = 0) and (AMouse.dwButtonState = 0) then begin
       { Отпускание }
-      if FDragWhat = dwCell then begin
-        FDragWhat := dwNone;
-        case HitTest( vPos.X, vPos.Y, vCol, vRow) of
-          ghsCell:
-            if Assigned(FOnCellClick) then
-              FOnCellClick(Self, vCol, vRow, FDragButton, False{!!!});
-        end;
-      end;
+      MouseUp(vPos, vButton);
     end else
     if (AMouse.dwEventFlags = MOUSE_MOVED) then begin
-
-      if AMouse.dwButtonState = 0 then
-        FDragWhat := dwNone;
-
-      if (FDragWhat = dwCell) and (FDragButton = 1) then begin
-        CoordFromPoint(vPos.X, vPos.Y, vCol, vRow);
-        GotoLocation(vCol, vRow, lmSimple);
-      end else
-      if FDragWhat = dwScrollThumb then begin
-        vRow := MulDiv(vPos.Y - 1, FRowCount - FHeight, FHeight - 3 );
-        ScrollTo(FDeltaX, vRow);
-      end else
-      if goFollowMouse in FOptions then begin
-        if FMousePos.X = -1 then
-          FMousePos := vPos;
-        if (vPos.X <> FMousePos.X) or (vPos.Y <> FMousePos.Y) then begin
-          FMousePos := vPos;
-          case HitTest( vPos.X, vPos.Y, vCol, vRow) of
-            ghsCell:
-              GotoLocation(CurCol{vCol}, vRow, lmSimple);
-          end;
-        end;  
-      end;
-
+      { Перемещение }
+      MouseMove(vPos, vButton);
     end;
   end;
 
@@ -593,7 +651,7 @@ interface
   begin
     Result := ghsNone;
     if (X >= 0) and (X < FWidth) and (Y >= 0) and (Y < FHeight) then begin
-      if (FRowCount > FHeight) and (X = FWidth - 1) then begin
+      if (FRowCount > FHeight) and (X = FWidth - 1) and not (goNoVScroller in FOptions) then begin
         { Скроллер... }
         if Y = 0 then
           Result := ghsScrollUp
@@ -668,7 +726,8 @@ interface
 
       FCurRow := ARow;
       FCurCol := ACol;
-      FOwner.SendMsg(DM_REDRAW, 0, 0);
+      if FShowCurrent then
+        Redraw;
 
       vPosChanged := True;
     end;
@@ -735,8 +794,7 @@ interface
     FDeltaY := ADeltaY;
 
     DeltaChange;
-
-    FOwner.SendMsg(DM_REDRAW, 0, 0);
+    Redraw;
   end;
 
 

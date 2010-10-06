@@ -22,6 +22,7 @@ interface
 
   function StringMatch(const AMask :TString; AStr :PTChar; var APos, ALen :Integer) :Boolean;
 
+  function ChrCheckMask(const AMask :TString; AStr :PTChar; AStrLen :Integer; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
   function CheckMask(const AMask, AStr :TString; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
 
   
@@ -128,8 +129,7 @@ interface
   end;
 
 
-
-  function CheckMask(const AMask, AStr :TString; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
+  function ChrCheckMask(const AMask :TString; AStr :PTChar; AStrLen :Integer; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
   var
     vCh, vFirstCh :TChar;
     vFirstIsWord, vLastIsDelim, vMatch :Boolean;
@@ -138,18 +138,18 @@ interface
   begin
     Result := False;
     APos := 0; ALen := 0;
-    if (AMask <> '') and (AStr <> '') then begin
+    if (AMask <> '') and (AStrLen > 0) then begin
       vFirstCh := AMask[1];
       if (vFirstCh = '*') {or (vFirstCh = '?')} then
-        Result := StringMatch(AMask, PTChar(AStr), APos, ALen)
+        Result := StringMatch(AMask, AStr, APos, ALen)
       else begin
         vFirstCh := CharUpCase(vFirstCh);
         vFirstIsWord := IsCharAlphaNumeric(vFirstCh);
 
         vMaskLen := Length(AMask);
 
-        vPtr := PTChar(AStr);
-        vEnd := vPtr + Length(AStr);
+        vPtr := AStr;
+        vEnd := vPtr + AStrLen;
         if not AHasMask then
           Dec(vEnd, vMaskLen - 1);
 
@@ -171,14 +171,14 @@ interface
           if vMatch then begin
             if AHasMask then begin
               if StringMatch(AMask, vPtr, APos, ALen) then begin
-                APos := vPtr - PTChar(AStr);
+                APos := vPtr - AStr;
                 Result := True;
                 Exit;
               end;
             end else
             begin
               if (vMaskLen = 1) or (AnsiStrLIComp(PTChar(AMask), vPtr, vMaskLen) = 0) then begin
-                APos := vPtr - PTChar(AStr);
+                APos := vPtr - AStr;
                 ALen := vMaskLen;
                 Result := True;
                 Exit;
@@ -192,6 +192,10 @@ interface
   end;
 
 
+  function CheckMask(const AMask, AStr :TString; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
+  begin
+    Result := ChrCheckMask(AMask, PTChar(AStr), Length(AStr), AHasMask, APos, ALen);
+  end;
 
 end.
 

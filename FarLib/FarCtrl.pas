@@ -178,6 +178,8 @@ interface
   function FarGetWindowRect :TSmallRect;
   function FarGetWindowSize :TSize;
 
+  procedure FarCopyToClipboard(const AStr :TString);
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -1056,6 +1058,20 @@ interface
   begin
     with FarGetWindowRect do
       Result := Size(Right - Left + 1, Bottom - Top + 1);
+  end;
+
+
+  procedure FarCopyToClipboard(const AStr :TString);
+ {$ifdef bUnicodeFar}
+  begin
+    FARSTD.CopyToClipboard(PTChar(AStr));
+ {$else}
+  var
+    vStr :TFarStr;
+  begin
+    vStr := StrAnsiToOEM(AStr);
+    FARSTD.CopyToClipboard(PFarChar(vStr));
+ {$endif bUnicodeFar}
   end;
 
 
