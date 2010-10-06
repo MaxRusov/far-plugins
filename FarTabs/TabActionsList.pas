@@ -27,6 +27,7 @@ interface
     FarCtrl,
     FarDlg,
     FarGrid,
+    FarListDlg,
 
     PanelTabsCtrl,
     PanelTabsClasses,
