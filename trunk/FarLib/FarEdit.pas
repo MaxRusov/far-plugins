@@ -31,35 +31,101 @@ interface
 
 
   type
+    TEdtCommands =
+    (
+      cmNone,
+      cmUp,
+      cmDown,
+      cmLeft,
+      cmRight,
+      cmPageUp,
+      cmPageDown,
+      cmPageBeg,
+      cmPageEnd,
+      cmTextBeg,
+      cmTextEnd,
+      cmHome,
+      cmEnd,
+      cmWordLeft,
+      cmWordRight,
+      cmScrollUp,
+      cmScrollDown,
+      cmScrollLeft,
+      cmScrollRight,
+      cmSelectAll,
+      cmCopy
+    );
+
+  const
+    cmGoFirst = cmUp;
+    cmGoLast  = cmWordRight;
+
+  type
+    TSelMethod = (
+      smNone,
+      smKey,
+      smMouse
+    );
+
     TFarEdit = class(TFarGrid)
     public
-//    constructor Create; override;
+      constructor Create; override;
 //    destructor Destroy; override;
 
       procedure GotoEdtPos(APos :Integer; AMode :TLocationMode);
       procedure EdtScrollTo(ADelta :Integer);
+      procedure EdtEnsureOnScreen(APos :Integer; AMode :TLocationMode);
       procedure SetCursor(AOn :Boolean);
       procedure MoveCursor;
+
+      procedure SelectAll;
+      procedure SelectWord;
+      procedure ClearSelection;
+      procedure CopySelection;
+
+      function EdtKeyTranslate(AKey :Integer) :TEdtCommands;
+      procedure EdtCommand(ACmd :TEdtCommands; AShift :Boolean);
 
     protected
       procedure PosChange; override;
       procedure DeltaChange; override;
 
       function KeyDown(AKey :Integer) :Boolean; override;
+      procedure MouseDown(const APos :TCoord; AButton :Integer; ADouble :Boolean); override;
+      procedure MouseMove(const APos :TCoord; AButton :Integer); override;
+      procedure MouseUp(const APos :TCoord; AButton :Integer); override;
       function EventHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :Integer; override;
 
     private
-      FEdtPos    :Integer;   { Позиция курсора в редактируемой колонке }
-      FEdtDelta  :Integer;   { Смещение в редактируемой колонке }
-      FCursorOn  :Boolean;
+      FEdtPos     :Integer;    { Позиция курсора в редактируемой колонке }
+      FEdtDelta   :Integer;    { Смещение в редактируемой колонке }
+      FMargin     :Integer;
+      FCursorOn   :Boolean;
+      FShowCursor :Boolean;
 
-    public
+      FSelBeg     :TPoint;     { Начало выделенного блока }
+      FSelEnd     :TPoint;     { Конец выделенного блока }
+      FSelShow    :Boolean;    { Виден ли выделенный блок? }
+      FSelMethod  :TSelMethod; { Вспомогательная, для процесса выделения }
+      FSelStart   :TPoint;     { -/-/- }
+
+
+      function GetString(ARow :Integer) :TString;
+
+      procedure StartSelection(AMethod :TSelMethod);
+      function LockSelection(Method :TSelMethod) :Boolean;
+      procedure ContinueSelection;
 
     public
       property EdtPos :Integer read FEdtPos;
-      property EdtDelta :Integer read FEdtDelta write FEdtDelta;
-    end;
+      property EdtDelta :Integer read FEdtDelta;
+      property Margin :Integer read FMargin write FMargin;
+      property ShowCursor :Boolean read FShowCursor write FShowCursor;
 
+      property SelBeg :TPoint read FSelBeg;
+      property SelEnd :TPoint read FSelEnd;
+      property SelShow :Boolean read FSelShow;
+    end;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -68,12 +134,26 @@ interface
   uses
     MixDebug;
 
+ {-----------------------------------------------------------------------------}
+ { TFarEdit                                                                    }
+ {-----------------------------------------------------------------------------}
+
+  constructor TFarEdit.Create; {override;}
+  begin
+    inherited Create;
+    FShowCursor := True;
+    FShowCurrent := False;
+  end;
+
 
   procedure TFarEdit.SetCursor(AOn :Boolean);
   var
     vCoord :TCoord;
   begin
-    if (FCursorOn <> AOn) and False then begin
+    if not FShowCursor then
+      AOn := False;
+    if FCursorOn <> AOn then begin
+      FCursorOn := AOn;
       if AOn then
         MoveCursor
       else begin
@@ -81,7 +161,6 @@ interface
         vCoord.Y := -1;
         FOwner.SendMsg(DM_SETCURSORPOS, FControlID, @vCoord);
       end;
-      FCursorOn := AOn;
     end;
   end;
 
@@ -90,10 +169,12 @@ interface
   var
     vCoord :TCoord;
   begin
-    vCoord.X := 1 + FEdtPos;
-    vCoord.Y := 1;
-    FOwner.SendMsg(DM_SETCURSORPOS, FControlID, @vCoord);
-    FOwner.SendMsg(DM_SETCURSORSIZE, FControlID, MAKELONG(1, 25));
+    if FCursorOn then begin
+      vCoord.X := FEdtPos - FEdtDelta + FMargin;
+      vCoord.Y := FCurRow - FDeltaY;
+      FOwner.SendMsg(DM_SETCURSORPOS, FControlID, @vCoord);
+      FOwner.SendMsg(DM_SETCURSORSIZE, FControlID, MAKELONG(1, 25));
+    end;  
   end;
 
 
@@ -122,19 +203,28 @@ interface
     vPosChanged := False;
     if APos <> FEdtPos then begin
       FEdtPos  := APos;
-      FOwner.SendMsg(DM_REDRAW, 0, 0);
-
+      if FShowCurrent then
+        Redraw;
       vPosChanged := True;
     end;
 
-//  if (AMode <> lmSimple) and (FHeight > 0) then
-//    EnsureOnScreen(ACol, ARow, ARow, AMode);
+    if (AMode <> lmSimple) {and (FHeight > 0)} then
+      EdtEnsureOnScreen(APos, AMode);
 
-    if vPosChanged then begin
-      if FCursorOn then
-        MoveCursor;
-//    EdtPosChange;
-    end;
+    if vPosChanged then
+      PosChange;
+  end;
+
+
+  procedure TFarEdit.EdtEnsureOnScreen(APos :Integer; AMode :TLocationMode);
+  var
+    vWidth, vNewDelta :Integer;
+  begin
+    vWidth := FWidth - FMargin;
+    if (FRowCount > FHeight) and not (goNoVScroller in FOptions) then
+      Dec(vWidth); { Есть скроллер }
+    vNewDelta := RangeLimit(FEdtDelta, APos - vWidth + 1, APos);
+    EdtScrollTo(vNewDelta);
   end;
 
 
@@ -147,69 +237,342 @@ interface
     FEdtDelta  := ADelta;
     DeltaChange;
 
-    FOwner.SendMsg(DM_REDRAW, 0, 0);
+    Redraw;
+  end;
+
+
+  function TFarEdit.GetString(ARow :Integer) :TString;
+  begin
+    Result := '';
+    if Assigned(FOnGetCellText) then
+      Result := FOnGetCellText(Self, -1, ARow);
+  end;
+
+
+  procedure TFarEdit.SelectAll;
+  begin
+    FSelBeg   := Point(0, 0);
+    FSelEnd   := Point(0, FRowCount);
+    FSelShow  := FRowCount > 0;
+    Redraw;
+  end;
+
+
+  procedure TFarEdit.SelectWord;
+  var
+    vStr :TString;
+    vLen, vPos, vBeg :Integer;
+  begin
+    vStr := GetString(FCurRow);
+    vLen := length(vStr);
+
+    vPos := FEdtPos;
+    while (vPos > 0) and ((vPos >= vLen) or not CharIsWordChar(vStr[vPos + 1])) do
+      Dec(vPos);
+
+    if (vPos < vLen) and CharIsWordChar(vStr[vPos + 1]) then begin
+      while (vPos > 0) and CharIsWordChar(vStr[vPos - 1 + 1]) do
+        Dec(vPos);
+    end else
+    begin
+      while (vPos < vLen) and not CharIsWordChar(vStr[vPos + 1]) do
+        Inc(vPos);
+    end;
+
+    if vPos < vLen then begin
+      vBeg := vPos;
+      while (vPos < vLen) and CharIsWordChar(vStr[vPos + 1]) do
+        Inc(vPos);
+      FSelBeg   := Point(vBeg, FCurRow);
+      FSelEnd   := Point(vPos, FCurRow);
+      FSelShow  := True;
+    end;
+  end;
+
+
+  procedure TFarEdit.ClearSelection;
+  begin
+    if FSelShow then begin
+      FSelShow  := False;
+      Redraw;
+    end;
+  end;
+
+
+  procedure TFarEdit.StartSelection(AMethod :TSelMethod);
+  begin
+    FSelMethod  := AMethod;
+    FSelStart   := Point(FEdtPos, FCurRow);
+    FSelBeg     := FSelStart;
+    FSelEnd     := FSelStart;
+    FSelShow    := False;
+  end;
+
+
+  function TFarEdit.LockSelection(Method :TSelMethod) :Boolean;
+  begin
+    Result := False;
+  end;
+
+
+  procedure TFarEdit.ContinueSelection;
+  begin
+    if (FCurRow > FSelStart.Y) or ((FCurRow = FSelStart.Y) and (FEdtPos > FSelStart.X)) then begin
+      FSelBeg := FSelStart;
+      FSelEnd := Point(FEdtPos, FCurRow);
+    end else
+    begin
+      FSelBeg := Point(FEdtPos, FCurRow);
+      FSelEnd := FSelStart;
+    end;
+    FSelShow := (FSelEnd.Y > FSelBeg.Y) or (FSelEnd.X > FSelBeg.X);
+    Redraw;
+  end;
+
+
+  procedure TFarEdit.CopySelection;
+  begin
+    if not FSelShow then
+      Exit;
+      
+    Beep;
+  end;
+
+
+  procedure TFarEdit.EdtCommand(ACmd :TEdtCommands; AShift :Boolean);
+
+    procedure LocDeltaY(ADelta :Integer);
+    begin
+      ScrollTo(FDeltaX, FDeltaY + ADelta);
+      GotoLocation(FCurCol, FCurRow + ADelta, lmSimple);
+    end;
+
+    procedure LocGotoEnd;
+    var
+      vStr :TString;
+    begin
+      vStr := GetString(FCurRow);
+      GotoEdtPos(length(vStr), lmScroll);
+    end;
+
+    procedure LocWordLeft;
+    var
+      vStr :TString;
+      vLen, vPos :Integer;
+    begin
+      if FEdtPos > 0 then begin
+        vStr := GetString(FCurRow);
+        vLen := length(vStr);
+        vPos := FEdtPos;
+        Dec(vPos);
+        while (vPos >= 0) and ((vPos >= vLen) or not CharIsWordChar(vStr[vPos + 1])) do
+          Dec(vPos);
+        while (vPos >= 0) and CharIsWordChar(vStr[vPos + 1]) do
+          Dec(vPos);
+        Inc(vPos);
+        GotoEdtPos(vPos, lmScroll);
+      end else
+      if FCurRow > 1 then begin
+        GotoLocation(FCurCol, FCurRow - 1, lmScroll);
+        LocGotoEnd;
+      end;
+    end;
+
+    procedure LocWordRight;
+    var
+      vStr :TString;
+      vLen, vPos :Integer;
+    begin
+      vStr := GetString(FCurRow);
+      vLen := length(vStr);
+      if FEdtPos < vLen then begin
+        vPos := FEdtPos;
+        while (vPos < vLen) and CharIsWordChar(vStr[vPos + 1]) do
+          Inc(vPos);
+        while (vPos < vLen) and not CharIsWordChar(vStr[vPos + 1]) do
+          Inc(vPos);
+        GotoEdtPos(vPos, lmScroll);
+      end else
+      if FCurRow < FRowCount then begin
+        GotoLocation(FCurCol, FCurRow + 1, lmScroll);
+        GotoEdtPos(0, lmScroll);
+      end;
+    end;
+
+    procedure LocStartSelection;
+    begin
+      if FSelMethod = smNone then
+        if not LockSelection(smKey) then
+          StartSelection(smKey);
+    end;
+
+  begin
+    if (ACmd >= cmGoFirst) and (ACmd <= cmGoLast) then begin
+      if AShift then
+        LocStartSelection
+      else begin
+        ClearSelection;
+        FSelMethod := smNone;
+      end;
+    end else
+      FSelMethod := smNone;
+
+    case ACmd of
+      cmUp          : GotoLocation(FCurCol, FCurRow - 1, lmScroll);
+      cmDown        : GotoLocation(FCurCol, FCurRow + 1, lmScroll);
+      cmLeft        : GotoEdtPos(FEdtPos - 1, lmScroll);
+      cmRight       : GotoEdtPos(FEdtPos + 1, lmScroll);
+      cmPageUp      : LocDeltaY(-FHeight);
+      cmPageDown    : LocDeltaY(+FHeight);
+      cmPageBeg     : GotoLocation(FCurCol, FDeltaY, lmScroll);
+      cmPageEnd     : GotoLocation(FCurCol, FDeltaY + FHeight - 1, lmScroll);
+      cmTextBeg     : GotoLocation(FCurCol, 0, lmScroll);
+      cmTextEnd     : GotoLocation(FCurCol, FRowCount - 1, lmScroll);
+      cmHome        : GotoEdtPos(0, lmScroll);
+      cmEnd         : LocGotoEnd;
+      cmWordLeft    : LocWordLeft;
+      cmWordRight   : LocWordRight;
+      cmScrollUp    : LocDeltaY(-1);
+      cmScrollDown  : LocDeltaY(+1);
+      cmScrollLeft  : {};
+      cmScrollRight : {};
+      cmSelectAll   : SelectAll;
+      cmCopy        : CopySelection;
+    end;
+
+    if FSelMethod <> smNone then
+      ContinueSelection;
+  end;
+
+
+  function TFarEdit.EdtKeyTranslate(AKey :Integer) :TEdtCommands;
+  begin
+    Result := cmNone;
+    if KEY_SHIFT and AKey <> 0 then
+      AKey := AKey and not KEY_SHIFT;
+    case AKey of
+      KEY_UP, KEY_NUMPAD8            : Result := cmUp;
+      KEY_DOWN, KEY_NUMPAD2          : Result := cmDown;
+      KEY_LEFT, KEY_NUMPAD4          : Result := cmLeft;
+      KEY_RIGHT, KEY_NUMPAD6         : Result := cmRight;
+      KEY_PGUP, KEY_NUMPAD9          : Result := cmPageUp;
+      KEY_PGDN, KEY_NUMPAD3          : Result := cmPageDown;
+      KEY_CTRLPGUP, KEY_CTRLNUMPAD9,
+      KEY_CTRLHOME, KEY_CTRLNUMPAD7  : Result := cmTextBeg;
+      KEY_CTRLPGDN, KEY_CTRLNUMPAD3,
+      KEY_CTRLEND, KEY_CTRLNUMPAD1   : Result := cmTextEnd;
+      KEY_HOME, KEY_NUMPAD7          : Result := cmHome;
+      KEY_END, KEY_NUMPAD1           : Result := cmEnd;
+      KEY_CTRLLEFT, KEY_CTRLNUMPAD4  : Result := cmWordLeft;
+      KEY_CTRLRIGHT, KEY_CTRLNUMPAD6 : Result := cmWordRight;
+      KEY_CTRLUP, KEY_CTRLNUMPAD8    : Result := cmScrollUp;
+      KEY_CTRLDOWN, KEY_CTRLNUMPAD2  : Result := cmScrollDown;
+      KEY_CTRLN                      : Result := cmPageBeg;
+      KEY_CTRLE                      : Result := cmPageEnd;
+      KEY_CTRLA                      : Result := cmSelectAll;
+      KEY_CTRLINS, KEY_CTRLC         : Result := cmCopy;
+    end;
   end;
 
 
   function TFarEdit.KeyDown(AKey :Integer) :Boolean; {override;}
+  var
+    vCmd :TEdtCommands;
   begin
-    Result := False;
-    case AKey of
-(*
-          KEY_CTRLPGUP:
-            {!!!}
-            FGrid1.GotoLocation(FGrid1.CurCol, 0, lmScroll);
-          KEY_CTRLPGDN:
-            {!!!}
-            FGrid1.GotoLocation(FGrid1.CurCol, FGrid1.RowCount - 1, lmScroll);
-*)
-
-
-      KEY_LEFT, KEY_NUMPAD4  : GotoEdtPos(FEdtPos - 1, lmScroll);
-      KEY_RIGHT, KEY_NUMPAD6 : GotoEdtPos(FEdtPos + 1, lmScroll);
-      
-      KEY_CTRLLEFT           : EdtScrollTo(FEdtDelta - 1);
-      KEY_CTRLRIGHT          : EdtScrollTo(FEdtDelta + 1);
-
-
-(*
-      KEY_UP, KEY_NUMPAD8:
-        if (goWrapMode in FOptions) and (FCurRow = 0) then
-          GotoLocation(FCurCol, FRowCount - 1, lmScroll)
-        else
-          GotoLocation(FCurCol, FCurRow - 1, lmScroll);
-
-      KEY_DOWN, KEY_NUMPAD2  :
-        if (goWrapMode in FOptions) and (FCurRow = FRowCount - 1) then
-          GotoLocation(FCurCol, 0, lmScroll)
-        else
-          GotoLocation(FCurCol, FCurRow + 1, lmScroll);
-
-      KEY_PGUP, KEY_NUMPAD9  : GotoLocation(FCurCol, FCurRow - FHeight, lmScroll);
-      KEY_PGDN, KEY_NUMPAD3  : GotoLocation(FCurCol, FCurRow + FHeight, lmScroll);
-      KEY_HOME, KEY_NUMPAD7  : GotoLocation(FCurCol, 0, lmScroll);
-      KEY_END, KEY_NUMPAD1   : GotoLocation(FCurCol, FRowCount - 1, lmScroll);
-
-      KEY_MSWHEEL_UP, KEY_MSWHEEL_DOWN:
-        if goWheelMovePos in FOptions then
-          GotoLocation(FCurCol, FCurRow + IntIf(AKey = KEY_MSWHEEL_UP, -1, +1), lmScroll)
-        else
-          ScrollTo(FDeltaX, FDeltaY + IntIf(AKey = KEY_MSWHEEL_UP, -FWheelDY, +FWheelDY));
-*)
-    else
+    vCmd := EdtKeyTranslate(AKey);
+    if vCmd <> cmNone then begin
+      EdtCommand(vCmd, KEY_SHIFT and AKey <> 0);
+      Result := True;
+    end else
       Result := inherited KeyDown(AKey);
-    end;
+  end;
+
+
+  procedure TFarEdit.MouseDown(const APos :TCoord; AButton :Integer; ADouble :Boolean); {override;}
+  var
+    vCol, vRow, vPos :Integer;
+  begin
+    if HitTest( APos.X, APos.Y, vCol, vRow) = ghsCell then begin
+      if APos.X < FMargin then begin
+        GotoLocation(FCurCol, vRow, lmSimple);
+        GotoEdtPos(0, lmSimple);
+        if ADouble then
+          SelectAll
+        else begin
+          StartSelection(smMouse);
+          FDragButton := AButton;
+          FDragWhat := dwUser1;
+        end;
+      end else
+      begin
+        vPos := APos.X + FEdtDelta - FMargin;
+        GotoLocation(vCol, vRow, lmSimple);
+        GotoEdtPos(vPos, lmSimple);
+        if ADouble then begin
+          SelectWord;
+          if FSelShow then
+            GotoEdtPos(FSelEnd.X, lmScroll);
+//        if Assigned(FOnCellClick) then
+//          FOnCellClick(Self, vCol, vRow, AButton, True);
+        end else
+        begin
+          if AButton = 1 then
+            StartSelection(smMouse)
+          else
+            ClearSelection;  
+          FDragButton := AButton;
+          FDragWhat := dwUser1;
+        end;
+      end;
+    end else
+      inherited MouseDown(APos, AButton, ADouble);
+  end;
+
+
+  procedure TFarEdit.MouseMove(const APos :TCoord; AButton :Integer); {override;}
+  var
+    vCol, vRow, vPos :Integer;
+  begin
+    if AButton = 0 then
+      FDragWhat := dwNone;
+    if (FDragWhat = dwUser1) {and (FDragButton = 1)} then begin
+      CoordFromPoint(APos.X, APos.Y, vCol, vRow);
+      vPos := APos.X + FEdtDelta - FMargin;
+
+      GotoLocation(vCol, vRow, lmSimple);
+      GotoEdtPos(vPos, lmSimple);
+
+      if FDragButton = 1 then
+        ContinueSelection;
+    end else
+      inherited MouseMove(APos, AButton);
+  end;
+
+
+  procedure TFarEdit.MouseUp(const APos :TCoord; AButton :Integer); {override;}
+  begin
+    inherited MouseUp(APos, AButton);
   end;
 
 
   function TFarEdit.EventHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :Integer; {override;}
   begin
-    Result := -1;
+//  TraceF('EventHandler: Msg=%d, Self=%p', [Msg, pointer(Self)]);
+
     case Msg of
       DN_GOTFOCUS:
-        SetCursor(True);
+        begin
+//        TraceF('DN_GOTFOCUS, Self=%p', [pointer(Self)]);
+          SetCursor(True);
+          Result := 0;
+        end;
       DN_KILLFOCUS:
-        SetCursor(False);
+        begin
+//        TraceF('DN_KILLFOCUS, Self=%p', [pointer(Self)]);
+          SetCursor(False);
+//        ClearSelection;  Так не хорошо, KillFocus зачем-то приходит при клике мышкой...
+          Result := -1;
+        end;
     else
       Result := inherited EventHandler(Msg, Param1, Param2);
     end;
