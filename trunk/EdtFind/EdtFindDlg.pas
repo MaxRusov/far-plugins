@@ -18,13 +18,23 @@ interface
     MixClasses,
 
     PluginW,
+    FarColor,
+
     FarKeysW,
     FarCtrl,
     FarDlg,
-    FarColorDlg,
+    FarMenu,
 
     EdtFindCtrl;
 
+
+  type
+    TFindMode = (
+      efmNormal,
+      efmEntire,
+      efmGrep,
+      efmCount
+    );
 
   type
     TFindDlg = class(TFarDialog)
@@ -46,7 +56,7 @@ interface
   procedure OptionsMenu;
   function RegexpMenu(var ARegexp :TString) :Boolean;
   function GetWordUnderCursor(ACol :PInteger = nil; APickSelection :boolean = True) :TString;
-  function FindDlg(APickWord :Boolean; var AEntire, ACount :Boolean) :Boolean;
+  function FindDlg(APickWord :Boolean; var AMode :TFindMode) :Boolean;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -56,64 +66,42 @@ interface
     MixDebug;
 
 
-  function EdtColorDlg(const ASample :TString; var AColor :Integer) :Boolean;
-  begin
-    ColorDlgResBase := Byte(strColorDialog);
-    Result := ColorDlg('', AColor);
-    if Result then
-      FARAPI.EditorControl(ECTL_REDRAW, nil);
-  end;
-
-
   procedure OptionsMenu;
-  const
-    cMenuCount = 10;
   var
-    vRes, I :Integer;
-    vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
+    vMenu :TFarMenu;
   begin
-    vItems := MemAllocZero(cMenuCount * SizeOf(TFarMenuItemEx));
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strOptions),
+    [
+      GetMsg(strMSelectFound),
+      GetMsg(strMCursorAtEnd),
+      GetMsg(strMCenterAlways),
+      GetMsg(strMLoopSearch),
+      GetMsg(strMShowAllFound),
+      GetMsg(strMPersistMatch),
+      GetMsg(strMShowProgress),
+      GetMsg(strMGroupUndo),
+      '',
+      GetMsg(strMColors)
+    ]);
     try
-      vItem := @vItems[0];
-      SetMenuItemChrEx(vItem, GetMsg(strMSelectFound));
-      SetMenuItemChrEx(vItem, GetMsg(strMCursorAtEnd));
-      SetMenuItemChrEx(vItem, GetMsg(strMCenterAlways));
-      SetMenuItemChrEx(vItem, GetMsg(strMLoopSearch));
-      SetMenuItemChrEx(vItem, GetMsg(strMShowAllFound));
-      SetMenuItemChrEx(vItem, GetMsg(strMPersistMatch));
-      SetMenuItemChrEx(vItem, GetMsg(strMShowProgress));
-      SetMenuItemChrEx(vItem, GetMsg(strMGroupUndo));
-      SetMenuItemChrEx(vItem, GetMsg(strMFoundColor));
-      SetMenuItemChrEx(vItem, GetMsg(strMMatchColor));
-
-      vRes := 0;
+      vMenu.Help := 'Options';
       while True do begin
-        vItems[0].Flags := SetFlag(0, MIF_CHECKED1, optSelectFound);
-        vItems[1].Flags := SetFlag(0, MIF_CHECKED1, optCursorAtEnd);
-        vItems[2].Flags := SetFlag(0, MIF_CHECKED1, optCenterAlways);
-        vItems[3].Flags := SetFlag(0, MIF_CHECKED1, optLoopSearch);
-        vItems[4].Flags := SetFlag(0, MIF_CHECKED1, optShowAllFound);
-        vItems[5].Flags := SetFlag(0, MIF_CHECKED1, optPersistMatch);
-        vItems[6].Flags := SetFlag(0, MIF_CHECKED1, optShowProgress);
-        vItems[7].Flags := SetFlag(0, MIF_CHECKED1, optGroupUndo);
+        vMenu.Checked[0] := optSelectFound;
+        vMenu.Checked[1] := optCursorAtEnd;
+        vMenu.Checked[2] := optCenterAlways;
+        vMenu.Checked[3] := optLoopSearch;
+        vMenu.Checked[4] := optShowAllFound;
+        vMenu.Checked[5] := optPersistMatch;
+        vMenu.Checked[6] := optShowProgress;
+        vMenu.Checked[7] := optGroupUndo;
 
-        for I := 0 to cMenuCount - 1 do
-          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
+        vMenu.SetSelected(vMenu.ResIdx);
 
-        vRes := FARAPI.Menu(hModule, -1, -1, 0,
-          FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strOptions),
-          '',
-          'Options',
-          nil, nil,
-          Pointer(vItems),
-          cMenuCount);
-
-        if vRes = -1 then
+        if not vMenu.Run then
           Exit;
 
-        case vRes of
+        case vMenu.ResIdx of
           0: optSelectFound := not optSelectFound;
           1: optCursorAtEnd := not optCursorAtEnd;
           2: optCenterAlways := not optCenterAlways;
@@ -122,15 +110,15 @@ interface
           5: optPersistMatch := not optPersistMatch;
           6: optShowProgress := not optShowProgress;
           7: optGroupUndo := not optGroupUndo;
-          8: EdtColorDlg('', optCurFindColor);
-          9: EdtColorDlg('', optMatchColor);
+          8: {};
+          9: ColorMenu
         end;
 
         WriteSetup;
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
@@ -217,18 +205,22 @@ interface
     IdWholeWordChk = 7;
     IdRegexpChk    = 8;
     IdReverse      = 9;
+    IdSearch       = 11;
     IdFromBeg      = 12;
-    IdCount        = 13;
-    IdCancel       = 14;
-//  IdOptions      = 15;
+    IdFindAll      = 13;
+    IdCount        = 14;
+    IdCancel       = 15;
+//  IdOptions      = 16;
    {$else}
     IdWholeWordChk = 6;
     IdRegexpChk    = 7;
     IdReverse      = 8;
+    IdSearch       = 10;
     IdFromBeg      = 11;
-    IdCount        = 12;
-    IdCancel       = 13;
-//  IdOptions      = 14;
+    IdFindAll      = 12;
+    IdCount        = 13;
+    IdCancel       = 14;
+//  IdOptions      = 15;
    {$endif bComboMode}
 
 
@@ -271,6 +263,7 @@ interface
         NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
         NewItemApi(DI_DefButton,0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strSearchBut) ),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strEntireBut) ),
+        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strShowAllBut) ),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCountBut) ),
         NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancelBut) )
 //      NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strOptionsBut) )
@@ -453,7 +446,7 @@ interface
   end;
 
 
-  function FindDlg(APickWord :Boolean; var AEntire, ACount :Boolean) :Boolean;
+  function FindDlg(APickWord :Boolean; var AMode :TFindMode) :Boolean;
   var
     vDlg :TFindDlg;
     vRes :Integer;
@@ -465,15 +458,22 @@ interface
 
       vRes := vDlg.Run;
 
-      AEntire := vRes = IdFromBeg;
-      ACount := vRes = IdCount;
       Result := (vRes <> -1) and (vRes <> IdCancel);
+      if not Result then
+        Exit;
+
+      AMode := efmNormal;
+      case vRes of
+        IdFromBeg : AMode := efmEntire;
+        IdFindAll : AMode := efmGrep;
+        IdCount   : AMode := efmCount;
+      end;
 
     finally
       FreeObj(vDlg);
     end;
   end;
-
+  
 
 initialization
 

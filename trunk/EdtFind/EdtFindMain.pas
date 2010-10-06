@@ -24,7 +24,8 @@ interface
 
     EdtFindCtrl,
     EdtFindDlg,
-    EdtReplaceDlg;
+    EdtReplaceDlg,
+    EdtFindGrep;
 
 
   procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
@@ -39,6 +40,7 @@ interface
   function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
  {$endif bAdvSelect}
 
+  procedure GotoFoundPos(ARow, ACol, ALen :Integer; AForward :Boolean = True; ATopLine :Integer = 0);
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -47,14 +49,9 @@ interface
   uses
     MixDebug;
 
-
- {-----------------------------------------------------------------------------}
-
-  type
-    PEdtSelection = ^TEdtSelection;
-    TEdtSelection = record
-      FRow, FCol, FLen :Integer;
-    end;
+    
+  var
+    gLastOpt   :TFindOptions;
 
 
  {-----------------------------------------------------------------------------}
@@ -369,6 +366,18 @@ interface
     gReplCount :Integer;
     gScrSave :THandle;
 
+
+  procedure InitFind(const ATitle, AAddStr :TString);
+  begin
+    gScrSave := 0;
+    gProgressLast := 0;
+    gFoundCount := 0;
+    gReplCount := 0;
+    gProgressTitle := ATitle;
+    gProgressAdd := AAddStr;
+  end;
+
+
   procedure LocShowMessage(const AStr :TString; APercent :Integer);
   var
     vMess :TString;
@@ -413,8 +422,9 @@ interface
   type
     TEdtFindOptions = set of (
       efoProgress,
-      efoChangePos,
-      efoCalcCount
+      efoChangePos,     {}
+      efoCalcCount,     { Подсчитываем количество вхождений }
+      efoOnePerRow      { Ищем только одно вхождение на строку (для grep'а) }
     );
 
   function EditorFind(const AStr :TString; AOpt :TFindOptions; var ARow, ACol, AFindLen :Integer; AForward :Boolean; AddOpt :TEdtFindOptions;
@@ -516,11 +526,17 @@ interface
             vDelta := vCol - vCol1; { Может быть меньше 0 и больше (Col2 - Col1) - так и задумано. }
             if vFinder.Find(vStrInfo.StringText + vCol1, vCol2 - vCol1, AForward, vDelta, vLen) then begin
               if AResults <> nil then begin
+                if efoCalcCount in AddOpt then
+                  Inc(gFoundCount);
                 vSel.FRow := vRow;
                 vSel.FCol := vCol1 + vDelta;
                 vSel.FLen := vLen;
                 AResults.AddData(vSel);
-                vCol := vSel.FCol + 1;
+                if efoOnePerRow in AddOpt then begin
+                  vCol := 0;
+                  Inc(vRow);
+                end else
+                  vCol := vSel.FCol + 1;
                 Result := True;
                 Continue;
               end else
@@ -663,11 +679,21 @@ interface
 
     gEdtMess   :TString;
 
-    gLastOpt   :TFindOptions;
+
+  procedure SetEdtID;
+  var
+    vEdtInfo :TEditorInfo;
+  begin
+    FillChar(vEdtInfo, SizeOf(vEdtInfo), 0);
+    if FARAPI.EditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
+      Exit;
+    gEdtID := vEdtInfo.EditorID;
+  end;
 
 
   procedure EdtMark(ARow, ACol, ALen :Integer);
   begin
+    SetEdtID;
     gFound.FRow := ARow;
     gFound.FCol := ACol;
     gFound.FLen := ALen;
@@ -707,6 +733,7 @@ interface
 
   procedure ShowAllMatch(const AStr :TString; AOpt :TFindOptions);
   begin
+    SetEdtID;
     gMatchStr  := AStr;
     gMatchOpt  := AOpt;
     gMatchRow1 := 0;
@@ -795,6 +822,7 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
+
   procedure GoNext(var ACol :Integer; AForward :Boolean);
   begin
     if optCursorAtEnd then begin
@@ -811,6 +839,32 @@ interface
     end;
   end;
 
+(*
+  procedure GotoPosition(ARow, ACol :Integer; ATopLine :Integer = 0);
+  var
+    vNewTop, vHeight :Integer;
+    vPos :TEditorSetPosition;
+    vInfo :TEditorInfo;
+  begin
+    Dec(ARow); Dec(ACol);
+    vNewTop := -1;
+    if FARAPI.EditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
+      if ATopLine = 0 then
+        vHeight := vInfo.WindowSizeY
+      else
+        vHeight := ATopLine - 1{Строка состояния редактора};
+      if (ARow < vInfo.TopScreenLine) or (ARow >= vInfo.TopScreenLine + vHeight) then
+        vNewTop := RangeLimit(ARow - (vHeight div 2), 0, MaxInt{???});
+    end;
+    vPos.TopScreenLine := vNewTop;
+    vPos.CurLine := ARow;
+    vPos.CurPos := ACol;
+    vPos.CurTabPos := -1;
+    vPos.LeftPos := -1;
+    vPos.Overtype := -1;
+    FARAPI.EditorControl(ECTL_SETPOSITION, @vPos);
+  end;
+*)
 
   procedure GotoPosition(ARow, ACol1, ACol2, ACol :Integer; ACenter :Boolean; ATopLine :Integer = 0);
   var
@@ -864,6 +918,21 @@ interface
   end;
 
 
+  procedure GotoFoundPos(ARow, ACol, ALen :Integer; AForward :Boolean = True; ATopLine :Integer = 0);
+  begin
+    GotoPosition(ARow, ACol, ACol + ALen,
+      IntIf(optCursorAtEnd and AForward, ACol + ALen, ACol), optCenterAlways, ATopLine);
+
+    if optSelectFound then
+      SelectFound(ARow, ACol, ALen);
+
+   {$ifdef bAdvSelect}
+    if not optSelectFound then
+      EdtMark(ARow, ACol, ALen);
+   {$endif bAdvSelect}
+  end;
+
+
   function LoopPrompt(const AStr :TString; AForward :Boolean) :Boolean;
   begin
    Result := ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AStr + #10 +
@@ -909,12 +978,7 @@ interface
 
     vLoop := AEntire or (AForward and (vRow = 0) and (vCol = 0));
 
-    gScrSave := 0;
-    gProgressLast := 0;
-    gFoundCount := 0;
-    gReplCount := 0;
-    gProgressTitle := GetMsgStr(strFind);
-    gProgressAdd := '';
+    InitFind(GetMsgStr(strFind), '');
 
     vRow1 := 0; vRow2 := 0;
     vStartRow := vRow;
@@ -932,7 +996,7 @@ interface
      {$endif bTrace}
 
       if vFound then begin
-
+(*
         GotoPosition(vRow, vCol, vCol + vFindLen,
           IntIf(optCursorAtEnd and AForward, vCol + vFindLen, vCol), optCenterAlways);
 
@@ -943,6 +1007,16 @@ interface
         gEdtID := vEdtInfo.EditorID;
         if not optSelectFound then
           EdtMark(vRow, vCol, vFindLen);
+        if optShowAllFound then
+          ShowAllMatch(AStr, AOpt);
+       {$endif bAdvSelect}
+
+        FARAPI.EditorControl(ECTL_REDRAW, nil);
+*)
+
+        GotoFoundPos(vRow, vCol, vFindLen, AForward);
+
+       {$ifdef bAdvSelect}
         if optShowAllFound then
           ShowAllMatch(AStr, AOpt);
        {$endif bAdvSelect}
@@ -977,11 +1051,13 @@ interface
 
         end else
         begin
+         {$ifdef bAdvSelect}
           if optNoModalMess then begin
             {xxx}
             gEdtMess := GetMsgStr(strNotFound);
             FARAPI.EditorControl(ECTL_REDRAW, nil);
           end else
+         {$endif bAdvSelect}
             ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AStr,
               FMSG_WARNING or FMSG_MB_OK);
         end;
@@ -1005,12 +1081,7 @@ interface
     vStart := GetTickCount;
    {$endif bTrace}
 
-    gScrSave := 0;
-    gProgressLast := 0;
-    gFoundCount := 0;
-    gReplCount := 0;
-    gProgressTitle := GetMsgStr(strFind);
-    gProgressAdd := GetMsgStr(strFoundCount);
+    InitFind(GetMsgStr(strFind), GetMsgStr(strFoundCount));
 
     vRow := 0; vCol := 0; vLen := 0;
     vFound := EditorFind(AStr, AOpt, vRow, vCol, vLen, True, [efoProgress, efoCalcCount], 0, 0);
@@ -1026,22 +1097,61 @@ interface
   end;
 
 
+  procedure GrepStr(const AStr :TString; AOpt :TFindOptions);
+  var
+    vRow, vCol, vLen :Integer;
+    vFound :Boolean;
+    vMatches :TExList;
+   {$ifdef bTrace}
+    vStart :DWORD;
+   {$endif bTrace}
+  begin
+    vMatches := TExList.CreateSize(SizeOf(TEdtSelection));
+    try
+     {$ifdef bTrace}
+      Trace('Grep...');
+      vStart := GetTickCount;
+     {$endif bTrace}
+
+      InitFind(GetMsgStr(strFind), GetMsgStr(strFoundCount));
+
+      vRow := 0; vCol := 0; vLen := 0;
+      vFound := EditorFind(AStr, AOpt, vRow, vCol, vLen, True, [efoProgress, efoCalcCount, efoOnePerRow], 0, 0, vMatches);
+
+     {$ifdef bTrace}
+      TraceF('  done: %d ms', [TickCountDiff(GetTickCount, vStart)]);
+     {$endif bTrace}
+
+      if vFound then
+        GrepDlg(vMatches)
+      else
+        ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AStr, FMSG_WARNING or FMSG_MB_OK);
+
+    finally
+      FreeObj(vMatches);
+    end;
+  end;
+
+
   procedure Find(APickWord :Boolean);
   var
-    vEntire, vCount :Boolean;
+    vMode :TFindMode;
   begin
     SyncFindStr;
-    if not FindDlg(APickWord, vEntire, vCount) then
+    if not FindDlg(APickWord, vMode) then
       Exit;
    {$ifdef bAdvSelect}
     EdtClearMark;
    {$endif bAdvSelect}
     gLastOpt := gOptions;
     gLastIsReplace := False;
-    if vCount then
+    if vMode = efmCount then
       CountStr(gStrFind, gLastOpt)
     else
-      FindStr(gStrFind, gLastOpt, vEntire, False, not gReverse);
+    if vMode = efmGrep then
+      GrepStr(gStrFind, gLastOpt)
+    else
+      FindStr(gStrFind, gLastOpt, vMode = efmEntire, False, not gReverse);
   end;
 
 
@@ -1096,7 +1206,6 @@ interface
         else
           SelectClear;
      {$ifdef bAdvSelect}
-      gEdtID := vEdtInfo.EditorID;
       if not optSelectFound then
         if ALen > 0 then
           EdtMark(ARow, ACol, ALen)
@@ -1161,12 +1270,7 @@ interface
     try
       vReplLen := length(AReplStr);
 
-      gScrSave := 0;
-      gProgressLast := 0;
-      gFoundCount := 0;
-      gReplCount := 0;
-      gProgressTitle := GetMsgStr(strReplace);
-      gProgressAdd := GetMsgStr(strFoundReplaced);
+      InitFind(GetMsgStr(strReplace), GetMsgStr(strFoundReplaced));
 
       vRow1 := 0; vRow2 := 0;
       vStartRow := vRow;
@@ -1467,6 +1571,8 @@ interface
 //  hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
     FRegRoot := psi.RootKey;
+
+    RestoreDefColor;
 
     ReadSetup;
     gLastOpt := gOptions;
