@@ -20,7 +20,9 @@ interface
     PluginW,
     FarColorW,
     FarCtrl,
-    FarMatch;
+    FarMatch,
+    FarMenu,
+    FarColorDlg;
 
 
   type
@@ -52,6 +54,7 @@ interface
       strPromptOnReplace,
       strSearchBut,
       strEntireBut,
+      strShowAllBut,
       strCountBut,
       strCancelBut,
       strOptionsBut,
@@ -65,8 +68,20 @@ interface
       strMPersistMatch,
       strMShowProgress,
       strMGroupUndo,
+      strMColors,
+
+      strMShowNumbers,
+      strMShowMatches,
+      strMTrimSpaces,
+      strMAutoSync,
+      strMShowHints,
+
       strMFoundColor,
       strMMatchColor,
+      strMSearchResult,
+      strMGrepNumColor,
+      strMGrepFoundColor,
+      strMRestoreDefaults,
 
       strFind,
       strReplace,
@@ -76,6 +91,8 @@ interface
       strCountResult,
       strNotFound,
       strBadRegexp,
+
+      strSearchResult,
 
       strConfirm,
       strReplaceWith1,
@@ -116,19 +133,29 @@ interface
     cReplHistory   = 'ReplaceText';
 
   var
-    optSelectFound   :Boolean = True;
-    optCursorAtEnd   :Boolean = False;
-    optCenterAlways  :Boolean = False;
-    optLoopSearch    :Boolean = True;
-    optShowAllFound  :Boolean = True;
-    optPersistMatch  :Boolean = False;
-    optShowProgress  :Boolean = True;
-    optNoModalMess   :Boolean = False;
+    optSelectFound    :Boolean = True;
+    optCursorAtEnd    :Boolean = False;
+    optCenterAlways   :Boolean = False;
+    optLoopSearch     :Boolean = True;
+    optShowAllFound   :Boolean = True;
+    optPersistMatch   :Boolean = False;
+    optShowProgress   :Boolean = True;
+    optNoModalMess    :Boolean = False;
+    optGroupUndo      :Boolean = True;
 
-    optGroupUndo     :Boolean = True;
+    optGrepShowLines  :Boolean = True;
+    optGrepTrimSpaces :Boolean = True;
+    oprGrepShowMatch  :Boolean = True;
+    optGrepAutoSync   :Boolean = True;
+    optGrepShowHints  :Boolean = True;
+    optGrepMaximized  :Boolean = False;
 
-    optCurFindColor  :Integer = $2F;
-    optMatchColor    :Integer = $F0;
+    optCurFindColor   :Integer;
+    optMatchColor     :Integer;
+
+    optGrepNumColor   :Integer;
+    optGrepFoundColor :Integer;
+
 
   type
     TFindOption = (
@@ -169,6 +196,9 @@ interface
   function GetLastHistory(const AHist :TString) :TString;
 
   procedure SyncFindStr;
+
+  procedure RestoreDefColor;
+  procedure ColorMenu;
 
   procedure ReadSetup;
   procedure WriteSetup;
@@ -331,6 +361,65 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  procedure RestoreDefColor;
+  begin
+    optCurFindColor   := $2F;
+    optMatchColor     := $F0;
+    optGrepNumColor   := $08;
+    optGrepFoundColor := $0A;
+  end;
+
+
+  procedure ColorMenu;
+  var
+    vMenu :TFarMenu;
+    vBkColor :Integer;
+  begin
+    vBkColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUTEXT));
+
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strOptions),
+    [
+      GetMsg(strMFoundColor),
+      GetMsg(strMMatchColor),
+      GetMsg(strMSearchResult),
+      GetMsg(strMGrepNumColor),
+      GetMsg(strMGrepFoundColor),
+      '',
+      GetMsg(strMRestoreDefaults)
+    ]);
+    try
+      vMenu.Items[2].Flags := MIF_SEPARATOR;
+      while True do begin
+        vMenu.SetSelected(vMenu.ResIdx);
+
+        if not vMenu.Run then
+          Exit;
+
+        case vMenu.ResIdx of
+          0: ColorDlg('', optCurFindColor);
+          1: ColorDlg('', optMatchColor);
+          2: {};
+          3: ColorDlg('', optGrepNumColor, vBkColor);
+          4: ColorDlg('', optGrepFoundColor, vBkColor);
+          5: {};
+          6: RestoreDefColor;
+        end;
+
+//      FARAPI.EditorControl(ECTL_REDRAW, nil);
+        FARAPI.AdvControl(hModule, ACTL_REDRAWALL, nil);
+
+        WriteSetup;
+      end;
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
   procedure ReadSetup;
   var
     vKey :HKEY;
@@ -353,8 +442,17 @@ interface
 
       optGroupUndo := RegQueryLog(vKey, 'GroupUndo', optGroupUndo);
 
+      optGrepShowLines := RegQueryLog(vKey, 'GrepShowLines', optGrepShowLines);
+      optGrepTrimSpaces := RegQueryLog(vKey, 'GrepTrimSpaces', optGrepTrimSpaces);
+      oprGrepShowMatch := RegQueryLog(vKey, 'GrepShowMatch', oprGrepShowMatch);
+      optGrepAutoSync := RegQueryLog(vKey, 'GrepAutoSync', optGrepAutoSync);
+      optGrepShowHints := RegQueryLog(vKey, 'GrepShowHints', optGrepShowHints);
+      optGrepMaximized := RegQueryLog(vKey, 'GrepMaximized', optGrepMaximized);
+
       optCurFindColor := RegQueryInt(vKey, 'FindColor', optCurFindColor);
       optMatchColor := RegQueryInt(vKey, 'MatchColor', optMatchColor);
+      optGrepNumColor := RegQueryInt(vKey, 'GrepNumColor', optGrepNumColor);
+      optGrepFoundColor := RegQueryInt(vKey, 'GrepFoundColor', optGrepFoundColor);
 
     finally
       RegCloseKey(vKey);
@@ -383,13 +481,25 @@ interface
 
       RegWriteLog(vKey, 'GroupUndo', optGroupUndo);
 
+      RegWriteLog(vKey, 'GrepShowLines', optGrepShowLines);
+      RegWriteLog(vKey, 'GrepTrimSpaces', optGrepTrimSpaces);
+      RegWriteLog(vKey, 'GrepShowMatch', oprGrepShowMatch);
+      RegWriteLog(vKey, 'GrepAutoSync', optGrepAutoSync);
+      RegWriteLog(vKey, 'GrepShowHints', optGrepShowHints);
+      RegWriteLog(vKey, 'GrepMaximized', optGrepMaximized);
+
       RegWriteInt(vKey, 'FindColor', optCurFindColor);
       RegWriteInt(vKey, 'MatchColor', optMatchColor);
+      RegWriteInt(vKey, 'GrepNumColor', optGrepNumColor);
+      RegWriteInt(vKey, 'GrepFoundColor', optGrepFoundColor);
+
     finally
       RegCloseKey(vKey);
     end;
   end;
 
 
+initialization
+  ColorDlgResBase := Byte(strColorDialog);
 end.
 
