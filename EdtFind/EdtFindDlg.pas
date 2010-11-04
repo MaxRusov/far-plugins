@@ -240,7 +240,8 @@ interface
       [
         NewItemApi(DI_DoubleBox, 3,  1,   DX-6, DY-2, 0, GetMsg(strFind)),
 
-        NewItemApi(DI_Text,     DX-11, 2, -1, -1, 0, GetMsg(strInsRegexp)),
+//      NewItemApi(DI_Text,     DX-11, 2, -1, -1, 0, GetMsg(strInsRegexp)),
+        NewItemApi(DI_Button,   DX-11, 2, -1, -1, DIF_NOFOCUS or DIF_BTNNOCLOSE or DIF_NOBRACKETS, GetMsg(strInsRegexp)),
 
         NewItemApi(DI_Text,     5,  2, -1,    -1, 0, GetMsg(strSearchFor) ),
         NewItemApi(DI_Edit,     5,  3, DX-10, -1,   DIF_HISTORY or DIF_USELASTHISTORY, '', cFindHistory ),
@@ -277,7 +278,7 @@ interface
   begin
     if FInitExpr <> '' then
       SetText(IdFindEdt, FInitExpr);
-      
+
     SetChecked(IdCaseSensChk, foCaseSensitive in gOptions);
    {$ifdef bComboMode}
     if [foWholeWords, foRegexp] * gOptions = [] then
@@ -339,8 +340,9 @@ interface
     vRes :Boolean;
     vRegexp :TString;
   begin
+//  if SendMsg(DM_GETFOCUS, 0, 0) <> AEdtID then
+//    SendMsg(DM_SetFocus, AEdtID, 0);
     vRes := RegexpMenu(vRegexp);
-    SendMsg(DM_SetFocus, AEdtID, 0);
     if vRes then
       InsertText(vRegExp);
   end;
@@ -350,12 +352,6 @@ interface
   begin
     Result := 1;
     case Msg of
-      DN_MOUSECLICK, DN_HOTKEY:
-        if Param1 = IdRegexpBut then
-          InsertRegexp(IdFindEdt)
-        else
-          Result := inherited DialogHandler(Msg, Param1, Param2);
-
       DN_BTNCLICK:
        {$ifdef bComboMode}
         if Param1 in [IdSubstrChk, IdWholeWordChk, IdRegexpChk] then
@@ -373,6 +369,9 @@ interface
           EnableControls;
         end else
        {$endif bComboMode}
+        if Param1 = IdRegexpBut then
+          InsertRegexp(IdFindEdt)
+        else
           Result := inherited DialogHandler(Msg, Param1, Param2);
 
       DN_KEY: begin

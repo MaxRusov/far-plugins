@@ -232,7 +232,6 @@ interface
   end;
 
 
-
   procedure HandleError(AError :Exception);
   begin
     ShowMessage('EdtFind', AError.Message, FMSG_WARNING or FMSG_MB_OK);
@@ -274,18 +273,11 @@ interface
 
 
   procedure InsertText(const AStr :TString);
-  var
-    vStr :TFarStr;
-    vMacro :TActlKeyMacro;
   begin
-    vStr := '$text "' + AStr + '"';
-    vMacro.Command := MCMD_POSTMACROSTRING;
-    vMacro.Param.PlainText.SequenceText := PFarChar(vStr);
-    vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
-    FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+    FarPostMacro( '$text "' + AStr + '"' );
   end;
 
-  
+
  {-----------------------------------------------------------------------------}
 
   procedure AddToHistory(const AHist, AStr :TString);
