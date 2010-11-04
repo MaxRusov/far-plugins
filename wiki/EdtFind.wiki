@@ -15,8 +15,8 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/EdtFindW.v6.rar EdtFind 1.0.6 for FAR 2]
- * [http://far-plugins.googlecode.com/files/EdtFindW.x64.v6.rar EdtFind 1.0.6 for FAR 2 x64]
+ * [http://far-plugins.googlecode.com/files/EdtFindW.v7.rar EdtFind 1.0.7 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/EdtFindW.x64.v7.rar EdtFind 1.0.7 for FAR 2 x64]
 
 == Пример ==
 
@@ -25,6 +25,13 @@ http://far-plugins.googlecode.com/svn/trunk/EdtFind/Image/Sample.png
 ----
 
 = История изменений =
+
+== Ver 1.0.7 ==
+
+ * Поддерживаются регулярные выражения в строке замены: $0..$9
+
+ * Исправлено несколько ошибок
+
 
 == Ver 1.0.6 ==
 
