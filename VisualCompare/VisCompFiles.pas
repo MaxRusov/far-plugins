@@ -246,16 +246,6 @@ interface
     vTmpBuf2 :Pointer;
 
 
-  type
-    ECtrlBreak = class(TException);
-
-
-  procedure CtrlBreakException;
-  begin
-//  raise ECtrlBreak.Create('');
-    raise ECtrlBreak.Create('');
-  end;
-
 
   procedure CheckInterrupt;
   begin
