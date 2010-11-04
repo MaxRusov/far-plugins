@@ -231,6 +231,8 @@ interface
     EDebugRaise = class(TException);
     EUnderConstruction = class(TException);
 
+    ECtrlBreak = class(TException);
+
   procedure FreeObj(var Obj {:TObject});
   procedure FreeIntf(var Intf {:IUnknown});
 
@@ -251,6 +253,7 @@ interface
   procedure Sorry;
   procedure Wrong;
   procedure AbstractError;
+  procedure CtrlBreakException;
 
   function LocalAddr(Proc :Pointer) :TMethod;
 
@@ -1441,6 +1444,13 @@ interface
     SetErrorAddress(ReturnAddr);
    {$endif bTraceError}
     WrongError('Abstract method called.', ReturnAddr);
+  end;
+
+
+  procedure CtrlBreakException;
+  begin
+//  raise ECtrlBreak.Create('');
+    raise ECtrlBreak.Create('');
   end;
 
 
