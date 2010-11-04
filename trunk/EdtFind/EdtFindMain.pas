@@ -23,6 +23,7 @@ interface
     FarCtrl,
 
     EdtFindCtrl,
+    EdtFinder,
     EdtFindDlg,
     EdtReplaceDlg,
     EdtFindGrep;
@@ -49,544 +50,9 @@ interface
   uses
     MixDebug;
 
-    
+
   var
     gLastOpt   :TFindOptions;
-
-
- {-----------------------------------------------------------------------------}
-
-  function ChrCompare(APtr1, APtr2 :PTChar; ACount :Integer) :Integer;
-  begin
-    Result := 0;
-    while (Result < ACount) and ((APtr1 + Result)^ = (APtr2 + Result)^) do
-      inc(Result);
-  end;
-
-
-  function ChrScan(Str :PTChar; Count :Integer; Match :TChar) :Integer;
-  var
-    vBeg, vEnd :PTChar;
-  begin
-    vBeg := Str;
-    vEnd := Str + Count;
-    while (Str < vEnd) and (Str^ <> Match) do
-      inc(Str);
-    Result := Str - vBeg;
-  end;
-
-
-  function ChrScanBack(Str :PTChar; Count :Integer; Match :TChar) :Integer;
-  var
-    vPtr, vFirst :PTChar;
-  begin
-    vPtr := Str - 1;
-    vFirst := Str - Count;
-    while (vPtr >= vFirst) and (vPtr^ <> Match) do
-      dec(vPtr);
-    Result := Str - vPtr - 1;
-  end;
-
-
-  function MemSearchSample(ABuf :PTChar; ALen :Integer; ASample :PTChar; ASampleLen :Integer) :Integer;
-    { Поиск в буфере ABuf^[ALen] подстроки ASample^[ASampleLen].
-      Если результат меньше len - подстрока найдена, результат - ее смещение в буфере.
-      Если подстрока не найдена, возвращает ALen.}
-  var
-    vPtr, vEnd :PTChar;
-  begin
-    Result := ALen;
-    vPtr := ABuf;
-    vEnd := ABuf + ALen - ASampleLen + 1;
-    while vPtr < vEnd do begin
-      Inc(vPtr, ChrScan(vPtr, vEnd - vPtr, ASample^));
-      if vPtr >= vEnd then
-        Exit;
-      if ChrCompare(vPtr, ASample, ASampleLen) = ASampleLen then begin
-        Result := vPtr - ABuf;
-        Exit;
-      end;
-      Inc(vPtr);
-    end;
-  end;
-
-
-  function SearchChars(Chars :PTChar; CharsLen :Integer; Match :PTChar; MatchLen :Integer; var Delta :Integer) :Boolean;
-  begin
-    Assert((Delta >= 0) and (Delta < CharsLen) and (MatchLen > 0));
-    inc(Delta, MemSearchSample(Chars + Delta, CharsLen - Delta, Match, MatchLen));
-    Result := Delta < CharsLen;
-  end;
-
-
-  function MemSearchSampleBack(ABuf :PTChar; ALen :Integer; ASample :PTChar; ASampleLen :Integer) :Integer;
-  var
-    vPtr, vFirst :PTChar;
-  begin
-    Result := ALen;
-    vPtr := ABuf;
-    vFirst := ABuf - ALen;
-    while vPtr > vFirst do begin
-      Dec(vPtr, ChrScanBack(vPtr, vPtr - vFirst, ASample^));
-      if vPtr = vFirst then
-        Exit;
-      if ChrCompare(vPtr - 1, ASample, ASampleLen) = ASampleLen then begin
-        Result := ABuf - vPtr;
-        Exit;
-      end;
-      Dec(vPtr);
-    end;
-  end;
-
-
-  function SearchCharsBack(Chars :PTChar; CharsLen :Integer; Match :PTChar; MatchLen :Integer; var Delta :Integer) :Boolean;
-  begin
-    Assert((Delta >= 0) and (Delta < CharsLen) and (MatchLen > 0));
-    if Delta > CharsLen - MatchLen then
-      Delta := CharsLen - MatchLen;
-    dec(Delta, MemSearchSampleBack(Chars + Delta + 1, Delta + 1, Match, MatchLen));
-    Result := Delta >= 0;
-  end;
-
-
- {-----------------------------------------------------------------------------}
- {                                                                             }
- {-----------------------------------------------------------------------------}
-
-  type
-    TFinder = class(TBasis)
-    public
-      constructor CreateEx(const AExpr :TString; AOpt :TFindOptions);
-      destructor Destroy; override;
-
-      function Find(AStr :PTChar; ALen :Integer; AForward :Boolean; var ADelta, AFindLen :Integer) :Boolean;
-
-    private
-      FOpt      :TFindOptions;
-      FExpr     :TString;
-      FExprLen  :Integer;
-
-      FTmpBuf   :PTChar;
-      FTmpLen   :Integer;
-
-      FRegExp   :THandle;
-      FBrackets :Integer;
-      FMatches  :PRegExpMatch;
-    end;
-
-
-  constructor TFinder.CreateEx(const AExpr :TString; AOpt :TFindOptions);
-  begin
-    FOpt := AOpt;
-
-    if not (foRegexp in AOpt) then begin
-      if not (foCaseSensitive in AOpt) then
-        FExpr := StrUpCase(AExpr)
-      else
-        FExpr := AExpr;
-      FExprLen := length(AExpr);
-    end else
-    begin
-      FExpr := RegexpQuote(AExpr);
-      if not (foCaseSensitive in AOpt) then
-        FExpr := FExpr + 'i';
-
-      if FARAPI.RegExpControl(0, RECTL_CREATE, @FRegExp) = 0 then
-        Wrong;
-      if FARAPI.RegExpControl(FRegExp, RECTL_COMPILE, PTChar(FExpr)) = 0 then
-        AppErrorId(strBadRegexp);
-      FARAPI.RegExpControl(FRegExp, RECTL_OPTIMIZE, nil);
-
-      FBrackets := FARAPI.RegExpControl(FRegExp, RECTL_BRACKETSCOUNT, nil);
-      if FBrackets <= 0 then
-        Wrong;
-
-      FMatches := MemAllocZero(FBrackets * SizeOf(TRegExpMatch));
-    end;
-  end;
-
-
-  destructor TFinder.Destroy; {override;}
-  begin
-    MemFree(FTmpBuf);
-    MemFree(FMatches);
-    if FRegExp <> 0 then
-      FARAPI.RegExpControl(FRegExp, RECTL_FREE, nil);
-  end;
-
-
-  function TFinder.Find(AStr :PTChar; ALen :Integer; AForward :Boolean; var ADelta, AFindLen :Integer) :Boolean;
-  var
-    vStr :PTChar;
-    vExprLen :Integer;
-    vRegExp :TRegExpSearch;
-  begin
-    Result := False;
-
-    if foRegexp in FOpt then
-      vExprLen := 1
-    else
-      vExprLen := FExprLen;
-
-    if AForward then begin
-      if ADelta < 0 then
-        ADelta := 0;
-      if ADelta + vExprLen > ALen then
-        Exit;
-    end else
-    begin
-      if ADelta > ALen - 1 then
-        ADelta := ALen - 1;
-      if ADelta < 0 then
-        Exit;
-    end;
-
-    if foRegexp in FOpt then begin
-      { Поиск по регулярным варажениям }
-
-      vRegExp.Text := AStr;
-      vRegExp.Position := ADelta;
-      vRegExp.Length := ALen;
-      vRegExp.Match := FMatches;
-      vRegExp.Count := FBrackets;
-      vRegExp.Reserved := nil;
-
-      if AForward then begin
-        if FARAPI.RegExpControl(FRegExp, RECTL_SEARCHEX, @vRegExp) = 1 then begin
-          ADelta := FMatches.Start;
-          AFindLen := FMatches.EndPos - FMatches.Start;
-          Result := True;
-        end;
-      end else
-      begin
-        while True do begin
-          vRegExp.Position := ADelta;
-
-          if FARAPI.RegExpControl(FRegExp, RECTL_MATCHEX, @vRegExp) = 1 then begin
-            ADelta := FMatches.Start;
-            AFindLen := FMatches.EndPos - FMatches.Start;
-            Result := True;
-            Break;
-          end;
-
-          Dec(ADelta);
-          if ADelta < 0 then
-            Exit;
-        end;
-      end;
-
-    end else
-    begin
-
-      if foCaseSensitive in FOpt then
-        vStr := AStr
-      else begin
-        if ALen > FTmpLen then begin
-          MemFree(FTmpBuf);
-          FTmpLen := 0;
-
-          FTmpBuf := MemAlloc(ALen * SizeOf(TChar));
-          FTmpLen := ALen;
-        end;
-
-        Move(AStr^, FTmpBuf^, ALen * SizeOf(TChar));
-        CharUpperBuff(FTmpBuf, ALen);
-
-        vStr := FTmpBuf;
-      end;
-
-      if not (foWholeWords in FOpt) then begin
-        { Простой поиск }
-        if AForward then
-          Result := SearchChars(vStr, ALen, PTChar(FExpr), FExprLen, ADelta)
-        else
-          Result := SearchCharsBack(vStr, ALen, PTChar(FExpr), FExprLen, ADelta);
-      end else
-      begin
-        { Поиск по словам }
-        while True do begin
-          if AForward then
-            Result := SearchChars(vStr, ALen, PTChar(FExpr), FExprLen, ADelta)
-          else
-            Result := SearchCharsBack(vStr, ALen, PTChar(FExpr), FExprLen, ADelta);
-          if not Result then
-            Break;
-
-          { Это слово?...}
-          Result := ((ADelta = 0) or not CharIsWordChar((vStr + ADelta - 1)^)) and
-            ((ADelta + FExprLen >= ALen) or not CharIsWordChar((vStr + ADelta + FExprLen)^));
-          if Result then
-            Break;
-
-          if AForward then begin
-            Inc(ADelta);
-            if ADelta + vExprLen > ALen then
-              Exit;
-          end else
-          begin
-            Dec(ADelta);
-            if ADelta < 0 then
-              Exit;
-          end;
-        end;
-      end;
-      AFindLen := FExprLen;
-    end;
-  end;
-
-
- {-----------------------------------------------------------------------------}
- {                                                                             }
- {-----------------------------------------------------------------------------}
-
-  type
-    ECtrlBreak = class(TException);
-
-
-  procedure CtrlBreakException;
-  begin
-//  raise ECtrlBreak.Create('');
-    raise ECtrlBreak.Create('');
-  end;
-
-
-  procedure CheckInterrupt;
-  begin
-    if CheckForEsc then
-      if ShowMessage(GetMsgStr(strInterrupt), GetMsgStr(strInterruptPrompt) + #10#10 + GetMsgStr(strYes) + #10 + GetMsgStr(strNo), FMSG_WARNING, 2) = 0 then
-        CtrlBreakException
-  end;
-
-
-  var
-    gProgressLast :DWORD;
-    gProgressTitle :TString;
-    gProgressAdd :TString;
-    gFoundCount :Integer;
-    gReplCount :Integer;
-    gScrSave :THandle;
-
-
-  procedure InitFind(const ATitle, AAddStr :TString);
-  begin
-    gScrSave := 0;
-    gProgressLast := 0;
-    gFoundCount := 0;
-    gReplCount := 0;
-    gProgressTitle := ATitle;
-    gProgressAdd := AAddStr;
-  end;
-
-
-  procedure LocShowMessage(const AStr :TString; APercent :Integer);
-  var
-    vMess :TString;
-    vTick :Cardinal;
-    vLen  :Integer;
-  begin
-    vTick := GetTickCount;
-    if TickCountDiff(vTick, gProgressLast) < 50 then
-      Exit;
-    gProgressLast := vTick;
-    if gScrSave = 0 then
-      gScrSave := FARAPI.SaveScreen(0, 0, -1, -1);
-    vMess := AStr;
-    vLen := RangeLimit( Length(vMess), 40, 70);
-    if Length(vMess) > vLen then
-      vMess := Copy(vMess, 1, vLen - 3) + '...';
-    vMess := GetMsgStr(strFindFor) + #10 + vMess;
-    if gProgressAdd <> '' then
-      vMess := vMess + #10 + Format(gProgressAdd, [gFoundCount, gReplCount]);
-    if APercent <> -1 then
-      vMess := vMess + #10 + GetProgressStr(vLen, APercent);
-    vMess := gProgressTitle + #10 + vMess;
-    FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PTChar(vMess)), 0, 0);
-    CheckInterrupt;
-  end;
-
-
-  procedure RestoreOldPos(const AEdtInfo :TEditorInfo);
-  var
-    vPosInfo :TEditorSetPosition;
-  begin
-    vPosInfo.CurLine := AEdtInfo.CurLine;
-    vPosInfo.CurPos := AEdtInfo.CurPos;
-    vPosInfo.LeftPos := AEdtInfo.LeftPos;
-    vPosInfo.TopScreenLine := AEdtInfo.TopScreenLine;
-    vPosInfo.Overtype := -1;
-    vPosInfo.CurTabPos := -1;
-    FARAPI.EditorControl(ECTL_SETPOSITION, @vPosInfo);
-  end;
-
-
-  type
-    TEdtFindOptions = set of (
-      efoProgress,
-      efoChangePos,     {}
-      efoCalcCount,     { Подсчитываем количество вхождений }
-      efoOnePerRow      { Ищем только одно вхождение на строку (для grep'а) }
-    );
-
-  function EditorFind(const AStr :TString; AOpt :TFindOptions; var ARow, ACol, AFindLen :Integer; AForward :Boolean; AddOpt :TEdtFindOptions;
-    ARow1, ARow2 :Integer; AResults :TExList = nil) :Boolean;
-  var
-    vFinder :TFinder;
-    vEdtInfo :TEditorInfo;
-    vStrInfo :TEditorGetString;
-    vRow, vCol, vLen, vBegRow, vEndRow, vCol1, vCol2, vDelta :Integer;
-    vSel :TEdtSelection;
-    vLocalProgress :Boolean;
-   {$ifdef bGetStrOpt}
-    vPosInfo :TEditorSetPosition;
-   {$endif bGetStrOpt}
-  begin
-    Result := False;
-
-    FillChar(vEdtInfo, SizeOf(vEdtInfo), 0);
-    if FARAPI.EditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
-      Exit;
-
-   {$ifdef bTrace}
-    if AResults <> nil then
-      TraceF('Find matches: %d-%d', [ARow1, ARow2]);
-   {$endif bTrace}
-
-    vLocalProgress := gProgressLast = 0;
-    if vLocalProgress then
-      gProgressLast := GetTickCount;
-
-    vFinder := TFinder.CreateEx(AStr, AOpt);
-    try
-     {$ifdef bGetStrOpt}
-      vPosInfo.CurPos := -1;
-      vPosInfo.LeftPos := -1;
-      vPosInfo.TopScreenLine := -1;
-      vPosInfo.Overtype := -1;
-      vPosInfo.CurTabPos := -1;
-     {$endif bGetStrOpt}
-
-      if ARow2 > ARow1 then begin
-        vBegRow := ARow1;
-        vEndRow := IntMin(ARow2, vEdtInfo.TotalLines);
-      end else
-//    if foSelectedOnly in AOpt then begin
-//      if not FBlock.Show then
-//        Exit;
-//      if AForward then begin
-//        if Loc.Comp(FBlock.A) < 0 then
-//          Loc := FBlock.A;
-//      end else
-//      begin
-//        if Loc.Comp(FBlock.B) > 0 then
-//          Loc := FBlock.B;
-//      end;
-//      BegRow := FBlock.A.Row;
-//      EndRow := FBlock.B.Row;
-//    end else
-      begin
-        vBegRow := 0;
-        vEndRow := vEdtInfo.TotalLines;
-      end;
-
-      vRow := ARow;
-      vCol := ACol;
-
-      while True do begin
-        if AForward then begin
-          if vRow >= vEndRow then
-            Break;
-        end else
-        begin
-          if vRow < vBegRow then
-            Break;
-        end;
-
-        if (efoProgress in AddOpt) and optShowProgress then
-          LocShowMessage(AStr, (100 * vRow) div vEdtInfo.TotalLines);
-//        LocShowMessage(AStr, (100 * (vRow - vBegRow)) div (vEndRow - vBegRow));
-
-       {$ifdef bGetStrOpt}
-        vPosInfo.CurLine := vRow;
-        FARAPI.EditorControl(ECTL_SETPOSITION, @vPosInfo);
-        vStrInfo.StringNumber := -1;
-       {$else}
-        vStrInfo.StringNumber := vRow;
-       {$endif bGetStrOpt}
-        if FARAPI.EditorControl(ECTL_GETSTRING, @vStrInfo) = 1 then begin
-//        if soSelectedOnly in Options then begin
-//          FBlock.ColRange(Loc.Row, Col1, Col2);
-//          MaxLimit(Col2, ERow.Len + 1);
-//        end else
-          begin
-            vCol1 := 0;
-            vCol2 := vStrInfo.StringLength;
-          end;
-
-          if vCol2 > vCol1 then begin
-            vDelta := vCol - vCol1; { Может быть меньше 0 и больше (Col2 - Col1) - так и задумано. }
-            if vFinder.Find(vStrInfo.StringText + vCol1, vCol2 - vCol1, AForward, vDelta, vLen) then begin
-              if AResults <> nil then begin
-                if efoCalcCount in AddOpt then
-                  Inc(gFoundCount);
-                vSel.FRow := vRow;
-                vSel.FCol := vCol1 + vDelta;
-                vSel.FLen := vLen;
-                AResults.AddData(vSel);
-                if efoOnePerRow in AddOpt then begin
-                  vCol := 0;
-                  Inc(vRow);
-                end else
-                  vCol := vSel.FCol + 1;
-                Result := True;
-                Continue;
-              end else
-              if efoCalcCount in AddOpt then begin
-                Inc(gFoundCount);
-                vCol := vCol1 + vDelta + 1;
-                Result := True;
-                Continue;
-              end else
-              begin
-                ARow := vRow;
-                ACol := vCol1 + vDelta;
-                AFindLen := vLen;
-                Result := True;
-                Break;
-              end;
-            end;
-          end;
-        end;
-
-        if AForward then begin
-          vCol := 0;
-          inc(vRow);
-        end else
-        begin
-          vCol := MaxInt;
-          dec(vRow);
-        end;
-      end;
-
-    finally
-     {$ifdef bGetStrOpt}
-      if Result and (efoChangePos in AddOpt) then
-        { Сохраним найденную позицию текущей }
-      else
-        { восстановим старую позицию }
-        RestoreOldPos(vEdtInfo);
-     {$endif bGetStrOpt}
-
-      if vLocalProgress then begin
-        gProgressLast := 0;
-        if gScrSave <> 0 then begin
-          FARAPI.RestoreScreen(gScrSave);
-          gScrSave := 0;
-        end;
-      end;
-
-      FreeObj(vFinder);
-    end;
-  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -822,7 +288,6 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-
   procedure GoNext(var ACol :Integer; AForward :Boolean);
   begin
     if optCursorAtEnd then begin
@@ -839,32 +304,6 @@ interface
     end;
   end;
 
-(*
-  procedure GotoPosition(ARow, ACol :Integer; ATopLine :Integer = 0);
-  var
-    vNewTop, vHeight :Integer;
-    vPos :TEditorSetPosition;
-    vInfo :TEditorInfo;
-  begin
-    Dec(ARow); Dec(ACol);
-    vNewTop := -1;
-    if FARAPI.EditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
-      if ATopLine = 0 then
-        vHeight := vInfo.WindowSizeY
-      else
-        vHeight := ATopLine - 1{Строка состояния редактора};
-      if (ARow < vInfo.TopScreenLine) or (ARow >= vInfo.TopScreenLine + vHeight) then
-        vNewTop := RangeLimit(ARow - (vHeight div 2), 0, MaxInt{???});
-    end;
-    vPos.TopScreenLine := vNewTop;
-    vPos.CurLine := ARow;
-    vPos.CurPos := ACol;
-    vPos.CurTabPos := -1;
-    vPos.LeftPos := -1;
-    vPos.Overtype := -1;
-    FARAPI.EditorControl(ECTL_SETPOSITION, @vPos);
-  end;
-*)
 
   procedure GotoPosition(ARow, ACol1, ACol2, ACol :Integer; ACenter :Boolean; ATopLine :Integer = 0);
   var
@@ -882,8 +321,8 @@ interface
         vNewTop := RangeLimit(ARow - (vHeight div 3), 0, vInfo.TotalLines - vInfo.WindowSizeY );
 
       vWidth := vInfo.WindowSizeX - 1{ScrollBar};
-      if (ACol1 < vInfo.LeftPos) or (ACol2 > vInfo.LeftPos + vWidth) then
-        vNewLeft := RangeLimit(vInfo.LeftPos, (ACol2 + 3) - vWidth, IntMax(ACol1 - 3, 0));
+//    if (ACol1 < vInfo.LeftPos) or (ACol2 > vInfo.LeftPos + vWidth) then
+        vNewLeft := RangeLimit(0 {vInfo.LeftPos}, (ACol2 + 3) - vWidth, IntMax(ACol1 - 3, 0));
     end;
     vPos.CurLine := ARow;
     vPos.CurPos := ACol;
@@ -935,9 +374,9 @@ interface
 
   function LoopPrompt(const AStr :TString; AForward :Boolean) :Boolean;
   begin
-   Result := ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AStr + #10 +
-     GetMsgStr(TMessages(IntIf(AForward, Byte(strContinueFromBegin), Byte(strContinueFromEnd)))),
-     FMSG_MB_YESNO, 0) = 0;
+    Result := ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AStr + #10 +
+      GetMsgStr(TMessages(IntIf(AForward, Byte(strContinueFromBegin), Byte(strContinueFromEnd)))),
+      FMSG_MB_YESNO, 0) = 0;
   end;
 
 
@@ -996,23 +435,6 @@ interface
      {$endif bTrace}
 
       if vFound then begin
-(*
-        GotoPosition(vRow, vCol, vCol + vFindLen,
-          IntIf(optCursorAtEnd and AForward, vCol + vFindLen, vCol), optCenterAlways);
-
-        if optSelectFound then
-          SelectFound(vRow, vCol, vFindLen);
-
-       {$ifdef bAdvSelect}
-        gEdtID := vEdtInfo.EditorID;
-        if not optSelectFound then
-          EdtMark(vRow, vCol, vFindLen);
-        if optShowAllFound then
-          ShowAllMatch(AStr, AOpt);
-       {$endif bAdvSelect}
-
-        FARAPI.EditorControl(ECTL_REDRAW, nil);
-*)
 
         GotoFoundPos(vRow, vCol, vFindLen, AForward);
 
@@ -1218,15 +640,14 @@ interface
     end;
 
   var
-    vStr :TString;
-    vRow, vCol, vFindLen, vReplLen, vRowLen, vRes :Integer;
+    vFinder :TFinder;
+    vStr1, vStr2 :TString;
+    vRow, vCol, vFindLen, vRes :Integer;
     vStartRow, vRow1, vRow2 :Integer;
     vFound, vPrompt, vReplace, vLoop :Boolean;
     vStrInfo :TEditorGetString;
     vStrSet :TEditorSetString;
     vUndoRec :TEditorUndoRedo;
-    vTmpBuf :PTChar;
-    vTmpLen :Integer;
    {$ifdef bTrace}
     vStart :DWORD;
    {$endif bTrace}
@@ -1265,12 +686,12 @@ interface
 
     vPrompt := foPromptOnReplace in AOpt;
 
-    vTmpBuf := nil;
-    vTmpLen := 0;
+    vFinder := TFinder.CreateEx(AFindStr, AOpt);
     try
-      vReplLen := length(AReplStr);
-
       InitFind(GetMsgStr(strReplace), GetMsgStr(strFoundReplaced));
+
+      if foRegexp in AOpt then
+        vFinder.PrepareReplace(AReplStr);
 
       vRow1 := 0; vRow2 := 0;
       vStartRow := vRow;
@@ -1294,7 +715,7 @@ interface
 
         vFound := False;
         try
-          vFound := EditorFind(AFindStr, AOpt, vRow, vCol, vFindLen, AForward, [efoProgress, efoChangePos], vRow1, vRow2);
+          vFound := vFinder.EdtFind(vRow, vCol, vFindLen, AForward, [efoProgress], vRow1, vRow2);
         finally
           if not vFound and (gScrSave <> 0) then begin
             FARAPI.RestoreScreen(gScrSave);
@@ -1311,24 +732,25 @@ interface
 
           Inc(gFoundCount);
 
-         {$ifdef bGetStrOpt}
-          vStrInfo.StringNumber := -1;
-         {$else}
           vStrInfo.StringNumber := vRow;
-         {$endif bGetStrOpt}
           if FARAPI.EditorControl(ECTL_GETSTRING, @vStrInfo) <> 1 then
             Wrong;
           if vStrInfo.StringLength < vCol + vFindLen then
             Wrong;
 
+          { Формирование строки замены (c учетом регулярных выражений замены)... }
+          vFinder.Replace(vStrInfo.StringText, vStrInfo.StringLength, AReplStr);
+
           vReplace := True;
           if vPrompt then begin
             { Спрашиваем... }
             GotoPosition(vRow, vCol, vCol + vFindLen, vCol, {ACenter:}True {optCenterAlways}, vEdtInfo.WindowSizeY * 2 div 3);
-            LocShow(vRow, vCol, vFindLen);
+            LocShow(vRow, vCol, IntMax(vFindLen, 1));
 
-            SetString(vStr, vStrInfo.StringText + vCol, vFindLen);
-            vRes := ShowMessage(GetMsgStr(strConfirm), Format(GetMsgStr(strReplaceWith1), [vStr, AReplStr]) + #10 +
+            SetString(vStr1, vStrInfo.StringText + vCol, vFindLen); { Искомая строка }
+            SetString(vStr2, vFinder.RepBuf + vFinder.RepBeg, vFinder.RepLen); {Заменяющая строка}
+
+            vRes := ShowMessage(GetMsgStr(strConfirm), Format(GetMsgStr(strReplaceWith1), [vStr1, vStr2]) + #10 +
               GetMsgStr(strReplaceBut) + #10 + GetMsgStr(strAllBut) + #10 + GetMsgStr(strSkipBut) + #10 + GetMsgStr(strCancelBut1),
               0 {FMSG_WARNING} {or FMSG_MB_OK}, 4);
 
@@ -1349,20 +771,9 @@ interface
 
           if vReplace then begin
             { Заменяем... }
-            vRowLen := vStrInfo.StringLength - vFindLen + vReplLen;
-            if vRowLen > vTmpLen then begin
-              MemFree(vTmpBuf);
-              vTmpBuf := MemAlloc(vRowLen * SizeOf(TChar));
-              vTmpLen := vRowLen;
-            end;
-
-            StrMove(vTmpBuf, vStrInfo.StringText, vCol);
-            StrMove(vTmpBuf + vCol, PTChar(AReplStr), vReplLen);
-            StrMove(vTmpBuf + vCol + vReplLen, vStrInfo.StringText + vCol + vFindLen, vStrInfo.StringLength - vCol - vFindLen);
-
             vStrSet.StringNumber := -1 {vRow};
-            vStrSet.StringText := vTmpBuf;
-            vStrSet.StringLength := vRowLen;
+            vStrSet.StringText := vFinder.RepBuf;
+            vStrSet.StringLength := vFinder.ResStrLen;
             vStrSet.StringEOL := vStrInfo.StringEOL;
 
             FARAPI.EditorControl(ECTL_SETSTRING, @vStrSet);
@@ -1374,9 +785,11 @@ interface
 
             Inc(gReplCount);
 
-            if AForward then
-              Inc(vCol, vReplLen)
-            else
+            if AForward then begin
+              Inc(vCol, vFinder.RepLen);
+              if vFindLen = 0 then
+                Inc(vCol); { Чтобы избежать зацикливания... } 
+            end else
               Dec(vCol);
           end else
           begin
@@ -1439,7 +852,7 @@ interface
         FARAPI.EditorControl(ECTL_UNDOREDO, @vUndoRec);
       end;
 
-      MemFree(vTmpBuf);
+      FreeObj(vFinder);
     end;
 
     if gFoundCount > 0 then
@@ -1447,6 +860,7 @@ interface
     else
       ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AFindStr, FMSG_WARNING or FMSG_MB_OK);
   end;
+
 
 
   procedure Replace(APickWord :Boolean);
@@ -1565,8 +979,8 @@ interface
   begin
 //  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
     hModule := psi.ModuleNumber;
-    Move(psi, FARAPI, SizeOf(FARAPI));
-    Move(psi.fsf^, FARSTD, SizeOf(FARSTD));
+    FARAPI := psi;
+    FARSTD := psi.fsf^;
 
 //  hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
@@ -1672,24 +1086,12 @@ interface
 
 
   function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
- {$ifdef bGetStrOpt}
-  var
-    vChangePos :Boolean;
- {$endif bGetStrOpt}
 
     procedure EdtSetColor(const ASel :TEdtSelection; AColor :Integer);
     var
       vColor :TEditorColor;
     begin
       if ASel.FLen > 0 then begin
-
-       {$ifdef bGetStrOpt}
-        { Оптимизация, аналогичная установке текущей позиции при поиске.}
-        { Без этого тормозит удаление раскраски при "длинных" перескоках, например, с конца в начало. }
-        vChangePos := True;
-        GotoPosition(ASel.FRow, -1, -1, -1, False);
-       {$endif bGetStrOpt}
-
         vColor.StringNumber := ASel.FRow;
         vColor.ColorItem := 0;
         if AColor <> -1 then begin
@@ -1759,61 +1161,49 @@ interface
           if AParam = EEREDRAW_LINE then
             Exit;
 
-         {$ifdef bGetStrOpt}
-          vChangePos := False;
-         {$endif bGetStrOpt}
-
           FARAPI.EditorControl(ECTL_GETINFO, @vInfo);
           vHelper := FindEdtHelper(vInfo.EditorID, False);
-          try
 
-            if vHelper <> nil then begin
-              if vHelper.FFound.FLen > 0 then begin
-                EdtSetColor(vHelper.FFound, -1);
-                vHelper.FFound.FLen := 0;
-              end;
-              if vHelper.FAllFound.Count > 0 then begin
-                for I := 0 to vHelper.FAllFound.Count - 1 do
-                  EdtSetColor(PEdtSelection(vHelper.FAllFound.PItems[I])^, -1);
-                vHelper.FAllFound.Clear;
-              end;
+          if vHelper <> nil then begin
+            if vHelper.FFound.FLen > 0 then begin
+              EdtSetColor(vHelper.FFound, -1);
+              vHelper.FFound.FLen := 0;
             end;
-
-            if AParam = EEREDRAW_CHANGE then begin
-//            EdtClearMark({ClearMatches=}True, {Redraw=}False);  { Сбросить }
-              gMatchRow2 := 0;  { Поддерживать }
+            if vHelper.FAllFound.Count > 0 then begin
+              for I := 0 to vHelper.FAllFound.Count - 1 do
+                EdtSetColor(PEdtSelection(vHelper.FAllFound.PItems[I])^, -1);
+              vHelper.FAllFound.Clear;
             end;
-
-            if vInfo.EditorID = gEdtID then begin
-              if gMatchStr <> '' then
-                UpdateMatches(vInfo);
-
-              if (gFound.FLen > 0) or (gMatches <> nil) then begin
-                if vHelper = nil then
-                  vHelper := FindEdtHelper(vInfo.EditorID, True);
-
-                if gMatches <> nil then
-                  for I := 0 to gMatches.Count - 1 do begin
-                    EdtSetColor(PEdtSelection(gMatches.PItems[I])^, optMatchColor);
-                    vHelper.AddFound(PEdtSelection(gMatches.PItems[I])^);
-                  end;
-
-                if gFound.FLen > 0 then begin
-                  EdtSetColor(gFound, optCurFindColor);
-                  vHelper.FFound := gFound;
-                end;
-              end;
-            end;
-
-            if gEdtMess <> '' then
-              EdtShowMessage;
-
-          finally
-           {$ifdef bGetStrOpt}
-            if vChangePos then
-              RestoreOldPos(vInfo);
-           {$endif bGetStrOpt}
           end;
+
+          if AParam = EEREDRAW_CHANGE then begin
+//          EdtClearMark({ClearMatches=}True, {Redraw=}False);  { Сбросить }
+            gMatchRow2 := 0;  { Поддерживать }
+          end;
+
+          if vInfo.EditorID = gEdtID then begin
+            if gMatchStr <> '' then
+              UpdateMatches(vInfo);
+
+            if (gFound.FLen > 0) or (gMatches <> nil) then begin
+              if vHelper = nil then
+                vHelper := FindEdtHelper(vInfo.EditorID, True);
+
+              if gMatches <> nil then
+                for I := 0 to gMatches.Count - 1 do begin
+                  EdtSetColor(PEdtSelection(gMatches.PItems[I])^, optMatchColor);
+                  vHelper.AddFound(PEdtSelection(gMatches.PItems[I])^);
+                end;
+
+              if gFound.FLen > 0 then begin
+                EdtSetColor(gFound, optCurFindColor);
+                vHelper.FFound := gFound;
+              end;
+            end;
+          end;
+
+          if gEdtMess <> '' then
+            EdtShowMessage;
 
         end;
     end;

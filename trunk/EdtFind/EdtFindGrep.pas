@@ -29,14 +29,8 @@ interface
     FarListDlg,
 
     EdtFindCtrl,
+    EdtFinder,
     EdtFindHints;
-
-
-  type
-    PEdtSelection = ^TEdtSelection;
-    TEdtSelection = record
-      FRow, FCol, FLen :Integer;
-    end;
 
 
   type
@@ -536,6 +530,9 @@ interface
 
     vCount := 0;
     FreeObj(FFilter);
+    if vMask <> '' then
+      FFilter := TMyFilter.CreateSize(SizeOf(TFilterRec));
+
     for I := 0 to FMatches.Count - 1 do begin
       vStr := GetEdtStr(I, vStrLen);
 
@@ -543,8 +540,6 @@ interface
       if vMask <> '' then begin
         if not ChrCheckMask(vMask, vStr, vStrLen, vHasMask, vPos, vFndLen) then
           Continue;
-        if FFilter = nil then
-          FFilter := TMyFilter.CreateSize(SizeOf(TFilterRec));
         FFilter.Add(I, vPos, vFndLen);
       end;
 
@@ -841,8 +836,14 @@ interface
 
       DN_KEY: begin
         case Param2 of
-          KEY_SPACE:
+          KEY_SHIFTSPACE:
             SyncEditor;
+
+          KEY_SPACE:
+            if FFilterMask = '' then
+              SyncEditor
+            else
+              Result := inherited DialogHandler(Msg, Param1, Param2);
 
           KEY_CTRL1:
             ToggleOption(optGrepShowLines);
@@ -854,7 +855,7 @@ interface
             ToggleOption(optGrepAutoSync);
           KEY_CTRLM:
             LocChangeSize;
-            
+
           KEY_F9:
             OptionsMenu;
         else

@@ -6,6 +6,6 @@
 {$define bAdvSelect}
 {$define bComboMode}
 
-{$define bGetStrOpt}
+{-$define bGetStrOpt}  { Не нужно, в новых версиях FAR }
 
 {------------------------------------------------------------------------------}
