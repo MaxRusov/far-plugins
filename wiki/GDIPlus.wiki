@@ -15,6 +15,10 @@
 
   http://code.google.com/p/conemu-maximus5/
 
+== Загрузить ==
+
+ * [http://far-plugins.googlecode.com/files/GDIPlus.v4.rar GDIPlus 1.0.4 decoder for PicView2 (PVD)]
+
 ----
 
 = История изменений =
