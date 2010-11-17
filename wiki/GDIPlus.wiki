@@ -11,9 +11,11 @@
  * Поворот и сохранение повернутых изображений
  * Автоповорот изображений по EXIF
 
-  Требуется версия PicView2 модифицированная Maximus5, Mod16(+):
-
+  Требуется версия PicView2 модифицированная Maximus5, Mod16(+):<br>
   http://code.google.com/p/conemu-maximus5/
+
+  Обсуждение:<br> 
+  http://forum.farmanager.com/viewtopic.php?f=5&t=5434
 
 == Загрузить ==
 
