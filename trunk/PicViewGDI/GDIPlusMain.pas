@@ -1,5 +1,11 @@
 {$I Defines.inc}
 
+{-$Define bShareImage}
+{$Define bHookWindow}
+{$Define bOwnRotate}
+{-$Define bTracePvd}
+
+
 unit GDIPlusMain;
 
 {******************************************************************************}
@@ -8,10 +14,41 @@ unit GDIPlusMain;
 {* GDIPlus Main                                                               *}
 {******************************************************************************}
 
+{
+TODO:
+
+Требуется:
+  + Улучшение вида сообщений.
+  + Удаление сообщений об ошибках
+  + Более подробные сообщения об ошибках rendering'а
+
+  + Запрет поворотов анимированных GIF'ов (или реализация?)
+  + Запрет сохранения многостраничных изображений (или реализация)
+
+  + Публикация настроек
+
+Желательно:
+  - Заменить StretchBlt на вывод через GDI+?
+  
+  - Сохранение даты при сохранении изображений
+  - Не блокировать файл для многостраничных изображений
+  - Анализировать наличие эскизов
+
+На будущее:
+  + Не рендерится большое повернутое изображение
+  + Оптимизация поворотов (без повторного рендеринга)
+  - Оптимизация для рендеринга многостраничных TIF'ов
+  - Оптимизация поворотов для многостраничных TIF'ов
+  - Анимация поворотов
+  - Настройка кнопок
+  - Copy to clipboard
+}
+
 interface
 
   uses
     Windows,
+    ActiveX,
     Messages,
     MixTypes,
     MixUtils,
@@ -20,23 +57,33 @@ interface
     MixWinUtils,
     GDIPAPI,
     GDIPOBJ,
+    GDIImageUtil,
     PVApi;
 
   const
     cUseThumbnailRegKey   = 'UseThumbnail';
     cDecodeOnReduceRegKey = 'DecodeOnReduce';
     cRotateOnEXIFRegKey   = 'RotateOnEXIF';
+    cEnableHookRegKey     = 'EnableHook';
+    cEXIFRotationRegKey   = 'EXIFRotation';
 
   const
     cAnimationStep     = 100;          {ms }
     cThumbSize         = 128;          { Размер извлекаемого эскиза }
     cRescalePerc       = 5;
 
+    { Увеличение размера эскиза больше размера оригинального изображения }
+    { Полезно, так как получается лучшее качество, чем при StretchBlt }
+
+    cOverscaleK        = 2.0;          { Максимальный коэффициент увеличинного эскиза }
+    cOverscaleLimit    = 132;          { Ограничение размера увеличинного эскиза, в M }
+
   var
-    WaitDelay        :Integer = 1000;  { Сколько ждем декодирование, презде чем показать эскиз. Только при первом открытии. }
+    WaitDelay        :Integer = 1000;  { Сколько ждем декодирование, прежде чем показать эскиз. Только при первом открытии. }
     DraftDelay       :Integer = 125;   { Задержка для аккурaтной перерисовки }
     StretchDelay     :Integer = 500;   { Задержка для масштабирования }
     PrecacheDelay    :Integer = 100;   { Задержка для предварительного масштабирования }
+    TmpMessageDelay  :Integer = 1500;
 
     FastListDelay    :Integer = 500;
     ThumbDelay       :Integer = 250;   { Задержка до начала декодирования при перелистывании }
@@ -44,6 +91,9 @@ interface
     UseThumbnail     :Boolean = True;
     DecodeOnReduce   :Boolean = False;
     RotateOnEXIF     :Boolean = True;
+    EnableHook       :Boolean = True;
+    QuickRotate      :Boolean = True;   { Поворот без повторного декодирования }
+    SaveRotateEXIF   :Boolean = False;  { При сохранении повернутого изображения производится только коррекция EXIF заголовка }
 
 
   function pvdInit2(pInit :PpvdInitPlugin2) :integer; stdcall;
@@ -71,6 +121,15 @@ interface
 
   uses
     MixDebug;
+
+
+  const
+    strFileNotFound       = 'File not found: %s';
+    strNoEncoderFor       = 'No encoder for %s';
+    strReadImageError     = 'Read image error';
+    strLossyRotation      = 'Rotation is a lossy. Shift+F2 to confirm.';
+    strCantSaveFrames     = 'Can''t save mutliframe image';
+    strCantRotateAnimated = 'Can''t rotate animated image';
 
 
   function RectEquals(const AR, R :TRect) :Boolean;
@@ -111,164 +170,6 @@ interface
   end;
 
 
-  function GetFrameCount(AImage :TGPImage; var ADimID :TGUID; var ADelays :PPropertyItem; var ADelCount :Integer) :Integer;
-  var
-    vCount, vSize :Integer;
-    vDims :PGUID;
-  begin
-    Result := 0;
-    ADelays := nil;
-    ADelCount := 0;
-    vCount := AImage.GetFrameDimensionsCount;
-    if vCount > 0 then begin
-      GetMem(vDims, vCount * SizeOf(TGUID));
-      try
-        AImage.GetFrameDimensionsList(vDims, vCount);
-
-        ADimID := vDims^;
-        Result := AImage.GetFrameCount(ADimID);
-
-        if Result > 1 then begin
-          vSize := AImage.GetPropertyItemSize(PropertyTagFrameDelay);
-          if vSize > SizeOf(TPropertyItem) then begin
-            GetMem(ADelays, vSize);
-            AImage.GetPropertyItem(PropertyTagFrameDelay, vSize, ADelays);
-            ADelCount := (vSize - SizeOf(TPropertyItem)) div SizeOf(Integer);
-          end;
-        end;
-
-      finally
-        FreeMem(vDims);
-      end;
-    end;
-  end;
-
-  type
-    RGBRec = packed record
-      Red, Green, Blue, Dummy :Byte;
-    end;
-
-
-  procedure GradientFillRect(AHandle :THandle; const ARect :TRect; AColor1, AColor2 :DWORD; AVert :Boolean);
-  const
-    FillFlag :Array[Boolean] of Integer = (GRADIENT_FILL_RECT_H, GRADIENT_FILL_RECT_V);
-  var
-    VA :array[0..1] of TTriVertex;
-    GR :TGradientRect;
-  begin
-    VA[0].X := ARect.Left;
-    VA[0].Y := ARect.Top;
-    with RGBRec({ColorToRGB}(AColor1)) do begin
-      VA[0].Red := Red*255;
-      VA[0].Green := Green*255;
-      VA[0].Blue := Blue*255;
-      VA[0].Alpha := 0;
-    end;
-
-    VA[1].X := ARect.Right;
-    VA[1].Y := ARect.Bottom;
-    with RGBRec({ColorToRGB}(AColor2)) do begin
-      VA[1].Red := Red*255;
-      VA[1].Green := Green*255;
-      VA[1].Blue := Blue*255;
-      VA[1].Alpha := 0;
-    end;
-
-    GR.UpperLeft := 0;
-    GR.LowerRight := 1;
-    GradientFill(AHandle, VA[0], 2, @GR, 1, FillFlag[AVert]);
-  end;
-
-
-  function RandomColor :DWORD;
-  begin
-    Result := RGB(Random(256), Random(256), Random(256));
-  end;
-
-
- {-----------------------------------------------------------------------------}
-
-(*
-  procedure TraceExifProps(AImage :TGPImage);
-  var
-    I :Integer;
-    vSize, vCount :Cardinal;
-    vBuffer, vItem :PPropertyItem;
-    vName, vValue :TString;
-  begin
-    AImage.GetPropertySize(vSize, vCount);
-    if vCount > 0 then begin
-      GetMem(vBuffer, vSize);
-      ZeroMemory(vBuffer, vSize);
-      try
-        AImage.GetAllPropertyItems(vSize, vCount, vBuffer);
-
-        vItem := vBuffer;
-        for i := 0 to Integer(vCount) - 1 do begin
-          vName := GetImagePropName(vItem.id);
-          if vName = '' then
-            vName := Format('Prop%d', [vItem.id]);
-
-          vValue := '';
-          if vItem.type_ = PropertyTagTypeASCII then
-            vValue := PChar(vItem.value)
-          else
-          if vItem.type_ = PropertyTagTypeByte then
-            vValue := Int2Str(Byte(vItem.value^))
-          else
-          if vItem.type_ = PropertyTagTypeShort then
-            vValue := Int2Str(Word(vItem.value^))
-          else
-          if vItem.type_ in [PropertyTagTypeLong, PropertyTagTypeSLONG] then
-            vValue := Int2Str(Integer(vItem.value^))
-          else
-          if vItem.type_ in [PropertyTagTypeRational, PropertyTagTypeSRational] then
-            vValue := '???';
-
-          if (vName <> '') {and (vValue <> '')} then
-            TraceF('Prop: %s = %s', [ vName, vValue ]);
-
-          Inc(PChar(vItem), SizeOf(TPropertyItem));
-        end;
-
-      finally
-        FreeMem(vBuffer);
-      end;
-    end;
-  end;
-*)
-
-  function GetExifTagValueAsInt(AImage :TGPImage; AID :ULONG; var AValue :Integer) :Boolean;
-  var
-    vSize :UINT;
-    vItem :PPropertyItem;
-  begin
-    Result := False;
-    vSize := AImage.GetPropertyItemSize(AID);
-    if (AImage.GetLastStatus = OK) and (vSize > 0) then begin
-      vItem := MemAlloc(vSIze);
-      try
-        AImage.GetPropertyItem(AID, vSize, vItem);
-        if AImage.GetLastStatus = OK then begin
-          Result := True;
-          if vItem.type_ = PropertyTagTypeByte then
-            AValue := Byte(vItem.value^)
-          else
-          if vItem.type_ = PropertyTagTypeShort then
-            AValue := Word(vItem.value^)
-          else
-          if vItem.type_ in [PropertyTagTypeLong, PropertyTagTypeSLONG] then
-            AValue := Integer(vItem.value^)
-          else
-            Result := False;
-        end;
-      finally
-        MemFree(vItem);
-      end;
-    end;
-  end;
-
-
   procedure RotateImage(AImage :TGPImage; AOrient :Integer);
   begin
     if AOrient <> 0 then begin
@@ -283,6 +184,12 @@ interface
         7: AImage.RotateFlip(Rotate270FlipX);
       end;
     end;
+  end;
+
+
+  function RandomColor :DWORD;
+  begin
+    Result := RGB(Random(256), Random(256), Random(256));
   end;
 
 
@@ -326,6 +233,10 @@ interface
         RegWriteBinByte(vKey, cDecodeOnReduceRegKey, Byte(DecodeOnReduce));
       if not RegQueryBinByte(vKey, cRotateOnEXIFRegKey, Byte(RotateOnEXIF)) then
         RegWriteBinByte(vKey, cRotateOnEXIFRegKey, Byte(RotateOnEXIF));
+      if not RegQueryBinByte(vKey, cEnableHookRegKey, Byte(EnableHook)) then
+        RegWriteBinByte(vKey, cEnableHookRegKey, Byte(EnableHook));
+      if not RegQueryBinByte(vKey, cEXIFRotationRegKey, Byte(SaveRotateEXIF)) then
+        RegWriteBinByte(vKey, cEXIFRotationRegKey, Byte(SaveRotateEXIF));
     finally
       RegCloseKey(vKey);
     end;
@@ -335,7 +246,9 @@ interface
     try
       RegWriteStr(vKey, cUseThumbnailRegKey, 'bool;Use Thumbnail');
       RegWriteStr(vKey, cDecodeOnReduceRegKey, 'bool;Decode on Reduce');
-      RegWriteStr(vKey, cRotateOnEXIFRegKey, 'bool;Rotate On EXIF');
+      RegWriteStr(vKey, cRotateOnEXIFRegKey, 'bool;Autorotate On EXIF');
+      RegWriteStr(vKey, cEnableHookRegKey, 'bool;Enable manual rotation');
+      RegWriteStr(vKey, cEXIFRotationRegKey, 'bool;EXIF correction on save');
     finally
       RegCloseKey(vKey);
     end;
@@ -348,9 +261,14 @@ interface
 
   type
     TGPImageEx = class(TGPImage)
+//  TGPImageEx = class(TGPBitmap)
     public
       function _AddRef :Integer;
       function _Release :Integer;
+
+      function GetImageSize :TSize;
+
+      function Clone :TGPImageEx;
 
     private
       FRefCount :Integer;
@@ -370,67 +288,20 @@ interface
       Destroy;
   end;
 
- {-----------------------------------------------------------------------------}
- {                                                                             }
- {-----------------------------------------------------------------------------}
 
-  type
-    TMemDC = class(TObject)
-    public
-      constructor Create(ADC :HDC; W, H :Integer);
-      destructor Destroy; override;
-
-      procedure Clear;
-
-    private
-      FDC :HDC;
-      FWidth, FHeight :Integer;
-      FBMP, FOldBmp :HBitmap;
-      FBrush, FOldBrush :HBrush;
-    end;
+  function TGPImageEx.GetImageSize :TSize;
+  begin
+    Result := Size(GetWidth, GetHeight);
+  end;
 
 
-  constructor TMemDC.Create(ADC :HDC; W, H :Integer);
+  function TGPImageEx.Clone :TGPImageEx;
   var
-    vDC :HDC;
+    cloneimage: GpImage;
   begin
-    FWidth := W;
-    FHeight := H;
-
-    vDC := GetDC(0);
-    try
-      FBMP := CreateCompatibleBitmap(vDC, W, H);
-      ApiCheck(FBMP <> 0);
-    finally
-      ReleaseDC(0, vDC);
-    end;
-
-    FDC := CreateCompatibleDC(0);
-    FOldBmp := SelectObject(FDC, FBmp);
-
-    if ADC <> 0 then begin
-      FBrush := GetCurrentObject(ADC, OBJ_BRUSH);
-      FOldBrush := SelectObject(FDC, FBrush);
-      Clear;
-    end;
-  end;
-
-  destructor TMemDC.Destroy; {override;}
-  begin
-    if FOldBrush <> 0 then
-      SelectObject(FDC, FOldBrush);
-    if FOldBmp <> 0 then
-      SelectObject(FDC, FOldBmp);
-    if FBMP <> 0 then
-      DeleteObject(FBMP);
-    if FDC <> 0 then
-      DeleteDC(FDC);
-  end;
-
-
-  procedure TMemDC.Clear;
-  begin
-    FillRect(FDC, Bounds(0, 0, FWIdth, FHeight), FBrush);
+    cloneimage := nil;
+    SetStatus(GdipCloneImage(nativeImage, cloneimage));
+    result := TGPImageEx.Create(cloneimage, lastResult);
   end;
 
 
@@ -448,7 +319,7 @@ interface
 
     TTask = class(TBasis)
     public
-      constructor CreateEx(const AName :TString; AFrame :Integer; const ASize :TSize);
+      constructor CreateEx({$ifdef bShareImage}AImage :TGPImageEx;{$endif bShareImage} const AName :TString; AFrame :Integer; const ASize :TSize);
       destructor Destroy; override;
 
       function _AddRef :Integer;
@@ -456,10 +327,14 @@ interface
 
     private
       FRefCount   :Integer;
+     {$ifdef bShareImage}
+      FImage      :TGPImageEx;
+     {$endif bShareImage}
       FName       :TString;
       FFrame      :Integer;
       FSize       :TSize;
       FOrient     :Integer;
+      FBackColor  :Integer;
       FThumb      :TMemDC;
       FState      :TTaskState;
       FError      :TString;
@@ -468,17 +343,28 @@ interface
     end;
 
 
-  constructor TTask.CreateEx(const AName :TString; AFrame :Integer; const ASize :TSize);
+  constructor TTask.CreateEx({$ifdef bShareImage}AImage :TGPImageEx;{$endif bShareImage} const AName :TString; AFrame :Integer; const ASize :TSize);
   begin
     inherited Create;
+   {$ifdef bShareImage}
+    FImage := AImage;
+    FImage._AddRef;
+   {$endif bShareImage}
     FName  := AName;
     FFrame := AFrame;
     FSize  := ASize;
+    FBackColor := -1;
   end;
 
 
   destructor TTask.Destroy; {override;}
   begin
+   {$ifdef bShareImage}
+    if FImage <> nil then begin
+      FImage._Release;
+      FImage := nil;
+    end;
+   {$endif bShareImage}
     FreeObj(FThumb);
     inherited Destroy;
   end;
@@ -615,62 +501,87 @@ interface
 
   procedure TThumbnailThread.Render(ATask :TTask);
   var
-    vImage    :TGPImage;
+    vImage    :TGPImageEx;
     vSize     :TSize;
     vThumb    :TMemDC;
     vGraphics :TGPGraphics;
     vDimID    :TGUID;
-   {$ifdef bTrace}
-    vTime     :DWORD;
-   {$endif bTrace}
   begin
     try
       vThumb := nil;
       vSize := ATask.FSize;
+     {$ifdef bShareImage}
+      vImage := ATask.FImage;
+     {$else}
       vImage := TGPImageEx.Create(ATask.FName);
+     {$endif bShareImage}
       try
-        if vImage.GetLastStatus = Ok then begin
+        if vImage.GetLastStatus <> OK then
+          AppError(strReadImageError);
 
-          if ATask.FFrame > 0 then begin
-            FillChar(vDimID, SizeOf(vDimID), 0);
-            if vImage.GetFrameDimensionsList(@vDimID, 1) = Ok then
-              vImage.SelectActiveFrame(vDimID, ATask.FFrame);
-          end;
-
-          vThumb := TMemDC.Create(0, vSize.CX, vSize.CY);
-//        GradientFillRect(vThumb.FDC, Rect(0, 0, vSize.CX, vSize.CY), RandomColor, RandomColor, True);
-
-          vGraphics := TGPGraphics.Create(vThumb.FDC);
-          try
-//          vGraphics.SetCompositingMode(CompositingModeSourceCopy);
-//          vGraphics.SetCompositingQuality(CompositingQualityHighSpeed);
-//          vGraphics.SetSmoothingMode(SmoothingModeHighSpeed);
-//          vGraphics.SetInterpolationMode(InterpolationModeLowQuality);
-
-            if ATask.FOrient <> 0 then
-              RotateImage(vImage, ATask.FOrient);
-
-           {$ifdef bTrace}
-            vTime := GetTickCount;
-            TraceF('Render %s, %d x %d...', [ATask.FName, vSize.CX, vSize.CY]);
-           {$endif bTrace}
-
-            vGraphics.DrawImage(vImage, MakeRect(0, 0, vSize.CX, vSize.CY), 0, 0, vImage.GetWidth, vImage.GetHeight, UnitPixel, nil, ImageAbort, ATask);
-
-           {$ifdef bTrace}
-            TraceF('  Ready (%d). %d ms', [Byte(vGraphics.GetLastStatus), TickCountDiff(GetTickCount, vTime)]);
-           {$endif bTrace}
-
-          finally
-            FreeObj(vGraphics);
-          end;
-
+        if ATask.FFrame > 0 then begin
+          FillChar(vDimID, SizeOf(vDimID), 0);
+          if vImage.GetFrameDimensionsList(@vDimID, 1) = Ok then
+            vImage.SelectActiveFrame(vDimID, ATask.FFrame);
         end;
-      finally
-        FreeObj(vImage);
-      end;
 
-      ATask.FThumb := vThumb;
+       {$ifdef bOwnRotate}
+        if ATask.FOrient in [5,6,7,8] then
+          vSize := Size(vSize.CY, vSize.CX);
+       {$endif bOwnRotate}
+
+        vThumb := TMemDC.Create(0, vSize.CX, vSize.CY);
+
+//      GradientFillRect(vThumb.FDC, Rect(0, 0, vSize.CX, vSize.CY), RandomColor, RandomColor, True);
+        if ATask.FBackColor <> -1 then
+          GradientFillRect(vThumb.DC, Rect(0, 0, vSize.CX, vSize.CY), ATask.FBackColor, ATask.FBackColor, True);
+
+        vGraphics := TGPGraphics.Create(vThumb.DC);
+        try
+          GDICheck(vGraphics.GetLastStatus);
+//        vGraphics.SetCompositingMode(CompositingModeSourceCopy);
+//        vGraphics.SetCompositingQuality(CompositingQualityHighSpeed);
+//        vGraphics.SetSmoothingMode(SmoothingModeHighSpeed);
+//        vGraphics.SetInterpolationMode(InterpolationModeLowQuality);
+
+         {$ifdef bTrace}
+          TraceBegF('Render %s, %d x %d (%d M)...', [ATask.FName, vSize.CX, vSize.CY, (vSize.CX * vSize.CY * 4) div (1024 * 1024)]);
+         {$endif bTrace}
+
+         {$ifdef bOwnRotate}
+         {$else}
+          if ATask.FOrient <> 0 then begin
+            RotateImage(vImage, ATask.FOrient);
+            GDICheck(vImage.GetLastStatus);
+          end;
+         {$endif bOwnRotate}
+
+          vGraphics.DrawImage(vImage, MakeRect(0, 0, vSize.CX, vSize.CY), 0, 0, vImage.GetWidth, vImage.GetHeight, UnitPixel, nil, ImageAbort, ATask);
+          GDICheck(vGraphics.GetLastStatus);
+
+         {$ifdef bTrace}
+          TraceEnd('  Ready');
+         {$endif bTrace}
+
+        finally
+          FreeObj(vGraphics);
+        end;
+
+       {$ifdef bOwnRotate}
+        if ATask.FOrient <> 0 then
+          vThumb.Transform(ATask.FOrient);
+       {$endif bOwnRotate}
+
+        ATask.FThumb := vThumb;
+        vThumb := nil;
+
+      finally
+       {$ifdef bShareImage}
+       {$else}
+        FreeObj(vImage);
+       {$endif bShareImage}
+        FreeObj(vThumb);
+      end;
 
     except
       on E :Exception do
@@ -843,6 +754,7 @@ interface
   var
     GIdleThread :TIdleThread;
 
+
   procedure InitIdleThread;
   begin
     if GIdleThread = nil then
@@ -867,7 +779,11 @@ interface
     GLastID        :Integer;
     GLastPaint     :DWORD;
     GLastPaint1    :DWORD;
+    GBackColor     :DWORD;
     GWinSize       :TSize;
+
+  var
+    GSmoothMode    :Boolean;      { Сглаженный вывод (переключается по Ctrl-T) }
 
   type
     PDelays = ^TDelays;
@@ -883,7 +799,9 @@ interface
     public
       constructor Create; override;
       destructor Destroy; override;
+      procedure ReinitImage;
       procedure SetSrcImage(AImage :TGPImageEx);
+      procedure ReleaseSrcImage;
       procedure SetFrame(AIndex :Integer);
 
       function _AddRef :Integer;
@@ -897,6 +815,11 @@ interface
       procedure DrawImage(const ASrcRect, ADstRect :TRect; AColor :DWORD);
       procedure DrawText(X, Y :Integer; const AStr :TString);
       function InitThumbnail(ADX, ADY :Integer) :Boolean;
+      function Rotate(ARotate :Integer) :Boolean;
+      function Save(AWnd :HWnd; AExif, ALossy :Boolean) :Boolean;
+
+      procedure SetSmoothMode(AOn :Boolean);
+      procedure SetTmpMess(const AMess :TString);
 
     private
       FRefCount    :Integer;
@@ -904,15 +827,24 @@ interface
       FID          :Integer;      { Уникальный идентификатор }
       FSrcName     :TString;      { Имя файла }
       FSrcImage    :TGPImageEx;   { Исходное изображение }
-      FImgSize     :TSize;        { Оригинальный размер картинки (текущей страницы) }
+      FOrient0     :Integer;      { Исходная ориентация }
+      FOrient      :Integer;      { Текущая ориентация }
+      FImgSize0    :TSize;        { Исходный размер картинки (текущей страницы) }
+      FImgSize     :TSize;        { Размер картинки с учетом ориентации }
       FPixels      :Integer;      { Цветность (BPP) }
-      FDirectDraw  :Boolean;      { Полупрозрачное или анимированное изображение, не используем preview'шки }
-      FOrient      :Integer;
+      FFmtID       :TGUID;
+      FFmtName     :TString;
+      FHasAlpha    :Boolean;      { Полупрозрачное изображение }
+      FDirectDraw  :Boolean;      { Анимированное изображение, не используем preview'шки }
+//    FSmoothMode  :Boolean;      { Сглаженный вывод (переключается по Ctrl-T) }
+      FOverscaleK  :Double;       { Коэффициент максимального превышения масштаба эскиза }
 
       FThumbImage  :TMemDC;       { Изображение, буферизированное как Bitmap }
       FThumbSize   :TSize;        { Размер Preview'шки }
       FIsThumbnail :Boolean;      { Это превью (thumbnail) }
       FErrorMess   :TString;
+      FTmpMess     :TString;
+      FTmpTime     :DWORD;        { Время удаления временного сообщения }
 
       FViewStart   :DWORD;        { Для поддержки предварительного декодирования }
 
@@ -942,6 +874,7 @@ interface
 
       FDrawCS       :TRTLCriticalSection;
 
+      procedure InitImageInfo;
       procedure SetAsyncTask(const ASize :TSize);
       function CheckAsyncTask :Boolean;
       procedure CancelTask;
@@ -951,21 +884,30 @@ interface
 
 
   constructor TView.Create; {override;}
+  var
+    vFirst :Boolean;
   begin
     inherited Create;
     InitializeCriticalSection(FDrawCS);
 
+    vFirst := GIdleThread = nil;
     InitIdleThread;
     GIdleThread.AddIdle(Idle);
 
     Inc(GViewID);
     FID := GViewID;
+    FFrame := -1;
+
+    if vFirst then begin
+      GSmoothMode := True;
+    end;
   end;
 
 
   destructor TView.Destroy; {override;}
   begin
 //  TraceF('%p TView.Destroy', [Pointer(Self)]);
+
     if GIdleThread <> nil then
       GIdleThread.DeleteIdle(Idle);
 
@@ -973,16 +915,19 @@ interface
 
     CancelTask;
     FreeObj(FThumbImage);
+    MemFree(FDelays);
 
-    FSrcImage._Release;
-    FSrcImage := nil;
-
-    if FDelays <> nil then begin
-      FreeMem(FDelays);
-      FDelays := nil;
-    end;
-
+    ReleaseSrcImage;
     inherited Destroy;
+  end;
+
+
+  procedure TView.ReleaseSrcImage;
+  begin
+    if FSrcImage <> nil then begin
+      FSrcImage._Release;
+      FSrcImage := nil;
+    end;
   end;
 
 
@@ -1002,49 +947,326 @@ interface
 
   procedure TView.SetSrcImage(AImage :TGPImageEx);
   var
-    vHahAlpha :Boolean;
+    vOrient :Integer;
   begin
     FSrcImage := AImage;
     FSrcImage._AddRef;
 
 //  TraceExifProps(FSrcImage);
+
+    FOrient0 := 0;
     if RotateOnEXIF then
-      if GetExifTagValueAsInt(FSrcImage, PropertyTagOrientation, FOrient) then begin
-//      TraceF('!!! EXIF: Orientation=%d', [FOrient]);
-        if FOrient <> 0 then
-          RotateImage(FSrcImage, FOrient);
+      if GetExifTagValueAsInt(FSrcImage, PropertyTagOrientation, vOrient) and (vOrient >= 1) and (vOrient <= 8) then begin
+//      TraceF('EXIF Orientation: %d', [vOrient]);
+        FOrient0 := vOrient;
       end;
+    FOrient := FOrient0;
 
-    FImgSize.cx := FSrcImage.GetWidth;
-    FImgSize.cy := FSrcImage.GetHeight;
-    FPixels     := GetPixelFormatSize(FSrcImage.GetPixelFormat);
+    InitImageInfo;
+  end;
 
-    vHahAlpha   := ImageFlagsHasAlpha and FSrcImage.GetFlags <> 0;
+
+(*
+  procedure TView.ReinitImage;
+  begin
+    ReleaseSrcImage;
+    MemFree(FDelays);
+
+    FSrcImage := TGPImageEx.Create(FSrcName);
+    FSrcImage._AddRef;
+
+    InitImageInfo;
+  end;
+*)
+
+  procedure TView.ReinitImage;
+  begin
+    if FDirectDraw or not QuickRotate then begin
+      ReleaseSrcImage;
+      MemFree(FDelays);
+
+      FSrcImage := TGPImageEx.Create(FSrcName);
+      FSrcImage._AddRef;
+
+      FFrame := -1;
+      InitImageInfo;
+    end else
+    begin
+    end;
+  end;
+
+
+  procedure TView.InitImageInfo;
+  begin
+    FImgSize0 := FSrcImage.GetImageSize;
+    FImgSize := FImgSize0;
+    if FOrient in [5,6,7,8] then
+      FImgSize := Size(FImgSize.CY, FImgSize.CX);
+
+    FPixels   := GetPixelFormatSize(FSrcImage.GetPixelFormat);
+
+    FSrcImage.GetRawFormat(FFmtID);
+    FFmtName := GetImgFmtName(FFmtID);
+
+    { Изображение полупрозрачное }
+    FHasAlpha := ImageFlagsHasAlpha and FSrcImage.GetFlags <> 0;
 
     { Подсчитываем количество фреймов в анимированном/многостраничном изображении }
-    FFrames := GetFrameCount(FSrcImage, FDimID, FDelays, FDelCount);
+    FFrames := GetFrameCount(FSrcImage, @FDimID, @Pointer(FDelays), @FDelCount);
 
-    FDirectDraw := vHahAlpha or (FDelays <> nil);
-//  FDirectDraw := False;
+    FDirectDraw := {FHasAlpha or} (FDelays <> nil);
+
+    FOverscaleK := sqrt( cOverscaleLimit * 1024 * 1024 / (FImgSize.CX * FImgSize.CY * 4) );
+    if FOverscaleK < 1 then
+      FOverscaleK := 1
+    else
+    if FOverscaleK > cOverscaleK then
+      FOverscaleK := cOverscaleK;
   end;
 
 
   procedure TView.SetFrame(AIndex :Integer);
   begin
-    if (FFrames > 1) and (AIndex < FFrames) then begin
-      FSrcImage.SelectActiveFrame(FDimID, AIndex);
+    AIndex := RangeLimit(AIndex, 0, FFrames - 1);
+    if AIndex <> FFrame then begin
+      if (FFrames > 1) and (AIndex < FFrames) then
+        FSrcImage.SelectActiveFrame(FDimID, AIndex);
+
+      FImgSize := FSrcImage.GetImageSize;
+      if FOrient in [5,6,7,8] then
+        FImgSize := Size(FImgSize.CY, FImgSize.CX);
+
+      FPixels  := GetPixelFormatSize(FSrcImage.GetPixelFormat);
+
+      CancelTask;
+      FreeObj(FThumbImage);
+      FErrorMess := '';
+
       FFrame := AIndex;
     end;
-
-    FImgSize.cx := FSrcImage.GetWidth;
-    FImgSize.cy := FSrcImage.GetHeight;
-    FPixels     := GetPixelFormatSize(FSrcImage.GetPixelFormat);
-
-    CancelTask;
-    FreeObj(FThumbImage);
-    FErrorMess := '';
   end;
 
+
+  function TView.InitThumbnail(ADX, ADY :Integer) :Boolean;
+  var
+    vThmImage :TGPImage;
+    vGraphics :TGPGraphics;
+  begin
+//  TraceF('UpdateThumbnail: %d x %d', [ADX, ADY]);
+    Result := False;
+
+   if not IsEqualGUID(FFmtID, ImageFormatJPEG) then
+     { Эскизы поддерживаются только(?) для JPEG... }
+     Exit;
+
+   {$ifdef bTrace}
+    TraceBegF('GetThumbnail: %d x %d', [ADX, ADY]);
+   {$endif bTrace}
+    vThmImage := FSrcImage.GetThumbnailImage(ADX, ADY, nil, nil);
+   {$ifdef bTrace}
+    TraceEnd('  Ready');
+   {$endif bTrace}
+    if (vThmImage = nil) or (vThmImage.GetLastStatus <> Ok) then begin
+      FreeObj(vThmImage);
+      Exit;
+    end;
+
+    try
+      if FOrient <> 0 then
+        RotateImage(vThmImage, FOrient);
+
+      FThumbSize.cx := vThmImage.GetWidth;
+      FThumbSize.cy := vThmImage.GetHeight;
+      FIsThumbnail := True;
+
+     {$ifdef bTrace}
+      TraceBegF('Thumb Render %d x %d...', [FThumbSize.cx, FThumbSize.cy]);
+     {$endif bTrace}
+      FThumbImage := TMemDC.Create(0, FThumbSize.cx, FThumbSize.cy);
+      vGraphics := TGPGraphics.Create(FThumbImage.DC);
+      try
+        vGraphics.DrawImage(vThmImage, 0, 0, FThumbSize.cx, FThumbSize.cy);
+      finally
+        vGraphics.Free;
+      end;
+     {$ifdef bTrace}
+      TraceEnd('  Ready');
+     {$endif bTrace}
+
+      Result := True;
+
+    finally
+      FreeObj(vThmImage);
+    end;
+  end;
+
+
+  function TView.Rotate(ARotate :Integer) :Boolean;
+  const
+    cReorient :array[0..8, 0..4] of Integer = (
+     (0,6,8,2,4), //
+     (1,6,8,2,4), //
+     (2,7,5,0,3), // X
+     (3,8,6,4,2), // LL = RR
+     (4,5,7,3,0), // Y
+     (5,2,4,6,8), // XR
+     (6,3,0,5,7), // R
+     (7,4,2,8,6), // XL
+     (8,0,3,7,5)  // L
+    );
+    cTransform :array[0..4] of Integer =
+      (0, 6, 8, 2, 4);
+  begin
+    Result := False;
+    try
+      if not FDirectDraw and QuickRotate then begin
+        { Поворачиваем уже декодированный эскиз }
+        FThumbImage.Transform(cTransform[ARotate]);
+
+        if ARotate in [1, 2] then
+          FThumbSize := Size(FThumbSize.CY, FThumbSize.CX);
+
+        if ARotate in [1, 2] then
+          FImgSize := Size(FImgSize.CY, FImgSize.CX);
+      end;
+
+      FOrient := cReorient[FOrient, ARotate];
+
+      Result := True;
+
+    except
+      on E :Exception do begin
+        SetTmpMess( E.Message );
+        Beep;
+      end;
+    end;
+  end;
+
+
+  procedure ReplaceFile(const ATmpName, AOrigName :TString);
+  begin
+    if WinFileExists(AOrigName) then
+      ApiCheck(DeleteFile(AOrigName));
+    ApiCheck(RenameFile(ATmpName, AOrigName));
+  end;
+
+
+  function TView.Save(AWnd :HWnd; AExif, ALossy :Boolean) :Boolean;
+  const
+    cTransform :array[0..8] of EncoderValue =
+    (
+      EncoderValue(0),
+      EncoderValue(0),
+      EncoderValueTransformFlipHorizontal,
+      EncoderValueTransformRotate180,
+      EncoderValueTransformFlipVertical,
+      EncoderValueTransformRotate270,  {!!!}
+      EncoderValueTransformRotate90,
+      EncoderValueTransformRotate90, {!!!}
+      EncoderValueTransformRotate270
+    );
+  var
+    vMimeType, vNewName :TString;
+    vEncoderID :TGUID;
+    vImage :TGPImage;
+    vTransf :TEncoderValue;
+    vParams :TEncoderParameters;
+    vPParams :PEncoderParameters;
+  begin
+    Result := False;
+    try
+      FTmpMess := 'Save...';
+      FTmpTime := 0;
+      InvalidateRect(AWnd, nil, False);
+      UpdateWindow(AWnd);
+
+      if not WinFileExists(FSrcName) then
+        AppErrorFmt(strFileNotFound, [FSrcName]);
+
+      vNewName := ChangeFileExtension(FSrcName, '$$$');
+      if WinFileExists(vNewName) then
+        DeleteFile(vNewName);
+
+      vMimeType := 'image/' + StrLoCase(FFmtName);
+      if GetEncoderClsid(vMimeType, vEncoderID) = -1 then
+        AppErrorFmt(strNoEncoderFor, [FFmtName]);
+
+      vImage := TGPImage.Create(FSrcName);
+      try
+//      GDICheck(vImage.GetLastStatus);
+        if vImage.GetLastStatus <> OK then
+          AppError(strReadImageError);
+
+        if GetFrameCount(vImage, nil, nil, nil) > 1 then
+          AppError(strCantSaveFrames);
+
+       {$ifdef bTrace}
+        TraceBeg('Save...');
+       {$endif bTrace}
+
+        vPParams := nil;
+
+        if AExif and (IsEqualGUID(FFmtID, ImageFormatJPEG) or IsEqualGUID(FFmtID, ImageFormatTIFF)) then begin
+
+          { Поворот путем коррекции EXIF заголовка - loseless }
+          if FOrient0 <> FOrient then
+            SetExifTagValueInt(vImage, PropertyTagOrientation, FOrient);
+
+        end else
+        if IsEqualGUID(FFmtID, ImageFormatJPEG) then begin
+          { Поворт путем трансформации - может приводить к потерям... }
+
+          vTransf := cTransform[FOrient];
+          if vTransf <> EncoderValue(0) then begin
+            vParams.Count := 1;
+            vParams.Parameter[0].Guid := EncoderTransformation;
+            vParams.Parameter[0].Type_ := EncoderParameterValueTypeLong;
+            vParams.Parameter[0].NumberOfValues := 1;
+            vParams.Parameter[0].Value := @vTransf;
+            vPParams := @vParams;
+          end;
+
+          if not ALossy and (vPParams <> nil) and (((vImage.GetWidth mod 16) <> 0) or ((vImage.GetHeight mod 16) <> 0)) then
+            AppError(strLossyRotation);
+
+          if (FOrient0 <> 0) and (FOrient0 <> 1) then
+            SetExifTagValueInt(vImage, PropertyTagOrientation, 1);
+
+        end else
+        begin
+          RotateImage(vImage, FOrient);
+          GDICheck(vImage.GetLastStatus);
+        end;
+
+        vImage.Save(vNewName, vEncoderID, vPParams);
+        GDICheck(vImage.GetLastStatus);
+
+       {$ifdef bTrace}
+        TraceEnd('  Ready');
+       {$endif bTrace}
+
+      finally
+        FreeObj(vImage);
+      end;
+
+      ReplaceFile(vNewName, FSrcName);
+
+      FTmpMess := '';
+      InvalidateRect(AWnd, nil, False);
+      UpdateWindow(AWnd);
+
+      Result := True;
+
+    except
+      on E :Exception do begin
+        SetTmpMess( E.Message );
+        Beep;
+      end;
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
 
   procedure TView.BeginDraw(AWnd :HWnd);
   begin
@@ -1106,8 +1328,12 @@ interface
     if vOldFont = 0 then
       Exit;
     try
+      SetBkMode(FDC, Transparent);
 
+      SetTextColor(FDC, RGB(0, 0, 0));
       TextOut(FDC, X, Y, PTChar(AStr), Length(AStr));
+      SetTextColor(FDC, RGB(255, 255, 255));
+      TextOut(FDC, X+1, Y+1, PTChar(AStr), Length(AStr));
 
     finally
       SelectObject(FDC, vOldFont);
@@ -1128,12 +1354,45 @@ interface
 
       vImage := TMemDC.Create(0, vDstRect.Width, vDstRect.Height);
       try
-        GradientFillRect(vImage.FDC, Rect(0, 0, vDstRect.Width, vDstRect.Height), AColor, AColor, True);
+        GradientFillRect(vImage.DC, Rect(0, 0, vDstRect.Width, vDstRect.Height), AColor, AColor, True);
+
+        vGraphics := TGPGraphics.Create(vImage.DC);
+        try
+          with ASrcRect do
+            vGraphics.DrawImage(FSrcImage, vDstRect, Left, Top, Right - Left, Bottom - Top, UnitPixel);
+        finally
+          vGraphics.Free;
+        end;
+
+        with ADstRect do
+          BitBlt(FDC, Left, Top, Right - Left, Bottom - Top, vImage.DC, 0, 0, SRCCOPY);
+
+      finally
+        FreeObj(vImage);
+      end;
+    end;
+
+(*
+    procedure LocDirectDraw;
+    var
+      vGraphics :TGPGraphics;
+      vImage :TMemDC;
+      vRect :TGPRect;
+    begin
+      if GSmoothMode then begin
+        with ADstRect do
+          vRect := MakeRect(0, 0, Right - Left, Bottom - Top);
+      end else
+        vRect := MakeRect(0, 0, FImgSize.cx, FImgSize.cy);
+
+      vImage := TMemDC.Create(0, vRect.Width, vRect.Height);
+      try
+        GradientFillRect(vImage.FDC, Rect(0, 0, vRect.Width, vRect.Height), AColor, AColor, True);
 
         vGraphics := TGPGraphics.Create(vImage.FDC);
         try
           with ASrcRect do
-            vGraphics.DrawImage(FSrcImage, vDstRect, Left, Top, Right - Left, Bottom - Top, UnitPixel);
+            vGraphics.DrawImage(FSrcImage, vRect, Left, Top, Right - Left, Bottom - Top, UnitPixel);
         finally
           vGraphics.Free;
         end;
@@ -1145,6 +1404,7 @@ interface
         FreeObj(vImage);
       end;
     end;
+*)
 
     function LocThumbSize(ImgSize, SrcSize, DispSize :Integer) :Integer;
     begin
@@ -1152,8 +1412,13 @@ interface
         Result := DispSize
       else
         Result := MulDiv(ImgSize, DispSize, SrcSize);
+
       if Result > ImgSize then
-        Result := ImgSize;
+        if GSmoothMode then
+          { Разрешаем декодирование с повышенным разрешением}
+          Result := IntMin(Result, Round(ImgSize * FOverscaleK))
+        else
+          Result := ImgSize;
     end;
 
     function LocCalcScale(ADX, ADY :Integer) :Integer;
@@ -1161,15 +1426,17 @@ interface
       Result := IntMax(MulDiv(ADX, 100, FImgSize.cx), MulDiv(ADY, 100, FImgSize.cy));
     end;
 
+
     function LocScaleX(X :Integer) :Integer;
     begin
-      Result := MulDiv(X, FThumbImage.FWidth, FImgSize.cx);
+      Result := MulDiv(X, FThumbImage.Width, FImgSize.cx);
     end;
 
     function LocScaleY(Y :Integer) :Integer;
     begin
-      Result := MulDiv(Y, FThumbImage.FHeight, FImgSize.cy);
+      Result := MulDiv(Y, FThumbImage.Height, FImgSize.cy);
     end;
+
 
     function LocNeedResize(N1, N2 :Integer) :Boolean;
     var
@@ -1180,6 +1447,10 @@ interface
         vDelta := Abs(N1 - N2);
         Result := vDelta > MulDiv(IntMax(N1, N2), cRescalePerc, 100);
       end;
+
+      if not Result and not GSmoothMode then
+        { Был overscale, который стал нежелательным, из за выключения SmoothMode... }
+        Result := (FThumbSize.CX > FImgSize.CX) or (FThumbSize.CY > FImgSize.CY);
     end;
 
   var
@@ -1189,16 +1460,17 @@ interface
     vStart :DWORD;
     vSaveDC :Integer;
     vFastScroll :Boolean;
-   {$ifdef bTrace}
-//  vTime :DWORD;
-   {$endif bTrace}
+    vNeedSmooth :Boolean;
   begin
     if FDC = 0 then
       Exit;
 
+    { Запоминаем настройки отображения в глобальных переменных, для использования }
+    { во вспомогательных потоках. Не thread-safe'но, но не страшно... }
+    GBackColor := AColor;
+
    {$ifdef bTrace}
-//  vTime := GetTickCount;
-//  TraceF('Paint (%p) %s...', [Pointer(FThumbImage), ExtractFileName(FSrcName)]);
+//  TraceBegF('Paint (%p) %s...', [Pointer(FThumbImage), ExtractFileName(FSrcName)]);
    {$endif bTrace}
 
 //  TraceF('Src: %d, %d, %d, %d. Dst: %d, %d, %d, %d',
@@ -1219,7 +1491,7 @@ interface
           GLastPaint1 := GetTickCount;
 
         vScale := LocCalcScale(vSize.cx, vSize.cy);
-        if vScale > 90 then
+        if (vScale > 90) and (vScale <= 100) then
           { Выгоднее уже декодировать 100% }
           vSize := FImgSize;
 
@@ -1276,34 +1548,36 @@ interface
 
         if (ADstRect.Right - ADstRect.Left = vRect.Right - vRect.Left) and (ADstRect.Bottom - ADstRect.Top = vRect.Bottom - vRect.Top) then begin
          {$ifdef bTrace}
-          TraceF('BitBlt. Thumb=%d', [Byte(FIsThumbnail)]);
+//        TraceF('BitBlt. Thumb=%d', [Byte(FIsThumbnail)]);
          {$endif bTrace}
           BitBlt(
             FDC,
             ADstRect.Left, ADstRect.Top, ADstRect.Right - ADstRect.Left, ADstRect.Bottom - ADstRect.Top,
-            FThumbImage.FDC,
+            FThumbImage.DC,
             vRect.Left, vRect.Top,
             SRCCOPY);
           FDraftStart := 0;
         end else
         begin
-          if FHiQual and not FIsThumbnail then
+          vNeedSmooth := GSmoothMode or ((vRect.Right - vRect.Left) >  (ADstRect.Right - ADstRect.Left));
+
+          if FHiQual and not FIsThumbnail and vNeedSmooth then begin
             { Аккуратный, но медленный }
-            SetStretchBltMode(FDC, HALFTONE)
-          else begin
+            SetStretchBltMode(FDC, HALFTONE);
+          end else begin
             { Быстрый, но не аккуратный }
             SetStretchBltMode(FDC, COLORONCOLOR);
-            if not FIsThumbnail then
+            if not FIsThumbnail and vNeedSmooth then
               FDraftStart := GetTickCount;
           end;
 
          {$ifdef bTrace}
-          TraceF('StretchBlt. Thumb=%d, Qual=%s', [Byte(FIsThumbnail), StrIf(FHiQual, 'Hi', 'Lo')]);
+//        TraceF('StretchBlt. Thumb=%d, Qual=%s', [Byte(FIsThumbnail), StrIf(FHiQual, 'Hi', 'Lo')]);
          {$endif bTrace}
           StretchBlt(
             FDC,
             ADstRect.Left, ADstRect.Top, ADstRect.Right - ADstRect.Left, ADstRect.Bottom - ADstRect.Top,
-            FThumbImage.FDC,
+            FThumbImage.DC,
             vRect.Left, vRect.Top, vRect.Right - vRect.Left, vRect.Bottom - vRect.Top,
             SRCCOPY);
         end;
@@ -1327,11 +1601,21 @@ interface
       RestoreDC(FDC, vSaveDC);
     end;
 
-    if FAsyncTask <> nil then
-      DrawText(vRect.Left, vRect.Top, 'Decoding...')
-    else
-    if FErrorMess <> '' then
+    if FAsyncTask <> nil then begin
+      DrawText(vRect.Left, vRect.Top, 'Decoding...');
+      FTmpMess := ''; FTmpTime := 0;
+    end else
+    if FErrorMess <> '' then begin
       DrawText(vRect.Left, vRect.Top, FErrorMess);
+      FTmpMess := ''; FTmpTime := 0;
+    end else
+    if FTmpMess <> '' then begin
+      if (FTmpTime <> 0) and (TickCountDiff(GetTickCount, FTmpTime) > TmpMessageDelay) then begin
+        FTmpMess := '';
+        FTmpTime := 0;
+      end else
+        DrawText(vRect.Left, vRect.Top, FTmpMess);
+    end;
 
     if GLastID <> FID then begin
       GLastPaint := GetTickCount;
@@ -1339,61 +1623,10 @@ interface
     end;
 
    {$ifdef bTrace}
-//  TraceF('  Done paint. %d ms', [TickCountDiff(GetTickCount, vTime)]);
+//  TraceEnd('  Done paint');
    {$endif bTrace}
-  end;
+  end; {DrawImage;}
 
-
-
-  function TView.InitThumbnail(ADX, ADY :Integer) :Boolean;
-  var
-    vThmImage :TGPImage;
-    vGraphics :TGPGraphics;
-   {$ifdef bTrace}
-//  vTime :DWORD;
-   {$endif bTrace}
-  begin
-//  TraceF('UpdateThumbnail: %d x %d', [ADX, ADY]);
-    Result := False;
-
-   {$ifdef bTrace}
-//  vTime := GetTickCount;
-   {$endif bTrace}
-    vThmImage := FSrcImage.GetThumbnailImage(ADX, ADY, nil, nil);
-   {$ifdef bTrace}
-//  TraceF('GetThumbnail time: %d ms, (%d x %d)', [TickCountDiff(GetTickCount, vTime), vThmImage.GetWidth, vThmImage.GetHeight]);
-   {$endif bTrace}
-    if (vThmImage = nil) or (vThmImage.GetLastStatus <> Ok) then begin
-      FreeObj(vThmImage);
-      Exit;
-    end;
-
-    try
-      FThumbSize.cx := vThmImage.GetWidth;
-      FThumbSize.cy := vThmImage.GetHeight;
-      FIsThumbnail := True;
-
-     {$ifdef bTrace}
-//    vTime := GetTickCount;
-//    TraceF('Thumb Render %d x %d...', [FThumbSize.cx, FThumbSize.cy]);
-     {$endif bTrace}
-      FThumbImage := TMemDC.Create(0, FThumbSize.cx, FThumbSize.cy);
-      vGraphics := TGPGraphics.Create(FThumbImage.FDC);
-      try
-        vGraphics.DrawImage(vThmImage, 0, 0, FThumbSize.cx, FThumbSize.cy);
-      finally
-        vGraphics.Free;
-      end;
-     {$ifdef bTrace}
-//    TraceF('  Ready. %d ms', [TickCountDiff(GetTickCount, vTime)]);
-     {$endif bTrace}
-
-      Result := True;
-
-    finally
-      FreeObj(vThmImage);
-    end;
-  end;
 
 
   procedure TView.SetAsyncTask(const ASize :TSize);
@@ -1401,8 +1634,10 @@ interface
     InitThumbnailThread;
 //  TraceF('SetAsyncTask %s...', [ExtractFileName(FSrcName)]);
 
-    FAsyncTask := TTask.CreateEx(FSrcName, FFrame, ASize);
+    FAsyncTask := TTask.CreateEx({$ifdef bShareImage}FSrcImage,{$endif bShareImage} FSrcName, FFrame, ASize);
     FAsyncTask.FOrient := FOrient;
+    if FHasAlpha then
+      FAsyncTask.FBackColor := GBackColor;
     FAsyncTask.FOnTask := TaskEvent;
     FAsyncTask._AddRef;
 
@@ -1415,9 +1650,12 @@ interface
     Result := False;
     if FAsyncTask <> nil then begin
       if GThumbThread.CheckTask(FAsyncTask) then begin
-        FreeObj(FThumbImage);
 
-        FThumbImage  := FAsyncTask.FThumb;
+        if FAsyncTask.FThumb <> nil then begin
+          FreeObj(FThumbImage);
+          FThumbImage  := FAsyncTask.FThumb;
+        end;
+        
         FThumbSize   := FAsyncTask.FSize;
         FErrorMess   := FAsyncTask.FError;
         FIsThumbnail := False;
@@ -1472,11 +1710,15 @@ interface
           FHiQual := True;
           InvalidateRect(FWnd, nil, False);
         end;
+
+        if (FTmpTime <> 0) and (TickCountDiff(GetTickCount, FTmpTime) > TmpMessageDelay) then begin
+          InvalidateRect(FWnd, nil, False);
+        end;
       end;
 
       if (FWnd = 0) and ((FThumbImage = nil) or FIsThumbnail) and (TickCountDiff(GetTickCount, GLastPaint1) > FastListDelay) then begin
         if (FViewStart <> 0) and (TickCountDiff(GetTickCount, FViewStart) > PrecacheDelay) then begin
-          { Опережающее декодировани (размере эскиза прогнозируем из расчета того что он вписывается в экран...) }
+          { Опережающее декодировани (размер эскиза прогнозируем из расчета того что он вписывается в экран...) }
           FViewStart := 0;
           vSize := FImgSize;
           CorrectBoundEx(vSize, GWinSize);
@@ -1490,6 +1732,26 @@ interface
   end;
 
 
+  procedure TView.SetSmoothMode(AOn :Boolean);
+  begin
+    GSmoothMode := AOn;
+    SetTmpMess( 'Smooth mode: ' + StrIf(AOn, 'On', 'Off') );
+    FFirstDraw := True;
+  end;
+
+
+  procedure TView.SetTmpMess(const AMess :TString);
+  begin
+    FTmpMess := AMess;
+    FTmpTime := GetTickCount;
+    if FWnd <> 0 then
+      InvalidateRect(FWnd, nil, False);
+  end;
+
+
+
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
  {-----------------------------------------------------------------------------}
 
   function CreateView(const AName :TString) :TView;
@@ -1497,11 +1759,14 @@ interface
     vImage :TGPImageEx;
   begin
     Result := nil;
+
 //  TraceF('TGPImageEx.Create: %s...', [AName]);
     vImage := TGPImageEx.Create(AName);
 //  TraceF('  Done. Status=%d', [Byte(vImage.GetLastStatus)]);
+
     if vImage.GetLastStatus = Ok then begin
       Result := TView.Create;
+//    TraceF('%p TView.Create: %s', [Pointer(Result), AName]);
       Result.SetSrcImage(vImage);
       Result.FSrcName := AName;
     end else
@@ -1528,12 +1793,134 @@ interface
 
 
  {-----------------------------------------------------------------------------}
+ { Hook                                                                        }
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bHookWindow}
+
+  var
+    ModifiedView :TView;
+
+  procedure SetModifiewdView(AView :TView);
+  begin
+    if ModifiedView <> AView then begin
+      if ModifiedView <> nil then
+        ModifiedView._Release;
+      ModifiedView := AView;
+      if ModifiedView <> nil then
+        ModifiedView._AddRef;
+    end;
+  end;
+
+
+  const
+    DMSG_KEYBOARD = WM_APP;
+
+  type
+    TWndProc = function(HWindow :HWnd; Msg :UINT; WParam :WPARAM; LParam :LPARAM) :LRESULT; stdcall;
+
+  var
+    FDefProc :TWndProc;
+
+
+
+  function MyWndProc(HWindow :HWnd; Msg :UINT; WParam :WPARAM; LParam :LPARAM) :LRESULT; stdcall;
+
+    procedure LocRotate(AOrient :Integer);
+    begin
+      if not ActiveView.FDirectDraw then begin
+        if ActiveView.Rotate(AOrient) then begin
+          SetModifiewdView(ActiveView);
+          PostMessage(HWindow, DMSG_KEYBOARD, VK_F5, 0);
+        end;  
+      end else
+      begin
+        ActiveView.SetTmpMess( strCantRotateAnimated );
+        Beep;
+      end;
+    end;
+
+    procedure LocSave(Alt :Boolean);
+    var
+      vExif :Boolean;
+    begin
+      vExif := SaveRotateEXIF;
+      if Alt then
+        vExif := not vExif;
+      if ActiveView.Save(HWindow, vExif, SHIFT_PRESSED and LParam <> 0) then begin
+        SetModifiewdView(nil);
+        PostMessage(HWindow, DMSG_KEYBOARD, VK_F5, 0);
+      end;
+    end;
+
+  var
+    vDefProc :TWndProc;
+  begin
+    vDefProc := FDefProc;
+
+    if (Msg = DMSG_KEYBOARD) and (ActiveView <> nil) then begin
+//    TraceF('Key: %d', [WParam]);
+
+      if (RIGHT_CTRL_PRESSED + LEFT_CTRL_PRESSED) and LParam <> 0 then begin
+        case WParam of
+          VK_Insert, byte('C'):
+            Beep;
+          byte('T'):
+            ActiveView.SetSmoothMode(not GSmoothMode);
+//        190 : LocRotate(1); { > - Поворот по часовой }
+//        188 : LocRotate(2); { < - Поворот против часовой }
+          190 : LocRotate(3); { [ - X-Flip }
+          188 : LocRotate(4); { ] - Y-Flip }
+        end;
+
+      end else
+      if (RIGHT_ALT_PRESSED + LEFT_ALT_PRESSED) and LParam <> 0 then begin
+
+        case WParam of
+          VK_F2:
+            LocSave(True);
+        end;
+
+      end else
+      if (RIGHT_CTRL_PRESSED + LEFT_CTRL_PRESSED + RIGHT_ALT_PRESSED + LEFT_ALT_PRESSED) and LParam = 0 then begin
+
+        case WParam of
+          VK_F2:
+            LocSave(False);
+          190 : LocRotate(1); { > - Поворот по часовой }
+          188 : LocRotate(2); { < - Поворот против часовой }
+        end;
+
+      end;
+
+    end else
+    if Msg = WM_NCDestroy then begin
+//    Trace('WM_NCDestroy...');
+
+    end;
+
+    Result := vDefProc(HWindow, Msg, WParam, LParam);
+  end;
+
+
+  procedure SetWindowHook(AWnd :THandle);
+  begin
+    FDefProc := Pointer(GetWindowLongPtr(AWnd, GWL_WNDPROC));
+    SetWindowLongPtr(AWnd, GWL_WNDPROC, TIntPtr(@MyWndProc));
+  end;
+
+ {$endif bHookWindow}
+
+
+ {-----------------------------------------------------------------------------}
  { Экспортируемые функции                                                      }
  {-----------------------------------------------------------------------------}
 
   function pvdInit2(pInit :PPVDInitPlugin2) :integer; stdcall;
   begin
-//  Trace('pvdInit2');
+   {$ifdef bTracePvd}
+    Trace('pvdInit2');
+   {$endif bTracePvd}
     GRegPath := pInit.pRegKey;
     ReadSettings(GRegPath);
     Result := PVD_UNICODE_INTERFACE_VERSION;
@@ -1542,7 +1929,9 @@ interface
 
   procedure pvdExit2(pContext :Pointer); stdcall;
   begin
-//  Trace('pvdExit2');
+   {$ifdef bTracePvd}
+    Trace('pvdExit2');
+   {$endif bTracePvd}
     DoneIdleThread;
     DoneThumbnailThread;
   end;
@@ -1550,25 +1939,31 @@ interface
 
   procedure pvdPluginInfo2(pPluginInfo :PPVDInfoPlugin2); stdcall;
   begin
-//  Trace('pvdPluginInfo2');
+   {$ifdef bTracePvd}
+    Trace('pvdPluginInfo2');
+   {$endif bTracePvd}
     pPluginInfo.pName := 'GDIPlus';
     pPluginInfo.pVersion := '1.0';
     pPluginInfo.pComments := '(c) 2009, Maxim Rusov';
-    pPluginInfo.Flags := PVD_IP_DECODE or PVD_IP_DISPLAY or PVD_IP_PRIVATE;
+    pPluginInfo.Flags := PVD_IP_DECODE or PVD_IP_DISPLAY or PVD_IP_PRIVATE or PVD_IP_CANREFINE{???};
     pPluginInfo.Priority := $0F00;
   end;
 
 
   procedure pvdReloadConfig2(pContext :Pointer); stdcall;
   begin
-//  Trace('pvdReloadConfig2');
+   {$ifdef bTracePvd}
+    Trace('pvdReloadConfig2');
+   {$endif bTracePvd}
     ReadSettings(GRegPath);
   end;
 
 
   procedure pvdGetFormats2(pContext :Pointer; pFormats :PPVDFormats2); stdcall;
   begin
-//  Trace('pvdGetFormats2');
+   {$ifdef bTracePvd}
+    Trace('pvdGetFormats2');
+   {$endif bTracePvd}
     pFormats.pSupported := 'JPG,JPEG,JPE,PNG,GIF,TIF,TIFF,EXIF,BMP,DIB,EMF,WMF'; // '*';
     pFormats.pIgnored := '';
   end;
@@ -1578,9 +1973,22 @@ interface
   var
     vView :TView;
   begin
-//  TraceF('pvdFileOpen2: %s', [pFileName]);
+   {$ifdef bTracePvd}
+    TraceF('pvdFileOpen2: %s', [pFileName]);
+   {$endif bTracePvd}
     Result := False;
-    vView := CreateView(pFileName);
+
+    vView := nil;
+   {$ifdef bHookWindow}
+    if (ModifiedView <> nil) and StrEqual(ModifiedView.FSrcName, pFileName) then begin
+      vView := ModifiedView;
+      vView.ReinitImage;
+    end;
+   {$endif bHookWindow}
+
+    if vView = nil then
+      vView := CreateView(pFileName);
+
     if vView <> nil then begin
 
       pImageInfo.nPages := vView.FFrames;
@@ -1589,6 +1997,9 @@ interface
           pImageInfo.Flags := PVD_IIF_ANIMATED
         else
           {pImageInfo.Flags := PVD_IIF_MAGAZINE};
+
+      if vView.FFmtName <> '' then
+        pImageInfo.pFormatName := PTChar(vView.FFmtName);
 
       pImageInfo.pImageContext := vView;
       vView._AddRef;
@@ -1601,7 +2012,9 @@ interface
 
   function pvdPageInfo2(pContext :Pointer; pImageContext :Pointer; pPageInfo :PPVDInfoPage2) :BOOL; stdcall;
   begin
-//  TraceF('pvdPageInfo2: ImageContext=%p', [pImageContext]);
+   {$ifdef bTracePvd}
+    TraceF('pvdPageInfo2: ImageContext=%p, Frame=%d', [pImageContext, pPageInfo.iPage]);
+   {$endif bTracePvd}
     with TView(pImageContext) do begin
 
       SetFrame(pPageInfo.iPage);
@@ -1625,12 +2038,14 @@ interface
 
   function pvdPageDecode2(pContext :Pointer; pImageContext :Pointer; pDecodeInfo :PPVDInfoDecode2; DecodeCallback :TPVDDecodeCallback2; pDecodeCallbackContext :Pointer) :BOOL; stdcall;
   begin
-//  TraceF('pvdPageDecode2: ImageContext=%p; Size=%d x %d', [pImageContext, pDecodeInfo.lWidth, pDecodeInfo.lHeight]);
+   {$ifdef bTracePvd}
+    TraceF('pvdPageDecode2: ImageContext=%p, Frame=%d, Size=%d x %d', [pImageContext, pDecodeInfo.iPage, pDecodeInfo.lWidth, pDecodeInfo.lHeight]);
+   {$endif bTracePvd}
     with TView(pImageContext) do begin
 //    TraceF('pvdPageDecode2: %s', [FSrcName]);
 
       if UseThumbnail = not (GetKeyState(VK_Shift) < 0) then
-        if not FDirectDraw and (FFrames = 1) then
+        if not FDirectDraw and (FFrames = 1) and (FThumbImage = nil) then
           InitThumbnail(0, 0 {cThumbSize, cThumbSize} );
 
 //    if (FFrames = 1) {???} then
@@ -1643,6 +2058,12 @@ interface
 
       pDecodeInfo.Flags := PVD_IDF_READONLY or PVD_IDF_PRIVATE_DISPLAY;
       pDecodeInfo.pImage := pImageContext;
+
+      if not FDirectDraw and (FFrames = 1) then
+        ReleaseSrcImage { Больше не понадобится... }
+      else
+        { FullCache... };
+
       Result := True;
     end;
   end;
@@ -1650,13 +2071,17 @@ interface
 
   procedure pvdPageFree2(pContext :Pointer; pImageContext :Pointer; pDecodeInfo :PPVDInfoDecode2); stdcall;
   begin
-//  Trace('pvdPageFree2');
+   {$ifdef bTracePvd}
+    Trace('pvdPageFree2');
+   {$endif bTracePvd}
   end;
 
 
   procedure pvdFileClose2(pContext :Pointer; pImageContext :Pointer); stdcall;
   begin
-//  Trace('pvdFileClose2');
+   {$ifdef bTracePvd}
+    Trace('pvdFileClose2');
+   {$endif bTracePvd}
     if pImageContext <> nil then
       TView(pImageContext)._Release;
   end;
@@ -1667,7 +2092,13 @@ interface
   // Инициализация контекста дисплея. Используется тот pContext, который был получен в pvdInit2
   function pvdDisplayInit2(pContext :Pointer; pDisplayInit :PPVDInfoDisplayInit2) :BOOL; stdcall;
   begin
-//  TraceF('pvdDisplayInit2: Context=%p; hWND=%d', [pContext, pDisplayInit.hWND]);
+   {$ifdef bTracePvd}
+    TraceF('pvdDisplayInit2: Context=%p; hWND=%d', [pContext, pDisplayInit.hWND]);
+   {$endif bTracePvd}
+   {$ifdef bHookWindow}
+    if EnableHook then
+      SetWindowHook(pDisplayInit.hWND);
+   {$endif bHookWindow}
     Result := True;
   end;
 
@@ -1675,7 +2106,9 @@ interface
   // Прицепиться или отцепиться от окна вывода
   function pvdDisplayAttach2(pContext :Pointer; pDisplayAttach :PPVDInfoDisplayAttach2) :BOOL; stdcall;
   begin
-//  TraceF('pvdDisplayAttach2: Attach=%d, Wnd=%d', [Byte(pDisplayAttach.bAttach), pDisplayAttach.hWnd]);
+   {$ifdef bTracePvd}
+    TraceF('pvdDisplayAttach2: Attach=%d, Wnd=%d', [Byte(pDisplayAttach.bAttach), pDisplayAttach.hWnd]);
+   {$endif bTracePvd}
     Result := True;
   end;
 
@@ -1685,7 +2118,9 @@ interface
   var
     vView :TView;
   begin
-//  TraceF('pvdDisplayCreate2: Context=%p', [pContext]);
+   {$ifdef bTracePvd}
+    TraceF('pvdDisplayCreate2: Context=%p', [pContext]);
+   {$endif bTracePvd}
     vView := pDisplayCreate.pImage.pImage;
     pDisplayCreate.pDisplayContext := vView;
     vView._AddRef;
@@ -1698,7 +2133,9 @@ interface
   var
     vView :TView;
   begin
+   {$ifdef bTracePvd}
 //  TraceF('pvdDisplayPaint2: DisplayContext=%p, hWnd=%d, Operation=%d', [pDisplayContext, pDisplayPaint.hWnd, pDisplayPaint.Operation]);
+   {$endif bTracePvd}
     vView := pDisplayContext;
     SetActiveView(vView);
     case pDisplayPaint.Operation of
@@ -1713,6 +2150,7 @@ interface
         vView.EndDraw(pDisplayPaint.hWnd);
     end;
     Result := True;
+//  Trace('..pvdDisplayPaint2 done');
   end;
 
 
@@ -1721,7 +2159,9 @@ interface
   var
     vView :TView;
   begin
-//  TraceF('pvdDisplayClose2: DisplayContext=%p', [pDisplayContext]);
+   {$ifdef bTracePvd}
+    TraceF('pvdDisplayClose2: DisplayContext=%p', [pDisplayContext]);
+   {$endif bTracePvd}
     vView := pDisplayContext;
     if vView <> nil then begin
       if vView = ActiveView then
@@ -1734,7 +2174,12 @@ interface
   // Закрыть модуль вывода (освобождение интерфейсов DX, отцепиться от окна)
   procedure pvdDisplayExit2(pContext :Pointer); stdcall;
   begin
-//  Trace('pvdDisplayExit2');
+   {$ifdef bTracePvd}
+    Trace('pvdDisplayExit2');
+   {$endif bTracePvd}
+   {$ifdef bHookWindow}
+    SetModifiewdView(nil);
+   {$endif bHookWindow}
     DoneIdleThread;
   end;
 
