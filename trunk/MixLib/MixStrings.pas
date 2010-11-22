@@ -108,6 +108,7 @@ interface
   function ExtractFileName(const FileName :TString) :TString;
   function ExtractFilePath(const FileName :TString) :TString;
   function ExtractFileDrive(const FileName :TString) :TString;
+  function ChangeFileExtension(const FileName, Extension :TString) :TString;
   function SafeChangeFileExtension(const FileName, Extension :TString) :TString;
   function ExtractRelativePath(const BaseName, DestName :TString) :TString;
 
@@ -1189,6 +1190,23 @@ interface
     Buffer :array[0..MAX_PATH - 1] of TChar;
   begin
     SetString(Result, Buffer, GetFullPathName(PTChar(FileName), MAX_PATH, Buffer, FName));
+  end;
+
+
+  function ChangeFileExtension(const FileName, Extension :TString) :TString;
+  var
+    I :Integer;
+  begin
+    Result := FileName;
+    if FileName <> '' then begin
+      I := ChrsLastPos(['.', '\', ':'], Filename);
+      if (I = 0) or (FileName[I] <> '.') then
+        I := MaxInt;
+      if Extension <> '' then
+        Result := Copy(FileName, 1, I - 1) + '.' + Extension
+      else
+        Result := Copy(FileName, 1, I - 1);
+    end;
   end;
 
 
