@@ -42,6 +42,7 @@ interface
   procedure TraceFW(const AMsg :TWideStr; const Args: array of const);
 
   procedure TraceBeg(const AMsg :TString);
+  procedure TraceBegF(const AMsg :TString; const Args: array of const);
   procedure TraceEnd(const AMsg :TString);
  {$endif bTrace}
 
@@ -437,6 +438,12 @@ interface
   procedure TraceBeg(const AMsg :TString);
   begin
     Trace(AMsg);
+    gStart := GetTickCount;
+  end;
+
+  procedure TraceBegF(const AMsg :TString; const Args: array of const);
+  begin
+    TraceF(AMsg, Args);
     gStart := GetTickCount;
   end;
 
