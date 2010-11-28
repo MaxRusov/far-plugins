@@ -15,11 +15,26 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/MoreHistoryW.v9.rar MoreHistory 1.0.9 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/MoreHistoryW.v10.rar MoreHistory 1.0.10 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/MoreHistoryW.x64.v10.rar MoreHistory 1.0.10 for FAR 2 x64]
 
 ----
 
 = История изменений =
+
+
+==Ver 1.0.10==
+
+ * При фильтрации автоматически применяется XLAT преобразование и идет поиск обоих вариантов набранного фильтра, т. е. не требуется переключение языка ввода, чтобы найти имена папок на русском (например) языке. 
+   
+  Опция может быть отключена в меню настроек
+
+ * Опция: "Запоминать последний фильтр" (по умолчанию выключена)
+
+ * Расширенное меню настроек.
+
+ * Исправлено несколько ошибок 
+
 
 ==Ver 1.0.9==
 
