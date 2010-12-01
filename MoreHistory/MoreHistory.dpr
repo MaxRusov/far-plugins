@@ -20,11 +20,13 @@ exports
   SetStartupInfoW,
   GetPluginInfoW,
   OpenPluginW,
+  ConfigureW,
   ExitFARW;
  {$else}
   SetStartupInfo,
   GetPluginInfo,
   OpenPlugin,
+  Configure,
   ExitFAR;
  {$endif bUnicodeFar}
 

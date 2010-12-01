@@ -30,7 +30,9 @@ interface
     FarCtrl,
     FarMatch,
     FarDlg,
+    FarMenu,
     FarGrid,
+    FarListDlg,
 
     MoreHistoryCtrl,
     MoreHistoryClasses,
@@ -39,7 +41,7 @@ interface
 
 
   type
-    TMenuDlg = class(TListBase)
+    TMenuDlg = class(TFarListDlg)
     public
       constructor Create; override;
       destructor Destroy; override;
@@ -55,17 +57,6 @@ interface
       procedure InitDialog; override;
       function CloseDialog(ItemID :Integer) :Boolean; override;
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
-
-    protected
-      procedure SelectItem(ACode :Integer); override;
-
-      procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean); override;
-      function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; override;
-      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer); override;
-      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); override;
-
-      procedure UpdateHeader; override;
-      procedure ReinitGrid; override;
 
     private
       FMode           :Integer;
@@ -90,6 +81,15 @@ interface
       FResStr         :TString;
       FResCmd         :Integer;
 
+      procedure SelectItem(ACode :Integer);
+
+      procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
+      function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
+      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
+      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+
+      procedure UpdateHeader;
+      procedure ReinitGrid;
       procedure ReinitAndSaveCurrent;
       function HistToDlgIndex(AHist :THistoryEntry) :Integer;
 
@@ -102,14 +102,15 @@ interface
       function CurrentHistPath :TString;
       function DlgItemSelected(AIndex :Integer) :Boolean;
 
-      procedure OptionsDlg;
-      procedure SortByDlg;
+      procedure CommandsMenu;
+      procedure SortByMenu;
+
+    public
+      property Grid :TFarGrid read FGrid;
     end;
 
 
-
   procedure OpenHistoryDlg(const AModeName :TString; AMode :Integer; const AFilter :TString);
-
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -117,6 +118,7 @@ interface
 
   uses
     MixDebug;
+
 
  {-----------------------------------------------------------------------------}
 
@@ -142,6 +144,7 @@ interface
     else
       Result := 14;
   end;
+
 
 
  {-----------------------------------------------------------------------------}
@@ -171,13 +174,22 @@ interface
   begin
     inherited Prepare;
     FHelpTopic := 'HistoryList';
+
+    FGrid.OnCellClick := GridCellClick;
+    FGrid.OnGetCellText := GridGetDlgText;
+    FGrid.OnGetCellColor := GridGetCellColor;
+    FGrid.OnPaintCell := GridPaintCell;
+    FGrid.Options := [{goRowSelect} {,goFollowMouse} {,goWheelMovePos}];
   end;
 
 
   procedure TMenuDlg.InitDialog; {override;}
   begin
+    SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
+
     FDomain := #0;
-    inherited InitDialog;
+    ReinitGrid;
+
     if FReversed then
       SetCurrent(FFilter.Count - 1, lmSafe)
     else begin
@@ -193,7 +205,8 @@ interface
   begin
     vStr := GetFilter;
     if vStr <> '' then
-      AddStrInHistory(cHilterHistName, vStr);
+      AddToHistory(cHilterHistName, vStr);
+    FLastFilter := vStr;
     Result := True;
   end;
 
@@ -267,17 +280,17 @@ interface
         if ACol = -1 then begin
           AColor := FGrid.NormColor;
           if vRec.FSel and 1 <> 0 then
-            AColor := FSelectedColor;
+            AColor := optSelectedColor;
           if (FGrid.CurRow = ARow) and (FGrid.CurCol = 0) then
             AColor := FGrid.SelColor;
         end else
         begin
           if (vRec.FSel and 2 <> 0) then begin
             if AColor <> FGrid.SelColor then
-              AColor := (AColor and not $0F) or (FGroupColor and $0F)
+              AColor := (AColor and not $0F) or (optGroupColor and $0F)
           end else
           if not IsFinal {and not vRec.FSel} then
-            AColor := (AColor and not $0F) or (FHiddenColor and $0F)
+            AColor := (AColor and not $0F) or (optHiddenColor and $0F)
         end;
 
       end;
@@ -306,7 +319,7 @@ interface
         LocDrawPart(AChr, AWidth, AWidth, AColor)
       else begin
         LocDrawPart(AChr, AWidth, APos, AColor);
-        LocDrawPart(AChr, AWidth, ALen, (AColor and not $0F) or (FFoundColor and $0F) );
+        LocDrawPart(AChr, AWidth, ALen, (AColor and not $0F) or (optFoundColor and $0F) );
         LocDrawPart(AChr, AWidth, AWidth, AColor);
       end;
     end;
@@ -357,7 +370,7 @@ interface
 
       procedure LocPrepare(const AMask :TString);
       begin
-        vFilters.Add(TFilterMask.CreateEx(AMask, False));
+        vFilters.Add(TFilterMask.CreateEx(AMask, optXLatMask, False));
       end;
 
     var
@@ -574,7 +587,7 @@ interface
     vHist :THistoryEntry;
     vIndex :Integer;
   begin
-    SendMsg(DM_ENABLEREDRAW, 0, 0);
+//  SendMsg(DM_ENABLEREDRAW, 0, 0);
     try
       vHist := nil;
       vIndex := FGrid.CurRow;
@@ -589,7 +602,9 @@ interface
 
       ReinitGrid;
 
-      vIndex := HistToDlgIndex(vHist);
+      vIndex := -1;
+      if vHist <> nil then
+        vIndex := HistToDlgIndex(vHist);
       if vIndex < 0 then begin
         vIndex := 0;
         if FReversed then
@@ -598,7 +613,7 @@ interface
       SetCurrent( vIndex, lmCenter );
 //    UpdateHeader; { Чтобы не стирался SortMark}
     finally
-      SendMsg(DM_ENABLEREDRAW, 1, 0);
+//    SendMsg(DM_ENABLEREDRAW, 1, 0);
     end;
   end;
 
@@ -750,25 +765,10 @@ interface
 
   procedure TMenuDlg.QueryFilter;
   var
-    vRes :Integer;
     vFilter :TFarStr;
-    vStr :array[0..1024] of TFarChar;
   begin
     vFilter := GetFilter;
-
-    FillChar(vStr, SizeOf(vStr), 0);
-    vRes := FARAPI.InputBox(
-      GetMsg(strTitle),
-      'Filter:',
-      cHilterHistName,
-      PFarChar(vFilter),
-      @vStr[0],
-      1024,
-      nil,
-      FIB_BUTTONS or FIB_NOUSELASTHISTORY or FIB_ENABLEEMPTY);
-      
-    if vRes = 1 then begin
-      vFilter := vStr;
+    if FarInputBox(GetMsg(strFilterTitle), GetMsg(strFilterPrompt), vFilter, FIB_BUTTONS or FIB_NOUSELASTHISTORY or FIB_ENABLEEMPTY, cHilterHistName) then begin
       SetFilter(vFilter);
       ReinitAndSaveCurrent;
       FreeObj(FFilterHist);
@@ -778,127 +778,97 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure TMenuDlg.OptionsDlg;
-  const
-    cMenuCount = 12;
+  procedure TMenuDlg.CommandsMenu;
   var
-    vRes, I :Integer;
-    vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
+    vMenu :TFarMenu;
   begin
-    vItems := MemAllocZero(cMenuCount * SizeOf(TFarMenuItemEx));
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strCommandsTitle),
+    [
+      GetMsg(strMShowHidden),
+      GetMsg(strMGroupBy),
+      '',
+      GetMsg(strMAccessTime),
+      GetMsg(strMHitCount),
+      '',
+      GetMsg(strMSortBy),
+      GetMsg(strMOptions)
+    ]);
     try
-      vItem := @vItems[0];
-      SetMenuItemChrEx(vItem, GetMsg(strMShowHidden));
-      SetMenuItemChrEx(vItem, GetMsg(strMGroupBy));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(strMAccessTime));
-      SetMenuItemChrEx(vItem, GetMsg(strMHitCount));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(strMSortBy));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(strMShowHints));
-      SetMenuItemChrEx(vItem, GetMsg(strMFollowMouse));
-      SetMenuItemChrEx(vItem, GetMsg(strMWrapMode));
-      SetMenuItemChrEx(vItem, GetMsg(strMHideCurrent));
-
-      vRes := 0;
       while True do begin
-        vItems[0].Flags := SetFlag(0, MIF_CHECKED1, optShowHidden);
-        vItems[1].Flags := SetFlag(0, MIF_CHECKED1, optHierarchical);
+        vMenu.Checked[0] := optShowHidden;
+        vMenu.Checked[1] := optHierarchical;
 
-        vItems[3].Flags := SetFlag(0, MIF_CHECKED1, optShowDate);
-        vItems[4].Flags := SetFlag(0, MIF_CHECKED1, optShowHits);
+        vMenu.Checked[3] := optShowDate;
+        vMenu.Checked[4] := optShowHits;
 
-        vItems[8].Flags := SetFlag(0, MIF_CHECKED1, optShowHints);
-        vItems[9].Flags := SetFlag(0, MIF_CHECKED1, optFollowMouse);
-        vItems[10].Flags := SetFlag(0, MIF_CHECKED1, optWrapMode);
-        vItems[11].Flags := SetFlag(0, MIF_CHECKED1, optHideCurrent);
+        vMenu.SetSelected(vMenu.ResIdx);
 
-        for I := 0 to cMenuCount - 1 do
-          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
-
-        vRes := FARAPI.Menu(hModule, -1, -1, 0,
-          FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strOptionsTitle),
-          '',
-          '',
-          nil, nil,
-          Pointer(vItems),
-          cMenuCount);
-
-        if vRes = -1 then
+        if not vMenu.Run then
           Exit;
 
-        case vRes of
+        case vMenu.ResIdx of
           0 : ToggleOption(optShowHidden);
           1 : ChangeHierarchMode; {ToggleOption(optHierarchical);}
 
           3 : ToggleOption(optShowDate);
           4 : ToggleOption(optShowHits);
 
-          6 : SortByDlg;
-
-          8 : ToggleOption(optShowHints);
-          9 : ToggleOption(optFollowMouse);
-          10: ToggleOption(optWrapMode);
-          11: ToggleOption(optHideCurrent);
+          6 : SortByMenu;
+          7 :
+          begin
+            OptionsMenu;
+            ReinitAndSaveCurrent;
+          end;  
         end;
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
 
-  procedure TMenuDlg.SortByDlg;
-  const
-    cSortMenuCount = 4;
+  procedure TMenuDlg.SortByMenu;
   var
+    vMenu :TFarMenu;
     vRes :Integer;
     vChr :TChar;
-    vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
   begin
-    vItems := MemAllocZero(cSortMenuCount * SizeOf(TFarMenuItemEx));
-    try
-      vItem := @vItems[0];
-      SetMenuItemChrEx(vItem, GetMsg(strMByName));
-      SetMenuItemChrEx(vItem, GetMsg(strMByAccessTime));
-      SetMenuItemChrEx(vItem, GetMsg(strMByHitCount));
-      SetMenuItemChrEx(vItem, GetMsg(strMUnsorted));
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strSortByTitle),
+    [
+      GetMsg(strMByName),
+      GetMsg(strMByAccessTime),
+      GetMsg(strMByHitCount),
+      GetMsg(strMUnsorted)
+    ]);
 
+    try
       vRes := Abs(optSortMode) - 1;
       if vRes = -1 then
         vRes := 3;
       vChr := '+';
       if optSortMode < 0 then
         vChr := '-';
-      vItems[vRes].Flags := SetFlag(0, MIF_CHECKED or Word(vChr), True);
+      vMenu.Items[vRes].Flags := SetFlag(0, MIF_CHECKED or Word(vChr), True);
 
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        GetMsg(strSortByTitle),
-        '',
-        '',
-        nil, nil,
-        Pointer(vItems),
-        cSortMenuCount);
+      if not vMenu.Run then
+        Exit;
 
-      if vRes <> -1 then begin
-        Inc(vRes);
-        if vRes = 4 then
-          vRes := 0;
-        if vRes >= 2 then
-          vRes := -vRes;
-        SetOrder(vRes);
-      end;
+      vRes := vMenu.ResIdx;
+      Inc(vRes);
+      if vRes = 4 then
+        vRes := 0;
+      if vRes >= 2 then
+        vRes := -vRes;
+      SetOrder(vRes);
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
+
 
  {-----------------------------------------------------------------------------}
 
@@ -950,7 +920,7 @@ interface
       vStr :TString;
     begin
       if FSelectedCount = 0 then
-        CopyToClipboard(CurrentHistPath)
+        FarCopyToClipboard(CurrentHistPath)
       else begin
         vStr := '';
         for I := 0 to FGrid.RowCount - 1 do begin
@@ -958,7 +928,7 @@ interface
             with GetHistoryEntry(I) do
               vStr := AppendStrCh(vStr, Path, #13#10);
         end;
-        CopyToClipboard(vStr);
+        FarCopyToClipboard(vStr);
       end;
     end;
 
@@ -1180,15 +1150,17 @@ interface
       DN_KEY: begin
 //      TraceF('Key = %d', [Param2]);
         case Param2 of
-          KEY_ENTER:
+          KEY_ENTER, KEY_NUMENTER:
             SelectItem(1);
-          KEY_CTRLENTER:
+          KEY_CTRLENTER, KEY_CTRL + KEY_NUMENTER:
             SelectItem(2);
-          KEY_CTRLPGDN:
-            {???};
 
           KEY_F2:
-            OptionsDlg;
+            CommandsMenu;
+          KEY_F9: begin
+            OptionsMenu;
+            ReinitAndSaveCurrent;
+          end;
 
           { Выделение }
           KEY_INS:
@@ -1251,7 +1223,7 @@ interface
           KEY_CTRLF11:
             SetOrder(0);
           KEY_CTRLF12:
-            SortByDlg;
+            SortByMenu;
 
           { Фильтрация }
           KEY_DEL, KEY_ALT, KEY_RALT:
@@ -1301,10 +1273,12 @@ interface
   var
     vMenuLock :Integer;
 
+
   procedure OpenHistoryDlg(const AModeName :TString; AMode :Integer; const AFilter :TString);
   var
     vDlg :TMenuDlg;
     vFinish :Boolean;
+    vFilter :TString;
   begin
     if vMenuLock > 0 then
       Exit;
@@ -1317,7 +1291,12 @@ interface
     try
       vDlg.FMode := AMode;
       vDlg.FModeName := AModeName;
-      vDlg.SetFilter(AFilter);
+
+      vFilter := AFilter;
+      if (vFilter = '') and optSaveMask then
+        vFilter := FLastFilter;
+      vDlg.SetFilter(vFilter);
+
       FarHistory.LoadModifiedHistory;
       FarHistory.AddCurrentToHistory;
 

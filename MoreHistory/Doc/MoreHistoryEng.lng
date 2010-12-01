@@ -30,16 +30,36 @@
 "&Access Time    Ctrl-2"
 "Hit &Count      Ctrl-3"
 "&Sort By...     Ctrl-F12"
-"Show H&ints"
+"&Options...     F9"
+
+"Options"
+"Show &Hints"
 "&Follow Mouse"
 "&Wrap Mode"
 "Hi&de Current"
+"&Auto XLat mask"
+"&Remember last mask"
+"&Exclusions..."
+"&Colors..."
+
+"Colors"
+"&1 Hidden color"
+"&2 Group color"
+"&3 Quick filter"
+"&4 Selected color"
+"&Restore Defaults"
 
 "Sort By"
 "&Name         Ctrl-F1"
 "&Access Time  Ctrl-F2"
 "&Hit count    Ctrl-F3"
 "&Unsorted     Ctrl-F11"
+
+"Filter"
+"Enter filter:"
+
+"Exclusions"
+"Enter excluding mask (several mask separated by "|"):"
 
 "Today"
 "Yesterday"
@@ -48,3 +68,10 @@
 "s"
 "s"
 "s"
+
+"Color"
+"Foreground"
+"Background"
+"Sample"
+"Set"
+"Cancel"

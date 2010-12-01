@@ -65,13 +65,14 @@ interface
 
     TFilterMask = class(TBasis)
     public
-      constructor CreateEx(const AMask :TString; AExact :Boolean);
+      constructor CreateEx(const AMask :TString; AXlat, AExact :Boolean);
       destructor Destroy; override;
       function Check(const AStr :TString; var APos, ALen :Integer) :Boolean;
 
     private
       FSubMasks :TObjList;
-      FMask     :TString;
+      FMask     :TString;  // Исходная маска
+      FXMask    :TString;  // Маска после XLat преобразования
       FExact    :Boolean;
       FRegExp   :Boolean;
       FNot      :Boolean;
@@ -109,10 +110,10 @@ interface
       FExclusions :TFilterMask;
       FModified   :Boolean;
       FLastTime   :Integer;
-      FForceAdd   :Boolean;
 
       function IsKnownPluginPath(const APath :TString) :Boolean;
       function ConvertPluginPath(const APath :TString) :TString;
+      procedure AddHistoryStr(const APath :TString; AFinal :Boolean);
       function CheckExclusion(const APath :TString) :Boolean;
       function GetHistoryFolder :TString;
       function GetItems(AIndex :Integer) :THistoryEntry;
@@ -366,7 +367,7 @@ interface
  { TFilterMask                                                                 }
  {-----------------------------------------------------------------------------}
 
-  constructor TFilterMask.CreateEx(const AMask :TString; AExact :Boolean);
+  constructor TFilterMask.CreateEx(const AMask :TString; AXlat, AExact :Boolean);
   var
     vPos :Integer;
     vStr :TString;
@@ -383,17 +384,21 @@ interface
       FRegExp := (ChrPos('*', FMask) <> 0) or (ChrPos('?', FMask) <> 0);
       if FRegExp and not AExact and (FMask[Length(FMask)] <> '*') {and (FMask[Length(FMask)] <> '?')} then
         FMask := FMask + '*';
+
+      if AXlat then
+        FXMask := FarXLatStr(FMask);
+
     end else
     begin
       FSubMasks := TObjList.Create;
       vStr := AMask;
       repeat
-        FSubMasks.Add( TFilterMask.CreateEx(Copy(vStr, 1, vPos - 1), AExact) );
+        FSubMasks.Add( TFilterMask.CreateEx(Copy(vStr, 1, vPos - 1), AXlat, AExact) );
         vStr := Copy(vStr, vPos + 1, MaxInt);
         vPos := ChrPos('|', vStr);
       until vPos = 0;
       if vStr <> '' then
-        FSubMasks.Add( TFilterMask.CreateEx(vStr, AExact) );
+        FSubMasks.Add( TFilterMask.CreateEx(vStr, AXlat, AExact) );
     end;
   end;
 
@@ -411,9 +416,9 @@ interface
   begin
     if FSubMasks = nil then begin
       if FExact then
-        Result := StringMatch(FMask, PWideChar(AStr), APos, ALen)
+        Result := StringMatch(FMask, FXMask, PTChar(AStr), APos, ALen)
       else
-        Result := CheckMask(FMask, AStr, FREgExp, APos, ALen);
+        Result := ChrCheckXMask(FMask, FXMask, PTChar(AStr), FRegExp, APos, ALen);
       if FNot then
         Result := not Result;
     end else
@@ -427,7 +432,7 @@ interface
     end;
   end;
 
-
+  
  {-----------------------------------------------------------------------------}
  { TFarHistory                                                                 }
  {-----------------------------------------------------------------------------}
@@ -538,7 +543,7 @@ interface
   procedure TFarHistory.InitExclusionList;
   begin
     if optExclusions <> '' then
-      FExclusions := TFilterMask.CreateEx( optExclusions, True );
+      FExclusions := TFilterMask.CreateEx( optExclusions, False, True );
   end;
 
 
@@ -561,8 +566,6 @@ interface
   procedure TFarHistory.AddHistory(const APath :TString; AFinal :Boolean);
   var
     vPath :TString;
-    vIndex :Integer;
-    vEntry :THistoryEntry;
   begin
     GLastAdded := '';
     if not IsFullFilePath(APath) and not IsKnownPluginPath(APath) then
@@ -574,13 +577,20 @@ interface
 
     GLastAdded := vPath;
 
+    AddHistoryStr(vPath, AFinal);
+  end;
+
+
+  procedure TFarHistory.AddHistoryStr(const APath :TString; AFinal :Boolean);
+  var
+    vIndex :Integer;
+    vEntry :THistoryEntry;
+  begin
     LockHistory;
     try
 //    TraceF('Add history: %s, %d', [APath, Byte(AFinal)]);
-      AFinal := AFinal or FForceAdd;
-      FForceAdd := False;
 
-      if FHistory.FindKey(Pointer(vPath), 0, [], vIndex) then begin
+      if FHistory.FindKey(Pointer(APath), 0, [], vIndex) then begin
 
         if not AFinal and optSkipTransit then
           { Транзитные папки не обновляются в истории...}
@@ -599,7 +609,7 @@ interface
 
       end else
       begin
-        vEntry := THistoryEntry.CreateEx(vPath);
+        vEntry := THistoryEntry.CreateEx(APath);
         if AFinal then begin
           vEntry.FFlags := vEntry.FFlags or hfFinal;
           Inc(vEntry.FHits);
@@ -620,11 +630,8 @@ interface
   begin
     LockHistory;
     try
-//    TraceF('Add history: %s', [APath]);
-
       FHistory.Delete(AIndex);
       FModified := True;
-
     finally
       UnlockHistory;
     end;
@@ -646,37 +653,9 @@ interface
  {-----------------------------------------------------------------------------}
 
   procedure TFarHistory.JumpToPath(const APath :TString);
-  var
-    vStr :TFarStr;
-    vMacro :TActlKeyMacro;
   begin
-    if IsFullFilePath(APath) then begin
-     {$ifdef bUnicodeFar}
-      FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETPANELDIR, 0, PFarChar(APath));
-     {$else}
-      vStr := StrAnsiToOEM(APath);
-      FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETPANELDIR, PFarChar(vStr));
-     {$endif bUnicodeFar}
-
-      AddCurrentToHistory;
-    end else
-    if True {IsKnownPluginPath(APath)} then begin
-     {$ifdef bUnicodeFar}
-      FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(APath));
-     {$else}
-      vStr := StrAnsiToOEM(APath);
-      FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, PFarChar(vStr));
-     {$endif bUnicodeFar}
-
-      vStr := 'Enter';
-      vMacro.Command := MCMD_POSTMACROSTRING;
-      vMacro.Param.PlainText.SequenceText := PFarChar(vStr);
-      vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
-      FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
-
-//    AddCurrentToHistory;  { Макрос исполнится только по завершению процедуры }
-      FForceAdd := True;
-    end;
+    AddHistoryStr( APath, True);
+    FarPanelJumpToPath(True, APath);
   end;
 
 

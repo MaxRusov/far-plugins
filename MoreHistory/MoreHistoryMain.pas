@@ -1,4 +1,4 @@
-{$I Defines.inc}       
+{$I Defines.inc}
 {$Typedaddress Off}
 
 unit MoreHistoryMain;
@@ -37,12 +37,15 @@ interface
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
   procedure ExitFARW; stdcall;
   function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
+  function ConfigureW(Item: integer) :Integer; stdcall;
  {$else}
   procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
   procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
   procedure ExitFAR; stdcall;
   function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
+  function Configure(Item: integer) :Integer; stdcall;
  {$endif bUnicodeFar}
+
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -279,10 +282,9 @@ interface
  {$endif bUnicodeFar}
   begin
 //  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
-
     hModule := psi.ModuleNumber;
-    Move(psi, FARAPI, SizeOf(FARAPI));
-    Move(psi.fsf^, FARSTD, SizeOf(FARSTD));
+    FARAPI := psi;
+    FARSTD := psi.fsf^;
 
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
     FRegRoot := psi.RootKey;
@@ -294,6 +296,7 @@ interface
 //  hConWindow := GetConsoleWindow;
 //  CanCheckWindow := GetConsoleWindow = hFarWindow;
 
+    RestoreDefColor;
     ReadSettings;
 
     FarHistory := TFarHistory.Create;
@@ -303,6 +306,7 @@ interface
 
   var
     PluginMenuStrings: array[0..0] of PFarChar;
+    ConfigMenuStrings: array[0..0] of PFarChar;
 
  {$ifdef bUnicodeFar}
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
@@ -318,6 +322,10 @@ interface
     PluginMenuStrings[0]:= GetMsg(strTitle);
     pi.PluginMenuStrings:= @PluginMenuStrings;
     pi.PluginMenuStringsNumber:= 1;
+
+    ConfigMenuStrings[0]:= GetMsg(strTitle);
+    pi.PluginConfigStrings := @ConfigMenuStrings;
+    pi.PluginConfigStringsNumber := 1;
 
     pi.CommandPrefix := PFarChar(MoreHistoryPrefix);
 
@@ -358,6 +366,24 @@ interface
         HandleError(E);
     end;
   end;
+
+
+ {$ifdef bUnicodeFar}
+  function ConfigureW(Item: integer) :Integer; stdcall;
+ {$else}
+  function Configure(Item: integer) :Integer; stdcall;
+ {$endif bUnicodeFar}
+  begin
+    Result := 1;
+    try
+      ReadSetup('');
+      OptionsMenu;
+    except
+      on E :Exception do
+        HandleError(E);
+    end;
+  end;
+
 
 
 initialization
