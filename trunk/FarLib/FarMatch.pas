@@ -7,7 +7,7 @@ unit FarMatch;
 {* (c) 2008 Max Rusov                                                         *}
 {*                                                                            *}
 {* FAR Library                                                                *}
-{* Вспомогательные интерфейсные процедуры                                     *}
+{* Поиск подстроки с поддержкой масок                                         *}
 {******************************************************************************}
 
 interface
@@ -19,13 +19,22 @@ interface
     MixStrings,
     FarCtrl;
 
+  type
+    TMatchOption = (
+      moIgnoreCase,  // Пока игнорируется
+      moWilcards,    // Пока игнорируется
+      moWithin,
+      moWordBegin
+    );
+    TMatchOptions = set of TMatchOption;
 
-  function StringMatch(const AMask :TString; AStr :PTChar; var APos, ALen :Integer) :Boolean;
 
+  function StringMatch(const AMask, AXMask :TString; AStr :PTChar; var APos, ALen :Integer; AOpt :TMatchOptions = [moIgnoreCase, moWilcards]) :Boolean;
+
+  function ChrCheckXMask(const AMask, AXMask :TString; AStr :PTChar; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
   function ChrCheckMask(const AMask :TString; AStr :PTChar; AStrLen :Integer; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
-  function CheckMask(const AMask, AStr :TString; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
+  function CheckMask(const AMask  :TString; const AStr :TString; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
 
-  
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -34,43 +43,73 @@ interface
     MixDebug;
 
 
-  function StringMatch(const AMask :TString; AStr :PTChar; var APos, ALen :Integer) :Boolean;
+  function StringMatch(const AMask, AXMask :TString; AStr :PTChar; var APos, ALen :Integer; AOpt :TMatchOptions = [moIgnoreCase, moWilcards]) :Boolean;
+
+    function ChrMatch(AStrI, AChr1, AChr2 :TChar) :Boolean;
+    begin
+      Result := (AStrI = AChr1) or (AStrI = AChr2);
+      if not Result then begin
+        AStrI := CharUpCase(AStrI);
+        Result := (AStrI = CharUpCase(AChr1)) or ((AChr1 <> AChr2) and (AStrI = CharUpCase(AChr2)));
+      end;
+    end;
+
+    function IsBegWord(AStrI :PTChar) :Boolean;
+    begin
+      Result := (AStrI = AStr) or (not IsCharAlphaNumeric((AStrI - 1)^) and IsCharAlphaNumeric(AStrI^));
+    end;
+
   var
-    vMsk, vStr, vMsk1, vStr1, vBeg :PTChar;
-    vChr :TChar;
+    vMsk, vXMsk, vStr, vMsk1, vXMsk1, vStr1, vBeg :PTChar;
+    vChr1, vChr2, vXChr1, vXChr2 :TChar;
+    vFromWord :Boolean;
   begin
     Result := False;
     APos := 0; ALen := 0;
 
-    vMsk := PTChar(AMask);
-    vStr := AStr;
+    vMsk  := PTChar(AMask);
+    if length(AMask) = length(AXMask) then
+      vXMsk := PTChar(AXMask)
+    else
+      vXMsk := vMsk;
+    vStr  := AStr;
 
-    { Сравнение с начальной частью маски, не содержащей "*" или "!" }
-    while (vMsk^ <> #0) and (vMsk^ <> '*') do begin
-      if (vStr^ = #0) or not {ChrMatch(vMsk^, vStr^)} ((vMsk^ = '?') or (vMsk^ = vStr^) or (CharUpCase(vMsk^) = CharUpCase(vStr^))) then
-        Exit;
-      inc(vMsk);
-      inc(vStr);
-    end;
+    if not (moWithin in AOpt) then begin
 
-    if vMsk^ = #0 then begin
-      { Маска не содержит wildcard'ов }
-      if vStr^ = #0 then begin
-        ALen := vStr - PTChar(AStr);
-        Result := True;
+      { Сравнение с начальной частью маски, не содержащей "*" или "?" }
+      while (vMsk^ <> #0) and (vMsk^ <> '*') do begin
+        if (vStr^ = #0) or not ((vMsk^ = '?') or ChrMatch(vStr^, vMsk^, vXMsk^)) then
+          Exit;
+        inc(vMsk);
+        inc(vXMsk);
+        inc(vStr);
       end;
-      Exit;
+
+      if vMsk^ = #0 then begin
+        { Маска не содержит wildcard'ов }
+        if vStr^ = #0 then begin
+          ALen := vStr - PTChar(AStr);
+          Result := True;
+        end;
+        Exit;
+      end;
+
     end;
 
     vBeg := nil;
     if vStr > AStr then
       vBeg := AStr;
 
-    while True do begin
-      Assert(vMsk^ = '*');
+    vFromWord := moWordBegin in AOpt;
 
-      while (vMsk^ <> #0) and (vMsk^ = '*') do
+    while True do begin
+      Assert((vMsk^ = '*') or ((vMsk = PTChar(AMask)) and (moWithin in AOpt)));
+
+      while (vMsk^ <> #0) and (vMsk^ = '*') do begin
         Inc(vMsk);
+        Inc(vXMsk);
+      end;
+
       if vMsk^ = #0 then begin
         { Маска закончилась '*' }
         if vBeg = nil then
@@ -84,24 +123,40 @@ interface
       while True do begin
 
         if vMsk^ <> '?' then begin
-          vChr := CharUpCase(vMsk^);
-          while (vStr^ <> #0) and (vChr <> CharUpCase(vStr^)) do
+          { Ищем совпадение первого символа }
+          vChr1 := CharUpCase(vMsk^);
+          vChr2 := CharLoCase(vMsk^);
+
+          vXChr1 := #0; vXChr2 := #0;
+          if vMsk <> vXMsk then begin
+            vXChr1 := CharUpCase(vXMsk^);
+            vXChr2 := CharLoCase(vXMsk^);
+          end;
+
+          while vStr^ <> #0 do begin
+            if (vStr^ = vChr1) or (vStr^ = vChr2) or (vStr^ = vXChr1) or (vStr^ = vXChr2) then
+              if not vFromWord or IsBegWord(vStr) then
+                Break;
             Inc(vStr);
+          end;
+
           if vStr^ = #0 then
             Exit;
         end;
 
         { Нашли первое совпадение, посмотрим дальше... }
-        vMsk1 := vMsk + 1;
-        vStr1 := vStr + 1;
+        vMsk1  := vMsk + 1;
+        vXMsk1 := vXMsk + 1;
+        vStr1  := vStr + 1;
         while (vMsk1^ <> #0) and (vMsk1^ <> '*') do begin
-          if (vStr1^ = #0) or not {ChrMatch(vMsk^, vStr^)} ((vMsk1^ = '?') or (vMsk1^ = vStr1^) or (CharUpCase(vMsk1^) = CharUpCase(vStr1^))) then
+          if (vStr1^ = #0) or not ((vMsk1^ = '?') or ChrMatch(vStr1^, vMsk1^, vXMsk1^)) then
             Break;
           inc(vMsk1);
+          inc(vXMsk1);
           inc(vStr1);
         end;
 
-        if (vMsk1^ = #0) and (vStr1^ = #0) then begin
+        if (vMsk1^ = #0) and ((vStr1^ = #0) or (moWithin in AOpt)) then begin
           { Маска закончилась, полное совпадение}
           if vBeg = nil then
             vBeg := vStr;
@@ -112,9 +167,11 @@ interface
         end;
 
         if vMsk1^ = '*' then begin
+          vFromWord := False;
           if vBeg = nil then
             vBeg := vStr;
           vMsk := vMsk1;
+          vXMsk := vXMsk1;
           vStr := vStr1;
           Break;
         end;
@@ -129,73 +186,35 @@ interface
   end;
 
 
-  function ChrCheckMask(const AMask :TString; AStr :PTChar; AStrLen :Integer; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
+
+  function ChrCheckXMask(const AMask, AXMask :TString; AStr :PTChar; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
   var
-    vCh, vFirstCh :TChar;
-    vFirstIsWord, vLastIsDelim, vMatch :Boolean;
-    vPtr, vEnd :PTChar;
-    vMaskLen :Integer;
+    vOpt :TMatchOptions;
   begin
-    Result := False;
-    APos := 0; ALen := 0;
-    if (AMask <> '') and (AStrLen > 0) then begin
-      vFirstCh := AMask[1];
-      if (vFirstCh = '*') {or (vFirstCh = '?')} then
-        Result := StringMatch(AMask, AStr, APos, ALen)
-      else begin
-        vFirstCh := CharUpCase(vFirstCh);
-        vFirstIsWord := IsCharAlphaNumeric(vFirstCh);
+    vOpt := [moIgnoreCase];
+    if AHasMask then
+      vOpt := vOpt + [moWilcards];
 
-        vMaskLen := Length(AMask);
+    if (AMask <> '') and ((AMask[1] = '*') or (AMask[1] = '?')) then
+      vOpt := vOpt + [moWithin]
+    else
+      vOpt := vOpt + [moWithin, moWordBegin];
 
-        vPtr := AStr;
-        vEnd := vPtr + AStrLen;
-        if not AHasMask then
-          Dec(vEnd, vMaskLen - 1);
+    Result := StringMatch(AMask, AXMask, AStr, APos, ALen, vOpt)
+  end;
 
-        vLastIsDelim := True;
-        while vPtr < vEnd do begin
-          vCh := CharUpCase(vPtr^);
-          if vFirstIsWord then begin
-            if IsCharAlphaNumeric(vCh) then begin
-              vMatch := vLastIsDelim and (vCh = vFirstCh);
-              vLastIsDelim := False;
-            end else
-            begin
-              vMatch := False;
-              vLastIsDelim := True;
-            end;
-          end else
-            vMatch := (vCh = vFirstCh) or (vFirstCh = '?');
 
-          if vMatch then begin
-            if AHasMask then begin
-              if StringMatch(AMask, vPtr, APos, ALen) then begin
-                APos := vPtr - AStr;
-                Result := True;
-                Exit;
-              end;
-            end else
-            begin
-              if (vMaskLen = 1) or (AnsiStrLIComp(PTChar(AMask), vPtr, vMaskLen) = 0) then begin
-                APos := vPtr - AStr;
-                ALen := vMaskLen;
-                Result := True;
-                Exit;
-              end;
-            end;
-          end;
-          Inc(vPtr);
-        end;
-      end;
-    end;
+  function ChrCheckMask(const AMask :TString; AStr :PTChar; AStrLen :Integer; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
+  begin
+    Result := ChrCheckXMask(AMask, '', AStr, AHasMask, APos, ALen)
   end;
 
 
   function CheckMask(const AMask, AStr :TString; AHasMask :Boolean; var APos, ALen :Integer) :Boolean;
   begin
-    Result := ChrCheckMask(AMask, PTChar(AStr), Length(AStr), AHasMask, APos, ALen);
+    Result := ChrCheckXMask(AMask, '', PTChar(AStr), AHasMask, APos, ALen);
   end;
+
 
 end.
 
