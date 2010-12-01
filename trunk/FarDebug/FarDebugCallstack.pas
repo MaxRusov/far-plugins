@@ -119,7 +119,7 @@ interface
             if UpCompareSubPChar('in ', vTmp) = 0 then
               ExtractNextWord(vTmp, [' ']);
 
-            if StringMatch('*) at *', vTmp, vPos, vLen) then begin
+            if StringMatch('*) at *', '', vTmp, vPos, vLen) then begin
               SetString(vItem.FFunc, vTmp, vPos + 1);
               Inc(vTmp, vPos + vLen);
               ExtractLocation(vTmp, vSrcName, vLine);

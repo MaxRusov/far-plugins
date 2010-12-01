@@ -590,7 +590,7 @@ Line 761 of "FPTest.dpr" is at address 0x1001ab0 <Test1> but contains no code.
             vBreak.FAddr := ExtractNextWord(vTmp, [' ']); //Address
             if UpCompareSubPChar('in ', vTmp) = 0 then begin
               Inc(vTmp, 3);
-              if StringMatch('* at *', vTmp, vPos, vLen) then begin
+              if StringMatch('* at *', '', vTmp, vPos, vLen) then begin
                 SetString(vBreak.FProc, vTmp, vPos);
                 Inc(vTmp, vPos + vLen);
                 ExtractLocation(vTmp, vBreak.FSource, vBreak.FLine);

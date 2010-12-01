@@ -217,12 +217,12 @@ interface
   begin
     Result := '';
     vStr := PTChar(AStr);
-    if StringMatch(AStart, vStr, vPos, vLen) then begin
+    if StringMatch(AStart, '', vStr, vPos, vLen) then begin
       Inc(vStr, vPos + vLen);
       if AFinish = '' then
         Result := vStr
       else
-      if StringMatch(AFinish, vStr, vPos, vLen) then begin
+      if StringMatch(AFinish, '', vStr, vPos, vLen) then begin
         SetString(Result, vStr, vPos);
       end;
     end;
