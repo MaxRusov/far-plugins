@@ -82,6 +82,43 @@ interface
     chrCheck    = #$FB;
    {$endif bUnicodeFar}
 
+
+  const
+    clBlack    = 0;   // Черный
+    clNavy     = 1;   // Темно синий
+    clGreen    = 2;   // Темно зеленый
+    clTeal     = 3;   // Темный циан
+    clMaroon   = 4;   // Темно красный
+    clPurple   = 5;   // Пурпурный
+    clOlive    = 6;   // Темно желтый
+    clSilver   = 7;   // Светло серый
+    clGray     = 8;   // Темно серый
+    clBlue     = 9;   // Голубой
+    clLime     = $A;  // Светло зеленый
+    clCyan     = $B;  // Aqua
+    clRed      = $C;  // Ярко красный
+    clMagenta  = $D;  // Fuchsia
+    clYellow   = $E;  // Желтый
+    clWhite    = $F;  // Белый
+
+    clBkBlack   = clBlack   * $10;
+    clBkNavy    = clNavy    * $10;
+    clBkGreen   = clGreen   * $10;
+    clBkTeal    = clTeal    * $10;
+    clBkMaroon  = clMaroon  * $10;
+    clBkPurple  = clPurple  * $10;
+    clBkOlive   = clOlive   * $10;
+    clBkSilver  = clSilver  * $10;
+    clBkGray    = clGray    * $10;
+    clBkBlue    = clBlue    * $10;
+    clBkLime    = clLime    * $10;
+    clBkCyan    = clCyan    * $10;
+    clBkRed     = clRed     * $10;
+    clBkMagenta = clMagenta * $10;
+    clBkYellow  = clYellow  * $10;
+    clBkWhite   = clWhite   * $10;
+
+
  {-----------------------------------------------------------------------------}
 
   const
@@ -150,6 +187,9 @@ interface
   function GetProgressStr(ALen, APerc :Integer) :TString;
   function GetOptColor(AColor, ASysColor :Integer) :Integer;
   function ShowMessage(const ATitle, AMessage :TString; AFlags :Integer; AButtons :Integer = 0) :Integer;
+  function FarInputBox(ATitle, APrompt :PTChar; var AStr :TString; AFlags :DWORD = FIB_BUTTONS or FIB_ENABLEEMPTY;
+    AHistory :PTChar = nil; AHelp :PTChar = nil; AMaxLen :Integer = 1024) :Boolean;
+
   procedure EnumFilesEx(const ADir, AMask :TFarStr; const aProc :TMethod);
 
   function CheckForEsc :Boolean;
@@ -179,6 +219,9 @@ interface
   function FarGetWindowSize :TSize;
 
   procedure FarCopyToClipboard(const AStr :TString);
+
+  function FarXLat(AChr :TChar) :TChar;
+  function FarXLatStr(const AStr :TString) :TString;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -437,26 +480,18 @@ interface
   end;
 
 
-(*
-  function FarInputBox(const ATitle, APrompt :TString; var AValue :TString; const AHist :TString = '';
-    const AMaxLen :Integer = 1024; const AOptions :Integer = 0) :Boolean;
+  function FarInputBox(ATitle, APrompt :PTChar; var AStr :TString; AFlags :DWORD = FIB_BUTTONS or FIB_ENABLEEMPTY;
+    AHistory :PTChar = nil; AHelp :PTChar = nil; AMaxLen :Integer = 1024) :Boolean;
   var
-    vNewVal :TString;
+    vStr :TString;
   begin
-    SetLength(vNewVal, AMaxLen);
-    Result := FARAPI.InputBox(
-      PTChar(ATitle),
-      PTChar(APrompt),
-      PTChar(AHist),
-      PTChar(AValue),
-      PTChar(vNewVal),
-      Length(vNewVal),
-      nil,
-      AOptions) = 1;
+    SetLength(vStr, AMaxLen);
+
+    Result := FARAPI.InputBox( ATitle, APrompt, AHistory, PTChar(AStr), PTChar(vStr), AMaxLen, AHelp, AFlags) = 1;
+
     if Result then
-      AValue := vNewVal;
+      AStr := PTChar(vStr);
   end;
-*)
 
 
  {-----------------------------------------------------------------------------}
@@ -1072,6 +1107,30 @@ interface
     vStr := StrAnsiToOEM(AStr);
     FARSTD.CopyToClipboard(PFarChar(vStr));
  {$endif bUnicodeFar}
+  end;
+
+
+  function FarXLat(AChr :TChar) :TChar;
+  var
+    vBuf :array[0..1] of TChar;
+  begin
+    vBuf[0] := AChr;
+    vBuf[1] := #0;
+   {$ifdef bUnicode}
+    Result := FARSTD.XLat(@vBuf[0], 0, 1, 0)^;
+   {$else}
+    CharToOEMBuffA(vBuf, vBuf, 1);
+    FARSTD.XLat(@vBuf[0], 0, 1, nil, 0);
+    OEMToCharBuffA(vBuf, vBuf, 1);
+    Result := vBuf[0];
+   {$endif bUnicode}
+  end;
+
+
+  function FarXLatStr(const AStr :TString) :TString;
+  begin
+    SetString(Result, PTChar(AStr), Length(AStr));
+    FARSTD.XLat(PTChar(Result), 0, Length(AStr), 0);
   end;
 
 
