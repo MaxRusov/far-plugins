@@ -320,7 +320,7 @@ interface
   begin
     if FSubMasks = nil then begin
       if FExact then
-        Result := StringMatch(FMask, PTChar(AStr), APos, ALen)
+        Result := StringMatch(FMask, '', PTChar(AStr), APos, ALen)
       else
         Result := CheckMask(FMask, AStr, FREgExp, APos, ALen);
       if FNot then
