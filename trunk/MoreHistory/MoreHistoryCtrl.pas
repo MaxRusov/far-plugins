@@ -22,8 +22,10 @@ interface
    {$else}
     Plugin,
    {$endif bUnicodeFar}
+    FarColor,
     FarCtrl,
-    FarMatch;
+    FarMenu,
+    FarColorDlg;
 
 
   type
@@ -51,16 +53,30 @@ interface
       strHintLastVisited,
       strHintVisitCount,
 
-      strOptionsTitle,
+      strCommandsTitle,
       strMShowHidden,
       strMGroupBy,
       strMAccessTime,
       strMHitCount,
       strMSortBy,
+      strMOptions,
+
+      strOptionsTitle,
       strMShowHints,
       strMFollowMouse,
       strMWrapMode,
       strMHideCurrent,
+      strMAutoXLatMask,
+      strMRememberLastMask,
+      strMExclusions,
+      strMColors,
+
+      strColorsTitle,
+      strMHiddenColor,
+      strMGroupColor,
+      strMQuickFilter,
+      strMSelectedColor,
+      strMRestoreDefaults,
 
       strSortByTitle,
       strMByName,
@@ -68,13 +84,21 @@ interface
       strMByHitCount,
       strMUnsorted,
 
+      strFilterTitle,
+      strFilterPrompt,
+
+      strExclTitle,
+      strExclPrompt,
+
       strToday,
       strYesterday,
       strDaysAgo,
       strDays1,
       strDays2,
       strDays5,
-      strDays21
+      strDays21,
+
+      strColorDialog
     );
 
 
@@ -127,6 +151,8 @@ interface
     optWrapMode        :Boolean = False;
     optNewAtTop        :Boolean = True;
     optHideCurrent     :Boolean = True;
+    optXLatMask        :Boolean = True;   { Автоматическое XLAT преобразование при поиске }
+    optSaveMask        :Boolean = False;  { Сохранение старой маски при повторном вызове плагина }
 
     optMidnightHour    :Integer = 0;
     optDateFormat      :Integer = 0;
@@ -141,29 +167,31 @@ interface
 
     MoreHistoryPrefix  :TFarStr = 'mh';
 
-    optHiddenColor     :Integer = 0;
-    optFoundColor      :Integer = $0A;
-    optSelectedColor   :Integer = $20;
-    optGroupColor      :Integer = $0B; //???
+    optHiddenColor     :Integer;
+    optFoundColor      :Integer;
+    optSelectedColor   :Integer;
+    optGroupColor      :Integer;
 
 
   var
     FRegRoot  :TString;
 
+  var
+    FLastFilter :TString;
+
 
   function GetMsg(AMess :TMessages) :PFarChar;
   function GetMsgStr(AMess :TMessages) :TString;
 
-  procedure CopyToClipboard(const AStr :TString);
-
+  procedure RestoreDefColor;
   procedure ReadSettings;
-
   procedure ReadSetup(const AMode :TString);
   procedure WriteSetup(const AMode :TString);
 
   function GetHistoryList(const AHistName :TString) :TStrList;
-  procedure AddStrInHistory(const AHistName, AStr :TString);
+  procedure AddToHistory(const AHist, AStr :TString);
 
+  procedure OptionsMenu;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -185,20 +213,113 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure CopyToClipboard(const AStr :TString);
- {$ifdef bUnicodeFar}
+  procedure RestoreDefColor;
   begin
-    FARSTD.CopyToClipboard(PTChar(AStr));
- {$else}
-  var
-    vStr :TFarStr;
-  begin
-    vStr := StrAnsiToOEM(AStr);
-    FARSTD.CopyToClipboard(PFarChar(vStr));
- {$endif bUnicodeFar}
+    optHiddenColor     := clGray;
+    optGroupColor      := clBlue;
+    optFoundColor      := clLime;
+    optSelectedColor   := clBkGreen;
   end;
 
-  
+
+  procedure ColorMenu;
+  var
+    vMenu :TFarMenu;
+    vBkColor :Integer;
+  begin
+    vBkColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUTEXT));
+
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strColorsTitle),
+    [
+      GetMsg(strMHiddenColor),
+      GetMsg(strMGroupColor),
+      GetMsg(strMQuickFilter),
+      GetMsg(strMSelectedColor),
+      '',
+      GetMsg(strMRestoreDefaults)
+    ]);
+    try
+      while True do begin
+        vMenu.SetSelected(vMenu.ResIdx);
+
+        if not vMenu.Run then
+          Exit;
+
+        case vMenu.ResIdx of
+          0: ColorDlg('', optHiddenColor, vBkColor);
+          1: ColorDlg('', optGroupColor, vBkColor);
+          2: ColorDlg('', optFoundColor, vBkColor);
+          3: ColorDlg('', optSelectedColor);
+
+          5: RestoreDefColor;
+        end;
+
+//      FARAPI.EditorControl(ECTL_REDRAW, nil);
+        FARAPI.AdvControl(hModule, ACTL_REDRAWALL, nil);
+
+        WriteSetup('');
+      end;
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
+
+
+  procedure OptionsMenu;
+  var
+    vMenu :TFarMenu;
+  begin
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strCommandsTitle),
+    [
+      GetMsg(strMShowHints),
+      GetMsg(strMFollowMouse),
+      GetMsg(strMWrapMode),
+      GetMsg(strMHideCurrent),
+      GetMsg(strMAutoXLatMask),
+      GetMsg(strMRememberLastMask),
+      '',
+      GetMsg(strMExclusions),
+      GetMsg(strMColors)
+    ]);
+    try
+      vMenu.Help := 'Options';
+      while True do begin
+        vMenu.Checked[0] := optShowHints;
+        vMenu.Checked[1] := optFollowMouse;
+        vMenu.Checked[2] := optWrapMode;
+        vMenu.Checked[3] := optHideCurrent;
+        vMenu.Checked[4] := optXLatMask;
+        vMenu.Checked[5] := optSaveMask;
+
+        vMenu.SetSelected(vMenu.ResIdx);
+
+        if not vMenu.Run then
+          Exit;
+
+        case vMenu.ResIdx of
+          0: optShowHints := not optShowHints;
+          1: optFollowMouse := not optFollowMouse;
+          2: optWrapMode := not optWrapMode;
+          3: optHideCurrent := not optHideCurrent;
+          4: optXLatMask := not optXLatMask;
+          5: optSaveMask := not optSaveMask;
+
+          7: FarInputBox(GetMsg(strExclTitle), GetMsg(strExclPrompt), optExclusions);
+          8: ColorMenu;
+        end;
+
+        WriteSetup('');
+      end;
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
+
+
  {-----------------------------------------------------------------------------}
 
   procedure ReadSettings;
@@ -249,6 +370,8 @@ interface
         optWrapMode := RegQueryLog(vKey, 'WrapMode', optWrapMode);
         optNewAtTop := RegQueryLog(vKey, 'NewAtTop', optNewAtTop);
         optHideCurrent := RegQueryLog(vKey, 'HideCurrent', optHideCurrent);
+        optXLatMask := RegQueryLog(vKey, 'XLatMask', optXLatMask);
+        optSaveMask := RegQueryLog(vKey, 'SaveMask', optSaveMask);
 
         optMidnightHour := RegQueryInt(vKey, 'MidnightHour', optMidnightHour);
 
@@ -288,6 +411,15 @@ interface
       RegWriteLog(vKey, 'WrapMode', optWrapMode);
       RegWriteLog(vKey, 'NewAtTop', optNewAtTop);
       RegWriteLog(vKey, 'HideCurrent', optHideCurrent);
+      RegWriteLog(vKey, 'XLatMask', optXLatMask);
+      RegWriteLog(vKey, 'SaveMask', optSaveMask);
+
+      RegWriteInt(vKey, 'HiddenColor', optHiddenColor);
+      RegWriteInt(vKey, 'GroupColor', optGroupColor);
+      RegWriteInt(vKey, 'FoundColor', optFoundColor);
+      RegWriteInt(vKey, 'SelectedColor', optSelectedColor);
+
+      RegWriteStr(vKey, 'Exclusions', optExclusions);
 
     finally
       RegCloseKey(vKey);
@@ -299,22 +431,22 @@ interface
 
   function GetHistoryList(const AHistName :TString) :TStrList;
   var
-    I :Integer;
-    vKey: HKEY;
+    vKey :HKEY;
     vName, vStr :TString;
+    vPtr, vEnd :PTChar;
   begin
     Result := TStrList.Create;
-
     vName := cDlgHistRegRoot + '\' + AHistName;
     if RegOpenRead(HKCU, vName, vKey) then begin
       try
-        I := 0;
-        while True do begin
-          vStr := RegQueryStr(vKey, 'Line' + Int2Str(I), '');
-          if vStr = '' then
-            Exit;
-          Result.Add( vStr );
-          Inc(I);
+        vStr := RegQueryStr(vKey, 'Lines', '');
+        if vStr <> '' then begin
+          vPtr := PTChar(vStr);
+          vEnd := vPtr + length(vStr);
+          while vPtr < vEnd do begin
+            Result.Add(ExtractNextValue(vPtr, [#0]));
+            Inc(vPtr);
+          end;
         end;
       finally
         RegCloseKey(vKey);
@@ -323,45 +455,22 @@ interface
   end;
 
 
-  procedure WriteHistoryList(const AHistName :TString; AList :TStrList);
+  procedure AddToHistory(const AHist, AStr :TString);
   var
-    I :Integer;
-    vKey: HKEY;
-    vName :TString;
+    hDlg :THandle;
+    vItems :array[0..0] of TFarDialogItem;
   begin
-    vName := cDlgHistRegRoot + '\' + AHistName;
-    RegOpenWrite(HKCU, vName, vKey);
+    vItems[0] := NewItemApi(DI_Edit, 0, 0, 5, -1, DIF_HISTORY, '', PTChar(AHist) );
+    hDlg := FARAPI.DialogInit(hModule, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, nil, 0);
     try
-      for I := 0 to AList.Count - 1 do
-        RegWriteStr(vKey, 'Line' + Int2Str(I), AList[I]);
+      FARAPI.SendDlgMessage(hDlg, DM_ADDHISTORY, 0, TIntPtr(PTChar(AStr)));
     finally
-      RegCloseKey(vKey);
+      FARAPI.DialogFree(hDlg);
     end;
   end;
 
 
-  procedure AddStrInHistory(const AHistName, AStr :TString);
-  var
-    I, vLimit :Integer;
-    vList :TStrList;
-  begin
-    vList := GetHistoryList(AHistName);
-    try
-      vLimit := RegGetIntValue(HKCU, cDlgHistRegRoot, 'HistoryCount', cDefHistoryLength);
-
-      I := vList.IndexOf(AStr);
-      if I = -1 then begin
-        vList.Insert(0, AStr);
-        if vList.Count > vLimit then
-          vList.Delete(vList.Count - 1);
-      end else
-        vList.Move(I, 0);
-      WriteHistoryList(AHistName, vList);
-    finally
-      FreeObj(vList);
-    end;
-  end;
-
-
+initialization
+  ColorDlgResBase := Byte(strColorDialog);
 end.
 
