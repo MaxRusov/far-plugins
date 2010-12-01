@@ -460,23 +460,6 @@ interface
   end;
 
 
-  function FarXLat(AChr :TChar) :TChar;
-  var
-    vBuf :array[0..1] of TChar;
-  begin
-    vBuf[0] := AChr;
-    vBuf[1] := #0;
-   {$ifdef bUnicode}
-    Result := FARSTD.XLat(@vBuf[0], 0, 1, 0)^;
-   {$else}
-    CharToOEMBuffA(vBuf, vBuf, 1);
-    FARSTD.XLat(@vBuf[0], 0, 1, nil, 0);
-    OEMToCharBuffA(vBuf, vBuf, 1);
-    Result := vBuf[0];
-   {$endif bUnicode}
-  end;
-
-
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
