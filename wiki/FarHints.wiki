@@ -19,7 +19,7 @@
 == Загрузить ==
 
  * [http://far-plugins.googlecode.com/files/FarHintsW.v17.rar FarHints 1.0.17 for FAR 2]
- * [http://far-plugins.googlecode.com/files/FarHintsW.x64.v7.rar FarHints 1.0.17 for FAR 2 x64]
+ * [http://far-plugins.googlecode.com/files/FarHintsW.x64.v17.rar FarHints 1.0.17 for FAR 2 x64]
 
 
 ----
