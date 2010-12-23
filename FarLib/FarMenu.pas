@@ -49,6 +49,7 @@ interface
 
     public
       property Items :PFarMenuItemsArray read FItems;
+      property Count :Integer read FCount;
       property Title :TString read FTitle write FTitle;
       property Footer :TString read FFooter write FFooter;
       property Help :TString read FHelp write FHelp;

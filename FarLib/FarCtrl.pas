@@ -1023,7 +1023,7 @@ interface
 
   procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName :PTString = nil; ATypeName :PTString = nil);
   begin
-    FillChar(AInfo, SizeOf(AInfo), 0);
+    FillZero(AInfo, SizeOf(AInfo));
     AInfo.Pos := APos;
 
    {$ifdef bUnicodeFar}

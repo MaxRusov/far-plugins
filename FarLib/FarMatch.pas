@@ -122,8 +122,8 @@ interface
 
       while True do begin
 
+        { Ищем совпадение первого символа }
         if vMsk^ <> '?' then begin
-          { Ищем совпадение первого символа }
           vChr1 := CharUpCase(vMsk^);
           vChr2 := CharLoCase(vMsk^);
 
@@ -139,10 +139,17 @@ interface
                 Break;
             Inc(vStr);
           end;
-
-          if vStr^ = #0 then
-            Exit;
+        end else
+        begin
+          while vStr^ <> #0 do begin
+            if not vFromWord or IsBegWord(vStr) then
+              Break;
+            Inc(vStr);
+          end;
         end;
+
+        if vStr^ = #0 then
+          Exit;
 
         { Нашли первое совпадение, посмотрим дальше... }
         vMsk1  := vMsk + 1;
@@ -195,7 +202,7 @@ interface
     if AHasMask then
       vOpt := vOpt + [moWilcards];
 
-    if (AMask <> '') and ((AMask[1] = '*') or (AMask[1] = '?')) then
+    if (AMask <> '') and ((AMask[1] = '*') {or (AMask[1] = '?')}) then
       vOpt := vOpt + [moWithin]
     else
       vOpt := vOpt + [moWithin, moWordBegin];
