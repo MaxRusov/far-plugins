@@ -392,6 +392,7 @@ interface
     TThread = class
     public
       constructor Create(CreateSuspended: Boolean);
+      procedure AfterConstruction; override;
       destructor Destroy; override;
       procedure Resume;
       procedure Suspend;
@@ -406,6 +407,7 @@ interface
       FThreadID: THandle;
       FTerminated: Boolean;
       FSuspended: Boolean;
+      FCreateSuspended: Boolean;
       FFreeOnTerminate: Boolean;
       FFinished: Boolean;
       FReturnValue: Integer;
@@ -1885,45 +1887,54 @@ interface
 
 
   constructor TThread.Create(CreateSuspended: Boolean);
-  var
-    Flags: DWORD;
   begin
     inherited Create;
-  //{$ifdef bTrace}
-  // TraceExF('ThreadInfo', 'Create thread object: %s', [ClassName]);
-  //{$endif bTrace}
+// {$ifdef bTrace}
+//  TraceExF('ThreadInfo', 'Create thread object: %s', [ClassName]);
+// {$endif bTrace}
    {$ifdef bSynchronize}
-  //AddThread;
+//  AddThread;
    {$endif bSynchronize}
     FSuspended := CreateSuspended;
-    Flags := 0;
-    if CreateSuspended then
-      Flags := CREATE_SUSPENDED;
-    FHandle := BeginThread(nil, 0, Pointer(@ThreadProc), Pointer(Self), Flags, FThreadID);
+    FCreateSuspended := CreateSuspended;
+    FHandle := BeginThread(nil, 0, Pointer(@ThreadProc), Pointer(Self), CREATE_SUSPENDED, FThreadID);
+    ApiCheck(FHandle <> 0);
   end;
+
+
+  procedure TThread.AfterConstruction; {override;}
+  begin
+    if not FCreateSuspended then
+      Resume;
+  end;
+
 
   destructor TThread.Destroy;
   begin
-    if not FFinished and not Suspended then begin
+    if (FThreadID <> 0) and not FFinished then begin
       Terminate;
+      if FCreateSuspended then
+        Resume;
       WaitFor;
     end;
     if FHandle <> 0 then
       CloseHandle(FHandle);
     inherited Destroy;
-  //{$ifdef bTrace}
-  // TraceExF('ThreadInfo', 'Destroy thread object: %s', [ClassName]);
-  //{$endif bTrace}
+// {$ifdef bTrace}
+//  TraceExF('ThreadInfo', 'Destroy thread object: %s', [ClassName]);
+// {$endif bTrace}
    {$ifdef bSynchronize}
-  //RemoveThread;
+//  RemoveThread;
    {$endif bSynchronize}
   end;
+
 
 //procedure TThread.CallOnTerminate;
 //begin
 //  if Assigned(FOnTerminate) then
 //    FOnTerminate(Self);
 //end;
+
 
   procedure TThread.DoTerminate; {virtual;}
   begin
@@ -1963,7 +1974,8 @@ interface
   begin
     if Value <> FSuspended then
       if Value then
-        Suspend else
+        Suspend
+      else
         Resume;
   end;
 
@@ -1975,7 +1987,8 @@ interface
 
   procedure TThread.Resume;
   begin
-    if ResumeThread(FHandle) = 1 then FSuspended := False;
+    if ResumeThread(FHandle) = 1 then
+      FSuspended := False;
   end;
 
   procedure TThread.Terminate;
