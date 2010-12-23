@@ -10,7 +10,8 @@ DCC = $(ROOT)\bin\dcc32.exe $**
 BRCC = $(ROOT)\bin\brcc32.exe $**
 #------------------------------------------------------------------------------
 PROJECTS = FarHintsVerInfo.dll FarHintsFolders.dll FarHintsImage.dll \
-  FarHintsMP3.dll FarHintsCursors.dll FarHintsProcess.dll FarHints.dll
+  FarHintsMP3.dll FarHintsCursors.dll FarHintsProcess.dll FarHintsReg.dll \
+  FarHints.dll
 #------------------------------------------------------------------------------
 default: $(PROJECTS)
 #------------------------------------------------------------------------------
@@ -34,6 +35,9 @@ FarHintsProcess.dll: FarHintsProcess\FarHintsProcess.dpr
   $(DCC)
 
 FarHints.dll: FarHints\FarHints.dpr
+  $(DCC)
+
+FarHintsReg.dll: FarHintsReg\FarHintsReg.dpr
   $(DCC)
 
 

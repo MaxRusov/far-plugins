@@ -82,7 +82,7 @@ interface
   begin
     Result := False;
     vName := AItem.FullName;
-    if FAPI.CompareStr( FAPI.ExtractFileExt(vName), 'mp3') = 0 then begin
+    if (FAPI.CompareStr( FAPI.ExtractFileExt(vName), 'mp3') = 0) or (FAPI.CompareStr( FAPI.ExtractFileExt(vName), 'ape') = 0) then begin
       vFile := CreateFile(PTChar(vName), GENERIC_READ, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING, 0, 0);
       if vFile <> INVALID_HANDLE_VALUE then begin
         try
