@@ -180,6 +180,7 @@ interface
 
   function StringOfChar(AChr :TChar; ALen :Integer) :TString;
 
+  procedure FillZero(var ABuf; ACount :Integer);
   procedure MemFill2(PBuf :Pointer; ACount :Integer; AFiller :Word);
   procedure MemFillChar(pBuf :Pointer; ACount :Integer; AChar :TChar);
   function MemSearch(Str :PAnsiChar; Count :Integer; Match :AnsiChar) :Integer;
@@ -952,6 +953,12 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  procedure FillZero(var ABuf; ACount :Integer);
+  begin
+    FillChar(ABuf, ACount, 0);
+  end;
+
+
   procedure MemFill2(PBuf :Pointer; ACount :Integer; AFiller :Word);
   var
     vPtr :PWord;
@@ -1313,7 +1320,7 @@ interface
       SetReturnAddr;
      {$endif bDebug}
       Result := MemAlloc(Size);
-      FillChar(Result^, Size, 0);
+      FillZero(Result^, Size);
     end;
   end;
 

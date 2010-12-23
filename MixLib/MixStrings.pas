@@ -131,8 +131,9 @@ interface
     );
 
   var
-    BOM_UTF16 :ShortString = #$FF#$FE;
-    BOM_UTF8  :ShortString = #$EF#$BB#$BF;
+    BOM_UTF16   :ShortString = #$FF#$FE;
+    BOM_UTF16BE :ShortString = #$FE#$FF;
+    BOM_UTF8    :ShortString = #$EF#$BB#$BF;
 
     CRLF :array[1..2] of TChar = (#13, #10);
 
@@ -1019,6 +1020,12 @@ interface
   end;
 
 
+  function Chr2StrL(Str :PTChar; ALen :Integer) :TString;
+  begin
+    SetString(Result, Str, ALen);
+  end;
+
+
   function ExtractNextWord(var Str :PTChar; const Del :TAnsiCharSet) :TString;
   var
     P :PTChar;
@@ -1026,7 +1033,7 @@ interface
     P := Str;
     while (P^ <> #0) and not ChrInSet(P^, Del) do
       Inc(P);
-    Result := Copy(Str, 1, P - Str);
+    Result := Chr2StrL(Str, P - Str);
     while (P^ <> #0) and ChrInSet(P^, Del) do
       Inc(P);
     Str := P;
@@ -1040,7 +1047,7 @@ interface
     P := Str;
     while (P^ <> #0) and not ChrInSet(P^, Del) do
       Inc(P);
-    Result := Copy(Str, 1, P - Str);
+    Result := Chr2StrL(Str, P - Str);
     if P^ <> #0 then
       Inc(P);
     Str := P;
