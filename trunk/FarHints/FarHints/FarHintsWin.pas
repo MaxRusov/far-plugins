@@ -204,6 +204,7 @@ interface
     if AAlpha then begin
       FillChar(vFN, SizeOf(vFN), 0);
       vFN.SourceConstantAlpha := 255;
+      vFN.BlendFlags := 0;
       vFN.AlphaFormat := AC_SRC_ALPHA;
       AlphaBlend(ADC, dX, dY, dW, dH, vDC, sX, sY, sW, sH, vFN);
     end else
@@ -575,7 +576,7 @@ interface
   procedure THintWindow.HideHint;
   begin
     if (FarHintsShowPeriod > 0) and Assigned(SetLayeredWindowAttributes) then
-      SmoothShowOrHide(False);
+      SmoothShowOrHide(False);  
     Show(SW_Hide);
   end;
 

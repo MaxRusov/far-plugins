@@ -167,10 +167,18 @@ interface
     ScreenToClient(vWnd, vPos);
     GetClientRect(vWnd, vRect);
     GetConsoleScreenBufferInfo(hStdOut, vInfo);
+
     with vInfo.srWindow do begin
 //    TraceF('%d, %d - %d, %d', [Left, Top, Right, Bottom]);
       Result.Y := Top + MulDivTrunc(vPos.Y, Bottom - Top + 1, vRect.Bottom - vRect.Top);
       Result.X := Left + MulDivTrunc(vPos.X, Right - Left + 1, vRect.Right - vRect.Left);
+    end;
+
+    { Коррекция для режима "большого буфера" (/w) }
+    with FarGetWindowRect do begin
+//    TraceF('FWR: %d-%d, %d-%d', [Top, Bottom, Left, Right]);
+      Dec(Result.Y, Top);
+      Dec(Result.X, Left);
     end;
   end;
 
@@ -185,10 +193,19 @@ interface
     vWnd := hConsoleWnd;
     GetClientRect(vWnd, vRect);
     GetConsoleScreenBufferInfo(hStdOut, vInfo);
+
+    { Коррекция для режима "большого буфера" (/w) }
+    with FarGetWindowRect do begin
+//    TraceF('FWR: %d-%d, %d-%d', [Top, Bottom, Left, Right]);
+      Inc(AY, Top);
+      Inc(AX, Left);
+    end;
+
     with vInfo.srWindow do begin
       Result.Y := MulDiv(AY - Top, vRect.Bottom, Bottom - Top + 1);
       Result.X := MulDiv(AX - Left, vRect.Right, Right - Left + 1);
     end;
+
     ClientToScreen(vWnd, Result);
   end;
 
@@ -1358,10 +1375,7 @@ interface
  {$ifdef bUnicodeFar}
   function GetMinFarVersionW :Integer; stdcall;
   begin
-//  Result := $02A80200;  { Need 2.0.680 }
-//  Result := $02F40200;  { Need 2.0.756 }
-//  Result := $03150200;  { Need 2.0.789 }
-    Result := $03E30200;  { Need 2.0.995 }   { Изменена TWindowInfo }
+    Result := MakeFarVersion(2, 0, 1573);   { ACTL_GETFARRECT }
   end;
  {$endif bUnicodeFar}
 

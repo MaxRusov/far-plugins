@@ -9,6 +9,7 @@
 403A 0000              - FarHintsCursors.dll
 403B 0000              - FarHintsProcess.dll
 403C 0000              - FarHintsDFM.dll
+403D 0000              - FarHintsReg.dll
 
 4050 0000              - PlugMenu
 4060 0000              - Noisy

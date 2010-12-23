@@ -117,32 +117,6 @@ interface
     MixDebug;
 
 
-  function StrFromChrA(AStr :PAnsiChar; ALen :Integer) :TAnsiStr;
-  var
-    vStr :PAnsiChar;
-  begin
-    vStr := AStr;
-    while (vStr < AStr + ALen) and (vStr^ <> #0) do
-      Inc(vStr);
-    while (vStr > AStr) and ((vStr - 1)^ = ' ') do
-      Dec(vStr);
-    SetString(Result, AStr, vStr - AStr);
-  end;
-
-
-  function StrFromChrW(AStr :PWideChar; ALen :Integer) :TWideStr;
-  var
-    vStr :PWideChar;
-  begin
-    vStr := AStr;
-    while (vStr < AStr + ALen) and (vStr^ <> #0) do
-      Inc(vStr);
-    while (vStr > AStr) and ((vStr - 1)^ = ' ') do
-      Dec(vStr);
-    SetString(Result, AStr, vStr - AStr);
-  end;
-
-
   function UnsReorder(AVal :Cardinal) :Integer;
   begin
     Result := Integer(
@@ -166,6 +140,14 @@ interface
   end;
 
 
+  function WordReorder(AVal :Word) :Word;
+  begin
+    Result :=
+      ((AVal and $00FF) shl 8)  +
+      ((AVal and $FF00) shr 8);
+  end;
+
+
   function SmallSize2Int(ASize :TSmallSize) :Integer;
   type
     TRec = packed record Hi :Byte; Lo :TSmallSize; end;
@@ -179,21 +161,92 @@ interface
   end;
 
 
+  function StrTrimLenA(AStr :PAnsiChar; ALen :Integer) :Integer;
+  var
+    vStr :PAnsiChar;
+  begin
+    vStr := AStr;
+    while (vStr < AStr + ALen) and (vStr^ <> #0) do
+      Inc(vStr);
+    while (vStr > AStr) and ((vStr - 1)^ = ' ') do
+      Dec(vStr);
+    Result := vStr - AStr;
+  end;
+
+
+  function StrFromChrA(AStr :PAnsiChar; ALen :Integer) :TAnsiStr;
+  begin
+    ALen := StrTrimLenA(AStr, ALen);
+    SetString(Result, AStr, ALen);
+  end;
+
+
+  function StrFromChrW(AStr :PWideChar; ALen :Integer) :TWideStr;
+  var
+    vStr :PWideChar;
+  begin
+    vStr := AStr;
+    while (vStr < AStr + ALen) and (vStr^ <> #0) do
+      Inc(vStr);
+    while (vStr > AStr) and ((vStr - 1)^ = ' ') do
+      Dec(vStr);
+    SetString(Result, AStr, vStr - AStr);
+  end;
+
+
+  function StrFromChrW_BE(AStr :PWideChar; ALen :Integer) :TWideStr;
+  var
+    I :Integer;
+  begin
+    for I := 0 to ALen - 1 do
+      Word((AStr + I)^) := WordReorder(Word((AStr + I)^));
+    Result := StrFromChrW(AStr, ALen);
+  end;
+
+
+  function StrFromChr_UTF8(AStr :PAnsiChar; ALen :Integer) :TWideStr;
+  var
+    vLen :Integer;
+  begin
+    ALen := StrTrimLenA(AStr, ALen);
+    vLen := MultiByteToWideChar(CP_UTF8, 0, AStr, ALen, nil, 0);
+    SetString(Result, nil, vLen);
+    if vLen > 0 then
+      MultiByteToWideChar(CP_UTF8, 0, AStr, ALen, PWideChar(Result), vLen);
+  end;
+
+
   function DecodeStr1(APtr :PAnsiChar; AEncoding :Byte; ASize :Integer) :TWideStr;
   var
     vWPtr :PWideChar;
+    vBOM :WORD;
   begin
-    if AEncoding = 0 then
-      Result := StrFromChrA(APtr, ASize)
-    else
-    if AEncoding = 1 then begin
-      vWPtr := Pointer(APtr);
-      Inc(vWPtr);
-      Result := StrFromChrW(vWPtr, (ASize div SizeOf(WideChar)) - 1)
-    end else
-      Result := '';
+    Result := '';
+    case AEncoding of
+      0:
+        { ISO-8859-1 }
+        Result := StrFromChrA(APtr, ASize);
+      1: begin
+        { UTF-16 [UTF-16] encoded Unicode [UNICODE] with BOM }
+        { ÿþ - UTF16LE (1200) - Norm }
+        { þÿ - UTF16BE (1201) }
+        vWPtr := Pointer(APtr);
+        vBOM := WORD(vWPtr^);
+        Inc(vWPtr);
+        if vBOM = PWord(@BOM_UTF16[1])^ then
+          Result := StrFromChrW(vWPtr, (ASize div SizeOf(WideChar)) - 1)
+        else
+        if vBOM = PWord(@BOM_UTF16BE[1])^ then
+          Result := StrFromChrW_BE(vWPtr, (ASize div SizeOf(WideChar)) - 1)
+      end;
+      2:
+        { UTF-16BE [UTF-16] encoded Unicode [UNICODE] without BOM }
+        Result := StrFromChrW_BE(Pointer(APtr), (ASize div SizeOf(WideChar)) - 1);
+      3:
+        { UTF-8 [UTF-8] encoded Unicode [UNICODE] }
+        Result := StrFromChr_UTF8(APtr, ASize);
+    end;
   end;
-
 
   function DecodeStr(APtr :PAnsiChar; ASize :Integer) :TWideStr;
   var
@@ -301,28 +354,58 @@ interface
         Exit;
       end;
 
-      if vFrame.cID = cFrameTitle3 then
-        LocStrTag(ATags.FTitle)
-      else
-      if vFrame.cID = cFrameArtist3 then
-        LocStrTag(ATags.FArtist)
-      else
-      if vFrame.cID = cFrameAlbum3 then
-        LocStrTag(ATags.FAlbum)
-      else
-      if vFrame.cID = cFrameYear3 then
-        LocStrTag(ATags.FYear)
-      else
-      if vFrame.cID = cFrameLength3 then
-        LocStrTag(ATags.FLength);
-//    else
-//    if vFrame.cID = cFrameComment3 then
-//      LocCommentTag(ATags.FComment);
+      if vFrame.cFlags and $FF00 = 0 then begin
+
+        if vFrame.cID = cFrameTitle3 then
+          LocStrTag(ATags.FTitle)
+        else
+        if vFrame.cID = cFrameArtist3 then
+          LocStrTag(ATags.FArtist)
+        else
+        if vFrame.cID = cFrameAlbum3 then
+          LocStrTag(ATags.FAlbum)
+        else
+        if vFrame.cID = cFrameYear3 then
+          LocStrTag(ATags.FYear)
+        else
+        if vFrame.cID = cFrameLength3 then
+          LocStrTag(ATags.FLength);
+//      else
+//      if vFrame.cID = cFrameComment3 then
+//        LocCommentTag(ATags.FComment);
+
+      end else
+        NOP;
 
       Inc(ATag, vFrameSize + SizeOf(TID3v2FrameHeader));
       Dec(ASize, vFrameSize + SizeOf(TID3v2FrameHeader));
     end;
     Result := True;
+  end;
+
+
+
+  procedure Unsynchronize(APtr :Pointer; var ASize :Integer);
+  var
+    vSrc, vDst, vEnd :Pointer1;
+  begin
+    vSrc := APtr;
+    vDst := APtr;
+    vEnd := vSrc + ASize - 1;
+    while vSrc < vEnd do begin
+      if PWord(vSrc)^ = $00FF then begin
+        if vSrc <> vDst then
+          vDst^ := vSrc^;
+        inc(vSrc, 2);
+        inc(vDst);
+      end else
+      begin
+        if vSrc <> vDst then
+          vDst^ := vSrc^;
+        inc(vSrc);
+        inc(vDst);
+      end;
+    end;
   end;
 
 
@@ -345,15 +428,13 @@ interface
           ReadFile(AFile, vMem^, vSize, vRes, nil);
           if vRes = DWORD(vSize) then begin
 
-            if vHeader.cFlags and cIDv2Flag_Unsynchronisation <> 0 then begin
-              {!!!}
-              NOP;
-            end;
+            if vHeader.cFlags and cIDv2Flag_Unsynchronisation <> 0 then
+              Unsynchronize(vMem, vSize);
 
             if vHeader.cVersion = 2 then
               Result := ParseTagV2_2(vMem, vHeader.cFlags, vSize, ATags)
             else
-            if vHeader.cVersion = 3 then
+            if (vHeader.cVersion = 3) or (vHeader.cVersion = 4) then
               Result := ParseTagV2_3(vMem, vHeader.cFlags, vSize, ATags)
             else
               {NOP};
