@@ -1,0 +1,16 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\Software\far2\KeyMacros\Consts]
+"FarHints"=dword:544e4948
+"FastWheel"=dword:4c485745
+
+[HKEY_CURRENT_USER\Software\Far2\KeyMacros\Shell\MsWheelUp]
+"Sequence"="$if (Env(\"FarHint\") == \"1\") CallPlugin(FarHints, 41) $else CallPlugin(FastWheel, 1) $end"
+"Description"="Far Hints: Increase or FastWheel: Scroll Up"
+"DisableOutput"=dword:00000001
+
+[HKEY_CURRENT_USER\Software\Far2\KeyMacros\Shell\MsWheelDown]
+"Sequence"="$if (Env(\"FarHint\") == \"1\") CallPlugin(FarHints, 42) $else CallPlugin(FastWheel, 2) $end"
+"Description"="Far Hints: Decrease or FastWheel: Scroll Down"
+"DisableOutput"=dword:00000001
+
