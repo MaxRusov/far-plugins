@@ -205,7 +205,7 @@ interface
  {$endif bUnicodeFar}
 
   function FarPanelGetSide :Integer;
-  procedure FarPostMacro(const AStr :TFarStr);
+  procedure FarPostMacro(const AStr :TFarStr; AFlags :DWORD = KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS);
   function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean) :Boolean;
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   function FarPanelGetCurrentItem(Active :Boolean) :TString;
@@ -707,7 +707,7 @@ interface
  {$endif bUnicodeFar}
 
 
-  procedure FarPostMacro(const AStr :TFarStr);
+  procedure FarPostMacro(const AStr :TFarStr; AFlags :DWORD = KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS);
   var
     vMacro :TActlKeyMacro;
   begin
@@ -716,7 +716,7 @@ interface
    {$endif bTrace}
     vMacro.Command := MCMD_POSTMACROSTRING;
     vMacro.Param.PlainText.SequenceText := PFarChar(AStr);
-    vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
+    vMacro.Param.PlainText.Flags := AFlags;
     FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
   end;
 
