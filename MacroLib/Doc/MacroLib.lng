@@ -1,0 +1,34 @@
+﻿.Language=English,English
+
+"English"
+"Macro Library"
+"Error"
+
+"&Run macro"
+"&List of all macroses"
+"&Update macroses"
+"&Options"
+
+"Process &hotkeys"
+"Process &mouse"
+"Macro &paths"
+
+"Macro paths"
+"One or more paths (separated by "";"")"
+
+"Macroses"
+ 
+"Fatal Error"
+"Keyword expected"
+"Unknown кeyword"
+"Expect macro body"
+"Expect ""="""
+"Expect value"
+"Expect string"
+"Unclosed string"
+"Invalid number"
+"Unknown hotkey name"
+"Unknown macroarea name"
+"Unexpected end of file"
+"Bad macro sequence"
+"Unknown parameter"
