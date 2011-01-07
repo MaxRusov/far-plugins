@@ -13,6 +13,8 @@ interface
 
   const
     charTAB = #09;
+    charLF  = #10;
+    charCR  = #13;
 
     DefTabSize = 8;
 
@@ -60,6 +62,7 @@ interface
   function StrUpCase(const Str :TString) :TString;
   function StrLoCase(const Str :TString) :TString;
 
+  function UpCompareBuf(const Buf1; const Buf2; Len1 :Integer; Len2 :Integer) :Integer;
   function UpCompareStr(const Str1, Str2 :TString) :Integer;
   function UpCompareSubStr(const SubStr, Str :TString) :Integer;
   function UpComparePChar(const Str1, Str2 :PTChar) :Integer;
@@ -75,6 +78,7 @@ interface
   function Int2StrEx(Num :Integer) :TString;
   function Int64ToStr(Num :TInt64) :TString;
   function Int64ToStrEx(Num :TInt64) :TString;
+  function TryStrToInt(const Str :TString; var Num :Integer) :Boolean;
   function Str2IntDef(const Str :TString; Def :Integer) :Integer;
   function Str2Int(const Str :TString) :Integer;
   function Hex2Int64(const AHexStr :TString) :TInt64;
@@ -135,7 +139,7 @@ interface
     BOM_UTF16BE :ShortString = #$FE#$FF;
     BOM_UTF8    :ShortString = #$EF#$BB#$BF;
 
-    CRLF :array[1..2] of TChar = (#13, #10);
+    CRLF :array[1..2] of TChar = (charCR, charLF);
 
   function StrDetectFormat(const AFileName :TString) :TStrFileFormat;
   function StrFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto) :TString;
@@ -768,22 +772,25 @@ interface
   end;
 
 
-  function Str2IntDef(const Str :TString; Def :Integer) :Integer;
+  function TryStrToInt(const Str :TString; var Num :Integer) :Boolean;
   var
-    Err :Integer;
+    vErr :Integer;
   begin
-    Val(Str, Result, Err);
-    if Err <> 0 then
+    Val(Str, Num, vErr);
+    Result := vErr = 0;
+  end;
+
+
+  function Str2IntDef(const Str :TString; Def :Integer) :Integer;
+  begin
+    if not TryStrToInt(Str, Result) then
       Result := Def;
   end;
 
 
   function Str2Int(const Str :TString) :Integer;
-  var
-    vErr :Integer;
   begin
-    Val(Str, Result, vErr);
-    if vErr <> 0 then
+    if not TryStrToInt(Str, Result) then
       AppErrorResFmt(@SInvalidInteger, [Str]);
   end;
 
