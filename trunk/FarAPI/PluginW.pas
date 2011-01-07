@@ -52,7 +52,7 @@ uses Windows;
 const
   FARMANAGERVERSION_MAJOR = 2;
   FARMANAGERVERSION_MINOR = 0;
-  FARMANAGERVERSION_BUILD = 1658;
+  FARMANAGERVERSION_BUILD = 1773;
 
 type
 //TFarChar = AnsiChar;
@@ -966,6 +966,8 @@ const
   PFLAGS_NUMERICSORT      = $00000040;
   PFLAGS_PANELLEFT        = $00000080;
   PFLAGS_DIRECTORIESFIRST = $00000100;
+  PFLAGS_USECRC32         = $00000200;
+  PFLAGS_CASESENSITIVESORT= $00000400;
 
 
 { PANELINFOTYPE }
@@ -1089,6 +1091,7 @@ const
   FCTL_SETDIRECTORIESFIRST      = 31;
   FCTL_GETPANELFORMAT           = 32;
   FCTL_GETPANELHOSTFILE         = 33;
+  FCTL_SETCASESENSITIVESORT     = 34;
 
   
 type
@@ -1354,6 +1357,7 @@ const
   ACTL_GETFARRECT           = 32;
   ACTL_GETCURSORPOS         = 33;
   ACTL_SETCURSORPOS         = 34;
+  ACTL_PROGRESSNOTIFY       = 35;
 
   
 { FarSystemSettings }
@@ -1495,6 +1499,29 @@ const
   MCMD_POSTMACROSTRING = 2;
   MCMD_CHECKMACRO      = 4;
   MCMD_GETSTATE        = 5;
+  MCMD_GETAREA         = 6;
+
+  
+{ FARMACROAREA }
+
+const
+  MACROAREA_OTHER             =  0;
+  MACROAREA_SHELL             =  1;
+  MACROAREA_VIEWER            =  2;
+  MACROAREA_EDITOR            =  3;
+  MACROAREA_DIALOG            =  4;
+  MACROAREA_SEARCH            =  5;
+  MACROAREA_DISKS             =  6;
+  MACROAREA_MAINMENU          =  7;
+  MACROAREA_MENU              =  8;
+  MACROAREA_HELP              =  9;
+  MACROAREA_INFOPANEL         = 10;
+  MACROAREA_QVIEWPANEL        = 11;
+  MACROAREA_TREEPANEL         = 12;
+  MACROAREA_FINDFOLDER        = 13;
+  MACROAREA_USERMENU          = 14;
+  MACROAREA_AUTOCOMPLETION    = 15;
+
 
 { FARMACROSTATE }
 
@@ -2437,6 +2464,9 @@ type
 const
   XLAT_SWITCHKEYBLAYOUT  = $00000001;
   XLAT_SWITCHKEYBBEEP    = $00000002;
+  XLAT_USEKEYBLAYOUTNAME = $00000004;
+  XLAT_CONVERTALLCMDLINE = $00010000;
+
 
 (*
 typedef wchar_t* (WINAPI *FARSTDXLAT)(wchar_t *Line,int StartPos,int EndPos,DWORD Flags);
@@ -2748,7 +2778,7 @@ struct PluginInfo
   int StructSize;
   DWORD Flags;
   const wchar_t * const *DiskMenuStrings;
-  int *DiskMenuNumbers;
+  int *Reserved0;
   int DiskMenuStringsNumber;
   const wchar_t * const *PluginMenuStrings;
   int PluginMenuStringsNumber;
@@ -2764,7 +2794,7 @@ type
     StructSize : Integer;
     Flags : DWORD;
     DiskMenuStrings : PPCharArray;
-    DiskMenuNumbers : PIntegerArray;
+    Reserved0 : pointer;
     DiskMenuStringsNumber : Integer;
     PluginMenuStrings : PPCharArray;
     PluginMenuStringsNumber : Integer;
@@ -2847,6 +2877,7 @@ const
   OPIF_EXTERNALDELETE      = $00002000;
   OPIF_EXTERNALMKDIR       = $00004000;
   OPIF_USEATTRHIGHLIGHTING = $00008000;
+  OPIF_USECRC32            = $00010000;
 
 
 { OPENPLUGININFO_SORTMODES }
@@ -3020,6 +3051,7 @@ const
   FFT_FINDFILE  = 1;
   FFT_COPY      = 2;
   FFT_SELECT    = 3;
+  FFT_CUSTOM    = 4;
 
 
 {FAR_REGEXP_CONTROL_COMMANDS}
