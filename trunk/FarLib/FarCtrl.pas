@@ -141,15 +141,6 @@ interface
     hStdIn       :THandle;
     hStdOut      :THandle;
 
-  type
-    PMouseEventRecord = ^TMouseEventRecord;
-    TMouseEventRecord = packed record
-      dwMousePosition :COORD;
-      dwButtonState :DWORD;
-      dwControlKeyState :DWORD;
-      dwEventFlags :DWORD;
-    end;
-
 
   function FarChar2Str(AStr :PFarChar) :TString;
   procedure FillFarChar(ABuf :PFarChar; ACount :Integer; AChar :TFarChar);
