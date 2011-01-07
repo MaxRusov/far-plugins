@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<!DOCTYPE hrc PUBLIC "-//Cail Lomecb//DTD Colorer HRC take5//EN"
+  "http://colorer.sf.net/2003/hrc.dtd">
+
+<hrc version="take5" xmlns="http://colorer.sf.net/2003/hrc"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://colorer.sf.net/2003/hrc http://colorer.sf.net/2003/hrc.xsd"
+>
+
+<type name="far.macrolib">
+
+<import type="def"/>
+
+<region name="mKeyWord" parent="Keyword"/>
+<region name="mParam" parent="FunctionKeyword"/>
+
+<scheme name="far.macrolib">
+
+  <regexp match="/;;.*?$/" region="Comment"/>
+  <regexp match="/\/\/.*?$/" region="Comment"/>
+  <block start="/\/\*/" end="/\*\//" scheme="Comment" region="Comment" region00="PairStart" region10="PairEnd"/>
+
+  <regexp match="/\b\d+\b/" region="def:NumberDec"/>
+
+  <keywords region="mKeyWord" ignorecase="yes">
+     <word name="macro"/>
+     <word name="$macro"/>
+  </keywords>    
+
+  <keywords region="mParam" ignorecase="yes">
+     <word name="name"/>
+     <word name="descr"/>
+     <word name="description"/>
+     <word name="area"/>
+     <word name="areas"/>
+     <word name="bind"/>
+     <word name="key"/>
+     <word name="keys"/>
+     <word name="hotkey"/>
+     <word name="hotkeys"/>
+     <word name="EatOnRun"/>
+     <word name="RunOnRelease"/>
+  </keywords>
+
+  <block start="/(\{\{)/" end="/(\}\})/" scheme="body" 
+    region00="Symbol" region01="PairStart" 
+    region10="Symbol" region11="PairEnd"
+   />
+
+  <inherit scheme="far:macro.string"/>
+
+</scheme>
+
+<scheme name="body">
+
+  <regexp match="/;;.*?$/" region="Comment"/>
+  <regexp match="/\/\/.*?$/" region="Comment"/>
+  <block start="/\/\*/" end="/\*\//" scheme="Comment" region="Comment" region00="PairStart" region10="PairEnd"/>
+
+  <block start="/(\$(Rep|While|If)\b)\s*/i" end="/(\$End\b)/i"
+	scheme="macro.command.rep1" 
+	region00="Keyword" region01="PairStart"
+	region10="Keyword" region11="PairEnd"
+  />
+
+  <inherit scheme="far:macro.sequense"/>
+
+</scheme>
+
+
+<scheme name="macro.command.rep1">
+  <inherit scheme="body"/>
+  <inherit scheme="far:macro.command.rep"/>
+</scheme>
+
+</type>
+</hrc>
