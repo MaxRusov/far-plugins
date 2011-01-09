@@ -12,6 +12,7 @@ interface
 
   uses
     Windows,
+    ActiveX,
 
     MixTypes,
     MixUtils,
@@ -29,22 +30,25 @@ interface
 
 
   type
+    TMacroLibrary = class;
+
     TMacro = class(TBasis)
     public
       constructor CreateBy(const ARec :TMacroRec; const AFileName :TString);
       destructor Destroy; override;
 
-      function CheckCondition(Area :Integer; AKey :Integer) :Boolean;
+      function CheckCondition(Area :Integer; AKey :Integer; ALib :TMacroLibrary) :Boolean;
       procedure Execute;
 
     private
-      FName     :TString;   { Имя макрокоманды }
-      FDescr    :TString;   { Описание макрокоманды }
-      FWhere    :TString;   { Условие запуска }
-      FBind     :TIntArray; { Список кнопок для запуска }
-      FArea     :DWORD;     { Маска макрообластей }
-      FCond     :DWORD;     { Условия срабатывания }
-      FText     :TString;   { Текст макрокоманды }
+      FName     :TString;          { Имя макрокоманды }
+      FDescr    :TString;          { Описание макрокоманды }
+      FWhere    :TString;          { Условие запуска }
+      FBind     :TIntArray;        { Список кнопок для запуска }
+      FArea     :DWORD;            { Маска макрообластей }
+      FDlgs     :TGUIDArray;       { Список GUID-ов диалогов }
+      FCond     :TMacroConditions; { Условия срабатывания }
+      FText     :TString;          { Текст макрокоманды }
       FOptions  :TMacroOptions;
 
       FFileName :TString;
@@ -84,6 +88,9 @@ interface
       FSilence     :Boolean;
       FMouseState  :DWORD;
 
+      FWindowType  :Integer;
+      FConditions  :TMacroConditions;
+
       procedure ScanMacroFolder(const AFolder :TString);
       function ParseMacroFile(const AFileName :TString) :boolean;
 
@@ -93,11 +100,18 @@ interface
       function CheckForRun(AKey :Integer; APress :Boolean) :boolean;
 //    function FindMacro(Area :Integer; AKey :Integer) :TMacro;
       procedure FindMacroses(AList :TExList; Area :Integer; AKey :Integer);
+
+      procedure InitConditions;
+      function CheckCondition(ACond :TMacroCondition) :Boolean;
     end;
 
 
   var
     MacroLibrary :TMacroLibrary;
+
+
+  procedure PushDlg(AHandle :THandle);
+  procedure PopDlg(AHandle :THandle);
 
 
 {******************************************************************************}
@@ -107,6 +121,66 @@ interface
   uses
     MixDebug,
     MacroListDlg;
+
+
+ {-----------------------------------------------------------------------------}
+
+  type
+    PDlgRec = ^TDlgRec;
+    TDlgRec = record
+      Handle :THandle;
+      Inited :Boolean;
+      GUID   :TGUID;
+    end;
+
+  var
+    DlgStack :TExList;
+
+
+  procedure PushDlg(AHandle :THandle);
+  begin
+    if DlgStack = nil then
+      DlgStack := TExList.CreateSize(SizeOf(TDlgRec));
+    with PDlgRec(DlgStack.NewItem(DlgStack.Count))^ do begin
+      Handle := AHandle;
+      Inited := False;
+      FillZero(GUID, SizeOf(TGUID));
+    end
+  end;
+
+
+  procedure PopDlg(AHandle :THandle);
+  begin
+    Assert(DlgStack.Count > 0);
+    if DlgStack.Count > 0 then begin
+      with PDlgRec(DlgStack.PItems[DlgStack.Count - 1])^ do begin
+        Assert(Handle = AHandle);
+        if Handle <> AHandle then
+          Exit;
+      end;
+      DlgStack.Delete(DlgStack.Count - 1);
+    end;
+  end;
+
+
+  function GetTopDlgGUID :TGUID;
+  var
+    vInfo :TDialogInfo;
+  begin
+    if DlgStack.Count > 0 then begin
+      with PDlgRec(DlgStack.PItems[DlgStack.Count - 1])^ do begin
+        if not Inited then begin
+          FillZero(vInfo, SizeOf(vInfo));
+          vInfo.StructSize := SizeOf(vInfo);
+          if FARAPI.SendDlgMessage(Handle, DM_GETDIALOGINFO, 0, TIntPtr(@vInfo)) <> 0 then
+            GUID := vInfo.Id;
+          Inited := True;
+        end;
+        Result := GUID;
+      end;
+    end else
+      FillZero(Result, SizeOf(TGUID));
+  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -123,6 +197,10 @@ interface
     FWhere   := ARec.Where;
     FText    := ARec.Text;
     FOptions := ARec.Options;
+
+    SetLength(FDlgs, Length(ARec.Dlgs));
+    if Length(ARec.Dlgs) > 0 then
+      Move(ARec.Dlgs[0], FDlgs[0], Length(ARec.Dlgs) * SizeOf(TGUID));
 
     SetLength(FBind, Length(ARec.Bind));
     if Length(ARec.Bind) > 0 then
@@ -141,25 +219,64 @@ interface
   end;
 
 
-  function TMacro.CheckCondition(Area :Integer; AKey :Integer) :Boolean;
+  function TMacro.CheckCondition(Area :Integer; AKey :Integer; ALib :TMacroLibrary) :Boolean;
   var
     I :Integer;
+    vFound :Boolean;
+    vCond :TMacroCondition;
+    vGUID :TGUID;
   begin
     Result := False;
-    if (FArea = 0) or ((1 shl Area) and FArea <> 0) then begin
 
-      if AKey <> 0 then begin
-        for I := 0 to length(FBind) - 1 do begin
-          if FBind[I] = AKey then begin
-            {!!! Check run conditions... }
-            Result := True;
-            Exit;
-          end;
+    if AKey <> 0 then begin
+      vFound := False;
+      for I := 0 to length(FBind) - 1 do
+        if FBind[I] = AKey then begin
+          vFound := True;
+          break;
         end;
-      end else
-        Result := True;
-
+      if not vFound then
+        Exit;
     end;
+
+
+    if (FArea <> 0) or (length(FDlgs) > 0) then begin
+      if Area = MACROAREA_DIALOG then begin
+
+        if (1 shl MACROAREA_DIALOG) and FArea <> 0 then
+          { Для всех диалогов }
+        else begin
+          { Возможно, макрос назначен на конкретный диалог, по GUID }
+          vFound := False;
+
+          if length(FDlgs) > 0 then begin
+            vGUID := GetTopDlgGUID;
+            for I := 0 to length(FDlgs) - 1 do
+              if IsEqualGUID( vGUID, FDlgs[I] ) then begin
+                vFound := True;
+                break;
+              end;
+           end;
+
+          if not vFound then
+            Exit;
+        end;
+
+      end else
+      if (1 shl Area) and FArea = 0 then
+        Exit;
+    end;
+
+
+    if (ALib <> nil) and (FCond <> []) then begin
+      for vCond := low(TMacroCondition) to High(TMacroCondition) do begin
+        if vCond in FCond then
+          if not ALib.CheckCondition(vCond) then
+            Exit;
+      end;
+    end;
+
+    Result := True;
   end;
 
 
@@ -194,6 +311,9 @@ interface
     for I := MACROAREA_SHELL to MACROAREA_AUTOCOMPLETION do
       if (1 shl I) and FArea <> 0 then
         Result := AppendStrCh(Result, FarAreaToName(I), ' ');
+
+    if (length(FDlgs) > 0) and ((1 shl MACROAREA_DIALOG) and FArea = 0) then
+      Result := AppendStrCh(Result, Format('%s(%d)', [FarAreaToName(MACROAREA_DIALOG), length(FDlgs)]), ' ');
   end;
 
 
@@ -319,91 +439,6 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-(*
-  function TMacroLibrary.CheckHotkey(const ARec :TKeyEventRecord) :boolean;
-  var
-    vKey, vArea :Integer;
-    vList :TExList;
-  begin
-    Result := False;
-
-    vKey := WinKeyRecToFarKey(ARec);
-    vArea := FarGetMacroArea;
-    TraceF('CheckHotkey (Press=%d, Area=%d, vKey=%x "%s")', [byte(ARec.bKeyDown), vArea, vKey, FarKeyToName(vKey)]);
-
-    if vKey <> 0 then begin
-      vList := TExList.Create;
-      try
-        FindMacroses(vList, vArea, vKey);
-
-        if vList.Count > 0 then begin
-
-          if ARec.bKeyDown then begin
-
-            if vList.Count = 1 then
-              FARAPI.AdvControl(hModule, ACTL_SYNCHRO, vList[0])
-            else begin
-              FARAPI.AdvControl(hModule, ACTL_SYNCHRO, vList);
-              vList := nil;
-            end;
-
-          end;
-
-          Result := True;
-        end;
-
-      finally
-        FreeObj(vList);
-      end;
-    end;
-  end;
-
-
-  function TMacroLibrary.CheckMouse(const ARec :TMouseEventRecord) :boolean;
-  var
-    vKey, vArea :Integer;
-    vList :TExList;
-  begin
-    Result := False;
-    if ARec.dwEventFlags and (MOUSE_MOVED + DOUBLE_CLICK + MOUSE_WHEELED + MOUSE_HWHEELED) = MOUSE_MOVED then
-      Exit;
-
-    vKey := MouseEventToFarKey(ARec);
-    vArea := FarGetMacroArea;
-    
-    TraceF('CheckMouse (Flag=%d, Buttons=%d, Area=%d, vKey=%x "%s")',
-      [ARec.dwEventFlags, ARec.dwButtonState, vArea, vKey, FarKeyToName(vKey)]);
-
-    if vKey <> 0 then begin
-      vList := TExList.Create;
-      try
-        FindMacroses(vList, vArea, vKey);
-
-        if vList.Count > 0 then begin
-
-//        if ARec.bKeyDown then begin
-
-            if vList.Count = 1 then
-              FARAPI.AdvControl(hModule, ACTL_SYNCHRO, vList[0])
-            else begin
-              FARAPI.AdvControl(hModule, ACTL_SYNCHRO, vList);
-              vList := nil;
-            end;
-
-//        end;
-
-          Result := True;
-        end;
-
-      finally
-        FreeObj(vList);
-      end;
-    end;
-
-  end;
-*)
-
-
   function TMacroLibrary.CheckHotkey(const ARec :TKeyEventRecord) :boolean;
   var
     vKey :Integer;
@@ -495,9 +530,10 @@ interface
     I :Integer;
     vMacro :TMacro;
   begin
+    InitConditions;
     for I := 0 to FMacroses.Count - 1 do begin
       vMacro := FMacroses[I];
-      if vMacro.CheckCondition(Area, AKey) then
+      if vMacro.CheckCondition(Area, AKey, Self) then
         AList.Add(vMacro);
     end;
   end;
@@ -526,9 +562,10 @@ interface
     try
       vArea := FarGetMacroArea;
 
+      InitConditions;
       for I := 0 to FMacroses.Count - 1 do begin
         vMacro := FMacroses[I];
-        if vMacro.CheckCondition(vArea, 0) then
+        if vMacro.CheckCondition(vArea, 0, Self) then
           vList.Add(vMacro);
       end;
 
@@ -556,6 +593,124 @@ interface
     end;
   end;
 
+ {-----------------------------------------------------------------------------}
+
+  procedure TMacroLibrary.InitConditions;
+  begin
+    FWindowType := -1;
+    FConditions := [];
+  end;
+
+
+  function TMacroLibrary.CheckCondition(ACond :TMacroCondition) :Boolean;
+
+    procedure InitWindowType;
+    var
+      vWinInfo :TWindowInfo;
+    begin
+      FillZero(vWinInfo, SizeOf(vWinInfo));
+      vWinInfo.Pos := -1;
+      FARAPI.AdvControl(hModule, ACTL_GETSHORTWINDOWINFO, @vWinInfo);
+      FWindowType := vWinInfo.WindowType;
+    end;
+
+    procedure InitCmdLineCondition;
+    var
+      vLen :Integer;
+    begin
+      if FWindowType = WTYPE_PANELS then begin
+        vLen := FARAPI.Control(PANEL_ACTIVE, FCTL_GetCmdLine, 0, nil);
+        SetMacroCondition(FConditions, mcCmdLineEmpty, vLen > 1);
+      end;
+    end;
+
+    procedure InitBlockCondition;
+    var
+      vEdtInfo :TEditorInfo;
+    begin
+      if FWindowType = WTYPE_EDITOR then begin
+        FillZero(vEdtInfo, SizeOf(vEdtInfo));
+        FARAPI.EditorControl(ECTL_GETINFO, @vEdtInfo);
+        SetMacroCondition(FConditions, mcBlockNotSelected, vEdtInfo.BlockType <> BTYPE_NONE);
+      end else
+      if FWindowType = WTYPE_VIEWER then begin
+//      FConditions := FConditions + [mcBlockNotSelected]
+      end else
+      if FWindowType = WTYPE_DIALOG then begin
+//      FConditions := FConditions + [mcBlockNotSelected]
+      end;
+    end;
+
+    procedure GetCondition(AHandle :THandle; var AIsPlugin, AIsFolder, AHasSelected :Boolean);
+    var
+      vPanInfo :TPanelInfo;
+      vItem :PPluginPanelItem;
+    begin
+      FillZero(vPanInfo, SizeOf(vPanInfo));
+      FARAPI.Control(AHandle, FCTL_GETPANELINFO, 0, @vPanInfo);
+      AIsPlugin := vPanInfo.Plugin = 1;
+
+      AIsFolder := False; AHasSelected := False;
+      if vPanInfo.ItemsNumber > 0 then begin
+        vItem := FarPanelItem(AHandle, FCTL_GETCURRENTPANELITEM, 0);
+        try
+          AIsFolder := vItem.FindData.dwFileAttributes and faDirectory <> 0;
+        finally
+          MemFree(vItem);
+        end;
+
+        { Мы должны проверить флаг PPIF_SELECTED, потому что SelectedItemsNumber = 1}
+        { даже если не выделено ни одного элемента }
+        if vPanInfo.SelectedItemsNumber > 0 then begin
+          vItem := FarPanelItem(AHandle, FCTL_GETSELECTEDPANELITEM, 0);
+          try
+            AHasSelected := vItem.Flags and PPIF_SELECTED <> 0;
+          finally
+            MemFree(vItem);
+          end;
+        end;
+      end;
+    end;
+
+    procedure InitPanelCondition;
+    var
+      vIsPlugin, vIsFolder, vHasSelected :Boolean;
+    begin
+      if FWindowType = WTYPE_PANELS then begin
+        GetCondition(PANEL_ACTIVE, vIsPlugin, vIsFolder, vHasSelected);
+        SetMacroCondition(FConditions, mcPanelTypeFile, vIsPlugin);
+        SetMacroCondition(FConditions, mcPanelItemFile, vIsFolder);
+        SetMacroCondition(FConditions, mcPanelNotSelected, vHasSelected);
+      end;
+    end;
+
+    procedure InitPPanelCondition;
+    var
+      vIsPlugin, vIsFolder, vHasSelected :Boolean;
+    begin
+      if FWindowType = WTYPE_PANELS then begin
+        GetCondition(PANEL_PASSIVE, vIsPlugin, vIsFolder, vHasSelected);
+        SetMacroCondition(FConditions, mcPPanelTypeFile, vIsPlugin);
+        SetMacroCondition(FConditions, mcPPanelItemFile, vIsFolder);
+        SetMacroCondition(FConditions, mcPPanelNotSelected, vHasSelected);
+      end;
+    end;
+
+  begin
+    if FWindowType = -1 then
+      InitWindowType;
+    if (ACond in [mcCmdLineEmpty, mcCmdLineNotEmpty]) and ([mcCmdLineEmpty, mcCmdLineNotEmpty] * FConditions = []) then
+      InitCmdLineCondition;
+    if (ACond in [mcBlockSelected, mcBlockNotSelected]) and ([mcBlockSelected, mcBlockNotSelected] * FConditions = []) then
+      InitBlockCondition;
+    if (ACond in [mcPanelTypeFile..mcPanelSelected]) and ([mcPanelTypeFile..mcPanelSelected] * FConditions = []) then
+      InitPanelCondition;
+    if (ACond in [mcPPanelTypeFile..mcPPanelSelected]) and ([mcPanelTypeFile..mcPPanelSelected] * FConditions = []) then
+      InitPPanelCondition;
+
+    Result := ACond in FConditions;
+  end;
+
 
 initialization
 //ColorDlgResBase := Byte(strColorDialog);
@@ -563,4 +718,5 @@ initialization
 
 finalization
   FreeObj(MacroLibrary);
+  FreeObj(DlgStack);
 end.
