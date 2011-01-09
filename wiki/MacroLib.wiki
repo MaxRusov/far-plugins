@@ -11,5 +11,21 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/MacroLib.v1.rar MacroLib 1.0.1 for FAR 2]
- * [http://far-plugins.googlecode.com/files/MacroLib.x64.v1.rar MacroLib 1.0.1 for FAR 2 x64]
+ * [http://far-plugins.googlecode.com/files/MacroLib.v2.rar MacroLib 1.0.2 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/MacroLib.x64.v2.rar MacroLib 1.0.2 for FAR 2 x64]
+
+----
+
+= История изменений =
+
+== Ver 1.0.2 ==
+
+ * Поддержаны все условия срабатывания макросов. Задаются с помощью параметра Condition. Подробности в Readme.txt
+
+ * Возможность привязки макросов к конкретному диалогу по GUID.
+    
+ Для демонстрации этой возможности в комплекте идет:<br>
+ макрос возвращающий поиску прежнее поведение (c) John Doe<br>
+ http://forum.farmanager.com/viewtopic.php?f=15&t=3392
+
+  * Исправленная схема для colorer'а
