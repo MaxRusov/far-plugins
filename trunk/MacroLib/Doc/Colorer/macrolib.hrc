@@ -5,7 +5,8 @@
 <hrc version="take5" xmlns="http://colorer.sf.net/2003/hrc"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://colorer.sf.net/2003/hrc http://colorer.sf.net/2003/hrc.xsd"
->
+ >
+
 
 <type name="far.macrolib">
 
@@ -38,6 +39,8 @@
      <word name="keys"/>
      <word name="hotkey"/>
      <word name="hotkeys"/>
+     <word name="cond"/>
+     <word name="condition"/>
      <word name="EatOnRun"/>
      <word name="RunOnRelease"/>
   </keywords>
@@ -49,29 +52,59 @@
 
   <inherit scheme="far:macro.string"/>
 
+<!--  <regexp match="/\S{1,}/" region="Error" priority="low"/>	-->
+
 </scheme>
 
+
 <scheme name="body">
+  <inherit scheme="macro.sequense"/>
+</scheme>
+
+
+
+<scheme name="macro.sequense">
+
+  <block start="/(\$(Rep|While|If)\b)\s*/i" end="/(\$End\b)/i"
+	scheme="macro.sequense" 
+	region00="far:command" region01="PairStart"
+	region10="far:command" region11="PairEnd"
+  />
+
+  <regexp match="/\$Continue/i" region="far:command"/>  
+
+  <block start="/\$\M\w+/" end="/~\w+\b\m/" 
+    priority="low"
+	scheme="far:macro.command.names" 
+	region00="far:command"
+  />
+
+  <!-- vars -->
+  <block start="/(\%{1,2}[\w\._]+)\s*(=)/" end="/;/" 
+    scheme="macro.expr"
+	region01="far:var" region02="far:oper" region10="far:struct"
+  />
+
+  <inherit scheme="macro.expr"/>	
+</scheme>
+
+
+
+<scheme name="macro.expr">
 
   <regexp match="/;;.*?$/" region="Comment"/>
   <regexp match="/\/\/.*?$/" region="Comment"/>
   <block start="/\/\*/" end="/\*\//" scheme="Comment" region="Comment" region00="PairStart" region10="PairEnd"/>
 
-  <block start="/(\$(Rep|While|If)\b)\s*/i" end="/(\$End\b)/i"
-	scheme="macro.command.rep1" 
-	region00="Keyword" region01="PairStart"
-	region10="Keyword" region11="PairEnd"
+  <block start="/(\()/" end="/(\))/" 
+    scheme="macro.expr"
+	region00="far:oper" region01="PairStart"
+	region10="far:oper" region11="PairEnd"
   />
 
-  <inherit scheme="far:macro.sequense"/>
-
+ <inherit scheme="far:macro.expr"/> 
 </scheme>
 
-
-<scheme name="macro.command.rep1">
-  <inherit scheme="body"/>
-  <inherit scheme="far:macro.command.rep"/>
-</scheme>
 
 </type>
 </hrc>

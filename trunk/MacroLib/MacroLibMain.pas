@@ -31,6 +31,7 @@ interface
   function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
   function ConfigureW(Item: integer) :Integer; stdcall;
   function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
+  function ProcessDialogEventW(AEvent :Integer; AParam :PFarDialogEvent) :Integer; stdcall;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -396,6 +397,22 @@ interface
       MacroLibrary.ShowList(TExList(vObj));
       FreeObj(vObj);
     end;
+  end;
+
+
+  function ProcessDialogEventW(AEvent :Integer; AParam :PFarDialogEvent) :Integer; stdcall;
+  begin
+    if AEvent = DE_DLGPROCEND then begin
+      if AParam.Msg = DN_INITDIALOG then begin
+//      TraceF('InitDialog: %d', [AParam.hDlg]);
+        PushDlg(AParam.hDlg);
+      end else
+      if (AParam.Msg = DN_CLOSE) and (AParam.Result <> 0) then begin
+//      TraceF('CloseDialog: %d', [AParam.hDlg]);
+        PopDlg(AParam.hDlg);
+      end;
+    end;
+    Result := 0;
   end;
 
 

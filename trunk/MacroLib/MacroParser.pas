@@ -12,6 +12,7 @@ interface
 
   uses
     Windows,
+    ActiveX,
 
     MixTypes,
     MixUtils,
@@ -49,14 +50,19 @@ interface
       errExceptString,
       errUnclosedString,
       errBadNumber,
+      errBadGUID,
       errBadHotkey,
       errBadMacroarea,
+      errBadCondition,
+      errExpectColon,
+      errExpect0or1,
       errUnexpectedEOF,
       errBadMacroSequence,
       wrnUnknownParam
     );
 
     TIntArray = array of Integer;
+    TGUIDArray = array of TGUID;
 
     TMacroOption =
     (
@@ -67,12 +73,34 @@ interface
     );
     TMacroOptions = set of TMacroOption;
 
+    TMacroCondition =
+    (
+      mcCmdLineEmpty,
+      mcCmdLineNotEmpty,
+      mcBlockNotSelected,
+      mcBlockSelected,
+      mcPanelTypeFile,
+      mcPanelTypePlugin,
+      mcPanelItemFile,
+      mcPanelItemFolder,
+      mcPanelNotSelected,
+      mcPanelSelected,
+      mcPPanelTypeFile,
+      mcPPanelTypePlugin,
+      mcPPanelItemFile,
+      mcPPanelItemFolder,
+      mcPPanelNotSelected,
+      mcPPanelSelected
+    );
+    TMacroConditions = set of TMacroCondition;
+
     TMacroRec = record
       Name     :TString;
       Descr    :TString;
       Bind     :TIntArray;
       Area     :DWORD;
-      Cond     :DWORD;
+      Dlgs     :TGUIDArray;
+      Cond     :TMacroConditions;
       Where    :TString;
       Text     :TString;
       Options  :TMacroOptions;
@@ -130,7 +158,8 @@ interface
       procedure SkipMultilineComment(var APtr :PTChar);
       procedure SkipCRLF(var APtr :PTChar);
       procedure ParseBindStr(APtr :PTChar; var ARes :TIntArray);
-      procedure ParseAreaStr(APtr :PTChar; var ARes :DWORD);
+      procedure ParseAreaStr(APtr :PTChar; var ARes :DWORD; var ADlgs :TGUIDArray);
+      procedure ParseCondStr(APtr :PTChar; var ARes :TMacroConditions);
       procedure AddBuf(APtr :PTChar; ALen :Integer);
       procedure AddChars(AChr :TChar; ALen :Integer);
       procedure SetBufSize(ASize :Integer);
@@ -148,6 +177,9 @@ interface
       property OnAdd :TOnAddEvent read FOnAdd write FOnAdd;
       property OnError :TOnError read FOnError write FOnError;
     end;
+
+  procedure SetMacroOption(var AOptions :TMacroOptions; AOption :TMacroOption; AOn :Boolean);
+  procedure SetMacroCondition(var AConditions :TMacroConditions; ACondition :TMacroCondition; AOn :Boolean);
 
   function FarAreaToName(Area :Integer) :TString;
 
@@ -172,12 +204,31 @@ interface
     kwBind     = 4;  
     kwWhere    = 5;  
     kwArea     = 6;  
-    kwCond     = 7;  
+    kwCond     = 7;
     kwSilence  = 8;  
     kwSendPlug = 9;
     kwRunOnRelease = 10;
     kwEatOnRun = 11;
 
+
+
+
+  procedure SetMacroOption(var AOptions :TMacroOptions; AOption :TMacroOption; AOn :Boolean);
+  begin
+    if AOn then
+      Include(AOptions, AOption)
+    else
+      Exclude(AOptions, AOption);
+  end;
+
+
+  procedure SetMacroCondition(var AConditions :TMacroConditions; ACondition :TMacroCondition; AOn :Boolean);
+  begin
+    if AOn then
+      Include(AConditions, Succ(ACondition))
+    else
+      Include(AConditions, ACondition);
+  end;
 
 
   function MatchStr(APtr, AMatch :PTChar) :Boolean;
@@ -190,22 +241,42 @@ interface
   end;
 
 
-  function CanExtractNextWord(var APtr :PTChar; ABuf :PTChar; AMaxLen :Integer) :Boolean;
+
+  const
+    cWordDelims = [' ', ',', ';', charTab];
+
+  function CanExtractNext(var APtr :PTChar; ABuf :PTChar; AMaxLen :Integer; const ADelims :TAnsiCharSet = cWordDelims) :Boolean;
   var
     vBeg :PTChar;
   begin
     Result := False;
-    while ChrInSet(APtr^, [' ', ',', ';', charTab]) do
+    while ChrInSet(APtr^, ADelims) do
       Inc(APtr);
     if APtr^ <> #0 then begin
       vBeg := APtr;
-      while (APtr^ <> #0) and not ChrInSet(APtr^, [' ', ',', ';', charTab]) do
+      while (APtr^ <> #0) and not ChrInSet(APtr^, ADelims) do
         Inc(APtr);
       StrLCopy(ABuf, vBeg, IntMin(AMaxLen, APtr - vBeg));
       Result := True;
     end;
   end;
 
+
+  function CanExtractNextWord(var APtr :PTChar; ABuf :PTChar; AMaxLen :Integer) :Boolean;
+  var
+    vBeg :PTChar;
+  begin
+    Result := False;
+    while (APtr^ <> #0) and not CharIsWordChar(APtr^) do
+      Inc(APtr);
+    if APtr^ <> #0 then begin
+      vBeg := APtr;
+      while (APtr^ <> #0) and CharIsWordChar(APtr^) do
+        Inc(APtr);
+      StrLCopy(ABuf, vBeg, IntMin(AMaxLen, APtr - vBeg));
+      Result := True;
+    end;
+  end;
 
  {-----------------------------------------------------------------------------}
  {                                                                             }
@@ -271,6 +342,7 @@ interface
   var
     Keywords :TKeywordsList;
     KeyAreas :TKeywordsList;
+    KeyConds :TKeywordsList;
 
   procedure InitKeywords;
   begin
@@ -310,6 +382,20 @@ interface
       Add('FindFolder',     MACROAREA_FINDFOLDER);
       Add('UserMenu',       MACROAREA_USERMENU);
       Add('AutoCompletion', MACROAREA_AUTOCOMPLETION);
+    end;
+
+    KeyConds := TKeywordsList.Create;
+    with KeyConds do begin
+      Add('CmdLine',        byte(mcCmdLineEmpty));
+      Add('Selected',       byte(mcBlockNotSelected));
+
+      Add('PanelType',      byte(mcPanelTypeFile));
+      Add('PanelItem',      byte(mcPanelItemFile));
+      Add('PanelSelected',  byte(mcPanelNotSelected));
+
+      Add('PPanelType',     byte(mcPPanelTypeFile));
+      Add('PPanelItem',     byte(mcPPanelItemFile));
+      Add('PPanelSelected', byte(mcPPanelNotSelected));
     end;
   end;
 
@@ -668,12 +754,12 @@ interface
 
   procedure TMacroParser.ParseBindStr(APtr :PTChar; var ARes :TIntArray);
   var
-    vBeg :PTChar;
     vKey :Integer;
+    vBeg :PTChar;
     vBuf :array[0..255] of TChar;
   begin
     vBeg := APtr;
-    while CanExtractNextWord(APtr, @vBuf[0], high(vBuf)) do begin
+    while CanExtractNext(APtr, @vBuf[0], high(vBuf)) do begin
       vKey := FARSTD.FarNameToKey(@vBuf[0]);
       if vKey = -1 then
         Error(errBadHotkey, FRow, (FCur - FBeg) + (APtr - vBeg + 1));
@@ -682,7 +768,7 @@ interface
     end;
   end;
 
-
+(*
   procedure TMacroParser.ParseAreaStr(APtr :PTChar; var ARes :DWORD);
   var
     vArea :Integer;
@@ -690,11 +776,80 @@ interface
     vBuf :array[0..255] of TChar;
   begin
     vBeg := APtr;
-    while CanExtractNextWord(APtr, @vBuf[0], high(vBuf)) do begin
+    while CanExtractNext(APtr, @vBuf[0], high(vBuf)) do begin
       vArea := KeyAreas.GetKeyword(@vBuf[0], StrLen(@vBuf[0]));
       if vArea = -1 then
         Error(errBadMacroarea, FRow, (FCur - FBeg) + (APtr - vBeg + 1));
       ARes := ARes or (1 shl vArea);
+    end;
+  end;
+*)
+
+  procedure TMacroParser.ParseAreaStr(APtr :PTChar; var ARes :DWORD; var ADlgs :TGUIDArray);
+  var
+    vBeg :PTChar;
+
+    procedure LocError(ACode :TParseError);
+    begin
+      Error(ACode, FRow, (FCur - FBeg) + (APtr - vBeg + 1));
+    end;
+
+  var
+    vArea :Integer;
+    vBuf :array[0..255] of TChar;
+    vGUID :TGUID;
+  begin
+    vBeg := APtr;
+    while CanExtractNext(APtr, @vBuf[0], high(vBuf), cWordDelims + ['.']) do begin
+      vArea := KeyAreas.GetKeyword(@vBuf[0], StrLen(@vBuf[0]));
+      if vArea = -1 then
+        LocError(errBadMacroarea);
+
+      if APtr^ = '.' then begin
+        if vArea <> MACROAREA_DIALOG then
+          LocError(errBadMacroarea);
+
+        Inc(APtr);
+        if not ((APtr^ = '{') or CharIsWordChar(APtr^)) or not CanExtractNext(APtr, @vBuf[0], high(vBuf)) then
+          LocError(errBadMacroarea);
+
+        if vBuf[0] = '{' then begin
+
+          if CLSIDFRomString(@vBuf[0], vGUID) <> 0 then
+            LocError(errBadGUID);
+
+          SetLength(ADlgs, Length(ADlgs) + 1);
+          ADlgs[Length(ADlgs) - 1] := vGUID;
+
+        end else
+        begin
+          LocError(errBadMacroarea);
+        end;
+
+      end else
+        ARes := ARes or (1 shl vArea);
+    end;
+  end;
+
+
+  procedure TMacroParser.ParseCondStr(APtr :PTChar; var ARes :TMacroConditions);
+  var
+    vCond :Integer;
+    vBeg :PTChar;
+    vBuf :array[0..255] of TChar;
+  begin
+    vBeg := APtr;
+    while CanExtractNextWord(APtr, @vBuf[0], high(vBuf)) do begin
+      vCond := KeyConds.GetKeyword(@vBuf[0], StrLen(@vBuf[0]));
+      if vCond = -1 then
+        Error(errBadCondition, FRow, (FCur - FBeg) + (APtr - vBeg + 1));
+      if APtr^ <> ':' then
+        Error(errExpectColon, FRow, (FCur - FBeg) + (APtr - vBeg + 1));
+      Inc(APtr);
+      if not (((APtr^ = '0') or (APtr^ = '1')) and (((APtr + 1)^ = #0) or ChrInSet((APtr + 1)^, cWordDelims))) then
+        Error(errExpect0or1, FRow, (FCur - FBeg) + (APtr - vBeg + 1));
+      SetMacroCondition(ARes, TMacroCondition(Byte(vCond)), APtr^ = '1');
+      Inc(APtr);
     end;
   end;
 
@@ -751,21 +906,13 @@ interface
     FMacro.Descr    := '';
     FMacro.Bind     := nil;
     FMacro.Area     := 0;
-    FMacro.Cond     := 0;
+    FMacro.Dlgs     := nil;
+    FMacro.Cond     := [];
     FMacro.Where    := '';
     FMacro.Text     := '';
     FMacro.Options  := [moDisableOutput, moSendToPlugins, moEatOnRun];
     FMacro.Row      := FRow;
     FMacro.Col      := FBeg - FCur;
-  end;
-
-
-  procedure SetMacroOption(var AOptions :TMacroOptions; AOption :TMacroOption; AOn :Boolean);
-  begin
-    if AOn then
-      Include(AOptions, AOption)
-    else
-      Exclude(AOptions, AOption);
   end;
 
 
@@ -778,9 +925,10 @@ interface
       kwName     : FMacro.Name  := GetStrValue;
       kwDescr    : FMacro.Descr := GetStrValue;
       kwBind     : ParseBindStr(FBuf, FMacro.Bind);
-      kwArea     : ParseAreaStr(FBuf, FMacro.Area);
-      kwCond     : {ParseCondStr(FBuf, FMacro.Cond)};
+      kwArea     : ParseAreaStr(FBuf, FMacro.Area, FMacro.Dlgs);
+      kwCond     : ParseCondStr(FBuf, FMacro.Cond);
       kwWhere    : FMacro.Where := GetStrValue;
+
       kwSilence      : SetMacroOption(FMacro.Options, moDisableOutput, GetIntValue <> 0);
       kwSendPlug     : SetMacroOption(FMacro.Options, moSendToPlugins, GetIntValue <> 0);
       kwRunOnRelease : SetMacroOption(FMacro.Options, moRunOnRelease, GetIntValue <> 0);
@@ -820,4 +968,5 @@ initialization
 finalization
   FreeObj(Keywords);
   FreeObj(KeyAreas);
+  FreeObj(KeyConds);
 end.

@@ -25,6 +25,7 @@ exports
   GetPluginInfoW,
   OpenPluginW,
   ProcessSynchroEventW,
+  ProcessDialogEventW,
   ConfigureW,
   ExitFARW;
 
