@@ -86,8 +86,8 @@ Include могут быть вложенными, глубина вложенн�
   Если опущено, то макрос срабатывает во всех областях.<br>
   Возможные значения:
 {{{
-     Shell, Editor, Viewer, Dialog, Search, Disks, Menu, MainMenu, Help,
-     InfoPanel, QViewPanel, TreePanel, FindFolder, UserMenu, AutoCompletion
+     Shell, Editor, Viewer, Dialog, Menu, MainMenu, UserMenu, 
+     Help, Info, QView, Tree, Disks, Search, FFolder, ACompl
 }}}
   Для макрообласти Dialog дополнительно можно указать GUID диалога, 
   в формате "Dialog.GUID". GUID можно указывать непосредственно в
