@@ -87,7 +87,7 @@ Include могут быть вложенными, глубина вложенн�
   Возможные значения:
 {{{
      Shell, Editor, Viewer, Dialog, Menu, MainMenu, UserMenu, 
-     Help, Info, QView, Tree, Disks, Search, FFolder, ACompl
+     Help, QView, Info, Tree, Disks, Search, FFolder, ACompl
 }}}
   Для макрообласти Dialog дополнительно можно указать GUID диалога, 
   в формате "Dialog.GUID". GUID можно указывать непосредственно в
