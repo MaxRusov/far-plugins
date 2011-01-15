@@ -54,10 +54,15 @@ interface
 
       procedure ResizeDialog;
       procedure SetCurrent(AIndex :Integer; AMode :TLocationMode = lmScroll);
+
+    public
+      property Grid :TFarGrid read FGrid;
     end;
 
 
   type
+    TFilteredListDlg = class;
+
     PFilterRec = ^TFilterRec;
     TFilterRec = packed record
       FIdx :Integer;
@@ -71,38 +76,16 @@ interface
 
       procedure Add(AIndex, APos, ALen :Integer);
 
+      function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
+
     private
+      FOwner :TFilteredListDlg;
+
       function GetItems(AIndex :Integer) :Integer;
 
     public
+      property Owner :TFilteredListDlg read FOwner write FOwner;
       property Items[AIndex :Integer] :Integer read GetItems; default;
-    end;
-
-
-    TDrawBuf = class(TBasis)
-    public
-      constructor Create; override;
-      destructor Destroy; override;
-
-      procedure Clear;
-      procedure Add(AChr :TChar; Attr :Byte; ACount :Integer = 1);
-      procedure AddStrExpandTabsEx(AStr :PTChar; ALen :Integer; AColor :Byte);
-      procedure FillAttr(APos, ACount :Integer; AColor :Byte);
-      procedure FillLoAttr(APos, ACount :Integer; ALoColor :Byte);
-
-      procedure Paint(X, Y, ADelta, ALimit :Integer);
-
-    private
-      FTabSize      :Integer;
-      FChars        :PTChar;
-      FAttrs        :PByteArray;
-      FCount        :Integer;
-      FSize         :Integer;
-
-      procedure SetSize(ASize :Integer);
-
-    public
-      property Count :Integer read FCount;
     end;
 
 
@@ -127,12 +110,14 @@ interface
       procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer); virtual;
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; virtual;
       procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); virtual;
+      
+      function ItemCompare(AIndex1, AIndex2 :Integer; Context :TIntPtr) :Integer; virtual;
 
     protected
-      FDrawBuf     :TDrawBuf;
-      FFilter      :TListFilter;
-      FFilterMask  :TString;
-      FTotalCount  :Integer;
+      FFilter       :TListFilter;
+      FFilterMask   :TString;
+      FFilterColumn :Integer;
+      FTotalCount   :Integer;
 
       function RowToIdx(ARow :Integer) :Integer;
     end;
@@ -278,132 +263,12 @@ interface
   end;
 
 
- {-----------------------------------------------------------------------------}
- { TDrawBuf                                                                    }
- {-----------------------------------------------------------------------------}
-
-  constructor TDrawBuf.Create; {override;}
+  function TListFilter.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
-    inherited Create;
-    FTabSize := DefTabSize;
-  end;
-
-
-  destructor TDrawBuf.Destroy; {override;}
-  begin
-    MemFree(FChars);
-    MemFree(FAttrs);
-    inherited Destroy;
-  end;
-
-
-  procedure TDrawBuf.Clear;
-  begin
-    FCount := 0;
-  end;
-
-
-  procedure TDrawBuf.Add(AChr :TChar; Attr :Byte; ACount :Integer = 1);
-  var
-    I :Integer;
-  begin
-    if FCount + ACount + 1 > FSize then
-      SetSize(FCount + ACount + 1);
-    for I := 0 to ACount - 1 do begin
-      FChars[FCount] := AChr;
-      FAttrs[FCount] := Attr;
-      Inc(FCount);
-    end;
-  end;
-
-
-  procedure TDrawBuf.AddStrExpandTabsEx(AStr :PTChar; ALen :Integer; AColor :Byte);
-  var
-    vEnd :PTChar;
-    vChr :TChar;
-    vAtr :Byte;
-    vDPos, vDstLen, vSize :Integer;
-  begin
-    vDstLen := ChrExpandTabsLen(AStr, ALen, FTabSize);
-    if FCount + vDstLen + 1 > FSize then
-      SetSize(FCount + vDstLen + 1);
-
-    vEnd := AStr + ALen;
-    vDPos := 0;
-    while AStr < vEnd do begin
-      vChr := AStr^;
-      vAtr := AColor;
-
-      if vChr <> charTab then begin
-        Assert(vDPos < vDstLen);
-        Add(vChr, vAtr);
-        Inc(vDPos);
-      end else
-      begin
-        vSize := FTabSize - (vDPos mod FTabSize);
-        Assert(vDPos + vSize <= vDstLen);
-        Add(' ', vAtr, vSize);
-        Inc(vDPos, vSize);
-      end;
-      Inc(AStr);
-    end;
-    FChars[FCount] := #0;
-  end;
-
-
-  procedure TDrawBuf.FillAttr(APos, ACount :Integer; AColor :Byte);
-  begin
-    Assert(APos + ACount <= FCount);
-    FillChar(FAttrs[APos], ACount, AColor);
-  end;
-
-
-  procedure TDrawBuf.FillLoAttr(APos, ACount :Integer; ALoColor :Byte);
-  var
-    I :Integer;
-  begin
-    Assert(APos + ACount <= FCount);
-    for I := APos to APos + ACount - 1 do
-      FAttrs[I] := (FAttrs[I] and $F0) or (ALoColor and $0F);
-  end;
-
-
-  procedure TDrawBuf.Paint(X, Y, ADelta, ALimit :Integer);
-  var
-    I, J, vEnd, vPartLen :Integer;
-    vAtr :Byte;
-    vTmp :TChar;
-  begin
-    vEnd := FCount;
-    if FCount - ADelta > ALimit then
-      vEnd := ADelta + ALimit;
-
-    I := ADelta;
-    while I < vEnd do begin
-      vAtr := FAttrs[I];
-      J := I + 1;
-      while (J < vEnd) and (FAttrs[J] = vAtr) do
-        Inc(J);
-      vPartLen := J - I;
-      if I + vPartLen = FCount then
-        FARAPI.Text(X, Y, vAtr, FChars + I )
-      else begin
-        vTmp := (FChars + I + vPartLen)^;
-        (FChars + I + vPartLen)^ := #0;
-        FARAPI.Text(X, Y, vAtr, FChars + I );
-        (FChars + I + vPartLen)^ := vTmp;
-      end;
-      Inc(X, vPartLen);
-      Inc(I, vPartLen);
-    end;
-  end;
-
-
-  procedure TDrawBuf.SetSize(ASize :Integer);
-  begin
-    ReallocMem(FChars, ASize * SizeOf(TChar));
-    ReallocMem(FAttrs, ASize * SizeOf(Byte));
-    FSize := ASize;
+    if FOwner <> nil then
+      Result := FOwner.ItemCompare(PInteger(PItem)^, PInteger(PAnother)^, Context)
+    else
+      Result := inherited ItemCompare(PItem, PAnother, Context);
   end;
 
 
@@ -414,7 +279,6 @@ interface
   constructor TFilteredListDlg.Create; {override;}
   begin
     inherited Create;
-//  FDrawBuf := TDrawBuf.Create;
 //  FFilter := TListFilter.CreateSize(SizeOf(TFilterRec));
   end;
 
@@ -422,7 +286,6 @@ interface
   destructor TFilteredListDlg.Destroy; {override;}
   begin
     FreeObj(FFilter);
-    FreeObj(FDrawBuf);
     inherited Destroy;
   end;
 
@@ -505,6 +368,12 @@ interface
   end;
 
 
+  function TFilteredListDlg.ItemCompare(AIndex1, AIndex2 :Integer; Context :TIntPtr) :Integer; {virtual;}
+  begin
+    Wrong; Result := 0;
+  end;
+
+
   function TFilteredListDlg.RowToIdx(ARow :Integer) :Integer;
   begin
     if FFilter = nil then
@@ -524,6 +393,8 @@ interface
       if ANewFilter <> FFilterMask then begin
 //      TraceF('Mask: %s', [ANewFilter]);
 //      FFilterMode := ANewFilter <> '';
+        if FFilterMask = '' then
+          FFilterColumn := FGrid.Column[FGrid.CurCol].Tag;
         FFilterMask := ANewFilter;
         ReinitAndSaveCurrent;
       end;

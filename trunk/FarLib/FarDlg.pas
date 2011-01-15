@@ -67,6 +67,7 @@ interface
       procedure ErrorHandler(E :Exception); virtual;
 
       procedure InitDialog; virtual;
+      function InitFialogInfo(var AInfo :TDialogInfo) :TIntPtr; virtual;
       function CloseDialog(ItemID :Integer) :Boolean; virtual;
 
     protected
@@ -77,6 +78,7 @@ interface
       FItemCount :Integer;
       FHelpTopic :TFarStr;
       FFlags     :DWORD;
+      FGUID      :TGUID;
       FLeft      :Integer;
       FTop       :Integer;
       FWidth     :Integer;
@@ -191,6 +193,9 @@ interface
     case Msg of
       DN_INITDIALOG:
         InitDialog;
+      DN_GETDIALOGINFO:
+        Result := InitFialogInfo(PDialogInfo(Param2)^);
+
       DN_CLOSE:
         Result := Byte(CloseDialog(Param1));
 
@@ -245,6 +250,13 @@ interface
 
   procedure TFarDialog.InitDialog; {virtual;}
   begin
+  end;
+
+
+  function TFarDialog.InitFialogInfo(var AInfo :TDialogInfo) :TIntPtr; {virtual;}
+  begin
+    AInfo.Id := FGUID;
+    Result := 1;
   end;
 
 
