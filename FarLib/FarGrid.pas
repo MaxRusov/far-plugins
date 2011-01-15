@@ -365,7 +365,7 @@ interface
 
   procedure TFarGrid.PaintRow(X, Y, AWidth :Integer; ARow :Integer);
   var
-    I, vWidth :Integer;
+    I, vWidth, vLen :Integer;
     vColumn :TColumnFormat;
     vRowColor, vCellColor :Integer;
   begin
@@ -387,8 +387,9 @@ interface
       if Assigned(FOnGetCellColor) then
         FOnGetCellColor(Self, I, ARow, vCellColor);
 
-      FillFarChar(FRowBuf, vWidth, ' ');
-      FRowBuf[vWidth] := #0;
+      vLen := IntMin(vWidth, FRowLen - 1);
+      FillFarChar(FRowBuf, vLen, ' ');
+      FRowBuf[vLen] := #0;
       DrawBuf(X, Y, vCellColor);
 
       if coColMargin in vColumn.FOptions then begin
@@ -456,7 +457,6 @@ interface
       Inc(vRow);
       Inc(Y);
     end;
-
 
     if vRow < FDeltaY + vHeight then begin
       FillFarChar(FRowBuf, vWidth, ' ');
