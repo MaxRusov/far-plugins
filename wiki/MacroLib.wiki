@@ -11,8 +11,8 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/MacroLib.v3.rar MacroLib 1.0.3 for FAR 2]
- * [http://far-plugins.googlecode.com/files/MacroLib.x64.v3.rar MacroLib 1.0.3 for FAR 2 x64]
+ * [http://far-plugins.googlecode.com/files/MacroLib.v4.rar MacroLib 1.0.4 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/MacroLib.x64.v4.rar MacroLib 1.0.4 for FAR 2 x64]
 
 
 == Пример ==
@@ -25,7 +25,7 @@ http://far-plugins.googlecode.com/svn/trunk/MacroLib/Image/Sample.png
 
 == Ver 1.0.4 ==
 
-  * В списке макросов возможна фильтрация и упорядочиванию пол любому столбцу, Ctrl-2/3/4 циклически переключают режимы отображения столбцов.<br>
+  * В списке макросов возможна фильтрация и упорядочиванию по любому столбцу, Ctrl-2/3/4 циклически переключают режимы отображения столбцов.<br>
  Подробности в хелпе (F1)
 
   * Для задания некоторых макрообластей используются сокращенный наименования (длинные имена оставлены в качестве синонимов)
