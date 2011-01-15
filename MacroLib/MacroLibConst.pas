@@ -5,7 +5,7 @@ unit MacroLibConst;
 {******************************************************************************}
 {* (c) 2011 Max Rusov                                                         *}
 {*                                                                            *}
-{* MacroLib                                                                   *}
+{* FAR Macro Library                                                          *}
 {******************************************************************************}
 
 interface
@@ -44,6 +44,13 @@ interface
       strMacroPathsPrompt,
 
       strMacrosesTitle,
+
+      strName,
+      strDescription,
+      strMacroarea,
+      strHotkeys,
+      strFileName,
+      strSequence,
 (*
       strColorDialog,
       str_CD_Foreground,
@@ -60,24 +67,34 @@ interface
     cPluginGUID     = $424C434D;
     cPlugRegFolder  = 'MacroLib';
 
-  const
     cDefMacroFolder = 'Macros';
     cMacroFileExt   = 'FML';
+
+    cMacroPathName  = 'MacroLib.Paths';
+
+    cMacroListDlgID :TGUID = '{F002A86D-BB4A-4A8F-A875-30286C06414B}';
+
 
   var
     optProcessHotkey :Boolean = True;   { ќбрабатывать нажати€ гор€чих клавиш }
     optProcessMouse  :Boolean = True;   { ќбрабатывать событи€ мыши }
     optMacroPaths    :TString = '';     { ѕуть к каталогу с макросами }
 
-    optXLatMask      :Boolean = False;  { јвтоматическое XLAT преобразование при поиске }
+    optXLatMask      :Boolean = True;   { јвтоматическое XLAT преобразование при поиске }
+    optShowHints     :Boolean = True;
 
-    optShowBind      :Boolean = True;
-    optShowArea      :Boolean = False;
-    optShowFile      :Boolean = False;
+    optShowBind      :Integer = 0;
+    optShowArea      :Integer = 0;
+    optShowFile      :Integer = 0;
+
+    optSortMode      :Integer = 0;
 
     optFoundColor    :Integer = 0;
 
+  var
+    FFarExePath      :TString;
 
+    
   function GetMsg(AMess :TMessages) :PFarChar;
   function GetMsgStr(AMess :TMessages) :TString;
   procedure HandleError(AError :Exception);
@@ -270,9 +287,15 @@ interface
         optProcessMouse := RegQueryLog(vKey, 'ProcessMouse', optProcessMouse);
         optMacroPaths := RegQueryStr(vKey, 'MacroPaths', optMacroPaths);
 
-        optShowBind := RegQueryLog(vKey, 'ShowBind', optShowBind);
-        optShowArea := RegQueryLog(vKey, 'ShowArea', optShowArea);
-        optShowFile := RegQueryLog(vKey, 'ShowFile', optShowFile);
+        optShowBind := RegQueryInt(vKey, 'ShowBind', optShowBind);
+        optShowArea := RegQueryInt(vKey, 'ShowArea', optShowArea);
+        optShowFile := RegQueryInt(vKey, 'ShowFile', optShowFile);
+
+        optSortMode := RegQueryInt(vKey, 'SortMode', optSortMode);
+
+        optXLatMask := RegQueryLog(vKey, 'XLatMask', optXLatMask);
+        optShowHints := RegQueryLog(vKey, 'ShowHints', optShowHints);
+
       finally
         RegCloseKey(vKey);
       end;
@@ -292,9 +315,14 @@ interface
       RegWriteLog(vKey, 'ProcessMouse', optProcessMouse);
       RegWriteStr(vKey, 'MacroPaths', optMacroPaths);
 
-      RegWriteLog(vKey, 'ShowBind', optShowBind);
-      RegWriteLog(vKey, 'ShowArea', optShowArea);
-      RegWriteLog(vKey, 'ShowFile', optShowFile);
+      RegWriteInt(vKey, 'ShowBind', optShowBind);
+      RegWriteInt(vKey, 'ShowArea', optShowArea);
+      RegWriteInt(vKey, 'ShowFile', optShowFile);
+
+      RegWriteInt(vKey, 'SortMode', optSortMode);
+
+      RegWriteLog(vKey, 'XLatMask', optXLatMask);
+      RegWriteLog(vKey, 'ShowHints', optShowHints);
     finally
       RegCloseKey(vKey);
     end;

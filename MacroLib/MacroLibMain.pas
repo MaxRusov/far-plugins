@@ -5,7 +5,7 @@ unit MacroLibMain;
 {******************************************************************************}
 {* (c) 2011 Max Rusov                                                         *}
 {*                                                                            *}
-{* MacroLib                                                                   *}
+{* FAR Macro Library                                                          *}
 {******************************************************************************}
 
 interface
@@ -14,14 +14,18 @@ interface
     Windows,
     MixTypes,
     MixUtils,
+    MixStrings,
     MixClasses,
+    MixWinUtils,
 
     PluginW,
     FarCtrl,
     FarMenu,
 
     MacroLibConst,
-    MacroLibClasses;
+    MacroLibClasses,
+    MacroParser,
+    MacroListDlg;
 
 
   procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
@@ -32,6 +36,8 @@ interface
   function ConfigureW(Item: integer) :Integer; stdcall;
   function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
   function ProcessDialogEventW(AEvent :Integer; AParam :PFarDialogEvent) :Integer; stdcall;
+  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
+  function ProcessViewerEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -238,6 +244,8 @@ interface
       GetMsg(strMMacroPaths)
     ]);
     try
+      vMenu.Help := 'Options';
+      
       while True do begin
         vMenu.Checked[0] := optProcessHotkey;
         vMenu.Checked[1] := optProcessMouse;
@@ -251,7 +259,7 @@ interface
           0 : ToggleOption(optProcessHotkey);
           1 : ToggleOption(optProcessMouse);
           2 :
-            if FarInputBox(GetMsg(strMacroPathsTitle), GetMsg(strMacroPathsPrompt), optMacroPaths) then begin
+            if FarInputBox(GetMsg(strMacroPathsTitle), GetMsg(strMacroPathsPrompt), optMacroPaths, FIB_BUTTONS or FIB_NOUSELASTHISTORY or FIB_ENABLEEMPTY, cMacroPathName) then begin
               WriteSetup;
               MacroLibrary.RescanMacroses(True);
             end;
@@ -279,11 +287,16 @@ interface
       GetMsg(strMOptions)
     ]);
     try
+      vMenu.Help := 'MainMenu';
+
+      if MacroLock > 0 then 
+        vMenu.Items[3].Flags := vMenu.Items[3].Flags or MIF_DISABLE;
+
       if not vMenu.Run then
         Exit;
 
       case vMenu.ResIdx of
-        0 : MacroLibrary.ShowAvailable;
+        0 : FARAPI.AdvControl(hModule, ACTL_SYNCHRO, nil); //MacroLibrary.ShowAvailable;
 
         2 : MacroLibrary.ShowAll;
         3 : MacroLibrary.RescanMacroses(False);
@@ -314,6 +327,8 @@ interface
     FARAPI := psi;
     FARSTD := psi.fsf^;
 
+    FFarExePath := AddBackSlash(ExtractFilePath(GetExeModuleFileName));
+
     RestoreDefColor;
     ReadSetup;
 
@@ -321,6 +336,9 @@ interface
     MacroLibrary.RescanMacroses(True);
 
     InjectHandlers;
+
+    {???}
+    MacroLibrary.CheckEvent(maShell, meOpen);
   end;
 
 
@@ -358,7 +376,8 @@ interface
     try
 //    TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
       if OpenFrom and OPEN_FROMMACRO <> 0 then begin
-        MacroLibrary.ShowAvailable
+//      MacroLibrary.ShowAvailable
+        FARAPI.AdvControl(hModule, ACTL_SYNCHRO, nil);
       end else
         MainMenu;
     except
@@ -382,6 +401,7 @@ interface
 
   function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
   var
+    I :Integer;
     vObj :TObject;
   begin
 //  TraceF('ProcessSynchroEventW. Event=%d, Param=%d', [Event, Integer(Param)]);
@@ -390,9 +410,18 @@ interface
       Exit;
 
     vObj := Param;
-    if vObj is TMacro then
-      TMacro(vObj).Execute
+    if vObj = nil then
+      MacroLibrary.ShowAvailable
     else
+    if vObj is TMacro then
+      TMacro(vObj).Execute(0)
+    else
+    if (vObj is TRunList) and ((TRunList(vObj).Count = 1) or TRunList(vObj).RunAll) then begin
+      with TRunList(vObj) do
+        for I := 0 to Count - 1 do
+          TMacro(Items[I]).Execute(KeyCode);
+      FreeObj(vObj);
+    end else
     if vObj is TExList then begin
       MacroLibrary.ShowList(TExList(vObj));
       FreeObj(vObj);
@@ -406,12 +435,32 @@ interface
       if AParam.Msg = DN_INITDIALOG then begin
 //      TraceF('InitDialog: %d', [AParam.hDlg]);
         PushDlg(AParam.hDlg);
+        MacroLibrary.CheckEvent(maDialog, meOpen);
       end else
       if (AParam.Msg = DN_CLOSE) and (AParam.Result <> 0) then begin
 //      TraceF('CloseDialog: %d', [AParam.hDlg]);
         PopDlg(AParam.hDlg);
       end;
     end;
+    Result := 0;
+  end;
+
+
+  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
+  begin
+//  TraceF('ProcessEditorEvent: %d, %x', [AEvent, TIntPtr(AParam)]);
+    if AEvent = EE_READ then
+      MacroLibrary.CheckEvent(maEditor, meOpen);
+//  if AEvent = EE_GOTFOCUS then
+//    MacroLibrary.CheckEvent(maEditor, meGotFocus);
+    Result := 0;
+  end;
+
+
+  function ProcessViewerEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
+  begin
+    if AEvent = VE_READ then
+      MacroLibrary.CheckEvent(maViewer, meOpen);
     Result := 0;
   end;
 
