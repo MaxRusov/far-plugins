@@ -17,10 +17,20 @@
 "One or more paths (separated by "";"")"
 
 "Macroses"
- 
+
+"Name"
+"Description"
+"Macroarea"
+"Hotkeys"
+"File Name"
+"Sequence"
+
 "Fatal Error"
 "Keyword expected"
+"Identifier expected"
+"Constant already declared"
 "Unknown кeyword"
+"Undeclared identifier"
 "Expect macro body"
 "Expect ""="""
 "Expect value"
@@ -31,8 +41,11 @@
 "Unknown hotkey name"
 "Unknown macroarea name"
 "Unknown condition"
+"Unknown event"
 "Expect "":"""
 "Expect 0 or 1"
 "Unexpected end of file"
 "Bad macro sequence"
+"File not found"
+"Recursive include"
 "Unknown parameter"

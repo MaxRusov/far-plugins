@@ -26,6 +26,8 @@ exports
   OpenPluginW,
   ProcessSynchroEventW,
   ProcessDialogEventW,
+  ProcessEditorEventW,
+  ProcessViewerEventW,
   ConfigureW,
   ExitFARW;
 
