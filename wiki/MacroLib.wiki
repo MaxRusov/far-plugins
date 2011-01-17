@@ -11,8 +11,8 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/MacroLib.v5.rar MacroLib 1.0.5 for FAR 2]
- * [http://far-plugins.googlecode.com/files/MacroLib.x64.v5.rar MacroLib 1.0.5 for FAR 2 x64]
+ * [http://far-plugins.googlecode.com/files/MacroLib.v6.rar MacroLib 1.0.6 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/MacroLib.x64.v6.rar MacroLib 1.0.6 for FAR 2 x64]
 
 
 == Пример ==
@@ -22,6 +22,16 @@ http://far-plugins.googlecode.com/svn/trunk/MacroLib/Image/Sample.png
 ----
 
 = История изменений =
+
+== Ver 1.0.6 ==
+
+  * Возможность привязки макросов к конкретному диалогу по Caption. Полезно, пока не все диалоги снабжены GUID'ами.
+
+  * Возможность привязки макросов к одинарному/двойному нажатию клавиши или кнопки мыши, или удержании кнопки в течении тайм-аута. В сумме это дает возможность назначить на одну кнопку до 4-х макросов  :)
+  Подробности - Readme.txt
+
+  * Обработка клавиатуры и мыши автоматически отключается на время записи и проигрывания макросов.
+
 
 == Ver 1.0.5 ==
 
