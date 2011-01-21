@@ -49,6 +49,7 @@ interface
       strDescription,
       strMacroarea,
       strHotkeys,
+      strPriority,
       strFileName,
       strSequence,
 (*
@@ -91,6 +92,9 @@ interface
 
     optFoundColor    :Integer = 0;
 
+    optDoubleDelay   :Integer = 500;
+    optHoldDelay     :Integer = 1000;
+
   var
     FFarExePath      :TString;
 
@@ -100,10 +104,11 @@ interface
   procedure HandleError(AError :Exception);
 
   function WinKeyRecToFarKey(const ARec :TKeyEventRecord) :Integer;
-  function MouseEventToFarKey(const ARec :TMouseEventRecord; AOldState :DWORD; var APress :Boolean) :Integer;
+  function MouseEventToFarKey(const ARec :TMouseEventRecord; AOldState :DWORD; var APress, ADouble :Boolean) :Integer;
 
   function FarKeyToName(AKey :Integer) :TString;
   function FarGetMacroArea :Integer;
+  function FarGetMacroState :Integer;
 
   procedure ReadSetup;
   procedure WriteSetup;
@@ -196,7 +201,7 @@ interface
   end;
 
 
-  function MouseEventToFarKey(const ARec :TMouseEventRecord; AOldState :DWORD; var APress :Boolean) :Integer;
+  function MouseEventToFarKey(const ARec :TMouseEventRecord; AOldState :DWORD; var APress, ADouble :Boolean) :Integer;
   var
     vKey, vShift :Integer;
 
@@ -216,11 +221,14 @@ interface
     vKey := 0;
     vShift := ARec.dwControlKeyState;
     APress := True;
+    ADouble := False;
 
     if (ARec.dwEventFlags = 0) or (ARec.dwEventFlags and DOUBLE_CLICK <> 0) then begin
       LocCheckButton(FROM_LEFT_1ST_BUTTON_PRESSED, KEY_MSLCLICK);
       LocCheckButton(RIGHTMOST_BUTTON_PRESSED,     KEY_MSRCLICK);
       LocCheckButton(FROM_LEFT_2ND_BUTTON_PRESSED, KEY_MSM3CLICK);
+      if APress and (ARec.dwEventFlags and DOUBLE_CLICK <> 0) then
+        ADouble := True;
     end else
     if ARec.dwEventFlags and MOUSE_WHEELED <> 0 then begin
       if Integer(ARec.dwButtonState) > 0 then
@@ -273,6 +281,15 @@ interface
     Result := FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
   end;
 
+
+  function FarGetMacroState :Integer;
+  var
+    vMacro :TActlKeyMacro;
+  begin
+    vMacro.Command := MCMD_GETSTATE;
+    Result := FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+  end;
+
  {-----------------------------------------------------------------------------}
 
   procedure ReadSetup;
@@ -295,6 +312,9 @@ interface
 
         optXLatMask := RegQueryLog(vKey, 'XLatMask', optXLatMask);
         optShowHints := RegQueryLog(vKey, 'ShowHints', optShowHints);
+
+        optDoubleDelay := RegQueryInt(vKey, 'DoubleDelay', optDoubleDelay);
+        optHoldDelay := RegQueryInt(vKey, 'HoldDelay', optHoldDelay);
 
       finally
         RegCloseKey(vKey);
@@ -323,6 +343,10 @@ interface
 
       RegWriteLog(vKey, 'XLatMask', optXLatMask);
       RegWriteLog(vKey, 'ShowHints', optShowHints);
+
+      RegWriteInt(vKey, 'DoubleDelay', optDoubleDelay);
+      RegWriteInt(vKey, 'HoldDelay', optHoldDelay);
+      
     finally
       RegCloseKey(vKey);
     end;

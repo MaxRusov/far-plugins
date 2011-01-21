@@ -135,6 +135,9 @@ interface
     if vStr <> '' then
       AItem.AddStringInfo(GetMsgStr(strHotkeys), vStr);
 
+    if vMacro.Priority <> 0 then
+      AItem.AddIntInfo(GetMsgStr(strPriority), vMacro.Priority);
+
     vStr := vMacro.GetFileTitle(2);
     if vStr <> '' then
       AItem.AddStringInfo(GetMsgStr(strFileName), vStr);
