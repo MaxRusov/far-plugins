@@ -8,6 +8,21 @@ unit MacroLibMain;
 {* FAR Macro Library                                                          *}
 {******************************************************************************}
 
+{
+Ready
+  +Приоритеты
+
+ToDo:
+  -Иногда срабатывает Realses после Hold (если shift отпустили первым)
+
+  - Срабатывание по символьным клавишам
+  - Мароподстановка #AKeyName
+
+  +Настройка тайм-аутов
+    - Через диалог настроек
+  -Диалоги в меню плагинов
+}
+
 interface
 
   uses
@@ -191,13 +206,14 @@ interface
     Result := OldReadConsoleInputW(hConsoleInput, lpBuffer, nLength, lpNumberOfEventsRead);
     if Result and (lpNumberOfEventsRead > 0) then begin
 //    TraceF('MyReadConsoleInputW (Events=%d)', [lpNumberOfEventsRead]);
+
       P := @lpBuffer;
       for I := 0 to lpNumberOfEventsRead - 1 do begin
-        if (P.EventType = KEY_EVENT) and optProcessHotkey then begin
+        if (P.EventType = KEY_EVENT) and optProcessHotkey and (FarGetMacroState = MACROSTATE_NOMACRO) then begin
           if MacroLibrary.CheckHotkey(P.Event.KeyEvent) then
             ClearKeyEvent(P.Event.KeyEvent);
         end else
-        if (P.EventType = _MOUSE_EVENT) and optProcessMouse then begin
+        if (P.EventType = _MOUSE_EVENT) and optProcessMouse and (FarGetMacroState = MACROSTATE_NOMACRO) then begin
           if MacroLibrary.CheckMouse(P.Event.MouseEvent) then
             ClearMouseEvent(P.Event.MouseEvent);
         end;
@@ -435,6 +451,11 @@ interface
       if AParam.Msg = DN_INITDIALOG then begin
 //      TraceF('InitDialog: %d', [AParam.hDlg]);
         PushDlg(AParam.hDlg);
+      end else
+      if AParam.Msg = DN_GETDIALOGINFO then begin
+//      TraceF('GetDialogInfo: %d', [AParam.hDlg]);
+        SetDlgInfo(AParam.hDlg, PDIalogInfo(AParam.Param2)^);
+        {!!! Вызывается только один раз?}
         MacroLibrary.CheckEvent(maDialog, meOpen);
       end else
       if (AParam.Msg = DN_CLOSE) and (AParam.Result <> 0) then begin
