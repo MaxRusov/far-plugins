@@ -11,8 +11,8 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/MacroLib.v7.rar MacroLib 1.0.7 for FAR 2]
- * [http://far-plugins.googlecode.com/files/MacroLib.x64.v7.rar MacroLib 1.0.7 for FAR 2 x64]
+ * [http://far-plugins.googlecode.com/files/MacroLib.v8.rar MacroLib 1.0.8 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/MacroLib.x64.v8.rar MacroLib 1.0.8 for FAR 2 x64]
 
 
 == Пример ==
@@ -22,6 +22,24 @@ http://far-plugins.googlecode.com/svn/trunk/MacroLib/Image/Sample.png
 ----
 
 = История изменений =
+
+Ver 1.0.8 
+
+  * Требуется FAR Build 1800+
+
+  * В макросах работают стандартные функции AKey()/$AKey. Макроподстановка #AKey оставлена, для совместимости.
+
+  * Поддержка командных префиксов. Префикс по умолчанию "FML", настраивается в реестре (ключ CmdPrefix). Пока поддерживаются только команды Call и Key. Подробности - Readme.txt
+
+  * Поддержка исполнения команд через CallPlugin. Синтаксис командной строки точно такой же, как через префикс (только не надо писать "FML:")
+  Пример:
+
+  CallPlugin(MacroLib, "call Hello")
+
+  Примечание: Хотя вызов макроса из макроса через CallPlugin похож на вызов макрофункций через Eval, он обладает существенно отличным поведением в связи с особенностями реализации: исполнение текущего макроса прекращается и начинает исполняться вызванный макрос, эту особенность необходимо учитывать при использовании данной функции.
+
+  * Исправлено несколько ошибок.
+
 
 == Ver 1.0.7 ==
 
