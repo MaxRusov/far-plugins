@@ -52,7 +52,7 @@ uses Windows;
 const
   FARMANAGERVERSION_MAJOR = 2;
   FARMANAGERVERSION_MINOR = 0;
-  FARMANAGERVERSION_BUILD = 1773;
+  FARMANAGERVERSION_BUILD = 1801;
 
 type
 //TFarChar = AnsiChar;
@@ -1577,6 +1577,7 @@ struct ActlKeyMacro
 		{
 			const wchar_t *SequenceText;
 			DWORD Flags;
+			DWORD AKey;
 		} PlainText;
 		struct MacroParseResult MacroResult;
 		DWORD_PTR Reserved[3];
@@ -1586,8 +1587,9 @@ struct ActlKeyMacro
 type
   PPlainText = ^TPlainText;
   TPlainText = record
-    SequenceText : PFarChar;
-    Flags : DWORD;
+    SequenceText :PFarChar;
+    Flags :DWORD;
+    AKey :DWORD;
   end;
 
   PActlKeyMacro = ^TActlKeyMacro;
@@ -2898,7 +2900,7 @@ const
   SM_NUMSTREAMS     = 12;
   SM_STREAMSSIZE    = 13;
   SM_FULLNAME       = 14;
-
+  SM_CHTIME         = 15;
 
 (*
 struct KeyBarTitles
@@ -3001,7 +3003,12 @@ const
   OPEN_FILEPANEL   = 7;
   OPEN_DIALOG      = 8;
   OPEN_ANALYSE     = 9;
-  OPEN_FROMMACRO   = $10000;
+  OPEN_FROM_MASK   = $FF;
+
+  OPEN_FROMMACRO        = $10000;
+  OPEN_FROMMACROSTRING  = $20000;
+  OPEN_FROMMACRO_MASK   = $F0000;
+
 
 { FAR_PKF_FLAGS }
 
@@ -3026,9 +3033,11 @@ const
 { FAR_PLUGINS_CONTROL_COMMANDS }
 
 const
-  PCTL_LOADPLUGIN   = 0;
-  PCTL_UNLOADPLUGIN = 1;
+  PCTL_LOADPLUGIN       = 0;
+  PCTL_UNLOADPLUGIN     = 1;
+  PCTL_FORCEDLOADPLUGIN = 2;
 
+  
 { FAR_PLUGIN_LOAD_TYPE }
 
 const
