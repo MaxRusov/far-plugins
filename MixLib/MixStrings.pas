@@ -1350,12 +1350,6 @@ interface
 
 
   function ExtractParamStr(var AStr :PTChar) :TString;
-
-    function LocStr(AChr :PTChar; ALen :Integer) :TString;
-    begin
-      SetString(Result, AChr, ALen);
-    end;
-
   var
     vPtr, vBeg :PTChar;
   begin
@@ -1369,13 +1363,13 @@ interface
     while (vPtr^ <> #0) and (vPtr^ <> ' ') do begin
       if vPtr^ = '"' then begin
         if vPtr > vBeg then
-          Result := Result + LocStr(vBeg, vPtr - vBeg);
+          Result := Result + Chr2StrL(vBeg, vPtr - vBeg);
 
         Inc(vPtr);
         vBeg := vPtr;
         while (vPtr^ <> #0) and (vPtr^ <> '"') do
           Inc(vPtr);
-        Result := Result + LocStr(vBeg, vPtr - vBeg);
+        Result := Result + Chr2StrL(vBeg, vPtr - vBeg);
         if vPtr^ <> #0 then
           Inc(vPtr);
 
@@ -1385,7 +1379,7 @@ interface
     end;
 
     if vPtr > vBeg then
-      Result := Result + LocStr(vBeg, vPtr - vBeg);
+      Result := Result + Chr2StrL(vBeg, vPtr - vBeg);
 
     AStr := vPtr;
   end;
