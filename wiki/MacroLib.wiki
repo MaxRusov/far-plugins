@@ -23,7 +23,7 @@ http://far-plugins.googlecode.com/svn/trunk/MacroLib/Image/Sample.png
 
 = История изменений =
 
-Ver 1.0.8 
+== Ver 1.0.8 ==
 
   * Требуется FAR Build 1800+
 
