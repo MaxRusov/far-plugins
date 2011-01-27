@@ -30,6 +30,22 @@ interface
 
 
   type
+    TKeyword = class(TNamedObject)
+    public
+      Key :Integer;
+      function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
+    end;
+
+    TKeywordsList = class(TObjList)
+    public
+      procedure Add(const AKeyword :TString; AKey :Integer);
+      function GetKeyword(APtr :PTChar; ALen :Integer) :Integer;
+      function GetKeywordStr(const AStr :TString) :Integer;
+      function NameByKey(AKey :Integer) :TString;
+    end;
+
+
+  type
     TMacroParser = class;
 
     TLexType = (
@@ -71,6 +87,8 @@ interface
 
     TIntArray = array of Integer;
     TGUIDArray = array of TGUID;
+
+    PStrArray = ^TStrArray;
     TStrArray = array of TString;
 
     TMacroOption =
@@ -156,6 +174,8 @@ interface
       Area     :TMacroAreas;
       Dlgs     :TGUIDArray;
       Dlgs1    :TStrArray;
+      Edts     :TStrArray;
+      Views    :TStrArray;
       Cond     :TMacroConditions;
       Events   :TMacroEvents;
       Where    :TString;
@@ -286,7 +306,7 @@ interface
       procedure SkipMultilineComment(var APtr :PTChar);
       procedure SkipCRLF(var APtr :PTChar);
       procedure ParseBindStr(APtr :PTChar; var ARes :TKeyArray);
-      procedure ParseAreaStr(APtr :PTChar; var ARes :TMacroAreas; var ADlgs :TGUIDArray; var ADlgs1 :TStrArray);
+      procedure ParseAreaStr(APtr :PTChar; var ARes :TMacroAreas);
       procedure ParseCondStr(APtr :PTChar; var ARes :TMacroConditions);
       procedure ParseEventStr(APtr :PTChar; var ARes :TMacroEvents);
       function GetIntValue :Integer;
@@ -303,6 +323,10 @@ interface
       property OnError :TOnError read FOnError write FOnError;
     end;
 
+
+  function KeyNameParse(AName :PTChar; var AKey :Integer; var AMod :TKeyModifier) :Boolean;
+
+  procedure MoveStrArray(const ASrc :TStrArray; var ADst :TStrArray);
   procedure SetMacroOption(var AOptions :TMacroOptions; AOption :TMacroOption; AOn :Boolean);
   procedure SetMacroCondition(var AConditions :TMacroConditions; ACondition :TMacroCondition; AOn :Boolean);
 
@@ -345,6 +369,19 @@ interface
     kwpAKey     = 2;
 //  kwpAKeyC    = 3;
 
+
+
+  procedure MoveStrArray(const ASrc :TStrArray; var ADst :TStrArray);
+  var
+    L :Integer;
+  begin
+    L := Length(ASrc);
+    SetLength(ADst, L);
+    if L > 0 then begin
+      Move(ASrc[0], ADst[0], L * SizeOf(pointer));
+      FillZero(ASrc[0], L * SizeOf(pointer));
+    end;
+  end;
 
 
   procedure SetMacroOption(var AOptions :TMacroOptions; AOption :TMacroOption; AOn :Boolean);
@@ -413,6 +450,7 @@ interface
     end;
   end;
 
+
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
@@ -428,21 +466,6 @@ interface
  {-----------------------------------------------------------------------------}
  { TKeywords                                                                   }
  {-----------------------------------------------------------------------------}
-
-  type
-    TKeyword = class(TNamedObject)
-    public
-      Key :Integer;
-      function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
-    end;
-
-    TKeywordsList = class(TObjList)
-    public
-      procedure Add(const AKeyword :TString; AKey :Integer);
-      function GetKeyword(APtr :PTChar; ALen :Integer) :Integer;
-      function NameByKey(AKey :Integer) :TString;
-    end;
-
 
   function TKeyword.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
@@ -472,6 +495,12 @@ interface
       Result := TKeyword(Items[vIndex]).Key
     else
       Result := -1;
+  end;
+
+
+  function TKeywordsList.GetKeywordStr(const AStr :TString) :Integer;
+  begin
+    Result := GetKeyword(PTChar(AStr), length(AStr));
   end;
 
 
@@ -580,36 +609,6 @@ interface
     end;
   end;
 
-(*
-  function AreaToName(Area :TMacroArea) :TString;
-  var
-    I :Integer;
-  begin
-    InitKeywords;
-    for I := 0 to KeyAreas.Count - 1 do
-      with TKeyword(KeyAreas[I]) do
-        if Key = byte(Area) then begin
-          Result := Name;
-          Exit;
-        end;
-    Result := '';
-  end;
-
-
-  function KeyModToName(AMod :TKeyModifier) :TString;
-  var
-    I :Integer;
-  begin
-    InitKeywords;
-    for I := 0 to KeyMods.Count - 1 do
-      with TKeyword(KeyMods[I]) do
-        if Key = byte(AMod) then begin
-          Result := Name;
-          Exit;
-        end;
-    Result := '';
-  end;
-*)
 
   function AreaToName(Area :TMacroArea) :TString;
   begin
@@ -1317,28 +1316,64 @@ interface
   end;
 
 
+  function KeyNameToCode(AName :PTChar) :Integer;
+  var
+    vTmp :array[0..1] of TChar;
+  begin
+    if ((AName + 1)^ = #0) and IsCharAlpha(AName^) then begin
+      vTmp[0] := CharUpCase(AName^);
+      vTmp[1] := #0;
+      Result := FARSTD.FarNameToKey(@vTmp[0]);
+    end else
+      Result := FARSTD.FarNameToKey(@AName[0]);
+  end;
+
+
+  function KeyNameParse(AName :PTChar; var AKey :Integer; var AMod :TKeyModifier) :Boolean;
+  var
+    vModi :Integer;
+    vPtr, vName :PTChar;
+    vTmp :array[0..255] of TChar;
+  begin
+    Result := False;
+
+    vPtr := StrScan(AName, ':');
+    if vPtr = nil then
+      vName := AName
+    else begin
+      vName := @vTmp[0];
+      StrLCopy(vName, AName, IntMin(vPtr - AName, High(vTmp)));
+    end;
+
+    AKey := KeyNameToCode(vName);
+    if AKey = -1 then
+      Exit;
+
+    AMod := kmPress;
+    if vPtr <> nil then begin
+      Inc(vPtr);
+
+      vModi := KeyMods.GetKeyword(vPtr, StrLen(vPtr));
+      if vModi = -1 then
+        Exit;
+
+      AMod := TKeyModifier(vModi);
+    end;
+
+    Result := True;
+  end;
+
+
   procedure TMacroParser.ParseBindStr(APtr :PTChar; var ARes :TKeyArray);
   var
-    vKey, vModi :Integer;
+    vKey :Integer;
     vMod :TKeyModifier;
     vBuf :array[0..255] of TChar;
   begin
-    while CanExtractNext(APtr, @vBuf[0], high(vBuf), [' ', charTab, ':']) do begin
-      vKey := FARSTD.FarNameToKey(@vBuf[0]);
-      if vKey = -1 then
+    while CanExtractNext(APtr, @vBuf[0], high(vBuf), [' ', charTab]) do begin
+
+      if not KeyNameParse(@vBuf[0], vKey, vMod) then
         begin Warning1(errBadHotkey, APtr); Exit; end;
-
-      vMod := kmPress;
-      if APtr^ = ':' then begin
-        Inc(APtr);
-        CanExtractNext(APtr, @vBuf[0], high(vBuf));
-
-        vModi := KeyMods.GetKeyword(@vBuf[0], StrLen(@vBuf[0]));
-        if vModi = -1 then
-          begin Warning1(errBadCondition, APtr); Exit; end;
-
-        vMod := TKeyModifier(vModi);
-      end;
 
       SetLength(ARes, Length(ARes) + 1);
       ARes[Length(ARes) - 1].Key := vKey;
@@ -1347,7 +1382,7 @@ interface
   end;
 
 
-  procedure TMacroParser.ParseAreaStr(APtr :PTChar; var ARes :TMacroAreas; var ADlgs :TGUIDArray; var ADlgs1 :TStrArray);
+  procedure TMacroParser.ParseAreaStr(APtr :PTChar; var ARes :TMacroAreas);
   var
     vArea :Integer;
     vBuf :array[0..255] of TChar;
@@ -1355,7 +1390,9 @@ interface
     vPtr :PTChar;
     vGUID :TGUID;
     vConst :TMacroConst;
+    vArr :PStrArray;
   begin
+    vArr := nil;
     while CanExtractNext(APtr, @vBuf[0], high(vBuf), cWordDelims + ['.']) do begin
       if (vBuf[0] = '*') and (vBuf[1] = #0) then
         ARes := [Low(TMacroArea)..High(TMacroArea)]
@@ -1382,7 +1419,7 @@ interface
             end;
             if APtr^ <> vCh then
               begin Warning1(errUnclosedString, APtr); Exit; end;
-            if vArea <> MACROAREA_DIALOG then
+            if (not vArea in [MACROAREA_DIALOG, MACROAREA_EDITOR, MACROAREA_VIEWER]) then
               begin Warning1(errBadMacroarea, APtr); Exit; end;
             Inc(APtr);
             vPtr := FSeq.Buf;
@@ -1409,13 +1446,24 @@ interface
             if CLSIDFRomString(vPtr, vGUID) <> 0 then
               begin Warning1(errBadGUID, APtr); Exit; end;
 
-            SetLength(ADlgs, Length(ADlgs) + 1);
-            ADlgs[Length(ADlgs) - 1] := vGUID;
+            SetLength(FMacro.Dlgs, Length(FMacro.Dlgs) + 1);
+            FMacro.Dlgs[Length(FMacro.Dlgs) - 1] := vGUID;
           end else
           begin
             { Привязка по Caption }
-            SetLength(ADlgs1, Length(ADlgs1) + 1);
-            ADlgs1[Length(ADlgs1) - 1] := vPtr;
+            if vArea = MACROAREA_DIALOG then
+              vArr := @FMacro.Dlgs1
+            else
+            if vArea = MACROAREA_EDITOR then
+              vArr := @FMacro.Edts
+            else
+            if vARea = MACROAREA_VIEWER then
+              vArr := @FMacro.Views
+            else
+              begin Warning1(errBadMacroarea, APtr); Exit; end;
+
+            SetLength(vArr^, Length(vArr^) + 1);
+            vArr^[Length(vArr^) - 1] := vPtr;
           end;
 
         end else
@@ -1474,6 +1522,8 @@ interface
     FMacro.Area     := [];
     FMacro.Dlgs     := nil;
     FMacro.Dlgs1    := nil;
+    FMacro.Edts     := nil;
+    FMacro.Views    := nil;
     FMacro.Cond     := [];
     FMacro.Events   := [];
     FMacro.Where    := '';
@@ -1495,7 +1545,7 @@ interface
       kwName     : FMacro.Name  := FBuf.GetStrValue;
       kwDescr    : FMacro.Descr := FBuf.GetStrValue;
       kwBind     : ParseBindStr(FBuf.Buf, FMacro.Bind);
-      kwArea     : ParseAreaStr(FBuf.Buf, FMacro.Area, FMacro.Dlgs, FMacro.Dlgs1);
+      kwArea     : ParseAreaStr(FBuf.Buf, FMacro.Area);
       kwCond     : ParseCondStr(FBuf.Buf, FMacro.Cond);
       kwEvent    : ParseEventStr(FBuf.Buf, FMacro.Events);
       kwWhere    : FMacro.Where := FBuf.GetStrValue;

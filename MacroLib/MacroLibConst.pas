@@ -60,6 +60,11 @@ interface
       str_CD_Set,
       str_CD_Cancel,
 *)
+      strMacroNotSpec,
+      strMacroNotFound,
+      strKeyNotSpec,
+      strUnknownKeyName,
+
       strMacroParserErrors
     );
 
@@ -95,12 +100,16 @@ interface
     optDoubleDelay   :Integer = 500;
     optHoldDelay     :Integer = 1000;
 
+    optCmdPrefix     :TString = 'FML';
+
   var
     FFarExePath      :TString;
 
-    
+
   function GetMsg(AMess :TMessages) :PFarChar;
   function GetMsgStr(AMess :TMessages) :TString;
+  procedure AppErrorId(AMess :TMessages);
+  procedure AppErrorIdFmt(AMess :TMessages; const Args: array of const);
   procedure HandleError(AError :Exception);
 
   function WinKeyRecToFarKey(const ARec :TKeyEventRecord) :Integer;
@@ -134,6 +143,17 @@ interface
   function GetMsgStr(AMess :TMessages) :TString;
   begin
     Result := FarCtrl.GetMsgStr(Integer(AMess));
+  end;
+
+
+  procedure AppErrorId(AMess :TMessages);
+  begin
+    FarCtrl.AppErrorID(Integer(AMess));
+  end;
+
+  procedure AppErrorIdFmt(AMess :TMessages; const Args: array of const);
+  begin
+    FarCtrl.AppErrorIdFmt(Integer(AMess), Args);
   end;
 
 
@@ -315,6 +335,8 @@ interface
 
         optDoubleDelay := RegQueryInt(vKey, 'DoubleDelay', optDoubleDelay);
         optHoldDelay := RegQueryInt(vKey, 'HoldDelay', optHoldDelay);
+
+        optCmdPrefix := RegQueryStr(vKey, 'CmdPrefix', optCmdPrefix);
 
       finally
         RegCloseKey(vKey);

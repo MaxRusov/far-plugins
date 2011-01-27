@@ -38,7 +38,8 @@ interface
       kpAuto,
       kpHold,
       kpUp,
-      kpDouble
+      kpDouble,
+      kpAll
     );
 
   type
@@ -68,6 +69,8 @@ interface
       FArea     :TMacroAreas;      { Маска макрообластей }
       FDlgs     :TGUIDArray;       { Список GUID-ов диалогов }
       FDlgs1    :TStrArray;        { Список Caption-ов диалогов }
+      FEdts     :TStrArray;        { Список масок редактора }
+      FViews    :TStrArray;        { Список масок viewer'а }
       FCond     :TMacroConditions; { Условия срабатывания }
       FText     :TString;          { Текст макрокоманды }
       FPriority :Integer;          { Приоритет макрокоманды }
@@ -131,6 +134,9 @@ interface
       procedure ShowAll;
       procedure ShowList(AList :TExList);
 
+      function FindMacroByName(const AName :TString) :TMacro;
+      procedure FindMacroses(AList :TExList; Area :TMacroArea; AKey :Integer; APress :TKeyPress; var AEat :Boolean);
+
       procedure CancellPress;
 
     private
@@ -155,8 +161,7 @@ interface
       procedure AddMacro(Sender :TMacroParser; const ARec :TMacroRec);
       procedure ParseError(Sender :TMacroParser; ACode :Integer; const AMessage :TString; const AFileName :TString; ARow, ACol :Integer);
 
-      function CheckForRun(AKey :Integer; APress :TKeyPress) :boolean;
-      procedure FindMacroses(AList :TExList; Area :TMacroArea; AKey :Integer; APress :TKeyPress; var AEat :Boolean);
+      function CheckForRun(AKey :Integer; AChr :TChar; APress :TKeyPress) :boolean;
 
       procedure InitConditions;
       function CheckCondition(ACond :TMacroCondition) :Boolean;
@@ -279,11 +284,9 @@ interface
     if Length(ARec.Dlgs) > 0 then
       Move(ARec.Dlgs[0], FDlgs[0], Length(ARec.Dlgs) * SizeOf(TGUID));
 
-    SetLength(FDlgs1, Length(ARec.Dlgs1));
-    if Length(ARec.Dlgs1) > 0 then begin
-      Move(ARec.Dlgs1[0], FDlgs1[0], Length(ARec.Dlgs1) * SizeOf(pointer));
-      FillZero(ARec.Dlgs1[0], Length(ARec.Dlgs1) * SizeOf(pointer));
-    end;
+    MoveStrArray(ARec.Dlgs1, FDlgs1);
+    MoveStrArray(ARec.Edts, FEdts);
+    MoveStrArray(ARec.Views, FViews);
 
     SetLength(FBind, Length(ARec.Bind));
     if Length(ARec.Bind) > 0 then
@@ -301,6 +304,8 @@ interface
     FBind := nil;
     FDlgs := nil;
     FDlgs1 := nil;
+    FEdts := nil;
+    FViews := nil;
     inherited Destroy;
   end;
 
@@ -331,20 +336,20 @@ interface
           end;
           kmRelease: begin
             { На отпускание }
-            Result := APress = kpUp;
+            Result := APress in [kpUp, kpAll];
             vEat := True;
             Break;
           end;
           kmSingle: begin
             { На SingleClick }
-            Result := APress in [kpDown, kpAuto, kpHold];
+            Result := APress in [kpDown, kpAuto, kpHold, kpAll];
             vEat := APress <> kpDouble;
             if Result then
               Break;
           end;
           kmDouble: begin
             { На DoubleClick }
-            Result := APress = kpDouble;
+            Result := APress in [kpDouble, kpAll];
             vEat := Result;
             vFinal := Result;
             if Result then
@@ -352,7 +357,7 @@ interface
           end;
           kmHold: begin
             { На удержание }
-            Result := APress = kpHold;
+            Result := APress in [kpHold, kpAll];
             vEat := Result;
             vFinal := Result;
             if Result then
@@ -374,7 +379,9 @@ interface
   begin
     Result := False;
 
-    if (FArea <> []) or (length(FDlgs) > 0) or (length(FDlgs1) > 0)then
+    if (FArea <> []) or (length(FDlgs) > 0) or (length(FDlgs1) > 0) or
+      (length(FEdts) > 0) or (length(FViews) > 0)
+    then
       if not CheckArea(Area) then
         Exit;
 
@@ -428,6 +435,26 @@ interface
             end;
       end;
     end;
+
+    if not Result and (Area = maEditor) and (length(FEdts) > 0) then begin
+      FarGetWindowInfo(-1, vWinInfo, @vTitle, nil);
+      if vWinInfo.WindowType = WTYPE_EDITOR then
+        for I := 0 to length(FEdts) - 1 do
+          if StringMatch(FEdts[I], '', PTChar(vTitle), vPos, vLen, [moIgnoreCase, moWilcards]) then begin
+            Result := True;
+            Exit;
+          end;
+    end;
+
+    if not Result and (Area = maViewer) and (length(FViews) > 0) then begin
+      FarGetWindowInfo(-1, vWinInfo, @vTitle, nil);
+      if vWinInfo.WindowType = WTYPE_VIEWER then
+        for I := 0 to length(FEdts) - 1 do
+          if StringMatch(FEdts[I], '', PTChar(vTitle), vPos, vLen, [moIgnoreCase, moWilcards]) then begin
+            Result := True;
+            Exit;
+          end;
+    end;
   end;
 
 
@@ -447,9 +474,9 @@ interface
         '%_AK_=' + Int2Str(AKeyCode) + ';'#13 +
         FText;
 
-      FarPostMacro(vText, vFlags);
+      FarPostMacro(vText, vFlags, AKeyCode);
     end else
-      FarPostMacro(FText, vFlags);
+      FarPostMacro(FText, vFlags, AKeyCode);
   end;
 
 
@@ -497,7 +524,9 @@ interface
     vChr :array[0..6] of TChar;
   begin
     Result := '';
-    if (FArea <> []) or (length(FDlgs) > 0) or (length(FDlgs1) > 0) then begin
+    if (FArea <> []) or (length(FDlgs) > 0) or (length(FDlgs1) > 0) or
+      (length(FEdts) > 0) or (length(FViews) > 0) then
+    begin
       if AMode <= 1 then begin
         if FArea = cAreaAll then
           Result := 'All'
@@ -509,6 +538,10 @@ interface
             LocCheckArea(I);
           if ((length(FDlgs) > 0) or ((length(FDlgs1) > 0))) and not (maDialog in FArea) then
             Result := AppendStrCh(Result, Format('%s(%d)', [AreaToName(maDialog), length(FDlgs) + length(FDlgs1)]), ' ');
+          if (length(FEdts) > 0) and not (maEditor in FArea) then
+            Result := AppendStrCh(Result, Format('%s(%d)', [AreaToName(maEditor), length(FEdts)]), ' ');
+          if (length(FViews) > 0) and not (maViewer in FArea) then
+            Result := AppendStrCh(Result, Format('%s(%d)', [AreaToName(maViewer), length(FViews)]), ' ');
         end;
       end else
       begin
@@ -516,9 +549,9 @@ interface
         vChr[High(vChr)] := #0;
         if maShell in FArea then
           vChr[0] := 'S';
-        if  maEditor in FArea then
+        if (maEditor in FArea) or (length(FEdts) > 0) then
           vChr[1] := 'E';
-        if maViewer in FArea then
+        if (maViewer in FArea) or (length(FViews) > 0) then
           vChr[2] := 'V';
         if (maDialog in FArea) or (length(FDlgs) > 0) or (length(FDlgs1) > 0) then
           vChr[3] := 'D';
@@ -720,8 +753,8 @@ interface
       for J := 0 to length(vMacro.FBind) - 1 do begin
         vRec.FKey := vMacro.FBind[J].Key;
         vRec.FIndex := I;
-        FIndex.FindKey(Pointer(TIntPtr(vRec.FKey)), I, [foBinary], vIndex);
-        FIndex.InsertData(vIndex, vRec);
+        if not FIndex.FindKey(Pointer(TIntPtr(vRec.FKey)), I, [foBinary], vIndex) then
+          FIndex.InsertData(vIndex, vRec);
       end;
     end;
   end;
@@ -775,8 +808,9 @@ interface
       FPrevKey := vKey;
       FLastKey := 0;
     end;
-//  TraceF('CheckHotkey (Press=%d, Repeat=%d, vKey=%x "%s")',
-//    [byte(ARec.bKeyDown), ARec.wRepeatCount, vKey, FarKeyToName(vKey)]);
+//  if ARec.bKeyDown then
+//    TraceF('CheckHotkey (Press=%d, Repeat=%d, vChr=%x, vKey=%x "%s")',
+//      [byte(ARec.bKeyDown), ARec.wRepeatCount, Word(ARec.UnicodeChar),  vKey, FarKeyToName(vKey)]);
 
     if not FCancelled then begin
 
@@ -789,7 +823,7 @@ interface
         vPress := kpUp;
 
       if vKey <> 0 then
-        Result := CheckForRun(vKey, vPress);
+        Result := CheckForRun(vKey, ARec.UnicodeChar, vPress);
     end else
     begin
       if not ARec.bKeyDown then
@@ -830,11 +864,11 @@ interface
       vPress := kpUp;
 
     if vKey <> 0 then
-      Result := CheckForRun(vKey, vPress);
+      Result := CheckForRun(vKey, #0, vPress);
   end;
 
 
-  function TMacroLibrary.CheckForRun(AKey :Integer; APress :TKeyPress) :boolean;
+  function TMacroLibrary.CheckForRun(AKey :Integer; AChr :TChar; APress :TKeyPress) :boolean;
   var
     vArea :TMacroArea;
     vList :TRunList;
@@ -848,7 +882,13 @@ interface
         CheckPriority(vList);
 
         if vList.Count > 0 then begin
-          vList.KeyCode := AKey;
+          if ((AKey and KEY_CTRLMASK = 0) or (AKey and KEY_CTRLMASK = KEY_SHIFT)) and
+            (word(AChr) > 32) and IsCharAlphaNumeric(AChr)
+          then
+            vList.KeyCode := word(AChr)
+          else
+            vList.KeyCode := AKey;
+            
           FARAPI.AdvControl(hModule, ACTL_SYNCHRO, vList);
           vList := nil;
         end;
@@ -901,12 +941,34 @@ interface
   begin
     InitConditions;
     LocFind(AKey);
+
+    if (AList.Count = 0) and (AKey and KEY_CTRLMASK = KEY_SHIFT) then begin
+      AKey := AKey and not KEY_CTRLMASK;
+      if (AKey >= byte('A')) and (AKey <= byte('Z')) then
+        LocFind(AKey);
+    end else
     if (AList.Count = 0) and (AKey and (KEY_RCTRL + KEY_RALT) <> 0) then begin
       if AKey and KEY_RCTRL <> 0 then
         AKey := (AKey and not KEY_RCTRL) or KEY_CTRL;
       if AKey and KEY_RALT <> 0 then
         AKey := (AKey and not KEY_RALT) or KEY_ALT;
       LocFind(AKey);
+    end;
+  end;
+
+
+  function TMacroLibrary.FindMacroByName(const AName :TString) :TMacro;
+  var
+    I :Integer;
+    vMacro :TMacro;
+  begin
+    Result := nil;
+    for I := 0 to FMacroses.Count - 1 do begin
+      vMacro := FMacroses[I];
+      if StrEqual(AName, vMacro.Name) then begin
+        Result := vMacro;
+        Exit;
+      end;
     end;
   end;
 
