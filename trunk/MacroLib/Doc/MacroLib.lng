@@ -26,6 +26,11 @@
 "File Name"
 "Sequence"
 
+"Macro not specified"
+"Macro not found: %s"
+"Key not specified"
+"Unknown key name: %s"
+
 "Fatal Error"
 "Keyword expected"
 "Identifier expected"

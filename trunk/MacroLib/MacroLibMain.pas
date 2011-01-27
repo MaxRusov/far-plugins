@@ -305,7 +305,7 @@ interface
     try
       vMenu.Help := 'MainMenu';
 
-      if MacroLock > 0 then 
+      if MacroLock > 0 then
         vMenu.Items[3].Flags := vMenu.Items[3].Flags or MIF_DISABLE;
 
       if not vMenu.Run then
@@ -326,13 +326,119 @@ interface
   end;
 
 
+
+ {-----------------------------------------------------------------------------}
+
+  const
+    kwCall  = 1;
+    kwKey   = 2;
+
+  var
+    CmdWords :TKeywordsList;
+
+  procedure InitKeywords;
+  begin
+    if CmdWords <> nil then
+      Exit;
+
+    CmdWords := TKeywordsList.Create;
+    with CmdWords do begin
+      Add('Call', kwCall);
+      Add('Key', kwKey);
+    end;
+  end;
+
+
+  procedure CmdCall(const AName :TString);
+  var
+    vMacro :TMacro;
+  begin
+//  TraceF('Run: %s', [AName]);
+    if AName = '' then
+      AppErrorId(strMacroNotSpec);
+
+    vMacro := MacroLibrary.FindMacroByName(AName);
+    if vMacro = nil then
+      AppErrorIdFmt(strMacroNotFound, [AName]);
+
+    vMacro.Execute(0);
+  end;
+
+
+  procedure CmdKey(const AName :TString);
+  var
+    vList :TExList;
+    vKey :Integer;
+    vMod :TKeyModifier;
+    vArea :TMacroArea;
+    vPress :TKeyPress;
+    vEat :Boolean;
+  begin
+//  TraceF('Run: %s', [AName]);
+    if AName = '' then
+      AppErrorId(strKeyNotSpec);
+
+    if not KeyNameParse(PTChar(AName), vKey, vMod) then
+      AppErrorIdFmt(strUnknownKeyName, [AName]);
+
+    vList := TExList.Create;
+    try
+      vArea := TMacroArea(FarGetMacroArea);
+
+      vPress := kpAll;
+      case vMod of
+        kmSingle  : vPress := kpDown;
+        kmDouble  : vPress := kpDouble;
+        kmHold    : vPress := kpHold;
+        kmRelease : vPress := kpUp;
+      end;
+
+      MacroLibrary.FindMacroses(vList, vArea, vKey, vPress, vEat);
+
+      if vList.Count > 0 then begin
+        if vList.Count = 1 then
+          TMacro(vList[0]).Execute(vKey)
+        else
+          MacroLibrary.ShowList(vList);
+      end;
+      
+    finally
+      FreeObj(vList);
+    end;
+  end;
+
+
+  procedure OpenCmdLine(AChr :PTChar);
+  var
+    vStr :TString;
+    vKey :Integer;
+  begin
+    if (AChr = nil) or (AChr^ = #0) then
+      MacroLibrary.ShowAll
+    else begin
+      InitKeywords;
+      while AChr^ <> #0 do begin
+        vStr := ExtractParamStr(AChr);
+        vKey := CmdWords.GetKeywordStr(vStr);
+        case vKey of
+          kwCall: CmdCall(ExtractParamStr(AChr));
+          kwKey:  CmdKey(ExtractParamStr(AChr));
+        else
+          AppErrorFmt('Unknown command: %s', [vStr]);
+        end;
+      end;
+    end;
+  end;
+
+
  {-----------------------------------------------------------------------------}
  { Экспортируемые процедуры                                                    }
  {-----------------------------------------------------------------------------}
 
   function GetMinFarVersionW :Integer; stdcall;
   begin
-    Result := MakeFarVersion(2, 0, 1765);   { MCMD_GETAREA };
+//  Result := MakeFarVersion(2, 0, 1765);   { MCMD_GETAREA };
+    Result := MakeFarVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING, MCMD_POSTMACROSTRING };
   end;
 
 
@@ -374,6 +480,9 @@ interface
     pi.PluginConfigStringsNumber := 1;
     pi.PluginConfigStrings := Pointer(@PluginMenuStrings);
 
+    if optCmdPrefix <> '' then
+      pi.CommandPrefix := PTChar(optCmdPrefix);
+
     pi.Reserved := cPluginGUID;
   end;
 
@@ -392,9 +501,16 @@ interface
     try
 //    TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
       if OpenFrom and OPEN_FROMMACRO <> 0 then begin
-//      MacroLibrary.ShowAvailable
-        FARAPI.AdvControl(hModule, ACTL_SYNCHRO, nil);
+
+        if OpenFrom and OPEN_FROMMACROSTRING <> 0 then
+          OpenCmdLine(PFarChar(Item))
+        else
+          FARAPI.AdvControl(hModule, ACTL_SYNCHRO, nil);
+
       end else
+      if OpenFrom = OPEN_COMMANDLINE then
+        OpenCmdLine(PFarChar(Item))
+      else
         MainMenu;
     except
       on E :Exception do
@@ -447,7 +563,7 @@ interface
 
   function ProcessDialogEventW(AEvent :Integer; AParam :PFarDialogEvent) :Integer; stdcall;
   begin
-    if AEvent = DE_DLGPROCEND then begin
+    if (AEvent = DE_DLGPROCEND) then begin
       if AParam.Msg = DN_INITDIALOG then begin
 //      TraceF('InitDialog: %d', [AParam.hDlg]);
         PushDlg(AParam.hDlg);
@@ -455,8 +571,9 @@ interface
       if AParam.Msg = DN_GETDIALOGINFO then begin
 //      TraceF('GetDialogInfo: %d', [AParam.hDlg]);
         SetDlgInfo(AParam.hDlg, PDIalogInfo(AParam.Param2)^);
-        {!!! Вызывается только один раз?}
-        MacroLibrary.CheckEvent(maDialog, meOpen);
+        if MacroLibrary <> nil then
+          {!!! Вызывается только один раз?}
+          MacroLibrary.CheckEvent(maDialog, meOpen);
       end else
       if (AParam.Msg = DN_CLOSE) and (AParam.Result <> 0) then begin
 //      TraceF('CloseDialog: %d', [AParam.hDlg]);
@@ -486,5 +603,8 @@ interface
   end;
 
 
+initialization
+finalization
+  FreeObj(CmdWords);
 end.
 
