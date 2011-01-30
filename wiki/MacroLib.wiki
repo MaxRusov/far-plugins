@@ -9,6 +9,9 @@
   Обсуждение:<br>
   http://forum.farmanager.com/viewtopic.php?f=5&t=5994
 
+  Репозиторий FML макросов:<br>
+  http://code.google.com/p/far-macro-library/
+
 == Загрузить ==
 
  * [http://far-plugins.googlecode.com/files/MacroLib.v8.rar MacroLib 1.0.8 for FAR 2]
