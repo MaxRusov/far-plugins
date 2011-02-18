@@ -1,4 +1,5 @@
 #summary Far Macro Library
+#labels Macros
 
 = Описание =
 
