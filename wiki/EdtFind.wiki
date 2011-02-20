@@ -15,8 +15,8 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/EdtFindW.v7.rar EdtFind 1.0.7 for FAR 2]
- * [http://far-plugins.googlecode.com/files/EdtFindW.x64.v7.rar EdtFind 1.0.7 for FAR 2 x64]
+ * [http://far-plugins.googlecode.com/files/EdtFindW.v8.rar EdtFind 1.0.8 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/EdtFindW.x64.v8.rar EdtFind 1.0.8 for FAR 2 x64]
 
 == Пример ==
 
@@ -25,6 +25,23 @@ http://far-plugins.googlecode.com/svn/trunk/EdtFind/Image/Sample.png
 ----
 
 = История изменений =
+
+== Ver 1.0.8 ==
+
+ * Управление плагином через командную строку, передаваемую в CallPlugin. Подробности - в хелпе.
+
+ * Быстрый фильтр в окне Grep работает в XLAT режиме (опционально).
+
+ * Опция Mark whole Tab, управляющая способом выделения Tab'ов
+
+ * В диалогах Поиска/Замены работает клавиатурная команда CtrlP: вставить текущее слово (или выделение) из редактора
+
+ * Изменен способ вызова через CallPlugin. Теперь его можно использовать для вызова любых команд плагина, в том числе - с диалогами.
+
+ * Удалены команды Find word forward/backward - потому как элементарно реализуется через макросы.
+
+ * Всем диалогам присвоены GUID
+
 
 == Ver 1.0.7 ==
 
