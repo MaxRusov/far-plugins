@@ -35,6 +35,7 @@ interface
   procedure ExitFARW; stdcall;
   function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
   function ConfigureW(Item: integer) :Integer; stdcall;
+  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
 
  {$ifdef bAdvSelect}
   function ProcessEditorInputW(const ARec :INPUT_RECORD) :Integer; stdcall;
@@ -380,16 +381,19 @@ interface
   end;
 
 
-  procedure FindStr(const AStr :TString; AOpt :TFindOptions; AEntire, ANext, AForward :Boolean);
+  function FindStr(const AStr :TString; AOpt :TFindOptions; AEntire, ANext, AForward :Boolean;
+    ALoopMode :Integer = -1; AHighlightMode :Integer = -1; AErrorMode :Integer = -1) :Boolean;
   var
     vEdtInfo :TEditorInfo;
     vRow, vCol, vFindLen :Integer;
     vStartRow, vRow1, vRow2 :Integer;
-    vFound, vLoop :Boolean;
+    vFound, vLoop, vLoopSearch, vHighLight :Boolean;
+    vErrorMode :Integer;
    {$ifdef bTrace}
     vStart :DWORD;
    {$endif bTrace}
   begin
+    Result := False;
     if AStr = '' then
       Exit;
 
@@ -417,6 +421,21 @@ interface
 
     vLoop := AEntire or (AForward and (vRow = 0) and (vCol = 0));
 
+    if ALoopMode = -1 then
+      vLoopSearch := optLoopSearch
+    else
+      vLoopSearch := ALoopMode = 1;
+
+    if AHighlightMode = -1 then
+      vHighLight := optShowAllFound
+    else
+      vHighLight := AHighlightMode = 1;
+
+    if AErrorMode = -1 then
+      vErrorMode := IntIf(optNoModalMess, 2, 1)
+    else
+      vErrorMode := AErrorMode;
+
     InitFind(GetMsgStr(strFind), '');
 
     vRow1 := 0; vRow2 := 0;
@@ -439,11 +458,12 @@ interface
         GotoFoundPos(vRow, vCol, vFindLen, AForward);
 
        {$ifdef bAdvSelect}
-        if optShowAllFound then
+        if vHighLight then
           ShowAllMatch(AStr, AOpt);
        {$endif bAdvSelect}
 
         FARAPI.EditorControl(ECTL_REDRAW, nil);
+        Result := True;
       end else
       begin
         if optSelectFound then
@@ -452,7 +472,7 @@ interface
         EdtClearMark(False);
        {$endif bAdvSelect}
 
-        if optLoopSearch and not vLoop then begin
+        if vLoopSearch and not vLoop then begin
 
           if LoopPrompt(AStr, AForward) then begin
             if AForward then begin
@@ -472,9 +492,9 @@ interface
           end;
 
         end else
-        begin
+        if vErrorMode <> 0 then begin
          {$ifdef bAdvSelect}
-          if optNoModalMess then begin
+          if vErrorMode = 2 then begin
             {xxx}
             gEdtMess := GetMsgStr(strNotFound);
             FARAPI.EditorControl(ECTL_REDRAW, nil);
@@ -555,6 +575,19 @@ interface
   end;
 
 
+  procedure HighlightStr(const AStr :TString; AOpt :TFindOptions);
+  var
+    vFinder :TFinder;
+  begin
+    { Проверяем валидность регулярного выражения... }
+    vFinder := TFinder.CreateEx(AStr, AOpt);
+    FreeObj(vFinder);
+
+    ShowAllMatch(AStr, AOpt);
+    FARAPI.EditorControl(ECTL_REDRAW, nil);
+  end;
+
+
   procedure Find(APickWord :Boolean);
   var
     vMode :TFindMode;
@@ -574,22 +607,6 @@ interface
       GrepStr(gStrFind, gLastOpt)
     else
       FindStr(gStrFind, gLastOpt, vMode = efmEntire, False, not gReverse);
-  end;
-
-
-  procedure FindWord(AForward :Boolean);
-  var
-    vStr :TString;
-  begin
-    vStr := GetWordUnderCursor(nil, False);
-    if vStr <> '' then begin
-      gStrFind := vStr;
-      gLastOpt := gLastOpt + [foWholeWords] - [foRegexp];
-      gLastIsReplace := False;
-      AddToHistory(cFindHistory, gStrFind);
-      FindStr(gStrFind, gLastOpt, False, True, AForward)
-    end else
-      Beep;
   end;
 
 
@@ -616,9 +633,11 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  procedure ReplaceStr(const AFindStr, AReplStr :TString; AOpt :TFindOptions; AEntire, ANext, AForward :Boolean);
+  function ReplaceStr(const AFindStr, AReplStr :TString; AOpt :TFindOptions; AEntire, ANext, AForward :Boolean;
+    ALoopMode :Integer = -1; AHighlightMode :Integer = -1; AErrorMode :Integer = -1) :Boolean;
   var
     vEdtInfo :TEditorInfo;
+    vHighLight :Boolean;
 
     procedure LocShow(ARow, ACol, ALen :Integer);
     begin
@@ -633,7 +652,7 @@ interface
           EdtMark(ARow, ACol, ALen)
         else
           EdtClearMark(False);
-      if optShowAllFound then
+      if vHighLight then
         ShowAllMatch(AFindStr, AOpt);
      {$endif bAdvSelect}
       FARAPI.EditorControl(ECTL_REDRAW, nil);
@@ -644,14 +663,16 @@ interface
     vStr1, vStr2 :TString;
     vRow, vCol, vFindLen, vRes :Integer;
     vStartRow, vRow1, vRow2 :Integer;
-    vFound, vPrompt, vReplace, vLoop :Boolean;
+    vFound, vPrompt, vReplace, vLoop, vLoopSearch :Boolean;
     vStrInfo :TEditorGetString;
     vStrSet :TEditorSetString;
     vUndoRec :TEditorUndoRedo;
+    vErrorMode :Integer;
    {$ifdef bTrace}
     vStart :DWORD;
    {$endif bTrace}
   begin
+    Result := False;
     if AFindStr = '' then
       Exit;
 
@@ -678,6 +699,21 @@ interface
       GoNext(vCol, AForward);
 
     vLoop := AEntire or (AForward and (vRow = 0) and (vCol = 0));
+
+    if ALoopMode = -1 then
+      vLoopSearch := optLoopSearch
+    else
+      vLoopSearch := ALoopMode = 1;
+
+    if AHighlightMode = -1 then
+      vHighLight := optShowAllFound
+    else
+      vHighLight := AHighlightMode = 1;
+
+    if AErrorMode = -1 then
+      vErrorMode := IntIf(optNoModalMess, 2, 1)
+    else
+      vErrorMode := AErrorMode;
 
     if optGroupUndo then begin
       vUndoRec.Command := EUR_BEGIN;
@@ -788,7 +824,7 @@ interface
             if AForward then begin
               Inc(vCol, vFinder.RepLen);
               if vFindLen = 0 then
-                Inc(vCol); { Чтобы избежать зацикливания... } 
+                Inc(vCol); { Чтобы избежать зацикливания... }
             end else
               Dec(vCol);
           end else
@@ -803,7 +839,7 @@ interface
         end else
         begin
           { Вхождение не найдено. Начинаем сначала, или прекращаем поиск... }
-          if optLoopSearch and not vLoop then begin
+          if vLoopSearch and not vLoop then begin
 
             if gFoundCount > 0 then begin
               if not vPrompt then
@@ -855,10 +891,14 @@ interface
       FreeObj(vFinder);
     end;
 
-    if gFoundCount > 0 then
-      ShowMessage(gProgressTitle, Format(gProgressAdd, [gFoundCount, gReplCount]), FMSG_MB_OK)
-    else
-      ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AFindStr, FMSG_WARNING or FMSG_MB_OK);
+    if vErrorMode > 0 then begin
+      if gFoundCount > 0 then
+        ShowMessage(gProgressTitle, Format(gProgressAdd, [gFoundCount, gReplCount]), FMSG_MB_OK)
+      else
+        ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AFindStr, FMSG_WARNING or FMSG_MB_OK);
+    end;
+
+    Result := gFoundCount > 0;
   end;
 
 
@@ -905,17 +945,15 @@ interface
       4: Replace(True);
       5: RepeatLast(True);
       6: RepeatLast(False);
-      7: FindWord(True);
-      8: FindWord(False);
-      9: PickWord;
-     10: EdtClearMark;
+      7: PickWord;
+      8: EdtClearMark;
     end;
   end;
 
 
   procedure OpenMenu;
   const
-    cMenuCount = 12;
+    cMenuCount = 10;
   var
     vRes :Integer;
     vItems :PFarMenuItemsArray;
@@ -930,8 +968,6 @@ interface
       SetMenuItemChrEx(vItem, GetMsg(strMReplaceAt));
       SetMenuItemChrEx(vItem, GetMsg(strMFindNext));
       SetMenuItemChrEx(vItem, GetMsg(strMFindPrev));
-      SetMenuItemChrEx(vItem, GetMsg(strMFindWordNext));
-      SetMenuItemChrEx(vItem, GetMsg(strMFindWordPrev));
       SetMenuItemChrEx(vItem, GetMsg(strMFindPickWord));
       SetMenuItemChrEx(vItem, GetMsg(strMRemoveHilight), IntIf((gMatchStr <> '') or (gEdtMess <> ''), 0, MIF_DISABLE));
       SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
@@ -950,10 +986,10 @@ interface
         Exit;
 
       case vRes of
-        0..9:
+        0..7:
           RunCommand(vRes + 1);
 
-        11: OptionsMenu;
+        9: OptionsMenu;
       end;
 
     finally
@@ -963,16 +999,169 @@ interface
 
 
  {-----------------------------------------------------------------------------}
+
+  procedure SkipSpaces(var AStr :PTChar);
+  begin
+    while (AStr^ = ' ') or (AStr^ = #9) do
+      Inc(AStr);
+  end;
+
+
+  function ExtractNextKey(var AStr :PTChar) :TString;
+  var
+    vBeg :PTChar;
+  begin
+    SkipSpaces(AStr);
+    vBeg := AStr;
+    while (AStr^ <> #0) and CharIsWordChar(AStr^) do
+      Inc(AStr);
+    Result := Chr2StrL(vBeg, AStr - vBeg);
+  end;
+
+  function ExtractNextItem(var AStr :PTChar) :TString;
+  begin
+    if AStr^ = '"' then
+      Result := AnsiExtractQuotedStr(AStr, '"')
+    else
+      Result := ExtractNextValue(AStr, [' ']);
+  end;
+
+
+  function ParseCommand(ACmd :PTChar) :Boolean;
+  var
+    vKey, vVal, vFindStr, vRepStr :TString;
+    vAction :Integer;
+    vOpt :TFindOptions;
+    vEntire, vReverse :Boolean;
+    vErrorMode, vHighlightMode, vLoopMode :Integer;
+  begin
+    Result := False;
+
+    if ACmd <> nil then
+      SkipSpaces(ACmd);
+    if (ACmd = nil) or (ACmd^ = #0) then begin
+      { Возможно - проверка наличия плагина }
+      Result := True;
+      Exit;
+    end;
+
+    vAction := 0;
+    vOpt := [foPromptOnReplace];
+    vEntire := False;
+    vReverse := False;
+    vLoopMode := -1;
+    vHighlightMode := -1;
+    vErrorMode := -1;
+
+    while (ACmd <> nil) and (ACmd^ <> #0) do begin
+      vKey := ExtractNextKey(ACmd);
+      SkipSpaces(ACmd);
+      if ACmd^ = ':' then begin
+        Inc(ACmd);
+        SkipSpaces(ACmd);
+        vVal := ExtractNextItem(ACmd);
+      end else
+      begin
+        vVal := ACmd;
+        ACmd := nil;
+      end;
+
+      if StrEqual(vKey, 'Find') then begin
+        vFindStr := vVal;
+        vAction := IntIf(vAction <> 5, 1, vAction);
+      end else
+      if StrEqual(vKey, 'Grep') then begin
+        vFindStr := vVal;
+        vAction := 2;
+      end else
+      if StrEqual(vKey, 'Count') then begin
+        vFindStr := vVal;
+        vAction := 3;
+      end else
+      if StrEqual(vKey, 'Mark') then begin
+        vFindStr := vVal;
+        vAction := 4;
+      end else
+      if StrEqual(vKey, 'Replace') then begin
+        vRepStr := vVal;
+        vAction := 5;
+      end else
+      if StrEqual(vKey, 'WholeWords') then
+        SetFindOptions(vOpt, foWholeWords, vVal = '1')
+      else
+      if StrEqual(vKey, 'RegExp') then
+        SetFindOptions(vOpt, foRegexp, vVal = '1')
+      else
+      if StrEqual(vKey, 'CaseSensitive') then
+        SetFindOptions(vOpt, foCaseSensitive, vVal = '1')
+      else
+      if StrEqual(vKey, 'Prompt') then
+        SetFindOptions(vOpt, foPromptOnReplace, vVal = '1')
+      else
+      if StrEqual(vKey, 'Entire') then
+        vEntire := vVal = '1'
+      else
+      if StrEqual(vKey, 'Reverse') then
+        vReverse := vVal = '1'
+      else
+      if StrEqual(vKey, 'Loop') then
+        vLoopMode := Str2IntDef(vVal, -1)
+      else
+      if StrEqual(vKey, 'Highlight') then
+        vHighlightMode := Str2IntDef(vVal, -1)
+      else
+      if StrEqual(vKey, 'Error') then
+        vErrorMode := Str2IntDef(vVal, -1)
+      else
+        Exit;
+    end;
+
+   {$ifdef bAdvSelect}
+    EdtClearMark;
+   {$endif bAdvSelect}
+    if vFindStr <> '' then begin
+      gStrFind := vFindStr;
+      gLastOpt := vOpt;
+      gLastIsReplace := False;
+
+      Result := True;
+      try
+        case vAction of
+          1:
+            Result := FindStr(vFindStr, vOpt, vEntire, False, not vReverse,
+              vLoopMode, vHighlightMode, vErrorMode);
+          2:
+            GrepStr(vFindStr, vOpt);
+          3:
+            CountStr(vFindStr, vOpt);
+          4:
+            HighlightStr(vFindStr, vOpt);
+          5:
+            Result := ReplaceStr(vFindStr, vRepStr, vOpt, vEntire, False, not vReverse,
+              vLoopMode, vHighlightMode, vErrorMode);
+        end;
+
+      except
+        on E :ECtrlBreak do
+          Result := False;
+        on E :Exception do begin
+          Result := False;
+          if vErrorMode <> 0 then
+            HandleError(E);
+        end;
+      end;
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
  { Экспортируемые процедуры                                                    }
  {-----------------------------------------------------------------------------}
 
- {$ifdef bUnicodeFar}
   function GetMinFarVersionW :Integer; stdcall;
   begin
-    { Need 2.0.789 }
-    Result := $03150200;
+    Result := MakeFarVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING };
   end;
- {$endif bUnicodeFar}
 
 
   procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
@@ -1025,13 +1214,24 @@ interface
 
   function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
   begin
-    Result:= INVALID_HANDLE_VALUE;
+    Result := INVALID_HANDLE_VALUE;
 //  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
     try
 
-      if OpenFrom and OPEN_FROMMACRO <> 0 then
-        RunCommand(Item and not OPEN_FROMMACRO)
-      else
+      if OpenFrom and OPEN_FROMMACRO <> 0 then begin
+
+//      RunCommand(Item and not OPEN_FROMMACRO)
+
+        if OpenFrom and OPEN_FROMMACROSTRING <> 0 then
+          Result := HandleIf(ParseCommand(PTChar(Item)), INVALID_HANDLE_VALUE, 0)
+        else begin
+          if Item <= 4 then
+            FARAPI.AdvControl(hModule, ACTL_SYNCHRO, Pointer(Item))
+          else
+            RunCommand(Item);
+        end;
+
+      end else
       if OpenFrom in [OPEN_EDITOR] then
         OpenMenu;
 
@@ -1053,6 +1253,16 @@ interface
       on E :Exception do
         HandleError(E);
     end;
+  end;
+
+
+  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
+  begin
+//  TraceF('ProcessSynchroEventW. Event=%d, Param=%d', [Event, Integer(Param)]);
+    Result := 0;
+    if Event <> SE_COMMONSYNCHRO then
+      Exit;
+    RunCommand(TIntPtr(Param));
   end;
 
 
@@ -1097,7 +1307,7 @@ interface
         if AColor <> -1 then begin
           vColor.StartPos := ASel.FCol;
           vColor.EndPos := ASel.FCol + ASel.FLen - 1;
-          vColor.Color := AColor or ECF_TAB1;
+          vColor.Color := AColor or IntIf(optMarkWholeTab, 0, ECF_TAB1);
         end else
         begin
           vColor.StartPos := ASel.FCol;
@@ -1182,8 +1392,14 @@ interface
           end;
 
           if vInfo.EditorID = gEdtID then begin
-            if gMatchStr <> '' then
-              UpdateMatches(vInfo);
+            if gMatchStr <> '' then begin
+              try
+                UpdateMatches(vInfo);
+              except
+                FreeObj(gMatches);
+                gMatchStr := '';
+              end;
+            end;
 
             if (gFound.FLen > 0) or (gMatches <> nil) then begin
               if vHelper = nil then

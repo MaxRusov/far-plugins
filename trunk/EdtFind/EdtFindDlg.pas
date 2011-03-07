@@ -47,6 +47,7 @@ interface
       procedure ErrorHandler(E :Exception); override;
 
     private
+      FAutoInit   :Boolean;
       FInitExpr   :TString;
 
       procedure EnableControls;
@@ -79,8 +80,10 @@ interface
       GetMsg(strMLoopSearch),
       GetMsg(strMShowAllFound),
       GetMsg(strMPersistMatch),
+      GetMsg(strMarkWholeTab),
       GetMsg(strMShowProgress),
       GetMsg(strMGroupUndo),
+      GetMsg(strAutoXLATMask),
       '',
       GetMsg(strMColors)
     ]);
@@ -93,8 +96,10 @@ interface
         vMenu.Checked[3] := optLoopSearch;
         vMenu.Checked[4] := optShowAllFound;
         vMenu.Checked[5] := optPersistMatch;
-        vMenu.Checked[6] := optShowProgress;
-        vMenu.Checked[7] := optGroupUndo;
+        vMenu.Checked[6] := optMarkWholeTab;
+        vMenu.Checked[7] := optShowProgress;
+        vMenu.Checked[8] := optGroupUndo;
+        vMenu.Checked[9] := optXLatMask;
 
         vMenu.SetSelected(vMenu.ResIdx);
 
@@ -108,10 +113,12 @@ interface
           3: optLoopSearch := not optLoopSearch;
           4: optShowAllFound := not optShowAllFound;
           5: optPersistMatch := not optPersistMatch;
-          6: optShowProgress := not optShowProgress;
-          7: optGroupUndo := not optGroupUndo;
-          8: {};
-          9: ColorMenu
+          6: optMarkWholeTab := not optMarkWholeTab;
+          7: optShowProgress := not optShowProgress;
+          8: optGroupUndo := not optGroupUndo;
+          9: optXLatMask := not optXLatMask;
+
+         11: ColorMenu
         end;
 
         WriteSetup;
@@ -231,6 +238,7 @@ interface
   var
     vX2 :Integer;
   begin
+    FGUID := cFindDlgID;
     FHelpTopic := 'Find';
     FWidth := DX;
     FHeight := DY;
@@ -276,7 +284,7 @@ interface
 
   procedure TFindDlg.InitDialog; {override;}
   begin
-    if FInitExpr <> '' then
+    if FAutoInit then
       SetText(IdFindEdt, FInitExpr);
 
     SetChecked(IdCaseSensChk, foCaseSensitive in gOptions);
@@ -376,6 +384,8 @@ interface
 
       DN_KEY: begin
         case Param2 of
+          KEY_CTRLP:
+            InsertText(FInitExpr);
           KEY_F9:
             OptionsMenu;
         else
@@ -452,8 +462,8 @@ interface
   begin
     vDlg := TFindDlg.Create;
     try
-      if APickWord then
-        vDlg.FInitExpr := GetWordUnderCursor;
+      vDlg.FInitExpr := GetWordUnderCursor;
+      vDlg.FAutoInit := APickWord;
 
       vRes := vDlg.Run;
 

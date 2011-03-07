@@ -37,8 +37,6 @@ interface
       strMReplaceAt,
       strMFindNext,
       strMFindPrev,
-      strMFindWordNext,
-      strMFindWordPrev,
       strMFindPickWord,
       strMRemoveHilight,
       strMOptions,
@@ -66,8 +64,10 @@ interface
       strMLoopSearch,
       strMShowAllFound,
       strMPersistMatch,
+      strMarkWholeTab,
       strMShowProgress,
       strMGroupUndo,
+      strAutoXLATMask,
       strMColors,
 
       strMShowNumbers,
@@ -132,6 +132,11 @@ interface
     cFindHistory   = 'SearchText';
     cReplHistory   = 'ReplaceText';
 
+    cFindDlgID    :TGUID = '{A0562FC4-25FA-48DC-BA5E-48EFA639865F}';
+    cReplaceDlgID :TGUID = '{070544C7-E2F6-4E7B-B348-7583685B5647}';
+    cGrepDlgID    :TGUID = '{39BE672E-9303-4F06-A38A-ECC35ABD98B6}';
+
+
   var
     optSelectFound    :Boolean = True;
     optCursorAtEnd    :Boolean = False;
@@ -139,6 +144,7 @@ interface
     optLoopSearch     :Boolean = True;
     optShowAllFound   :Boolean = True;
     optPersistMatch   :Boolean = False;
+    optMarkWholeTab   :Boolean = True;
     optShowProgress   :Boolean = True;
     optNoModalMess    :Boolean = False;
     optGroupUndo      :Boolean = True;
@@ -149,6 +155,8 @@ interface
     optGrepAutoSync   :Boolean = True;
     optGrepShowHints  :Boolean = True;
     optGrepMaximized  :Boolean = False;
+
+    optXLatMask       :Boolean = True;   { јвтоматическое XLAT преобразование при поиске }
 
     optCurFindColor   :Integer;
     optMatchColor     :Integer;
@@ -272,9 +280,31 @@ interface
   end;
 
 
-  procedure InsertText(const AStr :TString);
+
+
+  function MaskStr(const AStr :TString) :TString;
+  var
+    I :Integer;
+    C :TChar;
   begin
-    FarPostMacro( '$text "' + AStr + '"' );
+    Result := '';
+    for I := 1 to length(AStr) do begin
+      C := AStr[I];
+      if (Ord(C) < $20) or (C = '"') or (C = '\') then
+//      Result := Result + '\' + Int2Str(Ord(c))
+        Result := Result + '\x' + Format('%.2x', [Ord(c)])
+      else
+        Result := Result + C;
+    end;
+  end;
+
+
+  procedure InsertText(const AStr :TString);
+  var
+    vStr :TString;
+  begin
+    vStr := 'print("' + MaskStr(AStr) + '")';
+    FarPostMacro(vStr);
   end;
 
 
@@ -293,6 +323,7 @@ interface
       FARAPI.DialogFree(hDlg);
     end;
   end;
+  
 
 (*
   function DlgGetText(ADlg :THandle; AItemID :Integer) :TFarStr;
@@ -430,6 +461,7 @@ interface
       optLoopSearch := RegQueryLog(vKey, 'LoopSearch', optLoopSearch);
       optShowAllFound := RegQueryLog(vKey, 'ShowAllFound', optShowAllFound);
       optPersistMatch := RegQueryLog(vKey, 'PersistentMatches', optPersistMatch);
+      optMarkWholeTab := RegQueryLog(vKey, 'MarkWholeTab', optMarkWholeTab);
       optShowProgress := RegQueryLog(vKey, 'ShowProgress', optShowProgress);
 
       optGroupUndo := RegQueryLog(vKey, 'GroupUndo', optGroupUndo);
@@ -440,6 +472,8 @@ interface
       optGrepAutoSync := RegQueryLog(vKey, 'GrepAutoSync', optGrepAutoSync);
       optGrepShowHints := RegQueryLog(vKey, 'GrepShowHints', optGrepShowHints);
       optGrepMaximized := RegQueryLog(vKey, 'GrepMaximized', optGrepMaximized);
+
+      optXLatMask := RegQueryLog(vKey, 'XLatMask', optXLatMask);
 
       optCurFindColor := RegQueryInt(vKey, 'FindColor', optCurFindColor);
       optMatchColor := RegQueryInt(vKey, 'MatchColor', optMatchColor);
@@ -469,6 +503,7 @@ interface
       RegWriteLog(vKey, 'LoopSearch', optLoopSearch);
       RegWriteLog(vKey, 'ShowAllFound', optShowAllFound);
       RegWriteLog(vKey, 'PersistentMatches', optPersistMatch);
+      RegWriteLog(vKey, 'MarkWholeTab', optMarkWholeTab);
       RegWriteLog(vKey, 'ShowProgress', optShowProgress);
 
       RegWriteLog(vKey, 'GroupUndo', optGroupUndo);
@@ -479,6 +514,8 @@ interface
       RegWriteLog(vKey, 'GrepAutoSync', optGrepAutoSync);
       RegWriteLog(vKey, 'GrepShowHints', optGrepShowHints);
       RegWriteLog(vKey, 'GrepMaximized', optGrepMaximized);
+
+      RegWriteLog(vKey, 'XLatMask', optXLatMask);
 
       RegWriteInt(vKey, 'FindColor', optCurFindColor);
       RegWriteInt(vKey, 'MatchColor', optMatchColor);
