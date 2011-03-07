@@ -153,11 +153,13 @@ interface
     TKeyModifier =
     (
       kmPress,
-      kmOnce,
+//    kmOnce,
       kmSingle,
       kmDouble,
       kmHold,
-      kmRelease
+      kmRelease,
+      kmDown,
+      kmUp
     );
 
     TKeyRec = record
@@ -595,11 +597,13 @@ interface
     KeyMods := TKeywordsList.Create;
     with KeyMods do begin
       Add('Press',    byte(kmPress));
-      Add('Once',     byte(kmOnce));
+//    Add('Once',     byte(kmOnce));
       Add('Single',   byte(kmSingle));
       Add('Double',   byte(kmDouble));
       Add('Hold',     byte(kmHold));
       Add('Release',  byte(kmRelease));
+      Add('Down',     byte(kmDown));
+      Add('Up',       byte(kmUp));
     end;
 
     KeyPrepr := TKeywordsList.Create;

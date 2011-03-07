@@ -38,6 +38,7 @@ interface
       kpAuto,
       kpHold,
       kpUp,
+      kpShiftUp,
       kpDouble,
       kpAll
     );
@@ -146,6 +147,7 @@ interface
       FRevision    :Integer;
       FSilence     :Boolean;
       FLastKey     :Integer;
+      FLastShift   :Integer;
       FPrevKey     :Integer;
       FPressTime   :DWORD;
       FMouseState  :DWORD;
@@ -311,7 +313,7 @@ interface
 
 
   function TMacro.CheckKeyCondition(Area :TMacroArea; AKey :Integer; APress :TKeyPress; ALib :TMacroLibrary; var AEat :Boolean) :Boolean;
-    { Press:  kpDown, kpAuto, kpUp, kpDouble }
+    { Press:  kpDown, kpAuto, kpHold, kpUp, kpDouble, kpAll }
   var
     I :Integer;
     vEat, vFinal :Boolean;
@@ -328,9 +330,9 @@ interface
 //    if (FBind[I].Key = AKey) and CheckAreaCondition(Area, ALib) then begin
       if FBind[I].Key = AKey then begin
         case FBind[I].KMod of
-          kmPress, kmOnce: begin
-            { На обычное нажатие }
-            Result := APress <> kpUp;
+          kmPress: begin
+            { Обычный хоткей: все, кроме отпускания }
+            Result := not (APress in [kpUp, kpShiftUp]);
             vEat := True;
             Break;
           end;
@@ -344,27 +346,34 @@ interface
             { На SingleClick }
             Result := APress in [kpDown, kpAuto, kpHold, kpAll];
             vEat := APress <> kpDouble;
-            if Result then
-              Break;
           end;
           kmDouble: begin
             { На DoubleClick }
             Result := APress in [kpDouble, kpAll];
             vEat := Result;
             vFinal := Result;
-            if Result then
-              Break;
           end;
           kmHold: begin
             { На удержание }
             Result := APress in [kpHold, kpAll];
             vEat := Result;
             vFinal := Result;
-            if Result then
-              Break;
+          end;
+          kmDown: begin
+            { На нажатие }
+            Result := APress in [kpDown, kpDouble, kpAll];
+            vEat := Result;
+          end;
+          kmUp: begin
+            { На отжатие }
+            Result := APress in [kpUp, kpShiftUp, kpAll];
+            vEat := Result;
           end;
         end;
+        if Result then
+          Break;
       end;
+
     if vEat and (moEatOnRun in FOptions) then begin
       AEat := True;
       if vFinal then
@@ -764,40 +773,42 @@ interface
 
   function TMacroLibrary.CheckHotkey(const ARec :TKeyEventRecord) :boolean;
   var
-    vKey :Integer;
+    vRecKey, vKey :Integer;
     vPress :TKeyPress;
     vTick :DWORD;
-    vDouble, vHold :Boolean;
   begin
     Result := False;
 
-    vKey := WinKeyRecToFarKey(ARec);
+    vRecKey := WinKeyRecToFarKey(ARec);
+    vKey := vRecKey;
 
-    vDouble := False;
-    vHold := False;
     if ARec.bKeyDown then begin
       vTick := GetTickCount;
 
       if FLastKey <> vKey then begin
         { Первое нажатие }
+        vPress := kpDown;
         FCancelled := False;
         FLastKey := vKey;
+        FLastShift := vKey and KEY_CTRLMASK;
         if (FLastKey = FPrevKey) and (TickCountDiff(vTick, FPressTime) < optDoubleDelay) then begin
-          vDouble := True;
+          vPress := kpDouble;
           FPressTime := 0;
         end else
           FPressTime := vTick;
       end else
       begin
         { Автоповтор }
+        vPress := kpAuto;
         if (FPressTime <> 0) and (TickCountDiff(vTick, FPressTime) > optHoldDelay) then begin
           FPressTime := 0;
-          vHold := True;
+          vPress := kpHold;
         end;
       end;
 
     end else
     begin
+      vPress := kpUp;
       if (FLastKey and not KEY_CTRLMASK) = 0 then
         vKey := 0;
       if vKey = 0 then
@@ -805,25 +816,28 @@ interface
       else
       if vKey <> FLastKey then
         vKey := 0;
+
       FPrevKey := vKey;
+
+      if vKey = 0 then begin
+        vKey := FLastShift;
+        if vKey <> 0 then
+          vPress := kpShiftUp;
+      end;
+
+      FLastShift := vRecKey and KEY_CTRLMASK;
       FLastKey := 0;
     end;
+
 //  if ARec.bKeyDown then
-//    TraceF('CheckHotkey (Press=%d, Repeat=%d, vChr=%x, vKey=%x "%s")',
-//      [byte(ARec.bKeyDown), ARec.wRepeatCount, Word(ARec.UnicodeChar),  vKey, FarKeyToName(vKey)]);
+//    TraceF('CheckHotkey (Press=%d, Repeat=%d, vChr=%x, vKey=%x -> %x "%s":%d)',
+//      [byte(ARec.bKeyDown), ARec.wRepeatCount, Word(ARec.UnicodeChar), vRecKey, vKey, FarKeyToName(vKey), byte(vPress)]);
 
     if not FCancelled then begin
-
-      vPress := kpDown;
-      if ARec.bKeyDown and vDouble then
-        vPress := kpDouble;
-      if ARec.bKeyDown and vHold then
-        vPress := kpHold;
-      if not ARec.bKeyDown then
-        vPress := kpUp;
-
+    
       if vKey <> 0 then
         Result := CheckForRun(vKey, ARec.UnicodeChar, vPress);
+
     end else
     begin
       if not ARec.bKeyDown then
