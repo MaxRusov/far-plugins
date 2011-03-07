@@ -26,6 +26,7 @@ exports
   GetPluginInfoW,
   OpenPluginW,
   ConfigureW,
+  ProcessSynchroEventW,
  {$ifdef bAdvSelect}
   ProcessEditorInputW,
   ProcessEditorEventW,

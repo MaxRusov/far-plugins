@@ -351,6 +351,7 @@ interface
   procedure TListBase.Prepare; {override;}
   begin
     inherited Prepare;
+    FGUID := cGrepDlgID;
     FGrid.OnCellClick := GridCellClick;
     FGrid.OnPosChange := GridPosChange;
     FGrid.OnGetCellColor := GridGetCellColor;
@@ -514,7 +515,7 @@ interface
   var
     I, vPos, vStrLen, vFndLen, vCount, vMaxRow, vMaxRowLen, vMaxLen :Integer;
     vStr :PTChar;
-    vMask :TString;
+    vMask, vXMask :TString;
     vHasMask :Boolean;
   begin
     vMaxLen := 0;
@@ -530,15 +531,18 @@ interface
 
     vCount := 0;
     FreeObj(FFilter);
-    if vMask <> '' then
+    if vMask <> '' then begin
       FFilter := TMyFilter.CreateSize(SizeOf(TFilterRec));
+      if optXLatMask then
+        vXMask := FarXLatStr(vMask);
+    end;
 
     for I := 0 to FMatches.Count - 1 do begin
       vStr := GetEdtStr(I, vStrLen);
 
       vPos := 0; vFndLen := 0;
       if vMask <> '' then begin
-        if not ChrCheckMask(vMask, vStr, vStrLen, vHasMask, vPos, vFndLen) then
+        if not ChrCheckXMask(vMask, vXMask, vStr, vHasMask, vPos, vFndLen) then
           Continue;
         FFilter.Add(I, vPos, vFndLen);
       end;

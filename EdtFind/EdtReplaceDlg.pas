@@ -36,6 +36,7 @@ interface
       procedure ErrorHandler(E :Exception); override;
 
     private
+      FAutoInit   :Boolean;
       FInitExpr   :TString;
 
       procedure EnableControls;
@@ -89,6 +90,7 @@ interface
   var
     vX2 :Integer;
   begin
+    FGUID := cReplaceDlgID;
     FHelpTopic := 'Replace';
     FWidth := DX;
     FHeight := DY;
@@ -136,7 +138,7 @@ interface
 
   procedure TReplaceDlg.InitDialog; {override;}
   begin
-    if FInitExpr <> '' then
+    if FAutoInit then
       SetText(IdFindEdt, FInitExpr);
 
     SetChecked(IdCaseSensChk, foCaseSensitive in gOptions);
@@ -238,6 +240,8 @@ interface
 
       DN_KEY: begin
         case Param2 of
+          KEY_CTRLP:
+            InsertText(FInitExpr);
           KEY_F9:
             OptionsMenu;
         else
@@ -268,8 +272,8 @@ interface
   begin
     vDlg := TReplaceDlg.Create;
     try
-      if APickWord then
-        vDlg.FInitExpr := GetWordUnderCursor;
+      vDlg.FInitExpr := GetWordUnderCursor;
+      vDlg.FAutoInit := APickWord;
 
       vRes := vDlg.Run;
 

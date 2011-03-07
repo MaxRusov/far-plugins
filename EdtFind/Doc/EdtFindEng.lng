@@ -10,10 +10,8 @@
 "&4 Replace word..."
 "&5 Repeat forward"
 "&6 Repeat backward"
-"&7 Find word forward"
-"&8 Find word backward"
-"&9 Pick word"
-"&A Remove highlight"
+"&7 Pick word"
+"&8 Remove highlight"
 "&Options..."
 
 "Search &for"
@@ -39,8 +37,10 @@
 "&Loop Search"
 "Show &All Matches"
 "&Persistent Matches"
+"Mark whole &Tab"
 "Show P&rogress"
 "&Group undo"
+"Auto &XLAT mask"
 "&Colors..."
 
 "Show &line numbers  Ctrl-1"
