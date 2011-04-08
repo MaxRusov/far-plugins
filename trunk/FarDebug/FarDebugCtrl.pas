@@ -16,13 +16,8 @@ interface
     MixUtils,
     MixStrings,
     MixWinUtils,
-
-   {$ifdef bUnicodeFar}
     PluginW,
-    FarColorW,
-   {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+
     FarCtrl,
     FarMatch;
 
@@ -38,6 +33,7 @@ interface
       strMNext,
       strMNextLine,
       strMUntil,
+      strMLeave,
       strMRun,
       strMKill,
       strMLocate,
@@ -47,17 +43,26 @@ interface
       strMDisassemble,
       strMWindows,
       strMDebugConsole,
+      strMOptions,
 
       strMCallstack,
       strMBreakpoints,
       strMSources,
+      strMHelp,
+
+      strMDebugger,
+      strMPresets,
+      strMCygwinRoot,
+      strMColors,
 
       strCallstack,
       strBreakpoints,
       strEvaluate,
       strSources,
+      strHelp,
 
       strFileName,
+      strHostApp,
       strParameters,
       strLoad,
       strStep,
@@ -82,8 +87,23 @@ interface
       strWaitDebugger,
       strInterrupt,
       strInterruptPrompt,
-      strYes,
-      strNo,
+      strBYes,
+      strBNo,
+
+      strDebuggerBusy,
+      strBTerminate,
+      strBStopWaiting,
+      strBContinueWaiting,
+
+      strAddBreakTitle,
+      strAddBreakPrompt,
+
+      strDebuggerTitle,
+      strDebuggerPrompt,
+      strPresetsTitle,
+      strPresetsPrompt,
+      strCygwinTitle,
+      strCygwinPrompt,
 
       strOpenFileDialog,
       strDialogToolNotInstalled
@@ -96,8 +116,8 @@ interface
     EGDBError = class(Exception);
 
   const
-    cDefaultLang   = 'English';
-    cMenuFileMask  = '*.mnu';
+//  cDefaultLang   = 'English';
+//  cMenuFileMask  = '*.mnu';
 
     cPlugRegFolder = 'FarDebug';
 
@@ -106,29 +126,69 @@ interface
     cNormalIcon = '['#$18']';
     cMaximizedIcon = '['#$12']';
 
+    cDefGDBName = 'gdb';
+
+    cGlobalPresetsFileName = 'Presets.ini';
+    cLocalPresetsFileName  = 'FarDebug.ini';
+
+    cConsoleDlgID     :TGUID = '{D05AE970-3898-451D-969D-FD35BCD11569}';
+    cDisasmDlgID      :TGUID = '{033FED7B-A5A4-4901-A69C-252A83E3989E}';
+    cOpenDlgID        :TGUID = '{F9B2BA14-7566-4F90-A9AA-628288C1D8B2}';
+    cPathDlgID        :TGUID = '{52A844F0-28F6-46BD-8BA4-A49F4F8DB52A}';
+    cSourceDlgID      :TGUID = '{AEDE01B6-793F-4D55-A261-6885005206A9}';
+    cEvaluateDlgID    :TGUID = '{9E9C13B1-661B-473F-AFDE-0DED582B9E70}';
+    cBreakpointsDlgID :TGUID = '{67E49662-B1D0-4CEC-AE07-30F1893E0132}';
+    cCallstackDlgID   :TGUID = '{54F046CE-8CC9-429D-A317-F289D9D55953}';
+    cHelpDlgID        :TGUID = '{C2189295-7EC8-46DB-9BC1-E367A98B752D}';
+
+    cHistGDBName      = 'FarDebug.GDBName';
+    cHistPresets      = 'FarDebug.GDBPresets';
+    cHistCygWinRoot   = 'FarDebug.CygWinRoot';
+    cHistBreakpoint   = 'FarDebug.Breakpoint';
+
+
   var
-    optGDBName        :TString = 'gdb';   { Например, "GDB64" }
+    optGDBName        :TString = cDefGDBName;   { Например, "GDB64" }
     optGDBPresets     :TString = '';
     optCygwinRoot     :TString = '';
 
     optShowCodeLine   :Boolean = False;
 
-    optEdtExecColor   :Integer = $2F;
-    optEdtBreakColor  :Integer = $CF;
-    optEdtBreakColor1 :Integer = $E0;
-    optEdtCodeColor   :Integer = $F0;
-
-    optTermUserColor  :Integer = $09;
-    optTermErrorColor :Integer = $0C;
-
-    optFoundColor     :Integer = $0A;
-
     { FarDebugSourcesDlg }
     optSrcShowPath    :Boolean = True;
     optSrcSortMode    :Integer = 1;
 
+    {CPU View}
+    optCPUShowAddr    :Integer = 1;     { 0-No; 1-Addr; 2-Delta; 3-Addr+Delta }
+    optCPUShowSrc     :Integer = 1;     { 0-File:Line 1-File:Line Str 2-Line Str 3-Str }
+    optCPUMixSrc      :Boolean = True;  { Включать исходный код... }
+
+    optCPUCurChar     :TChar   = #16;
+
   var
-    FRegRoot    :TString;
+    optEdtExecColor   :Integer;
+    optEdtBreakColor  :Integer;
+    optEdtBreakColor1 :Integer;
+    optEdtCodeColor   :Integer;
+
+    optTermUserColor  :Integer;
+    optTermErrorColor :Integer;
+
+    optCPUSrcColor    :Integer;
+    optCPUAddrColor   :Integer;
+    optCPUAsmColor    :Integer;
+
+    optFoundColor     :Integer;
+
+
+
+  var
+    LastHost     :TString;
+    LastArgs     :TString;
+
+  var
+    FRegRoot     :TString;
+    FModuleName  :TString;
 
   type
     TAddr = Int64;
@@ -144,10 +204,13 @@ interface
   function UpCompareSubPChar(const SubStr1, Str2 :PTChar) :Integer;
   function AddrToNum(Addr :TString) :TAddr;
 
-  procedure ReadSetup;
-  procedure WriteSetup;
+  procedure RestoreDefColor;
+  procedure ReadSetup(AHistory, ASettings :Boolean);
+  procedure WriteSetup(AHistory :Boolean = False; ASettings :Boolean = True);
 
   function EditorFile(AWindow :Integer) :TString;
+  procedure AddToHistory(const AHist, AStr :TString);
+
   function GetCurrentEditorPos :Integer;
   procedure OpenEditor(const AFileName :TString; ARow, ACol :Integer; ASelectLine :Boolean = False; ATopLine :Integer = 0);
 
@@ -182,10 +245,15 @@ interface
 
 
   procedure HandleError(AError :Exception);
+  var
+    vStr :TString;
   begin
-    if AError is EGDBError then
-      ShowMessage('GDB', Trim(AError.Message), FMSG_WARNING or FMSG_MB_OK)
-    else
+    if AError is EGDBError then begin
+      vStr := AError.Message;
+      vStr := StrReplace(vStr, #13#10, #10, [rfReplaceAll]);
+      vStr := StrReplace(vStr, #13, #10, [rfReplaceAll]);
+      ShowMessage('GDB', Trim(vStr), FMSG_WARNING or FMSG_MB_OK)
+    end else
       ShowMessage('FAR Debug', AError.Message, FMSG_WARNING or FMSG_MB_OK);
   end;
 
@@ -349,22 +417,64 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure ReadSetup;
+  procedure AddToHistory(const AHist, AStr :TString);
+  var
+    hDlg :THandle;
+    vItems :array[0..0] of TFarDialogItem;
+  begin
+    vItems[0] := NewItemApi(DI_Edit, 0, 0, 5, -1, DIF_HISTORY, '', PTChar(AHist) );
+    hDlg := FARAPI.DialogInit(hModule, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, nil, 0);
+    try
+      FARAPI.SendDlgMessage(hDlg, DM_ADDHISTORY, 0, TIntPtr(PTChar(AStr)));
+    finally
+      FARAPI.DialogFree(hDlg);
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  procedure RestoreDefColor;
+  begin
+    optEdtExecColor   := clBkGreen + clWhite;
+    optEdtBreakColor  := clBkRed + clWhite;
+    optEdtBreakColor1 := clBkYellow + clBlack;
+    optEdtCodeColor   := clBkWhite + clBlack;
+
+    optTermUserColor  := clBlue;
+    optTermErrorColor := clRed;
+
+    optCPUSrcColor    := clBlue;
+    optCPUAddrColor   := clGray;
+    optCPUAsmColor    := clBlack;
+
+    optFoundColor     := clLime;
+  end;
+
+
+  procedure ReadSetup(AHistory, ASettings :Boolean);
   var
     vKey :HKEY;
   begin
     if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then
       Exit;
     try
-      optGDBName := RegQueryStr(vKey, 'GDBName', optGDBName);
-      optGDBPresets := RegQueryStr(vKey, 'GDBPresets', optGDBPresets);
-      optCygwinRoot := RegQueryStr(vKey, 'CygwinRoot', optCygwinRoot);
+      if AHistory then begin
+        LastHost := RegQueryStr(vKey, 'LastHost', LastHost);
+        LastArgs := RegQueryStr(vKey, 'LastArgs', LastArgs);
+      end;
 
-      optEdtExecColor := RegQueryInt(vKey, 'ExecColor', optEdtExecColor);
-      optEdtBreakColor := RegQueryInt(vKey, 'BreakColor', optEdtBreakColor);
+      if ASettings then begin
+        optGDBName := RegQueryStr(vKey, 'GDBName', optGDBName);
+        optGDBPresets := RegQueryStr(vKey, 'GDBPresets', optGDBPresets);
+        optCygwinRoot := RegQueryStr(vKey, 'CygwinRoot', optCygwinRoot);
 
-      optSrcShowPath := RegQueryLog(vKey, 'SrcShowPath', optSrcShowPath);
-      optSrcSortMode := RegQueryInt(vKey, 'SrcSortMode', optSrcSortMode);
+        optEdtExecColor := RegQueryInt(vKey, 'ExecColor', optEdtExecColor);
+        optEdtBreakColor := RegQueryInt(vKey, 'BreakColor', optEdtBreakColor);
+
+        optSrcShowPath := RegQueryLog(vKey, 'SrcShowPath', optSrcShowPath);
+        optSrcSortMode := RegQueryInt(vKey, 'SrcSortMode', optSrcSortMode);
+      end;
 
     finally
       RegCloseKey(vKey);
@@ -372,16 +482,25 @@ interface
   end;
 
 
-  procedure WriteSetup;
+  procedure WriteSetup(AHistory :Boolean = False; ASettings :Boolean = True);
   var
     vKey :HKEY;
   begin
     RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
     try
-//    RegWriteStr(vKey, 'CompareCmd', optCompareCmd);
+      if AHistory then begin
+        RegWriteStr(vKey, 'LastHost', LastHost);
+        RegWriteStr(vKey, 'LastArgs', LastArgs);
+      end;
 
-      RegWriteLog(vKey, 'SrcShowPath', optSrcShowPath);
-      RegWriteInt(vKey, 'SrcSortMode', optSrcSortMode);
+      if ASettings then begin
+        RegWriteStr(vKey, 'GDBName', optGDBName);
+        RegWriteStr(vKey, 'GDBPresets', optGDBPresets);
+        RegWriteStr(vKey, 'CygwinRoot', optCygwinRoot);
+
+        RegWriteLog(vKey, 'SrcShowPath', optSrcShowPath);
+        RegWriteInt(vKey, 'SrcSortMode', optSrcSortMode);
+      end;
 
     finally
       RegCloseKey(vKey);

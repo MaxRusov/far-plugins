@@ -15,31 +15,43 @@ interface
     MixTypes,
     MixUtils,
     MixStrings,
-
-   {$ifdef bUnicodeFar}
-    PluginW,
-   {$else}
-    Plugin,
-   {$endif bUnicodeFar}
-
-    FarCtrl,
+    MixClasses,
     FarDebugCtrl;
 
+
   const
-    cTerm = #$10;
+    cTmpBufSize     = 1024;
+    cDefReadTimeout = 250;
+//  cDefWaitTimeout = 0; //3000;
+
+  var
+    { Символ-терминатор (признак завершения ожидания ответа) }
+    { Глобальный терминатор используется, если не задан явно при вызове ReadAnswer }
+    TerminatorChar :AnsiChar = #0;
 
 
   type
+    TRedirEvent = (
+      reReadOut,
+      reReadErr,
+      reIdle
+    );
+
+    TOnRedirEvent = function(AEvent :TRedirEvent; const AStr :TAnsiStr; AContext :Pointer) :Boolean;
+
     TOnWaitIdle = function :Boolean;
 
   function RedirInited :Boolean;
 
   procedure RedirChildProcess(const ACommand :TString);
   procedure RedirSendCommand(const ACommand :TString);
-  procedure RedirReadAnswer(var AStr :TString; ATerm :AnsiChar; AOnIdle :TOnWaitIdle);
-  procedure RedirCloseHandles;
 
-  procedure RedirCall(const ACommand :TString; PRes :PTString = nil; ATerm :AnsiChar = #0);
+  function DefWaitAnswer(AEvent :TRedirEvent; const AStr :TAnsiStr; AContext :Pointer) :Boolean;
+  
+  procedure RedirReadAnswer(PRes :PTString = nil; ATerm :AnsiChar = #0; ATimeOut :Integer = 0;
+    AEvent :TOnRedirEvent = nil; AContext :Pointer = nil);
+
+  procedure RedirTerminate;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -48,35 +60,161 @@ interface
   uses
     MixDebug;
 
-  var
-    hChildRead   :THandle;
-    hParentRead  :THandle;
 
-    hChildWrite  :THandle;
-    hParentWrite :THandle;
-
-    hChildError  :THandle;
-    hParentError :THandle;
-
-    hProcess     :THandle;
-
-
-    
-  function RedirInited :Boolean;
+  function WinCloseHandle(var AHandle :THandle) :Boolean;
   begin
-    Result := hProcess <> 0;
+    Result := True;
+    if AHandle <> 0 then begin
+      Result := CloseHandle(AHandle);
+      AHandle := 0;
+    end;
   end;
 
 
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
 
-  procedure RedirChildProcess(const ACommand :TString);
+  type
+    THandleReader = class(TBasis)
+    public
+      constructor CreateEx(AHandle :THandle);
+      destructor Destroy; override;
+
+      function Read(const AStops :TAnsiCharSet = []; ATimeout :Integer = 0) :TAnsiStr;
+
+    private
+      FHandle    :THandle;
+      FBuffer    :PAnsiChar;
+      FBufSize   :Integer;
+      FBufPos    :Integer;
+      FLoaded    :Integer;
+
+      function ReadPart :Boolean;
+      function GetEOF :Boolean;
+
+    public
+      property EOF :Boolean read GetEOF;
+    end;
+
+
+  constructor THandleReader.CreateEx(AHandle :THandle);
+  begin
+    Create;
+    FHandle := AHandle;
+    FBuffer := MemAllocZero(cTmpBufSize);
+    FBufSize := cTmpBufSize;
+  end;
+
+
+  destructor THandleReader.Destroy; {override;}
+  begin
+    MemFree(FBuffer);
+    inherited Destroy;
+  end;
+
+
+  function THandleReader.ReadPart :Boolean;
+  var
+    vCount :Integer;
+  begin
+    Result := False;
+    vCount := 0;
+    if PeekNamedPipe(FHandle, nil, 0, nil, @vCount, nil) then begin
+      if vCount > 0 then begin
+        if vCount > FBufSize then
+          vCount := FBufSize;
+        ApiCheck( ReadFile( FHandle, FBuffer^, vCount, DWORD(FLoaded), nil) );
+        FBufPos := 0;
+        Result := True;
+      end;
+    end;
+  end;
+
+
+  function THandleReader.Read(const AStops :TAnsiCharSet = []; ATimeout :Integer = 0) :TAnsiStr;
+  var
+    vLen, vCount :Integer;
+    vStart :DWORD;
+  begin
+    Result := '';
+    if not EOF then begin
+      vStart := GetTickCount;
+      vLen := 0;
+      while True do begin
+        vCount := FLoaded - FBufPos;
+        if vLen = 0 then
+          SetString(Result, FBuffer + FBufPos, vCount)
+        else begin
+          SetLength(Result, vLen + vCount);
+          Move((FBuffer + FBufPos)^, (PAnsiChar(Result) + vLen)^, vCount);
+        end;
+        Inc(FBufPos, vCount);
+        Inc(vLen, vCount);
+
+        if not ReadPart then begin
+          if Result[length(Result)] in AStops then
+            Exit;
+          if (ATimeout = 0) or (TickCountDiff(GetTickCount, vStart) > ATimeout) then
+            Exit;
+          Sleep(1);
+        end else
+          vStart := GetTickCount;
+      end;
+    end;
+  end;
+
+
+  function THandleReader.GetEOF :Boolean;
+  begin
+    Result := (FBufPos = FLoaded) and not ReadPart;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
+
+  type
+    TRedirector = class(TBasis)
+    public
+      constructor Create; override;
+      constructor CreateEx(const ACommand, ACurFolder :TString);
+      destructor Destroy; override;
+
+      procedure RunCmd(const ACommand, ACurFolder :TString);
+      procedure Send(const AStr :TAnsiStr);
+      procedure WaitAnswer(AEvent :TOnRedirEvent; AContext :Pointer);
+      procedure Terminate;
+
+    private
+      FProcess     :THandle;
+      FProcessID   :DWORD;
+
+      FChildRead   :THandle;
+      FParentRead  :THandle;
+
+      FChildWrite  :THandle;
+      FParentWrite :THandle;
+
+      FChildError  :THandle;
+      FParentError :THandle;
+
+      FOutReader   :THandleReader;
+      FErrReader   :THandleReader;
+
+      FTimeout     :Integer;
+      FTerminator  :AnsiChar;
+    end;
+
+
+  constructor TRedirector.Create; {override;}
   var
     vProcess, vTmpPipe :THandle;
     vAttrs :TSecurityAttributes;
-    vStartup :TStartupInfo;
-    vProcessInfo :TProcessInformation;
-    vBuf :Array[0..MAX_PATH] of TChar;
   begin
+    inherited Create;
+
     vAttrs.nLength := sizeof(vAttrs);
     vAttrs.lpSecurityDescriptor := nil;
     vAttrs.bInheritHandle := TRUE;
@@ -84,254 +222,302 @@ interface
     vProcess := GetCurrentProcess;
 
     { Создаем pipe #1 (Для чтения из stdout дочернего процесса) }
-    ApiCheck( CreatePipe(vTmpPipe, hChildWrite, @vAttrs, 0) );
+    ApiCheck( CreatePipe(vTmpPipe, FChildWrite, @vAttrs, 0) );
     { Создаем копию pipe, которая не может наследоваться }
-    ApiCheck( DuplicateHandle(vProcess, vTmpPipe, vProcess, @hParentRead, 0, False, DUPLICATE_SAME_ACCESS) );
+    ApiCheck( DuplicateHandle(vProcess, vTmpPipe, vProcess, @FParentRead, 0, False, DUPLICATE_SAME_ACCESS) );
     { Закрываем временный handle, который наследуется }
     CloseHandle(vTmpPipe);
 
     { Создаем pipe #2(Для записи в stdin дочернего процесса) }
-    ApiCheck( CreatePipe(hChildRead, vTmpPipe, @vAttrs, 0) );
+    ApiCheck( CreatePipe(FChildRead, vTmpPipe, @vAttrs, 0) );
     { Создаем копию pipe, которая не может наследоваться }
-    ApiCheck( DuplicateHandle(vProcess, vTmpPipe, vProcess, @hParentWrite, 0, False, DUPLICATE_SAME_ACCESS) );
+    ApiCheck( DuplicateHandle(vProcess, vTmpPipe, vProcess, @FParentWrite, 0, False, DUPLICATE_SAME_ACCESS) );
     { Закрываем временный handle, который наследуется }
     CloseHandle(vTmpPipe);
 
     { Создаем pipe #3 (Для чтения из stderror дочернего процесса) }
-    ApiCheck( CreatePipe(vTmpPipe, hChildError, @vAttrs, 0) );
+    ApiCheck( CreatePipe(vTmpPipe, FChildError, @vAttrs, 0) );
     { Создаем копию pipe, которая не может наследоваться }
-    ApiCheck( DuplicateHandle(vProcess, vTmpPipe, vProcess, @hParentError, 0, False, DUPLICATE_SAME_ACCESS) );
+    ApiCheck( DuplicateHandle(vProcess, vTmpPipe, vProcess, @FParentError, 0, False, DUPLICATE_SAME_ACCESS) );
     { Закрываем временный handle, который наследуется }
     CloseHandle(vTmpPipe);
 
+    FOutReader := THandleReader.CreateEx(FParentRead);
+    FErrReader := THandleReader.CreateEx(FParentError);
+  end;
+
+
+  constructor TRedirector.CreateEx(const ACommand, ACurFolder :TString);
+  begin
+    Create;
+    RunCmd(ACommand, ACurFolder);
+  end;
+
+
+  destructor TRedirector.Destroy; {override;}
+  begin
+    WinCloseHandle(FChildRead);
+    WinCloseHandle(FParentRead);
+    WinCloseHandle(FChildWrite);
+    WinCloseHandle(FParentWrite);
+    WinCloseHandle(FChildError);
+    WinCloseHandle(FParentError);
+
+    FreeObj(FOutReader);
+    FreeObj(FErrReader);
+    inherited Destroy;
+  end;
+
+
+  procedure TRedirector.RunCmd(const ACommand, ACurFolder :TString);
+  var
+    vStartup :TStartupInfo;
+    vProcessInfo :TProcessInformation;
+    vTmpStr :TString;
+  begin
     {Заполняем структуру startup info }
+    FillZero(vStartup, sizeof(vStartup));
     vStartup.cb := sizeof(vStartup);
     GetStartupInfo(vStartup);
     PTChar(vStartup.lpTitle) := 'process';
     vStartup.dwFlags := STARTF_USESTDHANDLES;
     vStartup.dwXCountChars := 0;
     vStartup.dwYCountChars := 0;
-    vStartup.hStdInput := hChildRead;
-    vStartup.hStdOutput := hChildWrite;
-    vStartup.hStdError := hChildError;
-//  vStartup.hStdError := hChildErrWrite; {???}
+    vStartup.hStdInput := FChildRead;
+    vStartup.hStdOutput := FChildWrite;
+    vStartup.hStdError := FChildError;
+
+    SetString(vTmpStr, PTChar(ACommand), length(ACommand));
 
     { Запускаем процесс }
-    StrPCopy(@vBuf[0], ACommand);
     ApiCheck( CreateProcess(
       nil,      // pointer to name of executable module
-      @vBuf[0],	// pointer to command line string
+      PTChar(vTmpStr),	// pointer to command line string
       nil,	// pointer to process security attributes
       nil,	// pointer to thread security attributes
       TRUE,	// handle inheritance flag
-      CREATE_DEFAULT_ERROR_MODE or DETACHED_PROCESS, // creation flags
+      CREATE_DEFAULT_ERROR_MODE or DETACHED_PROCESS {or CREATE_NEW_CONSOLE or CREATE_NEW_PROCESS_GROUP or CREATE_NO_WINDOW}, // creation flags
       nil,	// pointer to new environment block
-      nil,	// pointer to current directory name
-      vStartup, //startup info
+      nil,      // PTChar(ACurFolder), // pointer to current directory name
+      vStartup, // startup info
       vProcessInfo)
     );
 
-    hProcess := vProcessInfo.hProcess;
+    FProcess := vProcessInfo.hProcess;
+    FProcessID := vProcessInfo.dwProcessId;
   end;
 
 
-{------------------------------------------------------------------------------}
+  procedure TRedirector.Terminate;
+  begin
+    ApiCheck(TerminateProcess(FProcess, 1));
+    FProcess := 0;
+    FProcessID := 0;
+  end;
 
-  procedure RedirSendCommand(const ACommand :TString);
+
+  procedure TRedirector.Send(const AStr :TAnsiStr);
   var
-    vStr :AnsiString;
     vWrite :Integer;
   begin
-    vStr := ACommand + #10;
-    ApiCheck( WriteFile(hParentWrite, PAnsiChar(vStr)^, length(vStr), DWORD(vWrite), nil));
+    ApiCheck( WriteFile(FParentWrite, PAnsiChar(AStr)^, length(AStr), DWORD(vWrite), nil));
   end;
 
 
-{------------------------------------------------------------------------------}
-
-  procedure RedirReadAnswer(var AStr :TString; ATerm :AnsiChar; AOnIdle :TOnWaitIdle);
+(*
+  procedure TRedirector.WaitAnswer(AEvent :TOnRedirEvent; AContext :Pointer);
   var
-    vBuf :Array[0..1024] of AnsiChar;
-    vRead, vFound, vLen, vTotal :Integer;
     vCode :DWORD;
-  begin
-    AStr := '';
-    while True do begin
-      if PeekNamedPipe(hParentRead, nil, 0, nil, @vTotal, nil) then begin
-        if vTotal > 0 then begin
-          ApiCheck( ReadFile( hParentRead, vBuf, SizeOf(vBuf), DWORD(vRead), nil) );
-
-          vFound := MemSearch(@vBuf[0], vRead, ATerm);
-          if vFound > 0 then begin
-            vLen := Length(AStr);
-            SetLength(AStr, vLen + vFound);
-           {$ifdef bUnicode}
-            MultiByteToWideChar(CP_ACP, 0, @vBuf[0], vFound, PTChar(AStr) + vLen, vFound);
-           {$else}
-            Move(vBuf, (PTChar(AStr) + vLen)^, vFound);
-           {$endif bUnicode}
-          end;
-
-          if vFound < vRead then
-            Exit;
-
-        end else
-        begin
-          if PeekNamedPipe(hParentError, nil, 0, nil, @vTotal, nil) and (vTotal > 0) then begin
-            NOP;
-            Exit;
-          end;
-
-          if not GetExitCodeProcess(hProcess, vCode) or (vCode <> STILL_ACTIVE) then begin
-            hProcess := 0;
-            RedirCloseHandles;
-            Exit;
-          end;
-          if Assigned(AOnIdle) then
-            if not AOnIdle then begin
-              Abort;
-              Exit;
-            end;
-          Sleep(1);
-        end;
-      end else
-        Exit;
-    end;
-  end;
-
-
-{------------------------------------------------------------------------------}
-
-  procedure ReadInput(AHandle :THandle; var AStr :TString);
-  var
-    vStr :TString;
-    vBuf :Array[0..1024] of AnsiChar;
-    vRead, vTotal :Integer;
-  begin
-    AStr := '';
-    while True do begin
-      if PeekNamedPipe(AHandle, nil, 0, nil, @vTotal, nil) and (vTotal > 0) then begin
-        ApiCheck( ReadFile( AHandle, vBuf, SizeOf(vBuf), DWORD(vRead), nil) );
-        if vRead > 0 then begin
-          SetLength(vStr, vRead);
-         {$ifdef bUnicode}
-          MultiByteToWideChar(CP_ACP, 0, @vBuf[0], vRead, PTChar(vStr), vRead);
-         {$else}
-          Move(vBuf, PTChar(vStr)^, vRead);
-         {$endif bUnicode}
-          AStr := AStr + vStr;
-          Sleep(10); {???}
-        end;
-      end else
-        Exit;
-    end;
-  end;
-
-
-  procedure RedirReadError(var AStr :TString);
-  begin
-    ReadInput(hParentError, AStr);
-  end;
-
-
-{------------------------------------------------------------------------------}
-
-  procedure RedirCloseHandles;
-
-    procedure LocClose(var AHandle :THandle);
-    begin
-      if AHandle <> 0 then begin
-        CloseHandle(AHandle);
-        AHandle := 0;
-      end;
-    end;
-
-  begin
-    LocClose(hChildRead);
-    LocClose(hParentRead);
-    LocClose(hChildWrite);
-    LocClose(hParentWrite);
-    LocClose(hChildError);
-    LocClose(hParentError);
-  end;
-
-
-{------------------------------------------------------------------------------}
-
-  var
-    vSave  :Integer;
     vStart :DWORD;
-    vLast  :DWORD;
-
-
-
-  function ReadIdle :Boolean;
-  var
-    vTick :DWORD;
-    vMess :TString;
-    vFarMess :TFarStr;
+    vStr :TAnsiStr;
+    vIdle, vFinish :Boolean;
   begin
-    Result := True;
-    vTick := GetTickCount;
-    if Integer(TickCountDiff(vTick, vLast)) < IntIf(vSave = 0, 300, 100) then
-      Exit;
+    Assert(Assigned(AEvent));
+    vStart := 0;
+    vFinish := False;
+    while not vFinish do begin
 
-    if CheckForEsc then begin
-      if ShowMessage(GetMsgStr(strInterrupt), GetMsgStr(strInterruptPrompt) + #10#10 + GetMsgStr(strYes) + #10 + GetMsgStr(strNo), FMSG_WARNING, 2) = 0 then begin
-        Result := False;
+      vIdle := True;
+
+      while not FErrReader.EOF do begin
+        vStr := FErrReader.Read([#13, #10], cDefReadTimeout);
+        if not AEvent(reReadErr, vStr, AContext) then
+          Exit;
+        vIdle := False;
+        vStart := 0;
+      end;
+
+      while not FOutReader.EOF do begin
+        vStr := FOutReader.Read([#13, #10, FTerminator], cDefReadTimeout);
+        if (vStr <> '') and (vStr[length(vStr)] = FTerminator) then begin
+          vFinish := True;
+          Delete(vStr, length(vStr), 1);
+        end;
+        if not AEvent(reReadOut, vStr, AContext) then
+          Exit;
+        vIdle := False;
+        vStart := 0;
+      end;
+
+      if vIdle then
+        Sleep(1);
+
+      if not GetExitCodeProcess(FProcess, vCode) or (vCode <> STILL_ACTIVE) then begin
+        FProcess := 0;
+        FProcessID := 0;
         Exit;
       end;
+
+      if vIdle then begin
+        if vStart = 0 then
+          vStart := GetTickCount
+        else begin
+          if (FTimeout <> 0) and (TickCountDiff(GetTickCount, vStart) > FTimeout) then
+            Exit;
+        end;
+        if not AEvent(reIdle, '', AContext) then
+          Exit;
+      end;
     end;
-
-    if vSave = 0 then
-      vSave := FARAPI.SaveScreen(0, 0, -1, -1);
-
-    vMess :=
-      'GDB'#10 +
-      GetMsgStr(strWaitDebugger) + ' (' + Int2Str(TickCountDiff(vTick, vStart) div 1000) + ')...';
-
-   {$ifdef bUnicodeFar}
-    vFarMess := vMess;
-   {$else}
-    vFarMess := StrAnsiToOEM(vMess);
-   {$endif bUnicodeFar}
-    FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PFarChar(vFarMess)), 0, 0);
-    FARAPI.Text(0, 0, 0, nil);
-    vLast := vTick;
   end;
+*)
 
-
-  procedure RedirCall(const ACommand :TString; PRes :PTString = nil; ATerm :AnsiChar = #0);
+  procedure TRedirector.WaitAnswer(AEvent :TOnRedirEvent; AContext :Pointer);
   var
-    vRes, vErr :TString;
+    vCode :DWORD;
+    vStart :DWORD;
+    vStr :TAnsiStr;
+    vIdle, vFinish :Boolean;
   begin
-    vSave := 0;
-    try
-//    TraceF('Send="%s"', [ACommand]);
-      RedirSendCommand(ACommand);
+    Assert(Assigned(AEvent));
+    vStart := 0;
+    vFinish := False;
+    while not vFinish do begin
 
-      vStart := GetTickCount;
-      vLast := vStart;
-      if ATerm = #0 then
-        ATerm := cTerm;
-      RedirReadAnswer(vRes, ATerm, ReadIdle);
-//    TraceF('Recv="%s"', [vRes]);
-      if PRes <> nil then
-        PRes^ := vRes;
+      vIdle := True;
 
-      RedirReadError(vErr);
-      if vErr <> '' then begin
-        { После кучи ошибок GDB может выдать результат 8( }
-        ReadInput(hParentRead, vRes);
-
-        RaiseError(EGDBError, vErr);
+      while not FOutReader.EOF do begin
+        vStr := FOutReader.Read([#13, #10, FTerminator], cDefReadTimeout);
+        if (vStr <> '') and (vStr[length(vStr)] = FTerminator) then begin
+          vFinish := True;
+          Delete(vStr, length(vStr), 1);
+        end;
+        if not AEvent(reReadOut, vStr, AContext) then
+          Exit;
+        vIdle := False;
+        vStart := 0;
       end;
 
-    finally
-      if vSave <> 0 then
-        FARAPI.RestoreScreen(vSave);
+      while not FErrReader.EOF do begin
+        vStr := FErrReader.Read([#13, #10], cDefReadTimeout);
+        if not AEvent(reReadErr, vStr, AContext) then
+          Exit;
+        vIdle := False;
+        vStart := 0;
+      end;
+
+      if vIdle then
+        Sleep(1);
+
+      if not GetExitCodeProcess(FProcess, vCode) or (vCode <> STILL_ACTIVE) then begin
+        FProcess := 0;
+        FProcessID := 0;
+        Exit;
+      end;
+
+      if vIdle then begin
+        if vStart = 0 then
+          vStart := GetTickCount
+        else begin
+          if (FTimeout <> 0) and (TickCountDiff(GetTickCount, vStart) > FTimeout) then
+            Exit;
+        end;
+        if not AEvent(reIdle, '', AContext) then
+          Exit;
+      end;
     end;
   end;
 
 
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
+
+  var
+    Redirector :TRedirector;
+
+
+  function RedirInited :Boolean;
+  begin
+    Result := (Redirector <> nil) and (Redirector.FProcess <> 0);
+  end;
+
+
+  procedure RedirChildProcess(const ACommand :TString);
+  begin
+    if Redirector = nil then
+      Redirector := TRedirector.Create;
+    if Redirector.FProcess <> 0 then
+      AppError('Process already run');
+    Redirector.RunCmd(ACommand, '');
+  end;
+
+
+  procedure RedirSendCommand(const ACommand :TString);
+  begin
+   {$ifdef bDebug}
+    TraceF('Send: %s', [ACommand]);
+   {$endif bDebug}
+    Redirector.Send( ACommand + #10 );
+  end;
+
+
+
+  var
+    ErrStr :TAnsiStr;
+    OutStr :TAnsiStr;
+
+
+  function DefWaitAnswer(AEvent :TRedirEvent; const AStr :TAnsiStr; AContext :Pointer) :Boolean;
+  begin
+    case AEvent of
+      reReadOut : OutStr := OutStr + AStr;
+      reReadErr : ErrStr := ErrStr + AStr;
+      reIdle    : {};
+    end;
+    Result := True;
+  end;
+
+
+  procedure RedirReadAnswer(PRes :PTString = nil; ATerm :AnsiChar = #0; ATimeOut :Integer = 0;
+    AEvent :TOnRedirEvent = nil; AContext :Pointer = nil);
+  begin
+    ErrStr := ''; OutStr := '';
+    if not assigned(AEvent) then
+      AEvent := DefWaitAnswer;
+    if ATerm = #0 then
+      ATerm := TerminatorChar;
+
+    Redirector.FTimeout := ATimeout;
+    Redirector.FTerminator := ATerm;
+    Redirector.WaitAnswer(AEvent, AContext);
+
+    if PRes <> nil then
+      PRes^ := OutStr;
+    if ErrStr <> '' then
+      RaiseError(EGDBError, ErrStr);
+  end;
+
+
+  procedure RedirTerminate;
+  begin
+    Redirector.Terminate;
+  end;
+
+
+
+initialization
+
+finalization
+  FreeObj(Redirector);
 end.

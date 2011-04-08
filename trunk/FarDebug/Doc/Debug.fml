@@ -1,0 +1,239 @@
+//
+// Макросы для плагина FarDebug
+//
+// Устанавливают следующие кобинации клавиш:
+//
+// Отладка
+//   Alt+Right     - Next (шаг с обходом процедуры)
+//   Alt+Down      - Step (шаг со входом в процедуру)
+//   Alt+Left      - Until (исполнить до строки)
+//   Alt+Up:Hold   - Leave (выйти из процедуры)
+//   Alt+PgDn      - Run 
+//   Alt+Home      - Locate (перейти на исполняемую строку)
+//   Alt+End       - Kill
+//   Alt+Del       - Toggle breakpoint
+//
+//  Окна:
+//   Alt+PgUp      - Main Menu
+//   Alt+PgUp:Hold - Sources
+//   Alt+B         - Breakpoints
+//   Alt+C         - Callstack
+//   Alt+Up        - Evaluate
+//
+
+
+const FarDebug = "Far Debug"
+
+const ConsoleDlg       = '{D05AE970-3898-451D-969D-FD35BCD11569}'
+const DisasmDlgID      = '{033FED7B-A5A4-4901-A69C-252A83E3989E}'
+const OpenDlgID        = '{F9B2BA14-7566-4F90-A9AA-628288C1D8B2}'
+const PathDlgID        = '{52A844F0-28F6-46BD-8BA4-A49F4F8DB52A}'
+const SourceDlgID      = '{AEDE01B6-793F-4D55-A261-6885005206A9}'
+const EvaluateDlgID    = '{9E9C13B1-661B-473F-AFDE-0DED582B9E70}'
+const BreakpointsDlgID = '{67E49662-B1D0-4CEC-AE07-30F1893E0132}'
+const CallstackDlgID   = '{54F046CE-8CC9-429D-A317-F289D9D55953}'
+const HelpDlgID        = '{C2189295-7EC8-46DB-9BC1-E367A98B752D}'
+
+
+macro Descr = "Debug: Main menu" Area="Shell Editor Viewer Dialog.DisasmDlgID Dialog.ConsoleDlg" Key="AltPgUp:Release"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter
+  $else
+    Esc eval(key(#AKey))
+  $end
+}}
+  
+macro Descr = "Debug: Sources" Area="Shell Editor Viewer" Key="AltPgUp:Hold"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter w s
+  $else
+    Esc eval(key(#AKey))
+  $end
+}}
+
+macro Descr = "Debug: Breakpoints" Area="Editor" Key="AltB"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter w b
+  $else
+    Esc eval(key(#AKey))
+  $end
+}}
+
+macro Descr = "Debug: Callstack" Area="Editor" Key="AltC"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter w c
+  $else
+    Esc eval(key(#AKey))
+  $end
+}}
+
+macro Descr = "Debug: Toggle breakpoint" Area="Editor" Key="AltDel"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter b
+  $else
+    Esc eval(key(#AKey))
+  $end
+}}
+
+
+macro Descr = "Debug: Evaluate" Area="Editor" Key="AltUp:Release"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter 
+    $if (!(menu.itemstatus(checkhotkey("R")) & 8))   // Команда Evaluate всегда активна...
+      E $Exit
+    $end
+  $end
+  Esc eval(key(#AKey))
+}}
+
+
+macro Descr = "Debug: Home" Area="Shell Editor Viewer" Key="AltHome"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter 
+    $if (!(menu.itemstatus(checkhotkey("H")) & 8)) 
+      H $Exit
+    $end
+  $end
+  Esc eval(key(#AKey))
+}}
+
+macro Descr = "Debug: Run" Area="Shell Editor Viewer" Key="AltPgDn"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter 
+    $if (!(menu.itemstatus(checkhotkey("R")) & 8)) 
+      R $Exit
+    $end
+  $end
+  Esc eval(key(#AKey))
+}}
+
+macro Descr = "Debug: Step" Area="Shell Editor Viewer" Key="AltDown"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter 
+    $if (!(menu.itemstatus(checkhotkey("S")) & 8)) 
+      S $Exit
+    $end
+  $end
+  Esc eval(key(#AKey))
+}}
+
+
+macro Descr = "Debug: Next" Area="Shell Editor Viewer" Key="AltRight"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter
+    $if (!(menu.itemstatus(checkhotkey("N")) & 8)) 
+      N $Exit
+    $end
+  $end
+  Esc eval(key(#AKey))
+}}
+
+macro Descr = "Debug: Until" Area="Editor" Key="AltLeft"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter
+    $if (!(menu.itemstatus(checkhotkey("U")) & 8)) 
+      U $Exit
+    $end
+  $end
+  Esc eval(key(#AKey))
+}}
+
+macro Descr = "Debug: Leave" Area="Shell Editor Viewer" Key="AltUp:Hold"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter
+    $if (!(menu.itemstatus(checkhotkey("L")) & 8)) 
+      L $Exit
+    $end
+  $end
+  Esc eval(key(#AKey))
+}}
+
+macro Descr = "Debug: Kill" Area="Shell Editor Viewer" Key="AltEnd"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter
+    $if (!(menu.itemstatus(checkhotkey("K")) & 8)) 
+      K $Exit
+    $end
+  $end
+  Esc eval(key(#AKey))
+}}
+
+
+;;------------------------------------------------------------------------------
+;; Окно Console
+
+macro Descr = "Debug: Help in console" Area="Dialog.ConsoleDlg" Key="F1"
+{{
+  F11 
+  $if (menu.select(#%FarDebug,2) > 0) 
+    Enter w h
+  $else
+    F1
+  $end
+}}
+
+
+macro Descr = "Debug: Standart Help in console" Area="Dialog.ConsoleDlg" Key="ShiftF1"
+{{
+  F1
+}}
+
+
+;;------------------------------------------------------------------------------
+;; Окно Disassemble
+
+macro Descr = "Debug: CPU Home" Area="Dialog.DisasmDlgID" Key="AltHome" 
+{{
+  F2 h
+}}
+
+macro Descr = "Debug: CPU Next" Area="Dialog.DisasmDlgID" Key="AltRight" 
+{{
+  F2 n
+}}
+
+macro Descr = "Debug: CPU Step" Area="Dialog.DisasmDlgID" Key="AltDown" Priority=9
+{{
+  F2 s
+}}
+
+macro Descr = "Debug: CPU Until" Area="Dialog.DisasmDlgID" Key="AltLeft" 
+{{
+  F2 u
+}}
+
+macro Descr = "Debug: CPU Leave" Area="Dialog.DisasmDlgID" Key="AltUp:Hold" 
+{{
+  F2 l
+}}
+
+macro Descr = "Debug: CPU Run" Area="Dialog.DisasmDlgID" Key="AltPgDn" 
+{{
+  F2 r
+}}

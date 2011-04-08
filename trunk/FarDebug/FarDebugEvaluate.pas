@@ -16,6 +16,7 @@ interface
     MixTypes,
     MixUtils,
     MixStrings,
+    MixClasses,
 
    {$ifdef bUnicodeFar}
     PluginW,
@@ -70,6 +71,7 @@ interface
 
   procedure EvaluateDlg;
 
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -97,7 +99,7 @@ interface
   constructor TEvaluateDlg.Create; {override;}
   begin
     inherited Create;
-    FRes := THistoryStrs.CreateSize(SizeOf(THistoryRec));
+    FRes := THistoryStrs.Create;
 //  RegisterHints(Self);
   end;
 
@@ -114,16 +116,17 @@ interface
 
   procedure TEvaluateDlg.Prepare; {override;}
   begin
+    FGUID := cEvaluateDlgID;
     FHelpTopic := 'Evaluate';
     FWidth := cDlgDefWidth;
     FHeight := cDlgDefHeight;
-    FItemCount := 3;
     FDialog := CreateDialog(
       [
         NewItemApi(DI_DoubleBox,   2, 1, FWidth - 4, FHeight - 2, 0, GetMsg(strEvaluate)),
         NewItemApi(DI_Edit,        3, 2, FWidth - 7, -1, DIF_HISTORY, '', 'FarDebug.Evaluate' ),
         NewItemApi(DI_USERCONTROL, 3, 4, FWidth - 6, FHeight - 6, 0)
-      ]
+      ],
+      @FItemCount
     );
 
     FGrid := TFarGrid.CreateEx(Self, IdResult);
@@ -150,17 +153,17 @@ interface
   var
     vWidth, vHeight :Integer;
     vRect, vRect1 :TSmallRect;
-    vScreenInfo :TConsoleScreenBufferInfo;
+    vSize :TSize;
   begin
-    GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
+    vSize := FarGetWindowSize;
 
     vWidth := IntMax(FMaxWidth + 6, cDlgDefWidth);
-    if vWidth > vScreenInfo.dwSize.X - 4 then
-      vWidth := IntMax(vScreenInfo.dwSize.X - 4, cDlgMinWidth);
+    if vWidth > vSize.CX - 4 then
+      vWidth := IntMax(vSize.CX - 4, cDlgMinWidth);
 
     vHeight := IntMax(FGrid.RowCount + 6, cDlgDefHeight);
-    if vHeight > vScreenInfo.dwSize.Y - 2 then
-      vHeight := IntMax(vScreenInfo.dwSize.Y - 2, cDlgMinHeight);
+    if vHeight > vSize.CY - 2 then
+      vHeight := IntMax(vSize.CY - 2, cDlgMinHeight);
 
     vRect := SBounds(2, 1, vWidth - 5, vHeight - 3);
     SendMsg(DM_SETITEMPOSITION, IdFrame, @vRect);
@@ -184,11 +187,10 @@ interface
   end;
 
 
-
   function TEvaluateDlg.GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
   begin
     if ARow < FRes.Count then
-      Result := TString(PHistoryRec(FRes.PItems[ARow]).FStr);
+      Result := FRes[ARow];
   end;
 
 
@@ -200,14 +202,13 @@ interface
 
 
   procedure TEvaluateDlg.ReinitGrid;
-//var
-//  I :Integer;
+  var
+    I :Integer;
   begin
 //  Trace('ReinitGrid...');
     FMaxWidth := cDlgDefWidth;
-//  if not FMaximized then
-//    for I := 0 to GDBStr.Count - 1 do
-//      FMenuMaxWidth := IntMax(FMenuMaxWidth, Length(TString(PHistoryRec(GDBStr.PItems[I]).FStr)));
+    for I := 0 to FRes.Count - 1 do
+      FMaxWidth := IntMax(FMaxWidth, Length(FRes.PStrings[I]^));
 
     FGrid.RowCount := FRes.Count;
     SendMsg(DM_REDRAW, 0, 0);

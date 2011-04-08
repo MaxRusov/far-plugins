@@ -19,12 +19,9 @@ interface
     MixWinUtils,
     MixClasses,
 
-   {$ifdef bUnicodeFar}
     PluginW,
-   {$else}
-    Plugin,
-   {$endif bUnicodeFar}
     FarCtrl,
+    FarMenu,
 
     FarDebugCtrl,
     FarDebugIO,
@@ -37,23 +34,17 @@ interface
     FarDebugSourcesDlg,
     FarDebugFindAddr,
     FarDebugDisasm,
-    FarDebugConsole;
+    FarDebugConsole,
+    FarDebugHelp;
 
 
- {$ifdef bUnicodeFar}
   procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
   function GetMinFarVersionW :Integer; stdcall;
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
   procedure ExitFARW; stdcall;
   function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
+  function ConfigureW(Item: integer) :Integer; stdcall;
   function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
- {$else}
-  procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
-  procedure ExitFAR; stdcall;
-  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
-  function ProcessEditorEvent(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
- {$endif bUnicodeFar}
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -73,39 +64,23 @@ interface
   begin
     Result := '';
 
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodeFar}
+    FillZero(vInfo, SizeOf(vInfo));
     FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelInfo, 0, @vInfo);
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelInfo, @vInfo);
-   {$endif bUnicodeFar}
 
     if (vInfo.PanelType = PTYPE_FILEPANEL) and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0)) then begin
-     {$ifdef bUnicodeFar}
       vFolder := FarPanelGetCurrentDirectory(INVALID_HANDLE_VALUE);
-     {$else}
-      vFolder := FarChar2Str(vInfo.CurDir);
-     {$endif bUnicodeFar}
 
       vIndex := vInfo.CurrentItem;
       if (vIndex < 0) or (vIndex >= vInfo.ItemsNumber) then
         Exit;
 
-     {$ifdef bUnicodeFar}
       vItem := FarPanelItem(INVALID_HANDLE_VALUE, FCTL_GETPANELITEM, vIndex);
       try
-     {$else}
-      vItem := @vInfo.PanelItems[vIndex];
-     {$endif bUnicodeFar}
-
-      if faDirectory and vItem.FindData.dwFileAttributes = 0 then
-        Result := AddFileName(vFolder, FarChar2Str(vItem.FindData.cFileName));
-
-     {$ifdef bUnicodeFar}
+        if faDirectory and vItem.FindData.dwFileAttributes = 0 then
+          Result := AddFileName(vFolder, FarChar2Str(vItem.FindData.cFileName));
       finally
         MemFree(vItem);
       end;
-     {$endif bUnicodeFar}
     end;
   end;
 
@@ -129,110 +104,157 @@ interface
       if not WinFileExists(vStr) then
         AppErrorIdFmt(strFileNotFound2, [vStr]);
 
-      LoadModule(vStr, vPtr);
+      LoadModule(vStr, '', vPtr);
     end;
   end;
 
 
-  procedure WindowsMenu;
+  procedure OptionsMenu;
   const
-    cMenuCount = 3;
+    cBoxFlags = FIB_BUTTONS or FIB_ENABLEEMPTY or FIB_NOUSELASTHISTORY;
   var
-    vRes :Integer;
-    vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
+    vMenu :TFarMenu;
+    vSave :Boolean;
   begin
-    vItems := MemAllocZero(cMenuCount * SizeOf(TFarMenuItemEx));
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strTitle),
+    [
+      GetMsg(strMDebugger),
+      GetMsg(strMPresets),
+      GetMsg(strMCygwinRoot),
+      '',
+      GetMsg(strMColors)
+    ]);
     try
-      vItem := @vItems[0];
-      SetMenuItemChrEx(vItem, GetMsg(strMCallstack));
-      SetMenuItemChrEx(vItem, GetMsg(strMBreakpoints));
-      SetMenuItemChrEx(vItem, GetMsg(strMSources));
+      vMenu.Help := 'Options';
+      while True do begin
+//      vMenu.Checked[0] := ...
 
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        'Far Debug',
-        '',
-        'MainMenu',
-        nil, nil,
-        Pointer(vItems),
-        cMenuCount);
+        vMenu.SetSelected(vMenu.ResIdx);
 
-      if vRes = -1 then
-        Exit;
+        if not vMenu.Run then
+          Exit;
 
-      case vRes of
-        0: CallstackDlg;
-        1: BreakpointesDlg;
-        2: SourcesDlg;
+        vSave := False;
+
+        case vMenu.ResIdx of
+          0: vSave := FarInputBox(GetMsg(strDebuggerTitle), GetMsg(strDebuggerPrompt), optGDBName, cBoxFlags, cHistGDBName);
+          1: vSave := FarInputBox(GetMsg(strPresetsTitle), GetMsg(strPresetsPrompt), optGDBPresets, cBoxFlags, cHistPresets);
+          2: vSave := FarInputBox(GetMsg(strCygwinTitle), GetMsg(strCygwinPrompt), optCygwinRoot, cBoxFlags, cHistCygWinRoot);
+
+          4: Sorry;
+        end;
+
+        if vSave then
+          WriteSetup;
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
+    end;
+  end;
+
+  
+  procedure WindowsMenu;
+  var
+    vMenu :TFarMenu;
+  begin
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strTitle),
+    [
+      GetMsg(strMCallstack),
+      GetMsg(strMBreakpoints),
+      GetMsg(strMSources),
+      GetMsg(strMHelp)
+    ]);
+    try
+      vMenu.Enabled[0] := DebugProcess <> '';
+      vMenu.Enabled[1] := DebugProcess <> '';
+      vMenu.Enabled[2] := DebugProcess <> '';
+
+      if not vMenu.Run then
+        Exit;
+
+      case vMenu.ResIdx of
+        0: CallstackDlg;
+        1: BreakpointesDlg;
+        2: SourcesDlg;
+        3: HelpDlg;
+      end;
+
+    finally
+      FreeObj(vMenu);
     end;
   end;
 
 
   procedure OpenMenu;
-  const
-    cMenuCount = 15;
   var
-    vRes :Integer;
-    vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
+    vMenu :TFarMenu;
   begin
-    vItems := MemAllocZero(cMenuCount * SizeOf(TFarMenuItemEx));
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strTitle),
+    [
+      GetMsg(strMStart),         //0
+      GetMsg(strMRun),           //1
+      GetMsg(strMStep),          //2
+      GetMsg(strMNext),          //3
+      GetMsg(strMUntil),         //4
+      GetMsg(strMLeave),         //5
+      GetMsg(strMKill),          //6
+      GetMsg(strMLocate),        //7
+      '',
+      GetMsg(strMEvaluate),      //9
+      GetMsg(strMAddBreakpoit),  //10
+      GetMsg(strMFindAddress),   //11
+      GetMsg(strMDisassemble),   //12
+      GetMsg(strMWindows),       //13
+      '',
+      GetMsg(strMDebugConsole),  //15
+      GetMsg(strMOptions)        //16
+    ]);
+
     try
-      vItem := @vItems[0];
-      SetMenuItemChrEx(vItem, GetMsg(strMStart));
-      SetMenuItemChrEx(vItem, GetMsg(strMStep));
-      SetMenuItemChrEx(vItem, GetMsg(strMNext));
-//    SetMenuItemChrEx(vItem, '&U Next Line');
-      SetMenuItemChrEx(vItem, GetMsg(strMUntil));
-      SetMenuItemChrEx(vItem, GetMsg(strMRun));
-      SetMenuItemChrEx(vItem, GetMsg(strMKill));
-      SetMenuItemChrEx(vItem, GetMsg(strMLocate));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(strMEvaluate));
-      SetMenuItemChrEx(vItem, GetMsg(strMAddBreakpoit));
-      SetMenuItemChrEx(vItem, GetMsg(strMFindAddress));
-      SetMenuItemChrEx(vItem, GetMsg(strMDisassemble));
-      SetMenuItemChrEx(vItem, GetMsg(strMWindows));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(strMDebugConsole));
+      vMenu.Help := 'MainMenu';
 
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        'Far Debug',
-        '',
-        'MainMenu',
-        nil, nil,
-        Pointer(vItems),
-        cMenuCount);
+      vMenu.Enabled[1] := DebugProcess <> '';
+      vMenu.Enabled[2] := DebugProcess <> '';
+      vMenu.Enabled[3] := DebugProcess <> '';
+      vMenu.Enabled[4] := DebugProcess <> '';
+      vMenu.Enabled[5] := DebugAddr <> '';
+      vMenu.Enabled[6] := DebugAddr <> '';
+      vMenu.Enabled[7] := DebugAddr <> '';
 
-      if vRes = -1 then
+      vMenu.Enabled[10] := DebugProcess <> '';
+      vMenu.Enabled[11] := DebugProcess <> '';
+      vMenu.Enabled[12] := DebugProcess <> '';
+
+
+      if not vMenu.Run then
         Exit;
 
-      case vRes of
+      case vMenu.ResIdx of
         0: OpenProcessDlg(GetCurrentFile);
-        1: DebugCommand(StrIf(DebugAddr = '', 'start', 'step'), True);
-        2: DebugCommand(StrIf(DebugAddr = '', 'start', 'next'), True);
-        3: RunToLine;
-        4: DebugCommand(StrIf(DebugAddr = '', 'run', 'continue'), True);
-        5: DebugCommand('kill', False);
-        6: LocateSource(True);
-        7: {};
-        8: EvaluateDlg;
-        9: AddBreakpoint;
-       10: FindAddrs;
-       11: Disassemble; //{$ifdef bDebug}Disassemble;{$else}DisassembleCurrentLine;{$endif bDebug}
-       12: WindowsMenu;
-       13: {};
-       14: ShowConsoleDlg('')
+        1: DebugCommand(StrIf(DebugAddr = '', 'run', 'continue'), True);
+        2: DebugCommand(StrIf(DebugAddr = '', 'start', 'step'), True);
+        3: DebugCommand(StrIf(DebugAddr = '', 'start', 'next'), True);
+        4: RunToLine;
+        5: DebugCommand('finish', True);
+        6: DebugCommand('kill', False);
+        7: LocateSource(True);
+        8: {};
+        9: EvaluateDlg;
+       10: AddBreakpoint;
+       11: FindAddrs;
+       12: Disassemble;
+       13: WindowsMenu;
+       14: {};
+       15: ShowConsoleDlg('');
+       16: OptionsMenu;
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
@@ -241,43 +263,38 @@ interface
  { Ёкспортируемые процедуры                                                    }
  {-----------------------------------------------------------------------------}
 
- {$ifdef bUnicodeFar}
   function GetMinFarVersionW :Integer; stdcall;
   begin
     { Need 2.0.789 }
     Result := $03150200;
   end;
- {$endif bUnicodeFar}
 
 
- {$ifdef bUnicodeFar}
   procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
- {$else}
-  procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
- {$endif bUnicodeFar}
   begin
 //  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
     hModule := psi.ModuleNumber;
-    Move(psi, FARAPI, SizeOf(FARAPI));
-    Move(psi.fsf^, FARSTD, SizeOf(FARSTD));
+    FARAPI := psi;
+    FARSTD := psi.fsf^;
 
     hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
-    FRegRoot := psi.RootKey;
+    hStdIn :=  GetStdHandle(STD_INPUT_HANDLE);
 
-(*  ReadSetup;  *)
+    FRegRoot := psi.RootKey;
+    FModuleName := psi.ModuleName;
+
+    RestoreDefColor;
+    ReadSetup(True, True);
   end;
 
 
   var
     PluginMenuStrings: array[0..0] of PFarChar;
+    ConfigMenuStrings: array[0..0] of PFarChar;
 
 
- {$ifdef bUnicodeFar}
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
- {$else}
-  procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
- {$endif bUnicodeFar}
   begin
 //  TraceF('GetPluginInfo: %s', ['']);
     pi.StructSize:= SizeOf(pi);
@@ -286,47 +303,50 @@ interface
     PluginMenuStrings[0] := GetMsg(strTitle);
     pi.PluginMenuStringsNumber := 1;
     pi.PluginMenuStrings := @PluginMenuStrings;
+
+    ConfigMenuStrings[0]:= GetMsg(strTitle);
+    pi.PluginConfigStrings := Pointer(@ConfigMenuStrings);
+    pi.PluginConfigStringsNumber := 1;
+
+//  pi.Reserved := cPluginGUID;
     pi.CommandPrefix := cPlugMenuPrefix;
   end;
 
 
- {$ifdef bUnicodeFar}
   procedure ExitFARW; stdcall;
- {$else}
-  procedure ExitFAR; stdcall;
- {$endif bUnicodeFar}
   begin
+    WriteSetup(True, False);
 //  Trace('ExitFAR');
   end;
 
 
- {$ifdef bUnicodeFar}
   function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
- {$else}
-  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
- {$endif bUnicodeFar}
   begin
     Result:= INVALID_HANDLE_VALUE;
 //  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
     try
-     {$ifndef bUnicodeFar}
-      SetFileApisToAnsi;
-     {$endif bUnicodeFar}
-      try
-        ReadSetup;
+      ReadSetup(False, True);
 
-        if OpenFrom = OPEN_COMMANDLINE then
-          OpenCmdLine(FarChar2Str(PFarChar(Item)))
-        else
-        if OpenFrom in [OPEN_PLUGINSMENU, OPEN_EDITOR, OPEN_VIEWER, OPEN_DIALOG] then
-          OpenMenu;
+      if OpenFrom = OPEN_COMMANDLINE then
+        OpenCmdLine(FarChar2Str(PFarChar(Item)))
+      else
+      if OpenFrom in [OPEN_PLUGINSMENU, OPEN_EDITOR, OPEN_VIEWER, OPEN_DIALOG] then
+        OpenMenu;
 
-      finally
-       {$ifndef bUnicodeFar}
-        SetFileApisToOEM;
-       {$endif bUnicodeFar}
-      end;
+    except
+      on E :Exception do
+        HandleError(E);
+    end;
+  end;
 
+
+  function ConfigureW(Item: integer) :Integer; stdcall;
+  begin
+    Result := 1;
+    try
+      ReadSetup(False, True);
+
+      OptionsMenu;
     except
       on E :Exception do
         HandleError(E);
@@ -420,14 +440,14 @@ interface
   end;
 
 
-  procedure EdtSetColor(ALine, AColor :Integer; ALen :Integer = 256);
+  procedure EdtSetColor(ALine, AColor :Integer; AStart :Integer = 0; ALen :Integer = 256);
   var
     vColor :TEditorColor;
   begin
     vColor.StringNumber := ALine - 1;
     if AColor <> -1 then begin
-      vColor.StartPos := 0;
-      vColor.EndPos := ALen;
+      vColor.StartPos := AStart;
+      vColor.EndPos := AStart + ALen - 1;
       vColor.Color := AColor or ECF_TAB1;
     end else
     begin
@@ -439,18 +459,14 @@ interface
   end;
 
 
-
- {$ifdef bUnicodeFar}
   function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
- {$else}
-  function ProcessEditorEvent(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
- {$endif bUnicodeFar}
   var
-    I :Integer;
+    I, vConflictIdx :Integer;
     vInfo :TEditorInfo;
     vSrcFile :TSourceFile;
     vFileName :TString;
     vHelper :TEdtHelper;
+    vFileIsExec :Boolean;
   begin
     Result := 0;
 //  TraceF('ProcessEditorEvent: %d', [AEvent]);
@@ -462,11 +478,8 @@ interface
       EE_REDRAW:
         begin
           FARAPI.EditorControl(ECTL_GETINFO, @vInfo);
-         {$ifdef bUnicodeFar}
           vFileName := EditorControlString(ECTL_GETFILENAME);
-         {$else}
-          vFileName := FarChar2Str(vInfo.FileName);
-         {$endif bUnicodeFar}
+          vFileIsExec := StrEqual(vFileName, DebugFile);
 
           vHelper := FindEdtHelper(vInfo.EditorID, False);
 
@@ -486,7 +499,7 @@ interface
                 if (I < vSrcFile.LineInfo.Count) and (PByte(vSrcFile.LineInfo.PItems[I])^ = 1) then begin
                   if vHelper = nil then
                     vHelper := FindEdtHelper(vInfo.EditorID, True);
-                  EdtSetColor(I+1, optEdtCodeColor, 0);
+                  EdtSetColor(I+1, optEdtCodeColor, 0, 0);
                   vHelper.AddCodeLine(I+1);
                 end;
             end;
@@ -499,25 +512,29 @@ interface
             vHelper.FBreaks.Clear;
           end;
 
-          for I := 0 to Breakpoints.Count - 1 do
-            with TBreakpoint(Breakpoints[I]) do
-              if StrEqual(vFileName, FileName) then begin
-                if vHelper = nil then
-                  vHelper := FindEdtHelper(vInfo.EditorID, True);
-                EdtSetColor(Line, IntIf(Enabled, optEdtBreakColor, optEdtBreakColor1));
-                vHelper.AddBreakLine(Line);
-              end;
-
           { Exec line }
           if (vHelper <> nil) and (vHelper.FLine <> 0) then begin
             EdtSetColor(vHelper.FLine, -1);
             vHelper.FLine := 0;
           end;
 
-          if StrEqual(vFileName, DebugFile) then begin
+          vConflictIdx := -1;
+
+          for I := 0 to Breakpoints.Count - 1 do
+            with TBreakpoint(Breakpoints[I]) do
+              if StrEqual(vFileName, FileName) then begin
+                if vHelper = nil then
+                  vHelper := FindEdtHelper(vInfo.EditorID, True);
+                if vFileIsExec and (Line = DebugLine) then
+                  vConflictIdx := I;
+                EdtSetColor(Line, IntIf(Enabled, optEdtBreakColor, optEdtBreakColor1), 0, IntIf(vConflictIdx = I, 1, 255) );
+                vHelper.AddBreakLine(Line);
+              end;
+
+          if vFileIsExec then begin
             if vHelper = nil then
               vHelper := FindEdtHelper(vInfo.EditorID, True);
-            EdtSetColor(DebugLine, optEdtExecColor);
+            EdtSetColor(DebugLine, optEdtExecColor, IntIf(vConflictIdx = -1, 0, 1));
             vHelper.FLine := DebugLine;
           end;
         end;

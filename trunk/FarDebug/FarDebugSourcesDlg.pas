@@ -123,6 +123,7 @@ interface
   procedure TSourcesDlg.Prepare; {override;}
   begin
     inherited Prepare;
+    FGUID := cSourceDlgID;
     FHelpTopic := 'Sources';
   end;
 

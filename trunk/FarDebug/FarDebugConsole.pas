@@ -35,18 +35,8 @@ interface
 
 
   type
-    PHistoryRec = ^THistoryRec;
-    THistoryRec = packed record
-      FStr   :Pointer {TString};
-      FFlags :DWORD;
-    end;
-
-    THistoryStrs = class(TExList)
+    THistoryStrs = class(TStringList)
     public
-      destructor Destroy; override;
-
-      procedure Clear;
-
       procedure Add(const AStr :TString; AFlags :DWORD);
       procedure AddText(const AText :TString; AFlags :DWORD);
     end;
@@ -70,6 +60,10 @@ interface
       FMaximized      :Boolean;
       FMenuMaxWidth   :Integer;
 
+      FProcess        :TString;
+      FAddr           :TString;
+      FRunStart       :DWORD;
+
       FInitCmd        :TString;
       FResCmd         :Integer;
 
@@ -80,6 +74,7 @@ interface
       procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
 
       procedure ResizeDialog;
+      procedure UpdateProcessInfo;
       procedure UpdateHeader;
       procedure ReinitGrid;
       procedure SetCurrent(AIndex :Integer; AMode :TLocationMode);
@@ -89,9 +84,11 @@ interface
       property Grid :TFarGrid read FGrid;
     end;
 
+  procedure AddConsole(const AStr :TString);
 
   procedure ShowConsoleDlg(const ACmd :TString);
 
+  
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -99,35 +96,14 @@ interface
   uses
     MixDebug;
 
+
  {-----------------------------------------------------------------------------}
- {                                                                             }
+ { THistoryStrs                                                                }
  {-----------------------------------------------------------------------------}
-
-  destructor THistoryStrs.Destroy; {override;}
-  begin
-    Clear;
-    inherited Destroy;
-  end;
-
-
-  procedure THistoryStrs.Clear;
-  var
-    I :Integer;
-  begin
-    for I := 0 to Count - 1 do
-      TString(PHistoryRec(PItems[I]).FStr) := '';
-    inherited Clear;
-  end;
-
 
   procedure THistoryStrs.Add(const AStr :TString; AFlags :DWORD);
-  var
-    vRec :THistoryRec;
   begin
-    vRec.FStr := nil;
-    TString(vRec.FStr) := AStr;
-    vRec.FFlags := AFlags;
-    AddData(vRec);
+    AddObject(AStr, Pointer(TUnsPtr(AFlags)));
   end;
 
 
@@ -144,6 +120,13 @@ interface
   var
     GDBStr :THistoryStrs;
 
+
+  procedure AddConsole(const AStr :TString);
+  begin
+    if GDBStr = nil then
+      GDBStr := THistoryStrs.Create;
+    GDBStr.AddText(AStr, 0);
+  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -181,6 +164,7 @@ interface
     DX = 20;
     DY = 10;
   begin
+    FGUID := cConsoleDlgID;
     FHelpTopic := 'Console';
     FWidth := DX;
     FHeight := DY;
@@ -212,10 +196,12 @@ interface
     SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
     SendMsg(DM_SETFOCUS, IdInput, 0);
     ReinitGrid;
+    UpdateProcessInfo;
     UpdateHeader;
-
+(*
     if FInitCmd <> '' then
       RunCommand(FInitCmd);
+*)
   end;
 
 
@@ -223,13 +209,13 @@ interface
   var
     vWidth, vHeight :Integer;
     vRect, vRect1 :TSmallRect;
-    vScreenInfo :TConsoleScreenBufferInfo;
+    vSize :TSize;
   begin
-    GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
+    vSize := FarGetWindowSize;
 
     if FMaximized then begin
-      vWidth := vScreenInfo.dwSize.X;
-      vHeight := vScreenInfo.dwSize.Y;
+      vWidth := vSize.CX;
+      vHeight := vSize.CY;
 
       vRect := SBounds(0, 0, vWidth-1, vHeight-1);
       SendMsg(DM_SHOWITEM, IdFrame, 0);
@@ -240,13 +226,13 @@ interface
     end else
     begin
       vWidth := IntMax(FMenuMaxWidth + 6, cDlgMinWidth);
-      if vWidth > vScreenInfo.dwSize.X - 4 then
-        vWidth := vScreenInfo.dwSize.X - 4;
+      if vWidth > vSize.CX - 4 then
+        vWidth := vSize.CX - 4;
 //    vWidth := IntMax(vWidth, cDlgMinWidth);
 
       vHeight := IntMax(FGrid.RowCount + 5, cDlgMinHeight);
-      if vHeight > vScreenInfo.dwSize.Y - 2 then
-        vHeight := vScreenInfo.dwSize.Y - 2;
+      if vHeight > vSize.CY - 2 then
+        vHeight := vSize.CY - 2;
 //    vHeight := IntMax(vHeight, cDlgMinHeight);
 
       vRect := SBounds(2, 1, vWidth - 5, vHeight - 3);
@@ -283,18 +269,30 @@ interface
   end;
 
 
+  procedure TConsoleDlg.UpdateProcessInfo;
+  begin
+    FProcess := GetCurrentProcess;
+    if FProcess <> '' then
+      FAddr := GetCurrentAddr;
+  end;
+
+
   procedure TConsoleDlg.UpdateHeader;
   var
-    vProcess, vAddr, vStr :TString;
+    vStr :TString;
   begin
     vStr := 'GDB';
-    vProcess := GetCurrentProcess;
-    if vProcess <> '' then begin
-      vStr := vStr + ':' + ExtractFileName(vProcess);
-      vAddr := GetCurrentAddr;
-      if vAddr <> '' then
+    if FProcess <> '' then begin
+      vStr := vStr + ':' + ExtractFileName(FProcess);
+      if FRunStart <> 0 then
+        vStr := vStr + ',' + 'running'
+      else
+      if FAddr <> '' then
         vStr := vStr + ',' + 'stopped';
     end;
+
+    if FRunStart <> 0 then
+      vStr := vStr + ' (' + Int2Str(TickCountDiff(GetTickCount, FRunStart) div 1000) + ')';
 
     SetText(IdFrame, vStr);
   end;
@@ -317,22 +315,23 @@ interface
 
   function TConsoleDlg.GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
   begin
-    if ARow < GDBStr.Count then begin
-      Result := TString(PHistoryRec(GDBStr.PItems[ARow]).FStr);
-    end;
+    if ARow < GDBStr.Count then
+      Result := GDBStr[ARow];
   end;
 
 
   procedure TConsoleDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
+  var
+    vFlags :DWORD;
   begin
     if SendMsg(DM_GETFOCUS, 0, 0) <> IdGrid then
       AColor := FGrid.NormColor;
 
-    if ARow < GDBStr.Count then
-      with PHistoryRec(GDBStr.PItems[ARow])^ do begin
-        if FFlags <> 0 then
-          AColor  := (AColor and not $0F) or (IntIf(FFlags = 1, optTermUserColor, optTermErrorColor) and $0F);
-      end;
+    if ARow < GDBStr.Count then begin
+      vFlags := DWORD(GDBStr.Objects[ARow]);
+      if vFlags <> 0 then
+        AColor  := (AColor and not $0F) or (IntIf(vFlags = 1, optTermUserColor, optTermErrorColor) and $0F);
+    end;
   end;
 
 
@@ -352,7 +351,7 @@ interface
     FMenuMaxWidth := 0;
     if not FMaximized then
       for I := 0 to GDBStr.Count - 1 do
-        FMenuMaxWidth := IntMax(FMenuMaxWidth, Length(TString(PHistoryRec(GDBStr.PItems[I]).FStr)));
+        FMenuMaxWidth := IntMax(FMenuMaxWidth, Length(GDBStr.PStrings[I]^));
 
     FGrid.RowCount := GDBStr.Count;
 
@@ -376,7 +375,7 @@ interface
   end;
 
 
-
+(*
   procedure TConsoleDlg.RunCommand(const ACmd :TString);
   var
     vRes :TString;
@@ -384,7 +383,7 @@ interface
     try
       RedirCall(ACmd, @vRes);
 
-      GDBStr.Add(cTerm + ACmd, 1);
+      GDBStr.Add(cCustomPrompt + ACmd, 1);
       GDBStr.AddText(vRes, 0);
 
       if RedirInited then begin
@@ -397,7 +396,90 @@ interface
         HandleError(E);
     end;
   end;
+*)
 
+
+(*
+  procedure TConsoleDlg.RunCommand(const ACmd :TString);
+  var
+    vRes :TString;
+  begin
+    try
+//    GDBStr.Add(cCustomPrompt + ACmd, 1);
+//    GDBStr.AddText(vRes, 0);
+
+//    RedirCall(ACmd, @vRes);
+
+      RedirSendCommand(ACmd);
+      RedirReadAnswer(@vRes, #0, 0{NoTimeout}{, AEvent, AContext});
+
+      GDBStr.AddText(vRes, 0);
+
+      if RedirInited then begin
+        UpdateHeader;
+        ReinitGrid;
+      end else
+        SendMsg(DM_CLOSE, -1, 0);
+
+    except
+      on E :Exception do begin
+        GDBStr.AddText(E.Message, 2);
+        ReinitGrid;
+      end;
+    end;
+  end;
+*)
+
+
+  function ConsoleWaitAnswer(AEvent :TRedirEvent; const AStr :TAnsiStr; AContext :Pointer) :Boolean;
+  begin
+    with TConsoleDlg(AContext) do begin
+      if AEvent = reIdle then begin
+        Result := GDBCheckInterrupt;
+        if not Result then
+          Exit;
+        UpdateHeader;
+      end else
+      begin
+        if AEvent = reReadOut then
+          GDBStr.AddText(AStr, 0)
+        else
+          GDBStr.AddText(AStr, 2);
+        ReinitGrid;
+      end;
+    end;
+    Result := True;
+  end;
+
+
+  procedure TConsoleDlg.RunCommand(const ACmd :TString);
+  begin
+    try
+//    GDBStr.Add(cCustomPrompt + ACmd, 1);
+//    GDBStr.AddText(vRes, 0);
+
+      FRunStart := GetTickCount;
+      SendMsg(DM_ENABLE, IdInput, 0);
+      try
+        RedirSendCommand(ACmd);
+        RedirReadAnswer(nil, #0, 0{NoTimeout}, ConsoleWaitAnswer, Self);
+      finally
+        SendMsg(DM_ENABLE, IdInput, 1);
+        FRunStart := 0;
+      end;
+
+      if RedirInited then begin
+        UpdateProcessInfo;
+        UpdateHeader;
+        ReinitGrid;
+      end else
+        SendMsg(DM_CLOSE, -1, 0);
+
+    except
+      on E :Exception do
+        HandleError(E);
+    end;
+  end;
 
 
   function TConsoleDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
@@ -405,33 +487,18 @@ interface
 
     procedure LocInput;
     var
-      vCmd, vRes :TString;
+      vCmd :TString;
     begin
       vCmd := GetText(IdInput);
       if vCmd <> '' then begin
-        try
-          GDBStr.Add(cTerm + vCmd, 1);
-          AddHistory(IdInput, vCmd);
-          SetText(IdInput, '');
-          ReinitGrid;
 
-          RedirCall(vCmd, @vRes);
-//        InvalidateKnownPos;
+        GDBStr.Add(cCustomPrompt + vCmd, 1);
 
-          GDBStr.AddText(vRes, 0);
+        AddHistory(IdInput, vCmd);
+        SetText(IdInput, '');
+        ReinitGrid;
 
-          if RedirInited then begin
-            UpdateHeader;
-            ReinitGrid;
-          end else
-            SendMsg(DM_CLOSE, -1, 0);
-
-        except
-          on E :Exception do begin
-            GDBStr.AddText(E.Message, 2);
-            ReinitGrid;
-          end;
-        end;
+        RunCommand(vCmd);
 
       end else
       if GDBStr.Count <> 0 then begin
@@ -530,7 +597,7 @@ interface
 
     InitGDBDebugger;
     if GDBStr = nil then
-      GDBStr := THistoryStrs.CreateSize(SizeOf(THistoryRec));
+      GDBStr := THistoryStrs.Create;
 
     Inc(vLock);
     vDlg := TConsoleDlg.Create;

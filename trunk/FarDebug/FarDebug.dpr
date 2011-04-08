@@ -8,7 +8,7 @@
 library FarDebug;
 
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2011 Max Rusov                                                         *}
 {*                                                                            *}
 {* GDB Shell for FAR                                                          *}
 {******************************************************************************}
@@ -21,25 +21,19 @@ uses
   FarDebugMain;
 
 exports
- {$ifdef bUnicodeFar}
   SetStartupInfoW,
   GetMinFarVersionW,
   GetPluginInfoW,
   OpenPluginW,
+  ConfigureW,
   ProcessEditorEventW,
   ExitFARW;
- {$else}
-  SetStartupInfo,
-  GetPluginInfo,
-  OpenPlugin,
-  ProcessEditorEvent,
-  ExitFAR;
- {$endif bUnicodeFar}
 
-{$ifdef bUnicodeFar}
  {$R FarDebugW.res}
-{$else}
- {$R FarDebugA.res}
-{$endif bUnicodeFar}
+
+
+begin
+
+  asm db $CC end;
 
 end.
