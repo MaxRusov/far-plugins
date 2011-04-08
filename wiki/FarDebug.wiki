@@ -13,6 +13,8 @@
 
   Все возможности отладчика также доступны в командном режиме через окно "Debug console"
 
+  [FarDebug_Samples Примеры]
+
   Обсуждение:<br>
   http://forum.farmanager.com/viewtopic.php?f=5&t=4235
 
