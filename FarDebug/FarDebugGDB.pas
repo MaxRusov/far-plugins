@@ -17,6 +17,7 @@ interface
     MixStrings,
     MixClasses,
     MixWinUtils,
+    PluginW,
 
     FarMatch,
 
@@ -25,11 +26,13 @@ interface
     FarDebugIO;
 
 
+  const
+    cCustomPrompt = #16;  
+
 
   procedure InitGDBDebugger;
 
-  procedure LoadModule(const AName, AArgs :TString);
-  procedure StartDebug(const AName :TString);
+  procedure LoadModule(const AName, AHost, AArgs :TString);
   procedure DebugCommand(const ACmd :TString; ALocate :Boolean);
 
   procedure DisassembleCurrentLine;
@@ -41,7 +44,8 @@ interface
   function GetCurrentSourceFile :TString;
   function GetAddrOfLine(const AFileName :TString; ALine :Integer; AllowNearest :Boolean = False) :TString;
   function GetInfoLine(const Addr :TString) :TString;
-  function GetSourceLineAt(const Addr :TString; var AFileName :TString; var ALine :Integer; AProc :PTString = nil) :boolean;
+  function GetSourceLineAt(const Addr :TString; var AFileName :TString; var ALine :Integer;
+    AProc :PTString = nil; ABegAddr :PTString = nil; AEndAddr :PTString = nil) :boolean;
 
   procedure ExtractLocation(const ALoc :TString; var ASrcName :TString; var ALine :Integer);
 
@@ -126,6 +130,12 @@ interface
   procedure UpdateDebuggerState;
 
 
+ {-----------------------------------------------------------------------------}
+
+  function GDBCheckInterrupt :Boolean;
+
+  procedure RedirCall(const ACommand :TString; PRes :PTString = nil);
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -152,18 +162,45 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure InitGDBDebugger;
+  procedure SetCustomPresets(const AStr :TString; const ADel :TAnsiCharSet);
   var
     I :Integer;
     vStr :TString;
   begin
+    for I := 1 to WordCount(AStr, ADel) do begin
+      vStr := Trim(ExtractWord(I, AStr, ADel));
+      if (vStr <> '') and (vStr[1] <> ';') then
+        RedirCall(vStr);
+    end;
+  end;
+
+
+  procedure InitGDBDebugger;
+  var
+    vFileName, vStr :TString;
+  begin
     if RedirInited then
       Exit;
 
-    RedirChildProcess(optGDBName);
-    RedirReadAnswer(vStr, ' ', nil);
+    if optGDBName = '' then
+      optGDBName := cDefGDBName;
 
-    RedirCall('set prompt ' + cTerm);
+    try
+      RedirChildProcess(optGDBName);
+      RedirReadAnswer(@vStr, ' '); // Default prompt: "(gdb) "
+
+      if copy(vStr, length(vStr) - 4, 5) = '(gdb)' then
+        vStr := copy(vStr, 1, length(vStr) - 5);
+      AddConsole(vStr);
+      
+    except
+      on E :Exception do
+        AppErrorFmt('Can not run debugger "%s":'#10'%s', [optGDBName, E.Message]);
+    end;
+
+    {”станавливаем уникальный Prompt}
+    TerminatorChar := cCustomPrompt;
+    RedirCall('set prompt ' + cCustomPrompt);
     {ќтказываемс€ от запросов подтверждений}
     RedirCall('set confirm 0');
     {”становка "бесконечного" количества строк на экране}
@@ -181,29 +218,39 @@ interface
     { –азворачивать стек при получении сигнала }
     RedirCall('set unwindonsignal on');
 
-    for I := 1 to WordCount(optGDBPresets, [';']) do begin
-      vStr := Trim(ExtractWord(I, optGDBPresets, [';']));
-      RedirCall(vStr);
+    vFileName := AddFileName(ExtractFilePath(FModuleName), cGlobalPresetsFileName);
+    if WinFileExists(vFileName) then begin
+      vStr := StrFromFile(vFileName);
+      SetCustomPresets(vStr, [#13, #10]);
     end;
+
+    SetCustomPresets(optGDBPresets, [';']);
   end;
 
 
-  procedure StartDebug(const AName :TString);
+  procedure LoadModule(const AName, AHost, AArgs :TString);
+  var
+    vFileName, vStr :TString;
   begin
     InitGDBDebugger;
-    RedirCall('file ' + ConvertFileName(AName));
-    UpdateSourcesList;
 
-    if True then
-      DebugCommand('start', True);
-  end;
+    // file with no argument makes GDB discard any information it has on both executable file and the symbol table.
+    // Ѕез этого GDB иногда слетает при повторном запуске отладки...
+    RedirCall('file');
 
+    RedirCall('file "' + ConvertFileName(AName) + '"');
 
-  procedure LoadModule(const AName, AArgs :TString);
-  begin
-    InitGDBDebugger;
-    RedirCall('file ' + ConvertFileName(AName));
+    if AHost <> '' then
+      RedirCall('exec-file "' + ConvertFileName(AHost) + '"');
+
     RedirCall('set args ' + AArgs);
+
+    vFileName := AddFileName(ExtractFilePath(AName), cLocalPresetsFileName);
+    if WinFileExists(vFileName) then begin
+      vStr := StrFromFile(vFileName);
+      SetCustomPresets(vStr, [#13, #10]);
+    end;
+
     UpdateSourcesList;
     UpdateDebuggerState;
   end;
@@ -213,7 +260,15 @@ interface
   begin
     InitGDBDebugger;
     try
+      if StrEqual(EditorFile(-1), DebugFile) then begin
+        DebugFile := '';
+        DebugLine := 0;
+//      FARAPI.EditorControl(ECTL_REDRAW, nil);
+        FARAPI.AdvControl(hModule, ACTL_REDRAWALL, nil);
+      end;
+
       RedirCall(ACmd);
+
     except
       on E :Exception do
         if StrUpPos('No such file', E.Message) = 0 then
@@ -244,6 +299,7 @@ interface
     end;
 
     OpenEditor(DebugFile, DebugLine, 0);
+    FARAPI.AdvControl(hModule, ACTL_REDRAWALL, nil);
   end;
 
 
@@ -337,7 +393,8 @@ No line number information available for address
 No line number information available for address 0x123
 }
 
-  function GetSourceLineAt(const Addr :TString; var AFileName :TString; var ALine :Integer; AProc :PTString = nil) :boolean;
+  function GetSourceLineAt(const Addr :TString; var AFileName :TString; var ALine :Integer;
+    AProc :PTString = nil; ABegAddr :PTString = nil; AEndAddr :PTString = nil) :boolean;
   var
     vRes :TString;
   begin
@@ -349,6 +406,10 @@ No line number information available for address 0x123
       ALine := Str2IntDef( Trim(ExtractBefore(vRes, '*Line *', '* of*')), 0);
       if AProc <> nil then
         AProc^ := ExtractBefore(vRes, '*starts at address * <*', '*>*');
+      if ABegAddr <> nil then
+        ABegAddr^ := ExtractBefore(vRes, '*starts at address *', '* *');
+      if AEndAddr <> nil then
+        AEndAddr^ := ExtractBefore(vRes, '*ends at *', '* *');
       Result := True;
     end else
     begin
@@ -648,6 +709,9 @@ Line 761 of "FPTest.dpr" is at address 0x1001ab0 <Test1> but contains no code.
 
       RedirCall('break *' + vAddr);
       UpdateBreakpoints;
+
+      if True then
+        AddToHistory(cHistBreakpoint, ExtractFileName(vFileName) + ':' + Int2Str(vLine));
     end else
       DeleteBreakpoint(vBreak.FID);
   end;
@@ -704,6 +768,7 @@ Line 761 of "FPTest.dpr" is at address 0x1001ab0 <Test1> but contains no code.
     DebugLine := 0;
     SrcFiles.FreeAll;
     Breakpoints.FreeAll;
+    SetEnvironmentVariable('FarDebug', nil);
   end;
 
 
@@ -722,7 +787,92 @@ Line 761 of "FPTest.dpr" is at address 0x1001ab0 <Test1> but contains no code.
     if DebugAddr <> '' then begin
       DebugAddrN := AddrToNum(DebugAddr);
       if GetSourceLineAt(DebugAddr, DebugSource, DebugLine) then
-        DebugFile := FullNameToSourceFile(DebugSource, False)
+        DebugFile := FullNameToSourceFile(DebugSource, False);
+      SetEnvironmentVariable('FarDebug', '1');
+    end else
+      SetEnvironmentVariable('FarDebug', '2');
+  end;
+
+
+
+ {-----------------------------------------------------------------------------}
+
+
+  function GDBCheckInterrupt :Boolean;
+  var
+    vRes :Integer;
+  begin
+    Result := True;
+    if CheckForEsc then begin
+      vRes := ShowMessage(GetMsgStr(strInterrupt), GetMsgStr(strDebuggerBusy) + #10 +
+        GetMsgStr(strBTerminate) + #10 + GetMsgStr(strBStopWaiting) + #10 + GetMsgStr(strBContinueWaiting),
+        FMSG_WARNING, 3);
+      if vRes = 0 then begin
+        RedirTerminate;
+        Result := False;
+      end else
+      if vRes = 1 then
+        Result := False;
+    end;
+  end;
+
+
+  var
+    vSave  :Integer;
+    vStart :DWORD;
+    vLast  :DWORD;
+
+
+  function ReadIdle :Boolean;
+  var
+    vTick :DWORD;
+    vMess :TString;
+  begin
+    Result := True;
+    vTick := GetTickCount;
+    if Integer(TickCountDiff(vTick, vLast)) < IntIf(vSave = 0, 300, 100) then
+      Exit;
+
+    Result := GDBCheckInterrupt;
+    if not Result then
+      Abort;
+
+    if vSave = 0 then
+      vSave := FARAPI.SaveScreen(0, 0, -1, -1);
+
+    vMess :=
+      'GDB'#10 +
+      GetMsgStr(strWaitDebugger) + ' (' + Int2Str(TickCountDiff(vTick, vStart) div 1000) + ')...';
+
+    FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PTChar(vMess)), 0, 0);
+    FARAPI.Text(0, 0, 0, nil);
+    vLast := vTick;
+  end;
+
+
+
+  function GDBWaitAnswer(AEvent :TRedirEvent; const AStr :TAnsiStr; AContext :Pointer) :Boolean;
+  begin
+    if AEvent = reIdle then
+      Result := ReadIdle
+    else
+      Result := DEFWaitAnswer(AEvent, AStr, AContext);
+  end;
+
+
+  procedure RedirCall(const ACommand :TString; PRes :PTString = nil);
+  begin
+    vSave := 0;
+    try
+      vStart := GetTickCount;
+      vLast := vStart;
+
+      RedirSendCommand(ACommand);
+      RedirReadAnswer(PRes, #0, 0, GDBWaitAnswer, nil);
+
+    finally
+      if vSave <> 0 then
+        FARAPI.RestoreScreen(vSave);
     end;
   end;
 

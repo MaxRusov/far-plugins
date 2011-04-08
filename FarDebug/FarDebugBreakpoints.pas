@@ -101,6 +101,7 @@ interface
 
   procedure TBreakpointDlg.Prepare; {override;}
   begin
+    FGUID := cBreakpointsDlgID;
     FHelpTopic := 'Breakpoints';
     FWidth := cListDlgDefWidth;
     FHeight := cListDlgDefHeight;
@@ -225,6 +226,22 @@ interface
 
   function TBreakpointDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
 
+    procedure LocInsertBreakpoint;
+    var
+      vStr :TString;
+    begin
+      vStr := '';
+
+      if not FarInputBox(GetMsg(strAddBreakTitle), GetMsg(strAddBreakPrompt), vStr, FIB_BUTTONS or FIB_NOUSELASTHISTORY, cHistBreakpoint) then
+        Exit;
+
+      RedirCall('break ' + vStr);
+      UpdateBreakpoints;
+
+      FResCmd := 9;
+      SendMsg(DM_CLOSE, -1, 0);
+    end;
+
     procedure LocDeleteCurrent;
     var
       vBreakpoint :TBreakpoint;
@@ -267,6 +284,8 @@ interface
           KEY_ENTER:
             SelectItem(1);
 
+          KEY_INS:
+            LocInsertBreakpoint;
           KEY_DEL:
             LocDeleteCurrent;
           KEY_F6:

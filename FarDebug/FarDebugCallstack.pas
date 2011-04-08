@@ -167,6 +167,7 @@ interface
 
   procedure TCallstackDlg.Prepare; {override;}
   begin
+    FGUID := cCallstackDlgID;
     FHelpTopic := 'Callstack';
     FWidth := cListDlgDefWidth;
     FHeight := cListDlgDefHeight;
