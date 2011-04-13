@@ -23,6 +23,10 @@
  * [http://far-plugins.googlecode.com/files/FarDebug.v3.rar FarDebug 1.0.3 for FAR 2]
  * [http://far-plugins.googlecode.com/files/FarDebug.x64.v3.rar FarDebug 1.0.3 for FAR 2 x64]
 
+  GDB:
+
+ * [http://sourceforge.net/projects/mingw/files/ MinGW]
+
 
 ----
 
