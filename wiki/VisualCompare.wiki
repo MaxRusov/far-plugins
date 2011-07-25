@@ -9,8 +9,8 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/VisualCompareW.v8.rar VisualCompare 0.9.8 for FAR 2]
- * [http://far-plugins.googlecode.com/files/VisualCompareW.x64.v8.rar VisualCompare 0.9.8 for FAR 2 x64]
+ * [http://far-plugins.googlecode.com/files/VisualCompareW.v9.rar VisualCompare 0.9.9 for FAR 2]
+ * [http://far-plugins.googlecode.com/files/VisualCompareW.x64.v9.rar VisualCompare 0.9.9 for FAR 2 x64]
 
 
 == Примеры ==
@@ -21,6 +21,13 @@ http://far-plugins.googlecode.com/svn/trunk/VisualCompare/Image/Sample2.png
 ----
 
 = История изменений =
+
+==Ver 0.9.9==
+
+ * Настройка цвета окна сравнения (по умолчанию имеет цвет диалога)
+
+ * Всем диалогам присвоены GUID.
+
 
 ==Ver 0.9.8==
 
