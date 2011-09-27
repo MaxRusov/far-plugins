@@ -18,52 +18,31 @@ interface
     MixUtils,
     MixStrings,
     MixClasses,
-   {$ifdef bUnicodeFar}
-    PluginW
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
+    FarKeysW,
+    FarColor
     ;
-
-
- {$ifdef bUnicodeFar}
 
   type
     TFarStr  = TWideStr;
     PFarStr  = PWideStr;
 
-  type
+   {$ifdef Far3}
+   {$else}
     StrOemToAnsi = TString;
     StrAnsiToOEM = TString;
-//const
-//  StrOemToAnsi = nil;
-//  StrAnsiToOEM = nil;
-
- {$else}
-
-  type
-    TFarChar = AnsiChar;
-    PFarChar = PAnsiChar;
-
-    TFarStr  = TAnsiStr;
-    PFarStr  = PAnsiStr;
+   {$endif Far3}
 
   const
-    PF_DIALOG = $0020;
-    OPEN_DIALOG  = 8;
-
- {$endif bUnicodeFar}
-
-
-  const
-   {$ifdef bUnicodeFar}
-    cFarRegRoot = 'Software\Far2';
+   {$ifdef Far3}
    {$else}
-    cFarRegRoot = 'Software\Far';
-   {$endif bUnicodeFar}
+    cFarRegRoot = 'Software\Far2';
+   {$endif Far3}
 
-
-  const
    {$ifdef bUnicodeFar}
     chrVertLine = #$2502;
     chrUpArrow  = #$25B2;
@@ -101,6 +80,8 @@ interface
     clYellow   = $E;  // Желтый
     clWhite    = $F;  // Белый
 
+   {$ifdef Far3}
+   {$else}
     clBkBlack   = clBlack   * $10;
     clBkNavy    = clNavy    * $10;
     clBkGreen   = clGreen   * $10;
@@ -117,6 +98,7 @@ interface
     clBkMagenta = clMagenta * $10;
     clBkYellow  = clYellow  * $10;
     clBkWhite   = clWhite   * $10;
+   {$endif Far3}
 
 
  {-----------------------------------------------------------------------------}
@@ -127,8 +109,20 @@ interface
     DI_DefButton = DI_USERCONTROL - 1;
 
   type
+   {$ifdef Far3}
+   {$else}
+    TFarColor = Integer;
+    PFarMenuItem = PFarMenuItemEx;
+    TFarMenuItem = TFarMenuItemEx;
+   {$endif Far3}
+
+   {$ifdef Far3}
+    PFarMenuItemsArray = PFarMenuItemArray;
+    TFarMenuItemsArray = TFarMenuItemArray;
+   {$else}
     PFarMenuItemsArray = ^TFarMenuItemsArray;
-    TFarMenuItemsArray = array[0..MaxInt div SizeOf(TFarMenuItemEx) - 1] of TFarMenuItemEx;
+    TFarMenuItemsArray = array[0..MaxInt div SizeOf(TFarMenuItem) - 1] of TFarMenuItem;
+   {$endif Far3}
 
  {-----------------------------------------------------------------------------}
 
@@ -136,11 +130,18 @@ interface
     FARAPI  :TPluginStartupInfo;
     FARSTD  :TFarStandardFunctions;
 
-    hModule      :TIntPtr;
-    hFarWindow   :THandle;
-    hStdIn       :THandle;
-    hStdOut      :THandle;
+   {$ifdef Far3}
+    PluginID   :TGUID;
+   {$else}
+    hModule    :INT_PTR;
+   {$endif Far3}
 
+    hFarWindow :THandle;
+    hStdIn     :THandle;
+    hStdOut    :THandle;
+
+  var
+    UndefColor :TFarColor;
 
   function FarChar2Str(AStr :PFarChar) :TString;
   procedure FillFarChar(ABuf :PFarChar; ACount :Integer; AChar :TFarChar);
@@ -155,37 +156,45 @@ interface
 
   function SetFlag(AFlags, AFlag :DWORD; AOn :Boolean) :DWORD;
 
-  procedure SetMenuItemChr(AItem :PFarMenuItemEx; AStr :PFarChar; AFlags :DWORD = 0);
-  procedure SetMenuItemChrEx(var AItem :PFarMenuItemEx; AStr :PFarChar; AFlags :DWORD = 0);
-  procedure SetMenuItemStr(AItem :PFarMenuItemEx; const AStr :TString; AFlags :DWORD = 0);
-  procedure SetMenuItemStrEx(var AItem :PFarMenuItemEx; const AStr :TString; AFlags :DWORD = 0);
+  procedure SetMenuItemChr(AItem :PFarMenuItem; AStr :PFarChar; AFlags :DWORD = 0);
+  procedure SetMenuItemChrEx(var AItem :PFarMenuItem; AStr :PFarChar; AFlags :DWORD = 0);
+  procedure SetMenuItemStr(AItem :PFarMenuItem; const AStr :TString; AFlags :DWORD = 0);
+  procedure SetMenuItemStrEx(var AItem :PFarMenuItem; const AStr :TString; AFlags :DWORD = 0);
 
   procedure SetListItem(AItem :PFarListItem; AStr :PFarChar; AFlags :DWORD);
 
   function FarCreateMenu(const AItems :array of PFarChar; AItemCount :PInteger = nil) :PFarMenuItemsArray;
  {$ifdef bUnicodeFar}
-  procedure CleanupMenu(AItem :PFarMenuItemEx; ACount :Integer);
+  procedure CleanupMenu(AItem :PFarMenuItem; ACount :Integer);
   procedure CleanupList(AItem :PFarListItem; ACount :Integer);
  {$endif bUnicodeFar}
 
   function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
   function CreateDialog(const AItems :array of TFarDialogItem; AItemCount :PInteger = nil) :PFarDialogItemArray;
-  function RunDialog( APluginNumber :Integer; X1, Y1, DX, DY :Integer; AHelpTopic :PFarChar;
-    AItems :PFarDialogItemArray; ACount :Integer; AFlags :DWORD; ADlgProc :TFarApiWindowProc; AParam :TIntPtr) :Integer;
+  function RunDialog( X1, Y1, DX, DY :Integer; AHelpTopic :PFarChar;
+    AItems :PFarDialogItemArray; ACount :Integer; AFlags :DWORD; ADlgProc :TFarApiWindowProc;
+   {$ifdef Far3}
+    const AID :TGUID;
+   {$endif Far3}
+    AParam :TIntPtr
+    ) :Integer;
 
-  function StrRightAjust(const AStr :TString; ALen :Integer) :TString;
-  function StrLeftAjust(const AStr :TString; ALen :Integer) :TString;
   function GetProgressStr(ALen, APerc :Integer) :TString;
-  function GetOptColor(AColor, ASysColor :Integer) :Integer;
   function ShowMessage(const ATitle, AMessage :TString; AFlags :Integer; AButtons :Integer = 0) :Integer;
   function FarInputBox(ATitle, APrompt :PTChar; var AStr :TString; AFlags :DWORD = FIB_BUTTONS or FIB_ENABLEEMPTY;
     AHistory :PTChar = nil; AHelp :PTChar = nil; AMaxLen :Integer = 1024) :Boolean;
 
-  procedure EnumFilesEx(const ADir, AMask :TFarStr; const aProc :TMethod);
+  function FarSendDlgMessage(ADlg :THandle; AMsg, AParam1 :Integer; AParam2 :TIntPtr) :TIntPtr; overload;
+  function FarSendDlgMessage(ADlg :THandle; AMsg, AParam1 :Integer; AParam2 :Pointer) :TIntPtr; overload;
+  function FarAdvControl(ACommand :Integer; AParam :Pointer) :Integer;
+  function FarEditorControl(ACommand :Integer; AParam :Pointer) :Integer;
 
-  function CheckForEsc :Boolean;
+  function FarGetColor(ASysColor :TPaletteColors) :TFarColor;
+  function IsUndefColor(const AColor :TFarColor) :Boolean;
+  function MakeColor(AFGColor, ABGColor :Cardinal) :TFarColor;
+  function ChangeFG(const AColor, AFGColor :TFarColor) :TFarColor;
+  function GetOptColor(const AColor :TFarColor; ASysColor :TPaletteColors) :TFarColor;
 
- {$ifdef bUnicodeFar}
   function FarPanelItem(AHandle :THandle; ACmd, AIndex :Integer) :PPluginPanelItem;
   function FarPanelItemName(AHandle :THandle; ACmd, AIndex :Integer) :TString;
     { ACmd = FCTL_GETPANELITEM, FCTL_GETSELECTEDPANELITEM, FCTL_GETCURRENTPANELITEM }
@@ -193,18 +202,26 @@ interface
   function FarPanelGetCurrentDirectory(AHandle :THandle) :TFarStr;
   function FarGetCurrentDirectory :TFarStr;
   function EditorControlString(ACmd :Integer) :TFarStr;
- {$endif bUnicodeFar}
 
   function FarPanelGetSide :Integer;
-  procedure FarPostMacro(const AStr :TFarStr; AFlags :DWORD = KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS; AKey :DWORD = 0);
-  function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean) :Boolean;
+  procedure FarPostMacro(const AStr :TFarStr; AFlags :DWORD =
+    {$ifdef Far3}
+     KMFLAGS_DISABLEOUTPUT or KMFLAGS_NOSENDKEYSTOPLUGINS;
+    {$else}
+     KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
+    {$endif Far3}
+     AKey :DWORD = 0);
+  function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean; ACoord :PCoord = nil) :Boolean;
+  function FarGetMacroArea :Integer;
+  function FarGetMacroState :Integer;
+
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   function FarPanelGetCurrentItem(Active :Boolean) :TString;
   function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
   procedure FarPanelGetSelectedItems(Active :Boolean; AItems :TStringList);
   procedure FarPanelSetSelectedItems(Active :Boolean; AItems :TStringList; AClearAll :Boolean = True);
   procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = 0; ACol :Integer = 1);
-  procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName :PTString = nil; ATypeName :PTString = nil);
+  function FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName :PTString = nil; ATypeName :PTString = nil) :boolean;
   function FarExpandFileName(const AFileName :TString) :TString;
   function FarGetWindowRect :TSmallRect;
   function FarGetWindowSize :TSize;
@@ -213,6 +230,21 @@ interface
 
   function FarXLat(AChr :TChar) :TChar;
   function FarXLatStr(const AStr :TString) :TString;
+
+  { Для совместимости к KEY_ кодами FAR2 }
+  function KeyEventToFarKey(const AEvent :TKeyEventRecord) :Integer;
+  function FarKeyToKeyEvent(AKey :Integer; var AEvent :TKeyEventRecord) :Boolean;
+  function MouseEventToFarKey(const AEvent :TMouseEventRecord) :Integer;
+  function MouseEventToFarKeyEx(const AEvent :TMouseEventRecord; AOldState :DWORD; var APress, ADouble :Boolean) :Integer;
+  function FarKeyToMouseEvent(AKey :Integer; var AEvent :TMouseEventRecord) :Boolean;
+  function FarKeyToInputRecord(AKey :Integer; var ARec :INPUT_RECORD) :Boolean;
+
+ {$ifdef Far3}
+ {$else}
+  procedure EnumFilesEx(const ADir, AMask :TFarStr; const aProc :TMethod);
+ {$endif Far3}
+
+  function CheckForEsc :Boolean;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -223,28 +255,9 @@ interface
 
 
   function FarChar2Str(AStr :PFarChar) :TString;
- {$ifdef bUnicodeFar}
   begin
     Result := AStr;
   end;
- {$else}
- {$ifdef bUnicode}
-  var
-    vTmp :TAnsiStr;
-  begin
-    vTmp := AStr;
-    if vTmp <> '' then
-      {Windows.}OemToCharBuffA(AStr, Pointer(vTmp), Length(vTmp));
-    Result := vTmp;
-  end;
- {$else}
-  begin
-    Result := AStr;
-    if Result <> '' then
-      {Windows.}OemToCharBuffA(AStr, Pointer(Result), Length(Result));
-  end;
- {$endif bUnicode}
- {$endif bUnicodeFar}
 
 
   procedure FillFarChar(ABuf :PFarChar; ACount :Integer; AChar :TFarChar);
@@ -258,28 +271,11 @@ interface
 
 
   procedure SetFarChr(ABuf :PFarChar; ASrc :PTChar; AMaxLen :Integer);
- {$ifdef bUnicodeFar}
   begin
     StrLCopy(ABuf, ASrc, AMaxLen);
   end;
- {$else}
-  var
-    vLen :Integer;
-  begin
-    vLen := StrLen(ASrc);
-    if AMaxLen < vLen then
-      vLen := AMaxLen;
-   {$ifdef bUnicode}
-    vLen := WideCharToMultiByte(CP_ACP, 0, ASrc, vLen, ABuf, AMaxLen, nil, nil);
-   {$else}
-    Move(ASrc^, ABuf^, vLen);
-   {$endif bUnicode}
-    (ABuf + vLen)^ := #0;
-    CharToOEMBuffA(ABuf, ABuf, vLen);
-  end;
- {$endif bUnicodeFar}
 
-
+  
   procedure SetFarStr(ABuf :PFarChar; const AStr :TString; AMaxLen :Integer);
   begin
     SetFarChr(ABuf, PTChar(AStr), AMaxLen);
@@ -288,13 +284,17 @@ interface
 
   function GetMsg(MsgId :Integer) :PFarChar;
   begin
+   {$ifdef Far3}
+    Result := FARAPI.GetMsg(PluginID, MsgId);;
+   {$else}
     Result := FARAPI.GetMsg(FARAPI.ModuleNumber, MsgId);
+   {$endif Far3}
   end;
 
 
   function GetMsgStr(MsgId :Integer) :TString;
   begin
-    Result := FarChar2Str(GetMsg(MsgId));
+    Result := GetMsg(MsgId);
   end;
 
 
@@ -319,56 +319,37 @@ interface
   end;
 
 
-  procedure SetMenuItemChr(AItem :PFarMenuItemEx; AStr :PFarChar; AFlags :DWORD = 0);
+  procedure SetMenuItemChr(AItem :PFarMenuItem; AStr :PFarChar; AFlags :DWORD = 0);
   begin
-   {$ifdef bUnicodeFar}
     AItem.TextPtr := AStr;
-   {$else}
-    StrLCopyA(@AItem.Text, AStr, SizeOf(AItem.Text));
-   {$endif bUnicodeFar}
     AItem.Flags := AFlags;
   end;
 
 
-  procedure SetMenuItemChrEx(var AItem :PFarMenuItemEx; AStr :PFarChar; AFlags :DWORD = 0);
+  procedure SetMenuItemChrEx(var AItem :PFarMenuItem; AStr :PFarChar; AFlags :DWORD = 0);
   begin
     SetMenuItemChr(AItem, AStr, AFlags);
-    Inc(Pointer1(AItem), SizeOf(TFarMenuItemEx));
+    Inc(Pointer1(AItem), SizeOf(TFarMenuItem));
   end;
 
 
-  procedure SetMenuItemStr(AItem :PFarMenuItemEx; const AStr :TString; AFlags :DWORD = 0);
+  procedure SetMenuItemStr(AItem :PFarMenuItem; const AStr :TString; AFlags :DWORD = 0);
   begin
-   {$ifdef bUnicodeFar}
     SetMenuItemChr(AItem, StrNewW(PWideChar(AStr)), AFlags);
-   {$else}
-
-   {$ifdef bUnicode}
-    {!!!}
-   {$else}
-    SetMenuItemChr(AItem, PAnsiChar(AStr), AFlags);
-   {$endif bUnicode}
-    CharToOEMBuffA(@AItem.Text, @AItem.Text, Length(AStr));
-
-   {$endif bUnicodeFar}
   end;
 
 
-  procedure SetMenuItemStrEx(var AItem :PFarMenuItemEx; const AStr :TString; AFlags :DWORD = 0);
+  procedure SetMenuItemStrEx(var AItem :PFarMenuItem; const AStr :TString; AFlags :DWORD = 0);
   begin
     SetMenuItemStr(AItem, AStr, AFlags);
-    Inc(Pointer1(AItem), SizeOf(TFarMenuItemEx));
+    Inc(Pointer1(AItem), SizeOf(TFarMenuItem));
   end;
 
 
 
   procedure SetListItem(AItem :PFarListItem; AStr :PFarChar; AFlags :DWORD);
   begin
-   {$ifdef bUnicodeFar}
     AItem.TextPtr := StrNewW(AStr);
-   {$else}
-    StrLCopyA(@AItem.Text, AStr, SizeOf(AItem.Text));
-   {$endif bUnicodeFar}
     AItem.Flags := AFlags;
   end;
 
@@ -376,10 +357,10 @@ interface
   function FarCreateMenu(const AItems :array of PFarChar; AItemCount :PInteger = nil) :PFarMenuItemsArray;
   var
     I, vCount :Integer;
-    vItem :PFarMenuItemEx;
+    vItem :PFarMenuItem;
   begin
     vCount := High(AItems) + 1;
-    Result := MemAllocZero(vCount * SizeOf(TFarMenuItemEx));
+    Result := MemAllocZero(vCount * SizeOf(TFarMenuItem));
     vItem := @Result[0];
     for I := 0 to vCount - 1 do begin
       if AItems[I]^ <> #0 then
@@ -391,15 +372,15 @@ interface
       AItemCount^ := vCount;
   end;
 
-  
+
  {$ifdef bUnicodeFar}
-  procedure CleanupMenu(AItem :PFarMenuItemEx; ACount :Integer);
+  procedure CleanupMenu(AItem :PFarMenuItem; ACount :Integer);
   var
     I :Integer;
   begin
     for I := 0 to ACount - 1 do begin
       StrDispose(AItem.TextPtr);
-      Inc(Pointer1(AItem), SizeOf(TFarMenuItemEx));
+      Inc(Pointer1(AItem), SizeOf(TFarMenuItem));
     end;
   end;
 
@@ -417,30 +398,6 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function StrRightAjust(const AStr :TString; ALen :Integer) :TString;
-  var
-    vlen :Integer;
-  begin
-    vLen := Length(AStr);
-    if vLen >= ALen then
-      Result := AStr
-    else
-      Result := StringOfChar(' ', ALen - vLen) + AStr;
-  end;
-
-
-  function StrLeftAjust(const AStr :TString; ALen :Integer) :TString;
-  var
-    vlen :Integer;
-  begin
-    vLen := Length(AStr);
-    if vLen >= ALen then
-      Result := Copy(AStr, 1, ALen)
-    else
-      Result := AStr + StringOfChar(' ', ALen - vLen);
-  end;
-
-
   function GetProgressStr(ALen, APerc :Integer) :TString;
   var
     vFilled :Integer;
@@ -450,24 +407,25 @@ interface
   end;
 
 
-  function GetOptColor(AColor, ASysColor :Integer) :Integer;
-  begin
-    Result := AColor;
-    if Result = 0 then
-      Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(TIntPtr(ASysColor)));
-  end;
-
-
   function ShowMessage(const ATitle, AMessage :TString; AFlags :Integer; AButtons :Integer = 0) :Integer;
   var
     vStr :TFarStr;
+   {$ifdef Far3}
+    vDlgID :TGUID;
+   {$endif Far3}
   begin
-   {$ifdef bUnicodeFar}
     vStr := ATitle + #10 + AMessage;
-   {$else}
-    vStr := StrAnsiToOem(ATitle + #10 + AMessage);
-   {$endif bUnicodeFar}
-    Result := FARAPI.Message(hModule, AFlags or FMSG_ALLINONE, nil, PPCharArray(PFarChar(vStr)), 0, AButtons);
+   {$ifdef Far3}
+    FillZero(vDlgID, SizeOf(vDlgID));
+   {$endif Far3}
+    Result := FARAPI.Message(
+     {$ifdef Far3}
+      PluginID,
+      vDlgID,
+     {$else}
+      hModule,
+     {$endif Far3}
+      AFlags or FMSG_ALLINONE, nil, PPCharArray(PFarChar(vStr)), 0, AButtons);
   end;
 
 
@@ -475,10 +433,20 @@ interface
     AHistory :PTChar = nil; AHelp :PTChar = nil; AMaxLen :Integer = 1024) :Boolean;
   var
     vStr :TString;
+   {$ifdef Far3}
+    vDlgID :TGUID;
+   {$endif Far3}
   begin
     SetLength(vStr, AMaxLen);
-
-    Result := FARAPI.InputBox( ATitle, APrompt, AHistory, PTChar(AStr), PTChar(vStr), AMaxLen, AHelp, AFlags) = 1;
+   {$ifdef Far3}
+    FillZero(vDlgID, SizeOf(vDlgID));
+   {$endif Far3}
+    Result := FARAPI.InputBox(
+     {$ifdef Far3}
+      PluginID,
+      vDlgID,
+     {$endif Far3}
+      ATitle, APrompt, AHistory, PTChar(AStr), PTChar(vStr), AMaxLen, AHelp, AFlags) = 1;
 
     if Result then
       AStr := PTChar(vStr);
@@ -499,14 +467,16 @@ interface
       if H >= 0 then
         Y2 := Y + H - 1;
       Flags := AFlags;
-      DefaultButton := IntIf(AType = DI_DefButton, 1, 0);
-      Param.History := AHist;
-     {$ifdef bUnicodeFar}
-      PtrData := AText;
+     {$ifdef Far3}
+      Data := AText;
+      History := AHist;
+      if AType = DI_DefButton then
+        Flags := Flags or DIF_DEFAULTBUTTON;
      {$else}
-      if AText <> nil then
-        StrLCopyA(Data.Data, AText, 511);
-     {$endif bUnicodeFar}
+      PtrData := AText;
+      Param.History := AHist;
+      DefaultButton := IntIf(AType = DI_DefButton, 1, 0);
+     {$endif Far3}
     end;
   end;
 
@@ -528,87 +498,126 @@ interface
   end;
 
 
-  function RunDialog( APluginNumber :Integer; X1, Y1, DX, DY :Integer; AHelpTopic :PFarChar;
-    AItems :PFarDialogItemArray; ACount :Integer; AFlags :DWORD; ADlgProc :TFarApiWindowProc; AParam :TIntPtr) :Integer;
- {$ifdef bUnicodeFar}
+  function RunDialog( X1, Y1, DX, DY :Integer; AHelpTopic :PFarChar;
+    AItems :PFarDialogItemArray; ACount :Integer; AFlags :DWORD; ADlgProc :TFarApiWindowProc;
+   {$ifdef Far3}
+    const AID :TGUID;
+   {$endif Far3}
+    AParam :TIntPtr
+    ) :Integer;
   var
     hDlg :THandle;
- {$endif bUnicodeFar}
   begin
-   {$ifdef bUnicodeFar}
-    hDlg := FARAPI.DialogInit(APluginNumber, X1, Y1, DX, DY, AHelpTopic, AItems, ACount, 0, AFlags, ADlgProc, AParam);
+    hDlg := FARAPI.DialogInit(
+     {$ifdef Far3}
+      PluginID,
+      AID,
+     {$else}
+      hModule,
+     {$endif Far3}
+      X1, Y1, DX, DY, AHelpTopic, AItems, ACount, 0, AFlags, ADlgProc, AParam);
     try
       Result := FARAPI.DialogRun(hDlg);
     finally
       FARAPI.DialogFree(hDlg);
     end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  function FarSendDlgMessage(ADlg :THandle; AMsg, AParam1 :Integer; AParam2 :TIntPtr) :TIntPtr;
+  begin
+    Result := FARAPI.SendDlgMessage(ADlg, AMsg, AParam1, {$ifdef Far3}Pointer(AParam2){$else}AParam2{$endif});
+  end;
+
+
+  function FarSendDlgMessage(ADlg :THandle; AMsg, AParam1 :Integer; AParam2 :Pointer) :TIntPtr;
+  begin
+    Result := FARAPI.SendDlgMessage(ADlg, AMsg, AParam1, {$ifdef Far3}AParam2{$else}TIntPtr(AParam2){$endif});
+  end;
+
+
+  function FarAdvControl(ACommand :Integer; AParam :Pointer) :Integer;
+  begin
+   {$ifdef Far3}
+    Result := FARAPI.AdvControl(PluginID, ACommand, 0, AParam);
    {$else}
-    Result := FARAPI.DialogEx(APluginNumber, X1, Y1, DX, DY, AHelpTopic, AItems, ACount, 0, AFlags, ADlgProc, AParam);
-   {$endif bUnicodeFar}
+    Result := FARAPI.AdvControl(hModule, ACommand, AParam);
+   {$endif Far3}
   end;
 
 
- {-----------------------------------------------------------------------------}
-
-  type
-    TEnumFilesProc = function(const AFileName :TString; const ARec :TFarFindData) :Integer
-      {$ifdef bFreePascal}of object{$endif bFreePascal};
-
-
-  function EnumFilesProc(const FindData :PFarFindData; const FullName :PFarChar; Param: pointer) :integer; stdcall;
-  var
-    vStr :TString;
-    vTmp :TMethod;
+  function FarEditorControl(ACommand :Integer; AParam :Pointer) :Integer;
   begin
-    vStr := FullName;
-    vTmp := TMethod(Param^);
-   {$ifdef bDelphi}
-    asm push vTmp.Data; end;
-    Result := TEnumFilesProc(vTmp.Code)(vStr, FindData^);
-    asm pop ECX; end;
+   {$ifdef Far3}
+    Result := FARAPI.EditorControl(-1{!!!-???}, ACommand, 0, AParam);
    {$else}
-    Result := TEnumFilesProc(vTmp)(vStr, FindData^);
-   {$endif bDelphi}
+    Result := FARAPI.EditorControl(ACommand, AParam);
+   {$endif Far3}
   end;
 
-  procedure EnumFilesEx(const ADir, AMask :TFarStr; const aProc :TMethod);
+
+  function FarGetColor(ASysColor :TPaletteColors) :TFarColor;
   begin
-    FARSTD.FarRecursiveSearch(PFarChar(ADir), PFarChar(AMask), EnumFilesProc, FRS_RECUR, @aProc);
+   {$ifdef Far3}
+    FARAPI.AdvControl(PluginID, ACTL_GETCOLOR, Integer(ASysColor), @Result);
+   {$else}
+    Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(TIntPtr(ASysColor)));
+   {$endif Far3}
   end;
 
 
- {-----------------------------------------------------------------------------}
-
-  function CheckForEsc :Boolean;
-  var
-    vCount :Integer;
-    vRec :Windows.TInputRecord;
+  function IsUndefColor(const AColor :TFarColor) :Boolean;
   begin
-    Result := False;
-    if hStdIn = 0 then
-      hStdIn := GetStdHandle(STD_INPUT_HANDLE);
-    while True do begin
-      if not PeekConsoleInput(hStdIn, vRec, 1, DWORD(vCount)) or (vCount = 0) then
-        Break;
-      ReadConsoleInput(hStdIn, vRec, 1, DWORD(vCount));
-      if (vRec.EventType = KEY_EVENT) and (vRec.Event.KeyEvent.wVirtualKeyCode = VK_ESCAPE) and vRec.Event.KeyEvent.bKeyDown then
-        Result := True;
-    end;
+   {$ifdef Far3}
+    Result := (AColor.ForegroundColor = 0) and (AColor.BackgroundColor = 0);
+   {$else}
+    Result := AColor = 0;
+   {$endif Far3}
   end;
 
 
- {-----------------------------------------------------------------------------}
+  function MakeColor(AFGColor, ABGColor :Cardinal) :TFarColor;
+  begin
+   {$ifdef Far3}
+    Result.Flags := FCF_4BITMASK;
+    Result.ForegroundColor := AFGColor;
+    Result.BackgroundColor := ABGColor;
+   {$else}
+    Result := (ABGColor * $10) + AFGColor;
+   {$endif Far3}
+  end;
+
+
+  function ChangeFG(const AColor, AFGColor :TFarColor) :TFarColor;
+  begin
+   {$ifdef Far3}
+    Result := AColor;
+    Result.ForegroundColor := AFGColor.ForegroundColor;
+   {$else}
+    Result := (AColor and $F0) or (AFGColor and $0F);
+   {$endif Far3}
+  end;
+
+  
+  function GetOptColor(const AColor :TFarColor; ASysColor :TPaletteColors) :TFarColor;
+  begin
+    Result := AColor;
+    if IsUndefColor(AColor) then
+      Result := FarGetColor(ASysColor);
+  end;
+
 
   function FarPanelGetSide :Integer;
   var
     vInfo  :TPanelInfo;
   begin
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodeFar}
+    FillZero(vInfo, SizeOf(vInfo));
+   {$ifdef Far3}
+    vInfo.StructSize := SizeOf(vInfo);
+   {$endif Far3}
     FARAPI.Control(PANEL_ACTIVE, FCTL_GetPanelInfo, 0, @vInfo);
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelShortInfo, @vInfo);
-   {$endif bUnicodeFar}
     if PFLAGS_PANELLEFT and vInfo.Flags <> 0 then
       Result := 0  {Left}
     else
@@ -616,9 +625,21 @@ interface
   end;
 
 
- {$ifdef bUnicodeFar}
-
   function FarPanelItem(AHandle :THandle; ACmd, AIndex :Integer) :PPluginPanelItem;
+ {$ifdef Far3}
+  var
+    vSize :Integer;
+    vRec :TFarGetPluginPanelItem;
+  begin
+    Result := nil;
+    vSize := FARAPI.Control(AHandle, ACmd, AIndex, nil);
+    if vSize > 0 then begin
+      Result := MemAlloc( vSize );
+      vRec.Size := vSize;
+      vRec.Item := Result;
+      FARAPI.Control(AHandle, ACmd, AIndex, @vRec);
+    end;
+ {$else}
   var
     vSize :Integer;
   begin
@@ -628,6 +649,7 @@ interface
       Result := MemAlloc( vSize );
       FARAPI.Control(AHandle, ACmd, AIndex, Result);
     end;
+ {$endif Far3}
   end;
 
 
@@ -639,7 +661,11 @@ interface
     vItem := FarPanelItem(AHandle, ACmd, AIndex);
     if vItem <> nil then begin
       try
+       {$ifdef Far3}
+        Result := vItem.FileName;
+       {$else}
         Result := vItem.FindData.cFileName;
+       {$endif Far3}
       finally
         MemFree(vItem);
       end;
@@ -682,7 +708,19 @@ interface
 // FCTL_GETCOLUMNTYPES           = 27;
 // FCTL_GETCOLUMNWIDTHS          = 28;
 
+  function EditorControlString(ACmd :Integer) :TFarStr;
+  var
+    vLen :Integer;
+  begin
+    Result := '';
+    vLen := FarEditorControl(ACmd, nil);
+    if vLen > 1 then begin
+      SetLength(Result, vLen - 1);
+      FarEditorControl(ACmd, PFarChar(Result));
+    end;
+  end;
 
+(*
   function EditorControlString(ACmd :Integer) :TFarStr;
   var
     vLen :Integer;
@@ -694,11 +732,64 @@ interface
       FARAPI.EditorControl(ACmd, PFarChar(Result));
     end;
   end;
+*)
 
- {$endif bUnicodeFar}
+ {-----------------------------------------------------------------------------}
 
+(*
+   int Info.MacroControl(HANDLE hHandle,int Command,int Param1,INT_PTR Param2)
+    hHandle = 0
+    Command:
+       MCTL_LOADALL
+         Param1=0
+         Param2=0
+         Return=0|1
+       MCTL_SAVEALL
+         Param1=0
+         Param2=0
+         Return=0|1
+       MCTL_SENDSTRING
+         Param1:
+           MSSC_POST
+             Param2=MacroSendMacroText*
+             Return=0|1
+           MSSC_EXEC (пока заглужка, не используется)
+             Param2=MacroSendMacroText*
+             Return=0|1
+           MSSC_CHECK
+             Param2=MacroCheckMacroText* (Text)
+             Return=0|1 в Param2=MacroCheckMacroText* (Check)
+       MCTL_GETSTATE
+         Param1=0
+         Param2=0
+         Return=FARMACROSTATE
+       MCTL_GETAREA
+         Param1=0
+         Param2=0
+         Return=FARMACROAREA
+*)
 
-  procedure FarPostMacro(const AStr :TFarStr; AFlags :DWORD = KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS; AKey :DWORD = 0);
+  procedure FarPostMacro(const AStr :TFarStr; AFlags :DWORD =
+   {$ifdef Far3}
+    KMFLAGS_DISABLEOUTPUT or KMFLAGS_NOSENDKEYSTOPLUGINS;
+   {$else}
+    KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
+   {$endif Far3}
+    AKey :DWORD = 0);
+ {$ifdef Far3}
+  var
+    vMacro :TMacroSendMacroText;
+  begin
+   {$ifdef bTrace}
+    TraceF('PostMacro: %s', [AStr]);
+   {$endif bTrace}
+    FillZero(vMacro, SizeOf(vMacro));
+    vMacro.StructSize := SizeOf(vMacro);
+    vMacro.Flags := AFlags;
+    FarKeyToInputRecord(AKey, vMacro.AKey); 
+    vMacro.SequenceText := PFarChar(AStr);
+    FARAPI.MacroControl(PluginID, MCTL_SENDSTRING, MSSC_POST, @vMacro);
+ {$else}
   var
     vMacro :TActlKeyMacro;
   begin
@@ -710,10 +801,24 @@ interface
     vMacro.Param.PlainText.Flags := AFlags;
     vMacro.Param.PlainText.AKey := AKey;
     FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+ {$endif Far3}
   end;
 
 
-  function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean) :Boolean;
+  function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean; ACoord :PCoord = nil) :Boolean;
+ {$ifdef Far3}
+  var
+    vMacro :TMacroCheckMacroText;
+  begin
+    FillZero(vMacro, SizeOf(vMacro));
+    vMacro.Check.Text.StructSize := SizeOf(vMacro);
+    vMacro.Check.Text.SequenceText := PTChar(AStr);
+    vMacro.Check.Text.Flags := IntIf(ASilent, KMFLAGS_SILENTCHECK, 0);
+    FARAPI.MacroControl(PluginID, MCTL_SENDSTRING, MSSC_CHECK, @vMacro);
+    Result := vMacro.Check.Result.ErrCode = MPEC_SUCCESS;
+    if not Result and (ACoord <> nil) then
+      ACoord^ := vMacro.Check.Result.ErrPos;
+ {$else}
   var
     vMacro :TActlKeyMacro;
   begin
@@ -722,18 +827,46 @@ interface
     vMacro.Param.PlainText.Flags := IntIf(ASilent, KSFLAGS_SILENTCHECK, 0);
     FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
     Result := vMacro.Param.MacroResult.ErrCode = MPEC_SUCCESS;
+    if not Result and (ACoord <> nil) then
+      ACoord^ := vMacro.Param.MacroResult.ErrPos;
+ {$endif Far3}
   end;
 
+
+  function FarGetMacroState :Integer;
+ {$ifdef Far3}
+  begin
+    Result := FARAPI.MacroControl(PluginID, MCTL_GETSTATE, 0, nil);
+ {$else}
+  var
+    vMacro :TActlKeyMacro;
+  begin
+    vMacro.Command := MCMD_GETSTATE;
+    Result := FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+ {$endif Far3}
+  end;
+
+
+  function FarGetMacroArea :Integer;
+ {$ifdef Far3}
+  begin
+    Result := FARAPI.MacroControl(PluginID, MCTL_GETAREA, 0, nil);
+ {$else}
+  var
+    vMacro :TActlKeyMacro;
+  begin
+    vMacro.Command := MCMD_GETAREA;
+    Result := FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+ {$endif Far3}
+  end;
+
+
+ {-----------------------------------------------------------------------------}
 
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   var
     vStr :TFarStr;
   begin
-   {$ifndef bUnicodeFar}
-    SetFileApisToOEM;
-    try
-   {$endif bUnicodeFar}
-
     if IsFullFilePath(APath) then begin
      {$ifdef bUnicodeFar}
       FARAPI.Control(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_SETPANELDIR, 0, PFarChar(APath));
@@ -759,12 +892,6 @@ interface
       FarPostMacro(vStr);
     end else
       Beep;
-
-   {$ifndef bUnicodeFar}
-    finally
-      SetFileApisToAnsi;
-    end;
-   {$endif bUnicodeFar}
   end;
 
 
@@ -789,7 +916,7 @@ interface
     if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
 
       vIndex := vInfo.CurrentItem;
-      if (vIndex < 0) or (vIndex >= vInfo.ItemsNumber) then
+      if (vIndex < 0) or (vIndex >= Integer(vInfo.ItemsNumber) ) then
         Exit;
 
      {$ifdef bUnicodeFar}
@@ -849,7 +976,6 @@ interface
 
 
   procedure FarPanelGetSelectedItems(Active :Boolean; AItems :TStringList);
- {$ifdef bUnicodeFar}
   var
     I :Integer;
     vStr :TString;
@@ -874,7 +1000,11 @@ interface
           { Требуется проверка флага, потому что даже если не выделено ни одного элемента }
           { SelectedItemsNumber = 1, и возвращает текущий элемент...}
           if PPIF_SELECTED and vItem.Flags <> 0 then begin
+           {$ifdef Far3}
+            vStr := vItem.FileName;
+           {$else}
             vStr := vItem.FindData.cFileName;
+           {$endif Far3}
             AItems.Add(vStr)
           end;
 
@@ -887,38 +1017,10 @@ interface
    {$ifdef bDebug}
     TraceEnd('   Done');
    {$endif bDebug}
- {$else}
-  var
-    I :Integer;
-    vStr :TString;
-    vInfo :TPanelInfo;
-  begin
-   {$ifdef bDebug}
-    TraceBeg('FarPanelGetSelectedItems...');
-   {$endif bDebug}
-
-    FillChar(vInfo, SizeOf(vInfo), 0);
-    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
-
-    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
-      for I := 0 to vInfo.ItemsNumber - 1 do
-        with vInfo.PanelItems[I] do begin
-          if PPIF_SELECTED and Flags <> 0 then begin
-            vStr := FarChar2Str(FindData.cFileName);
-            AItems.Add(vStr)
-          end;
-        end;
-    end;
-
-   {$ifdef bDebug}
-    TraceEnd('   Done');
-   {$endif bDebug}
- {$endif bUnicodeFar}
   end;
 
 
   procedure FarPanelSetSelectedItems(Active :Boolean; AItems :TStringList; AClearAll :Boolean = True);
- {$ifdef bUnicodeFar}
   var
     I :Integer;
     vStr :TString;
@@ -954,37 +1056,6 @@ interface
    {$ifdef bDebug}
     TraceEnd('   Done');
    {$endif bDebug}
- {$else}
-  var
-    I :Integer;
-    vStr :TString;
-    vInfo :TPanelInfo;
-  begin
-   {$ifdef bDebug}
-    TraceBeg('FarPanelSetSelectedItems...');
-   {$endif bDebug}
-
-    FillChar(vInfo, SizeOf(vInfo), 0);
-    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
-
-    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
-
-      for I := 0 to vInfo.ItemsNumber - 1 do
-        with vInfo.PanelItems[I] do begin
-          vStr := FarChar2Str(FindData.cFileName);
-          if AClearAll then
-            Flags := Flags and not PPIF_SELECTED;
-          if AItems.IndexOf(vStr) <> -1 then
-            Flags := Flags or PPIF_SELECTED;
-        end;
-
-      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_SetSelection, FCTL_SetAnotherSelection), @vInfo);
-      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_REDRAWPANEL, FCTL_REDRAWANOTHERPANEL), nil);
-    end;
-   {$ifdef bDebug}
-    TraceEnd('   Done');
-   {$endif bDebug}
- {$endif bUnicodeFar}
   end;
 
 
@@ -992,61 +1063,45 @@ interface
   var
     vName :TFarStr;
   begin
-   {$ifdef bUnicodeFar}
     vName := AFileName;
     if AEdit then
       FARAPI.Editor(PFarChar(vName), nil, 0, 0, -1, -1, AFlags, ARow, ACol, CP_AUTODETECT)
     else
       FARAPI.Viewer(PFarChar(vName), nil, 0, 0, -1, -1, AFlags, CP_AUTODETECT);
-   {$else}
-    SetFileApisToOEM;
-    try
-      vName := StrAnsiToOEM(AFileName);
-      if AEdit then
-        FARAPI.Editor(PFarChar(vName), nil, 0, 0, -1, -1, AFlags, ARow, ACol)
-      else
-        FARAPI.Viewer(PFarChar(vName), nil, 0, 0, -1, -1, AFlags);
-    finally
-      SetFileApisToAnsi;
-    end;
-   {$endif bUnicodeFar}
   end;
 
 
-  procedure FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName :PTString = nil; ATypeName :PTString = nil);
+  function FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName :PTString = nil; ATypeName :PTString = nil) :boolean;
   begin
+    Result := False;
+
     FillZero(AInfo, SizeOf(AInfo));
+   {$ifdef Far3}
+    AInfo.StructSize := SizeOf(AInfo);
+   {$endif Far3}
     AInfo.Pos := APos;
 
-   {$ifdef bUnicodeFar}
-    FARAPI.AdvControl(hModule, ACTL_GETWINDOWINFO, @AInfo);
-    try
-      if (AName <> nil) and (AInfo.NameSize > 0) then
-        AInfo.Name := MemAlloc(AInfo.NameSize * SizeOf(TChar));
-      if (ATypeName <> nil) and (AInfo.TypeNameSize > 0) then
-        AInfo.TypeName := MemAlloc(AInfo.TypeNameSize * SizeOf(TChar));
+    if FarAdvControl(ACTL_GETWINDOWINFO, @AInfo) <> 0 then begin
+
+      if (AName <> nil) and (AInfo.NameSize > 0) then begin
+        SetString(AName^, nil, AInfo.NameSize - 1);
+        AInfo.Name := PTChar(AName^);
+      end;
+
+      if (ATypeName <> nil) and (AInfo.TypeNameSize > 0) then begin
+        SetString(ATypeName^, nil, AInfo.TypeNameSize - 1);
+        AInfo.TypeName := PTChar(ATypeName^);
+      end;
+
       if (AInfo.Name <> nil) or (AInfo.TypeName <> nil) then
-        FARAPI.AdvControl(hModule, ACTL_GETWINDOWINFO, @AInfo);
-   {$else}
-    FARAPI.AdvControl(hModule, ACTL_GETWINDOWINFO, @AInfo);
-   {$endif bUnicodeFar}
+        FarAdvControl(ACTL_GETWINDOWINFO, @AInfo);
 
-    if AName <> nil then
-      AName^ := FarChar2Str(AInfo.Name);
-    if ATypeName <> nil then
-      ATypeName^ := FarChar2Str(AInfo.TypeName);
-
-   {$ifdef bUnicodeFar}
-    finally
-      MemFree(AInfo.Name);
-      MemFree(AInfo.TypeName);
+      Result := True;
     end;
-   {$endif bUnicodeFar}
   end;
 
 
   function FarExpandFileName(const AFileName :TString) :TString;
- {$ifdef bUnicodeFar}
   var
     vLen :Integer;
   begin
@@ -1057,27 +1112,18 @@ interface
         SetLength(Result, vLen - 1);
         FARSTD.ConvertPath(CPM_FULL, PTChar(AFileName), PTChar(Result), vLen);
       end;
-    end;  
- {$else}
-  begin
-    Result := ExpandFileName(AFileName);
- {$endif bUnicodeFar}
+    end;
   end;
 
 
   function FarGetWindowRect :TSmallRect;
- {$ifdef bUnicodeFar}
   begin
     FillChar(Result, SizeOf(Result), 0);
+   {$ifdef Far3}
+    FARAPI.AdvControl(PluginID, ACTL_GETFARRECT, 0, @Result);
+   {$else}
     FARAPI.AdvControl(hModule, ACTL_GETFARRECT, @Result);
- {$else}
-  var
-    vScreenInfo :TConsoleScreenBufferInfo;
-  begin
-    GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
-    with vScreenInfo.dwSize do
-      Result := Rect(0, 0, X - 1, Y - 1);
- {$endif bUnicodeFar}
+   {$endif bUnicodeFar}
   end;
 
 
@@ -1089,16 +1135,8 @@ interface
 
 
   procedure FarCopyToClipboard(const AStr :TString);
- {$ifdef bUnicodeFar}
   begin
     FARSTD.CopyToClipboard(PTChar(AStr));
- {$else}
-  var
-    vStr :TFarStr;
-  begin
-    vStr := StrAnsiToOEM(AStr);
-    FARSTD.CopyToClipboard(PFarChar(vStr));
- {$endif bUnicodeFar}
   end;
 
 
@@ -1108,14 +1146,7 @@ interface
   begin
     vBuf[0] := AChr;
     vBuf[1] := #0;
-   {$ifdef bUnicode}
     Result := FARSTD.XLat(@vBuf[0], 0, 1, 0)^;
-   {$else}
-    CharToOEMBuffA(vBuf, vBuf, 1);
-    FARSTD.XLat(@vBuf[0], 0, 1, nil, 0);
-    OEMToCharBuffA(vBuf, vBuf, 1);
-    Result := vBuf[0];
-   {$endif bUnicode}
   end;
 
 
@@ -1126,5 +1157,308 @@ interface
   end;
 
 
+  function ShiftStateToFarKeyState(AShift :Integer) :Integer;
+  begin
+    Result := 0;
+    if AShift and SHIFT_PRESSED <> 0 then
+      Result := Result or KEY_SHIFT;
+    if AShift and LEFT_CTRL_PRESSED <> 0 then
+      Result := Result or KEY_CTRL;
+    if AShift and RIGHT_CTRL_PRESSED <> 0 then
+      Result := Result or KEY_RCTRL;
+    if AShift and LEFT_ALT_PRESSED <> 0 then
+      Result := Result or KEY_ALT;
+    if AShift and RIGHT_ALT_PRESSED <> 0 then
+      Result := Result or KEY_RALT;
+  end;
+
+
+  function FarKeyStateToShiftState(AKey :Integer) :Integer;
+  begin
+    Result := 0;
+    if AKey and KEY_SHIFT <> 0 then
+      Result := Result or SHIFT_PRESSED;
+    if AKey and KEY_CTRL <> 0 then
+      Result := Result or LEFT_CTRL_PRESSED;
+    if AKey and KEY_RCTRL <> 0 then
+      Result := Result or RIGHT_CTRL_PRESSED;
+    if AKey and KEY_ALT <> 0 then
+      Result := Result or LEFT_ALT_PRESSED;
+    if AKey and KEY_RALT <> 0 then
+      Result := Result or RIGHT_ALT_PRESSED;
+  end;
+
+
+  function KeyEventToFarKey(const AEvent :TKeyEventRecord) :Integer;
+  var
+    vKey :Integer;
+  begin
+    vKey := AEvent.wVirtualKeyCode;
+
+    case vKey of
+      0   : vKey := Word(AEvent.UnicodeChar);
+
+      $C0 : vKey := $60;              { ` }
+
+      $BA : vKey := $3B;              { ; }
+      $BB : vKey := $3D;              { = }
+      $BC : vKey := $2C;              { , }
+      $BD : vKey := $2D;              { - }
+      $BE : vKey := KEY_DOT;          { . }
+      $BF : vKey := KEY_SLASH;        { / }
+
+      $DB : vKey := KEY_BRACKET;      { [ }
+      $DC : vKey := KEY_BACKSLASH;    { \ }
+      $DD : vKey := KEY_BACKBRACKET;  { ] }
+      $DE : vKey := $27;              { ' }
+
+      VK_SHIFT, VK_CONTROL, VK_MENU:
+        vKey := 0;
+
+      VK_BACK, VK_TAB, VK_RETURN, VK_ESCAPE, VK_SPACE,
+      Byte('0')..Byte('9'),
+      Byte('A')..Byte('Z'):
+        {vKey := vKey};
+    else
+      Inc(vKey, EXTENDED_KEY_BASE);
+    end;
+
+    Result := vKey or ShiftStateToFarKeyState(AEvent.dwControlKeyState);
+  end;
+
+
+  function FarKeyToKeyEvent(AKey :Integer; var AEvent :TKeyEventRecord) :Boolean;
+  var
+    vShift, vVKey :Integer;
+  begin
+    FillZero(AEvent, SizeOf(AEvent));
+    vShift := FarKeyStateToShiftState(AKey);
+    AKey := AKey and not KEY_CTRLMASK;
+    if AKey < EXTENDED_KEY_BASE then begin
+      vVKey := 0;
+      case AKey of
+        0:
+        if vShift <> 0 then begin
+          if vShift and (LEFT_ALT_PRESSED + RIGHT_ALT_PRESSED) <> 0 then
+            vVKey := VK_MENU;
+          if vShift and (LEFT_CTRL_PRESSED + RIGHT_CTRL_PRESSED) <> 0 then
+            vVKey := VK_CONTROL;
+          if vShift and SHIFT_PRESSED <> 0 then
+            vVKey := VK_SHIFT;
+        end;
+
+        $60 : vVKey := $C0;              { ` }
+
+        $3B : vVKey := $BA;              { ; }
+        $3D : vVKey := $BB;              { = }
+        $2C : vVKey := $BC;              { , }
+        $2D : vVKey := $BD;              { - }
+        KEY_DOT : vVKey := $BE;          { . }
+        KEY_SLASH : vVKey := $BF;        { / }
+
+        KEY_BRACKET : vVKey := $DB;      { [ }
+        KEY_BACKSLASH : vVKey := $DC;    { \ }
+        KEY_BACKBRACKET : vVKey := $DD;  { ] }
+        $27 : vVKey := $DE;              { ' }
+
+        VK_SHIFT, VK_CONTROL, VK_MENU,
+        VK_BACK, VK_TAB, VK_RETURN, VK_ESCAPE, VK_SPACE,
+        Byte('0')..Byte('9'),
+        Byte('A')..Byte('Z'):
+          vVKey := AKey;
+      end;
+      if vVKey <> 0 then begin
+        AEvent.wVirtualKeyCode := vVKey;
+        if (AKey >= 32) and (AKey < $FFFF) then
+          AEvent.UnicodeChar := WChar(AKey);
+        AEvent.dwControlKeyState := vShift;
+//      AEvent.wRepeatCount := 1;
+        AEvent.bKeyDown := True;
+      end  
+    end else
+    if AKey < INTERNAL_KEY_BASE then begin
+      AEvent.wVirtualKeyCode := AKey - EXTENDED_KEY_BASE;
+      AEvent.dwControlKeyState := vShift or ENHANCED_KEY;
+//    AEvent.wRepeatCount := 1;
+      AEvent.bKeyDown := True;
+    end;
+    Result := AEvent.bKeyDown;
+  end;
+
+
+  function MouseEventToFarKey(const AEvent :TMouseEventRecord) :Integer;
+  var
+    vPress, vDouble :Boolean;
+  begin
+    Result := MouseEventToFarKeyEx(AEvent, 0, vPress, vDouble);
+  end;
+
+
+  function MouseEventToFarKeyEx(const AEvent :TMouseEventRecord; AOldState :DWORD; var APress, ADouble :Boolean) :Integer;
+  var
+    vKey :Integer;
+
+    procedure LocCheckButton(AButton :DWORD; AKey :Integer);
+    var
+      vPress, vOldPress :Boolean;
+    begin
+      vPress := AEvent.dwButtonState and AButton <> 0;
+      vOldPress := AOldState and AButton <> 0;
+      if vPress <> vOldPress then begin
+        vKey := AKey;
+        APress := vPress;
+      end;
+    end;
+
+  begin
+    vKey := 0;
+    APress := True;
+    ADouble := False;
+
+    if (AEvent.dwEventFlags = 0) or (AEvent.dwEventFlags and DOUBLE_CLICK <> 0) then begin
+      LocCheckButton(FROM_LEFT_1ST_BUTTON_PRESSED, KEY_MSLCLICK);
+      LocCheckButton(RIGHTMOST_BUTTON_PRESSED,     KEY_MSRCLICK);
+      LocCheckButton(FROM_LEFT_2ND_BUTTON_PRESSED, KEY_MSM3CLICK);
+      if APress and (AEvent.dwEventFlags and DOUBLE_CLICK <> 0) then
+        ADouble := True;
+    end else
+    if AEvent.dwEventFlags and MOUSE_WHEELED <> 0 then begin
+      if Integer(AEvent.dwButtonState) > 0 then
+        vKey := KEY_MSWHEEL_UP
+      else
+      if Integer(AEvent.dwButtonState) < 0 then
+        vKey := KEY_MSWHEEL_DOWN;
+    end else
+    if AEvent.dwEventFlags and MOUSE_HWHEELED <> 0 then begin
+      if Integer(AEvent.dwButtonState) > 0 then
+        vKey := KEY_MSWHEEL_RIGHT
+      else
+      if Integer(AEvent.dwButtonState) < 0 then
+        vKey := KEY_MSWHEEL_LEFT;
+    end;
+
+    Result := vKey or ShiftStateToFarKeyState(AEvent.dwControlKeyState);
+  end;
+
+
+  function FarKeyToMouseEvent(AKey :Integer; var AEvent :TMouseEventRecord) :Boolean;
+  var
+    vFlag, vState :DWORD;
+  begin
+    Result := False;
+    FillZero(AEvent, SizeOf(AEvent));
+    vFlag := 0; 
+    case AKey and not KEY_CTRLMASK of
+      KEY_MSLCLICK: vState := FROM_LEFT_1ST_BUTTON_PRESSED;
+      KEY_MSRCLICK: vState := RIGHTMOST_BUTTON_PRESSED;
+      KEY_MSM3CLICK: vState := FROM_LEFT_2ND_BUTTON_PRESSED;
+      KEY_MSWHEEL_UP: begin vFlag := MOUSE_WHEELED; vState := $00780000; end;
+      KEY_MSWHEEL_DOWN: begin vFlag := MOUSE_WHEELED; vState := $FF880000; end;
+      KEY_MSWHEEL_RIGHT: begin vFlag := MOUSE_HWHEELED; vState := $00780000; end;
+      KEY_MSWHEEL_LEFT: begin vFlag := MOUSE_HWHEELED; vState := $FF880000; end;
+    else
+      Exit;
+    end;
+    AEvent.dwEventFlags := vFlag;
+    AEvent.dwButtonState := vState;
+    AEvent.dwControlKeyState := FarKeyStateToShiftState(AKey);
+    Result := True;
+  end;
+
+
+  function FarKeyToInputRecord(AKey :Integer; var ARec :INPUT_RECORD) :Boolean;
+  begin
+    Result := False;
+    FillZero(ARec, SizeOf(ARec));
+    if FarKeyToKeyEvent(AKey, ARec.Event.KeyEvent) then
+      ARec.EventType := KEY_EVENT
+    else
+    if FarKeyToMouseEvent(AKey, ARec.Event.MouseEvent) then
+      ARec.EventType := _MOUSE_EVENT
+    else
+      Exit;
+    Result := True;
+  end;
+
+
+
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef Far3}
+
+(*
+  function EnumFilesProc(const Item :TPluginPanelItem; FullName :PFarChar; Param: pointer) :integer; stdcall;
+  var
+    vStr :TString;
+    vTmp :TMethod;
+  begin
+    vStr := FullName;
+    vTmp := TMethod(Param^);
+
+   {$ifdef bOldLocalCall}
+    asm push vTmp.Data; end;
+    Result := TEnumFilesProc(vTmp.Code)(vStr, FindData^);
+    asm pop ECX; end;
+   {$else}
+    Result := TEnumFilesProc(vTmp)(vStr, FindData^);
+   {$endif bOldLocalCall}
+  end;
+
+  procedure EnumFilesEx(const ADir, AMask :TFarStr; const aProc :TMethod);
+  begin
+    FARSTD.FarRecursiveSearch(PFarChar(ADir), PFarChar(AMask), EnumFilesProc, FRS_RECUR, @aProc);
+  end;
+*)
+
+ {$else}
+
+  type
+    TEnumFilesProc = function(const AFileName :TString; const ARec :TFarFindData) :Integer
+      {$ifndef bOldLocalCall}of object{$endif bOldLocalCall};
+
+
+  function EnumFilesProc(const FindData :PFarFindData; const FullName :PFarChar; Param :Pointer) :Integer; stdcall;
+  var
+    vStr :TString;
+    vTmp :TMethod;
+  begin
+    vStr := FullName;
+    vTmp := TMethod(Param^);
+   {$ifdef bOldLocalCall}
+    asm push vTmp.Data; end;
+    Result := TEnumFilesProc(vTmp.Code)(vStr, FindData^);
+    asm pop ECX; end;
+   {$else}
+    Result := TEnumFilesProc(vTmp)(vStr, FindData^);
+   {$endif bOldLocalCall}
+  end;
+
+  procedure EnumFilesEx(const ADir, AMask :TFarStr; const aProc :TMethod);
+  begin
+    FARSTD.FarRecursiveSearch(PFarChar(ADir), PFarChar(AMask), EnumFilesProc, FRS_RECUR, @aProc);
+  end;
+
+ {$endif Far3}
+
+
+  function CheckForEsc :Boolean;
+  var
+    vCount :Integer;
+    vRec :Windows.TInputRecord;
+  begin
+    Result := False;
+    if hStdIn = 0 then
+      hStdIn := GetStdHandle(STD_INPUT_HANDLE);
+    while True do begin
+      if not PeekConsoleInput(hStdIn, vRec, 1, DWORD(vCount)) or (vCount = 0) then
+        Break;
+      ReadConsoleInput(hStdIn, vRec, 1, DWORD(vCount));
+      if (vRec.EventType = KEY_EVENT) and (vRec.Event.KeyEvent.wVirtualKeyCode = VK_ESCAPE) and vRec.Event.KeyEvent.bKeyDown then
+        Result := True;
+    end;
+  end;
+
+
 end.
+
 

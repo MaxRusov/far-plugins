@@ -17,11 +17,12 @@ interface
     MixUtils,
     MixStrings,
     MixClasses,
-   {$ifdef bUnicodeFar}
-    PluginW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
+    FarKeysW,
     FarColor,
     FarCtrl;
 
@@ -50,8 +51,6 @@ interface
       function GetChecked(AItemID :Integer) :Boolean;
       procedure SetChecked(AItemID :Integer; AChecked :Boolean);
       function GetRadioIndex(AItemID, ACount :Integer) :Integer;
-      function GetTextApi(AItemID :Integer) :TFarStr;
-      procedure SetTextApi(AItemID :Integer; const AStr :TFarStr);
       function GetText(AItemID :Integer) :TString;
       procedure SetText(AItemID :Integer; const AStr :TString);
       procedure SetListItems(AItemID :Integer; const AItems :array of TString);
@@ -63,6 +62,11 @@ interface
 
     protected
       procedure Prepare; virtual; abstract;
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; virtual;
+      function MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; virtual;
+     {$ifdef Far3}
+      function KeyDownEx(AID :Integer; const AEvent :TKeyEventRecord) :Boolean; virtual;
+     {$endif Far3}
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; virtual;
       procedure ErrorHandler(E :Exception); virtual;
 
@@ -85,8 +89,20 @@ interface
       FHeight    :Integer;
 
       function DlgProc(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr;
-      function CtrlPalette(const AColors :array of Integer) :Integer;
+     {$ifdef Far3}
+      procedure CtrlPalette(const AColors :array of TPaletteColors; var Colors :TFarDialogItemColors);
+     {$else}
+      function CtrlPalette(const AColors :array of TPaletteColors) :Integer;
+     {$endif Far3}
+(*
+     {$ifdef Far3}
+      procedure ChangePalette(AColors :PFarDialogItemColors);
+     {$else}
       procedure ChangePalette(AColors :PFarListColors);
+     {$endif Far3}
+*)
+    public
+      property Handle :THandle read FHandle;
     end;
 
 
@@ -99,8 +115,12 @@ interface
     protected
       procedure Paint(const AItem :TFarDialogItem); virtual;
       function KeyDown(AKey :Integer) :Boolean; virtual;
-      function MouseEvent(var AMouse :TMouseEventRecord) :Boolean; virtual;
+      function MouseEvent(const AMouse :TMouseEventRecord) :Boolean; virtual;
       function MouseClick(const AMouse :TMouseEventRecord) :Boolean; virtual;
+     {$ifdef Far3}
+      function KeyDownEx(const AEvent :TKeyEventRecord) :Boolean; virtual;
+      function MouseEventEx(const AEvent :TMouseEventRecord) :Boolean; virtual;
+     {$endif Far3}
       function EventHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :Integer; virtual;
 
     protected
@@ -119,7 +139,16 @@ interface
   uses
     MixDebug;
 
-    
+
+
+  function KeyEventToFarKey1(const AEvent :TKeyEventRecord) :Integer;
+  begin
+    if (word(AEvent.UnicodeChar) >= 32) and ((LEFT_CTRL_PRESSED + RIGHT_CTRL_PRESSED + LEFT_ALT_PRESSED + RIGHT_ALT_PRESSED) and AEvent.dwControlKeyState = 0) then
+      Result := Word(AEvent.UnicodeChar)
+    else
+      Result := KeyEventToFarKey(AEvent);
+  end;
+
 
  {-----------------------------------------------------------------------------}
  { TFarDialog                                                                  }
@@ -153,11 +182,11 @@ interface
   begin
 //  TraceF('ApiDlgProc: hDlg=%d, Msg=%d, Param1=%d, Param2=%d', [hDlg, Msg, Param1, Param2]);
     if Msg = DN_INITDIALOG then begin
-      FARAPI.SendDlgMessage(hDlg, DM_SETDLGDATA, 0, Param2);
+      FarSendDlgMessage(hDlg, DM_SETDLGDATA, 0, Param2);
       TIntPtr(vDialog) := Param2;
       vDialog.FHandle := hDlg;
     end else
-      TIntPtr(vDialog) := FARAPI.SendDlgMessage(hDlg, DM_GETDLGDATA, 0, 0);
+      TIntPtr(vDialog) := FarSendDlgMessage(hDlg, DM_GETDLGDATA, 0, 0);
     Assert(vDialog.FHandle = hDlg);
     Result := vDialog.DlgProc(Msg, Param1, Param2);
   end;
@@ -181,25 +210,71 @@ interface
   end;
 
 
+  function TFarDialog.KeyDown(AID :Integer; AKey :Integer) :Boolean; {virtual;}
+  begin
+    Result := False; { Ќе обработано, продолжить стандартную обработку }
+  end;
+
+
+  function TFarDialog.MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; {virtual;}
+  begin
+    Result := False; { Ќе обработано, продолжить стандартную обработку }
+  end;
+
+
+ {$ifdef Far3}
+  function TFarDialog.KeyDownEx(AID :Integer; const AEvent :TKeyEventRecord) :Boolean; {virtual;}
+  begin
+    Result := KeyDown(AID, KeyEventToFarKey1(AEvent));
+  end;
+ {$endif Far3}
+
+
 
   function TFarDialog.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {virtual;}
+
+    function LocControlHandle(var AResult :TIntPtr) :Boolean;
+    var
+      vCtrl :TFarCustomControl;
+    begin
+      Result := False;
+      if (Param1 > 0) and (Param1 < FCtrlCount) and (FDialog[Param1].ItemType = DI_USERCONTROL) then begin
+        vCtrl := FControls[Param1];
+        if vCtrl <> nil then begin
+          AResult := vCtrl.EventHandler(Msg, Param1, Param2);
+          Result := True;
+        end;
+      end;
+    end;
+
   var
     I :Integer;
     vCtrl :TFarCustomControl;
   begin
-//  TraceF('TFarDialog.DialogHandler: %d, Param1=%d, Param2=%d', [Msg, Param1, Param2]);
+   {$ifdef bTrace}
+//  if Msg <> DN_ENTERIDLE then
+//    TraceF('TFarDialog.DialogHandler: %d, Param1=%d, Param2=%d', [Msg, Param1, Param2]);
+   {$endif bTrace}
 
     Result := 1;
     case Msg of
       DN_INITDIALOG:
         InitDialog;
+
+     {$ifdef Far3}
+     {$else}
       DN_GETDIALOGINFO:
         Result := InitFialogInfo(PDialogInfo(Param2)^);
+     {$endif Far3}
 
       DN_CLOSE:
         Result := Byte(CloseDialog(Param1));
 
+     {$ifdef Far3}
+      DN_INPUT:
+     {$else}
       DN_MOUSEEVENT:
+     {$endif Far3}
         begin
           Result := 1;
           for I := 0 to FCtrlCount - 1 do begin
@@ -212,17 +287,37 @@ interface
           end;
         end;
 
-      DN_DRAWDLGITEM, DN_KEY, DN_MOUSECLICK, DN_KILLFOCUS, DN_GOTFOCUS:
+     {$ifdef Far3}
+      DN_CONTROLINPUT:
         begin
-          if (Param1 > 0) and (Param1 < FCtrlCount) and (FDialog[Param1].ItemType = DI_USERCONTROL) then begin
-            vCtrl := FControls[Param1];
-            if vCtrl <> nil then begin
-              Result := vCtrl.EventHandler(Msg, Param1, Param2);
-              Exit;
+          with INPUT_RECORD(Pointer(Param2)^) do
+            if EventType = KEY_EVENT then begin
+              if KeyDownEx(Param1, Event.KeyEvent) then
+                Exit;
+            end else
+            if EventType = _MOUSE_EVENT then begin
+              if MouseEvent(Param1, Event.MouseEvent) then
+                Exit;
             end;
-          end;
-          Result := FARAPI.DefDlgProc(FHandle, Msg, Param1, Param2);
+          if not LocControlHandle(Result) then
+            Result := FARAPI.DefDlgProc(FHandle, Msg, Param1, Param2);
         end;
+
+     {$else}
+      DN_KEY:
+        if not KeyDown(Param1, Param2) then
+          if not LocControlHandle(Result) then
+            Result := FARAPI.DefDlgProc(FHandle, Msg, Param1, Param2);
+
+      DN_MOUSECLICK:
+        if not MouseEvent(Param1, PMouseEventRecord(Param2)^) then
+          if not LocControlHandle(Result) then
+            Result := FARAPI.DefDlgProc(FHandle, Msg, Param1, Param2);
+     {$endif Far3}
+
+      DN_DRAWDLGITEM, DN_KILLFOCUS, DN_GOTFOCUS {$ifdef Far3}, DN_GETVALUE{$endif Far3}:
+        if not LocControlHandle(Result) then
+          Result := FARAPI.DefDlgProc(FHandle, Msg, Param1, Param2);
 
 //    DN_ENTERIDLE:
 //      begin
@@ -268,42 +363,60 @@ interface
 
   function TFarDialog.Run :Integer;
   begin
-    Result := RunDialog(hModule, FLeft, FTop, FWidth, FHeight, PFarChar(FHelpTopic), FDialog, FItemCount, FFlags, ApiDlgProc, TIntPtr(Self));
+    Result := RunDialog(FLeft, FTop, FWidth, FHeight, PFarChar(FHelpTopic), FDialog, FItemCount, FFlags,
+      ApiDlgProc, {$ifdef Far3}FGUID,{$endif Far3} TIntPtr(Self));
   end;
 
 
-  function TFarDialog.CtrlPalette(const AColors :array of Integer) :Integer;
+ {$ifdef Far3}
+  procedure TFarDialog.CtrlPalette(const AColors :array of TPaletteColors; var Colors :TFarDialogItemColors);
+  var
+    I :Integer;
+  begin
+    for I := 0 to IntMin(High(AColors), Colors.ColorsCount - 1) do
+      Colors.Colors[I] := FarGetColor(AColors[i]);
+ {$else}
+  function TFarDialog.CtrlPalette(const AColors :array of TPaletteColors) :Integer;
   var
     I :Integer;
   begin
     Result := 0;
     for I := 0 to IntMin(High(AColors), 3) do
-      PByteArray(@Result)[I] := Byte( FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(TIntPtr(AColors[i]))) );
+      PByteArray(@Result)[I] := FarGetColor(AColors[i]);
+ {$endif Far3}
   end;
 
 
+(*
+ {$ifdef Far3}
+  procedure TFarDialog.ChangePalette(AColors :PFarDialogItemColors);
+  begin
+    Sorry;
+ {$else}
   procedure TFarDialog.ChangePalette(AColors :PFarListColors);
   const
     cColors = 10;
-    cMenuPalette :array[0..cColors - 1] of Integer =
+    cMenuPalette :array[0..cColors - 1] of TPaletteColors =
       (COL_MENUBOX,COL_MENUBOX,COL_MENUTITLE,COL_MENUTEXT, COL_MENUHIGHLIGHT,COL_MENUBOX,COL_MENUSELECTEDTEXT, COL_MENUSELECTEDHIGHLIGHT,COL_MENUSCROLLBAR,COL_MENUDISABLEDTEXT);
   var
     I :Integer;
   begin
     for I := 0 to IntMin(cColors, AColors.ColorCount) - 1 do
       AColors.Colors[I] := AnsiChar( FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(TIntPtr(cMenuPalette[i]))) );
+ {$endif Far3}
   end;
+*)
 
 
   function TFarDialog.SendMsg(AMsg, AParam1 :Integer; AParam2 :TIntPtr) :TIntPtr;
   begin
-    Result := FARAPI.SendDlgMessage(FHandle, AMsg, AParam1, AParam2);
+    Result := FarSendDlgMessage(FHandle, AMsg, AParam1, AParam2);
   end;
 
 
   function TFarDialog.SendMsg(AMsg, AParam1 :Integer; AParam2 :Pointer) :TIntPtr;
   begin
-    Result := FARAPI.SendDlgMessage(FHandle, AMsg, AParam1, TIntPtr(AParam2));
+    Result := FarSendDlgMessage(FHandle, AMsg, AParam1, AParam2);
   end;
 
 
@@ -360,7 +473,7 @@ interface
   end;
 
 
-  procedure TFarDialog.SetTextApi(AItemID :Integer; const AStr :TFarStr);
+  procedure TFarDialog.SetText(AItemID :Integer; const AStr :TString);
   var
     vData :TFarDialogItemData;
   begin
@@ -370,7 +483,7 @@ interface
   end;
 
 
-  function TFarDialog.GetTextApi(AItemID :Integer) :TFarStr;
+  function TFarDialog.GetText(AItemID :Integer) :TString;
   var
     vLen :Integer;
     vData :TFarDialogItemData;
@@ -383,26 +496,6 @@ interface
       vData.PtrData := PFarChar(Result);
       SendMsg(DM_GETTEXT, AItemID, @vData);
     end;
-  end;
-
-
-  procedure TFarDialog.SetText(AItemID :Integer; const AStr :TString);
-  begin
-   {$ifdef bUnicodeFar}
-    SetTextApi( AItemID, AStr );
-   {$else}
-    SetTextApi( AItemID, StrAnsiToOem(AStr) );
-   {$endif bUnicodeFar}
-  end;
-
-
-  function TFarDialog.GetText(AItemID :Integer) :TString;
-  begin
-   {$ifdef bUnicodeFar}
-    Result := GetTextApi(AItemID);
-   {$else}
-    Result := StrOemToAnsi(GetTextApi(AItemID));
-   {$endif bUnicodeFar}
   end;
 
 
@@ -446,15 +539,8 @@ interface
 
 
   procedure TFarDialog.AddHistory(AItemID :Integer; const AStr :TString);
-  var
-    vFarStr :TFarStr;
   begin
-   {$ifdef bUnicodeFar}
-    vFarStr := AStr;
-   {$else}
-    vFarStr := StrAnsiToOem(AStr);
-   {$endif bUnicodeFar}
-    SendMsg(DM_ADDHISTORY, AItemID, PFarChar(vFarStr));
+    SendMsg(DM_ADDHISTORY, AItemID, PTChar(AStr));
   end;
 
 
@@ -496,7 +582,7 @@ interface
   end;
 
 
-  function TFarCustomControl.MouseEvent(var AMouse :TMouseEventRecord) :Boolean; {virtual;}
+  function TFarCustomControl.MouseEvent(const AMouse :TMouseEventRecord) :Boolean; {virtual;}
   begin
     Result := True;
   end;
@@ -508,6 +594,28 @@ interface
   end;
 
 
+ {$ifdef Far3}
+  function TFarCustomControl.KeyDownEx(const AEvent :TKeyEventRecord) :Boolean; {virtual;}
+  begin
+    Result := KeyDown(KeyEventToFarKey1(AEvent));
+  end;
+
+
+  function TFarCustomControl.MouseEventEx(const AEvent :TMouseEventRecord) :Boolean; {virtual;}
+  var
+    vKey :Integer;
+  begin
+    Result := False;
+    if (AEvent.dwEventFlags and MOUSE_WHEELED <> 0) or (AEvent.dwEventFlags and MOUSE_HWHEELED <> 0) then begin
+      vKey := MouseEventToFarKey(AEvent);
+      if vKey <> 0 then
+        Result := KeyDown(vKey);
+    end else
+      Result := MouseEvent(AEvent);
+  end;
+ {$endif Far3}
+
+
   function TFarCustomControl.EventHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :Integer; {virtual;}
   begin
     Result := 1;
@@ -515,13 +623,23 @@ interface
 //    DN_GOTFOCUS:
 //    DN_KILLFOCUS:
 
+     {$ifdef Far3}
+      DN_INPUT, DN_CONTROLINPUT:
+        with INPUT_RECORD(Pointer(Param2)^) do
+          if EventType = KEY_EVENT then
+            Result := Byte(KeyDownEx(Event.KeyEvent))
+          else
+          if EventType = _MOUSE_EVENT then
+            Result := Byte(MouseEventEx(Event.MouseEvent));
+     {$else}
       DN_KEY:
         Result := Byte(KeyDown(Param2));
-
       DN_MOUSEEVENT:
         Result := Byte(MouseEvent(PMouseEventRecord(Param2)^));
       DN_MOUSECLICK:
         Result := Byte(MouseClick(PMouseEventRecord(Param2)^));
+     {$endif Far3}
+
       DN_DRAWDLGITEM:
         Paint(PFarDialogItem(Param2)^);
     else
@@ -531,4 +649,6 @@ interface
 
 
 end.
+
+
 
