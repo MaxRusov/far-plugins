@@ -33,7 +33,5 @@ exports
 
 
 begin
-
-  asm db $CC end;
-
+//  asm db $CC end;
 end.
