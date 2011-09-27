@@ -1,12 +1,12 @@
-{$I Defines.inc}
-
-unit UCharMapFontsDlg;
-
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
 {*                                                                            *}
 {* Unicode CharMap                                                            *}
 {******************************************************************************}
+
+{$I Defines.inc}
+
+unit UCharMapFontsDlg;
 
 interface
 
@@ -16,13 +16,17 @@ interface
     MixUtils,
     MixStrings,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
-    FarKeysW,
+   {$endif Far3}
     FarColor,
     FarCtrl,
     FarMatch,
     FarDlg,
     FarGrid,
+    FarListDlg,
 
     UCharMapCtrl,
     UCharListBase;
@@ -51,7 +55,7 @@ interface
 
       procedure SelectItem(ACode :Integer); override;
       procedure UpdateHeader; override;
-      procedure ReinitListControl; override;
+      procedure ReinitGrid; override;
       procedure ReinitAndSaveCurrent; override;
 
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; override;
@@ -108,7 +112,7 @@ interface
   end;
 
 
-  procedure TFontsDlg.ReinitListControl; {override;}
+  procedure TFontsDlg.ReinitGrid; {override;}
   var
     I, vPos, vLen, vMaxLen :Integer;
     vName, vMask :TString;
@@ -156,7 +160,7 @@ interface
     vName := '';
     if (FGrid.CurRow >= 0) and (FGrid.CurRow < FGrid.RowCount) then
       vName := GetFont(FGrid.CurRow);
-    ReinitListControl;
+    ReinitGrid;
     GotoFont(vName);
   end;
 
@@ -214,6 +218,7 @@ interface
     Result := False;
     vDlg := TFontsDlg.Create;
     try
+      vDlg.FGUID := cFontDlgID;
       vDlg.FResName := AName;
 
       if vDlg.Run = -1 then

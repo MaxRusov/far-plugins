@@ -3,7 +3,7 @@
 unit UCharMapHints;
 
 {******************************************************************************}
-{* (c) 2008 Max Rusov                                                         *}
+{* (c) 2011 Max Rusov                                                         *}
 {*                                                                            *}
 {* Unicode CharMap                                                            *}
 {* Интеграция с FAR Hints                                                     *}
@@ -17,15 +17,18 @@ interface
     MixUtils,
     MixStrings,
     MixClasses,
-
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
-
+   {$endif Far3}
     FarCtrl,
     FarDlg,
     FarGrid,
     FarHintsAPI,
 
-    UCharMapCtrl;
+    UCharMapCtrl,
+    UCharListBase;
 
 
   const
@@ -36,8 +39,6 @@ interface
   type
     THintPluginObject = class(TInterfacedObject, IEmbeddedHintPlugin, IHintPluginDraw, IHintPluginCommand)
     public
-      constructor CreateEx(AOwner :TFarDialog);
-
       {IHintPlugin}
       procedure InitPlugin(const API :IFarHintsApi; const AInfo :IHintPluginInfo); stdcall;
       procedure DonePlugin; stdcall;
@@ -56,12 +57,14 @@ interface
 
     private
       FAPI       :IFarHintsApi;
-      FOwner     :TFarDialog;
 
       FChar      :TString;
+      FFontName  :TString;
 
       FFont      :HFont;
       FSize      :Integer;
+
+      FNeedSave  :Boolean;
 
       procedure UpdateFontPreview(const AItem :IFarItem);
     end;
@@ -78,6 +81,7 @@ interface
 
   uses
     UCharMapDlg,
+    UCharMapCharsDlg,
     MixDebug;
 
 
@@ -101,18 +105,11 @@ interface
  { THintPluginObject                                                           }
  {-----------------------------------------------------------------------------}
 
-  constructor THintPluginObject.CreateEx(AOwner :TFarDialog);
-  begin
-    Create;
-    FOwner := AOwner;
-  end;
-
-
   procedure THintPluginObject.InitPlugin(const API :IFarHintsApi; const AInfo :IHintPluginInfo); {stdcall;}
   begin
     FAPI := API;
     AInfo.Flags := PF_ProcessDialog or PF_CanChangeSize;
-    ReadSetup;
+//  PluginConfig(False);
   end;
 
 
@@ -133,30 +130,55 @@ interface
     Result := False;
 
     FarGetWindowInfo(-1, vWinInfo, @vStr, nil);
-    if not (vWinInfo.WindowType in [WTYPE_DIALOG]) or (vStr <> GetMsgStr(strTitle)) then
+    if not (vWinInfo.WindowType in [WTYPE_DIALOG]) or (vStr <> TopDlg.GetText(0)) then
       Exit;
 
-    vGrid := (FOwner as TCharMapDlg).Grid;
+    if TopDlg is TCharMapDlg then
+      vGrid := (TopDlg as TCharMapDlg).Grid
+    else
+      vGrid := (TopDlg as TListBase).Grid;
 
     X := AItem.MouseX;
     Y := AItem.MouseY;
 
-    with FOwner.GetDlgRect do begin
+    with TopDlg.GetDlgRect do begin
       Dec(X, Left + vGrid.Left);
       Dec(Y, Top + vGrid.Top);
     end;
 
-    if (vGrid.HitTest(X, Y, vCol, vRow) <> ghsCell) or (vCol = 0) or (vCol > 16) then
+    if (vGrid.HitTest(X, Y, vCol, vRow) <> ghsCell) then
       Exit;
 
-    D := 0;
-    if vGrid.CalcColByDelta(X - 1) = vCol then
-      D := -1;
+    if TopDlg is TCharMapDlg then begin
+      if (vCol < vGrid.FixedCol) or (vCol >= vGrid.Columns.Count) then
+        Exit;
 
-    vRect := Bounds(AItem.MouseX + D, AItem.MouseY, 3, 1);
-    AItem.SetItemRect(vRect);
+      D := 0;
+      if vGrid.CalcColByDelta(X - 1) = vCol then
+        D := -1;
+      vRect := Bounds(AItem.MouseX + D, AItem.MouseY, 3, 1);
+      AItem.SetItemRect(vRect);
 
-    vCode := Word(TCharMapDlg(FOwner).GetCharAt(vCol, vRow));
+      vCode := Word(TCharMapDlg(TopDlg).GetCharAt(vCol, vRow));
+      if vCode = 0 then
+        Exit;
+
+    end else
+    if TopDlg is TCharsDlg then begin
+
+      vCode := TCharsDlg(TopDlg).GetCode(vRow);
+      if vCode < 0 then
+        Exit;
+
+    end else
+      Exit;
+
+    FFontName := '';
+    if CharMapped(TChar(vCode)) then
+      FFontName := FontName
+    else
+    if optAutoChooseFont then
+      FFontName := ChooseFontFor(TChar(vCode));
 
     vStr := NameOfChar(vCode);
     if vStr <> '' then
@@ -168,10 +190,11 @@ interface
 
     AItem.AddStringInfo(GetMsgStr(strCode), Format('$%.4x (%d)', [vCode, vCode]));
 
-    FChar := '';
-    if TCharMapDlg(FOwner).CharMapped(TChar(vCode)) then
-      FChar := TChar(vCode);
+    if FFontName <> '' then
+      {!!!Localize}
+      AItem.AddStringInfo('Font', FFontName);
 
+    FChar := TChar(vCode);
     FSize := FontSize;
 
     AItem.IconFlags := IF_Buffered or IF_HideSizeLabel;
@@ -193,6 +216,10 @@ interface
       DeleteObject(FFont);
       FFont := 0;
     end;
+    if FNeedSave then begin
+      FNeedSave := False;
+      PluginConfig(True);
+    end
   end;
 
 
@@ -216,7 +243,7 @@ interface
 
       FontSize := FSize;
       AItem.UpdateHintWindow(uhwResize + uhwInvalidateItems + uhwInvalidateImage);
-      WriteSetup;
+      FNeedSave := True;
     end;
   end;
 
@@ -226,12 +253,13 @@ interface
     vViewSize :TSize;
   begin
     FFont := 0;
-    if FSize <> 0 then
-      FFont := GetFont(FontName, FSize, DEFAULT_PITCH{FInfo.Pitch}, FW_Normal{FInfo.Weight}, False {FInfo.Italic});
 
     vViewSize := Size(0, 0);
-    if (FChar <> '') and (FFont <> 0) then
-      vViewSize := TextSize(FFont, FChar);
+    if (FChar <> '') and (FFontName <> '') and (FSize <> 0) then begin
+      FFont := GetFont(FFontName, FSize, DEFAULT_PITCH{FInfo.Pitch}, FW_Normal{FInfo.Weight}, False {FInfo.Italic});
+      if (FChar <> '') and (FFont <> 0) then
+        vViewSize := TextSize(FFont, FChar);
+    end;
 
     if (vViewSize.cx > 0) and (vViewSize.cy > 0) then begin
       AItem.IconWidth := vViewSize.cx + 5;
@@ -296,7 +324,7 @@ interface
         if not Assigned(FIntegrationAPI) then
           Exit; {FarHints неподходящей версии }
 
-        FHintObject := THintPluginObject.CreateEx(AOwner);
+        FHintObject := THintPluginObject.Create;
         FIntegrationAPI.RegisterEmbeddedPlugin(FHintObject);
 
         FHintRegistered := True;
