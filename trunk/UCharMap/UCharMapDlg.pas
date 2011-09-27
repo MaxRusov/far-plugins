@@ -1,5 +1,5 @@
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2011 Max Rusov                                                         *}
 {*                                                                            *}
 {* Unicode CharMap                                                            *}
 {******************************************************************************}
@@ -18,7 +18,11 @@ interface
     MixClasses,
     MixWinUtils,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
     FarKeysW,
     FarColor,
 
@@ -31,8 +35,10 @@ interface
    {$endif bUseHint}
 
     UCharMapCtrl,
+    UCharListBase,
     UCharMapFontsDlg,
-    UCharMapGroupsDlg;
+    UCharMapGroupsDlg,
+    UCharMapCharsDlg;
 
 
   var
@@ -42,7 +48,7 @@ interface
 
   const
     cDlgWidth  = 44;
-    cDlgHeight = 26;
+    cDlgHeight = 27;
 
     IdFrame   = 0;
     IdIcon    = 1;
@@ -53,9 +59,11 @@ interface
     IdEdit    = 6;
     IdStatus  = 7;
     IdChrName = 8;
+    IdGrpName = 9;
 
     cMaximizedIcon = '['#$12']';
     cNormalIcon = '['#$18']';
+
 
   type
     TCharMapDlg = class(TFarDialog)
@@ -64,19 +72,19 @@ interface
       destructor Destroy; override;
 
       function GetCharAt(ACol, ARow :Integer) :TChar;
-      function CharMapped(AChar :TChar) :Boolean;
 
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
       function CloseDialog(ItemID :Integer) :Boolean; override;
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
+      function MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; override;
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
     private
       FGrid        :TFarGrid;
-      FRange       :TBits;
       FFilter      :TIntList;
-      FHiddenColor :Integer;
+      FHiddenColor :TFarColor;
       FRes         :TString;
 
       procedure ResizeDialog(ANeedLock :Boolean);
@@ -88,8 +96,9 @@ interface
 
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
-      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
-      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
+      function GridPaintRow(ASender :TFarGrid; X, Y, AWidth :Integer; ARow :Integer; AColor :TFarColor) :Boolean;
+      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor);
       procedure GridPosChange(ASender :TFarGrid);
       function GetCurChar :TChar;
 
@@ -99,7 +108,11 @@ interface
       procedure SelectFont;
       procedure SelectGroup;
       procedure SelectChar;
+      procedure ReturnChar;
       procedure Maximize;
+
+      procedure CollapseGroup;
+      procedure ExpandGroup;
 
     public
       property Grid :TFarGrid read FGrid;
@@ -127,9 +140,7 @@ interface
    {$ifdef bUseHint}
     RegisterHints(Self);
    {$endif bUseHint}
-    FHiddenColor := optHiddenColor;
-    if FHiddenColor = 0 then
-      FHiddenColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_DIALOGDISABLED));
+    FHiddenColor := GetOptColor(optHiddenColor, COL_DIALOGDISABLED);
   end;
 
 
@@ -140,7 +151,6 @@ interface
    {$endif bUseHint}
     FreeObj(FGrid);
     FreeObj(FFilter);
-    FreeObj(FRange);
     inherited Destroy;
   end;
 
@@ -149,13 +159,11 @@ interface
   const
     DX = cDlgWidth;
     DY = cDlgHeight;
-  var
-    I :Integer;
   begin
     FHelpTopic := 'UCharMap';
+    FGUID := cMainDlgID;
     FWidth := cDlgWidth;
     FHeight := cDlgHeight;
-    FItemCount := 9;
     FDialog := CreateDialog(
       [
         NewItemApi(DI_DoubleBox,   2, 1, DX - 4, DY - 2, 0, GetMsg(strTitle)),
@@ -166,28 +174,22 @@ interface
         NewItemApi(DI_SingleBox,   3, 20, DX - 6, 1, 0, ''),
         NewItemApi(DI_Edit,        3, 21, DX - 6, 1, 0, ''),
         NewItemApi(DI_Text,        3, 22, DX - 6, 1, 0, ''),
-        NewItemApi(DI_Text,        3, 23, DX - 6, 1, 0, '')
-      ]
+        NewItemApi(DI_Text,        3, 23, DX - 6, 1, 0, ''),
+        NewItemApi(DI_Text,        3, 24, DX - 6, 1, 0, '')
+      ], @FItemCount
     );
 
     FGrid := TFarGrid.CreateEx(Self, IdMap);
     FGrid.OnCellClick := GridCellClick;
     FGrid.OnGetCellText := GridGetDlgText;
     FGrid.OnGetCellColor := GridGetCellColor;
+    FGrid.OnPaintRow := GridPaintRow;
     FGrid.OnPaintCell := GridPaintCell;
     FGrid.OnPosChange := GridPosChange;
     FGrid.Options := [{goRowSelect} {goFollowMouse} {,goWheelMovePos}];
-    FGrid.NormColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_DIALOGTEXT));
-    FGrid.SelColor := optCurrColor;
-    if FGrid.SelColor = 0 then
-      FGrid.SelColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_DIALOGLISTSELECTEDTEXT));
+    FGrid.NormColor := FarGetColor(COL_DIALOGTEXT);
+    FGrid.SelColor := GetOptColor(optCurrColor, COL_DIALOGLISTSELECTEDTEXT);
 
-    FGrid.Columns.FreeAll;
-    FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 4, taRightJustify, [], 0) );
-    for I := 0 to 15 do
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 2, taLeftJustify, [{coColMargin,} coNoVertLine, coOwnerDraw], 0) );
-
-    FGrid.FixedCol := 1;
     FGrid.RowCount := $1000;
     FGrid.UpdateSize(3, 2, DX - 5, 16);
   end;
@@ -195,18 +197,18 @@ interface
 
   procedure TCharMapDlg.InitDialog; {override;}
   begin
-    FRange := GetFontRange(FontName);
     ReinitFilter;
     ResizeDialog(False);
     GotoChar(vLastChar);
     SetText(IdFont, FontName);
     SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
+    UpdateFontRange;
   end;
 
 
   procedure TCharMapDlg.ResizeDialog(ANeedLock :Boolean);
   var
-    vHeight :Integer;
+    vHeight, vAddHeight, vWidth :Integer;
     vRect :TSmallRect;
     vSize :TSize;
   begin
@@ -215,7 +217,20 @@ interface
     try
       vSize := FarGetWindowSize;
 
-      vHeight := cDlgHeight;
+      vWidth := cDlgWidth;
+      if not optShowNumbers then
+        Dec(vWidth, 5);
+
+      vAddHeight := 9;
+      if optShowGroupName then
+        Inc(vAddHeight);
+      if optShowCharName then
+        Inc(vAddHeight);
+      if optGroupBy and (GroupNames <> nil) then
+        Inc(vAddHeight, 4);
+
+      vHeight := 16 + vAddHeight;
+
       if optMaximized then begin
         vHeight := FGrid.RowCount + 10;
         if vHeight > vSize.CY - 4 then
@@ -223,19 +238,29 @@ interface
         vHeight := IntMax(vHeight, cDlgHeight);
       end;
 
-      SetDlgPos(-1, -1, cDlgWidth, vHeight);
+      SetDlgPos(-1, -1, vWidth, vHeight);
 
       vRect.Left := 2;
       vRect.Top := 1;
-      vRect.Right := cDlgWidth - 3;
+      vRect.Right := vWidth - 3;
       vRect.Bottom := vHeight - 2;
       SendMsg(DM_SETITEMPOSITION, IdFrame, @vRect);
 
       Inc(vRect.Left); Dec(vRect.Right);
-      vRect.Top := vRect.Bottom - 1;
-      vRect.Bottom := vRect.Top;
-      SendMsg(DM_SETITEMPOSITION, IdChrName, @vRect);
-      Dec(vRect.Top); Dec(vRect.Bottom);
+      vRect.Top := vRect.Bottom - 1; vRect.Bottom := vRect.Top;
+
+      SendMsg(DM_SHOWITEM, IdGrpName, Byte(optShowGroupName));
+      if optShowGroupName then begin
+        SendMsg(DM_SETITEMPOSITION, IdGrpName, @vRect);
+        Dec(vRect.Top); Dec(vRect.Bottom);
+      end;
+
+      SendMsg(DM_SHOWITEM, IdChrName, Byte(optShowCharName));
+      if optShowCharName then begin
+        SendMsg(DM_SETITEMPOSITION, IdChrName, @vRect);
+        Dec(vRect.Top); Dec(vRect.Bottom);
+      end;
+
       SendMsg(DM_SETITEMPOSITION, IdStatus, @vRect);
       Dec(vRect.Top); Dec(vRect.Bottom);
       SendMsg(DM_SETITEMPOSITION, IdEdit, @vRect);
@@ -246,10 +271,17 @@ interface
       SendMsg(DM_SETITEMPOSITION, IdMap, @vRect);
       FGrid.UpdateSize(vRect.Left, vRect.Top, vRect.Right - vRect.Left + 1, vRect.Bottom - vRect.Top + 1);
 
+      vRect.Top := 3; vRect.Bottom := vRect.Top; Dec(vRect.Right);
+      SendMsg(DM_SETITEMPOSITION, IdFrame1, @vRect);
+
+
+      vRect.Top := 1; vRect.Bottom := 1; vRect.Left := vWidth - 7; vRect.Right := vRect.Left + 2;
+      SendMsg(DM_SETITEMPOSITION, IdIcon, @vRect);
+
       if optMaximized then
-        SetTextApi(IdIcon, cMaximizedIcon)
+        SetText(IdIcon, cMaximizedIcon)
       else
-        SetTextApi(IdIcon, cNormalIcon);
+        SetText(IdIcon, cNormalIcon);
 
     finally
       if ANeedLock then
@@ -257,18 +289,18 @@ interface
     end;
   end;
 
-
+(*
   procedure TCharMapDlg.ReinitFilter;
   var
     I :Integer;
     vPtr :Pointer;
   begin
-    if not optShowHidden then begin
+    if not optShowHidden and (FontRange <> nil) then begin
       if FFilter = nil then
         FFilter := TIntList.Create;
       FFilter.Clear;
 
-      vPtr := FRange.BitsPtr;
+      vPtr := FontRange.BitsPtr;
       for I := 0 to $FFF do begin
         if Word(vPtr^) <> 0 then
           FFilter.Add(I);
@@ -284,6 +316,234 @@ interface
     else
       FGrid.RowCount := $1000;
   end;
+*)
+
+(*
+  procedure TCharMapDlg.ReinitFilter;
+  var
+    I, vGroup, vNext :Integer;
+    vPtr :Pointer;
+  begin
+    vPtr := nil;
+    if not optShowHidden and (FontRange <> nil) then
+      vPtr := FontRange.BitsPtr;
+
+    if optGroupBy and (GroupNames <> nil) then begin
+      if FFilter = nil then
+        FFilter := TIntList.Create;
+      FFilter.Clear;
+
+      vGroup := 0;
+      vNext := TUnicodeGroup(GroupNames[vGroup]).Code1;
+
+      for I := 0 to $FFF do begin
+
+        if I * 16 >= vNext then begin
+          Inc(vGroup);
+          if vGroup < GroupNames.Count then
+            vNext := TUnicodeGroup(GroupNames[vGroup]).Code1
+          else
+            vNext := $10000;
+
+          if (FFilter.Count > 0) and (FFilter[FFilter.Count - 1] < 0) then
+            FFilter.Delete(FFilter.Count - 1);
+
+          FFilter.Add(-vGroup);
+        end;
+
+        if (vPtr = nil) or (Word(vPtr^) <> 0) then
+          FFilter.Add(I);
+        if vPtr <> nil then
+          Inc(Pointer1(vPtr), 2);
+      end;
+
+      if (FFilter.Count > 0) and (FFilter[FFilter.Count - 1] < 0) then
+        FFilter.Delete(FFilter.Count - 1);
+
+    end else
+    begin
+      if vPtr <> nil then begin
+        if FFilter = nil then
+          FFilter := TIntList.Create;
+        FFilter.Clear;
+
+        for I := 0 to $FFF do begin
+          if Word(vPtr^) <> 0 then
+            FFilter.Add(I);
+          Inc(Pointer1(vPtr), 2);
+        end;
+
+      end else
+        FreeObj(FFilter);
+    end;
+
+    FGrid.Columns.FreeAll;
+    if optShowNumbers then
+      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 4, taRightJustify, [], 0) );
+    for I := 0 to 15 do
+      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 2, taLeftJustify, [{coColMargin,} coNoVertLine, coOwnerDraw], 0) );
+
+    FGrid.FixedCol := IntIf(optShowNumbers, 1, 0);
+
+    FGrid.ResetSize;
+    if FFilter <> nil then
+      FGrid.RowCount := FFilter.Count
+    else
+      FGrid.RowCount := $1000;
+  end;
+*)
+
+(*
+  procedure TCharMapDlg.ReinitFilter;
+  var
+    I, vGIndex, vNext :Integer;
+    vGroup :TUnicodeGroup;
+    vPtr :Pointer;
+  begin
+    vPtr := nil;
+    if not optShowHidden and (FontRange <> nil) then
+      vPtr := FontRange.BitsPtr;
+
+    if optGroupBy and (GroupNames <> nil) then begin
+      if FFilter = nil then
+        FFilter := TIntList.Create;
+      FFilter.Clear;
+
+      vGIndex := 0;
+      vGroup := nil;
+      vNext := TUnicodeGroup(GroupNames[vGIndex]).Code1;
+
+      for I := 0 to $FFF do begin
+
+        if I * 16 >= vNext then begin
+          vGroup := TUnicodeGroup(GroupNames[vGIndex]);
+
+          Inc(vGIndex);
+          if vGIndex < GroupNames.Count then
+            vNext := TUnicodeGroup(GroupNames[vGIndex]).Code1
+          else
+            vNext := $10000;
+
+          if (FFilter.Count > 0) and (FFilter[FFilter.Count - 1] < 0) then
+            FFilter.Delete(FFilter.Count - 1);
+
+          FFilter.Add(-vGIndex);
+        end;
+
+        if (vGroup <> nil) and not vGroup.Closed then
+          if (vPtr = nil) or (Word(vPtr^) <> 0) then
+            FFilter.Add(I);
+        if vPtr <> nil then
+          Inc(Pointer1(vPtr), 2);
+      end;
+
+      if (FFilter.Count > 0) and (FFilter[FFilter.Count - 1] < 0) then
+        FFilter.Delete(FFilter.Count - 1);
+
+    end else
+    begin
+      if vPtr <> nil then begin
+        if FFilter = nil then
+          FFilter := TIntList.Create;
+        FFilter.Clear;
+
+        for I := 0 to $FFF do begin
+          if Word(vPtr^) <> 0 then
+            FFilter.Add(I);
+          Inc(Pointer1(vPtr), 2);
+        end;
+
+      end else
+        FreeObj(FFilter);
+    end;
+
+    FGrid.Columns.FreeAll;
+    if optShowNumbers then
+      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 4, taRightJustify, [], 0) );
+    for I := 0 to 15 do
+      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 2, taLeftJustify, [{coColMargin,} coNoVertLine, coOwnerDraw], 0) );
+
+    FGrid.FixedCol := IntIf(optShowNumbers, 1, 0);
+
+    FGrid.ResetSize;
+    if FFilter <> nil then
+      FGrid.RowCount := FFilter.Count
+    else
+      FGrid.RowCount := $1000;
+  end;
+*)
+
+  procedure TCharMapDlg.ReinitFilter;
+  var
+    I, vGIndex, vNext :Integer;
+    vGroup :TUnicodeGroup;
+    vPtr :Pointer;
+  begin
+    vPtr := nil;
+    if not optShowHidden and (FontRange <> nil) then
+      vPtr := FontRange.BitsPtr;
+
+    if optGroupBy and (GroupNames <> nil) then begin
+      if FFilter = nil then
+        FFilter := TIntList.Create;
+      FFilter.Clear;
+
+      vGIndex := 0;
+      vGroup := nil;
+      vNext := TUnicodeGroup(GroupNames[vGIndex]).Code1;
+
+      for I := 0 to $FFF do begin
+
+        if I * 16 >= vNext then begin
+          vGroup := TUnicodeGroup(GroupNames[vGIndex]);
+
+          Inc(vGIndex);
+          if vGIndex < GroupNames.Count then
+            vNext := TUnicodeGroup(GroupNames[vGIndex]).Code1
+          else
+            vNext := $10000;
+
+          FFilter.Add(-vGIndex);
+        end;
+
+        if (vGroup <> nil) and not vGroup.Closed then
+          if (vPtr = nil) or (Word(vPtr^) <> 0) then
+            FFilter.Add(I);
+        if vPtr <> nil then
+          Inc(Pointer1(vPtr), 2);
+      end;
+
+    end else
+    begin
+      if vPtr <> nil then begin
+        if FFilter = nil then
+          FFilter := TIntList.Create;
+        FFilter.Clear;
+
+        for I := 0 to $FFF do begin
+          if Word(vPtr^) <> 0 then
+            FFilter.Add(I);
+          Inc(Pointer1(vPtr), 2);
+        end;
+
+      end else
+        FreeObj(FFilter);
+    end;
+
+    FGrid.Columns.FreeAll;
+    if optShowNumbers then
+      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 4, taRightJustify, [], 0) );
+    for I := 0 to 15 do
+      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 2, taLeftJustify, [{coColMargin,} coNoVertLine, coOwnerDraw], 0) );
+
+    FGrid.FixedCol := IntIf(optShowNumbers, 1, 0);
+
+    FGrid.ResetSize;
+    if FFilter <> nil then
+      FGrid.RowCount := FFilter.Count
+    else
+      FGrid.RowCount := $1000;
+  end;
 
 
   procedure TCharMapDlg.ReinitAndSaveCurrent;
@@ -292,7 +552,7 @@ interface
   begin
     vChar := GetCurChar;
     ReinitFilter;
-    ResizeDialog(True);
+    ResizeDialog(False);
     GotoChar(vChar);
   end;
 
@@ -303,7 +563,7 @@ interface
       Result := ARow * 16
     else begin
       Result := -1;
-      if (ARow < FFilter.Count) then
+      if ARow < FFilter.Count then
         Result := FFilter[ARow] * 16;
     end;
   end;
@@ -335,7 +595,7 @@ interface
       AppendCurrent
     else
     if ADouble then
-      SelectChar;
+      ReturnChar;
   end;
 
 
@@ -348,21 +608,44 @@ interface
   end;
 
 
-  procedure TCharMapDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
+  procedure TCharMapDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
   begin
-    if (ARow = FGrid.CurRow) and (ACol = FGrid.CurCol + 1) and (ACol > 1) then
+    if (ARow = FGrid.CurRow) and (ACol = FGrid.CurCol + 1) and (ACol > FGrid.FixedCol) then
       AColor := FGrid.SelColor;
   end;
 
 
-  procedure TCharMapDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+  function TCharMapDlg.GridPaintRow(ASender :TFarGrid; X, Y, AWidth :Integer; ARow :Integer; AColor :TFarColor) :Boolean;
+  var
+    vCode :Integer;
+    vGroupName :TString;
+  begin
+    vCode := RowToCode(ARow);
+    if vCode < 0 then begin
+
+      vGroupName := TUnicodeGroup(GroupNames[(-vCode div 16) - 1]).Name;
+
+      Inc(X, 1);
+      if optShowNumbers then
+        Inc(X, 5);
+
+      FGrid.DrawChr(X, Y, PTChar(vGroupName), length(vGroupName), ChangeFG(AColor, optDelimColor));
+
+      Result := True;
+    end else
+      Result := False;
+  end;
+
+
+  procedure TCharMapDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor);
   var
     vBuf :array[0..3] of TChar;
-    vCode, vColor :Integer;
+    vCode :Integer;
+    vColor :TFarColor;
   begin
     vCode := RowToCode(ARow);
     if vCode <> -1 then begin
-      vCode := vCode + ACol - 1;
+      vCode := vCode + ACol - FGrid.FixedCol;
       FillFarChar(vBuf, 3, ' ');
       vBuf[1] := TChar(vCode);
       vBuf[3] := #0;
@@ -370,8 +653,8 @@ interface
         FARAPI.Text(X, Y, FGrid.SelColor, @vBuf[0])
       else begin
         vColor := FGrid.NormColor;
-        if (FRange <> nil) and not FRange[vCode] then
-          vColor := FHiddenColor;
+        if not CharMapped(TChar(vCode)) then
+          vColor := ChangeFG(vColor, FHiddenColor);  // vColor := FHiddenColor;
         FARAPI.Text(X + 1, Y, vColor, @vBuf[1])
       end;
     end;
@@ -390,21 +673,18 @@ interface
     vStr := Format('Char: %s  Hex: %.4x  Dec: %d', [vStr, Word(vChr), Word(vChr)]);
     SetText(IdStatus, vStr);
 
-    vStr := NameOfChar(Word(vChr));
-    if vStr = '' then begin
-      vStr := NameOfRange(Word(vChr));
-      if vStr <> '' then
-        vStr := '<' + vStr + '>';
+    if optShowCharName then begin
+      vStr := NameOfChar(Word(vChr));
+      if (vStr = '') and not optShowGroupName then begin
+        vStr := NameOfRange(Word(vChr));
+        if vStr <> '' then
+          vStr := '<' + vStr + '>';
+      end;
+      SetText(IdChrName, vStr);
     end;
-    SetText(IdChrName, vStr);
-  end;
 
-
-  function TCharMapDlg.CharMapped(AChar :TChar) :Boolean;
-  begin
-    Result := True;
-    if FRange <> nil then
-      Result := FRange[Word(AChar)];
+    if optShowGroupName then
+      SetText(IdGrpName, NameOfRange(Word(vChr)));
   end;
 
 
@@ -414,8 +694,8 @@ interface
   begin
     Result := #0;
     vCode := RowToCode(ARow);
-    if vCode <> -1 then
-      Result := TChar(vCode + ACol - 1);
+    if vCode >= 0 then
+      Result := TChar(vCode + ACol - FGrid.FixedCol);
   end;
 
 
@@ -434,7 +714,7 @@ interface
     vCol := 0;
     vCod0 := RowToCode(vRow);
     if (vCod >= vCod0) and (vCod <= vCod0 + 15) then
-      vCol := (vCod mod 16) + 1;
+      vCol := (vCod mod 16) + FGrid.FixedCol;
     FGrid.GotoLocation(vCol, vRow, lmSafe);
   end;
 
@@ -470,11 +750,10 @@ interface
     InitFontList;
     if OpenFontsDlg(vName) then begin
       FontName := vName;
+      UpdateFontRange;
       SetText(IdFont, FontName);
-      FreeObj(FRange);
-      FRange := GetFontRange(FontName);
       ReinitAndSaveCurrent;
-      WriteSetup;
+      PluginConfig(True);
     end;
   end;
 
@@ -488,7 +767,20 @@ interface
       if OpenGroupsDlg(vChr) then
         GotoChar(vChr);
     end else
-      Beep;
+      AppError('GroupList.txt not found');
+  end;
+
+
+  procedure TCharMapDlg.SelectChar;
+  var
+    vChr :TChar;
+  begin
+    if CharNames <> nil then begin
+      vChr := GetCurChar;
+      if OpenCharsDlg(vChr) then
+        GotoChar(vChr);
+    end else
+      AppError('NamesList.txt not found. Download from: '#10'http://unicode.org/Public/UNIDATA/NamesList.txt');
   end;
 
 
@@ -497,11 +789,11 @@ interface
     optMaximized := not optMaximized;
     ResizeDialog(True);
     FGrid.GotoLocation(FGrid.CurCol, FGrid.CurRow, lmScroll);
-    WriteSetup;
+    PluginConfig(True);
   end;
 
 
-  procedure TCharMapDlg.SelectChar;
+  procedure TCharMapDlg.ReturnChar;
   begin
     FRes := GetText(IdEdit);
     if FRes = '' then
@@ -510,7 +802,25 @@ interface
   end;
 
 
-  function TCharMapDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  procedure TCharMapDlg.CollapseGroup;
+  begin
+    if optGroupBy and (GroupNames <> nil) then begin
+
+    end else
+      Beep;
+  end;
+
+
+  procedure TCharMapDlg.ExpandGroup;
+  begin
+    if optGroupBy and (GroupNames <> nil) then begin
+
+    end else
+      Beep;
+  end;
+
+
+  function TCharMapDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
 
     procedure LocGotoNext;
     begin
@@ -518,12 +828,12 @@ interface
         FGrid.GotoLocation(FGrid.CurCol + 1, FGrid.CurRow, lmScroll)
       else
       if FGrid.CurRow < FGrid.RowCount - 1 then
-        FGrid.GotoLocation(0, FGrid.CurRow + 1, lmScroll);
+        FGrid.GotoLocation(FGrid.FixedCol, FGrid.CurRow + 1, lmScroll);
     end;
 
     procedure LocGotoPrev;
     begin
-      if FGrid.CurCol > 1 then
+      if FGrid.CurCol > FGrid.FixedCol then
         FGrid.GotoLocation(FGrid.CurCol - 1, FGrid.CurRow, lmScroll)
       else
       if FGrid.CurRow > 0 then
@@ -550,8 +860,109 @@ interface
         GotoChar(vStr[1]);
     end;
 
+    procedure LocToggleOption(var AOption :Boolean);
+    begin
+      AOption := not AOption;
+      ReinitAndSaveCurrent;
+      GridPosChange(nil);
+      PluginConfig(True);
+    end;
+  
   begin
-//  TraceF('InfoDialogProc: FHandle=%d, Msg=%d, Param1=%d, Param2=%d', [FHandle, Msg, Param1, Param2]);
+    Result := True;
+    case AKey of
+      KEY_ENTER, KEY_NUMENTER:
+        ReturnChar;
+
+    else
+      if AID = IdMap then begin
+        case AKey of
+          KEY_CTRLPGUP, KEY_CTRLHOME, KEY_CTRLNUMPAD9, KEY_CTRLNUMPAD7:
+            FGrid.GotoLocation(0, 0, lmScroll);
+          KEY_CTRLPGDN, KEY_CTRLEND, KEY_CTRLNUMPAD3, KEY_CTRLNUMPAD1:
+            FGrid.GotoLocation(0, MaxInt, lmScroll);
+          KEY_RIGHT, KEY_NUMPAD6:
+            LocGotoNext;
+          KEY_LEFT, KEY_NUMPAD4:
+            LocGotoPrev;
+
+          KEY_HOME, KEY_NUMPAD7:
+            FGrid.GotoLocation(0, FGrid.CurRow, lmScroll);
+          KEY_END, KEY_NUMPAD1:
+            FGrid.GotoLocation(MaxInt, FGrid.CurRow, lmScroll);
+
+          KEY_INS:
+            begin
+              AppendCurrent;
+              LocGotoNext;
+            end;
+          KEY_BS:
+            LocBackLast;
+          KEY_DEL:
+            SetText(IdEdit, '');
+
+          KEY_SHIFTINS, KEY_CTRLV:
+            LocGotoFromClipboard;
+          KEY_CTRLINS, KEY_CTRLC:
+            CopyToClipboard;
+
+          KEY_CTRLF:
+            SelectFont;
+          KEY_CTRLR:
+            SelectGroup;
+          KEY_CTRLS:
+            SelectChar;
+          KEY_CTRLM:
+            Maximize;
+
+          KEY_ADD:
+            ExpandGroup;
+          KEY_SUBTRACT:
+            CollapseGroup;
+
+          KEY_CTRLH:
+            LocToggleOption(optSHowHidden);
+          KEY_CTRLG:
+            LocToggleOption(optGroupBy);
+          KEY_CTRL1:
+            LocToggleOption(optShowNumbers);
+          KEY_CTRL2:
+            LocToggleOption(optShowCharName);
+          KEY_CTRL3:
+            LocToggleOption(optShowGroupName);
+
+          else
+            if (AKey >= 32) and (AKey <= $FFFF) then
+              GotoChar(TChar(AKey))
+            else
+              Result := inherited KeyDown(AID, AKey);
+        end;
+      end else
+        Result := inherited KeyDown(AID, AKey);
+    end;
+  end;
+
+
+  function TCharMapDlg.MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; {virtual;}
+  begin
+    Result := False;
+    case AID of
+      IdFont:
+        SelectFont;
+      IdStatus:
+        SelectChar;
+      IdChrName, IdGrpName:
+        SelectGroup;
+      IdIcon:
+        Maximize;
+      else
+        Result := inherited MouseEvent(AID, AMouse);
+    end;
+  end;
+
+
+  function TCharMapDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  begin
     Result := 1;
     case Msg of
       DN_RESIZECONSOLE:
@@ -559,82 +970,6 @@ interface
           ResizeDialog(False);
           FGrid.GotoLocation(FGrid.CurCol, FGrid.CurRow, lmScroll);
         end;
-
-      DN_MOUSECLICK:
-        if Param1 = IdFont then
-          SelectFont
-        else
-        if Param1 = IdChrName then
-          SelectGroup
-        else
-        if Param1 = IdIcon then
-          Maximize
-        else
-          Result := inherited DialogHandler(Msg, Param1, Param2);
-
-      DN_KEY: begin
-//      TraceF('Key = %d', [Param2]);
-        case Param2 of
-          KEY_ENTER, KEY_NUMENTER:
-            SelectChar;
-
-        else
-          if SendMsg(DM_GETFOCUS, 0, 0) = IdMap then begin
-            case Param2 of
-              KEY_CTRLPGUP, KEY_CTRLHOME:
-                FGrid.GotoLocation(0, 0, lmScroll);
-              KEY_CTRLPGDN, KEY_CTRLEND:
-                FGrid.GotoLocation(0, MaxInt, lmScroll);
-              KEY_RIGHT:
-                LocGotoNext;
-              KEY_LEFT:
-                LocGotoPrev;
-
-              KEY_HOME:
-                FGrid.GotoLocation(0, FGrid.CurRow, lmScroll);
-              KEY_END:
-                FGrid.GotoLocation(MaxInt, FGrid.CurRow, lmScroll);
-
-              KEY_INS:
-                begin
-                  AppendCurrent;
-                  LocGotoNext;
-                end;
-              KEY_BS:
-                LocBackLast;
-              KEY_DEL:
-                SetText(IdEdit, '');
-
-              KEY_SHIFTINS, KEY_CTRLV:
-                LocGotoFromClipboard;
-              KEY_CTRLINS, KEY_CTRLC:
-                CopyToClipboard;
-
-              KEY_CTRLH:
-                begin
-                  optShowHidden := not optSHowHidden;
-                  ReinitAndSaveCurrent;
-                  WriteSetup;
-                end;
-
-              KEY_CTRLF:
-                SelectFont;
-              KEY_CTRLG:
-                SelectGroup;
-              KEY_CTRLM:
-                Maximize;
-
-              else
-                if (Param2 >= 32) and (Param2 <= $FFFF) then
-                  GotoChar(TChar(Param2))
-                else
-                  Result := inherited DialogHandler(Msg, Param1, Param2);
-            end;
-          end else
-            Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
-      end;
-
     else
       Result := inherited DialogHandler(Msg, Param1, Param2);
     end;
@@ -674,17 +1009,20 @@ interface
   procedure OpenDlg;
   var
     vDlg :TCharMapDlg;
+    vOld :TFarDialog;
   begin
     if vDlgLock > 0 then
       Exit;
 
     InitCharGroups;
     InitCharNames;
-    ReadSetup;
+    PluginConfig(False);
 
     Inc(vDlgLock);
+    vOld := TopDlg;
     vDlg := TCharMapDlg.Create;
     try
+      TopDlg := vDlg;
       if vDlg.Run = -1 then
         Exit;
 
@@ -692,6 +1030,7 @@ interface
         InsertText(vDlg.FRes);
 
     finally
+      TopDlg := vOld;
       FreeObj(vDlg);
       Dec(vDlgLock);
     end;

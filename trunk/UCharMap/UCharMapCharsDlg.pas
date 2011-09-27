@@ -1,12 +1,12 @@
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2011 Max Rusov                                                         *}
 {*                                                                            *}
 {* Unicode CharMap                                                            *}
 {******************************************************************************}
 
 {$I Defines.inc}
 
-unit UCharMapGroupsDlg;
+unit UCharMapCharsDlg;
 
 interface
 
@@ -22,7 +22,6 @@ interface
    {$else}
     PluginW,
    {$endif Far3}
-    FarColor,
     FarCtrl,
     FarMatch,
     FarDlg,
@@ -33,23 +32,11 @@ interface
     UCharListBase;
 
 
-  function OpenGroupsDlg(var AChar :TChar) :Boolean;
-
-
-{******************************************************************************}
-{******************************} implementation {******************************}
-{******************************************************************************}
-
-  uses
-    MixDebug;
-
-
- {-----------------------------------------------------------------------------}
- { TGroupsDlg                                                                  }
- {-----------------------------------------------------------------------------}
-
   type
-    TGroupsDlg = class(TListBase)
+    TCharsDlg = class(TListBase)
+    public
+      function GetCode(ADlgIndex :Integer) :Integer;
+
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
@@ -65,42 +52,61 @@ interface
       FResChr  :TChar;
 
       procedure GotoCode(ACode :Integer);
-      function GetGroup(ADlgIndex :Integer) :TUnicodeGroup;
     end;
 
 
-  procedure TGroupsDlg.Prepare; {override;}
+  function OpenCharsDlg(var AChar :TChar) :Boolean;
+
+
+{******************************************************************************}
+{******************************} implementation {******************************}
+{******************************************************************************}
+
+  uses
+    MixDebug;
+
+
+ {-----------------------------------------------------------------------------}
+ { TGroupsDlg                                                                  }
+ {-----------------------------------------------------------------------------}
+
+  procedure TCharsDlg.Prepare; {override;}
   begin
     inherited Prepare;
-    FHelpTopic := 'GroupsList';
+    FHelpTopic := 'CharsList';
     FGrid.Columns.FreeAll;
     FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 6, taLeftJustify, [coColMargin], 1) );
-    FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coColMargin, coOwnerDraw], 2) );
+    FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 3, taLeftJustify, [coColMargin], 2) );
+    FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coColMargin, coOwnerDraw], 3) );
   end;
 
 
-  procedure TGroupsDlg.InitDialog; {override;}
+  procedure TCharsDlg.InitDialog; {override;}
   begin
     inherited InitDialog;
     GotoCode(Word(FResChr));
   end;
 
 
-  procedure TGroupsDlg.SelectItem(ACode :Integer); {override;}
+  procedure TCharsDlg.SelectItem(ACode :Integer); {override;}
+  var
+    vCode :Integer;
   begin
-    if FGrid.RowCount > 0 then begin
-      FResChr := TChar(GetGroup(FGrid.CurRow).Code1);
+    vCode := GetCode(FGrid.CurRow);
+    if vCode >= 0 then begin
+      FResChr := TChar(vCode);
       SendMsg(DM_CLOSE, -1, 0);
     end else
       Beep;
   end;
 
 
-  procedure TGroupsDlg.UpdateHeader; {override;}
+  procedure TCharsDlg.UpdateHeader; {override;}
   var
     vTitle :TFarStr;
   begin
-    vTitle := GetMsgStr(strGroups);
+    {!!!Localize}
+    vTitle := 'Chars' {GetMsgStr(strGroups)};
 
     if FFilterMask = '' then
       vTitle := Format('%s (%d)', [ vTitle, FTotalCount ])
@@ -111,11 +117,11 @@ interface
   end;
 
 
-  procedure TGroupsDlg.ReinitGrid; {override;}
+  procedure TCharsDlg.ReinitGrid; {override;}
   var
     I, vPos, vLen, vMaxLen :Integer;
     vMask :TString;
-    vGroup :TUnicodeGroup;
+    vName :PTString;
     vHasMask :Boolean;
   begin
     FFilter.Clear;
@@ -130,20 +136,22 @@ interface
         vMask := vMask + '*';
     end;
 
-    for I := 0 to GroupNames.Count - 1 do begin
-      vGroup := GroupNames[I];
+    for I := 0 to CharNames.Count - 1 do begin
+      vName := CharNames.PStrings[I];
+      if vName^ = '' then
+        Continue;
 
       Inc(FTotalCount);
       vPos := 0; vLen := 0;
       if vMask <> '' then
-        if not CheckMask(vMask, vGroup.Name, vHasMask, vPos, vLen) then
+        if not CheckMask(vMask, vName^, vHasMask, vPos, vLen) then
           Continue;
 
       FFilter.Add(I, vPos, vLen);
-      vMaxLen := IntMax(vMaxLen, Length(vGroup.Name));
+      vMaxLen := IntMax(vMaxLen, Length(vName^));
     end;
 
-    FMenuMaxWidth := vMaxLen + 9;
+    FMenuMaxWidth := vMaxLen + 13;
 
     FGrid.ResetSize;
     FGrid.RowCount := FFilter.Count;
@@ -153,27 +161,28 @@ interface
   end;
 
 
-  procedure TGroupsDlg.ReinitAndSaveCurrent; {override;}
+  procedure TCharsDlg.ReinitAndSaveCurrent; {override;}
   var
-    vCode, vIndex :Integer;
+    vCode :Integer;
   begin
-    vCode := 0;
-    vIndex := FGrid.CurRow;
-    if (vIndex >= 0) and (vIndex < FGrid.RowCount) then
-      vCode := GetGroup(vIndex).Code1;
+    vCode := GetCode(FGrid.CurRow);
     ReinitGrid;
-    GotoCode( vCode );
+    if vCode <> -1 then
+      GotoCode( vCode );
   end;
 
 
-  function TGroupsDlg.GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
+  function TCharsDlg.GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
+  var
+    vCode :Integer;
   begin
-    if ARow < FFilter.Count then begin
-      with GetGroup(ARow) do
-        case FGrid.Column[ACol].Tag of
-          1 : Result := Format('%.4x', [Code1]);
-          2 : Result := Name;
-        end;
+    vCode := GetCode(ARow);
+    if vCode <> -1 then begin
+      case FGrid.Column[ACol].Tag of
+        1 : Result := Format('%.4x', [vCode]);
+        2 : Result := TChar(vCode);
+        3 : Result := NameOfChar(vCode);
+      end;
     end else
       Result := '';
   end;
@@ -181,34 +190,44 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure TGroupsDlg.GotoCode(ACode :Integer);
+  procedure TCharsDlg.GotoCode(ACode :Integer);
   var
-    vIndex :Integer;
+    I, vIndex :Integer;
   begin
     vIndex := 0;
-    while (vIndex < FFilter.Count - 1) and (GetGroup(vIndex + 1).Code1 <= ACode) do
-      Inc(vIndex);
+    for I := 0 to FFilter.Count - 1 do
+      if FFilter[I] = ACode then begin
+        vIndex := I;
+        Break;
+      end;
     SetCurrent( vIndex, lmCenter );
   end;
 
 
-  function TGroupsDlg.GetGroup(ADlgIndex :Integer) :TUnicodeGroup;
+  function TCharsDlg.GetCode(ADlgIndex :Integer) :Integer;
   begin
-    Result := GroupNames[FFilter[ADlgIndex]];
+    Result := -1;
+    if (ADlgIndex >= 0) and (ADlgIndex < FFilter.Count) then
+      Result := FFilter[ADlgIndex];
   end;
+
 
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  function OpenGroupsDlg(var AChar :TChar) :Boolean;
+  function OpenCharsDlg(var AChar :TChar) :Boolean;
   var
-    vDlg :TGroupsDlg;
+    vDlg :TCharsDlg;
+    vOld :TFarDialog;
   begin
     Result := False;
-    vDlg := TGroupsDlg.Create;
+
+    vOld := TopDlg;
+    vDlg := TCharsDlg.Create;
     try
-      vDlg.FGUID := cGroupDlgID;
+      TopDlg := vDlg;
+      vDlg.FGUID := cCharDlgID;
       vDlg.FResChr := AChar;
 
       if vDlg.Run = -1 then
@@ -218,6 +237,7 @@ interface
       Result := True;
 
     finally
+      TopDlg := vOld;
       FreeObj(vDlg);
     end;
   end;

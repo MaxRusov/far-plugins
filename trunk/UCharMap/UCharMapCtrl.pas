@@ -1,5 +1,5 @@
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2011 Max Rusov                                                         *}
 {*                                                                            *}
 {* Unicode CharMap                                                            *}
 {******************************************************************************}
@@ -17,7 +17,13 @@ interface
     MixStrings,
     MixClasses,
     MixWinUtils,
-    FarCtrl;
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
+    PluginW,
+   {$endif Far3}
+    FarCtrl,
+    FarConfig;
 
 
   const
@@ -34,27 +40,42 @@ interface
 
 
   const
-    cPlugRegFolder = 'UCharMap';
+    cPluginName = 'UCharMap';
+    cPluginDescr = 'Unicode CharMap FAR plugin';
+    cPluginAuthor = 'Max Rusov';
 
-    cGroupList     = 'GroupsList.txt';
-    cNamesList     = 'NamesList.txt';
+   {$ifdef Far3}
+    cPluginID   :TGUID = '{59223378-9DCD-45FC-97C9-AD0251A3C53F}';
+    cMenuID     :TGUID = '{5D95C31A-A452-4EA4-ACC6-8C371F4F1E8F}';
+   {$endif Far3}
+
+    cMainDlgId  :TGUID = '{E1158E5F-8408-4832-8CCD-71DA1DD43BC3}';
+    cFontDlgId  :TGUID = '{1EC1FF68-F45D-4AD7-8752-DC18E0D2B498}';
+    cGroupDlgId :TGUID = '{E1F79204-8470-4635-BD6A-5DE4CC2F8093}';
+    cCharDlgId  :TGUID = '{12045CE0-6113-4413-9975-532E848FB0DC}';
+
+    cGroupList  = 'GroupsList.txt';
+    cNamesList  = 'NamesList.txt';
 
   var
-    optFoundColor  :Integer = $0A;
-    optCurrColor   :Integer = 0;
-    optHiddenColor :Integer = 0;
+    optFoundColor     :TFarColor;
+    optCurrColor      :TFarColor;
+    optHiddenColor    :TFarColor;
+    optDelimColor     :TFarColor;
 
-    optShowHidden  :Boolean = True;
-    optMaximized   :Boolean = False;
+    optMaximized      :Boolean = False;
+    optShowHidden     :Boolean = True;
+    optShowNumbers    :Boolean = True;
+    optShowCharName   :Boolean = True;
+    optShowGroupName  :Boolean = False;
+    optShowHints      :Boolean = True;
+    optAutoChooseFont :Boolean = True;
+    optGroupBy        :Boolean = True;
 
-    FontName       :TString = 'Lucida Console';
-    FontSize       :Integer = 32;
+    FontName          :TString = 'Lucida Console';
+    FontSize          :Integer = 32;
 
-    CmdPrefix      :TFarStr = 'ucharmap';
-
-  var
-    FModuleName    :TString;
-    FRegRoot       :TString;
+    CmdPrefix         :TFarStr = 'ucharmap';
 
 
   type
@@ -63,14 +84,16 @@ interface
       constructor CreateEx(ACode1, ACode2 :Integer; const AName :TString);
 
     private
-      FCode1 :Integer;
-      FCode2 :Integer;
-      FName  :TString;
+      FCode1  :Integer;
+      FCode2  :Integer;
+      FName   :TString;
+      FClosed :Boolean;
 
     public
       property Code1 :Integer read FCode1;
       property Code2 :Integer read FCode2;
       property Name  :TSTring read FName;
+      property Closed :Boolean read FClosed write FClosed;
     end;
 
   var
@@ -78,23 +101,28 @@ interface
     CharNames  :TStrList;
     FontNames  :TStrList;
 
+    FontRange  :TBits;
+
   function NameOfChar(ACode :Integer) :TString;
   function NameOfRange(ACode :Integer) :TString;
 
   procedure SRectGrow(var AR :TSmallRect; ADX, ADY :Integer);
 
-  procedure ReadSettings;
-
-  procedure ReadSetup;
-  procedure WriteSetup;
-
   procedure InitCharGroups;
   procedure InitCharNames;
 
   procedure InitFontList;
+  function GetFont(const AName :TString; ASize :Integer; APitch, AWeight :Integer; AItalic :Boolean) :HFont;
   function GetFontRange(const AFontName :TString) :TBits;
 
-  function GetFont(const AName :TString; ASize :Integer; APitch, AWeight :Integer; AItalic :Boolean) :HFont;
+  procedure UpdateFontRange;
+  function CharMapped(AChar :TChar) :Boolean;
+  function ChooseFontFor(AChar :TChar) :TString;
+
+  procedure RestoreDefColor;
+  procedure PluginConfig(AStore :Boolean);
+
+  procedure HandleError(AError :Exception);
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -104,14 +132,20 @@ interface
     MixDebug;
 
 
+  procedure HandleError(AError :Exception);
+  begin
+    ShowMessage('Unicode CharMap', AError.Message, FMSG_WARNING or FMSG_MB_OK);
+  end;
+
  {-----------------------------------------------------------------------------}
 
   constructor TUnicodeGroup.CreateEx(ACode1, ACode2 :Integer; const AName :TString);
   begin
     Create;
-    FCode1 := ACode1;
-    FCode2 := ACode2;
-    FName  := AName;
+    FCode1  := ACode1;
+    FCode2  := ACode2;
+    FName   := AName;
+    FClosed := False;
   end;
 
 
@@ -154,7 +188,9 @@ interface
     vDig :Integer;
   begin
     Result := 0;
+   {$ifndef bDelphi64}
     vDig := 0;
+   {$endif bDelphi64}
     while AStr^ <> #0 do begin
       case AStr^ of
         '0'..'9': vDig := Ord(AStr^) - Ord('0');
@@ -181,10 +217,11 @@ interface
     if GroupNames <> nil then
       Exit;
 
-    vFileName := AddFileName(ExtractFilePath(FModuleName), cGroupList);
+    vFileName := AddFileName(ExtractFilePath(FARAPI.ModuleName), cGroupList);
     vBuf := ReadTextFile(vFileName, vSize);
     if vBuf = nil then
       Exit;
+
     try
       GroupNames := TObjList.Create;
 
@@ -227,17 +264,22 @@ interface
     vFileName :TString;
     vSize, vCode, vMax :Integer;
     vBuf, vPtr, vEnd, vStr, vNum, vTmp :PAnsiChar;
+    vIsCtrl :Boolean;
   begin
     if CharNames <> nil then
       Exit;
 
-    vFileName := AddFileName(ExtractFilePath(FModuleName), cNamesList);
+    vFileName := AddFileName(ExtractFilePath(FARAPI.ModuleName), cNamesList);
     vBuf := ReadTextFile(vFileName, vSize);
     if vBuf = nil then
       Exit;
+
     try
       CharNames := TStrList.Create;
       CharNames.Count := $10000;
+
+      vIsCtrl := False;
+      vCode := 0;
       vMax := -1;
 
       vPtr := vBuf;
@@ -246,25 +288,42 @@ interface
         vStr := vPtr;
         vTmp := SeekToNextA(vPtr, [#10, #13]);
         vTmp^ := #0;
-        if (vStr^ = #0) or (vStr^ = '@') or (vStr^ = #9) then
+        if (vStr^ = #0) or (vStr^ = '@') then
           Continue;
 
-        vNum := vStr;
-        vTmp := SeekToNextA(vStr, [#9, ' ']);
-        vTmp^ := #0;
+        if not vIsCtrl then begin
+          if vStr^ = #9 then
+            Continue;
 
-        vCode := HexStr2Int(vNum, -1);
-        if vCode = -1 then
-          Continue;
+          vNum := vStr;
+          vTmp := SeekToNextA(vStr, [#9, ' ']);
+          vTmp^ := #0;
 
-//      TraceF('%d - %s', [vCode, vStr]);
-        if vCode > $FFFF then
-          Break;
+          vCode := HexStr2Int(vNum, -1);
+          if vCode = -1 then
+            Continue;
 
-        if vCode >= vMax then
-          vMax := vCode;
+//        TraceF('%d - %s', [vCode, vStr]);
+          if vCode > $FFFF then
+            Break;
 
-        CharNames[vCode] := TString(vStr);
+          if vCode >= vMax then
+            vMax := vCode;
+
+          CharNames[vCode] := TString(vStr);
+          vIsCtrl := StrEqual(CharNames[vCode], '<Control>');
+        end else
+        begin
+          while vStr^ in [' ', #9] do
+            Inc(vStr);
+          if vStr^ = '=' then begin
+            Inc(vStr);
+            while vStr^ in [' ', #9] do
+              Inc(vStr);
+            CharNames[vCode] := TString(vStr);
+          end;
+          vIsCtrl := False;
+        end;
       end;
 
       if CharNames.Count > vMax + 1 then
@@ -446,60 +505,81 @@ interface
 
 
 
+  procedure UpdateFontRange;
+  begin
+    FreeObj(FontRange);
+    FontRange := GetFontRange(FontName);
+  end;
+
+
+  function CharMapped(AChar :TChar) :Boolean;
+  begin
+    Result := True;
+    if FontRange <> nil then
+      Result := FontRange[Word(AChar)];
+  end;
+
+
+
+  function ChooseFontFor(AChar :TChar) :TString;
+  var
+    I :Integer;
+    vFontName :TString;
+    vRange :TBits;
+  begin
+    Result := '';
+    InitFontList;
+
+    for I := 0 to FontNames.Count - 1 do begin
+      vFontName := FontNames[I];
+      vRange := GetFontRange(vFontName);
+      try
+        if vRange[Word(AChar)] then begin
+//        TraceF('Choose font: %s', [vFontName]);
+          Result := vFontName;
+          Exit;
+        end;
+      finally
+        FreeObj(vRange);
+      end;
+    end;
+  end;
+
+
+
  {-----------------------------------------------------------------------------}
 
-  procedure ReadSettings;
-  var
-    vKey :HKEY;
+  procedure RestoreDefColor;
   begin
-    if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then
-      Exit;
-    try
-//    optHistoryFolder := RegQueryStr(vKey, 'HistoryFolder', optHistoryFolder);
-    finally
-      RegCloseKey(vKey);
-    end;
+    optFoundColor    := MakeColor(clLime, 0);
+    optDelimColor    := MakeColor(clWhite, 0);
+    optCurrColor     := UndefColor;
+    optHiddenColor   := UndefColor; //MakeColor(clOlive, 0);
   end;
 
 
-  procedure ReadSetup;
-  var
-    vKey :HKEY;
+  procedure PluginConfig(AStore :Boolean);
   begin
-    if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then
-      Exit;
-    try
-      optMaximized := RegQueryLog(vKey, 'Maximized', optMaximized);
-      optShowHidden := RegQueryLog(vKey, 'ShowHidden', optShowHidden);
+    with TFarConfig.CreateEx(AStore, cPluginName) do
+      try
+        if not Exists then
+          Exit;
 
-      optFoundColor := RegQueryInt(vKey, 'FoundColor', optFoundColor);
-      optCurrColor := RegQueryInt(vKey, 'CurrentColor', optCurrColor);
-      optHiddenColor := RegQueryInt(vKey, 'HiddenColor', optHiddenColor);
+         LogValue('Maximized', optMaximized);
+         LogValue('ShowHidden', optShowHidden);
 
-      FontName := RegQueryStr(vKey, 'FontName', FontName);
-      FontSize := RegQueryInt(vKey, 'FontSize', FontSize);
+         LogValue('ShowNumbers', optShowNumbers);
+         LogValue('ShowGroupName', optShowGroupName);
+         LogValue('ShowCharName', optShowCharName);
+         LogValue('ShowHints', optShowHints);
+         LogValue('GroupBy', optGroupBy);
 
-    finally
-      RegCloseKey(vKey);
-    end;
-  end;
+         StrValue('FontName', FontName);
+         IntValue('FontSize', FontSize);
 
-
-  procedure WriteSetup;
-  var
-    vKey :HKEY;
-  begin
-    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
-    try
-      RegWriteLog(vKey, 'Maximized', optMaximized);
-      RegWriteLog(vKey, 'ShowHidden', optShowHidden);
-
-      RegWriteStr(vKey, 'FontName', FontName);
-      RegWriteInt(vKey, 'FontSize', FontSize);
-
-    finally
-      RegCloseKey(vKey);
-    end;
+      finally
+        Destroy;
+      end;
   end;
 
 
@@ -508,5 +588,6 @@ finalization
   FreeObj(GroupNames);
   FreeObj(CharNames);
   FreeObj(FontNames);
+  FreeObj(FontRange);
 end.
 

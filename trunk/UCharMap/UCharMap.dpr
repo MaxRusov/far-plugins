@@ -1,9 +1,9 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{$ifdef bDelphi}
+{$ifdef Debug}
  {$ImageBase $40900000}
-{$endif bDelphi}
+{$endif Debug}
 
 library UCharMap;
 
@@ -16,12 +16,20 @@ uses
   UCharMapMain;
 
 exports
+ {$ifdef Far3}
+  GetGlobalInfoW,
+ {$else}
   GetMinFarVersionW,
+ {$endif Far3}
   SetStartupInfoW,
   GetPluginInfoW,
-  OpenPluginW,
-  ExitFARW;
+ {$ifdef Far3}
+  OpenW;
+ {$else}
+  OpenPluginW;
+ {$endif Far3}
 
 {$R UCharMapW.res}
 
+begin
 end.

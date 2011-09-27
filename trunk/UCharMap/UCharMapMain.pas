@@ -5,7 +5,6 @@
 {******************************************************************************}
 
 {$I Defines.inc}
-{$Typedaddress Off}
 
 unit UCharMapMain;
 
@@ -17,18 +16,29 @@ interface
     MixTypes,
     MixUtils,
     MixStrings,
-
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
     FarCtrl,
     UCharMapCtrl,
     UCharMapDlg;
 
 
+ {$ifdef Far3}
+  procedure GetGlobalInfoW(var AInfo :TGlobalInfo); stdcall;
+ {$else}
   function GetMinFarVersionW :Integer; stdcall;
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
+ {$endif Far3}
+
+  procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
-  procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom :integer; Item :TIntPtr): THandle; stdcall;
+ {$ifdef Far3}
+  function OpenW(var AInfo :TOpenInfo): THandle; stdcall;
+ {$else}
+  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+ {$endif Far3}
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -38,38 +48,50 @@ interface
     MixDebug;
 
 
-  procedure HandleError(AError :Exception);
-  begin
-    ShowMessage('Unicode CharMap', AError.Message, FMSG_WARNING or FMSG_MB_OK);
-  end;
-
  {-----------------------------------------------------------------------------}
  { Ёкспортируемые процедуры                                                    }
  {-----------------------------------------------------------------------------}
 
+ {$ifdef Far3}
+  procedure GetGlobalInfoW(var AInfo :TGlobalInfo); stdcall;
+  begin
+    AInfo.StructSize := SizeOf(AInfo);
+  //AInfo.MinFarVersion := FARMANAGERVERSION;
+  //AInfo.Info := PLUGIN_VERSION;
+    AInfo.GUID := cPluginID;
+    AInfo.Title := cPluginName;
+    AInfo.Description := cPluginDescr;
+    AInfo.Author := cPluginAuthor;
+  end;
+ {$else}
   function GetMinFarVersionW :Integer; stdcall;
   begin
     Result := MakeFarVersion(2, 0, 1573);   { ACTL_GETFARRECT }
   end;
+ {$endif Far3}
 
 
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
+  procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
   begin
-//  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
-    hModule := psi.ModuleNumber;
-    Move(psi, FARAPI, SizeOf(FARAPI));
-    Move(psi.fsf^, FARSTD, SizeOf(FARSTD));
+    FARAPI := AInfo;
+    FARSTD := AInfo.fsf^;
 
-    hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
-    FRegRoot := psi.RootKey;
-    FModuleName := psi.ModuleName;
+   {$ifdef Far3}
+    PluginID := cPluginID;
+   {$else}
+    hModule := AInfo.ModuleNumber;
+   {$endif Far3}
 
-    ReadSettings;
+    RestoreDefColor;
+//  ReadSettings;
   end;
 
 
   var
-    PluginMenuStrings: array[0..0] of PFarChar;
+    PluginMenuStr :TString;
+   {$ifdef Far3}
+    PluginMenuGUID :TGUID;
+   {$endif Far3}
 
   procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
   begin
@@ -77,28 +99,31 @@ interface
     pi.StructSize:= SizeOf(pi);
     pi.Flags:= {PF_PRELOAD or} PF_EDITOR or PF_VIEWER or PF_DIALOG;
 
-    PluginMenuStrings[0]:= GetMsg(strTitle);
-    pi.PluginMenuStrings:= @PluginMenuStrings;
-    pi.PluginMenuStringsNumber:= 1;
+    PluginMenuStr := GetMsg(strTitle);
+   {$ifdef Far3}
+    PluginMenuGUID := cMenuID;
+    pi.PluginMenu.Count := 1;
+    pi.PluginMenu.Strings := Pointer(@PluginMenuStr);
+    pi.PluginMenu.Guids := Pointer(@PluginMenuGUID);
+   {$else}
+    pi.PluginMenuStringsNumber := 1;
+    pi.PluginMenuStrings := Pointer(@PluginMenuStr);
+   {$endif Far3}
 
     pi.CommandPrefix := PFarChar(CmdPrefix);
   end;
 
 
-  procedure ExitFARW; stdcall;
-  begin
-//  Trace('ExitFAR');
-  end;
-
-
-  function OpenPluginW(OpenFrom :integer; Item :TIntPtr): THandle; stdcall;
+ {$ifdef Far3}
+  function OpenW(var AInfo :TOpenInfo): THandle; stdcall;
+ {$else}
+  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+ {$endif Far3}
   begin
     Result:= INVALID_HANDLE_VALUE;
     try
 //    TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
-
       OpenDlg;
-
     except
       on E :Exception do
         HandleError(E);
