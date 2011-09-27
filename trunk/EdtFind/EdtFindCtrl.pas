@@ -18,7 +18,7 @@ interface
     MixWinUtils,
 
     PluginW,
-    FarColorW,
+    FarColor,
     FarCtrl,
     FarMatch,
     FarMenu,
