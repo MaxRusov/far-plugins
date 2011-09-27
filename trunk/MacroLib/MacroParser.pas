@@ -21,28 +21,17 @@ interface
     MixStrings,
     MixClasses,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
-    FarCtrl;
+   {$endif Far3}
+    FarCtrl,
+    MacroLibConst;
 
 
   var
     ParserResBase :Integer;
-
-
-  type
-    TKeyword = class(TNamedObject)
-    public
-      Key :Integer;
-      function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
-    end;
-
-    TKeywordsList = class(TObjList)
-    public
-      procedure Add(const AKeyword :TString; AKey :Integer);
-      function GetKeyword(APtr :PTChar; ALen :Integer) :Integer;
-      function GetKeywordStr(const AStr :TString) :Integer;
-      function NameByKey(AKey :Integer) :TString;
-    end;
 
 
   type
@@ -170,22 +159,22 @@ interface
     TKeyArray = array of TKeyRec;
 
     TMacroRec = record
-      Name     :TString;
-      Descr    :TString;
-      Bind     :TKeyArray;
-      Area     :TMacroAreas;
-      Dlgs     :TGUIDArray;
-      Dlgs1    :TStrArray;
-      Edts     :TStrArray;
-      Views    :TStrArray;
-      Cond     :TMacroConditions;
-      Events   :TMacroEvents;
-      Where    :TString;
-      Priority :Integer;
-      Options  :TMacroOptions;
-      Text     :TString;
-      Row, Col :Integer;        { Привязка к исходному тексту }
-      Index    :Integer;        { Порядковый номер макроса }
+      Name     :TString;           { Имя макроса (для вызова по имени, необязательное) }
+      Descr    :TString;           { Описание макроса (для показа пользователю) }
+      Bind     :TKeyArray;         { Массив кодов клавиш с модификаторами - array of TKeyRec }
+      Area     :TMacroAreas;       { Битовая маска MacroAreas }
+      Dlgs     :TGUIDArray;        { Массив GUID-ов диалогов - для привязки макроса к диалогу }
+      Dlgs1    :TStrArray;         { Массив Заголовков диалогов - альтернативный вариант привязки }
+      Edts     :TStrArray;         { Массив масок файлов для привязки к редактору }
+      Views    :TStrArray;         { -/-/- к viewer'у }
+      Cond     :TMacroConditions;  { Битовая маска для стандартных условий срабатывания }
+      Events   :TMacroEvents;      { Условия срабатывания по событиям }
+      Where    :TString;           { Условие срабатывания в виде логического выражения - на будущее, пока не используется }
+      Priority :Integer;           { Приоритет макроса, для разрешения конфликтов }
+      Options  :TMacroOptions;     { Опции исполнения макроса: DisableOutput, SendToPlugins, EatOnRun }
+      Text     :TString;           { Текст макропоследовательности }
+      Row, Col :Integer;           { Привязка к исходному тексту }
+      Index    :Integer;           { Порядковый номер макроса }
     end;
 
     PStackRec = ^TStackRec;
@@ -468,58 +457,6 @@ interface
  {-----------------------------------------------------------------------------}
  { TKeywords                                                                   }
  {-----------------------------------------------------------------------------}
-
-  function TKeyword.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {override;}
-  begin
-    if Context <> 0 then
-      Result := UpCompareBuf(PTChar(FName)^, Key^, length(FName), Context)
-    else
-      Result := inherited CompareKey(Key, Context);
-  end;
-
-
-  procedure TKeywordsList.Add(const AKeyword :TString; AKey :Integer);
-  var
-    vKeyword :TKeyword;
-  begin
-    vKeyword := TKeyword.Create;
-    vKeyword.Name := AKeyword;
-    vKeyword.Key := AKey;
-    AddSorted(vKeyword, 0, dupError);
-  end;
-
-
-  function TKeywordsList.GetKeyword(APtr :PTChar; ALen :Integer) :Integer;
-  var
-    vIndex :Integer;
-  begin
-    if FindKey(APtr, ALen, [foBinary], vIndex) then
-      Result := TKeyword(Items[vIndex]).Key
-    else
-      Result := -1;
-  end;
-
-
-  function TKeywordsList.GetKeywordStr(const AStr :TString) :Integer;
-  begin
-    Result := GetKeyword(PTChar(AStr), length(AStr));
-  end;
-
-
-  function TKeywordsList.NameByKey(AKey :Integer) :TString;
-  var
-    I :Integer;
-  begin
-    for I := 0 to FCount - 1 do
-      with TKeyword(Items[I]) do
-        if Key = AKey then begin
-          Result := Name;
-          Exit;
-        end;
-    Result := '';
-  end;
-
-
 
   var
     Keywords :TKeywordsList;
@@ -1164,16 +1101,10 @@ interface
 
   procedure TMacroParser.CheckMacroSequence(const AText :TString; ASilence :Boolean);
   var
-    vMacro :TActlKeyMacro;
+    vPos :TCoord;
   begin
-//  TraceF('Sequence=%s', [AText]);
-    vMacro.Command := MCMD_CHECKMACRO;
-    vMacro.Param.PlainText.SequenceText := PTChar(AText);
-    vMacro.Param.PlainText.Flags := IntIf(ASilence, KSFLAGS_SILENTCHECK, 0);
-    FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
-    if ASilence and (vMacro.Param.MacroResult.ErrCode <> MPEC_SUCCESS) then
-      with vMacro.Param.MacroResult do
-        Error(errBadMacroSequence, FSeqRow + ErrPos.Y, ErrPos.X + IntIf(ErrPos.Y = 0, FSeqCol, 0));
+    if not FarCheckMacro(AText, ASilence, @vPos) and ASilence then
+      Error(errBadMacroSequence, FSeqRow + vPos.Y, vPos.X + IntIf(vPos.Y = 0, FSeqCol, 0));
   end;
 
 
@@ -1320,19 +1251,6 @@ interface
   end;
 
 
-  function KeyNameToCode(AName :PTChar) :Integer;
-  var
-    vTmp :array[0..1] of TChar;
-  begin
-    if ((AName + 1)^ = #0) and IsCharAlpha(AName^) then begin
-      vTmp[0] := CharUpCase(AName^);
-      vTmp[1] := #0;
-      Result := FARSTD.FarNameToKey(@vTmp[0]);
-    end else
-      Result := FARSTD.FarNameToKey(@AName[0]);
-  end;
-
-
   function KeyNameParse(AName :PTChar; var AKey :Integer; var AMod :TKeyModifier) :Boolean;
   var
     vModi :Integer;
@@ -1349,7 +1267,7 @@ interface
       StrLCopy(vName, AName, IntMin(vPtr - AName, High(vTmp)));
     end;
 
-    AKey := KeyNameToCode(vName);
+    AKey := NameToFarKey(vName);
     if AKey = -1 then
       Exit;
 
@@ -1589,7 +1507,7 @@ interface
     if Assigned(FOnError) then begin
       vCode := E.HelpContext;
       if ParserResBase <> 0 then
-        vMessage := GetMsg(ParserResBase + vCode);
+        vMessage := FarCtrl.GetMsg(ParserResBase + vCode);
       vRow := E.FRow;
       vCol := E.FCol;
       if (vRow = 0) and (vCol = 0)  then begin

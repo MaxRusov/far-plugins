@@ -13,7 +13,11 @@ interface
   uses
     Windows,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
     FarKeysW,
 
     MixTypes,
@@ -23,7 +27,9 @@ interface
     MixClasses,
     MixWinUtils,
 
-    FarCtrl;
+    FarCtrl,
+    FarConfig;
+    
 
   type
     TMessages = (
@@ -70,8 +76,16 @@ interface
 
 
   const
+    cPluginName = 'MacroLib';
+    cPluginDescr = 'Macro Library FAR plugin';
+    cPluginAuthor = 'Max Rusov';
+
+   {$ifdef Far3}
+    cPluginID   :TGUID = '{84884660-5B2F-4581-9282-96E00AE109A2}';
+    cMenuID     :TGUID = '{0E8A1143-3619-41B9-BA61-5A5C899E38C7}';
+   {$else}
     cPluginGUID     = $424C434D;
-    cPlugRegFolder  = 'MacroLib';
+   {$endif Far3}
 
     cDefMacroFolder = 'Macros';
     cMacroFileExt   = 'FML';
@@ -95,10 +109,10 @@ interface
 
     optSortMode      :Integer = 0;
 
-    optFoundColor    :Integer = 0;
+    optFoundColor    :TFarColor;
 
     optDoubleDelay   :Integer = 500;
-    optHoldDelay     :Integer = 1000;
+    optHoldDelay     :Integer = 500;
 
     optCmdPrefix     :TString = 'FML';
 
@@ -112,15 +126,10 @@ interface
   procedure AppErrorIdFmt(AMess :TMessages; const Args: array of const);
   procedure HandleError(AError :Exception);
 
-  function WinKeyRecToFarKey(const ARec :TKeyEventRecord) :Integer;
-  function MouseEventToFarKey(const ARec :TMouseEventRecord; AOldState :DWORD; var APress, ADouble :Boolean) :Integer;
-
+  function NameToFarKey(AName :PTChar) :Integer;
   function FarKeyToName(AKey :Integer) :TString;
-  function FarGetMacroArea :Integer;
-  function FarGetMacroState :Integer;
-
-  procedure ReadSetup;
-  procedure WriteSetup;
+  
+  procedure PluginConfig(AStore :Boolean);
 
   procedure ToggleOption(var AOption :Boolean);
   procedure RestoreDefColor;
@@ -164,123 +173,49 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function WinKeyRecToFarKey(const ARec :TKeyEventRecord) :Integer;
+  function NameToFarKey(AName :PTChar) :Integer;
   var
-    vKey, vShift :Integer;
+    vTmp :array[0..1] of TChar;
+   {$ifdef Far3}
+    vKey :INPUT_RECORD;
+   {$endif Far3}
   begin
-    vKey := ARec.wVirtualKeyCode;
-    vShift := ARec.dwControlKeyState;
-
-    case vKey of
-      $C0 : vKey := $60;              { ` }
-
-      $BA : vKey := $3B;              { ; }
-      $BB : vKey := $3D;              { = }
-      $BC : vKey := $2C;              { , }
-      $BD : vKey := $2D;              { - }
-      $BE : vKey := KEY_DOT;          { . }
-      $BF : vKey := KEY_SLASH;        { / }
-
-      $DB : vKey := KEY_BRACKET;      { [ }
-      $DC : vKey := KEY_BACKSLASH;    { \ }
-      $DD : vKey := KEY_BACKBRACKET;  { ] }
-      $DE : vKey := $27;              { ' }
-
-(*
-      VK_SHIFT: NOP{};
-      VK_CONTROL: NOP{};
-      VK_MENU: NOP{};
-      VK_LWIN: NOP{};
-      VK_RWIN: NOP{};
-      VK_APPS: NOP{};
-*)
-      VK_SHIFT, VK_CONTROL, VK_MENU:
-        vKey := 0;
-
-      VK_BACK, VK_TAB, VK_RETURN, VK_ESCAPE, VK_SPACE,
-      Byte('0')..Byte('9'),
-      Byte('A')..Byte('Z'):
-        {vKey := vKey};
-
-    else
-      Inc(vKey, EXTENDED_KEY_BASE);
+    if ((AName + 1)^ = #0) and IsCharAlpha(AName^) then begin
+      vTmp[0] := CharUpCase(AName^);
+      vTmp[1] := #0;
+      AName := @vTmp[0];
     end;
 
-    if vShift and SHIFT_PRESSED <> 0 then
-      vKey := vKey or KEY_SHIFT;
-    if vShift and LEFT_CTRL_PRESSED <> 0 then
-      vKey := vKey or KEY_CTRL;
-    if vShift and RIGHT_CTRL_PRESSED <> 0 then
-      vKey := vKey or KEY_RCTRL;
-    if vShift and LEFT_ALT_PRESSED <> 0 then
-      vKey := vKey or KEY_ALT;
-    if vShift and RIGHT_ALT_PRESSED <> 0 then
-      vKey := vKey or KEY_RALT;
-
-    Result := vKey;
-  end;
-
-
-  function MouseEventToFarKey(const ARec :TMouseEventRecord; AOldState :DWORD; var APress, ADouble :Boolean) :Integer;
-  var
-    vKey, vShift :Integer;
-
-    procedure LocCheckButton(AButton :DWORD; AKey :Integer);
-    var
-      vPress, vOldPress :Boolean;
-    begin
-      vPress := ARec.dwButtonState and AButton <> 0;
-      vOldPress := AOldState and AButton <> 0;
-      if vPress <> vOldPress then begin
-        vKey := AKey;
-        APress := vPress;
-      end;
-    end;
-
-  begin
-    vKey := 0;
-    vShift := ARec.dwControlKeyState;
-    APress := True;
-    ADouble := False;
-
-    if (ARec.dwEventFlags = 0) or (ARec.dwEventFlags and DOUBLE_CLICK <> 0) then begin
-      LocCheckButton(FROM_LEFT_1ST_BUTTON_PRESSED, KEY_MSLCLICK);
-      LocCheckButton(RIGHTMOST_BUTTON_PRESSED,     KEY_MSRCLICK);
-      LocCheckButton(FROM_LEFT_2ND_BUTTON_PRESSED, KEY_MSM3CLICK);
-      if APress and (ARec.dwEventFlags and DOUBLE_CLICK <> 0) then
-        ADouble := True;
-    end else
-    if ARec.dwEventFlags and MOUSE_WHEELED <> 0 then begin
-      if Integer(ARec.dwButtonState) > 0 then
-        vKey := KEY_MSWHEEL_UP
+   {$ifdef Far3}
+    Result := -1;
+    FillZero(vKey, SizeOf(vKey));
+    if FARSTD.FarNameToInputRecord(AName, vKey) then
+      if vKey.EventType = KEY_EVENT then
+        Result := KeyEventToFarKey(vKey.Event.KeyEvent)
       else
-      if Integer(ARec.dwButtonState) < 0 then
-        vKey := KEY_MSWHEEL_DOWN;
-    end else
-    if ARec.dwEventFlags and MOUSE_HWHEELED <> 0 then begin
-      if Integer(ARec.dwButtonState) > 0 then
-        vKey := KEY_MSWHEEL_RIGHT
-      else
-      if Integer(ARec.dwButtonState) < 0 then
-        vKey := KEY_MSWHEEL_LEFT;
-    end;
-
-    if vShift and SHIFT_PRESSED <> 0 then
-      vKey := vKey or KEY_SHIFT;
-    if vShift and LEFT_CTRL_PRESSED <> 0 then
-      vKey := vKey or KEY_CTRL;
-    if vShift and RIGHT_CTRL_PRESSED <> 0 then
-      vKey := vKey or KEY_RCTRL;
-    if vShift and LEFT_ALT_PRESSED <> 0 then
-      vKey := vKey or KEY_ALT;
-    if vShift and RIGHT_ALT_PRESSED <> 0 then
-      vKey := vKey or KEY_RALT;
-
-    Result := vKey;
+      if vKey.EventType = _MOUSE_EVENT then
+        Result := MouseEventToFarKey(vKey.Event.MouseEvent);
+   {$else}
+    Result := FARSTD.FarNameToKey(AName);
+   {$endif Far3}
   end;
 
 
   function FarKeyToName(AKey :Integer) :TString;
+ {$ifdef Far3}
+  var
+    vInput :INPUT_RECORD;
+    vLen :Integer;
+  begin
+    Result := '';
+    if FarKeyToInputRecord(AKey, vInput) then begin
+      vLen := FARSTD.FarInputRecordToName(vInput, nil, 0);
+      if vLen > 0 then begin
+        SetLength(Result, vLen - 1);
+        FARSTD.FarInputRecordToName(vInput, PTChar(Result), vLen);
+      end;
+    end;
+ {$else}
   var
     vLen :Integer;
   begin
@@ -290,103 +225,55 @@ interface
       SetLength(Result, vLen - 1);
       FARSTD.FarKeyToName(AKey, PTChar(Result), vLen);
     end;
+ {$endif Far3}
   end;
 
-
-  function FarGetMacroArea :Integer;
-  var
-    vMacro :TActlKeyMacro;
-  begin
-    vMacro.Command := MCMD_GETAREA;
-    Result := FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
-  end;
-
-
-  function FarGetMacroState :Integer;
-  var
-    vMacro :TActlKeyMacro;
-  begin
-    vMacro.Command := MCMD_GETSTATE;
-    Result := FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
-  end;
 
  {-----------------------------------------------------------------------------}
 
-  procedure ReadSetup;
-  var
-    vRoot :TString;
-    vKey :HKEY;
+  procedure PluginConfig(AStore :Boolean);
   begin
-    vRoot := FARAPI.RootKey;
-    if RegOpenRead(HKCU, vRoot + '\' + cPlugRegFolder, vKey) then begin
+    with TFarConfig.CreateEx(AStore, cPluginName) do
       try
-        optProcessHotkey := RegQueryLog(vKey, 'ProcessHotkey', optProcessHotkey);
-        optProcessMouse := RegQueryLog(vKey, 'ProcessMouse', optProcessMouse);
-        optMacroPaths := RegQueryStr(vKey, 'MacroPaths', optMacroPaths);
+        if not Exists then
+          Exit;
 
-        optShowBind := RegQueryInt(vKey, 'ShowBind', optShowBind);
-        optShowArea := RegQueryInt(vKey, 'ShowArea', optShowArea);
-        optShowFile := RegQueryInt(vKey, 'ShowFile', optShowFile);
+        LogValue('ProcessHotkey', optProcessHotkey);
+        LogValue('ProcessMouse', optProcessMouse);
+        StrValue('MacroPaths', optMacroPaths);
 
-        optSortMode := RegQueryInt(vKey, 'SortMode', optSortMode);
+        IntValue('ShowBind', optShowBind);
+        IntValue('ShowArea', optShowArea);
+        IntValue('ShowFile', optShowFile);
 
-        optXLatMask := RegQueryLog(vKey, 'XLatMask', optXLatMask);
-        optShowHints := RegQueryLog(vKey, 'ShowHints', optShowHints);
+        IntValue('SortMode', optSortMode);
 
-        optDoubleDelay := RegQueryInt(vKey, 'DoubleDelay', optDoubleDelay);
-        optHoldDelay := RegQueryInt(vKey, 'HoldDelay', optHoldDelay);
+        LogValue('XLatMask', optXLatMask);
+        LogValue('ShowHints', optShowHints);
 
-        optCmdPrefix := RegQueryStr(vKey, 'CmdPrefix', optCmdPrefix);
+        IntValue('DoubleDelay', optDoubleDelay);
+        IntValue('HoldDelay', optHoldDelay);
+
+//      optCmdPrefix := RegQueryStr(vKey, 'CmdPrefix', optCmdPrefix);
 
       finally
-        RegCloseKey(vKey);
+        Destroy;
       end;
-    end;
   end;
 
 
-  procedure WriteSetup;
-  var
-    vRoot :TString;
-    vKey :HKEY;
-  begin
-    vRoot := FARAPI.RootKey;
-    RegOpenWrite(HKCU, vRoot + '\' + cPlugRegFolder, vKey);
-    try
-      RegWriteLog(vKey, 'ProcessHotkey', optProcessHotkey);
-      RegWriteLog(vKey, 'ProcessMouse', optProcessMouse);
-      RegWriteStr(vKey, 'MacroPaths', optMacroPaths);
-
-      RegWriteInt(vKey, 'ShowBind', optShowBind);
-      RegWriteInt(vKey, 'ShowArea', optShowArea);
-      RegWriteInt(vKey, 'ShowFile', optShowFile);
-
-      RegWriteInt(vKey, 'SortMode', optSortMode);
-
-      RegWriteLog(vKey, 'XLatMask', optXLatMask);
-      RegWriteLog(vKey, 'ShowHints', optShowHints);
-
-      RegWriteInt(vKey, 'DoubleDelay', optDoubleDelay);
-      RegWriteInt(vKey, 'HoldDelay', optHoldDelay);
-      
-    finally
-      RegCloseKey(vKey);
-    end;
-  end;
-
-  
  {-----------------------------------------------------------------------------}
 
   procedure ToggleOption(var AOption :Boolean);
   begin
     AOption := not AOption;
-    WriteSetup;
+    PluginConfig(True);
   end;
 
 
   procedure RestoreDefColor;
   begin
-    optFoundColor := clLime;
+    optFoundColor := MakeColor(clLime, 0);
   end;
 
 
@@ -412,7 +299,8 @@ interface
   begin
     Dec(ARow); Dec(ACol);
     vNewTop := -1;
-    if FARAPI.EditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
+    FillZero(vInfo, SizeOf(vInfo));
+    if FarEditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
       if ATopLine = 0 then
         vHeight := vInfo.WindowSizeY
       else
@@ -426,7 +314,7 @@ interface
     vPos.CurTabPos := -1;
     vPos.LeftPos := -1;
     vPos.Overtype := -1;
-    FARAPI.EditorControl(ECTL_SETPOSITION, @vPos);
+    FarEditorControl(ECTL_SETPOSITION, @vPos);
   end;
 
 
@@ -441,13 +329,13 @@ interface
     vFileName := EditorFile(-1);
     vFound := StrEqual(vFileName, AFileName);
     if not vFound then begin
-      vCount := FARAPI.AdvControl(hModule, ACTL_GETWINDOWCOUNT, nil);
+      vCount := FarAdvControl(ACTL_GETWINDOWCOUNT, nil);
       for I := 0 to vCount - 1 do begin
         vFileName := EditorFile(I);
         vFound := StrEqual(vFileName, AFileName);
         if vFound then begin
-          FARAPI.AdvControl(hModule, ACTL_SETCURRENTWINDOW, Pointer(TIntPtr(I)));
-          FARAPI.AdvControl(hModule, ACTL_COMMIT, nil);
+          FarAdvControl(ACTL_SETCURRENTWINDOW, Pointer(TIntPtr(I)));
+          FarAdvControl(ACTL_COMMIT, nil);
           Break;
         end;
       end;
@@ -456,13 +344,8 @@ interface
     if vFound then
       GotoPosition(ARow, ACol, ATopLine)
     else begin
-      {!!!}
       vFarFileName := AFileName;
-      FARAPI.Editor(PFarChar(vFarFileName), nil, 0, 0, -1, -1, EF_NONMODAL or EF_IMMEDIATERETURN or EF_ENABLE_F6, ARow, ACol
-        {$ifdef bUnicodeFar}
-         ,CP_AUTODETECT
-        {$endif bUnicodeFar}
-      );
+      FARAPI.Editor(PFarChar(vFarFileName), nil, 0, 0, -1, -1, EF_NONMODAL or EF_IMMEDIATERETURN or EF_ENABLE_F6, ARow, ACol, CP_AUTODETECT);
       if ATopLine <> 0 then
         GotoPosition(ARow, ACol, ATopLine);
     end;
@@ -474,10 +357,9 @@ interface
       vSel.BlockWidth := 256;
       vSel.BlockHeight := 1;
 
-      FARAPI.EditorControl(ECTL_SELECT, @vSel);
-      FARAPI.EditorControl(ECTL_REDRAW, nil);
+      FarEditorControl(ECTL_SELECT, @vSel);
+      FarEditorControl(ECTL_REDRAW, nil);
     end;
   end;
-
 
 end.
