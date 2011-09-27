@@ -222,7 +222,7 @@ interface
 
       vRect1 := SBounds(vRect.Right - 2, vRect.Top, 2, 0);
       SendMsg(DM_SETITEMPOSITION, IdIcon, @vRect1);
-      SetTextApi(IdIcon, cMaximizedIcon)
+      SetText(IdIcon, cMaximizedIcon)
     end else
     begin
       vWidth := IntMax(FMenuMaxWidth + 6, cDlgMinWidth);
@@ -241,7 +241,7 @@ interface
 
       vRect1 := SBounds(vRect.Right - 4, vRect.Top, 2, 0);
       SendMsg(DM_SETITEMPOSITION, IdIcon, @vRect1);
-      SetTextApi(IdIcon, cNormalIcon);
+      SetText(IdIcon, cNormalIcon);
 
       SRectGrow(vRect, -1, -1);
     end;
