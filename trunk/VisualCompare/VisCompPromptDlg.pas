@@ -78,6 +78,7 @@ interface
   var
     vX2 :Integer;
   begin
+    FGUID := cPromptDlgID;
     FHelpTopic := 'Compare';
     FWidth := DX;
     FHeight := DY;
