@@ -24,7 +24,6 @@ interface
    {$endif bUnicodeFar}
     FarColor,
     FarCtrl,
-    FarMenu,
     FarColorDlg;
 
 
@@ -34,12 +33,14 @@ interface
       strTitle,
       strError,
 
-      strAllHist,
-      strFoldersHist,
-      strRegistryHist,
-      strFTPHist,
+      strMFoldersHistory,
+      strMViewEditHistory,
+      strMModifyHistory,
+      strMOptions1,
 
-      strListTitle,
+      strFoldersHistoryTitle,
+      strViewEditHistoryTitle,
+      strModifyHistoryTitle, 
 
       strConfirmation,
       strDeleteSelectedPrompt,
@@ -54,21 +55,37 @@ interface
       strHintVisitCount,
 
       strCommandsTitle,
-      strMShowHidden,
-      strMGroupBy,
-      strMAccessTime,
-      strMHitCount,
-      strMSortBy,
+      strMOpen,
+      strMView,
+      strMEdit,
+      strMMarkTranzit,
+      strMMarkActual,
+      strMDelete,
+      strMClearHitCount,
       strMOptions,
 
-      strOptionsTitle,
+      strOptionsTitle1,
+      strMShowHidden,
+      strMGroupBy,
+      strMSeparateName,
+
+      strMFullPath,
+      strMAccessTime,
+      strMHitCount,
+      strMOpenCount,
+      strMModifyTime,
+      strMSaveCount,
+      strMSortBy,
+
+      strOptionsTitle2,
       strMShowHints,
       strMFollowMouse,
       strMWrapMode,
       strMHideCurrent,
       strMAutoXLatMask,
       strMRememberLastMask,
-      strMExclusions,
+      strMFldExclusions,
+      strMEdtExclusions,
       strMColors,
 
       strColorsTitle,
@@ -82,12 +99,15 @@ interface
       strMByName,
       strMByAccessTime,
       strMByHitCount,
+      strMByModifyTime,
+      strMBySaveCount,
       strMUnsorted,
 
       strFilterTitle,
       strFilterPrompt,
 
-      strExclTitle,
+      strFldExclTitle,
+      strEdtExclTitle,
       strExclPrompt,
 
       strToday,
@@ -103,14 +123,15 @@ interface
 
 
   const
-    cPlugRegFolder  = 'MoreHistory';
-    cPluginFolder   = 'MoreHistory';
-    cHistFileName   = 'Folders.dat';
-    cBackupFileName = 'Folders.~dat';
-    cTempFileName   = 'Folders.$$$';
+    cPlugRegFolder    = 'MoreHistory';
+    cPluginFolder     = 'MoreHistory';
+    cFldHistFileName  = 'Folders.dat';
+    cEdtHistFileName  = 'Editors.dat';
 
     cSignature :array[0..3] of AnsiChar = 'MHSF';
-    cVersion   :Byte = 1;
+    cFldVersion   = 1;
+//  cEdtVersion   = 2;  { +FSaveCount }
+    cEdtVersion   = 3;  { +FModCol }
 
     cDlgHistRegRoot = cFarRegRoot + '\SavedDialogHistory';
     cHilterHistName = 'MoreHistory.Filter';
@@ -128,23 +149,31 @@ interface
 
   const
     hfFinal   = $00000001;
+    hfEdit    = $00000001;
     hfDeleted = $80000000;
 
   type
     THierarchyMode = (
       hmDate,
-      hmDomain
+      hmDomain,
 //    hmDateDomain
 //    hmDomainDate
+      hmModDate
     );
 
   var
     optShowHidden      :Boolean = False;
     optHierarchical    :Boolean = True;
     optHierarchyMode   :THierarchyMode = hmDate;
+    optSortMode        :Integer = 0;
 
-    optShowDate        :Boolean = True;
-    optShowHits        :Boolean = False;
+    optSeparateName    :Boolean = True;   { Показвать раздельно имя файла и путь }
+    optShowFullPath    :Boolean = True;   { Показывать полный путь }
+    optShowDate        :Boolean = True;   { Показвать дату обращения }
+    optShowHits        :Boolean = False;  { Показывать количество обращений }
+    optShowModify      :Boolean = True;   { Показывать дату модификации }
+    optShowSaves       :Boolean = False;  { Показывать количество сохранений }
+
     optShowGrid        :Boolean = False;
     optShowHints       :Boolean = True;
     optFollowMouse     :Boolean = False;
@@ -157,20 +186,23 @@ interface
     optMidnightHour    :Integer = 0;
     optDateFormat      :Integer = 0;
 
-    optSortMode        :Integer = 0;
-
     optHistoryFolder   :TString = '';
     optHistoryLimit    :Integer = 1000;
     optSkipTransit     :Boolean = True;
+    optSkipQuickView   :Boolean = True;
 
-    optExclusions      :TString = '';
-
-    MoreHistoryPrefix  :TFarStr = 'mh';
+    optFldExclusions   :TString = '';
+    optEdtExclusions   :TString = '%TEMP%\*';
 
     optHiddenColor     :Integer;
     optFoundColor      :Integer;
     optSelectedColor   :Integer;
     optGroupColor      :Integer;
+
+  const
+    cFldPrefix         = 'mh';
+    cEdtPrefix         = 'mhe';
+    cPrefixes          :TFarStr = cFldPrefix + ':' + cEdtPrefix;
 
 
   var
@@ -182,6 +214,7 @@ interface
 
   function GetMsg(AMess :TMessages) :PFarChar;
   function GetMsgStr(AMess :TMessages) :TString;
+  procedure HandleError(AError :Exception);
 
   procedure RestoreDefColor;
   procedure ReadSettings;
@@ -190,8 +223,6 @@ interface
 
   function GetHistoryList(const AHistName :TString) :TStrList;
   procedure AddToHistory(const AHist, AStr :TString);
-
-  procedure OptionsMenu;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -211,6 +242,12 @@ interface
     Result := FarCtrl.GetMsgStr(Integer(AMess));
   end;
 
+  procedure HandleError(AError :Exception);
+  begin
+    ShowMessage(GetMsgStr(strError), AError.Message, FMSG_WARNING or FMSG_MB_OK);
+  end;
+
+
  {-----------------------------------------------------------------------------}
 
   procedure RestoreDefColor;
@@ -219,104 +256,6 @@ interface
     optGroupColor      := clBlue;
     optFoundColor      := clLime;
     optSelectedColor   := clBkGreen;
-  end;
-
-
-  procedure ColorMenu;
-  var
-    vMenu :TFarMenu;
-    vBkColor :Integer;
-  begin
-    vBkColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUTEXT));
-
-    vMenu := TFarMenu.CreateEx(
-      GetMsg(strColorsTitle),
-    [
-      GetMsg(strMHiddenColor),
-      GetMsg(strMGroupColor),
-      GetMsg(strMQuickFilter),
-      GetMsg(strMSelectedColor),
-      '',
-      GetMsg(strMRestoreDefaults)
-    ]);
-    try
-      while True do begin
-        vMenu.SetSelected(vMenu.ResIdx);
-
-        if not vMenu.Run then
-          Exit;
-
-        case vMenu.ResIdx of
-          0: ColorDlg('', optHiddenColor, vBkColor);
-          1: ColorDlg('', optGroupColor, vBkColor);
-          2: ColorDlg('', optFoundColor, vBkColor);
-          3: ColorDlg('', optSelectedColor);
-
-          5: RestoreDefColor;
-        end;
-
-//      FARAPI.EditorControl(ECTL_REDRAW, nil);
-        FARAPI.AdvControl(hModule, ACTL_REDRAWALL, nil);
-
-        WriteSetup('');
-      end;
-
-    finally
-      FreeObj(vMenu);
-    end;
-  end;
-
-
-  procedure OptionsMenu;
-  var
-    vMenu :TFarMenu;
-  begin
-    vMenu := TFarMenu.CreateEx(
-      GetMsg(strCommandsTitle),
-    [
-      GetMsg(strMShowHints),
-      GetMsg(strMFollowMouse),
-      GetMsg(strMWrapMode),
-      GetMsg(strMHideCurrent),
-      GetMsg(strMAutoXLatMask),
-      GetMsg(strMRememberLastMask),
-      '',
-      GetMsg(strMExclusions),
-      GetMsg(strMColors)
-    ]);
-    try
-      vMenu.Help := 'Options';
-      while True do begin
-        vMenu.Checked[0] := optShowHints;
-        vMenu.Checked[1] := optFollowMouse;
-        vMenu.Checked[2] := optWrapMode;
-        vMenu.Checked[3] := optHideCurrent;
-        vMenu.Checked[4] := optXLatMask;
-        vMenu.Checked[5] := optSaveMask;
-
-        vMenu.SetSelected(vMenu.ResIdx);
-
-        if not vMenu.Run then
-          Exit;
-
-        case vMenu.ResIdx of
-          0: optShowHints := not optShowHints;
-          1: optFollowMouse := not optFollowMouse;
-          2: optWrapMode := not optWrapMode;
-          3: optHideCurrent := not optHideCurrent;
-          4: optXLatMask := not optXLatMask;
-          5: optSaveMask := not optSaveMask;
-
-          7: FarInputBox(GetMsg(strExclTitle), GetMsg(strExclPrompt), optExclusions);
-          8: ColorMenu;
-        end;
-
-        WriteSetup('');
-      end;
-
-    finally
-      FreeObj(vMenu);
-    end;
   end;
 
 
@@ -331,7 +270,8 @@ interface
     try
       optHistoryFolder := RegQueryStr(vKey, 'HistoryFolder', optHistoryFolder);
       optHistoryLimit  := RegQueryInt(vKey, 'HistoryLimit', optHistoryLimit);
-      optExclusions    := RegQueryStr(vKey, 'Exclusions', optExclusions);
+      optFldExclusions := RegQueryStr(vKey, 'Exclusions', optFldExclusions);
+      optEdtExclusions := RegQueryStr(vKey, 'EdtExclusions', optEdtExclusions);
     finally
       RegCloseKey(vKey);
     end;
@@ -342,19 +282,19 @@ interface
   var
     vKey :HKEY;
   begin
-    optShowHidden := False;
-    optHierarchical := True;
-    if (AMode = '') or StrEqual(AMode, 'Folders') then
-      optHierarchyMode := hmDate
-    else
-      optHierarchyMode := hmDomain;
-
     if RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder + StrIf(AMode <> '', '\View\' + AMode, ''), vKey) then begin
       try
         optShowHidden := RegQueryLog(vKey, 'ShowTransit', optShowHidden);
         optHierarchical := RegQueryLog(vKey, 'Hierarchical', optHierarchical);
         Byte(optHierarchyMode) := RegQueryInt(vKey, 'HierarchyMode', Byte(optHierarchyMode));
-//      PluginSortMode     := RegQueryInt(vKey, 'SortMode', PluginSortMode);
+        optSortMode  := RegQueryInt(vKey, 'SortMode', optSortMode);
+
+        optSeparateName := RegQueryLog(vKey, 'ShowSeparateName', optSeparateName);
+        optShowFullPath := RegQueryLog(vKey, 'ShowFullPath', optShowFullPath);
+        optShowDate := RegQueryLog(vKey, 'ShowDate', optShowDate);
+        optShowHits := RegQueryLog(vKey, 'ShowHits', optShowHits);
+        optShowModify := RegQueryLog(vKey, 'ShowModify', optShowModify);
+        optShowSaves := RegQueryLog(vKey, 'ShowSaves', optShowSaves);
       finally
         RegCloseKey(vKey);
       end;
@@ -362,8 +302,6 @@ interface
 
     if RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then begin
       try
-        optShowDate := RegQueryLog(vKey, 'ShowDate', optShowDate);
-        optShowHits := RegQueryLog(vKey, 'ShowHits', optShowHits);
         optShowGrid := RegQueryLog(vKey, 'ShowGrid', optShowGrid);
         optShowHints := RegQueryLog(vKey, 'ShowHints', optShowHints);
         optFollowMouse := RegQueryLog(vKey, 'FollowMouse', optFollowMouse);
@@ -396,15 +334,20 @@ interface
       RegWriteLog(vKey, 'ShowTransit', optShowHidden);
       RegWriteLog(vKey, 'Hierarchical', optHierarchical);
       RegWriteInt(vKey, 'HierarchyMode', Byte(optHierarchyMode));
-//    RegWriteInt(vKey, 'SortMode', PluginSortMode);
+      RegWriteInt(vKey, 'SortMode', optSortMode);
+
+      RegWriteLog(vKey, 'ShowSeparateName', optSeparateName);
+      RegWriteLog(vKey, 'ShowFullPath', optShowFullPath);
+      RegWriteLog(vKey, 'ShowDate', optShowDate);
+      RegWriteLog(vKey, 'ShowHits', optShowHits);
+      RegWriteLog(vKey, 'ShowModify', optShowModify);
+      RegWriteLog(vKey, 'ShowSaves', optShowSaves);
     finally
       RegCloseKey(vKey);
     end;
 
     RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
     try
-      RegWriteLog(vKey, 'ShowDate', optShowDate);
-      RegWriteLog(vKey, 'ShowHits', optShowHits);
       RegWriteLog(vKey, 'ShowGrid', optShowGrid);
       RegWriteLog(vKey, 'ShowHints', optShowHints);
       RegWriteLog(vKey, 'FollowMouse', optFollowMouse);
@@ -419,7 +362,8 @@ interface
       RegWriteInt(vKey, 'FoundColor', optFoundColor);
       RegWriteInt(vKey, 'SelectedColor', optSelectedColor);
 
-      RegWriteStr(vKey, 'Exclusions', optExclusions);
+      RegWriteStr(vKey, 'Exclusions', optFldExclusions);
+      RegWriteStr(vKey, 'EdtExclusions', optEdtExclusions);
 
     finally
       RegCloseKey(vKey);

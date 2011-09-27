@@ -13,53 +13,113 @@ interface
   uses
     Windows,
     ShlObj,
+    PluginW,
+    FarColor,
+
     MixTypes,
     MixUtils,
     MixFormat,
     MixStrings,
     MixClasses,
     MixWinUtils,
-   {$ifdef bUnicodeFar}
-    PluginW,
-   {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+
     FarCtrl,
     FarMatch,
     FarConMan,
+    FarMenu,
+    FarColorDlg,
+
     MoreHistoryCtrl;
 
 
   type
+    THistoryEntryClass = class of THistoryEntry;
+
     THistoryEntry = class(TBasis)
     public
       constructor CreateEx(const APath :TString);
       destructor Destroy; override;
 
-      procedure HitInfoClear;
-
-      function IsFinal :Boolean;
-      procedure SetFinal(AOn :Boolean);
       procedure SetFlags(AFlags :Cardinal);
-      function GetMode :Integer;
-      function GetDomain :TString;
-      function GetDateGroup :TString;
-      function GetGroup :TString;
 
-    public
+      function GetDomain :TString; virtual;
+      function GetGroup :TString; virtual;
+
+      function CalcSize :Integer; virtual; abstract;
+      procedure WriteTo(var APtr :Pointer1); virtual; abstract;
+      procedure ReadFrom(var APtr :Pointer1; AVersion :Integer); virtual; abstract;
+      function IsValid :Boolean; virtual; abstract;
+
       function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
+      function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; override;
 
     private
       FPath  :TString;
       FTime  :TDateTime;
-      FHits  :Integer;
       FFlags :Cardinal;
 
     public
       property Path :TString read FPath;
       property Time :TDateTime read FTime;
-      property Hits :Integer read FHits;
       property Flags :Cardinal read FFlags;
+    end;
+
+    TFldHistoryEntry = class(THistoryEntry)
+    public
+      procedure HitInfoClear;
+
+      function IsFinal :Boolean;
+      procedure SetFinal(AOn :Boolean);
+      function GetMode :Integer;
+      function GetDomain :TString; override;
+
+      function CalcSize :Integer; override;
+      procedure WriteTo(var APtr :Pointer1); override;
+      procedure ReadFrom(var APtr :Pointer1; AVersion :Integer); override;
+      function IsValid :Boolean; override;
+
+      function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; override;
+
+    private
+      FHits  :Integer;
+
+    public
+      property Hits :Integer read FHits;
+    end;
+
+
+    TEdtHistoryEntry = class(THistoryEntry)
+    public
+      function GetDomain :TString; override;
+      function GetGroup :TString; override;
+
+      function CalcSize :Integer; override;
+      procedure WriteTo(var APtr :Pointer1); override;
+      procedure ReadFrom(var APtr :Pointer1; AVersion :Integer); override;
+      function IsValid :Boolean; override;
+
+      function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; override;
+
+    private
+//    FPath      :TString;     { Имя файла }
+//    FTime      :TDateTime;   { Время последнего доступа }
+//    FFlags     :Integer;     { Редактирование/просмотр/флаги }
+      FHits      :Integer;     { Количество открытий файла }
+      FEdtTime   :TDateTime;   { Время последней модификации }
+      FSaveCount :Integer;     { Количество сохранений файла }
+      FModRow    :Integer;     { Место последней модификации }
+      FModCol    :Integer;     { -/-/- }
+      FEncoding  :Word;        { Кодировка }
+
+      FEdtRow    :Integer;     { Место последнего редактирования (не сохраняется) }
+      FEdtCol    :Integer;
+
+    public
+      property Hits :Integer read FHits;
+      property EdtTime :TDateTime read FEdtTime;
+      property ModRow :Integer read FModRow;
+      property ModCol :Integer read FModCol;
+      property SaveCount :Integer read FSaveCount;
     end;
 
 
@@ -71,69 +131,101 @@ interface
 
     private
       FSubMasks :TObjList;
-      FMask     :TString;  // Исходная маска
-      FXMask    :TString;  // Маска после XLat преобразования
+      FMask     :TString;     { Исходная маска }
+      FXMask    :TString;     { Маска после XLat преобразования }
       FExact    :Boolean;
       FRegExp   :Boolean;
       FNot      :Boolean;
     end;
 
 
-    TFarHistory = class(TBasis)
+    THistory = class(TBasis)
     public
       constructor Create; override;
       destructor Destroy; override;
+
+      procedure InitExclusion; virtual;
 
       procedure LockHistory;
       procedure UnlockHistory;
       function TryLockHistory :Boolean;
 
-      procedure AddCurrentToHistory;
-      procedure AddHistory(const APath :TString; AFinal :Boolean);
       procedure SetModified;
-
-      procedure JumpToPath(const APath :TString);
-      procedure InsertStr(const APath :TString);
-      procedure DeleteAt(AIndex :Integer);
-
       procedure StoreModifiedHistory;
       procedure LoadModifiedHistory;
-      function StoreHistory :Boolean;
-      function RestoreHistory :Boolean;
 
-(*    procedure ReadExclusionList;  *)
-      procedure InitExclusionList;
+      procedure DeleteAt(AIndex :Integer);
+
+    protected
+      function GetHistoryFolder :TString; virtual;
+      function StoreHistory :Boolean; virtual;
+      function RestoreHistory :Boolean; virtual;
 
     private
       FCSLock     :TRTLCriticalSection;
+      FVersion    :Byte;
+      FFileName   :TString;
+      FItemClass  :THistoryEntryClass;
       FHistory    :TObjList;
-      FExclusions :TFilterMask;
       FModified   :Boolean;
       FLastTime   :Integer;
+      FExclusions :TFilterMask;
 
-      function IsKnownPluginPath(const APath :TString) :Boolean;
-      function ConvertPluginPath(const APath :TString) :TString;
-      procedure AddHistoryStr(const APath :TString; AFinal :Boolean);
-      function CheckExclusion(const APath :TString) :Boolean;
-      function GetHistoryFolder :TString;
       function GetItems(AIndex :Integer) :THistoryEntry;
+      function CheckExclusion(const APath :TString) :Boolean;
 
     public
+      property Modified :Boolean read FModified;
       property History :TObjList read FHistory;
       property Items[I :Integer] :THistoryEntry read GetItems; default;
     end;
 
 
-  function GetConsoleTitleStr :TString;
-  function ClearTitle(const AStr :TString) :TString;
+    TFldHistory = class(THistory)
+    public
+      constructor Create; override;
+      destructor Destroy; override;
 
-  procedure HandleError(AError :Exception);
+      procedure InitExclusion; override;
+
+      procedure AddCurrentToHistory;
+      procedure AddHistory(const APath :TString; AFinal :Boolean);
+
+    private
+      procedure AddHistoryStr(const APath :TString; AFinal :Boolean);
+    end;
+
+
+    TEdtAction = (
+      eaOpenView,
+      eaOpenEdit,
+      eaSaveEdit,
+      eaGotFocus,
+      eaModify
+    );
+
+    TEdtHistory = class(THistory)
+    public
+      constructor Create; override;
+      procedure InitExclusion; override;
+      procedure AddHistory(const AName :TString; Action :TEdtAction; ARow, ACol :Integer);
+    end;
+
+
+  function GetConsoleTitleStr :TString;
+  function GetCurrentPanelPath :TString;
+
+  procedure JumpToPath(const APath, AFileName :TString);
+  procedure InsertText(const AStr :TString);
+
+  procedure OptionsMenu;
 
   var
     GLastAdded :TString;  { Последняя добавленная папка, для опциональной фильтрации }
 
   var
-    FarHistory :TFarHistory;
+    FldHistory :TFldHistory;
+    EdtHistory :TEdtHistory;
 
 
 {******************************************************************************}
@@ -148,17 +240,16 @@ interface
   var
     vBuf :Array[0..1024] of TChar;
   begin
-    FillChar(vBuf, SizeOf(vBuf), $00);
+    FillZero(vBuf, SizeOf(vBuf));
     GetConsoleTitle(@vBuf[0], High(vBuf));
     Result := vBuf;
 
     if ConManDetected then
       ConManClearTitle(Result);
-
-//  TraceF('GetConsoleTitleStr: %s', [Result]);
   end;
 
 
+(*
   function ClearTitle(const AStr :TString) :TString;
   var
     vPos :Integer;
@@ -169,6 +260,66 @@ interface
       if vPos <> 0 then
         Result := Copy(AStr, 2, vPos - 2);
     end;
+  end;
+*)
+
+
+  function GetPluginPath(AHandle :THandle) :TString;
+  var
+    vFrmt, vPath, vHost :TString;
+  begin
+    Result := '';
+
+    vFrmt := FarPanelString(AHandle, FCTL_GETPANELFORMAT);
+    vPath := FarPanelString(AHandle, FCTL_GETPANELDIR);
+    vHost := FarPanelString(AHandle, FCTL_GETPANELHOSTFILE);
+   {$ifdef bTrace}
+//  TraceF('Format=%s, Path=%s, Host=%s', [vFrmt, vPath, vHost]);
+   {$endif bTrace}
+
+    if UpCompareSubStr('//', vFrmt) = 0  then begin
+      {FTP плагин}
+      if UpCompareSubStr('//Hosts', vFrmt) = 0 then
+        Exit;
+      Result := 'FTP:' + vFrmt;
+      if Result[length(Result)] <> '/' then
+        Result := Result + '/';
+    end else
+    if StrEqual(vFrmt, 'NETWORK') then begin
+      if (vPath = '') or (vPath[1] <> '\') then
+        Exit;
+      Result := 'NET:' + vPath;
+    end else
+    if (vFrmt <> '') and (vHost = '')
+//    StrEqual(vFrmt, 'REG') or
+//    StrEqual(vFrmt, 'REG2') or
+//    StrEqual(vFrmt, 'PDA') or
+//    StrEqual(vFrmt, 'PPC')
+    then
+      { "Правильные" плагины }
+      Result := vFrmt + ':' + vPath;
+  end;
+
+
+  function GetCurrentPanelPath :TString;
+  var
+    vWinInfo :TWindowInfo;
+    vPanInfo :TPanelInfo;
+  begin
+    Result := '';
+    FarGetWindowInfo(-1, vWinInfo);
+    if vWinInfo.WindowType <> WTYPE_PANELS then
+      Exit;
+
+    FillZero(vPanInfo, SizeOf(vPanInfo));
+    FARAPI.Control(PANEL_ACTIVE, FCTL_GetPanelInfo, 0, @vPanInfo);
+    if (vPanInfo.PanelType <> PTYPE_FILEPANEL) or (vPanInfo.Visible = 0) then
+      Exit;
+
+    if (vPanInfo.Plugin = 0) {or (PFLAGS_REALNAMES and vPanInfo.Flags <> 0)} then
+      Result := FarPanelGetCurrentDirectory(PANEL_ACTIVE)
+    else
+      Result := GetPluginPath(PANEL_ACTIVE);
   end;
 
 
@@ -183,34 +334,6 @@ interface
       Result := buf;
     end;
   end;
-
-
-  function NameByShortName(const AFolder, AFileName :TString) :TString;
-(*
-  var
-    vRes :Integer;
-    vRec :TsearchRec;
-  begin
-    vRes := FindFirst(AddFileName(AFolder, AFileName), faAnyFile, vRec);
-    try
-      if vRes = 0 then
-        Result := vRec.Name
-      else
-        Result := AFileName;
-    finally
-      FindClose(vRec);
-    end;
-*)
-  begin
-    Result := '';
-  end;
-
-
-  procedure HandleError(AError :Exception);
-  begin
-    ShowMessage(GetMsgStr(strError), AError.Message, FMSG_WARNING or FMSG_MB_OK);
-  end;
-
 
 
   function NumMode(ANum :Integer) :Integer;
@@ -230,8 +353,153 @@ interface
   end;
 
 
+  {!!! Взять алгоритмы из SameFolder...}
+  procedure JumpToPath(const APath, AFileName :TString);
+  begin
+    {!!!Lock???}
+    FldHistory.AddHistoryStr( RemoveBackSlash(APath), True);
+    FarPanelJumpToPath(True, APath);
+    if AFileName <> '' then
+      FarPanelSetCurrentItem(True, AFileName);
+  end;
+
+
+  procedure InsertText(const AStr :TString);
+  begin
+    FarPostMacro( 'print(@"' + AStr + '")' );
+  end;
+
+
+  function DateToRangeStr(ADateTime :TDateTime) :TString;
+  const
+    cDays :array[1..4] of TMessages = (strDays1, strDays2, strDays5, strDays21);
+  var
+    vDate0, vDateI, vDays :Integer;
+  begin
+    vDate0 := Trunc(Date);
+    vDateI := Trunc(ADateTime - EncodeTime(optMidnightHour, 0, 0, 0));
+
+    vDays := vDate0 - vDateI;
+    if vDays <= 0 then
+      Result := GetMsgStr(strToday)
+//  else
+//  if vDays = 1 then
+//    Result := GetMsgStr(strYesterday)
+    else
+      Result := Int2Str(vDays) + ' ' + Format(GetMsgStr(strDaysAgo), [GetMsgStr(cDays[NumMode(vDays)])]);
+    Result := Result + ', ' + FormatDate('ddd, dd', Trunc(vDateI));
+  end;
+
+
  {-----------------------------------------------------------------------------}
- { TFarHistory                                                                 }
+
+  procedure ColorMenu;
+  var
+    vMenu :TFarMenu;
+    vBkColor :Integer;
+  begin
+    vBkColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUTEXT));
+
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strColorsTitle),
+    [
+      GetMsg(strMHiddenColor),
+      GetMsg(strMGroupColor),
+      GetMsg(strMQuickFilter),
+      GetMsg(strMSelectedColor),
+      '',
+      GetMsg(strMRestoreDefaults)
+    ]);
+    try
+      while True do begin
+        vMenu.SetSelected(vMenu.ResIdx);
+
+        if not vMenu.Run then
+          Exit;
+
+        case vMenu.ResIdx of
+          0: ColorDlg('', optHiddenColor, vBkColor);
+          1: ColorDlg('', optGroupColor, vBkColor);
+          2: ColorDlg('', optFoundColor, vBkColor);
+          3: ColorDlg('', optSelectedColor);
+
+          5: RestoreDefColor;
+        end;
+
+//      FARAPI.EditorControl(ECTL_REDRAW, nil);
+        FARAPI.AdvControl(hModule, ACTL_REDRAWALL, nil);
+
+        WriteSetup('');
+      end;
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
+
+
+  procedure OptionsMenu;
+  var
+    vMenu :TFarMenu;
+  begin
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strOptionsTitle2),
+    [
+      GetMsg(strMShowHints),
+      GetMsg(strMFollowMouse),
+      GetMsg(strMWrapMode),
+      GetMsg(strMHideCurrent),
+      GetMsg(strMAutoXLatMask),
+      GetMsg(strMRememberLastMask),
+      '',
+      GetMsg(strMFldExclusions),
+      GetMsg(strMEdtExclusions),
+      GetMsg(strMColors)
+    ]);
+    try
+      vMenu.Help := 'Options';
+      while True do begin
+        vMenu.Checked[0] := optShowHints;
+        vMenu.Checked[1] := optFollowMouse;
+        vMenu.Checked[2] := optWrapMode;
+        vMenu.Checked[3] := optHideCurrent;
+        vMenu.Checked[4] := optXLatMask;
+        vMenu.Checked[5] := optSaveMask;
+
+        vMenu.SetSelected(vMenu.ResIdx);
+
+        if not vMenu.Run then
+          Exit;
+
+        case vMenu.ResIdx of
+          0: optShowHints := not optShowHints;
+          1: optFollowMouse := not optFollowMouse;
+          2: optWrapMode := not optWrapMode;
+          3: optHideCurrent := not optHideCurrent;
+          4: optXLatMask := not optXLatMask;
+          5: optSaveMask := not optSaveMask;
+
+          7:
+            if FarInputBox(GetMsg(strFldExclTitle), GetMsg(strExclPrompt), optFldExclusions) then
+              FldHistory.InitExclusion;
+
+          8:
+            if FarInputBox(GetMsg(strEdtExclTitle), GetMsg(strExclPrompt), optEdtExclusions) then
+              EdtHistory.InitExclusion;
+
+          9: ColorMenu;
+        end;
+
+        WriteSetup('');
+      end;
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
+
+ {-----------------------------------------------------------------------------}
+ { THistoryEntry                                                               }
  {-----------------------------------------------------------------------------}
 
   constructor THistoryEntry.CreateEx(const APath :TString);
@@ -239,13 +507,12 @@ interface
     Create;
     FPath := APath;
     FTime := Now;
-    FHits := 0;
   end;
 
 
   destructor THistoryEntry.Destroy; {override;}
   begin
-//  TraceF('THistoryEntry.Destroy %s', [FPath]);
+//  TraceF('TFldHistoryEntry.Destroy %s', [FPath]);
     inherited Destroy;
   end;
 
@@ -256,24 +523,13 @@ interface
   end;
 
 
-  procedure THistoryEntry.HitInfoClear;
+  function THistoryEntry.CompareObj(Another :TBasis; Context :TIntPtr) :Integer; {override;}
   begin
-    FHits := 0;
-  end;
-
-
-  function THistoryEntry.IsFinal :Boolean;
-  begin
-    Result := FFlags and hfFinal <> 0;
-  end;
-
-
-  procedure THistoryEntry.SetFinal(AOn :Boolean);
-  begin
-    if AOn then
-      FFlags := FFlags or hfFinal
-    else
-      FFlags := FFlags and not hfFinal;
+    Result := 0;
+    case Context of
+      1 : Result := UpCompareStr(FPath, THistoryEntry(Another).Path);
+      2 : Result := DateTimeCompare(FTime, THistoryEntry(Another).Time);
+    end;
   end;
 
 
@@ -283,7 +539,55 @@ interface
   end;
 
 
-  function THistoryEntry.GetMode :Integer;
+  function THistoryEntry.GetDomain :TString; {virtual;}
+  begin
+    Result := '';
+  end;
+
+
+  function THistoryEntry.GetGroup :TString; {virtual;}
+  begin
+    case optHierarchyMode of
+      hmDate:
+        Result := DateToRangeStr(FTime);
+      hmDomain:
+        Result := GetDomain
+//    hmDateDomain:
+//      Result := GetDateGroup + ', ' + GetDomain;
+//    hmDomainDate:
+//      Result := GetDomain + ', ' + GetDateGroup;
+    else
+      Result := '';
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TFldHistoryEntry                                                            }
+ {-----------------------------------------------------------------------------}
+
+  procedure TFldHistoryEntry.HitInfoClear;
+  begin
+    FHits := 0;
+  end;
+
+
+  function TFldHistoryEntry.IsFinal :Boolean;
+  begin
+    Result := FFlags and hfFinal <> 0;
+  end;
+
+
+  procedure TFldHistoryEntry.SetFinal(AOn :Boolean);
+  begin
+    if AOn then
+      FFlags := FFlags or hfFinal
+    else
+      FFlags := FFlags and not hfFinal;
+  end;
+
+
+  function TFldHistoryEntry.GetMode :Integer;
   begin
     Result := 0;
     if IsFullFilePath(FPath) then
@@ -297,7 +601,7 @@ interface
   end;
 
 
-  function THistoryEntry.GetDomain :TString;
+  function TFldHistoryEntry.GetDomain :TString; {override;}
   begin
     if IsFullFilePath(FPath) then begin
       if UpCompareSubStr('\\', FPath) = 0 then
@@ -325,40 +629,190 @@ interface
   end;
 
 
-  function THistoryEntry.GetDateGroup :TString;
-  const
-    cDays :array[1..4] of TMessages = (strDays1, strDays2, strDays5, strDays21);
-  var
-    vDate0, vDateI, vDays :Integer;
+  function TFldHistoryEntry.CalcSize :Integer; {override;}
   begin
-    vDate0 := Trunc(Date);
-    vDateI := Trunc(FTime - EncodeTime(optMidnightHour, 0, 0, 0));
-
-    vDays := vDate0 - vDateI;
-    if vDays <= 0 then
-      Result := GetMsgStr(strToday)
-//  else
-//  if vDays = 1 then
-//    Result := GetMsgStr(strYesterday)
-    else
-      Result := Int2Str(vDays) + ' ' + Format(GetMsgStr(strDaysAgo), [GetMsgStr(cDays[NumMode(vDays)])]);
-    Result := Result + ', ' + FormatDate('ddd, dd', Trunc(vDateI));
+    Result := SizeOf(Word) + Length(FPath) * SizeOf(TChar) + SizeOf(FTime) + SizeOf(FHits) + Sizeof(FFlags);
   end;
 
 
-  function THistoryEntry.GetGroup :TString;
+  procedure TFldHistoryEntry.WriteTo(var APtr :Pointer1); {override;}
+  var
+    vLen :Integer;
   begin
-    case optHierarchyMode of
-      hmDate:
-        Result := GetDateGroup;
-      hmDomain:
-        Result := GetDomain;
-//    hmDateDomain:
-//      Result := GetDateGroup + ', ' + GetDomain;
-//    hmDomainDate:
-//      Result := GetDomain + ', ' + GetDateGroup;
+//  TraceF('%d, %s', [length(FPath), FPath]);
+
+    vLen := Length(FPath);
+    PWord(APtr)^ := vLen;
+    Inc(APtr, SizeOf(Word));
+    Move(PTChar(FPath)^, APtr^, vLen * SizeOf(TChar));
+    Inc(APtr, vLen * SizeOf(TChar));
+
+    Move(FTime, APtr^, SizeOf(TDateTime));
+    Inc(APtr, SizeOf(TDateTime));
+
+    PInteger(APtr)^ := FHits;
+    Inc(APtr, SizeOf(Integer));
+
+    PInteger(APtr)^ := FFlags;
+    Inc(APtr, SizeOf(Integer));
+  end;
+
+
+  procedure TFldHistoryEntry.ReadFrom(var APtr :Pointer1; AVersion :Integer); {override;}
+  var
+    vLen :Integer;
+  begin
+    vLen := PWord(APtr)^;
+    Inc(APtr, SizeOf(Word));
+    SetString(FPath, PTChar(APtr), vLen);
+    Inc(APtr, vLen * SizeOf(TChar));
+
+    Move(APtr^, FTime, SizeOf(TDateTime));
+    Inc(APtr, SizeOf(TDateTime));
+
+    FHits := PInteger(APtr)^;
+    Inc(APtr, SizeOf(Integer));
+
+    FFlags := PInteger(APtr)^;
+    Inc(APtr, SizeOf(Integer));
+  end;
+
+
+  function TFldHistoryEntry.IsValid :Boolean; {override;}
+  begin
+//  FPath := PTChar(FPath);
+    Result := FPath <> '';
+  end;
+
+
+  function TFldHistoryEntry.CompareObj(Another :TBasis; Context :TIntPtr) :Integer; {override;}
+  begin
+    case Context of
+      3: Result := IntCompare(Hits, TFldHistoryEntry(Another).Hits);
     else
-      Result := '';
+      Result := inherited CompareObj(Another, Context);
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TEdtHistoryEntry                                                            }
+ {-----------------------------------------------------------------------------}
+
+  function TEdtHistoryEntry.GetDomain :TString; {override;}
+  begin
+    Result := ExtractFilePath(FPath);
+  end;
+
+
+  function TEdtHistoryEntry.GetGroup :TString; {override;}
+  begin
+    if optHierarchyMode = hmModDate then
+      Result := DateToRangeStr(FEdtTime)
+    else
+      Result := inherited GetGroup;
+  end;
+
+
+  function TEdtHistoryEntry.CalcSize :Integer; {override;}
+  begin
+    Result := SizeOf(Word) + Length(FPath) * SizeOf(TChar) + SizeOf(FFlags) +
+      SizeOf(FTime) + Sizeof(FHits) + SizeOf(FEdtTime) + SizeOf(FModRow) + SizeOf(FModCol) + Sizeof(FSaveCount) + SizeOf(FEncoding);
+  end;
+
+
+  procedure TEdtHistoryEntry.WriteTo(var APtr :Pointer1); {override;}
+  var
+    vLen :Integer;
+  begin
+    vLen := Length(FPath);
+    PWord(APtr)^ := vLen;
+    Inc(APtr, SizeOf(Word));
+    Move(PTChar(FPath)^, APtr^, vLen * SizeOf(TChar));
+    Inc(APtr, vLen * SizeOf(TChar));
+
+    PInteger(APtr)^ := FFlags;
+    Inc(APtr, SizeOf(Integer));
+
+    Move(FTime, APtr^, SizeOf(FTime));
+    Inc(APtr, SizeOf(FTime));
+
+    PInteger(APtr)^ := FHits;
+    Inc(APtr, SizeOf(Integer));
+
+    Move(FEdtTime, APtr^, SizeOf(FEdtTime));
+    Inc(APtr, SizeOf(FEdtTime));
+
+    PInteger(APtr)^ := FModRow;
+    Inc(APtr, SizeOf(Integer));
+
+    PInteger(APtr)^ := FModCol;
+    Inc(APtr, SizeOf(Integer));
+
+    PInteger(APtr)^ := FSaveCount;
+    Inc(APtr, SizeOf(Integer));
+
+    PWord(APtr)^ := FEncoding;
+    Inc(APtr, SizeOf(Word));
+  end;
+
+
+  procedure TEdtHistoryEntry.ReadFrom(var APtr :Pointer1; AVersion :Integer); {override;}
+  var
+    vLen :Integer;
+  begin
+    vLen := PWord(APtr)^;
+    Inc(APtr, SizeOf(Word));
+    SetString(FPath, PTChar(APtr), vLen);
+    Inc(APtr, vLen * SizeOf(TChar));
+
+    FFlags := PInteger(APtr)^;
+    Inc(APtr, SizeOf(Integer));
+
+    Move(APtr^, FTime, SizeOf(FTime));
+    Inc(APtr, SizeOf(FTime));
+
+    FHits := PInteger(APtr)^;
+    Inc(APtr, SizeOf(Integer));
+
+    Move(APtr^, FEdtTime, SizeOf(FEdtTime));
+    Inc(APtr, SizeOf(FEdtTime));
+
+    FModRow := PInteger(APtr)^;
+    Inc(APtr, SizeOf(Integer));
+
+    if AVersion > 2 then begin
+      FModCol := PInteger(APtr)^;
+      Inc(APtr, SizeOf(Integer));
+    end;
+
+    if AVersion > 1 then begin
+      FSaveCount := PInteger(APtr)^;
+      Inc(APtr, SizeOf(Integer));
+
+      FEncoding := PWord(APtr)^;
+      Inc(APtr, SizeOf(Word));
+    end;
+
+    FEdtRow := FModRow;
+    FEdtCol := FModCol;
+  end;
+
+
+  function TEdtHistoryEntry.IsValid :Boolean; {override;}
+  begin
+    Result := FPath <> '';
+  end;
+
+
+  function TEdtHistoryEntry.CompareObj(Another :TBasis; Context :TIntPtr) :Integer; {override;}
+  begin
+    case Context of
+      3:  Result := IntCompare(FHits, TEdtHistoryEntry(Another).Hits);
+      4:  Result := DateTimeCompare(FEdtTime, TEdtHistoryEntry(Another).EdtTime);
+      5:  Result := IntCompare(FSaveCount, TEdtHistoryEntry(Another).SaveCount);
+    else
+      Result := inherited CompareObj(Another, Context);
     end;
   end;
 
@@ -432,122 +886,55 @@ interface
     end;
   end;
 
-  
+
  {-----------------------------------------------------------------------------}
- { TFarHistory                                                                 }
+ { THistory                                                                    }
  {-----------------------------------------------------------------------------}
 
-  constructor TFarHistory.Create; {override;}
+  constructor THistory.Create; {override;}
   begin
-//  Trace('TFarHistory.Create...');
     inherited Create;
     InitializeCriticalSection(FCSLock);
     FHistory := TObjList.Create;
     FLastTime := -1;
-    InitExclusionList;
+    InitExclusion;
   end;
 
 
-  destructor TFarHistory.Destroy; {override;}
+  destructor THistory.Destroy; {override;}
   begin
-//  Trace('TFarHistory.Destroy...');
-    FreeObj(FHistory);  
     FreeObj(FExclusions);
+    FreeObj(FHistory);
     DeleteCriticalSection(FCSLock);
     inherited Destroy;
   end;
 
 
-  procedure TFarHistory.LockHistory;
+  procedure THistory.InitExclusion; {virtual;}
+  begin
+    {Abstract}
+  end;
+
+
+  procedure THistory.LockHistory;
   begin
     EnterCriticalSection(FCSLock);
   end;
 
 
-  procedure TFarHistory.UnlockHistory;
+  procedure THistory.UnlockHistory;
   begin
     LeaveCriticalSection(FCSLock);
   end;
 
 
-  function TFarHistory.TryLockHistory :Boolean;
+  function THistory.TryLockHistory :Boolean;
   begin
-    Result := TryEnterCriticalSection(FCSLock)
+    Result := TryEnterCriticalSection(FCSLock);
   end;
 
 
- {-----------------------------------------------------------------------------}
-
-  function TFarHistory.IsKnownPluginPath(const APath :TString) :Boolean;
-  begin
-    Result :=
-      (UpCompareSubStr('NETWORK:', APath) = 0) or
-      (UpCompareSubStr('REG:', APath) = 0) or
-      (UpCompareSubStr('FTP:', APath) = 0) or
-      (UpCompareSubStr('WMI:', APath) = 0) or
-      (UpCompareSubStr('PDA:', APath) = 0) or
-      (UpCompareSubStr('КПК:', APath) = 0) or
-      (UpCompareSubStr('FILES:', APath) = 0) or
-      (UpCompareSubStr('REGISTRY:', APath) = 0);
-  end;
-
-
-  function TFarHistory.ConvertPluginPath(const APath :TString) :TString;
-  var
-    vFolder :TString;
-    vPos :Integer;
-  begin
-    if UpCompareSubStr('FTP:', APath) = 0 then begin
-      Result := '';
-
-      vFolder := Trim(ExtractWords(2, MaxInt, APath, [':']));
-      if (vFolder = '') or (vFolder[1] = '\') then
-        Exit;
-
-      vPos := ChrPos('@', vFolder);
-      if vPos <> 0 then
-        vFolder := Copy(vFolder, vPos + 1, MaxInt);
-
-      Result := 'FTP://' + vFolder;
-      if Result[Length(Result)] <> '/' then
-        Result := Result + '/';
-
-    end else
-    if UpCompareSubStr('NETWORK:', APath) = 0 then begin
-      Result := '';
-
-      vFolder := Trim(ExtractWords(2, MaxInt, APath, [':']));
-      if (vFolder = '') or (vFolder[1] <> '\') then
-        Exit;
-
-      Result := 'NET:' + vFolder;
-
-    end else
-    if (UpCompareSubStr('PDA:', APath) = 0) or
-      (UpCompareSubStr('КПК:', APath) = 0) then
-    begin
-
-      { Убираем размер свободного места, который может выводится в заголовке... }
-      Result := 'PDA:' + ExtractWord(2, APath, [':']);
-
-    end else
-    if (UpCompareSubStr('FILES:', APath) = 0) or
-      (UpCompareSubStr('REGISTRY:', APath) = 0) then
-    begin
-      Result := 'PPC:' + APath;
-    end else
-      Result := APath;
-  end;
-
-
-  procedure TFarHistory.InitExclusionList;
-  begin
-    if optExclusions <> '' then
-      FExclusions := TFilterMask.CreateEx( optExclusions, False, True );
-  end;
-
-
-  function TFarHistory.CheckExclusion(const APath :TString) :Boolean;
+  function THistory.CheckExclusion(const APath :TString) :Boolean;
   var
     vPos, vLen :Integer;
   begin
@@ -557,76 +944,7 @@ interface
   end;
 
 
-  procedure TFarHistory.AddCurrentToHistory;
-  begin
-    AddHistory( ClearTitle(GetConsoleTitleStr), True);
-  end;
-
-
-  procedure TFarHistory.AddHistory(const APath :TString; AFinal :Boolean);
-  var
-    vPath :TString;
-  begin
-    GLastAdded := '';
-    if not IsFullFilePath(APath) and not IsKnownPluginPath(APath) then
-      Exit;
-
-    vPath := ConvertPluginPath(APath);
-    if (vPath = '') or not CheckExclusion(vPath) then
-      Exit;
-
-    GLastAdded := vPath;
-
-    AddHistoryStr(vPath, AFinal);
-  end;
-
-
-  procedure TFarHistory.AddHistoryStr(const APath :TString; AFinal :Boolean);
-  var
-    vIndex :Integer;
-    vEntry :THistoryEntry;
-  begin
-    LockHistory;
-    try
-//    TraceF('Add history: %s, %d', [APath, Byte(AFinal)]);
-
-      if FHistory.FindKey(Pointer(APath), 0, [], vIndex) then begin
-
-        if not AFinal and optSkipTransit then
-          { Транзитные папки не обновляются в истории...}
-          Exit;
-
-        vEntry := FHistory[vIndex];
-        if (vIndex <> FHistory.Count - 1) or (AFinal and (vEntry.FFlags and hfFinal = 0)) then begin
-          FHistory.Move(vIndex, FHistory.Count - 1);
-          if AFinal then begin
-            vEntry.FFlags := vEntry.FFlags or hfFinal;
-            Inc(vEntry.FHits);
-          end;
-          vEntry.FTime := Now;
-          FModified := True;
-        end;
-
-      end else
-      begin
-        vEntry := THistoryEntry.CreateEx(APath);
-        if AFinal then begin
-          vEntry.FFlags := vEntry.FFlags or hfFinal;
-          Inc(vEntry.FHits);
-        end;
-        FHistory.Add(vEntry);
-        if FHistory.Count > optHistoryLimit then
-          FHistory.DeleteRange(0, FHistory.Count - optHistoryLimit);
-        FModified := True;
-      end;
-
-    finally
-      UnlockHistory;
-    end;
-  end;
-
-
-  procedure TFarHistory.DeleteAt(AIndex :Integer);
+  procedure THistory.DeleteAt(AIndex :Integer);
   begin
     LockHistory;
     try
@@ -638,54 +956,13 @@ interface
   end;
 
 
-  procedure TFarHistory.SetModified;
+  procedure THistory.SetModified;
   begin
     FModified := True;
   end;
 
 
-  function TFarHistory.GetItems(AIndex :Integer) :THistoryEntry;
-  begin
-    Result := FHistory[AIndex];
-  end;
-
-
- {-----------------------------------------------------------------------------}
-
-  procedure TFarHistory.JumpToPath(const APath :TString);
-  begin
-    AddHistoryStr( APath, True);
-    FarPanelJumpToPath(True, APath);
-  end;
-
-
-  procedure TFarHistory.InsertStr(const APath :TString);
- {$ifdef bUnicodeFar}
- {$else}
-  var
-    vStr :TFarStr;
- {$endif bUnicodeFar}
-  begin
-   {$ifdef bUnicodeFar}
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_INSERTCMDLINE, 0, PFarChar(APath));
-   {$else}
-    vStr := StrAnsiToOEM(APath);
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_INSERTCMDLINE, PFarChar(vStr));
-   {$endif bUnicodeFar}
-  end;
-
-
- {-----------------------------------------------------------------------------}
-
-  function TFarHistory.GetHistoryFolder :TString;
-  begin
-    Result := optHistoryFolder;
-    if Result = '' then
-      Result := AddFileName(GetSpecialFolder(CSIDL_APPDATA), cPluginFolder);
-  end;
-
-
-  procedure TFarHistory.StoreModifiedHistory;
+  procedure THistory.StoreModifiedHistory;
   begin
     if FModified then begin
       if StoreHistory then
@@ -694,20 +971,28 @@ interface
   end;
 
 
-  procedure TFarHistory.LoadModifiedHistory;
+  procedure THistory.LoadModifiedHistory;
   var
     vFileName :TString;
   begin
-    vFileName := AddFileName(GetHistoryFolder, cHistFileName);
+    vFileName := AddFileName(GetHistoryFolder, FFileName);
     if FileAge(vFileName) <> FLastTime then begin
       RestoreHistory;
     end;
   end;
 
 
-  function TFarHistory.StoreHistory :Boolean;
+  function THistory.GetHistoryFolder :TString;
+  begin
+    Result := optHistoryFolder;
+    if Result = '' then
+      Result := AddFileName(GetSpecialFolder(CSIDL_APPDATA), cPluginFolder);
+  end;
+
+
+  function THistory.StoreHistory :Boolean;
   var
-    I, vSize, vLen :Integer;
+    I, vSize :Integer;
     vFolder, vFileName, vBackupFileName, vTmpFileName :TString;
     vMemory :Pointer;
     vPtr :PAnsiChar;
@@ -716,9 +1001,9 @@ interface
     Result := False;
 
     vFolder := GetHistoryFolder;
-    vFileName := AddFileName(vFolder, cHistFileName);
-    vTmpFileName := AddFileName(vFolder, cTempFileName);
-    vBackupFileName  := AddFileName(vFolder, cBackupFileName);
+    vFileName := AddFileName(vFolder, FFileName);
+    vTmpFileName := ChangeFileExtension(vFileName, '$$$');
+    vBackupFileName  := ChangeFileExtension(vFileName, '~dat');
 
    {$ifdef bTrace}
     TraceF('Store history: %s', [vFileName]);
@@ -730,37 +1015,24 @@ interface
 
       LockHistory;
       try
-        vSize := SizeOf(cSignature) + SizeOf(cVersion) + SizeOf(Integer){Reserved} + SizeOf(Integer){Count};
+        vSize := SizeOf(cSignature) + SizeOf(Byte){Version} + SizeOf(Integer){Reserved} + SizeOf(Integer){Count};
         for I := 0 to FHistory.Count - 1 do
-          with THistoryEntry(FHistory[I]) do
-            Inc(vSize, SizeOf(Word) + Length(FPath) * SizeOf(TChar) + SizeOf(TDateTime) + SizeOf(Integer) + Sizeof(Integer));
+          Inc(vSize, Items[I].CalcSize);
 
         vMemory := MemAlloc(vSize);
 
         vPtr := vMemory;
         PInteger(vPtr)^ := Integer(cSignature);
         Inc(vPtr, SizeOf(Integer));
-        PByte(vPtr)^ := cVersion;
+        PByte(vPtr)^ := FVersion;
         Inc(vPtr, SizeOf(Byte));
         PInteger(vPtr)^ := 0;
         Inc(vPtr, SizeOf(Integer));
         PInteger(vPtr)^ := FHistory.Count;
         Inc(vPtr, SizeOf(Integer));
 
-        for I := 0 to FHistory.Count - 1 do
-          with THistoryEntry(FHistory[I]) do begin
-            vLen := Length(FPath);
-            PWord(vPtr)^ := vLen;
-            Inc(vPtr, SizeOf(Word));
-            Move(PTChar(FPath)^, vPtr^, vLen * SizeOf(TChar));
-            Inc(vPtr, vLen * SizeOf(TChar));
-            Move(FTime, vPtr^, SizeOf(TDateTime));
-            Inc(vPtr, SizeOf(TDateTime));
-            PInteger(vPtr)^ := FHits;
-            Inc(vPtr, SizeOf(Integer));
-            PInteger(vPtr)^ := FFlags;
-            Inc(vPtr, SizeOf(Integer));
-          end;
+        for I := 0 to FHistory.Count - 1 do 
+          Items[I].WriteTo(vPtr);
 
         Assert(vPtr = PAnsiChar(vMemory) + vSize);
 
@@ -809,9 +1081,9 @@ interface
   end;
 
 
-  function TFarHistory.RestoreHistory :Boolean;
+  function THistory.RestoreHistory :Boolean;
   var
-    I, vSize, vCount, vLen :Integer;
+    I, vSize, vCount, vVersion :Integer;
     vFolder, vFileName :TString;
     vPtr :PAnsiChar;
     vFile :Integer;
@@ -820,7 +1092,7 @@ interface
   begin
     Result := False;
     vFolder := GetHistoryFolder;
-    vFileName := AddFileName(vFolder, cHistFileName);
+    vFileName := AddFileName(vFolder, FFileName);
     if not WinFolderExists(vFolder) or not WinFileExists(vFileName) then
       Exit;
 
@@ -847,7 +1119,8 @@ interface
       if PInteger(vPtr)^ <> Integer(cSignature) then
         Exit;
       Inc(vPtr, SizeOf(Integer));
-      if PByte(vPtr)^ <> cVersion then
+      vVersion := PByte(vPtr)^;
+      if vVersion > FVersion then
         Exit;
       Inc(vPtr, SizeOf(Byte));
       Inc(vPtr, SizeOf(Integer));
@@ -857,24 +1130,12 @@ interface
       FHistory.Clear;
       FHistory.Capacity := vCount;
       for I := 0 to vCount - 1 do begin
-        vEntry := THistoryEntry.Create;
-
-        vLen := PWord(vPtr)^;
-        Inc(vPtr, SizeOf(Word));
-
-        SetString(vEntry.FPath, PTChar(vPtr), vLen);
-        Inc(vPtr, vLen * SizeOf(TChar));
-
-        Move(vPtr^, vEntry.FTime, SizeOf(TDateTime));
-        Inc(vPtr, SizeOf(TDateTime));
-
-        vEntry.FHits := PInteger(vPtr)^;
-        Inc(vPtr, SizeOf(Integer));
-
-        vEntry.FFlags := PInteger(vPtr)^;
-        Inc(vPtr, SizeOf(Integer));
-
-        FHistory.Add(vEntry);
+        vEntry := FItemClass.Create;
+        vEntry.ReadFrom(vPtr, vVersion);
+        if vEntry.IsValid then
+          FHistory.Add(vEntry)
+        else
+          FreeObj(vEntry);
       end;
 
     finally
@@ -882,9 +1143,226 @@ interface
     end;
   end;
 
-  
+
+  function THistory.GetItems(AIndex :Integer) :THistoryEntry;
+  begin
+    Result := FHistory[AIndex];
+  end;
+
+
+
+ {-----------------------------------------------------------------------------}
+ { TFldHistory                                                                 }
+ {-----------------------------------------------------------------------------}
+
+  constructor TFldHistory.Create; {override;}
+  begin
+    inherited Create;
+    FFileName  := cFldHistFileName;
+    FVersion   := cFldVersion;
+    FItemClass := TFldHistoryEntry;
+  end;
+
+
+  destructor TFldHistory.Destroy; {override;}
+  begin
+    inherited Destroy;
+  end;
+
+
+  procedure TFldHistory.InitExclusion; {override;}
+  begin
+    FreeObj(FExclusions);
+    if optFldExclusions <> '' then
+      FExclusions := TFilterMask.CreateEx( optFldExclusions, False, True );
+  end;
+
+
+  procedure TFldHistory.AddCurrentToHistory;
+  begin
+    LockHistory;
+    try
+      LoadModifiedHistory;
+      AddHistory( GetCurrentPanelPath, True);
+    finally
+      UnlockHistory;
+    end;
+  end;
+
+
+  procedure TFldHistory.AddHistory(const APath :TString; AFinal :Boolean);
+  begin
+    GLastAdded := '';
+    if (APath = '') or not CheckExclusion(APath) then
+      Exit;
+
+    GLastAdded := APath;
+    AddHistoryStr(APath, AFinal);
+  end;
+
+
+  procedure TFldHistory.AddHistoryStr(const APath :TString; AFinal :Boolean);
+  var
+    vIndex :Integer;
+    vEntry :TFldHistoryEntry;
+  begin
+    LockHistory;
+    try
+//    TraceF('Add history: %s, %d', [APath, Byte(AFinal)]);
+
+      if FHistory.FindKey(Pointer(APath), 0, [], vIndex) then begin
+
+        if not AFinal and optSkipTransit then
+          { Транзитные папки не обновляются в истории...}
+          Exit;
+
+        vEntry := FHistory[vIndex];
+        if (vIndex <> FHistory.Count - 1) or (AFinal and (vEntry.FFlags and hfFinal = 0)) then begin
+//        TraceF('Up: %s, %d', [APath, Byte(AFinal)]);
+
+          FHistory.Move(vIndex, FHistory.Count - 1);
+          if AFinal then begin
+            vEntry.FFlags := vEntry.FFlags or hfFinal;
+            Inc(vEntry.FHits);
+          end;
+          vEntry.FTime := Now;
+          FModified := True;
+        end;
+
+      end else
+      begin
+//      TraceF('Add: %s, %d', [APath, Byte(AFinal)]);
+
+        vEntry := TFldHistoryEntry.CreateEx(APath);
+        if AFinal then begin
+          vEntry.FFlags := vEntry.FFlags or hfFinal;
+          Inc(vEntry.FHits);
+        end;
+        FHistory.Add(vEntry);
+        if FHistory.Count > optHistoryLimit then
+          FHistory.DeleteRange(0, FHistory.Count - optHistoryLimit);
+        FModified := True;
+      end;
+
+    finally
+      UnlockHistory;
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TEdtHistory                                                                 }
+ {-----------------------------------------------------------------------------}
+
+  constructor TEdtHistory.Create; {override;}
+  begin
+    inherited Create;
+    FFileName := cEdtHistFileName;
+    FVersion  := cEdtVersion;
+    FItemClass := TEdtHistoryEntry;
+  end;
+
+
+  procedure TEdtHistory.InitExclusion; {override;}
+  begin
+    FreeObj(FExclusions);
+    if optEdtExclusions <> '' then
+      FExclusions := TFilterMask.CreateEx( StrExpandEnvironment(optEdtExclusions), False, True );
+  end;
+
+
+(*
+      eaOpenView,
+      eaOpenEdit,
+      eaSaveEdit,
+      eaGotFocus,
+      eaModify
+
+//    FPath      :TString;     { Имя файла }
+//    FTime      :TDateTime;   { Время последнего доступа }
+//    FFlags     :Integer;     { Редактирование/просмотр/флаги }
+      FHits      :Integer;     { Количество открытий файла }
+      FEdtTime   :TDateTime;   { Время последней модификации }
+      FSaveCount :Integer;     { Количество сохранений файла }
+      FModRow    :Integer;     { Место последней модификации }
+      FModCol    :Integer;     { -/-/- }
+      FEncoding  :Word;        { Кодировка }
+*)
+
+  procedure TEdtHistory.AddHistory(const AName :TString; Action :TEdtAction; ARow, ACol :Integer);
+  var
+    vNow   :TDateTime;
+    vIndex :Integer;
+    vEntry :TEdtHistoryEntry;
+  begin
+    LockHistory;
+    try
+//    TraceF('Add history: %s, %d', [AName, Byte(Action)]);
+      if (AName = '') or not CheckExclusion(AName) then
+        Exit;
+
+      if FHistory.FindKey(Pointer(AName), 0, [], vIndex) then begin
+
+        vNow := Now;
+        vEntry := FHistory[vIndex];
+        if vIndex <> FHistory.Count - 1 then begin
+//        TraceF('Up: %s, %d', [APath, Byte(AFinal)]);
+          FHistory.Move(vIndex, FHistory.Count - 1);
+          vEntry.FTime := vNow;
+          FModified := True;
+        end;
+
+        if Action = eaGotFocus then
+          Exit;
+
+        if Action in [eaOpenEdit, eaSaveEdit] then
+          vEntry.FFlags := vEntry.FFlags or hfEdit;
+        if Action in [eaOpenView, eaOpenEdit] then begin
+          vEntry.FTime := vNow;
+          Inc(vEntry.FHits);
+        end;
+        if Action = eaSaveEdit then begin
+          vEntry.FTime := vNow;
+          vEntry.FEdtTime := vNow;
+          vEntry.FModRow := vEntry.FEdtRow;
+          vEntry.FModCol := vEntry.FEdtCol;
+          Inc(vEntry.FSaveCount);
+        end;
+        if Action = eaModify then begin
+          vEntry.FEdtRow := ARow;
+          vEntry.FEdtCol := ACol;
+          Exit;
+        end;
+
+        FModified := True;
+      end else
+      begin
+//      TraceF('Add: %s, %d', [APath, Byte(AFinal)]);
+        vEntry := TEdtHistoryEntry.CreateEx(AName);
+
+        vEntry.FHits := 1;
+        if Action in [eaOpenEdit, eaSaveEdit] then
+          vEntry.FFlags := vEntry.FFlags or hfEdit;
+        if Action = eaSaveEdit then begin
+          vEntry.FEdtTime := vEntry.Time;
+          Inc(vEntry.FSaveCount);
+        end;
+
+        FHistory.Add(vEntry);
+        if FHistory.Count > optHistoryLimit then
+          FHistory.DeleteRange(0, FHistory.Count - optHistoryLimit);
+        FModified := True;
+      end;
+
+    finally
+      UnlockHistory;
+    end;
+  end;
+
+
 
 initialization
 finalization
-  FreeObj(FarHistory);
+  FreeObj(FldHistory);
+  FreeObj(EdtHistory);
 end.
