@@ -60,10 +60,10 @@ interface
   type
     { Тип процедуры перечисления элементов каталога. }
     TEnumFilesProc = procedure(const aPath :TString; const aSRec :TWin32FindData)
-      {$ifdef bFreePascal}of object{$endif bFreePascal};
+      {$ifndef bOldLocalCall}of object{$endif};
 
     TEnumFilesFunc = function(const aPath :TString; const aSRec :TWin32FindData) :Boolean
-      {$ifdef bFreePascal}of object{$endif bFreePascal};
+      {$ifndef bOldLocalCall}of object{$endif};
 
     { Параметры перечисления элементов каталога. }
     TEnumFileOptions = set of (
@@ -370,15 +370,15 @@ interface
     vSRec :TWin32FindData;
     vFileMask :TString;
     vLook, vMask :Word;
-   {$ifdef bDelphi}
+   {$ifdef bOldLocalCall}
     vTmp :Pointer;
-   {$endif bDelphi}
+   {$endif bOldLocalCall}
   begin
     vLook := LongRec(aAttrs).Hi;
     vMask := LongRec(aAttrs).Lo and vLook;
-   {$ifdef bDelphi}
+   {$ifdef bOldLocalCall}
     vTmp := aProc.Data;
-   {$endif bDelphi}
+   {$endif bOldLocalCall}
     for I := 1 to WordCount(aMasks, [';']) do begin
       vFileMask := AddFileName(aFolderName, ExtractWord(I, aMasks, [';']));
       vHandle  := FindFirstFile(PTChar(vFileMask), vSRec);
@@ -392,13 +392,13 @@ interface
               ((vSRec.dwFileAttributes and vLook) = vMask)
             then begin
 
-             {$ifdef bDelphi}
+             {$ifdef bOldLocalCall}
               asm push vTmp; end;
               TEnumFilesProc(aProc.Code)(aFolderName, vSRec);
               asm pop ECX; end;
              {$else}
               TEnumFilesProc(aProc)(aFolderName, vSRec);
-             {$endif bDelphi}
+             {$endif bOldLocalCall}
 
             end;
 
@@ -422,7 +422,7 @@ interface
     procedure locEnumFolder(const aPath :TString; const aSRec :TWin32FindData);
 
       function locAction :Boolean;
-     {$ifdef bDelphi}
+     {$ifdef bOldLocalCall}
       var
         vTmp :Pointer;
       begin
@@ -443,7 +443,7 @@ interface
           TEnumFilesProc(aProc)(aPath, aSRec);
           Result := True;
         end;
-     {$endif bDelphi}
+     {$endif bOldLocalCall}
       end;
 
     var

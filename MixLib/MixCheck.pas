@@ -194,6 +194,14 @@ interface
     vStr := vStr + 'Delphi2010 ';
    {$endif Ver210}
 
+   {$ifdef Ver220}
+    vStr := vStr + 'DelphiXE ';
+   {$endif Ver220}
+
+   {$ifdef Ver230}
+    vStr := vStr + 'Delphi2011 ';
+   {$endif Ver230}
+
    {$ifopt O+}
     vStr := vStr + 'Optimize ';
    {$endif O+}

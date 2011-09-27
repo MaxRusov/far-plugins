@@ -1463,6 +1463,8 @@ interface
 
  {$ifdef b64}
 
+ {$ifdef bFreePascal}
+
  {$ifdef bFPC23}
   function LocalAddr({rcx:@Result;} {rdx}Proc :Pointer) :TMethod; assembler; nostackframe;
   asm
@@ -1476,6 +1478,17 @@ interface
     mov [rdx], rcx
   end;
  {$endif bFPC23}
+
+ {$else}
+
+  {!!!}
+  function LocalAddr({rcx:@Result;} {rdx}Proc :Pointer) :TMethod; assembler;
+  asm
+    mov [rcx + 8], rbp
+    mov [rcx], rdx
+  end;
+
+ {$endif bFreePascal}
 
  {$else}
 

@@ -541,12 +541,12 @@ begin
 
         'S' : begin
                {$ifdef bUnicodeStr}
-                if CheckArg(vtUnicodeString,false) then
+                if CheckArg(vtUnicodeString,false) then 
                   hs:=TString(UnicodeString(Args[doarg].VUnicodeString))
                 else
                {$endif bUnicodeStr}
                {$ifdef bWideStr}
-                if CheckArg(vtWidestring,false) then
+                if CheckArg(vtWidestring,false) then 
                   hs:=TString(WideString(Args[doarg].VWideString))
                 else
                {$endif bWideStr}

@@ -2730,6 +2730,11 @@ type
   OFSTRUCT = _OFSTRUCT;
 
 {$ifdef b64}
+{$ifdef bFreePascal}
+{$else}
+function InterlockedIncrement(var Addend: Integer): Integer;
+function InterlockedDecrement(var Addend: Integer): Integer;
+{$endif bFreePascal}
 {$else}
 function InterlockedIncrement(var Addend: Integer): Integer; stdcall;
 function InterlockedDecrement(var Addend: Integer): Integer; stdcall;
@@ -13595,8 +13600,7 @@ const
   DC_INBUTTON = $10;
   DC_GRADIENT = $20;
 
-{!!! doesn't match help !!!}
-function DrawCaption(p1: HWND; p2: HDC; const p3: TRect; p4: UINT): BOOL; stdcall;
+function DrawCaption(Wnd :HWND; DC :HDC; const Rect :TRect; Flags :UINT) :BOOL; stdcall;
 
 const
   IDANI_OPEN = 1;
@@ -21238,6 +21242,22 @@ function SetWindowLongPtrW; external user32 name 'SetWindowLongW';
 {$endif b64}
 
 
+{$ifdef b64}
+{$ifdef bFreePascal}
+{$else}
+function InterlockedIncrement(var Addend: Integer): Integer;
+asm
+  {!!!Pulsar}
+end;
+
+function InterlockedDecrement(var Addend: Integer): Integer;
+asm
+  {!!!Pulsar}
+end;
+{$endif bFreePascal}
+{$endif b64}
+
+
 { Translated from WINDEF.H }
 
 function MakeWord(A, B: Byte): Word;
@@ -21360,38 +21380,32 @@ begin
   Result := False;
 end;
 
-function GlobalAllocPtr(Flags: Integer; Bytes: Longint): Pointer; assembler;
-asm
-        PUSH    EDX
-        PUSH    EAX
-        CALL    GlobalAlloc
-        PUSH    EAX
-        CALL    GlobalLock
+
+function GlobalAllocPtr(Flags :Integer; Bytes :Longint) :Pointer;
+var
+  hMem :HGLOBAL;
+begin
+  hMem := GlobalAlloc(Flags, Bytes);
+  Result := GlobalLock(hMem);
 end;
 
-function GlobalReAllocPtr(P: Pointer; Bytes: Longint;
-  Flags: Integer): Pointer; assembler;
-asm
-        PUSH    ECX
-        PUSH    EDX
-        PUSH    EAX
-        CALL    GlobalHandle
-        PUSH    EAX
-        PUSH    EAX
-        CALL    GlobalUnlock
-        CALL    GlobalReAlloc
-        PUSH    EAX
-        CALL    GlobalLock
+function GlobalReAllocPtr(P :Pointer; Bytes :LongInt; Flags :Integer) :Pointer;
+var
+  hMem: HGLOBAL;
+begin
+  hMem := GlobalHandle(P);
+  GlobalUnlock(hMem);
+  hMem := GlobalReAlloc(hMem, Bytes, Flags);
+  Result := GlobalLock(hMem);
 end;
 
-function GlobalFreePtr(P: Pointer): THandle; assembler;
-asm
-        PUSH    EAX
-        CALL    GlobalHandle
-        PUSH    EAX
-        PUSH    EAX
-        CALL    GlobalUnlock
-        CALL    GlobalFree
+function GlobalFreePtr(P: Pointer): THandle;
+var
+  hMem: HGLOBAL;
+begin
+  hMem := GlobalHandle(P);
+  GlobalUnlock(hMem);
+  Result := GlobalFree(hMem);
 end;
 
 

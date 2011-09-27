@@ -49,8 +49,10 @@ interface
   function RectContainsXY(const AR :TRect; X, Y :Integer) :Boolean;
   procedure RectMove(var AR :TRect; ADX, ADY :Integer);
 
+  function Chr2StrL(Str :PTChar; ALen :Integer) :TString;
   function ChrInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
   function ChrPos(Ch :TChar; const Str :TString) :Integer;
+  function ChrLastPos(Ch :TChar; const Str :TString) :Integer;
   function ChrsPos(const Chars :TAnsiCharSet; const Str :TString) :Integer;
   function ChrsLastPos(const Chars :TAnsiCharSet; const Str :TString) :Integer;
   function CharIsWordChar(Chr :TChar) :Boolean;
@@ -85,6 +87,8 @@ interface
   function Str2FloatDef(const Str :TString; const Def :TFloat) :TFloat;
 
   function AppendStrCh(const AStr, AAdd, ADel :TString) :TString;
+  function StrRightAjust(const AStr :TString; ALen :Integer) :TString;
+  function StrLeftAjust(const AStr :TString; ALen :Integer) :TString;
   function StrDeleteChars(const Str :TString; const Chars :TAnsiCharSet) :TString;
   function StrReplaceChars(const Str :TString; const Chars :TAnsiCharSet; Chr :TChar) :TString;
   function StrReplace(const S, OldPattern, NewPattern :TString; Flags :TReplaceFlags) :TString;
@@ -97,7 +101,7 @@ interface
   function ExtractWords(Number, Count :Integer; const S :TString; const Del :TAnsiCharSet) :TString;
   function ExtractWord(Number :Integer; const S :TString; const Del :TAnsiCharSet) :TString;
 
-  function ExtractNextWord(var Str :PTChar; const Del :TAnsiCharSet) :TString;
+  function ExtractNextWord(var Str :PTChar; const Del :TAnsiCharSet; ASkipFirst :Boolean = False) :TString;
   function ExtractNextValue(var Str :PTChar; const Del :TAnsiCharSet) :TString;
   function ExtractNextInt(var Str :PTChar; const Del :TAnsiCharSet) :Integer;
 
@@ -120,10 +124,12 @@ interface
   function FileNameIsLocal(const FileName :TString) :Boolean;
   function FileNameIsUNC(const FileName :TString) :Boolean;
   function IsFullFilePath(const APath :TString) :Boolean;
-  
+
   function GetCommandLineStr :PTChar;
   function ExtractParamStr(var AStr :PTChar) :TString;
 
+  function WideToUTF8(const AStr :TWideStr) :TAnsiStr;
+  function UTF8ToWide(const AStr :TAnsiStr) :TWideStr;
 
   type
     TStrFileFormat = (
@@ -436,6 +442,22 @@ interface
         end;
     Result := 0;
   end;
+
+
+  function ChrLastPos(Ch :TChar; const Str :TString) :Integer;
+  var
+    I, L :Integer;
+  begin
+    L := Length(Str);
+    if L > 0 then
+      for I := L downto 1 do
+        if Str[I] = Ch then begin
+          Result := I;
+          Exit;
+        end;
+    Result := 0;
+  end;
+
 
 
   function ChrsPos(const Chars :TAnsiCharSet; const Str :TString) :Integer;
@@ -832,6 +854,30 @@ interface
   end;
 
 
+  function StrRightAjust(const AStr :TString; ALen :Integer) :TString;
+  var
+    vlen :Integer;
+  begin
+    vLen := Length(AStr);
+    if vLen >= ALen then
+      Result := AStr
+    else
+      Result := StringOfChar(' ', ALen - vLen) + AStr;
+  end;
+
+
+  function StrLeftAjust(const AStr :TString; ALen :Integer) :TString;
+  var
+    vlen :Integer;
+  begin
+    vLen := Length(AStr);
+    if vLen >= ALen then
+      Result := Copy(AStr, 1, ALen)
+    else
+      Result := AStr + StringOfChar(' ', ALen - vLen);
+  end;
+
+
   function StrDeleteChars(const Str :TString; const Chars :TAnsiCharSet) :TString;
   var
     I, J, L :Integer;
@@ -1033,11 +1079,16 @@ interface
   end;
 
 
-  function ExtractNextWord(var Str :PTChar; const Del :TAnsiCharSet) :TString;
+  function ExtractNextWord(var Str :PTChar; const Del :TAnsiCharSet; ASkipFirst :Boolean = False) :TString;
   var
     P :PTChar;
   begin
     P := Str;
+    if ASkipFirst then begin
+      while (P^ <> #0) and ChrInSet(P^, Del) do
+        Inc(P);
+      Str := P;
+    end;
     while (P^ <> #0) and not ChrInSet(P^, Del) do
       Inc(P);
     Result := Chr2StrL(Str, P - Str);
@@ -1387,7 +1438,33 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function LocReadAnsiStr(AFile :THandle; ASize :Integer; AMode :TStrFileFormat) :TAnsiStr;
+  function WideToUTF8(const AStr :TWideStr) :TAnsiStr;
+  var
+    vLen :Integer;
+  begin
+    Result := '';
+    vLen := WideCharToMultiByte(CP_UTF8, 0, PWideChar(AStr), length(AStr), nil, 0, nil, nil);
+    if vLen > 0 then begin
+      SetLength(Result, vLen);
+      WideCharToMultiByte(CP_UTF8, 0, PWideChar(AStr), length(AStr), PAnsiChar(Result), vLen, nil, nil);
+    end;
+  end;
+
+
+  function UTF8ToWide(const AStr :TAnsiStr) :TWideStr;
+  var
+    vLen :Integer;
+  begin
+    Result := '';
+    vLen := MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(AStr), length(AStr), nil, 0);
+    if vLen > 0 then begin
+      SetLength(Result, vLen);
+      MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(AStr), length(AStr), PWideChar(Result), vLen);
+    end;
+  end;
+
+
+  function ReadAnsiStr(AFile :THandle; ASize :Integer; AMode :TStrFileFormat) :TAnsiStr;
   begin
     SetString(Result, nil, ASize);
     FileRead(AFile, PAnsiChar(Result)^, ASize);
@@ -1406,15 +1483,10 @@ interface
   function ReadUTF8Str(AFile :THandle; ASize :Integer) :TWideStr;
   var
     vAStr :TAnsiStr;
-    vSize1 :Integer;
   begin
     SetString(vAStr, nil, ASize);
     FileRead(AFile, PAnsiChar(vAStr)^, ASize);
-    vSize1 := MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(vAStr), ASize, nil, 0);
-    if vSize1 > 0 then begin
-      SetString(Result, nil, vSize1);
-      MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(vAStr), ASize, PWideChar(Result), vSize1);
-    end;
+    Result := UTF8ToWide(vAStr);
   end;
 
 
@@ -1476,7 +1548,7 @@ interface
       if vSize > 0 then begin
         case AMode of
           sffAnsi,sffOEM:
-            Result := LocReadAnsiStr(vFile, vSize, AMode);
+            Result := TString(ReadAnsiStr(vFile, vSize, AMode));
           sffUnicode:
             Result := ReadUnicodeStr(vFile, vSize);
           sffUTF8:
@@ -1494,15 +1566,24 @@ interface
   var
     vFile :THandle;
 
+    procedure LocWriteAnsi(const AStr :TAnsiStr);
+    begin
+      FileWrite(vFile, PAnsiChar(AStr)^, Length(AStr));
+    end;
+
     procedure LocWriteUnicode(const AStr :TWideStr);
     begin
       FileWrite(vFile, BOM_UTF16[1], length(BOM_UTF16));
       FileWrite(vFile, PWideChar(AStr)^, Length(AStr) * SizeOf(WideChar));
     end;
 
-    procedure LocWriteAnsi(const AStr :TAnsiStr);
+    procedure LocWriteUTF8(const AStr :TWideStr);
+    var
+      vAStr :TAnsiStr;
     begin
-      FileWrite(vFile, PAnsiChar(AStr)^, Length(AStr));
+      vAStr := WideToUTF8(AStr);
+      FileWrite(vFile, BOM_UTF8[1], length(BOM_UTF8));
+      FileWrite(vFile, PAnsiChar(vAStr)^, Length(vAStr));
     end;
 
   begin
@@ -1517,10 +1598,14 @@ interface
     if vFile = INVALID_HANDLE_VALUE then
       ApiCheck(False);
     try
-      if AMode = sffUnicode then
-        LocWriteUnicode(AStr)
-      else
-        LocWriteAnsi(TAnsiStr(AStr));
+      case AMode of
+        sffAnsi,sffOEM:
+          LocWriteAnsi(TAnsiStr(AStr));
+        sffUnicode:
+          LocWriteUnicode(AStr);
+        sffUTF8:
+          LocWriteUTF8(AStr);
+      end;
     finally
       FileClose(vFile);
     end;

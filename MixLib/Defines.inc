@@ -38,6 +38,7 @@
 
   {$Define bFreePascal}
   {$Define bInline}
+  {-$Define bUnicodeStr}        { Поддерживается тип UnicodeString }
 
   {$ifdef CPUX86_64}
    {$Define b64}
@@ -70,7 +71,7 @@
    {$Define bDelphi4}
    {$Define bDelphi5}
    {$Define bDelphi6}
-  {$endif Ver130}
+  {$endif Ver140}
 
   {$ifdef Ver150}
    {$Define bDelphi4}
@@ -123,6 +124,32 @@
    {$Define bDelphi13}  { D2010 }
   {$endif}
 
+  {$ifdef Ver220}       // XE
+   !!!
+  {$endif}
+
+  {$ifdef Ver230}       // Pulsar
+   {$Define bDelphi4}
+   {$Define bDelphi5}
+   {$Define bDelphi6}
+   {$Define bDelphi7}
+   {$Define bDelphi8}
+   {$Define bDelphi9}
+   {$Define bDelphi10}
+   {$Define bDelphi11}
+   {$Define bDelphi12}
+   {$Define bDelphi13}
+   {$Define bDelphi14}  // XE
+   {$Define bDelphi15}  // Pulsar
+  {$endif}
+
+  {$ifdef Win32}
+  {$endif}
+
+  {$ifdef Win64}
+   {$Define b64}
+  {$endif}
+
   {$ifdef bDelphi12}
    {$Define bInline}
    {$Define bUnicodeStr}  { Поддерживается тип UnicodeString }
@@ -130,6 +157,12 @@
 
    {$Undef bMemCheck}     { Пока не поддерживается }
   {$endif}
+
+  {$ifdef b64}
+   {$Define bDelphi64}
+  {$else}
+   {$Define bOldLocalCall}
+  {$endif b64}
 
 {$endif FPC}
 

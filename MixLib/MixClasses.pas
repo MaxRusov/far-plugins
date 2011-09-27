@@ -253,10 +253,11 @@ interface
      {$endif bUseStreams}
       function GetStrItems(Index :Integer) :TString;
       procedure PutStrItems(Index :Integer; const Value :TString);
+      function GetPStrItems(Index :Integer) :PTString;
 
     public
       property Items[I :Integer] :TString read GetStrItems write PutStrItems; default;
-//    property Strings[I :Integer] :TString read GetStrItems write PutStrItems;
+      property PStrings[I :Integer] :PTString read GetPStrItems;
     end;
 
 
@@ -361,6 +362,15 @@ interface
     end;
 
 
+  type
+    TKeywordsList = class(TObjList)
+    public
+      procedure Add(const AKeyword :TString; AKey :Integer);
+      function GetKeyword(APtr :PTChar; ALen :Integer) :Integer;
+      function GetKeywordStr(const AStr :TString) :Integer;
+      function NameByKey(AKey :Integer) :TString;
+    end;
+
 
   type
     TBits = class
@@ -389,6 +399,10 @@ interface
   type
     TThreadPriority = (tpIdle, tpLowest, tpLower, tpNormal, tpHigher, tpHighest, tpTimeCritical);
 
+   {$ifndef bDelphi15}
+    TThreadID = THandle;
+   {$endif bDelphi15}
+
     TThread = class
     public
       constructor Create(CreateSuspended: Boolean);
@@ -404,7 +418,7 @@ interface
 //    procedure Synchronize(Method: TThreadMethod);
     private
       FHandle: THandle;
-      FThreadID: THandle;
+      FThreadID: TThreadID {THandle};
       FTerminated: Boolean;
       FSuspended: Boolean;
       FCreateSuspended: Boolean;
@@ -420,7 +434,7 @@ interface
       procedure SetSuspended(Value: Boolean);
     public
       property Handle: THandle read FHandle;
-      property ThreadID: THandle read FThreadID;
+      property ThreadID: TThreadID{THandle} read FThreadID;
       property Priority: TThreadPriority read GetPriority write SetPriority;
       property Suspended: Boolean read FSuspended write SetSuspended;
       property FreeOnTerminate: Boolean read FFreeOnTerminate write FFreeOnTerminate;
@@ -1413,6 +1427,12 @@ interface
   end;
 
 
+  function TStrList.GetPStrItems(Index :Integer) :PTString;
+  begin
+    Result := GetPItems(Index);
+  end;
+
+
  {-----------------------------------------------------------------------------}
  { TNamedObject                                                                }
  {-----------------------------------------------------------------------------}
@@ -1690,7 +1710,69 @@ interface
     end;
   end;
 
-  
+
+ {-----------------------------------------------------------------------------}
+ { TKeywords                                                                   }
+ {-----------------------------------------------------------------------------}
+
+  type
+    TKeyword = class(TNamedObject)
+    public
+      FKey :Integer;
+      function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
+    end;
+
+
+  function TKeyword.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {override;}
+  begin
+    if Context <> 0 then
+      Result := UpCompareBuf(PTChar(FName)^, Key^, length(FName), Context)
+    else
+      Result := inherited CompareKey(Key, Context);
+  end;
+
+
+  procedure TKeywordsList.Add(const AKeyword :TString; AKey :Integer);
+  var
+    vKeyword :TKeyword;
+  begin
+    vKeyword := TKeyword.CreateName(AKeyword);
+    vKeyword.FKey := AKey;
+    AddSorted(vKeyword, 0, dupError);
+  end;
+
+
+  function TKeywordsList.GetKeyword(APtr :PTChar; ALen :Integer) :Integer;
+  var
+    vIndex :Integer;
+  begin
+    if FindKey(APtr, ALen, [foBinary], vIndex) then
+      Result := TKeyword(Items[vIndex]).FKey
+    else
+      Result := -1;
+  end;
+
+
+  function TKeywordsList.GetKeywordStr(const AStr :TString) :Integer;
+  begin
+    Result := GetKeyword(PTChar(AStr), length(AStr));
+  end;
+
+
+  function TKeywordsList.NameByKey(AKey :Integer) :TString;
+  var
+    I :Integer;
+  begin
+    for I := 0 to FCount - 1 do
+      with TKeyword(Items[I]) do
+        if FKey = AKey then begin
+          Result := Name;
+          Exit;
+        end;
+    Result := '';
+  end;
+
+
  {-----------------------------------------------------------------------------}
  { TBits                                                                       }
  {-----------------------------------------------------------------------------}
@@ -1698,7 +1780,7 @@ interface
  {$ifdef b64}
   procedure _SetBit({RCX:}ABits :Pointer; {RDX:}ABitIdx :TIntPtr); register;
   asm
-    BTS     [RCX], RDX
+    BTS     [RCX], EDX {!!!Pulsar}
   end;
 
   procedure _ClearBit({RCX:}ABits :Pointer; {RDX:}ABitIdx :TIntPtr); register;

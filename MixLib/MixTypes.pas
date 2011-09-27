@@ -31,7 +31,8 @@ interface
    {$else}
 
    {$ifdef b64}
-    // Delphi 64...
+    TIntPtr = IntPtr;
+    TUnsPtr = UIntPtr;
    {$else}
     TIntPtr = Integer;
     TUnsPtr = Cardinal;
@@ -149,30 +150,30 @@ interface
 
 
  {$ifdef b64}
-  function GetStackFrame :Pointer; assembler; nostackframe;
+  function GetStackFrame :Pointer; assembler; {$ifdef bFreePascal}nostackframe;{$endif}
   asm
     MOV  RAX, RBP
   end;
 
-  function GetStackFrame2 :Pointer; assembler; nostackframe;
+  function GetStackFrame2 :Pointer; assembler; {$ifdef bFreePascal}nostackframe;{$endif}
   asm
     MOV  RAX, RBP
     MOV  RAX, [RAX]
   end;
 
-  function ReturnAddr :Pointer; assembler; nostackframe;
+  function ReturnAddr :Pointer; assembler; {$ifdef bFreePascal}nostackframe;{$endif}
   asm
     MOV  RAX, RBP
     MOV  RAX, [RAX + 8]
   end;
 
-  function ReturnAddr2 :Pointer; assembler; nostackframe;
+  function ReturnAddr2 :Pointer; assembler; {$ifdef bFreePascal}nostackframe;{$endif}
   asm
     MOV  RAX, [RBP]
     MOV  RAX, [RAX + 8]
   end;
 
-  function ReturnAddr3 :Pointer; assembler; nostackframe;
+  function ReturnAddr3 :Pointer; assembler; {$ifdef bFreePascal}nostackframe;{$endif}
   asm
     MOV  RAX, [RBP]
     MOV  RAX, [RAX]
@@ -210,7 +211,6 @@ interface
     MOV  EAX, [EAX]
     MOV  EAX, [EAX + 4]
   end;
-
  {$endif b64}
 
 
