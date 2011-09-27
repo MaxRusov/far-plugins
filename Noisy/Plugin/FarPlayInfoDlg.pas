@@ -518,7 +518,7 @@ interface
 
       LockPlayer;
       try
-        RunDialog(hModule, -1, -1, DX, DY, 'Info', vDlg, cDlgItemsCount, 0, InfoDialogProc, 0);
+        RunDialog(-1, -1, DX, DY, 'Info', vDlg, cDlgItemsCount, 0, InfoDialogProc, 0);
       finally
         UnlockPlayer;
       end;

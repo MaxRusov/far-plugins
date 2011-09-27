@@ -319,8 +319,10 @@ interface
               vItem := @vInfo.PanelItems[vIndex];
              {$endif bUnicode}
 
-              vName := vFolder + '/' + FarChar2Str(vItem.FindData.cFileName);
-              ExecAddCommand(vName, Add, vIsFolder);
+              if faDirectory and vItem.FindData.dwFileAttributes = 0 then begin
+                vName := vFolder + '/' + FarChar2Str(vItem.FindData.cFileName);
+                ExecAddCommand(vName, Add, False);
+              end;
 
              {$ifdef bUnicode}
               finally
@@ -339,10 +341,12 @@ interface
                 vItem := @vInfo.SelectedItems[I];
                {$endif bUnicode}
 
-                vName := vFolder + '/' + FarChar2Str(vItem.FindData.cFileName);
                 LocShowMessage((100 * I) div N);
-                ExecAddCommand(vName, Add, vIsFolder);
-                Add := True;
+                if faDirectory and vItem.FindData.dwFileAttributes = 0 then begin
+                  vName := vFolder + '/' + FarChar2Str(vItem.FindData.cFileName);
+                  ExecAddCommand(vName, Add, False);
+                  Add := True;
+                end;
 
                {$ifdef bUnicode}
                 finally

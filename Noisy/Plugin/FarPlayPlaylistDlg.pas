@@ -470,7 +470,7 @@ interface
     procedure ChangePalette(AColors :PFarListColors);
     const
       cColors = 10;
-      cMenuPalette :array[0..cColors - 1] of Integer =
+      cMenuPalette :array[0..cColors - 1] of TPaletteColors =
         (COL_MENUBOX,COL_MENUBOX,COL_MENUTITLE,COL_MENUTEXT, COL_MENUHIGHLIGHT,COL_MENUBOX,COL_MENUSELECTEDTEXT, COL_MENUSELECTEDHIGHLIGHT,COL_MENUSCROLLBAR,COL_MENUDISABLEDTEXT);
     var
       I :Integer;
@@ -627,7 +627,7 @@ interface
       LockPlayer;
       try
         vFilterMask := '';
-        RunDialog(hModule, -1, -1, DX, DY, 'Playlist', vDlg, 1, 0, PlaylistDialogProc, 0);
+        RunDialog(-1, -1, DX, DY, 'Playlist', vDlg, 1, 0, PlaylistDialogProc, 0);
       finally
         UnlockPlayer;
       end;
