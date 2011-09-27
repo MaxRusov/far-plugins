@@ -36,7 +36,11 @@ Far Manager plugins that use this header file can be distributed under any
 other possible license with no implications from the above license on them.
 }
 
-{$Align Off}
+{$ifdef Far3}
+ Use Plugin3!
+{$endif Far3}
+
+{$Align On}
 {$RangeChecks Off}
 
 {$ifdef CPUX86_64}
@@ -67,11 +71,18 @@ type
   DWORD_PTR = PtrUInt;
   SIZE_T = PtrUInt;
  {$else}
+ {$ifdef Win64}
+  INT_PTR = IntPtr;
+  LONG_PTR = IntPtr;
+  DWORD_PTR = UIntPtr;
+  SIZE_T = UIntPtr;
+ {$else}
   INT_PTR = Integer;
   LONG_PTR = Integer;
   DWORD_PTR = Cardinal;
   SIZE_T = Cardinal;
  {$endif CPUX86_64}
+ {$endif Win64}
 
   PPCharArray = ^TPCharArray;
   TPCharArray = packed array[0..MaxInt div SizeOf(PFarChar) - 1] of PFarChar;
@@ -3365,3 +3376,4 @@ end;
 
 
 end.
+
