@@ -22,9 +22,13 @@ interface
     MixClasses,
     MixWinUtils,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
+    FarKeysW,
     FarCtrl,
-    FarKeys,
 
     FarMatch,
     MacroLibConst,
@@ -102,6 +106,13 @@ interface
       RunAll  :Boolean;
     end;
 
+    TRunEvent = class(TBasis)
+    public
+      Event :TMacroEvent;
+      Area  :TMacroArea;
+      constructor CreateEx(AEvent :TMacroEvent; AArea :TMacroArea);
+    end;
+
 
     PIndexRec = ^TIndexRec;
     TIndexRec = record
@@ -176,13 +187,15 @@ interface
     end;
 
 
-  var
-    MacroLibrary :TMacroLibrary;
-
-
+ {$ifdef Far3}
+ {$else}
   procedure PushDlg(AHandle :THandle);
   procedure PopDlg(AHandle :THandle);
-  procedure SetDlgInfo(AHandle :THandle; const AInfo :TDialogInfo);
+ {$endif Far3}
+
+
+  var
+    MacroLibrary :TMacroLibrary;
 
 
 {******************************************************************************}
@@ -196,75 +209,67 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  type
-    PDlgRec = ^TDlgRec;
-    TDlgRec = record
-      Handle :THandle;
-      Inited :Boolean;
-      GUID   :TGUID;
-    end;
 
+ {$ifdef Far3}
+ {$else}
   var
     DlgStack :TExList;
-
 
   procedure PushDlg(AHandle :THandle);
   begin
     if DlgStack = nil then
-      DlgStack := TExList.CreateSize(SizeOf(TDlgRec));
-    with PDlgRec(DlgStack.NewItem(DlgStack.Count))^ do begin
-      Handle := AHandle;
-      Inited := False;
-      FillZero(GUID, SizeOf(TGUID));
-    end
+      DlgStack := TExList.Create;
+    DlgStack.Add(Pointer(AHandle));
   end;
-
 
   procedure PopDlg(AHandle :THandle);
   begin
-//  Assert(DlgStack.Count > 0);
-    if (DlgStack <> nil) and (DlgStack.Count > 0) then begin
-      with PDlgRec(DlgStack.PItems[DlgStack.Count - 1])^ do begin
-        Assert(Handle = AHandle);
-        if Handle <> AHandle then
-          Exit;
-      end;
-      DlgStack.Delete(DlgStack.Count - 1);
-    end;
-  end;
-
-
-  procedure SetDlgInfo(AHandle :THandle; const AInfo :TDialogInfo);
-  begin
     if (DlgStack <> nil) and (DlgStack.Count > 0) then
-      with PDlgRec(DlgStack.PItems[DlgStack.Count - 1])^ do
-        if Handle = AHandle then begin
-          GUID := AInfo.Id;
-          Inited := True;
-        end;
+      if THandle(DlgStack.Last) = AHandle then
+        DlgStack.Delete(DlgStack.Count - 1);
   end;
+
+  function GetTopDlgHandle :THandle;
+  begin
+    Result := 0;
+    if (DlgStack <> nil) and (DlgStack.Count > 0) then
+      Result := THandle(DlgStack.Last);
+  end;
+ {$endif Far3}
 
 
   function GetTopDlgGUID :TGUID;
   var
-    vInfo :TDialogInfo;
+    vWinInfo :TWindowInfo;
+    vDlgInfo :TDialogInfo;
+    vDlg :THandle;
   begin
-    if DlgStack.Count > 0 then begin
-      with PDlgRec(DlgStack.PItems[DlgStack.Count - 1])^ do begin
-        if not Inited then begin
-          FillZero(vInfo, SizeOf(vInfo));
-          vInfo.StructSize := SizeOf(vInfo);
-          if FARAPI.SendDlgMessage(Handle, DM_GETDIALOGINFO, 0, TIntPtr(@vInfo)) <> 0 then
-            GUID := vInfo.Id;
-          Inited := True;
-        end;
-        Result := GUID;
-      end;
-    end else
-      FillZero(Result, SizeOf(TGUID));
+    FillZero(Result, SizeOf(TGUID));
+    if FarGetWindowInfo(-1, vWinInfo) and (vWinInfo.WindowType = WTYPE_DIALOG) then begin
+     {$ifdef Far3}
+      vDlg := vWinInfo.ID;
+     {$else}
+      vDlg := GetTopDlgHandle;
+     {$endif Far3}
+      FillZero(vDlgInfo, SizeOf(vDlgInfo));
+      vDlgInfo.StructSize := SizeOf(vDlgInfo);
+      if FarSendDlgMessage(vDlg, DM_GETDIALOGINFO, 0, @vDlgInfo) <> 0 then
+        Result := vDlgInfo.Id;
+    end;
   end;
 
-  
+
+ {-----------------------------------------------------------------------------}
+ { TRunEvent                                                                   }
+ {-----------------------------------------------------------------------------}
+
+  constructor TRunEvent.CreateEx(AEvent :TMacroEvent; AArea :TMacroArea);
+  begin
+    Event := AEvent;
+    Area := AArea;
+  end;
+
+
  {-----------------------------------------------------------------------------}
  { TMacro                                                                      }
  {-----------------------------------------------------------------------------}
@@ -435,7 +440,7 @@ interface
 
       if length(FDlgs1) > 0 then begin
         { ...или по Caption }
-        FarGetWindowInfo(-1, vWinInfo, @vTitle, nil);
+        FarGetWindowInfo(-1, vWinInfo, @vTitle);
         if vWinInfo.WindowType = WTYPE_DIALOG then
           for I := 0 to length(FDlgs1) - 1 do
             if StringMatch(FDlgs1[I], '', PTChar(vTitle), vPos, vLen, [moIgnoreCase, moWilcards]) then begin
@@ -458,8 +463,8 @@ interface
     if not Result and (Area = maViewer) and (length(FViews) > 0) then begin
       FarGetWindowInfo(-1, vWinInfo, @vTitle, nil);
       if vWinInfo.WindowType = WTYPE_VIEWER then
-        for I := 0 to length(FEdts) - 1 do
-          if StringMatch(FEdts[I], '', PTChar(vTitle), vPos, vLen, [moIgnoreCase, moWilcards]) then begin
+        for I := 0 to length(FViews) - 1 do
+          if StringMatch(FViews[I], '', PTChar(vTitle), vPos, vLen, [moIgnoreCase, moWilcards]) then begin
             Result := True;
             Exit;
           end;
@@ -473,10 +478,19 @@ interface
     vText :TString;
   begin
     vFlags := 0;
+
+   {$ifdef Far3}
+    if moDisableOutput in FOptions then
+      vFlags := vFlags or KMFLAGS_DISABLEOUTPUT;
+    if not (moSendToPlugins in FOptions) then
+      vFlags := vFlags or KMFLAGS_NOSENDKEYSTOPLUGINS;
+   {$else}
     if moDisableOutput in FOptions then
       vFlags := vFlags or KSFLAGS_DISABLEOUTPUT;
     if not (moSendToPlugins in FOptions) then
       vFlags := vFlags or KSFLAGS_NOSENDKEYSTOPLUGINS;
+   {$endif Far3}
+
     if (moDefineAKey in FOptions) and (AKeyCode <> 0) then begin
 
       vText :=
@@ -673,6 +687,41 @@ interface
 
   procedure TMacroLibrary.ScanMacroFolder(const AFolder :TString);
 
+    function LocEnumMacroFiles(const APath :TString; const ARec :TWin32FindData) :Boolean;
+    begin
+      Result := True;
+
+      if FNewMacroses = nil then
+        {!!! - Не работает флаг efoBooleanFunc }
+        Exit;
+
+      if ARec.dwFileAttributes and FILE_ATTRIBUTE_HIDDEN <> 0 then
+        Exit;
+      if not ParseMacroFile(AddFileName(APath, ARec.cFileName)) and not FSilence then
+        Result := False;
+    end;
+
+  var
+    I :Integer;
+    vPath :TString;
+  begin
+//  TraceF('ScanMacroFolder: %s', [vPath]);
+    for I := 1 to WordCount(AFolder, [';', ',']) do begin
+
+      vPath := Trim(ExtractWord(I, AFolder, [';', ',']));
+      if (vPath <> '') and (vPath[1] = '"') and (vPath[length(vPath)] = '"') then
+        vPath := Trim(Copy(vPath, 2, length(vPath) - 2));
+      vPath := StrExpandEnvironment(vPath);
+
+      if WinFolderExists(vPath) then
+        WinEnumFilesEx(vPath, '*.' + cMacroFileExt, faEnumFiles, [efoRecursive, efoBooleanFunc], LocalAddr(@LocEnumMacroFiles));
+    end;
+  end;
+  
+
+(*
+  procedure TMacroLibrary.ScanMacroFolder(const AFolder :TString);
+
     function LocEnumMacroFiles(const AFileName :TString; const ARec :TFarFindData) :Integer;
     begin
       Result := 1;
@@ -698,6 +747,7 @@ interface
         EnumFilesEx(vPath, '*.' + cMacroFileExt, LocalAddr(@LocEnumMacroFiles));
     end;
   end;
+*)
 
 
   function TMacroLibrary.ParseMacroFile(const AFileName :TString) :boolean;
@@ -736,7 +786,7 @@ interface
   procedure TMacroLibrary.ParseError(Sender :TMacroParser; ACode :Integer; const AMessage :TString; const AFileName :TString; ARow, ACol :Integer);
   begin
     if FSilence then begin
-      {!!!Вывести в лог}
+      {TODO: Вывести в лог... }
     end else
     begin
       FreeObj(FNewMacroses);
@@ -778,8 +828,12 @@ interface
     vTick :DWORD;
   begin
     Result := False;
+    if ARec.wVirtualKeyCode = 0 then
+      Exit;
 
-    vRecKey := WinKeyRecToFarKey(ARec);
+//  TraceF('CheckHotkey. Down=%d, VK=%d, State=%x...', [byte(ARec.bKeyDown), ARec.wVirtualKeyCode, ARec.dwControlKeyState]);
+
+    vRecKey := KeyEventToFarKey(ARec);
     vKey := vRecKey;
 
     if ARec.bKeyDown then begin
@@ -829,12 +883,12 @@ interface
       FLastKey := 0;
     end;
 
-//  if ARec.bKeyDown then
+//  if True {and (vKey <> 0)} {and ARec.bKeyDown} then
 //    TraceF('CheckHotkey (Press=%d, Repeat=%d, vChr=%x, vKey=%x -> %x "%s":%d)',
 //      [byte(ARec.bKeyDown), ARec.wRepeatCount, Word(ARec.UnicodeChar), vRecKey, vKey, FarKeyToName(vKey), byte(vPress)]);
 
     if not FCancelled then begin
-    
+
       if vKey <> 0 then
         Result := CheckForRun(vKey, ARec.UnicodeChar, vPress);
 
@@ -863,7 +917,7 @@ interface
     if ARec.dwEventFlags and (MOUSE_MOVED + DOUBLE_CLICK + MOUSE_WHEELED + MOUSE_HWHEELED) = MOUSE_MOVED then
       Exit;
 
-    vKey := MouseEventToFarKey(ARec, FMouseState, vDown, vDouble);
+    vKey := MouseEventToFarKeyEx(ARec, FMouseState, vDown, vDouble);
     FMouseState := ARec.dwButtonState;
     FLastKey := 0;
     FPrevKey := 0;
@@ -902,9 +956,16 @@ interface
             vList.KeyCode := word(AChr)
           else
             vList.KeyCode := AKey;
-            
-          FARAPI.AdvControl(hModule, ACTL_SYNCHRO, vList);
-          vList := nil;
+
+//        if (vList.Count = 1) and True then begin
+//          { Быстрый запуск. Возможны глюки (?) }
+//          TMacro(vList[0]).Execute(vList.KeyCode)
+//        end else
+//        begin
+            FarAdvControl(ACTL_SYNCHRO, vList);
+            vList := nil;
+//        end;
+
         end;
       finally
         FreeObj(vList);
@@ -1008,7 +1069,7 @@ interface
 
       if vList.Count > 0 then begin
         vList.RunAll := True;
-        FARAPI.AdvControl(hModule, ACTL_SYNCHRO, vList);
+        FarAdvControl(ACTL_SYNCHRO, vList);
         vList := nil;
       end;
 
@@ -1040,7 +1101,7 @@ interface
     vIndex := -1;
     if ListMacrosesDlg(AList, vIndex) then begin
       vMacro := AList[vIndex];
-      FARAPI.AdvControl(hModule, ACTL_SYNCHRO, vMacro);
+      FarAdvControl(ACTL_SYNCHRO, vMacro);
     end;
   end;
 
@@ -1066,7 +1127,7 @@ interface
       vIndex := -1;
       if ListMacrosesDlg(vList, vIndex) then begin
         vMacro := vList[vIndex];
-        FARAPI.AdvControl(hModule, ACTL_SYNCHRO, vMacro);
+        FarAdvControl(ACTL_SYNCHRO, vMacro);
       end;
 
     finally
@@ -1083,7 +1144,7 @@ interface
     vIndex := -1;
     if ListMacrosesDlg(FMacroses, vIndex) then begin
       vMacro := FMacroses[vIndex];
-      FARAPI.AdvControl(hModule, ACTL_SYNCHRO, vMacro);
+      FarAdvControl(ACTL_SYNCHRO, vMacro);
     end;
   end;
 
@@ -1102,9 +1163,7 @@ interface
     var
       vWinInfo :TWindowInfo;
     begin
-      FillZero(vWinInfo, SizeOf(vWinInfo));
-      vWinInfo.Pos := -1;
-      FARAPI.AdvControl(hModule, ACTL_GETSHORTWINDOWINFO, @vWinInfo);
+      FarGetWindowInfo(-1, vWinInfo);
       FWindowType := vWinInfo.WindowType;
     end;
 
@@ -1124,7 +1183,7 @@ interface
     begin
       if FWindowType = WTYPE_EDITOR then begin
         FillZero(vEdtInfo, SizeOf(vEdtInfo));
-        FARAPI.EditorControl(ECTL_GETINFO, @vEdtInfo);
+        FarEditorControl(ECTL_GETINFO, @vEdtInfo);
         SetMacroCondition(FConditions, mcBlockNotSelected, vEdtInfo.BlockType <> BTYPE_NONE);
       end else
       if FWindowType = WTYPE_VIEWER then begin
@@ -1141,14 +1200,24 @@ interface
       vItem :PPluginPanelItem;
     begin
       FillZero(vPanInfo, SizeOf(vPanInfo));
+     {$ifdef Far3}
+      vPanInfo.StructSize := SizeOf(vPanInfo);
+      FARAPI.Control(AHandle, FCTL_GETPANELINFO, 0, @vPanInfo);
+      AIsPlugin := PFLAGS_PLUGIN and vPanInfo.Flags <> 0;
+     {$else}
       FARAPI.Control(AHandle, FCTL_GETPANELINFO, 0, @vPanInfo);
       AIsPlugin := vPanInfo.Plugin = 1;
+     {$endif Far3}
 
       AIsFolder := False; AHasSelected := False;
       if vPanInfo.ItemsNumber > 0 then begin
         vItem := FarPanelItem(AHandle, FCTL_GETCURRENTPANELITEM, 0);
         try
+         {$ifdef Far3}
+          AIsFolder := vItem.FileAttributes and faDirectory <> 0;
+         {$else}
           AIsFolder := vItem.FindData.dwFileAttributes and faDirectory <> 0;
+         {$endif Far3}
         finally
           MemFree(vItem);
         end;
@@ -1212,5 +1281,8 @@ initialization
 
 finalization
   FreeObj(MacroLibrary);
+ {$ifdef Far3}
+ {$else}
   FreeObj(DlgStack);
+ {$endif Far3}
 end.

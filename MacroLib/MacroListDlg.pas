@@ -18,7 +18,11 @@ interface
     MixClasses,
     MixStrings,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
     FarKeysW,
     FarColor,
 
@@ -44,6 +48,7 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
       procedure SelectItem(ACode :Integer); override;
@@ -52,8 +57,8 @@ interface
       procedure ReinitAndSaveCurrent; override;
 
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; override;
-      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer); override;
-      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); override;
+      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor); override;
+      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); override;
 
       function ItemCompare(AIndex1, AIndex2 :Integer; Context :TIntPtr) :Integer; override;
 
@@ -91,116 +96,7 @@ interface
     MacroLibHints,
     MixDebug;
 
-
- {-----------------------------------------------------------------------------}
- {                                                                             }
- {-----------------------------------------------------------------------------}
-
-  type
-    TTabIndex = class(TIntList)
-    protected
-      function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
-    end;
-
-
-  function TTabIndex.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
-  begin
-    with TObject(Context) as TIntList do
-      Result := IntCompare(Items[PInteger(PItem)^], Items[PInteger(PAnother)^]);
-  end;
-
-
-  procedure ReduceList(AWidths :TIntList; AOversize :Integer);
-  var
-    vIndex :TTabIndex;
-
-    procedure LocReduce(AIndex :Integer);
-    var
-      I, vWidth, vNextWidth, vDelta :Integer;
-    begin
-      Assert(AIndex < vIndex.Count);
-      vWidth := AWidths[ vIndex[AIndex] ];
-      vNextWidth := 0;
-      while AIndex < vIndex.Count do begin
-        Inc(AIndex);
-        if AIndex < vIndex.Count then begin
-          vNextWidth := AWidths[ vIndex[AIndex] ];
-          Assert(vNextWidth <= vWidth);
-          if vNextWidth < vWidth then
-            { Нашли "ступеньку"}
-            Break;
-        end;
-      end;
-
-      if (AIndex < vIndex.Count) and ((vWidth - vNextWidth) * AIndex < AOversize) then begin
-        { Стешем вершки... }
-        for I := 0 to AIndex - 1 do begin
-          vWidth := AWidths[ vIndex[I] ];
-          AWidths[ vIndex[I] ] := vNextWidth;
-          Dec( AOversize, vWidth - vNextWidth );
-        end;
-        { И попробуем снова... }
-        LocReduce(AIndex);
-      end else
-      begin
-        { Последний "стес" }
-        for I := AIndex - 1 downto 0 do begin
-          vDelta := AOversize div (I + 1);
-          vWidth := AWidths[ vIndex[I] ];
-          AWidths[ vIndex[I] ] := vWidth - vDelta;
-          Dec( AOversize, vDelta );
-        end;
-      end;
-    end;
-
-  var
-    I :Integer;
-  begin
-    Assert((AWidths <> nil) and (AWidths.Count > 0) and (AOversize >= 0));
-    vIndex := TTabIndex.Create;
-    try
-      for I := 0 to AWidths.Count - 1 do
-        vIndex.Add(I);
-      vIndex.SortList(False, Integer(AWidths));
-
-      LocReduce(0);
-
-    finally
-      FreeObj(vIndex);
-    end;
-  end;
-
-
-  procedure ReduceGrid(AGrid :TFarGrid; AMaxWidth :Integer);
-  var
-    I, vWidth, vCanReduce :Integer;
-    vDeltas :TIntList;
-  begin
-    vDeltas := TIntList.Create;
-    try
-      vWidth := 0; vCanReduce := 0;
-      for I := 0 to AGrid.Columns.Count - 1 do
-        with AGrid.Column[I] do begin
-          vDeltas.Add(Width - MinWidth);
-          Inc(vCanReduce, Width - MinWidth);
-          Inc(vWidth, Width);
-        end;
-
-      if (vWidth > AMaxWidth) and (vCanReduce > 0) then begin
-        ReduceList(vDeltas, IntMin(vCanReduce, vWidth - AMaxWidth));
-
-        for I := 0 to AGrid.Columns.Count - 1 do
-          with AGrid.Column[I] do
-            Width := MinWidth + vDeltas[I];
-      end;
-
-    finally
-      FreeObj(vDeltas);
-    end;
-  end;
-
-
-
+    
  {-----------------------------------------------------------------------------}
  { TMacroList                                                                  }
  {-----------------------------------------------------------------------------}
@@ -370,7 +266,7 @@ interface
       with FGrid.Column[I] do
         MinWidth := IntMin(Width, 6);
 
-    ReduceGrid(FGrid, FarGetWindowSize.CX - (10 + FGrid.Columns.Count));
+    FGrid.ReduceColumns(FarGetWindowSize.CX - (10 + FGrid.Columns.Count));
 
     FMenuMaxWidth := 0;
     for I := 0 to FGrid.Columns.Count - 1 do
@@ -445,14 +341,14 @@ interface
   end;
 
 
-  procedure TMacroList.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer); {override;}
+  procedure TMacroList.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor); {override;}
   begin
     if (ACol = -1) and (FGrid.CurRow = ARow) and (FGrid.CurCol = 0) then
       AColor := FGrid.SelColor;
   end;
 
 
-  procedure TMacroList.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); {override;}
+  procedure TMacroList.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); {override;}
   var
     vMacro :TMacro;
     vTag :Integer;
@@ -470,7 +366,7 @@ interface
         vRec := PFilterRec(FFilter.PItems[ARow]);
 
       if vRec <> nil then
-        FGrid.DrawChrEx(X, Y, PTChar(vStr), AWidth, vRec.FPos, vRec.FLen, AColor, (AColor and not $0F) or (optFoundColor and $0F))
+        FGrid.DrawChrEx(X, Y, PTChar(vStr), AWidth, vRec.FPos, vRec.FLen, AColor, ChangeFG(AColor, optFoundColor))
       else
         FGrid.DrawChr(X, Y, PTChar(vStr), AWidth, AColor);
     end;
@@ -499,60 +395,9 @@ interface
 
 //  LocReinitAndSaveCurrent;
     ReinitGrid;
-    WriteSetup;
+    PluginConfig(True);
   end;
 
-(*
-  procedure TMacroList.SortByDlg;
-  const
-    cSortMenuCount = 6;
-  var
-    vRes :Integer;
-    vChr :TChar;
-    vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
-  begin
-    vItems := MemAllocZero(cSortMenuCount * SizeOf(TFarMenuItemEx));
-    try
-      vItem := @vItems[0];
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByName));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByFileName));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByModificationTime));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByAccessTime));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByPluginFlags));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByUnsorted));
-
-      vRes := Abs(PluginSortMode) - 1;
-      if vRes = -1 then
-        vRes := 5;
-      vChr := '+';
-      if PluginSortMode < 0 then
-        vChr := '-';
-      vItems[vRes].Flags := SetFlag(0, MIF_CHECKED or Word(vChr), True);
-
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        GetMsg(StrSortByTitle),
-        '',
-        '',
-        nil, nil,
-        Pointer(vItems),
-        cSortMenuCount);
-
-      if vRes <> -1 then begin
-        Inc(vRes);
-        if vRes = 6 then
-          vRes := 0;
-        if vRes >= 3 then
-          vRes := -vRes;
-        SetOrder(vRes);
-      end;
-
-    finally
-      MemFree(vItems);
-    end;
-  end;
-*)
 
  {-----------------------------------------------------------------------------}
 
@@ -638,7 +483,7 @@ interface
   end;
 
 
-  function TMacroList.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  function TMacroList.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
 
     procedure LocToggleOption(var AOption :Boolean);
     begin
@@ -649,10 +494,52 @@ interface
     procedure LocToggleOptionInt(var AOption :Integer; ANewValue :Integer);
     begin
       AOption  := ANewValue;
-      WriteSetup;
+      PluginConfig(True);
       ReInitGrid;
     end;
 
+  begin
+    Result := True;
+    case AKey of
+      KEY_ENTER:
+        SelectItem(1);
+
+      KEY_F4:
+        SelectItem(2);
+      KEY_ALTF4:
+        EditCurrent;
+      KEY_F5:
+        UpdateMacroses;
+
+      KEY_CTRL2:
+        LocToggleOptionInt(optShowBind, IntIf(optShowBind < 2, optShowBind + 1, 0));
+      KEY_CTRL3:
+        LocToggleOptionInt(optShowArea, IntIf(optShowArea < 2, optShowArea + 1, 0));
+      KEY_CTRL4:
+        LocToggleOptionInt(optShowFile, IntIf(optShowFile < 2, optShowFile + 1, 0));
+
+      KEY_CTRLF1, KEY_CTRLSHIFTF1:
+        SetOrder(1);
+      KEY_CTRLF2, KEY_CTRLSHIFTF2:
+        SetOrder(2);
+      KEY_CTRLF3, KEY_CTRLSHIFTF3:
+        SetOrder(3);
+      KEY_CTRLF4, KEY_CTRLSHIFTF4:
+        SetOrder(4);
+      KEY_CTRLF11:
+        SetOrder(0);
+//        KEY_CTRLF12:
+//          SortByDlg;
+      KEY_ALTF12:
+        SetOrder(FGrid.CurCol + 1);
+
+    else
+      Result := inherited KeyDown(AID, AKey);
+    end;
+  end;
+
+
+  function TMacroList.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
   begin
     Result := 1;
     case Msg of
@@ -661,46 +548,6 @@ interface
           ReinitAndSaveCurrent;
 //        SetCurrent(FGrid.CurRow);
         end;
-
-      DN_KEY: begin
-        case Param2 of
-          KEY_ENTER:
-            SelectItem(1);
-
-          KEY_F4:
-            SelectItem(2);
-          KEY_ALTF4:
-            EditCurrent;
-          KEY_F5:
-            UpdateMacroses;  
-
-          KEY_CTRL2:
-            LocToggleOptionInt(optShowBind, IntIf(optShowBind < 2, optShowBind + 1, 0));
-          KEY_CTRL3:
-            LocToggleOptionInt(optShowArea, IntIf(optShowArea < 2, optShowArea + 1, 0));
-          KEY_CTRL4:
-            LocToggleOptionInt(optShowFile, IntIf(optShowFile < 2, optShowFile + 1, 0));
-
-          KEY_CTRLF1, KEY_CTRLSHIFTF1:
-            SetOrder(1);
-          KEY_CTRLF2, KEY_CTRLSHIFTF2:
-            SetOrder(2);
-          KEY_CTRLF3, KEY_CTRLSHIFTF3:
-            SetOrder(3);
-          KEY_CTRLF4, KEY_CTRLSHIFTF4:
-            SetOrder(4);
-          KEY_CTRLF11:
-            SetOrder(0);
-//        KEY_CTRLF12:
-//          SortByDlg;
-          KEY_ALTF12:
-            SetOrder(FGrid.CurCol + 1);
-
-        else
-          Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
-      end;
-
     else
       Result := inherited DialogHandler(Msg, Param1, Param2);
     end;

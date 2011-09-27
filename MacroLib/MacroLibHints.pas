@@ -16,11 +16,11 @@ interface
     MixTypes,
     MixStrings,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
 
     FarCtrl,
     FarDlg,
@@ -82,7 +82,7 @@ interface
   begin
     FAPI := API;
     AInfo.Flags := PF_ProcessDialog or PF_CanChangeSize;
-    ReadSetup;
+    PluginConfig(False);
   end;
 
 
