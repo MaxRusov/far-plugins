@@ -1,7 +1,9 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{$ImageBase $40E00000}
+{$ifdef Debug}
+ {$ImageBase $40E00000}
+{$endif Debug}
 
 library DlgSelect;
 
@@ -13,6 +15,9 @@ uses
   DlgSelectMain;
 
 exports
+ {$ifdef Far3}
+  GetGlobalInfoW,
+ {$endif Far3}
   SetStartupInfoW,
   ProcessDialogEventW;
 
