@@ -222,6 +222,10 @@ interface
  {$endif bLinux}
 
   procedure TraceCallstack(AAddr :Pointer);
+ {$ifdef Win64}
+  begin
+    {!!!Pulsar}
+ {$else}
   const
     MaxStackLen = 50;
   var
@@ -255,6 +259,7 @@ interface
 
     vStr[I] := #0;
     TraceStrA(@vStr[0]);
+ {$endif Win64}
   end;
  {$endif bTrace}
 
@@ -330,7 +335,11 @@ interface
  {$ifdef bTrace}
   const
    {$ifdef bDelphi}
+   {$ifdef b64}
+    cTraceDll = 'MSTraceLib64.dll';
+   {$else}
     cTraceDll = 'MSTraceLib.dll';
+   {$endif b64}
    {$else}
    {$ifdef b64}
     cTraceDll = 'MSTraceLib64.dll';

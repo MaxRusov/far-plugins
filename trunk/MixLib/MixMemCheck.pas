@@ -3,7 +3,7 @@
 {$OverflowChecks Off}
 
 {$ifdef bDelphi}
- {$Define DebugInfo}
+ {-$Define DebugInfo}
  {$ifdef DebugInfo} {$D+,L+,Y+} {$else} {$D-} {$endif}
 {$endif bDelphi}
 
