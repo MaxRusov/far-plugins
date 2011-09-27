@@ -381,6 +381,7 @@ interface
     DX = 20;
     DY = 10;
   begin
+    FGUID := cTextDlgID;
     FHelpTopic := 'CompareTexts';
     FWidth := DX;
     FHeight := DY;

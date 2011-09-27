@@ -280,6 +280,7 @@ interface
     DX = 20;
     DY = 10;
   begin
+    FGUID := cCompareDlgID;
     FHelpTopic := 'CompareFolders';
     FWidth := DX;
     FHeight := DY;
@@ -315,7 +316,7 @@ interface
 
   procedure TFilesDlg.InitColors;
   begin
-    FGrid.NormColor := GetOptColor(0, COL_DIALOGTEXT);
+    FGrid.NormColor := GetOptColor(optDlgColor, COL_DIALOGTEXT);
     FGrid.SelColor  := GetOptColor(optCurColor, COL_DIALOGLISTSELECTEDTEXT);
 
     SetItemFlags(IdHead1, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optHeadColor);
@@ -340,7 +341,7 @@ interface
 
       vRect1 := SBounds(vRect.Right - 2, vRect.Top, 2, 0);
       SendMsg(DM_SETITEMPOSITION, IdIcon, @vRect1);
-      SetTextApi(IdIcon, cMaximizedIcon)
+      SetText(IdIcon, cMaximizedIcon)
     end else
     begin
       vWidth := FMenuMaxWidth + 6;
@@ -359,7 +360,7 @@ interface
 
       vRect1 := SBounds(vRect.Right - 4, vRect.Top, 2, 0);
       SendMsg(DM_SETITEMPOSITION, IdIcon, @vRect1);
-      SetTextApi(IdIcon, cNormalIcon);
+      SetText(IdIcon, cNormalIcon);
 
       SRectGrow(vRect, -1, -1);
     end;
@@ -1156,6 +1157,7 @@ interface
     vMenu := TFarMenu.CreateEx(
       GetMsg(strColorsTitle),
     [
+      GetMsg(strClWindow),
       GetMsg(strClCurrentLine),
       GetMsg(strClSelectedLine),
       GetMsg(strClHilightedLine),
@@ -1176,17 +1178,18 @@ interface
           Exit;
 
         case vMenu.ResIdx of
-          0: ColorDlg('', optCurColor);
-          1: ColorDlg('', optSelColor);
-          2: ColorDlg('', optDiffColor);
-          3: ColorDlg('', optSameColor, FGrid.NormColor);
-          4: ColorDlg('', optOrphanColor, FGrid.NormColor);
-          5: ColorDlg('', optNewerColor, FGrid.NormColor);
-          6: ColorDlg('', optOlderColor, FGrid.NormColor);
-          7: ColorDlg('', optFoundColor, FGrid.NormColor);
-          8: ColorDlg('', optHeadColor);
-          9: {};
-          10: RestoreDefFilesColor;
+          0: ColorDlg('', optDlgColor);
+          1: ColorDlg('', optCurColor);
+          2: ColorDlg('', optSelColor);
+          3: ColorDlg('', optDiffColor);
+          4: ColorDlg('', optSameColor, FGrid.NormColor);
+          5: ColorDlg('', optOrphanColor, FGrid.NormColor);
+          6: ColorDlg('', optNewerColor, FGrid.NormColor);
+          7: ColorDlg('', optOlderColor, FGrid.NormColor);
+          8: ColorDlg('', optFoundColor, FGrid.NormColor);
+          9: ColorDlg('', optHeadColor);
+         10: {};
+         11: RestoreDefFilesColor;
         end;
 
         WriteSetupColors;
@@ -1753,6 +1756,15 @@ interface
 //  TraceF('InfoDialogProc: FHandle=%d, Msg=%d, Param1=%d, Param2=%d', [FHandle, Msg, Param1, Param2]);
     Result := 1;
     case Msg of
+      DN_CTLCOLORDIALOG:
+        Result := FGrid.NormColor;
+
+      DN_CTLCOLORDLGITEM:
+        if (Param1 in [idFrame, IdIcon]) and (optDlgColor <> 0) then
+          Result := optDlgColor + (optDlgColor shl 8) + (optDlgColor shl 16)
+        else
+          Result := inherited DialogHandler(Msg, Param1, Param2);
+
       DN_RESIZECONSOLE: begin
         UpdateHeader;
         ResizeDialog;

@@ -110,6 +110,7 @@ interface
       strMDefault,
 
       strColorsTitle,
+      strClWindow,
       strClCurrentLine,
       strClSelectedLine,
       strClHilightedLine,
@@ -196,6 +197,11 @@ interface
     cNormalIcon = '['#$18']';
     cMaximizedIcon = '['#$12']';
 
+    cPromptDlgID  :TGUID = '{4D75034E-8547-4D1B-9FDC-337CF4633EA8}';
+    cCompareDlgID :TGUID = '{6DA86506-4033-45E0-BD7A-FF57397FD817}';
+    cTextDlgID    :TGUID = '{78DBDD6F-74A0-41E4-91FC-DE5707CF63F5}';
+
+
   const
     cFormatNames :array[TStrFileFormat] of TString = ('Ansi', 'OEM', 'Unicode', 'UTF8', '');
 
@@ -252,6 +258,7 @@ interface
     optDefaultFormat       :TStrFileFormat = sffAnsi;
 
   var
+    optDlgColor            :Integer;
     optCurColor            :Integer;
     optSelColor            :Integer;
     optDiffColor           :Integer;
@@ -456,6 +463,7 @@ interface
     if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder + '\' + cPlugColorRegFolder, vKey) then
       Exit;
     try
+      optDlgColor    := RegQueryInt(vKey, 'FDlgColor',  optDlgColor);
       optCurColor    := RegQueryInt(vKey, 'FCurColor',  optCurColor);
       optSelColor    := RegQueryInt(vKey, 'FSelColor',  optSelColor);
       optDiffColor   := RegQueryInt(vKey, 'FDiffColor',  optDiffColor);
@@ -488,6 +496,7 @@ interface
   begin
     RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder + '\' + cPlugColorRegFolder, vKey);
     try
+      RegWriteInt(vKey, 'FDlgColor',  optDlgColor);
       RegWriteInt(vKey, 'FCurColor',  optCurColor);
       RegWriteInt(vKey, 'FSelColor',  optSelColor);
       RegWriteInt(vKey, 'FDiffColor', optDiffColor);
@@ -516,6 +525,7 @@ interface
 
   procedure RestoreDefFilesColor;
   begin
+    optDlgColor      := 0;
     optCurColor      := 0;
     optSelColor      := $20;
     optDiffColor     := $B0;
