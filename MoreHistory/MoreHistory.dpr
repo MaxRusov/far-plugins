@@ -15,26 +15,17 @@ uses
   MoreHistoryMain;
 
 exports
- {$ifdef bUnicodeFar}
   GetMinFarVersionW,
   SetStartupInfoW,
   GetPluginInfoW,
   OpenPluginW,
+  OpenFilePluginW,
   ConfigureW,
+  ProcessEditorEventW,
+  ProcessViewerEventW,
+  ProcessSynchroEventW,
   ExitFARW;
- {$else}
-  SetStartupInfo,
-  GetPluginInfo,
-  OpenPlugin,
-  Configure,
-  ExitFAR;
- {$endif bUnicodeFar}
 
-
-{$ifdef bUnicodeFar}
- {$R MoreHistoryW.res}
-{$else}
- {$R MoreHistoryA.res}
-{$endif bUnicodeFar}
+{$R MoreHistoryW.res}
 
 end.

@@ -99,7 +99,7 @@ interface
     vWinInfo :TWindowInfo;
     vGrid :TFarGrid;
     X, Y, vCol, vRow :Integer;
-    vHist :THistoryEntry;
+    vHist :TFldHistoryEntry;
     vDomain, vStr :TString;
   begin
     Result := False;
@@ -110,7 +110,7 @@ interface
     if not (vWinInfo.WindowType in [WTYPE_DIALOG]) or (UpCompareSubStr(FOwner.GetText(0), vStr) <> 0) then
       Exit;
 
-    vGrid := (FOwner as TMenuDlg).Grid;
+    vGrid := (FOwner as TFldMenuDlg).Grid;
 
     X := AItem.MouseX;
     Y := AItem.MouseY;
@@ -123,12 +123,13 @@ interface
     if vGrid.HitTest(X, Y, vCol, vRow) <> ghsCell then
       Exit;
 
-    vHist := TMenuDlg(FOwner).GetHistoryEntry(vRow);
+    {!!!}
+    vHist := TFldMenuDlg(FOwner).GetHistoryEntry(vRow) as TFldHistoryEntry;
     if vHist = nil then
       Exit;
 
     vStr := vHist.Path;
-    if TMenuDlg(FOwner).DlgItemFlag(vRow) and 2 <> 0 then
+    if TFldMenuDlg(FOwner).DlgItemFlag(vRow) and 2 <> 0 then
       vStr := vHist.GetDomain;
 
     if vHist.GetMode = 1 then
