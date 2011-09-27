@@ -17,13 +17,12 @@ interface
     MixUtils,
     MixStrings,
     MixClasses,
-   {$ifdef bUnicodeFar}
-    PluginW,
-    FarKeysW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-    FarKeys,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
+    FarKeysW,
     FarColor,
     FarCtrl,
     FarDlg,
@@ -97,8 +96,7 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
-      function CloseDialog(ItemID :Integer) :Boolean; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
 
       procedure SelectItem(ACode :Integer); virtual;
       procedure UpdateHeader; virtual;
@@ -107,9 +105,9 @@ interface
 
       procedure GridPosChange(ASender :TFarGrid); virtual;
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean); virtual;
-      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer); virtual;
+      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor); virtual;
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; virtual;
-      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); virtual;
+      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; {const} AColor :TFarColor); virtual;
       
       function ItemCompare(AIndex1, AIndex2 :Integer; Context :TIntPtr) :Integer; virtual;
 
@@ -221,13 +219,21 @@ interface
         end;
 
       DN_CTLCOLORDIALOG:
-        Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUTEXT));
+       {$ifdef Far3}
+        PFarColor(Param2)^ := FarGetColor(COL_MENUTEXT);
+       {$else}
+        Result := FarGetColor(COL_MENUTEXT);
+       {$endif Far3}
 
       DN_CTLCOLORDLGITEM:
         if Param1 = IdFrame then
+         {$ifdef Far3}
+          CtrlPalette([COL_MENUTITLE, COL_MENUHIGHLIGHT, COL_MENUBOX], PFarDialogItemColors(Param2)^)
+         {$else}
           Result := CtrlPalette([COL_MENUTITLE, COL_MENUHIGHLIGHT, COL_MENUBOX])
+         {$endif Far3}
         else
-          Result := Param2;
+          Result := inherited DialogHandler(Msg, Param1, Param2);
     else
       Result := inherited DialogHandler(Msg, Param1, Param2);
     end;
@@ -308,13 +314,7 @@ interface
     ReinitGrid;
   end;
 
-
-  function TFilteredListDlg.CloseDialog(ItemID :Integer) :Boolean; {override;}
-  begin
-    Result := True;
-  end;
-
-
+  
   procedure TFilteredListDlg.UpdateHeader; {virtual;}
   begin
   end;
@@ -344,7 +344,7 @@ interface
   end;
 
 
-  procedure  TFilteredListDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer); {virtual;}
+  procedure  TFilteredListDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor); {virtual;}
   begin
     {Abstract}
   end;
@@ -356,7 +356,7 @@ interface
   end;
 
 
-  procedure TFilteredListDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); {virtual;}
+  procedure TFilteredListDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; {const} AColor :TFarColor); {virtual;}
   begin
     {Abstract}
   end;
@@ -386,7 +386,7 @@ interface
   end;
 
 
-  function TFilteredListDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  function TFilteredListDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
 
     procedure LocSetFilter(const ANewFilter :TString);
     begin
@@ -401,36 +401,29 @@ interface
     end;
 
   begin
-    Result := 1;
-    case Msg of
-      DN_KEY: begin
-        case Param2 of
-          KEY_ENTER:
-            SelectItem(2);
+    Result := True;
+    case AKey of
+      KEY_ENTER:
+        SelectItem(2);
 
-          { Фильтрация }
-          KEY_DEL, KEY_ALT, KEY_RALT:
-            LocSetFilter('');
-          KEY_BS:
-            if FFilterMask <> '' then
-              LocSetFilter( Copy(FFilterMask, 1, Length(FFilterMask) - 1));
+      { Фильтрация }
+      KEY_DEL, KEY_ALT, KEY_RALT:
+        LocSetFilter('');
+      KEY_BS:
+        if FFilterMask <> '' then
+          LocSetFilter( Copy(FFilterMask, 1, Length(FFilterMask) - 1));
 
-          KEY_ADD      : LocSetFilter( FFilterMask + '+' );
-          KEY_SUBTRACT : LocSetFilter( FFilterMask + '-' );
-          KEY_DIVIDE   : LocSetFilter( FFilterMask + '/' );
-          KEY_MULTIPLY : LocSetFilter( FFilterMask + '*' );
-
-        else
-//        TraceF('Key: %d', [Param2]);
-          if (Param2 >= 32) and (Param2 < $FFFF) then
-            LocSetFilter(FFilterMask + WideChar(Param2))
-          else
-            Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
-      end;
+      KEY_ADD      : LocSetFilter( FFilterMask + '+' );
+      KEY_SUBTRACT : LocSetFilter( FFilterMask + '-' );
+      KEY_DIVIDE   : LocSetFilter( FFilterMask + '/' );
+      KEY_MULTIPLY : LocSetFilter( FFilterMask + '*' );
 
     else
-      Result := inherited DialogHandler(Msg, Param1, Param2);
+//    TraceF('Key: %d', [Param2]);
+      if (AKey >= 32) and (AKey < $FFFF) then
+        LocSetFilter(FFilterMask + WideChar(AKey))
+      else
+        Result := inherited KeyDown(AID, AKey);
     end;
   end;
 

@@ -85,12 +85,13 @@ interface
 
       function EdtKeyTranslate(AKey :Integer) :TEdtCommands;
       procedure EdtCommand(ACmd :TEdtCommands; AShift :Boolean);
+      
+      function KeyDown(AKey :Integer) :Boolean; override;
 
     protected
       procedure PosChange; override;
       procedure DeltaChange; override;
 
-      function KeyDown(AKey :Integer) :Boolean; override;
       procedure MouseDown(const APos :TCoord; AButton :Integer; ADouble :Boolean); override;
       procedure MouseMove(const APos :TCoord; AButton :Integer); override;
       procedure MouseUp(const APos :TCoord; AButton :Integer); override;

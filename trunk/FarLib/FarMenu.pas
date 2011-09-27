@@ -16,7 +16,11 @@ interface
     MixTypes,
     MixUtils,
     MixClasses,
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
     FarCtrl;
 
 
@@ -41,11 +45,16 @@ interface
       FFlags    :DWORD;
       FX, FY    :Integer;
       FMaxDY    :Integer;
+     {$ifdef Far3}
+      FMenuID   :TGUID;
+     {$endif Far3}
 
       FResIdx   :Integer;
 
       function GetChecked(AIndex :Integer) :Boolean;
       procedure SetChecked(AIndex :Integer; AValue :Boolean);
+      function GetEnabled(AIndex :Integer) :Boolean;
+      procedure SetEnabled(AIndex :Integer; AValue :Boolean);
 
     public
       property Items :PFarMenuItemsArray read FItems;
@@ -54,8 +63,12 @@ interface
       property Footer :TString read FFooter write FFooter;
       property Help :TString read FHelp write FHelp;
       property Flags :DWORD read FFlags write FFlags;
+     {$ifdef Far3}
+      property MenuID :TGUID read FMenuID write FMenuID;
+     {$endif Far3}
 
       property Checked[I :Integer] :Boolean read GetChecked write SetChecked;
+      property Enabled[I :Integer] :Boolean read GetEnabled write SetEnabled;
 
       property ResIdx :Integer read FResIdx;
     end;
@@ -76,7 +89,11 @@ interface
   constructor TFarMenu.Create; {override;}
   begin
     inherited Create;
-    FFlags := FMENU_WRAPMODE or FMENU_USEEXT;
+    FFlags := FMENU_WRAPMODE
+     {$ifdef Far3}
+     {$else}
+      or FMENU_USEEXT
+     {$endif Far3};
     FX := -1;
     FY := -1;
   end;
@@ -126,10 +143,26 @@ interface
   end;
 
 
+  function TFarMenu.GetEnabled(AIndex :Integer) :Boolean;
+  begin
+    Result := MIF_DISABLE and FItems[AIndex].Flags = 0;
+  end;
+
+  procedure TFarMenu.SetEnabled(AIndex :Integer; AValue :Boolean);
+  begin
+    FItems[AIndex].Flags := SetFlag(FItems[AIndex].Flags, MIF_DISABLE, not AValue);
+  end;
+
+
   function TFarMenu.Run :Boolean;
   begin
     FResIdx := FARAPI.Menu(
+     {$ifdef Far3}
+      PluginID,
+      FMenuID,
+     {$else}
       hModule,
+     {$endif Far3}
       FX, FY,
       FMaxDY,
       FFlags,

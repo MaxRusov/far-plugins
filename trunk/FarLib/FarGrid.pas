@@ -17,13 +17,12 @@ interface
     MixUtils,
     MixStrings,
     MixClasses,
-   {$ifdef bUnicodeFar}
-    PluginW,
-    FarKeysW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-    FarKeys,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
+    FarKeysW,
     FarColor,
     FarCtrl,
     FarDlg;
@@ -106,8 +105,9 @@ interface
    );
 
    TGetCellText = function(ASender :TFarGrid; ACol, ARow :Integer) :TString of object;
-   TGetCellColor = procedure(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer) of object;
-   TPaintCell = procedure(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer) of object;
+   TGetCellColor = procedure(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor) of object;
+   TPaintRow = function(ASender :TFarGrid; X, Y, AWidth :Integer; ARow :Integer; {const} AColor :TFarColor) :Boolean of object;
+   TPaintCell = procedure(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; {const} AColor :TFarColor) of object;
    TCellClick = procedure(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean) of object;
    TPosChange = procedure(ASender :TFarGrid) of object;
 
@@ -126,28 +126,32 @@ interface
      procedure ResetSize;
      procedure UpdateSize(ALeft, ATop, AWidth, AHeight :Integer);
 
-     procedure DrawChr(X, Y :Integer; AChr :PTChar; AMaxLen :Integer; AColor :Integer);
-     procedure DrawChrEx(X, Y :Integer; AChr :PTChar; AMaxLen, ASelPos, ASelLen :Integer; AColor1, AColor2 :Integer);
+     procedure DrawChr(X, Y :Integer; AChr :PTChar; AMaxLen :Integer; const AColor :TFarColor);
+     procedure DrawChrEx(X, Y :Integer; AChr :PTChar; AMaxLen, ASelPos, ASelLen :Integer; const AColor1, AColor2 :TFarColor);
+
+     procedure ReduceColumns(AMaxWidth :Integer);
+
+     function KeyDown(AKey :Integer) :Boolean; override;
 
    protected
      procedure PosChange; virtual;
      procedure DeltaChange; virtual;
 
      procedure PaintRow(X, Y, AWidth :Integer; ARow :Integer); virtual;
-     procedure PaintCell(X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); virtual;
+     procedure PaintCell(X, Y, AWidth :Integer; ACol, ARow :Integer; const AColor :TFarColor); virtual;
      procedure Paint(const AItem :TFarDialogItem); override;
 
-     function KeyDown(AKey :Integer) :Boolean; override;
-
-     function MouseEvent(var AMouse :TMouseEventRecord) :Boolean; override;
+     function MouseEvent(const AMouse :TMouseEventRecord) :Boolean; override;
      procedure MouseDown(const APos :TCoord; AButton :Integer; ADouble :Boolean); virtual;
      procedure MouseMove(const APos :TCoord; AButton :Integer); virtual;
      procedure MouseUp(const APos :TCoord; AButton :Integer); virtual;
      function MouseClick(const AMouse :TMouseEventRecord) :Boolean; override;
 
+     function EventHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :Integer; override;
+
    protected
-     FNormColor      :Integer;
-     FSelColor       :Integer;
+     FNormColor      :TFarColor;
+     FSelColor       :TFarColor;
 
      FOptions        :TGridOptions;
      FWheelDY        :Integer;
@@ -179,13 +183,14 @@ interface
 
      FOnGetCellText  :TGetCellText;
      FOnGetCellColor :TGetCellColor;
+     FOnPaintRow     :TPaintRow;
      FOnPaintCell    :TPaintCell;
      FOnCellClick    :TCellClick;
      FOnPosChange    :TPosChange;
      FOnDeltaChange  :TPosChange;
 
      procedure PaintVScroller(X, Y  :Integer);
-     procedure DrawBuf(X, Y :Integer; AColor :Integer);
+     procedure DrawBuf(X, Y :Integer; const AColor :TFarColor);
 
      procedure RecalcSize;
      procedure SetRowCount(ACount :Integer);
@@ -200,8 +205,8 @@ interface
      property Width :Integer read FWidth;
      property Height :Integer read FHeight;
 
-     property NormColor :Integer read FNormColor write FNormColor;
-     property SelColor :Integer read FSelColor write FSelColor;
+     property NormColor :TFarColor read FNormColor write FNormColor;
+     property SelColor :TFarColor read FSelColor write FSelColor;
      property Options :TGridOptions read FOptions write FOptions;
      property WheelDY :Integer read FWheelDY write FWheelDY;
      property ShowCurrent :Boolean read FShowCurrent write FShowCurrent;
@@ -218,13 +223,14 @@ interface
 
      property OnGetCellText :TGetCellText read FOnGetCellText write FOnGetCellText;
      property OnGetCellColor :TGetCellColor read FOnGetCellColor write FOnGetCellColor;
+     property OnPaintRow :TPaintRow read FOnPaintRow write FOnPaintRow;
      property OnPaintCell :TPaintCell read FOnPaintCell write FOnPaintCell;
      property OnCellClick :TCellClick read FOnCellClick write FOnCellClick;
      property OnPosChange :TPosChange read FOnPosChange write FOnPosChange;
      property OnDeltaChange :TPosChange read FOnDeltaChange write FOnDeltaChange;
    end;
 
-
+  
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -258,8 +264,8 @@ interface
     inherited Create;
     FColumns := TObjList.Create;
     FColumns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [], 0) );
-    FNormColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUTEXT));
-    FSelColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUSELECTEDTEXT));
+    FNormColor := FarGetColor(COL_MENUTEXT);
+    FSelColor := FarGetColor(COL_MENUSELECTEDTEXT);
 
     FWheelDY := 3;
     FMousePos.X := -1;
@@ -297,7 +303,7 @@ interface
   end;
 
 
-  procedure TFarGrid.DrawBuf(X, Y :Integer; AColor :Integer);
+  procedure TFarGrid.DrawBuf(X, Y :Integer; const AColor :TFarColor);
   begin
     if X < FClipX2 then begin
       if FClipX2 - X < FRowLen then
@@ -307,7 +313,7 @@ interface
   end;
 
 
-  procedure TFarGrid.DrawChr(X, Y :Integer; AChr :PTChar; AMaxLen :Integer; AColor :Integer);
+  procedure TFarGrid.DrawChr(X, Y :Integer; AChr :PTChar; AMaxLen :Integer; const AColor :TFarColor);
   begin
     if AMaxLen > FRowLen - 1 then
       AMaxLen := FRowLen - 1;
@@ -316,9 +322,9 @@ interface
   end;
 
 
-  procedure TFarGrid.DrawChrEx(X, Y :Integer; AChr :PTChar; AMaxLen, ASelPos, ASelLen :Integer; AColor1, AColor2 :Integer);
+  procedure TFarGrid.DrawChrEx(X, Y :Integer; AChr :PTChar; AMaxLen, ASelPos, ASelLen :Integer; const AColor1, AColor2 :TFarColor);
 
-    procedure LocDrawPart(var AChr :PTChar; var ARest :Integer; ALen :Integer; AColor :Integer);
+    procedure LocDrawPart(var AChr :PTChar; var ARest :Integer; ALen :Integer; const AColor :TFarColor);
     begin
       if ARest > 0 then begin
         if ALen > ARest then
@@ -341,8 +347,9 @@ interface
   end;
 
 
-  procedure TFarGrid.PaintCell(X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+  procedure TFarGrid.PaintCell(X, Y, AWidth :Integer; ACol, ARow :Integer; const AColor :TFarColor);
   var
+    vLen :Integer;
     vStr :TString;
     vColumn :TColumnFormat;
   begin
@@ -352,7 +359,8 @@ interface
     if Assigned(FOnGetCellText) then
       vStr := FOnGetCellText(Self, ACol, ARow);
 
-    SetFarStr(FRowBuf, vStr, AWidth);
+    vLen := IntMin(AWidth, FRowLen - 1);
+    SetFarStr(FRowBuf, vStr, vLen);
 
     case vColumn.FAlignment of
       taRightJustify : Inc(X, IntMax(0, AWidth - length(vStr)));
@@ -367,13 +375,23 @@ interface
   var
     I, vWidth, vLen :Integer;
     vColumn :TColumnFormat;
-    vRowColor, vCellColor :Integer;
+    vRowColor, vCellColor :TFarColor;
   begin
     vRowColor := FNormColor;
     if (ARow = FCurRow) and (goRowSelect in FOptions) then
       vRowColor := FSelColor;
     if Assigned(FOnGetCellColor) then
       FOnGetCellColor(Self, -1, ARow, vRowColor);
+
+    if Assigned(FOnPaintRow) then begin
+      try
+        if FOnPaintRow(Self, X, Y, AWidth, ARow, vRowColor) then
+          Exit;
+      except
+        Exit;
+      end;
+    end;
+
     for I := 0 to FColumns.Count - 1 do begin
       vColumn := FColumns[I];
       vWidth := vColumn.FRealWidth;
@@ -473,6 +491,34 @@ interface
   end;
 
 
+  function TFarGrid.EventHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :Integer; {override;}
+
+   {$ifdef Far3}
+    function LocGetValue(var ARec :TFarGetValue) :Integer;
+    begin
+      Result := 0;
+      if ARec.GetType in [7, 11] then begin
+        ARec.Val.ValueType := FMVT_INTEGER;
+        ARec.Val.Value.i := IntIf(ARec.GetType = 7, CurRow + 1, RowCount);
+        Result := 1
+      end;
+    end;
+   {$endif Far3}
+
+  begin
+    Result := 1;
+    case Msg of
+      0: {};
+     {$ifdef Far3}
+      DN_GETVALUE:
+        Result := LocGetValue(PFarGetValue(Param2)^);
+     {$endif Far3}
+    else
+      Result := inherited EventHandler(Msg, Param1, Param2);
+    end;
+  end;
+
+
   function TFarGrid.KeyDown(AKey :Integer) :Boolean; {override;}
   begin
     Result := False;
@@ -513,14 +559,14 @@ interface
       vDelay :Integer;
     begin
       ScrollTo(FDeltaX, FDeltaY + ADelta);
-      FARAPI.Text(0, 0, 0, nil);
+      FARAPI.Text(0, 0, UndefColor, nil);
       vTick := GetTickCount;
       vDelay := cScrollFirstDelay;
       while GetKeyState(VK_LBUTTON) < 0 do begin
         Sleep(1);
         if TickCountDiff(GetTickCount, vTick) >= vDelay then begin
           ScrollTo(FDeltaX, FDeltaY + ADelta);
-          FARAPI.Text(0, 0, 0, nil);
+          FARAPI.Text(0, 0, UndefColor, nil);
           vTick := GetTickCount;
           vDelay := cScrollNextDelay;
         end;
@@ -604,7 +650,7 @@ interface
   end;
 
 
-  function TFarGrid.MouseEvent(var AMouse :TMouseEventRecord) :Boolean; {override;}
+  function TFarGrid.MouseEvent(const AMouse :TMouseEventRecord) :Boolean; {override;}
   var
     vPos :TCoord;
     vButton :Integer;
@@ -890,6 +936,112 @@ interface
   function TFarGrid.GetColumn(AIndex :Integer) :TColumnFormat;
   begin
     Result := FColumns[AIndex];
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  type
+    TTabIndex = class(TIntList)
+    protected
+      function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
+    end;
+
+
+  function TTabIndex.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
+  begin
+    with TObject(Context) as TIntList do
+      Result := IntCompare(Items[PInteger(PItem)^], Items[PInteger(PAnother)^]);
+  end;
+
+
+  procedure ReduceList(AWidths :TIntList; AOversize :Integer);
+  var
+    vIndex :TTabIndex;
+
+    procedure LocReduce(AIndex :Integer);
+    var
+      I, vWidth, vNextWidth, vDelta :Integer;
+    begin
+      Assert(AIndex < vIndex.Count);
+      vWidth := AWidths[ vIndex[AIndex] ];
+      vNextWidth := 0;
+      while AIndex < vIndex.Count do begin
+        Inc(AIndex);
+        if AIndex < vIndex.Count then begin
+          vNextWidth := AWidths[ vIndex[AIndex] ];
+          Assert(vNextWidth <= vWidth);
+          if vNextWidth < vWidth then
+            { Нашли "ступеньку"}
+            Break;
+        end;
+      end;
+
+      if (AIndex < vIndex.Count) and ((vWidth - vNextWidth) * AIndex < AOversize) then begin
+        { Стешем вершки... }
+        for I := 0 to AIndex - 1 do begin
+          vWidth := AWidths[ vIndex[I] ];
+          AWidths[ vIndex[I] ] := vNextWidth;
+          Dec( AOversize, vWidth - vNextWidth );
+        end;
+        { И попробуем снова... }
+        LocReduce(AIndex);
+      end else
+      begin
+        { Последний "стес" }
+        for I := AIndex - 1 downto 0 do begin
+          vDelta := AOversize div (I + 1);
+          vWidth := AWidths[ vIndex[I] ];
+          AWidths[ vIndex[I] ] := vWidth - vDelta;
+          Dec( AOversize, vDelta );
+        end;
+      end;
+    end;
+
+  var
+    I :Integer;
+  begin
+    Assert((AWidths <> nil) and (AWidths.Count > 0) and (AOversize >= 0));
+    vIndex := TTabIndex.Create;
+    try
+      for I := 0 to AWidths.Count - 1 do
+        vIndex.Add(I);
+      vIndex.SortList(False, Integer(AWidths));
+
+      LocReduce(0);
+
+    finally
+      FreeObj(vIndex);
+    end;
+  end;
+
+
+  procedure TFarGrid.ReduceColumns(AMaxWidth :Integer);
+  var
+    I, vWidth, vCanReduce :Integer;
+    vDeltas :TIntList;
+  begin
+    vDeltas := TIntList.Create;
+    try
+      vWidth := 0; vCanReduce := 0;
+      for I := 0 to FColumns.Count - 1 do
+        with Column[I] do begin
+          vDeltas.Add(Width - MinWidth);
+          Inc(vCanReduce, Width - MinWidth);
+          Inc(vWidth, Width);
+        end;
+
+      if (vWidth > AMaxWidth) and (vCanReduce > 0) then begin
+        ReduceList(vDeltas, IntMin(vCanReduce, vWidth - AMaxWidth));
+
+        for I := 0 to FColumns.Count - 1 do
+          with Column[I] do
+            Width := MinWidth + vDeltas[I];
+      end;
+
+    finally
+      FreeObj(vDeltas);
+    end;
   end;
 
 
