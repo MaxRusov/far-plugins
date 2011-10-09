@@ -1,5 +1,7 @@
 {$I Defines.inc}
 
+{$Define bSyncThread}
+
 unit SameFolderMain;
 
 {******************************************************************************}
@@ -17,9 +19,15 @@ interface
     MixStrings,
     MixClasses,
     MixWinUtils,
-
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
-    FarCtrl;
+   {$endif Far3}
+    FarCtrl,
+    FarConfig,
+    FarMenu,
+    FarPlug;
 
   type
     TMessages = (
@@ -35,30 +43,44 @@ interface
     );
 
   const
-    cPluginGUID     = $44464D53;    //SMFD
+    cPluginName = 'SameFolderPlus';
+    cPluginDescr = 'SameFolder+ FAR plugin';
+    cPluginAuthor = 'Max Rusov';
 
-    cSyncDelay      = 100;
+   {$ifdef Far3}
+    cPluginID   :TGUID = '{483AC82A-5FBB-45D9-8330-2BE2FAB568F7}';
+    cMenuID     :TGUID = '{85AC9691-5049-4924-A148-1E2877E35A02}';
+    cDiskID     :TGUID = '{69DD2403-F52B-47A4-8320-2F17EA9750DC}';
+    cConfigID   :TGUID = '{E0CB07DF-FCE9-4CE9-95E3-568BD661AE3D}';
+   {$else}
+    cPluginID   = $44464D53;  //SMFD
+   {$endif Far3}
 
-  const
-    cPlugRegFolder    :TString = 'SameFolder';
-    cShowInPluginMenu :TString = 'ShowInPluginMenu';
-    cShowInDiskMenu   :TString = 'ShowInDiskMenu';
+    cSyncDelay  = 100;
 
-
+    
   var
     optShowInPluginMenu :Boolean = True;
     optShowInDiskMenu   :Boolean = False;
 
   var
-    FRegRoot :TString;
+    AutofollwMode :Boolean;
 
-  function GetMinFarVersionW :Integer; stdcall;
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
-  function ConfigureW(Item: integer) :Integer; stdcall;
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
-  procedure ExitFARW; stdcall;
+
+  type
+    TSameFolderPlug = class(TFarPlug)
+    public
+      procedure Init; override;
+      procedure GetInfo; override;
+      procedure ExitFar; override;
+      procedure Configure; override;
+      function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      procedure SynchroEvent(AParam :Pointer); override;
+     {$ifdef Far3}
+      function ConsoleInput(const ARec :TInputRecord) :Integer; override;
+     {$endif Far3}
+    end;
+
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -72,83 +94,6 @@ interface
   begin
     Result := FarCtrl.GetMsg(Integer(AMess));
   end;
-
-
-(*
-  function GetConsoleTitleStr :TString;
-  var
-    vBuf :Array[0..1024] of TChar;
-  begin
-    FillChar(vBuf, SizeOf(vBuf), $00);
-    GetConsoleTitle(@vBuf[0], High(vBuf));
-    Result := vBuf;
-  end;
-
-
-  function ClearTitle(const AStr :TString) :TString;
-  var
-    vPos :Integer;
-  begin
-    Result := '';
-    if (AStr <> '') and (AStr[1] = '{') then begin
-      vPos := ChrsLastPos(['}'], AStr);
-      if vPos <> 0 then
-        Result := Copy(AStr, 2, vPos - 2);
-    end;
-  end;
-
-
-  function ConvertPluginPath(const APath :TString) :TString;
-  var
-    vFolder :TString;
-    vPos :Integer;
-  begin
-    if UpCompareSubStr('FTP:', APath) = 0 then begin
-      Result := '';
-
-      vFolder := Trim(ExtractWords(2, MaxInt, APath, [':']));
-      if (vFolder = '') or (vFolder[1] = '\') then
-        Exit;
-
-      vPos := ChrPos('@', vFolder);
-      if vPos <> 0 then
-        vFolder := Copy(vFolder, vPos + 1, MaxInt);
-
-      Result := 'FTP://' + vFolder;
-      if Result[Length(Result)] <> '/' then
-        Result := Result + '/';
-
-    end else
-    if UpCompareSubStr('NETWORK:', APath) = 0 then begin
-      Result := '';
-
-      vFolder := Trim(ExtractWords(2, MaxInt, APath, [':']));
-      if (vFolder = '') or (vFolder[1] <> '\') then
-        Exit;
-
-      Result := 'NET:' + vFolder;
-
-    end else
-    if (UpCompareSubStr('PDA:', APath) = 0) or
-      (UpCompareSubStr('КПК:', APath) = 0) then
-    begin
-      { Убираем размер свободного места, который может выводится в заголовке... }
-      Result := 'PDA:' + ExtractWord(2, APath, [':']);
-    end else
-    if (UpCompareSubStr('FILES:', APath) = 0) or
-      (UpCompareSubStr('REGISTRY:', APath) = 0) then
-    begin
-      Result := 'PPC:' + APath;
-    end else
-    if (UpCompareSubStr('REG:', APath) = 0) or
-      (UpCompareSubStr('REG2:', APath) = 0)
-    then
-      Result := APath
-    else
-      { Unknown plugin }
-      Result := '';
-  end;
-*)
 
 
   function GetPluginPath(AHandle :THandle) :TString;
@@ -218,25 +163,32 @@ interface
     vInfo :TPanelInfo;
     vItem :PPluginPanelItem;
     vPath, vFile, vMacro, vStr :TString;
-    vRealFolder, vProceedFile :Boolean;
+    vVisible, vPlugin, vFolder, vRealFolder, vProceedFile :Boolean;
     vSrcPanel, vDstPanel :THandle;
   begin
     vSrcPanel := HandleIf(ASetPassive, PANEL_ACTIVE, PANEL_PASSIVE);
     vDstPanel := HandleIf(ASetPassive, PANEL_PASSIVE, PANEL_ACTIVE);
 
-    FillChar(vInfo, SizeOf(vInfo), 0);
-    FARAPI.Control(vSrcPanel, FCTL_GetPanelInfo, 0, @vInfo);
+    FarGetPanelInfo(vSrcPanel, vInfo);
 
-    if (vInfo.PanelType <> PTYPE_FILEPANEL) or (vInfo.Visible = 0) then
+   {$ifdef Far3}
+    vVisible := PFLAGS_VISIBLE and vInfo.Flags <> 0;
+    vPlugin  := PFLAGS_PLUGIN and vInfo.Flags <> 0;
+   {$else}
+    vVisible := vInfo.Visible <> 0;
+    vPlugin  := vInfo.Plugin <> 0;
+   {$endif Far3}
+
+    if (vInfo.PanelType <> PTYPE_FILEPANEL) or not vVisible then
       begin beep; exit; end;
 
     vProceedFile := True;
-    vRealFolder := (vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0);
+    vRealFolder := not vPlugin or (PFLAGS_REALNAMES and vInfo.Flags <> 0);
 
     if vRealFolder then begin
       vPath := FarPanelGetCurrentDirectory(vSrcPanel);
 
-      if (vInfo.Plugin = 1) and FileNameIsUNC(vPath) and (LastDelimiter('\', vPath) <= 2) then begin
+      if vPlugin and FileNameIsUNC(vPath) and (LastDelimiter('\', vPath) <= 2) then begin
         { Исключение для плагина Network }
 //      vPath := ConvertPluginPath(ClearTitle(GetConsoleTitleStr));
         vPath := GetPluginPath(vSrcPanel);
@@ -262,22 +214,32 @@ interface
       end;
     end;
 
-    if vProceedFile and (vInfo.CurrentItem >= 0) and (vInfo.CurrentItem < vInfo.ItemsNumber) then begin
+    if vProceedFile and (Integer(vInfo.CurrentItem) >= 0) and (vInfo.CurrentItem < vInfo.ItemsNumber) then begin
 //    vFile := FarPanelItemName(PANEL_ACTIVE, FCTL_GETPANELITEM, vInfo.CurrentItem);
       vItem := FarPanelItem(vSrcPanel, FCTL_GETPANELITEM, vInfo.CurrentItem);
       if vItem <> nil then begin
         try
+         {$ifdef Far3}
+          vFile := vItem.FileName;
+          vFolder := faDirectory and vItem.FileAttributes <> 0;
+         {$else}
           vFile := vItem.FindData.cFileName;
+          vFolder := faDirectory and vItem.FindData.dwFileAttributes <> 0;
+         {$endif Far3}
           if vFile <> '..' then begin
             if vRealFolder and (vPath = '') then begin
               vPath := RemoveBackSlash(ExtractFilePath(vFile));
               vFile := ExtractFileName(vFile);
             end;
 
-            if AddCurrent and (faDirectory and vItem.FindData.dwFileAttributes <> 0) then begin
+            if AddCurrent and vFolder then begin
               vPath := AddFileName(vPath, vFile);
               vFile := '';
             end;
+          end else
+          begin
+            if AddCurrent then
+              vPath := RemoveBackSlash(ExtractFilePath(vPath));
           end;
         finally
           MemFree(vItem);
@@ -291,13 +253,17 @@ interface
 
     if vPath <> '' then begin
 
-      FillChar(vInfo, SizeOf(vInfo), 0);
-      FARAPI.Control(vDstPanel, FCTL_GetPanelInfo, 0, @vInfo);
+      FarGetPanelInfo(vDstPanel, vInfo);
+     {$ifdef Far3}
+      vVisible := PFLAGS_VISIBLE and vInfo.Flags <> 0;
+     {$else}
+      vVisible := vInfo.Visible <> 0;
+     {$endif Far3}
 
       vMacro := '';
       case vInfo.PanelType of
         PTYPE_FILEPANEL:
-          if vInfo.Visible = 0 then
+          if not vVisible then
             vMacro := 'CtrlP';
         PTYPE_TREEPANEL:
           vMacro := 'CtrlT';
@@ -339,80 +305,56 @@ interface
         FarPostMacro(vMacro);
       end;
     end;
-
   end; {SameFolder}
 
 
  {-----------------------------------------------------------------------------}
 
-  procedure ReadSetup;
-  var
-    vKey :HKEY;
+  procedure PluginConfig(AStore :Boolean);
   begin
-    if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then
-      Exit;
-    try
-      optShowInPluginMenu := RegQueryLog(vKey, cShowInPluginMenu, optShowInPluginMenu);
-      optShowInDiskMenu := RegQueryLog(vKey, cShowInDiskMenu, optShowInDiskMenu);
-    finally
-      RegCloseKey(vKey);
-    end;
-  end;
+    with TFarConfig.CreateEx(AStore, cPluginName) do
+      try
+        if not Exists then
+          Exit;
 
+        LogValue('ShowInPluginMenu', optShowInPluginMenu);
+        LogValue('ShowInDiskMenu', optShowInDiskMenu);
 
-  procedure WriteSetup;
-  var
-    vKey :HKEY;
-  begin
-    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
-    try
-      RegWriteLog(vKey, cShowInPluginMenu, optShowInPluginMenu);
-      RegWriteLog(vKey, cShowInDiskMenu, optShowInDiskMenu);
-    finally
-      RegCloseKey(vKey);
-    end;
+      finally
+        Destroy;
+      end;
   end;
 
 
   procedure OptionsMenu;
   var
-    I, N, vRes :Integer;
-    vItems :PFarMenuItemsArray;
+    vMenu :TFarMenu;
   begin
-    vItems := FarCreateMenu([
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strSameFolder),
+    [
       GetMsg(strAddPlugMenu),
       GetMsg(strAddDiskMenu)
-    ], @N);
+    ]);
     try
-      vRes := 0;
       while True do begin
-        vItems[0].Flags  := SetFlag(0, MIF_CHECKED1, optShowInPluginMenu);
-        vItems[1].Flags  := SetFlag(0, MIF_CHECKED1, optShowInDiskMenu);
+        vMenu.Checked[0] := optShowInPluginMenu;
+        vMenu.Checked[1] := optShowInDiskMenu;
 
-        for I := 0 to N - 1 do
-          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
+        vMenu.SetSelected(vMenu.ResIdx);
 
-        vRes := FARAPI.Menu(hModule, -1, -1, 0,
-          FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strSameFolder),
-          '',
-          '',
-          nil, nil,
-          Pointer(vItems),
-          N);
-
-        if vRes = -1 then
+        if not vMenu.Run then
           Exit;
 
-        case vRes of
-          0:  optShowInPluginMenu := not optShowInPluginMenu;
-          1:  optShowInDiskMenu := not optShowInDiskMenu;
+        case vMenu.ResIdx of
+          0: optShowInPluginMenu := not optShowInPluginMenu;
+          1: optShowInDiskMenu := not optShowInDiskMenu;
         end;
-        WriteSetup;
+        PluginConfig(True);
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
@@ -420,6 +362,8 @@ interface
  {-----------------------------------------------------------------------------}
  { TCheckThread                                                                }
  {-----------------------------------------------------------------------------}
+
+ {$ifdef bSyncThread}
 
   function AlertableSleep(APeriod :Cardinal) :Boolean;
   begin
@@ -446,7 +390,6 @@ interface
   end;
 
 
-
   type
     TSyncThread = class(TThread)
     public
@@ -467,7 +410,7 @@ interface
 
       if (vStartTime <> 0) and (TickCountDiff(GetTickCount, vStartTime) > cSyncDelay) then begin
         vStartTime := 0;
-        FARAPI.AdvControl(hModule, ACTL_SYNCHRO, nil);
+        FarAdvControl(ACTL_SYNCHRO, nil);
       end;
 
       if vWasInput then
@@ -488,8 +431,18 @@ interface
         SyncThread := TSyncThread.Create(False)
       else
         FreeObj(SyncThread);
+      AutofollwMode := AOn;
     end;
   end;
+
+ {$else}
+
+  procedure SetSyncThread(AOn :Boolean);
+  begin
+    AutofollwMode := AOn;
+  end;
+
+ {$endif bSyncThread}
 
 
  {-----------------------------------------------------------------------------}
@@ -535,7 +488,7 @@ interface
 
   procedure ToggleAutofollow;
   begin
-    if SyncThread = nil then begin
+    if not AutofollwMode then begin
       SameFolder(True, True, False);
       SetAutofollowMode;
     end else
@@ -554,134 +507,138 @@ interface
   end;
 
 
+
   procedure MainMenu;
   var
-    N, vRes :Integer;
-    vItems :PFarMenuItemsArray;
+    vMenu :TFarMenu;
   begin
-    vItems := FarCreateMenu([
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strSameFolder),
+    [
       GetMsg(strMSameFolder),
       GetMsg(strMFolderUnderCursor),
       GetMsg(strMSameAsPassive),
       '',
       GetMsg(strMAutofollowMode)
-    ], @N);
+    ]);
     try
-      vItems[4].Flags  := SetFlag(0, MIF_CHECKED1, SyncThread <> nil);
+      vMenu.Checked[4] := AutofollwMode;
 
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        GetMsg(strSameFolder),
-        '',
-        '',
-        nil, nil,
-        Pointer(vItems),
-        N);
+      if not vMenu.Run then
+        Exit;
 
-      if vRes <> -1 then begin
-        if vRes = 4 then
-          vRes := 3;
-        PluginCmd(vRes);
-      end;
+      if vMenu.ResIdx = 4 then
+        PluginCmd(3)
+      else
+        PluginCmd(vMenu.ResIdx)
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
 
  {-----------------------------------------------------------------------------}
- { Экспортируемые процедуры                                                    }
+ { TSameFolderPlug                                                             }
  {-----------------------------------------------------------------------------}
 
-  function GetMinFarVersionW :Integer; stdcall;
+  procedure TSameFolderPlug.Init; {override;}
   begin
-//  Result := MakeFarVersion(2, 0, 1652);   { "verbatim string" }
-    Result := MakeFarVersion(2, 0, 1657);   { FCTL_GETPANELFORMAT }
-  end;
+    inherited Init;
 
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
 
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-  begin
-    hModule := psi.ModuleNumber;
-    Move(psi, FARAPI, SizeOf(FARAPI));
-    Move(psi.fsf^, FARSTD, SizeOf(FARSTD));
+   {$ifdef Far3}
+    FGUID := cPluginID;
+   {$else}
+    FID := cPluginID;
+
+//  FMinFarVer := MakeVersion(2, 0, 1652);   { "verbatim string" }
+    FMinFarVer := MakeVersion(2, 0, 1657);   { FCTL_GETPANELFORMAT }
+   {$endif Far3}
+
     hStdin := GetStdHandle(STD_INPUT_HANDLE);
-    FRegRoot := psi.RootKey;
-    ReadSetup;
   end;
 
 
-  var
-    PluginMenuStrings : array[0..0] of PFarChar;
-    DiskMenuStrings   : array[0..0] of PFarChar;
-    ConfigMenuStrings : array[0..0] of PFarChar;
-
-
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
+  procedure TSameFolderPlug.GetInfo; {override;}
   begin
-    pi.StructSize:= SizeOf(pi);
-    pi.Flags:= 0;
+    PluginConfig(False);
 
-    if optShowInPluginMenu then begin
-      PluginMenuStrings[0] := GetMsg(strSameFolder);
-      pi.PluginMenuStrings := Pointer(@PluginMenuStrings);
-      pi.PluginMenuStringsNumber := 1;
-    end;
+    FConfigStr := GetMsg(strSameFolder);
 
-    if optShowInDiskMenu then begin
-      DiskMenuStrings[0] := GetMsg(strSameFolder);
-      pi.DiskMenuStrings := Pointer(@DiskMenuStrings);
-      pi.DiskMenuStringsNumber := 1;
-    end;
+    FMenuStr := '';
+    if optShowInPluginMenu then
+      FMenuStr := FConfigStr;
 
-    ConfigMenuStrings[0]:= GetMsg(strSameFolder);
-    pi.PluginConfigStrings := Pointer(@ConfigMenuStrings);
-    pi.PluginConfigStringsNumber := 1;
+    FDiskStr := '';
+    if optShowInDiskMenu then
+      FDiskStr := FConfigStr;
 
-    pi.Reserved := cPluginGUID;
+   {$ifdef Far3}
+    FMenuID    := cMenuID;
+    FDiskID    := cDiskID;
+    FConfigID  := cConfigID;
+   {$endif Far3}
   end;
 
 
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
-  begin
-    Result:= INVALID_HANDLE_VALUE;
-//  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
-
-    if OpenFrom and OPEN_FROMMACRO <> 0 then
-      PluginCmd(Item)
-    else
-    if OpenFrom = OPEN_DISKMENU then begin
-      PluginCmd(0)
-    end else
-      MainMenu;
-  end;
-
-
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
-  begin
-//  TraceF('ProcessSynchroEventW. Event=%d, Param=%d', [Event, Integer(Param)]);
-    Result := 0;
-    if Event <> SE_COMMONSYNCHRO then
-      Exit;
-    CheckAutofollow;
-  end;
-
-
-  function ConfigureW(Item: integer) :Integer; stdcall;
-  begin
-    OptionsMenu;
-    Result := 1;
-  end;
-
-
-  procedure ExitFARW; stdcall;
+  procedure TSameFolderPlug.ExitFar; {override;}
   begin
     SetSyncThread(False);
   end;
 
 
+  procedure TSameFolderPlug.Configure; {override;}
+  begin
+    OptionsMenu;
+  end;
+
+
+  function TSameFolderPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
+  var
+    vSetPassive :Boolean;
+  begin
+    Result:= INVALID_HANDLE_VALUE;
+    if AFrom and OPEN_FROMMACRO <> 0 then
+      PluginCmd(AParam)
+    else
+    if AFrom in [OPEN_DISKMENU {$ifdef Far3}, OPEN_RIGHTDISKMENU {$endif Far3}] then begin
+     {$ifdef Far3}
+      vSetPassive := (FarPanelGetSide = 0{Left}) = (AFrom = OPEN_RIGHTDISKMENU);
+     {$else}
+      vSetPassive := True;
+     {$endif Far3}
+      SameFolder(vSetPassive, False, False);
+    end else
+      MainMenu;
+  end;
+
+
+  procedure TSameFolderPlug.SynchroEvent(AParam :Pointer); {override;}
+  begin
+    CheckAutofollow;
+  end;
+
+
+ {$ifdef Far3}
+  function TSameFolderPlug.ConsoleInput(const ARec :TInputRecord) :Integer; {override;}
+  begin
+    Result := 0;
+    if AutofollwMode then begin
+//    TraceF('ConsoleInput: %d', [ARec.EventType]);
+      if (ARec.EventType = KEY_EVENT) or (ARec.EventType = _MOUSE_EVENT) then
+        {};
+    end;
+  end;
+ {$endif Far3}
+
+
 initialization
 finalization
+ {$ifdef bSyncThread}
   FreeObj(SyncThread);
+ {$endif bSyncThread}
 end.
