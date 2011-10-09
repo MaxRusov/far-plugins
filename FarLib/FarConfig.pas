@@ -34,6 +34,7 @@ interface
       procedure StrValue(const AName :TString; var AValue :TString);
       procedure IntValue(const AName :TString; var AValue :Integer);
       procedure LogValue(const AName :TString; var AValue :Boolean);
+      procedure ColorValue(const AName :TString; var AValue :TFarColor);
 
     private
       FStore   :Boolean;
@@ -135,7 +136,7 @@ API для хранения настроек:
   end;
 
 
-  function FarGetValueInt(AHandle :THandle; const AName :TString; var AInt :Integer) :Boolean;
+  function FarGetValueInt(AHandle :THandle; const AName :TString; ADefault :Int64) :Int64;
   var
     vItem :TFarSettingsItem;
   begin
@@ -143,9 +144,10 @@ API для хранения настроек:
     vItem.Root := 0;
     vItem.Name := PFarChar(AName);
     vItem.FType := FST_QWORD;
-    Result := FARAPI.SettingsControl(AHandle, SCTL_GET, 0, @vItem) <> 0;
-    if Result then
-      AInt := vItem.Value.Number;
+    if FARAPI.SettingsControl(AHandle, SCTL_GET, 0, @vItem) <> 0 then
+      Result := vItem.Value.Number
+    else
+      Result := ADefault;
   end;
 
 
@@ -225,7 +227,7 @@ API для хранения настроек:
     if FStore then
       FarSetValue(FHandle, AName, FST_QWORD, AValue, nil)
     else
-      FarGetValueInt(FHandle, AName, AValue);
+      AValue := FarGetValueInt(FHandle, AName, AValue);
    {$else}
     if FStore then
       RegWriteInt(FRootKey, AName, AValue)
@@ -243,6 +245,26 @@ API для хранения настроек:
     IntValue(AName, vInt);
     AValue := vInt <> 0;
   end;
+
+
+  procedure TFarConfig.ColorValue(const AName :TString; var AValue :TFarColor);
+ {$ifdef Far3}
+  var
+    vInt :Int64;
+  begin
+    vInt := MakeInt64(GetColorFG(AValue), GetColorBG(AValue));
+    if FStore then
+      FarSetValue(FHandle, AName, FST_QWORD, vInt, nil)
+    else begin
+      vInt := FarGetValueInt(FHandle, AName, vInt);
+      AValue := MakeColor(Int64Rec(vInt).Lo, Int64Rec(vInt).Hi);
+    end;
+ {$else}
+  begin
+    IntValue(AName, Integer(AValue));
+ {$endif Far3}
+  end;
+
 
 
 end.
