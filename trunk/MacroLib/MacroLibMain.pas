@@ -66,7 +66,7 @@ interface
   procedure ExitFARW; stdcall;
   procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
   procedure GetPluginInfoW(var AInfo :TPluginInfo); stdcall;
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
+  function OpenPluginW(OpenFrom: integer; Item: INT_PTR): THandle; stdcall;
   function ConfigureW(Item: integer) :Integer; stdcall;
   function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
   function ProcessDialogEventW(AEvent :Integer; AParam :PFarDialogEvent) :Integer; stdcall;
@@ -495,9 +495,16 @@ interface
       FreeObj(AObj);
     end else
     if AObj is TRunEvent then begin
-      if FarGetMacroState = MACROSTATE_NOMACRO then
-        with TRunEvent(AObj) do
+      with TRunEvent(AObj) do begin
+
+        if Area = maShell then
+          { Вынужденно перенес инициализацию макросов на данный этап. }
+          { Если вызывать MCTL_ADDMACRO из процедур инициализации - Far падает }
+          MacroLibrary.RescanMacroses(True);
+
+        if FarGetMacroState = MACROSTATE_NOMACRO then
           MacroLibrary.CheckEvent(Area, Event);
+      end;
       FreeObj(AObj);
     end;
   end;
@@ -544,14 +551,13 @@ interface
     PluginConfig(False);
 
     MacroLibrary := TMacroLibrary.Create;
-    MacroLibrary.RescanMacroses(True);
 
    {$ifdef bUseInject}
     InjectHandlers;
    {$endif bUseInject}
 
-    {???}
-    MacroLibrary.CheckEvent(maShell, meOpen);
+//  MacroLibrary.RescanMacroses(True);
+//  MacroLibrary.CheckEvent(maShell, meOpen);
   end;
 
 
@@ -564,6 +570,7 @@ interface
   procedure GetPluginInfoW;
   begin
 //  TraceF('GetPluginInfo: %s', ['']);
+
     AInfo.StructSize:= SizeOf(AInfo);
     AInfo.Flags:= PF_PRELOAD or PF_EDITOR or PF_VIEWER or PF_DIALOG;
 
@@ -589,6 +596,8 @@ interface
 
     if optCmdPrefix <> '' then
       AInfo.CommandPrefix := PTChar(optCmdPrefix);
+
+    FarAdvControl(ACTL_SYNCHRO, TRunEvent.CreateEx(meOpen, maShell));
   end;
 
 
@@ -600,7 +609,6 @@ interface
    {$endif bUseInject}
     FreeObj(MacroLibrary);
   end;
-
 
  {$ifdef Far3}
   function OpenW;
@@ -714,7 +722,7 @@ interface
           Result := 1;
       end else
       if (AInfo.Rec.EventType = _MOUSE_EVENT) and optProcessMouse and (FarGetMacroState = MACROSTATE_NOMACRO) then begin
-        if MacroLibrary.CheckMouse(AInfo.Rec.Event.MouseEvent) then
+        if MacroLibrary.CheckMouse(AInfo.Rec.Event.MouseEvent) then  
           Result := 1;
       end;
 //  end;

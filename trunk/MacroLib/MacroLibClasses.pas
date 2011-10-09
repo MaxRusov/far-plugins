@@ -60,6 +60,9 @@ interface
       function CheckEventCondition(Area :TMacroArea; Event :TMacroEvent) :Boolean;
       procedure Execute(AKeyCode :Integer);
 
+      procedure AddToFar;
+      procedure RemoveFromFar;
+
       function GetBindAsStr(AMode :Integer) :TString;
       function GetAreaAsStr(AMode :Integer) :TString;
       function GetFileTitle(AMode :Integer) :TString;
@@ -85,6 +88,8 @@ interface
       FRow      :Integer;
       FCol      :Integer;
       FIndex    :Integer;
+
+      FIDs      :TObjList;          { ID макросов, добавленных в FAR. Для удаления. }
 
       function CheckArea(Area :TMacroArea) :Boolean;
 
@@ -308,12 +313,101 @@ interface
 
   destructor TMacro.Destroy; {override;}
   begin
+    RemoveFromFar;
     FBind := nil;
     FDlgs := nil;
     FDlgs1 := nil;
     FEdts := nil;
     FViews := nil;
+    FreeObj(FIDs);
     inherited Destroy;
+  end;
+
+
+
+ {$ifdef Far3}
+
+  type
+    TMacroRef = class(TBasis)
+      FMacro :TMacro;
+    end;
+
+
+  function MacroCallback(AId :Pointer; AFlags :TFARADDKEYMACROFLAGS) :Integer; stdcall;
+  begin
+    Result := 0;
+    MacroLibrary.InitConditions;  { !!!Неоптимально }
+    if TMacroRef(AId).FMacro.CheckAreaCondition(TMacroArea(FarGetMacroArea), MacroLibrary) then
+      Result := 1;
+  end;
+
+
+  function FarAddMacro(AOwner :TMacro; AKey :TKeyRec) :Pointer;
+  var
+    vRec :TMacroAddMacro;
+    vRef :TMacroRef;
+  begin
+    vRef := TMacroRef.Create;
+    vRef.FMacro := AOwner;
+
+    FillZero(vRec, SizeOf(vRec));
+    vRec.StructSize := SizeOf(vRec);
+    FarKeyToInputRecord(AKey.Key, vRec.AKey);
+    vRec.Description := PFarChar(AOwner.FDescr);
+    vRec.SequenceText := PFarChar(AOwner.FText);
+
+    if moDisableOutput in AOwner.FOptions then
+      vRec.Flags := vRec.Flags or KMFLAGS_DISABLEOUTPUT;
+    if not (moSendToPlugins in AOwner.FOptions) then
+      vRec.Flags := vRec.Flags or KMFLAGS_NOSENDKEYSTOPLUGINS;
+
+    vRec.Callback := @MacroCallback;
+    vRec.Id := vRef;
+
+    if FARAPI.MacroControl(PluginID, MCTL_ADDMACRO, 0, @vRec) = 0 then
+      { Не удалось... }
+      FreeObj(vRef);
+
+    Result := vRef;
+  end;
+
+
+  procedure FarDelMacro(AID :Pointer);
+  begin
+    FARAPI.MacroControl(PluginID, MCTL_DELMACRO, 0, AID);
+  end;
+
+ {$endif Far3}
+
+
+  procedure TMacro.AddToFar;
+ {$ifdef Far3}
+  var
+    I :Integer;
+  begin
+    if FIDs = nil then
+      FIDs := TObjList.Create;
+    for I := 0 to length(FBind) - 1 do
+      FIDs.Add( FarAddMacro(Self, FBind[I]) );
+ {$else}
+  begin
+ {$endif Far3}
+  end;
+
+
+  procedure TMacro.RemoveFromFar;
+ {$ifdef Far3}
+  var
+    I :Integer;
+  begin
+    if FIDs = nil then
+      Exit;
+    for I := 0 to FIDs.Count - 1 do
+      FarDelMacro(FIDs[I]);
+    FIDs.Clear;
+ {$else}
+  begin
+ {$endif Far3}
   end;
 
 
@@ -689,16 +783,7 @@ interface
 
     function LocEnumMacroFiles(const APath :TString; const ARec :TWin32FindData) :Boolean;
     begin
-      Result := True;
-
-      if FNewMacroses = nil then
-        {!!! - Не работает флаг efoBooleanFunc }
-        Exit;
-
-      if ARec.dwFileAttributes and FILE_ATTRIBUTE_HIDDEN <> 0 then
-        Exit;
-      if not ParseMacroFile(AddFileName(APath, ARec.cFileName)) and not FSilence then
-        Result := False;
+      Result := ParseMacroFile(AddFileName(APath, ARec.cFileName)) or FSilence;
     end;
 
   var
@@ -714,40 +799,9 @@ interface
       vPath := StrExpandEnvironment(vPath);
 
       if WinFolderExists(vPath) then
-        WinEnumFilesEx(vPath, '*.' + cMacroFileExt, faEnumFiles, [efoRecursive, efoBooleanFunc], LocalAddr(@LocEnumMacroFiles));
+        WinEnumFilesEx(vPath, '*.' + cMacroFileExt, faEnumFiles or faSkipHidden, [efoRecursive], LocalAddr(@LocEnumMacroFiles));
     end;
   end;
-  
-
-(*
-  procedure TMacroLibrary.ScanMacroFolder(const AFolder :TString);
-
-    function LocEnumMacroFiles(const AFileName :TString; const ARec :TFarFindData) :Integer;
-    begin
-      Result := 1;
-      if ARec.dwFileAttributes and FILE_ATTRIBUTE_HIDDEN <> 0 then
-        Exit;
-      if not ParseMacroFile(AFileName) and not FSilence then
-        Result := 0;
-    end;
-
-  var
-    I :Integer;
-    vPath :TString;
-  begin
-//  TraceF('ScanMacroFolder: %s', [vPath]);
-    for I := 1 to WordCount(AFolder, [';', ',']) do begin
-
-      vPath := Trim(ExtractWord(I, AFolder, [';', ',']));
-      if (vPath <> '') and (vPath[1] = '"') and (vPath[length(vPath)] = '"') then
-        vPath := Trim(Copy(vPath, 2, length(vPath) - 2));
-      vPath := StrExpandEnvironment(vPath);
-
-      if WinFolderExists(vPath) then
-        EnumFilesEx(vPath, '*.' + cMacroFileExt, LocalAddr(@LocEnumMacroFiles));
-    end;
-  end;
-*)
 
 
   function TMacroLibrary.ParseMacroFile(const AFileName :TString) :boolean;
@@ -809,12 +863,15 @@ interface
     FIndex.Clear;
     for I := 0 to FMacroses.Count - 1 do begin
       vMacro := FMacroses[I];
-      for J := 0 to length(vMacro.FBind) - 1 do begin
-        vRec.FKey := vMacro.FBind[J].Key;
-        vRec.FIndex := I;
-        if not FIndex.FindKey(Pointer(TIntPtr(vRec.FKey)), I, [foBinary], vIndex) then
-          FIndex.InsertData(vIndex, vRec);
-      end;
+      if not (moCompatible in vMacro.FOptions) then begin
+        for J := 0 to length(vMacro.FBind) - 1 do begin
+          vRec.FKey := vMacro.FBind[J].Key;
+          vRec.FIndex := I;
+          if not FIndex.FindKey(Pointer(TIntPtr(vRec.FKey)), I, [foBinary], vIndex) then
+            FIndex.InsertData(vIndex, vRec);
+        end;
+      end else
+        vMacro.AddToFar;
     end;
   end;
 
@@ -1002,8 +1059,9 @@ interface
 
         while True do begin
           vMacro := FMacroses[ FIndex[vIndex].FIndex ];
-          if vMacro.CheckKeyCondition(Area, AKey, APress, Self, AEat) then
-            AList.Add(vMacro);
+          if not (moCompatible in vMacro.FOptions) then
+            if vMacro.CheckKeyCondition(Area, AKey, APress, Self, AEat) then
+              AList.Add(vMacro);
 
           Inc(vIndex);
           if (vIndex >= FIndex.Count) or (FIndex[vIndex].FKey <> AKey) then

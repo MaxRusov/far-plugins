@@ -334,7 +334,11 @@ interface
         vFileName := EditorFile(I);
         vFound := StrEqual(vFileName, AFileName);
         if vFound then begin
+         {$ifdef Far3}
+          FARAPI.AdvControl(PluginID, ACTL_SETCURRENTWINDOW_, I, nil);
+         {$else}
           FarAdvControl(ACTL_SETCURRENTWINDOW, Pointer(TIntPtr(I)));
+         {$endif Far3}
           FarAdvControl(ACTL_COMMIT, nil);
           Break;
         end;

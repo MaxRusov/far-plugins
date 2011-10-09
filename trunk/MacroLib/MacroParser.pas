@@ -71,6 +71,7 @@ interface
       errBadMacroSequence,
       errFileNotFound,
       errRecursiveInclude,
+      errNotSupportedInFarMacro,
       wrnUnknownParam
     );
 
@@ -86,7 +87,8 @@ interface
       moSendToPlugins,
       moRunOnRelease,
       moEatOnRun,
-      moDefineAKey
+      moDefineAKey,
+      moCompatible
     );
     TMacroOptions = set of TMacroOption;
 
@@ -283,7 +285,7 @@ interface
       procedure Warning(ACode :TParseError; ARow :Integer = 0; ACol :Integer = 0);
       procedure Warning1(ACode :TParseError; APtr :PTChar);
 
-      procedure ParseMacro(var APtr :PTChar);
+      procedure ParseMacro(var APtr :PTChar; ACompatible :Boolean);
       procedure ParseConst(var APtr :PTChar);
       procedure ParseInclude(var APtr :PTChar);
       procedure ParseMacroSequence(var APtr :PTChar);
@@ -340,20 +342,21 @@ interface
 
   const
     kwMacro     = 1;
-    kwConst     = 2;
-    kwInclude   = 3;
-    kwName      = 4;
-    kwDescr     = 5;
-    kwBind      = 6;
-    kwWhere     = 7;
-    kwArea      = 8;
-    kwCond      = 9;
-    kwEvent     = 10;
-    kwPriority  = 11;
-    kwSilence   = 12;
-    kwSendPlug  = 13;
-    kwRunOnRel  = 14;
-    kwEatOnRun  = 15;
+    kwFarMacro  = 2;
+    kwConst     = 3;
+    kwInclude   = 4;
+    kwName      = 5;
+    kwDescr     = 6;
+    kwBind      = 7;
+    kwWhere     = 8;
+    kwArea      = 9;
+    kwCond      = 10;
+    kwEvent     = 11;
+    kwPriority  = 12;
+    kwSilence   = 13;
+    kwSendPlug  = 14;
+    kwRunOnRel  = 15;
+    kwEatOnRun  = 16;
 
   const
     kwpInclude  = 1;
@@ -473,9 +476,10 @@ interface
 
     Keywords := TKeywordsList.Create;
     with Keywords do begin
-      Add('MACRO', kwMacro); Add('$MACRO',kwMacro);
-      Add('CONST', kwConst);
-      Add('INCLUDE', kwInclude);
+      Add('MACRO',    kwMacro);  Add('$MACRO',kwMacro);
+      Add('FARMACRO', kwFarMacro);
+      Add('CONST',    kwConst);
+      Add('INCLUDE',  kwInclude);
 
       Add('NAME',  kwName);
       Add('DESCR', kwDescr); Add('DESCRIPTION', kwDescr);
@@ -750,7 +754,10 @@ interface
 
         vKey := Keywords.GetKeyword(vParam, vLen);
         if vKey = kwMacro then
-          ParseMacro(vPtr)
+          ParseMacro(vPtr, False)
+        else
+        if vKey = kwFarMacro then
+          ParseMacro(vPtr, True)
         else
         if vKey = kwConst then
           ParseConst(vPtr)
@@ -892,7 +899,7 @@ interface
   end;
 
 
-  procedure TMacroParser.ParseMacro(var APtr :PTChar);
+  procedure TMacroParser.ParseMacro(var APtr :PTChar; ACompatible :Boolean);
   var
     vLex :TLexType;
     vLen, vLen1, vKey :Integer;
@@ -900,6 +907,10 @@ interface
     vWasBody :Boolean;
   begin
     NewMacro;
+
+    if ACompatible then
+      FMacro.Options := FMacro.Options + [moCompatible];
+
     vWasBody := False;
     while APtr^ <> #0 do begin
       vLex := GetLex(APtr, vParam, vLen);
@@ -1039,6 +1050,8 @@ interface
             Inc(vIncl);
           end else
           if vKey = kwpAKey then begin
+            if moCompatible in FMacro.Options then
+              begin Warning(errNotSupportedInFarMacro); end;
             FSeq.Add('%_AK_', 5);
             Include(FMacro.Options, moDefineAKey);
           end else
@@ -1297,6 +1310,9 @@ interface
       if not KeyNameParse(@vBuf[0], vKey, vMod) then
         begin Warning1(errBadHotkey, APtr); Exit; end;
 
+      if (moCompatible in FMacro.Options) and (vMod <> kmPress) then
+        begin Warning1(errNotSupportedInFarMacro, APtr); Exit; end;
+
       SetLength(ARes, Length(ARes) + 1);
       ARes[Length(ARes) - 1].Key := vKey;
       ARes[Length(ARes) - 1].KMod := vMod;
@@ -1368,6 +1384,9 @@ interface
             if CLSIDFRomString(vPtr, vGUID) <> 0 then
               begin Warning1(errBadGUID, APtr); Exit; end;
 
+//          if (moCompatible in FMacro.Options) then
+//            begin Warning1(errNotSupportedInFarMacro, APtr); Exit; end;
+
             SetLength(FMacro.Dlgs, Length(FMacro.Dlgs) + 1);
             FMacro.Dlgs[Length(FMacro.Dlgs) - 1] := vGUID;
           end else
@@ -1383,6 +1402,9 @@ interface
               vArr := @FMacro.Views
             else
               begin Warning1(errBadMacroarea, APtr); Exit; end;
+
+//          if (moCompatible in FMacro.Options) then
+//            begin Warning1(errNotSupportedInFarMacro, APtr); Exit; end;
 
             SetLength(vArr^, Length(vArr^) + 1);
             vArr^[Length(vArr^) - 1] := vPtr;
@@ -1424,6 +1446,8 @@ interface
       vEvent := KeyEvnts.GetKeyword(@vBuf[0], StrLen(@vBuf[0]));
       if vEvent = -1 then
         begin Warning1(errBadEvent, APtr); Exit; end;
+      if (moCompatible in FMacro.Options) then
+        begin Warning1(errNotSupportedInFarMacro, APtr); Exit; end;
       ARes := ARes + [TMacroEvent(vEvent)]
     end;
   end;
@@ -1462,6 +1486,9 @@ interface
   begin
     if (AParam in [kwName, kwDescr, kwBind, kwArea, kwCond, kwEvent, kwWhere]) and (Alex <> lexString) then
       begin Warning(errExceptString); exit; end;
+
+    if (moCompatible in FMacro.Options) and (AParam in [kwEvent, kwPriority, kwRunOnRel, kwEatOnRun]) then
+      begin Warning(errNotSupportedInFarMacro); Exit; end;
 
     case AParam of
       kwName     : FMacro.Name  := FBuf.GetStrValue;
