@@ -141,211 +141,224 @@ type
   TFarColorArray = packed array[0..MaxInt div SizeOf(TFarColor) - 1] of TFarColor;
 
 
-          { FARMESSAGEFLAGS }
+(*
+typedef BOOL (WINAPI *FARAPICOLORDIALOG)(
+    const GUID* PluginId,
+    COLORDIALOGFLAGS Flags,
+    struct FarColor *Color
+);
+*)
+{!!!}
 
-          const
-            FMSG_NONE                = 0;
-            FMSG_WARNING             = $00000001;
-            FMSG_ERRORTYPE           = $00000002;
-            FMSG_KEEPBACKGROUND      = $00000004;
-            FMSG_LEFTALIGN           = $00000008;
-            FMSG_ALLINONE            = $00000010;
 
-            FMSG_MB_OK               = $00010000;
-            FMSG_MB_OKCANCEL         = $00020000;
-            FMSG_MB_ABORTRETRYIGNORE = $00030000;
-            FMSG_MB_YESNO            = $00040000;
-            FMSG_MB_YESNOCANCEL      = $00050000;
-            FMSG_MB_RETRYCANCEL      = $00060000;
+{ FARMESSAGEFLAGS }
 
-          (*
-          typedef int (WINAPI *FARAPIMESSAGE)(
-              const GUID* PluginId,
-              const GUID* Id,
-              FARMESSAGEFLAGS Flags,
-              const wchar_t *HelpTopic,
-              const wchar_t * const *Items,
-              size_t ItemsNumber,
-              int ButtonsNumber
-          );
-          *)
-          type
-            TFarApiMessage = function (
-              const PluginId :TGUID;
-              const Id :TGUID;
-              Flags :Int64;
-              HelpTopic :PFarChar;
-              Items :PPCharArray;
-              ItemsNumber :size_t;
-              ButtonsNumber :Integer
-            ) :Integer; stdcall;
+type
+  TFarMessageFlags = Int64;
+
+const
+  FMSG_NONE                = 0;
+  FMSG_WARNING             = $00000001;
+  FMSG_ERRORTYPE           = $00000002;
+  FMSG_KEEPBACKGROUND      = $00000004;
+  FMSG_LEFTALIGN           = $00000008;
+  FMSG_ALLINONE            = $00000010;
+
+  FMSG_MB_OK               = $00010000;
+  FMSG_MB_OKCANCEL         = $00020000;
+  FMSG_MB_ABORTRETRYIGNORE = $00030000;
+  FMSG_MB_YESNO            = $00040000;
+  FMSG_MB_YESNOCANCEL      = $00050000;
+  FMSG_MB_RETRYCANCEL      = $00060000;
+
+(*
+typedef int (WINAPI *FARAPIMESSAGE)(
+    const GUID* PluginId,
+    const GUID* Id,
+    FARMESSAGEFLAGS Flags,
+    const wchar_t *HelpTopic,
+    const wchar_t * const *Items,
+    size_t ItemsNumber,
+    int ButtonsNumber
+);
+*)
+type
+  TFarApiMessage = function (
+    const PluginId :TGUID;
+    const Id :TGUID;
+    Flags :TFarMessageFlags;
+    HelpTopic :PFarChar;
+    Items :PPCharArray;
+    ItemsNumber :size_t;
+    ButtonsNumber :Integer
+  ) :Integer; stdcall;
 
   
-          { FARDIALOGITEMTYPES }
+{ FARDIALOGITEMTYPES }
 
-          const
-            DI_TEXT         = 0;
-            DI_VTEXT        = 1;
-            DI_SINGLEBOX    = 2;
-            DI_DOUBLEBOX    = 3;
-            DI_EDIT         = 4;
-            DI_PSWEDIT      = 5;
-            DI_FIXEDIT      = 6;
-            DI_BUTTON       = 7;
-            DI_CHECKBOX     = 8;
-            DI_RADIOBUTTON  = 9;
-            DI_COMBOBOX     = 10;
-            DI_LISTBOX      = 11;
-            DI_USERCONTROL  = 255;
-
-
-          { FARDIALOGITEMFLAGS }
-
-          const
-            DIF_NONE                  = 0;
-            DIF_BOXCOLOR              =  $00000200;
-            DIF_GROUP                 =  $00000400;
-            DIF_LEFTTEXT              =  $00000800;
-            DIF_MOVESELECT            =  $00001000;
-            DIF_SHOWAMPERSAND         =  $00002000;
-            DIF_CENTERGROUP           =  $00004000;
-            DIF_NOBRACKETS            =  $00008000;
-            DIF_MANUALADDHISTORY      =  $00008000;
-            DIF_SEPARATOR             =  $00010000;
-            DIF_SEPARATOR2            =  $00020000;
-            DIF_EDITOR                =  $00020000;
-            DIF_LISTNOAMPERSAND       =  $00020000;
-            DIF_LISTNOBOX             =  $00040000;
-            DIF_HISTORY               =  $00040000;
-            DIF_BTNNOCLOSE            =  $00040000;
-            DIF_CENTERTEXT            =  $00040000;
-            DIF_SETSHIELD             =  $00080000;
-            DIF_EDITEXPAND            =  $00080000;
-            DIF_DROPDOWNLIST          =  $00100000;
-            DIF_USELASTHISTORY        =  $00200000;
-            DIF_MASKEDIT              =  $00400000;
-            DIF_LISTTRACKMOUSE        =  $00400000;
-            DIF_LISTTRACKMOUSEINFOCUS =  $00800000;
-            DIF_SELECTONENTRY         =  $00800000;
-            DIF_3STATE                =  $00800000;
-            DIF_EDITPATH              =  $01000000;
-            DIF_LISTWRAPMODE          =  $01000000;
-            DIF_NOAUTOCOMPLETE        =  $02000000;
-            DIF_LISTAUTOHIGHLIGHT     =  $02000000;
-            DIF_LISTNOCLOSE           =  $04000000;
-            DIF_HIDDEN                =  $10000000;
-            DIF_READONLY              =  $20000000;
-            DIF_NOFOCUS               =  $40000000;
-            DIF_DISABLE               =  $80000000;
-            DIF_DEFAULTBUTTON         = $100000000;
-            DIF_FOCUS                 = $200000000;
+const
+  DI_TEXT         = 0;
+  DI_VTEXT        = 1;
+  DI_SINGLEBOX    = 2;
+  DI_DOUBLEBOX    = 3;
+  DI_EDIT         = 4;
+  DI_PSWEDIT      = 5;
+  DI_FIXEDIT      = 6;
+  DI_BUTTON       = 7;
+  DI_CHECKBOX     = 8;
+  DI_RADIOBUTTON  = 9;
+  DI_COMBOBOX     = 10;
+  DI_LISTBOX      = 11;
+  DI_USERCONTROL  = 255;
 
 
-          { FARMESSAGE }
+{ FARDIALOGITEMFLAGS }
 
-          const
-            DM_FIRST                = 0;
-            DM_CLOSE                = 1;
-            DM_ENABLE               = 2;
-            DM_ENABLEREDRAW         = 3;
-            DM_GETDLGDATA           = 4;
-            DM_GETDLGITEM           = 5;
-            DM_GETDLGRECT           = 6;
-            DM_GETTEXT              = 7;
-            DM_GETTEXTLENGTH        = 8;
-            DM_KEY                  = 9;
-            DM_MOVEDIALOG           = 10;
-            DM_SETDLGDATA           = 11;
-            DM_SETDLGITEM           = 12;
-            DM_SETFOCUS             = 13;
-            DM_REDRAW               = 14;
-            DM_SETTEXT              = 15;
-            DM_SETMAXTEXTLENGTH     = 16;
-            DM_SHOWDIALOG           = 17;
-            DM_GETFOCUS             = 18;
-            DM_GETCURSORPOS         = 19;
-            DM_SETCURSORPOS         = 20;
-            DM_GETTEXTPTR           = 21;
-            DM_SETTEXTPTR           = 22;
-            DM_SHOWITEM             = 23;
-            DM_ADDHISTORY           = 24;
-            DM_GETCHECK             = 25;
-            DM_SETCHECK             = 26;
-            DM_SET3STATE            = 27;
-            DM_LISTSORT             = 28;
-            DM_LISTGETITEM          = 29;
-            DM_LISTGETCURPOS        = 30;
-            DM_LISTSETCURPOS        = 31;
-            DM_LISTDELETE           = 32;
-            DM_LISTADD              = 33;
-            DM_LISTADDSTR           = 34;
-            DM_LISTUPDATE           = 35;
-            DM_LISTINSERT           = 36;
-            DM_LISTFINDSTRING       = 37;
-            DM_LISTINFO             = 38;
-            DM_LISTGETDATA          = 39;
-            DM_LISTSETDATA          = 40;
-            DM_LISTSETTITLES        = 41;
-            DM_LISTGETTITLES        = 42;
-            DM_RESIZEDIALOG         = 43;
-            DM_SETITEMPOSITION      = 44;
-            DM_GETDROPDOWNOPENED    = 45;
-            DM_SETDROPDOWNOPENED    = 46;
-            DM_SETHISTORY           = 47;
-            DM_GETITEMPOSITION      = 48;
-            DM_SETMOUSEEVENTNOTIFY  = 49;
-            DM_EDITUNCHANGEDFLAG    = 50;
-            DM_GETITEMDATA          = 51;
-            DM_SETITEMDATA          = 52;
-            DM_LISTSET              = 53;
-            DM_GETCURSORSIZE        = 54;
-            DM_SETCURSORSIZE        = 55;
-            DM_LISTGETDATASIZE      = 56;
-            DM_GETSELECTION         = 57;
-            DM_SETSELECTION         = 58;
-            DM_GETEDITPOSITION      = 59;
-            DM_SETEDITPOSITION      = 60;
-            DM_SETCOMBOBOXEVENT     = 61;
-            DM_GETCOMBOBOXEVENT     = 62;
-            DM_GETCONSTTEXTPTR      = 63;
-            DM_GETDLGITEMSHORT      = 64;
-            DM_SETDLGITEMSHORT      = 65;
-            DM_GETDIALOGINFO        = 66;
-
-            DN_FIRST                = 4096;
-            DN_BTNCLICK             = 4097;
-            DN_CTLCOLORDIALOG       = 4098;
-            DN_CTLCOLORDLGITEM      = 4099;
-            DN_CTLCOLORDLGLIST      = 4100;
-            DN_DRAWDIALOG           = 4101;
-            DN_DRAWDLGITEM          = 4102;
-            DN_EDITCHANGE           = 4103;
-            DN_ENTERIDLE            = 4104;
-            DN_GOTFOCUS             = 4105;
-            DN_HELP                 = 4106;
-            DN_HOTKEY               = 4107;
-            DN_INITDIALOG           = 4108;
-            DN_KILLFOCUS            = 4109;
-            DN_LISTCHANGE           = 4110;
-            DN_DRAGGED              = 4111;
-            DN_RESIZECONSOLE        = 4112;
-            DN_DRAWDIALOGDONE       = 4113;
-            DN_LISTHOTKEY           = 4114;
-            DN_INPUT                = 4115;
-            DN_CONTROLINPUT         = 4116;
-            DN_CLOSE                = 4117;
-            DN_GETVALUE             = 4118;
-
-            DM_USER                 = $4000;
+const
+  DIF_NONE                  = 0;
+  DIF_BOXCOLOR              =  $00000200;
+  DIF_GROUP                 =  $00000400;
+  DIF_LEFTTEXT              =  $00000800;
+  DIF_MOVESELECT            =  $00001000;
+  DIF_SHOWAMPERSAND         =  $00002000;
+  DIF_CENTERGROUP           =  $00004000;
+  DIF_NOBRACKETS            =  $00008000;
+  DIF_MANUALADDHISTORY      =  $00008000;
+  DIF_SEPARATOR             =  $00010000;
+  DIF_SEPARATOR2            =  $00020000;
+  DIF_EDITOR                =  $00020000;
+  DIF_LISTNOAMPERSAND       =  $00020000;
+  DIF_LISTNOBOX             =  $00040000;
+  DIF_HISTORY               =  $00040000;
+  DIF_BTNNOCLOSE            =  $00040000;
+  DIF_CENTERTEXT            =  $00040000;
+  DIF_SETSHIELD             =  $00080000;
+  DIF_EDITEXPAND            =  $00080000;
+  DIF_DROPDOWNLIST          =  $00100000;
+  DIF_USELASTHISTORY        =  $00200000;
+  DIF_MASKEDIT              =  $00400000;
+  DIF_LISTTRACKMOUSE        =  $00400000;
+  DIF_LISTTRACKMOUSEINFOCUS =  $00800000;
+  DIF_SELECTONENTRY         =  $00800000;
+  DIF_3STATE                =  $00800000;
+  DIF_EDITPATH              =  $01000000;
+  DIF_LISTWRAPMODE          =  $01000000;
+  DIF_NOAUTOCOMPLETE        =  $02000000;
+  DIF_LISTAUTOHIGHLIGHT     =  $02000000;
+  DIF_LISTNOCLOSE           =  $04000000;
+  DIF_HIDDEN                =  $10000000;
+  DIF_READONLY              =  $20000000;
+  DIF_NOFOCUS               =  $40000000;
+  DIF_DISABLE               =  $80000000;
+  DIF_DEFAULTBUTTON         = $100000000;
+  DIF_FOCUS                 = $200000000;
 
 
-          { FARCHECKEDSTATE }
+{ FARMESSAGE }
 
-          const
-            BSTATE_UNCHECKED = 0;
-            BSTATE_CHECKED   = 1;
-            BSTATE_3STATE    = 2;
-            BSTATE_TOGGLE    = 3;
+const
+  DM_FIRST                = 0;
+  DM_CLOSE                = 1;
+  DM_ENABLE               = 2;
+  DM_ENABLEREDRAW         = 3;
+  DM_GETDLGDATA           = 4;
+  DM_GETDLGITEM           = 5;
+  DM_GETDLGRECT           = 6;
+  DM_GETTEXT              = 7;
+  DM_GETTEXTLENGTH        = 8;
+  DM_KEY                  = 9;
+  DM_MOVEDIALOG           = 10;
+  DM_SETDLGDATA           = 11;
+  DM_SETDLGITEM           = 12;
+  DM_SETFOCUS             = 13;
+  DM_REDRAW               = 14;
+  DM_SETTEXT              = 15;
+  DM_SETMAXTEXTLENGTH     = 16;
+  DM_SHOWDIALOG           = 17;
+  DM_GETFOCUS             = 18;
+  DM_GETCURSORPOS         = 19;
+  DM_SETCURSORPOS         = 20;
+  DM_GETTEXTPTR           = 21;
+  DM_SETTEXTPTR           = 22;
+  DM_SHOWITEM             = 23;
+  DM_ADDHISTORY           = 24;
+  DM_GETCHECK             = 25;
+  DM_SETCHECK             = 26;
+  DM_SET3STATE            = 27;
+  DM_LISTSORT             = 28;
+  DM_LISTGETITEM          = 29;
+  DM_LISTGETCURPOS        = 30;
+  DM_LISTSETCURPOS        = 31;
+  DM_LISTDELETE           = 32;
+  DM_LISTADD              = 33;
+  DM_LISTADDSTR           = 34;
+  DM_LISTUPDATE           = 35;
+  DM_LISTINSERT           = 36;
+  DM_LISTFINDSTRING       = 37;
+  DM_LISTINFO             = 38;
+  DM_LISTGETDATA          = 39;
+  DM_LISTSETDATA          = 40;
+  DM_LISTSETTITLES        = 41;
+  DM_LISTGETTITLES        = 42;
+  DM_RESIZEDIALOG         = 43;
+  DM_SETITEMPOSITION      = 44;
+  DM_GETDROPDOWNOPENED    = 45;
+  DM_SETDROPDOWNOPENED    = 46;
+  DM_SETHISTORY           = 47;
+  DM_GETITEMPOSITION      = 48;
+  DM_SETMOUSEEVENTNOTIFY  = 49;
+  DM_EDITUNCHANGEDFLAG    = 50;
+  DM_GETITEMDATA          = 51;
+  DM_SETITEMDATA          = 52;
+  DM_LISTSET              = 53;
+  DM_GETCURSORSIZE        = 54;
+  DM_SETCURSORSIZE        = 55;
+  DM_LISTGETDATASIZE      = 56;
+  DM_GETSELECTION         = 57;
+  DM_SETSELECTION         = 58;
+  DM_GETEDITPOSITION      = 59;
+  DM_SETEDITPOSITION      = 60;
+  DM_SETCOMBOBOXEVENT     = 61;
+  DM_GETCOMBOBOXEVENT     = 62;
+  DM_GETCONSTTEXTPTR      = 63;
+  DM_GETDLGITEMSHORT      = 64;
+  DM_SETDLGITEMSHORT      = 65;
+  DM_GETDIALOGINFO        = 66;
+
+  DN_FIRST                = 4096;
+  DN_BTNCLICK             = 4097;
+  DN_CTLCOLORDIALOG       = 4098;
+  DN_CTLCOLORDLGITEM      = 4099;
+  DN_CTLCOLORDLGLIST      = 4100;
+  DN_DRAWDIALOG           = 4101;
+  DN_DRAWDLGITEM          = 4102;
+  DN_EDITCHANGE           = 4103;
+  DN_ENTERIDLE            = 4104;
+  DN_GOTFOCUS             = 4105;
+  DN_HELP                 = 4106;
+  DN_HOTKEY               = 4107;
+  DN_INITDIALOG           = 4108;
+  DN_KILLFOCUS            = 4109;
+  DN_LISTCHANGE           = 4110;
+  DN_DRAGGED              = 4111;
+  DN_RESIZECONSOLE        = 4112;
+  DN_DRAWDIALOGDONE       = 4113;
+  DN_LISTHOTKEY           = 4114;
+  DN_INPUT                = 4115;
+  DN_CONTROLINPUT         = 4116;
+  DN_CLOSE                = 4117;
+  DN_GETVALUE             = 4118;
+
+  DM_USER                 = $4000;
+
+
+{ FARCHECKEDSTATE }
+
+const
+  BSTATE_UNCHECKED = 0;
+  BSTATE_CHECKED   = 1;
+  BSTATE_3STATE    = 2;
+  BSTATE_TOGGLE    = 3;
 
 
           { FARLISTMOUSEREACTIONTYPE }
@@ -1391,7 +1404,7 @@ const
   ACTL_EJECTMEDIA            = 5;
   ACTL_GETWINDOWINFO         = 6;
   ACTL_GETWINDOWCOUNT        = 7;
-  ACTL_SETCURRENTWINDOW      = 8;
+  ACTL_SETCURRENTWINDOW_     = 8;
   ACTL_COMMIT                = 9;
   ACTL_GETFARHWND            = 10;
   ACTL_GETSYSTEMSETTINGS     = 11;
@@ -2181,89 +2194,90 @@ const
             end;
 
 
-          {EDITOR_UNDOREDO_COMMANDS}
+{EDITOR_UNDOREDO_COMMANDS}
 
-          const
-            EUR_BEGIN = 0;
-            EUR_END   = 1;
-            EUR_UNDO  = 2;
-            EUR_REDO  = 3;
+const
+  EUR_BEGIN = 0;
+  EUR_END   = 1;
+  EUR_UNDO  = 2;
+  EUR_REDO  = 3;
 
-          (*
-          struct EditorUndoRedo
-          {
-            int Command;
-            DWORD_PTR Reserved[3];
-          };
-          *)
-          type
-            PEditorUndoRedo = ^TEditorUndoRedo;
-            TEditorUndoRedo = record
-              Command :Integer;
-              Reserved :array[0..2] of DWORD_PTR;
-            end;
+(*
+struct EditorUndoRedo
+{
+  int Command;
+  DWORD_PTR Reserved[3];
+};
+*)
+type
+  PEditorUndoRedo = ^TEditorUndoRedo;
+  TEditorUndoRedo = record
+    Command :Integer;
+    Reserved :array[0..2] of DWORD_PTR;
+  end;
 
-          (*
-          struct EditorGetString
-          {
-            int StringNumber;
-            const wchar_t *StringText;
-            const wchar_t *StringEOL;
-            int StringLength;
-            int SelStart;
-            int SelEnd;
-          };
-          *)
-          type
-            PEditorGetString = ^TEditorGetString;
-            TEditorGetString = record
-              StringNumber : Integer;
-              StringText : PFarChar;
-              StringEOL : PFarChar;
-              StringLength : Integer;
-              SelStart : Integer;
-              SelEnd : Integer;
-            end;
+(*
+struct EditorGetString
+{
+  int StringNumber;
+  int StringLength;
+  const wchar_t *StringText;
+  const wchar_t *StringEOL;
+  int SelStart;
+  int SelEnd;
+};
+*)
+type
+  PEditorGetString = ^TEditorGetString;
+  TEditorGetString = record
+    StringNumber :Integer;
+    StringLength :Integer;
+    StringText :PFarChar;
+    StringEOL :PFarChar;
+    SelStart :Integer;
+    SelEnd :Integer;
+  end;
 
-          (*
-          struct EditorSetString
-          {
-            int StringNumber;
-            const wchar_t *StringText;
-            const wchar_t *StringEOL;
-            int StringLength;
-          };
-          *)
-          type
-            PEditorSetString = ^TEditorSetString;
-            TEditorSetString = record
-              StringNumber : Integer;
-              StringText : PFarChar;
-              StringEOL : PFarChar;
-              StringLength : Integer;
-            end;
+(*
+struct EditorSetString
+{
+  int StringNumber;
+  int StringLength;
+  const wchar_t *StringText;
+  const wchar_t *StringEOL;
+};
+*)
+type
+  PEditorSetString = ^TEditorSetString;
+  TEditorSetString = record
+    StringNumber :Integer;
+    StringLength :Integer;
+    StringText :PFarChar;
+    StringEOL :PFarChar;
+  end;
 
-          { EXPAND_TABS }
+  
+{ EXPAND_TABS }
 
-          const
-            EXPAND_NOTABS  = 0;
-            EXPAND_ALLTABS = 1;
-            EXPAND_NEWTABS = 2;
+const
+  EXPAND_NOTABS  = 0;
+  EXPAND_ALLTABS = 1;
+  EXPAND_NEWTABS = 2;
 
 
-          { EDITOR_OPTIONS }
+{ EDITOR_OPTIONS }
 
-          const
-            EOPT_EXPANDALLTABS      = $00000001;
-            EOPT_PERSISTENTBLOCKS   = $00000002;
-            EOPT_DELREMOVESBLOCKS   = $00000004;
-            EOPT_AUTOINDENT         = $00000008;
-            EOPT_SAVEFILEPOSITION   = $00000010;
-            EOPT_AUTODETECTCODEPAGE = $00000020;
-            EOPT_CURSORBEYONDEOL    = $00000040;
-            EOPT_EXPANDONLYNEWTABS  = $00000080;
-            EOPT_SHOWWHITESPACE     = $00000100;
-            EOPT_BOM                = $00000200;
+const
+  EOPT_EXPANDALLTABS      = $00000001;
+  EOPT_PERSISTENTBLOCKS   = $00000002;
+  EOPT_DELREMOVESBLOCKS   = $00000004;
+  EOPT_AUTOINDENT         = $00000008;
+  EOPT_SAVEFILEPOSITION   = $00000010;
+  EOPT_AUTODETECTCODEPAGE = $00000020;
+  EOPT_CURSORBEYONDEOL    = $00000040;
+  EOPT_EXPANDONLYNEWTABS  = $00000080;
+  EOPT_SHOWWHITESPACE     = $00000100;
+  EOPT_BOM                = $00000200;
 
 
 { EDITOR_BLOCK_TYPES }
@@ -2406,30 +2420,64 @@ type
             end;
 
 
-          { EDITORCOLORFLAGS }
+{ EDITORCOLORFLAGS }
 
-          const
-             ECF_TAB1 = $10000;
+type
+  TEditorColorFlags = Int64;
 
-          (*
-          struct EditorColor
-          {
-            int StringNumber;
-            int ColorItem;
-            int StartPos;
-            int EndPos;
-            int Color;
-          };
-          *)
-          type
-            PEditorColor = ^TEditorColor;
-            TEditorColor = record
-              StringNumber :Integer;
-              ColorItem :Integer;
-              StartPos :Integer;
-              EndPos :Integer;
-              Color :Integer;
-            end;
+const
+  ECF_TABMARKFIRST   = $00000001;
+  ECF_TABMARKCURRENT = $00000002;
+
+(*
+struct EditorColor
+{
+  size_t StructSize;
+  int StringNumber;
+  int ColorItem;
+  int StartPos;
+  int EndPos;
+  unsigned Priority;
+  EDITORCOLORFLAGS Flags;
+  struct FarColor Color;
+  GUID Owner;
+};
+*)
+type
+  PEditorColor = ^TEditorColor;
+  TEditorColor = record
+    StructSize :size_t;
+    StringNumber :Integer;
+    ColorItem :Integer;
+    StartPos :Integer;
+    EndPos :Integer;
+    Priority :Cardinal;
+    Flags :TEditorColorFlags;
+    Color :TFarColor;
+    Owner :TGUID;
+  end;
+
+(*
+struct EditorDeleteColor
+{
+  size_t StructSize;
+  GUID Owner;
+  int StringNumber;
+  int StartPos;
+};
+*)
+type
+  PEditorDeleteColor = ^TEditorDeleteColor;
+  TEditorDeleteColor = record
+    StructSize :size_t;
+    Owner :TGUID;
+    StringNumber :Integer;
+    StartPos :Integer;
+  end;
+
+const
+  EDITOR_COLOR_NORMAL_PRIORITY = $80000000;
+
 
           (*
           struct EditorSaveFile
@@ -2448,220 +2496,255 @@ type
             end;
 
 
-          { INPUTBOXFLAGS }
+{ INPUTBOXFLAGS }
 
-          const
-            FIB_NONE             = 0;
-            FIB_ENABLEEMPTY      = $00000001;
-            FIB_PASSWORD         = $00000002;
-            FIB_EXPANDENV        = $00000004;
-            FIB_NOUSELASTHISTORY = $00000008;
-            FIB_BUTTONS          = $00000010;
-            FIB_NOAMPERSAND      = $00000020;
-            FIB_EDITPATH         = $00000040;
+type
+  TInputBoxFlags = Int64;
 
-          (*
-          typedef int (WINAPI *FARAPIINPUTBOX)(
-              const GUID* PluginId,
-              const GUID* Id,
-              const wchar_t *Title,
-              const wchar_t *SubTitle,
-              const wchar_t *HistoryName,
-              const wchar_t *SrcText,
-              wchar_t *DestText,
-              int   DestLength,
-              const wchar_t *HelpTopic,
-              INPUTBOXFLAGS Flags
-          );
-          *)
-          type
-            TFarApiInputBox = function (
-              const PluginID :TGUID;
-              const ID :TGUID;
-              Title : PFarChar;
-              SubTitle : PFarChar;
-              HistoryName : PFarChar;
-              SrcText : PFarChar;
-              DestText : PFarChar;
-              DestLength : Integer;
-              HelpTopic : PFarChar;
-              Flags :Int64
-            ) :Integer; stdcall;
+const
+  FIB_NONE             = 0;
+  FIB_ENABLEEMPTY      = $00000001;
+  FIB_PASSWORD         = $00000002;
+  FIB_EXPANDENV        = $00000004;
+  FIB_NOUSELASTHISTORY = $00000008;
+  FIB_BUTTONS          = $00000010;
+  FIB_NOAMPERSAND      = $00000020;
+  FIB_EDITPATH         = $00000040;
 
-          {------------------------------------------------------------------------------}
+(*
+typedef int (WINAPI *FARAPIINPUTBOX)(
+    const GUID* PluginId,
+    const GUID* Id,
+    const wchar_t *Title,
+    const wchar_t *SubTitle,
+    const wchar_t *HistoryName,
+    const wchar_t *SrcText,
+    wchar_t *DestText,
+    int   DestLength,
+    const wchar_t *HelpTopic,
+    INPUTBOXFLAGS Flags
+);
+*)
+type
+  TFarApiInputBox = function (
+    const PluginID :TGUID;
+    const ID :TGUID;
+    Title : PFarChar;
+    SubTitle : PFarChar;
+    HistoryName : PFarChar;
+    SrcText : PFarChar;
+    DestText : PFarChar;
+    DestLength : Integer;
+    HelpTopic : PFarChar;
+    Flags :TInputBoxFlags
+  ) :Integer; stdcall;
 
-          {FAR_REGEXP_CONTROL_COMMANDS}
+{------------------------------------------------------------------------------}
 
-          const
-            RECTL_CREATE        = 0;
-            RECTL_FREE          = 1;
-            RECTL_COMPILE       = 2;
-            RECTL_OPTIMIZE      = 3;
-            RECTL_MATCHEX       = 4;
-            RECTL_SEARCHEX      = 5;
-            RECTL_BRACKETSCOUNT = 6;
+{ FAR_PLUGINS_CONTROL_COMMANDS }
 
-
-          (*
-          struct RegExpMatch
-          {
-            int start,end;
-          };
-          *)
-          type
-            PRegExpMatch = ^TRegExpMatch;
-            TRegExpMatch = record
-              Start :Integer;
-              EndPos :Integer;
-            end;
-
-          (*
-          struct RegExpSearch
-          {
-            const wchar_t* Text;
-            int Position;
-            int Length;
-            struct RegExpMatch* Match;
-            int Count;
-            void* Reserved;
-          };
-          *)
-          type
-            PRegExpSearch = ^TRegExpSearch;
-            TRegExpSearch = record
-              Text :PFarChar;
-              Position :Integer;
-              Length :Integer;
-              Match :PRegExpMatch;
-              Count :Integer;
-              Reserved :Pointer;
-            end;
+const
+  PCTL_LOADPLUGIN       = 0;
+  PCTL_UNLOADPLUGIN     = 1;
+  PCTL_FORCEDLOADPLUGIN = 2;
 
 
-          {------------------------------------------------------------------------------}
+{ FAR_PLUGIN_LOAD_TYPE }
 
-          { FAR_SETTINGS_CONTROL_COMMANDS }
-
-          const
-            SCTL_CREATE       = 0;
-            SCTL_FREE         = 1;
-            SCTL_SET          = 2;
-            SCTL_GET          = 3;
-            SCTL_ENUM         = 4;
-            SCTL_DELETE       = 5;
-            SCTL_CREATESUBKEY = 6;
-            SCTL_OPENSUBKEY   = 7;
+const
+  PLT_PATH = 0;
 
 
-          { FARSETTINGSTYPES }
+{FAR_FILE_FILTER_CONTROL_COMMANDS}
 
-          const
-            FST_UNKNOWN  = 0;
-            FST_SUBKEY   = 1;
-            FST_QWORD    = 2;
-            FST_STRING   = 3;
-            FST_DATA     = 4;
+const
+  FFCTL_CREATEFILEFILTER = 0;
+  FFCTL_FREEFILEFILTER   = 1;
+  FFCTL_OPENFILTERSMENU  = 2;
+  FFCTL_STARTINGTOFILTER = 3;
+  FFCTL_ISFILEINFILTER   = 4;
+
+{FAR_FILE_FILTER_TYPE}
+
+const
+  FFT_PANEL     = 0;
+  FFT_FINDFILE  = 1;
+  FFT_COPY      = 2;
+  FFT_SELECT    = 3;
+  FFT_CUSTOM    = 4;
 
 
-          (*
-          struct FarSettingsCreate
-          {
-            size_t StructSize;
-            GUID Guid;
-            HANDLE Handle;
-          };
-          *)
-          type
-            PFarSettingsCreate = ^TFarSettingsCreate;
-            TFarSettingsCreate = record
-              StructSize :size_t;
-              Guid :TGUID;
-              Handle :THandle;
-            end;
+{FAR_REGEXP_CONTROL_COMMANDS}
 
-          (*
-          struct FarSettingsItem
-          {
-             size_t Root;
-             const wchar_t* Name;
-             enum FARSETTINGSTYPES Type;
-             union
-             {
-               unsigned __int64 Number;
-               const wchar_t* String;
-               struct
-               {
-                 size_t Size;
-                 const void* Data;
-               } Data;
-             } Value
-             ;
-          };
-          *)
-          type
-            PFarSettingsData = ^TFarSettingsData;
-            TFarSettingsData = record
-              Size :size_t;
-              Data :Pointer;
-            end;
+const
+  RECTL_CREATE        = 0;
+  RECTL_FREE          = 1;
+  RECTL_COMPILE       = 2;
+  RECTL_OPTIMIZE      = 3;
+  RECTL_MATCHEX       = 4;
+  RECTL_SEARCHEX      = 5;
+  RECTL_BRACKETSCOUNT = 6;
 
-            PFarSettingsItem = ^TFarSettingsItem;
-            TFarSettingsItem = record
-              Root :size_t;
-              Name :PFarChar;
-              FType :Integer {FARSETTINGSTYPES};
-              Value :record case Integer of
-                0 : (Number :Int64);
-                1 : (Str :PFarChar);
-                2 : (Data :TFarSettingsData);
-              end;
-            end;
 
-          (*
-          struct FarSettingsName
-          {
-            const wchar_t* Name;
-            enum FARSETTINGSTYPES Type;
-          };
-          *)
-          type
-            PFarSettingsName = ^TFarSettingsName;
-            TFarSettingsName = record
-              Name :PFarChar;
-              FType :Integer {FARSETTINGSTYPES};
-            end;
+(*
+struct RegExpMatch
+{
+  int start,end;
+};
+*)
+type
+  PRegExpMatch = ^TRegExpMatch;
+  TRegExpMatch = record
+    Start :Integer;
+    EndPos :Integer;
+  end;
 
-          (*
-          struct FarSettingsEnum
-          {
-            size_t Root;
-            size_t Count;
-            const struct FarSettingsName* Items;
-          };
-          *)
-          type
-            PFarSettingsEnum = ^TFarSettingsEnum;
-            TFarSettingsEnum = record
-              Root :size_t;
-              Count :size_t;
-              Items :PFarSettingsName;
-            end;
+(*
+struct RegExpSearch
+{
+  const wchar_t* Text;
+  int Position;
+  int Length;
+  struct RegExpMatch* Match;
+  int Count;
+  void* Reserved;
+};
+*)
+type
+  PRegExpSearch = ^TRegExpSearch;
+  TRegExpSearch = record
+    Text :PFarChar;
+    Position :Integer;
+    Length :Integer;
+    Match :PRegExpMatch;
+    Count :Integer;
+    Reserved :Pointer;
+  end;
 
-          (*
-          struct FarSettingsValue
-          {
-            size_t Root;
-            const wchar_t* Value;
-          };
-          *)
-          type
-            PFarSettingsValue = ^TFarSettingsValue;
-            TFarSettingsValue = record
-              Root :size_t;
-              Value :PFarChar;
-            end;
+{------------------------------------------------------------------------------}
 
-          {------------------------------------------------------------------------------}
+{ FAR_SETTINGS_CONTROL_COMMANDS }
+
+const
+  SCTL_CREATE       = 0;
+  SCTL_FREE         = 1;
+  SCTL_SET          = 2;
+  SCTL_GET          = 3;
+  SCTL_ENUM         = 4;
+  SCTL_DELETE       = 5;
+  SCTL_CREATESUBKEY = 6;
+  SCTL_OPENSUBKEY   = 7;
+
+
+{ FARSETTINGSTYPES }
+
+const
+  FST_UNKNOWN  = 0;
+  FST_SUBKEY   = 1;
+  FST_QWORD    = 2;
+  FST_STRING   = 3;
+  FST_DATA     = 4;
+
+
+(*
+struct FarSettingsCreate
+{
+  size_t StructSize;
+  GUID Guid;
+  HANDLE Handle;
+};
+*)
+type
+  PFarSettingsCreate = ^TFarSettingsCreate;
+  TFarSettingsCreate = record
+    StructSize :size_t;
+    Guid :TGUID;
+    Handle :THandle;
+  end;
+
+(*
+struct FarSettingsItem
+{
+   size_t Root;
+   const wchar_t* Name;
+   enum FARSETTINGSTYPES Type;
+   union
+   {
+     unsigned __int64 Number;
+     const wchar_t* String;
+     struct
+     {
+       size_t Size;
+       const void* Data;
+     } Data;
+   } Value
+   ;
+};
+*)
+type
+  PFarSettingsData = ^TFarSettingsData;
+  TFarSettingsData = record
+    Size :size_t;
+    Data :Pointer;
+  end;
+
+  PFarSettingsItem = ^TFarSettingsItem;
+  TFarSettingsItem = record
+    Root :size_t;
+    Name :PFarChar;
+    FType :Integer {FARSETTINGSTYPES};
+    Value :record case Integer of
+      0 : (Number :Int64);
+      1 : (Str :PFarChar);
+      2 : (Data :TFarSettingsData);
+    end;
+  end;
+
+(*
+struct FarSettingsName
+{
+  const wchar_t* Name;
+  enum FARSETTINGSTYPES Type;
+};
+*)
+type
+  PFarSettingsName = ^TFarSettingsName;
+  TFarSettingsName = record
+    Name :PFarChar;
+    FType :Integer {FARSETTINGSTYPES};
+  end;
+
+(*
+struct FarSettingsEnum
+{
+  size_t Root;
+  size_t Count;
+  const struct FarSettingsName* Items;
+};
+*)
+type
+  PFarSettingsEnum = ^TFarSettingsEnum;
+  TFarSettingsEnum = record
+    Root :size_t;
+    Count :size_t;
+    Items :PFarSettingsName;
+  end;
+
+(*
+struct FarSettingsValue
+{
+  size_t Root;
+  const wchar_t* Value;
+};
+*)
+type
+  PFarSettingsValue = ^TFarSettingsValue;
+  TFarSettingsValue = record
+    Root :size_t;
+    Value :PFarChar;
+  end;
+
+{------------------------------------------------------------------------------}
 
 type
 (*
@@ -3390,25 +3473,25 @@ type
             end;
 
   
-          { OPENFROM }
+{ OPENFROM }
 
-          const
-            OPEN_DISKMENU        = 0;
-            OPEN_PLUGINSMENU     = 1;
-            OPEN_FINDLIST        = 2;
-            OPEN_SHORTCUT        = 3;
-            OPEN_COMMANDLINE     = 4;
-            OPEN_EDITOR          = 5;
-            OPEN_VIEWER          = 6;
-            OPEN_FILEPANEL       = 7;
-            OPEN_DIALOG          = 8;
-            OPEN_ANALYSE         = 9;
-            OPEN_RIGHTDISKMENU   = 10;
-            OPEN_FROM_MASK       = $FF;
+const
+  OPEN_DISKMENU        = 0;
+  OPEN_PLUGINSMENU     = 1;
+  OPEN_FINDLIST        = 2;
+  OPEN_SHORTCUT        = 3;
+  OPEN_COMMANDLINE     = 4;
+  OPEN_EDITOR          = 5;
+  OPEN_VIEWER          = 6;
+  OPEN_FILEPANEL       = 7;
+  OPEN_DIALOG          = 8;
+  OPEN_ANALYSE         = 9;
+  OPEN_RIGHTDISKMENU   = 10;
+  OPEN_FROM_MASK       = $FF;
 
-            OPEN_FROMMACRO       = $10000;
-            OPEN_FROMMACROSTRING = $20000;
-            OPEN_FROMMACRO_MASK  = $F0000;
+  OPEN_FROMMACRO       = $10000;
+  OPEN_FROMMACROSTRING = $20000;
+  OPEN_FROMMACRO_MASK  = $F0000;
 
 
           { FAR_PKF_FLAGS }
@@ -3430,38 +3513,6 @@ type
             FE_COMMAND        = 5;
             FE_GOTFOCUS       = 6;
             FE_KILLFOCUS      = 7;
-
-          { FAR_PLUGINS_CONTROL_COMMANDS }
-
-          const
-            PCTL_LOADPLUGIN       = 0;
-            PCTL_UNLOADPLUGIN     = 1;
-            PCTL_FORCEDLOADPLUGIN = 2;
-
-  
-          { FAR_PLUGIN_LOAD_TYPE }
-
-          const
-            PLT_PATH = 0;
-
-
-          {FAR_FILE_FILTER_CONTROL_COMMANDS}
-
-          const
-            FFCTL_CREATEFILEFILTER = 0;
-            FFCTL_FREEFILEFILTER   = 1;
-            FFCTL_OPENFILTERSMENU  = 2;
-            FFCTL_STARTINGTOFILTER = 3;
-            FFCTL_ISFILEINFILTER   = 4;
-
-          {FAR_FILE_FILTER_TYPE}
-
-          const
-            FFT_PANEL     = 0;
-            FFT_FINDFILE  = 1;
-            FFT_COPY      = 2;
-            FFT_SELECT    = 3;
-            FFT_CUSTOM    = 4;
 
 
 (*
@@ -3589,13 +3640,22 @@ type
                   HANDLE hPanel;
                   INPUT_RECORD Rec;
           };
+*)
 
-          struct ProcessEditorInputInfo
-          {
-                  size_t StructSize;
-                  INPUT_RECORD Rec;
-          };
-          *)
+(*
+struct ProcessEditorInputInfo
+{
+        size_t StructSize;
+        INPUT_RECORD Rec;
+};
+*)
+type
+  PProcessEditorInputInfo = ^TProcessEditorInputInfo;
+  TProcessEditorInputInfo = record
+    StructSize :size_t;
+    Rec :INPUT_RECORD;
+  end;
+
 
 type
   TPROCESSCONSOLEINPUT_FLAGS = Int64;
