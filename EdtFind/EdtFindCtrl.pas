@@ -17,11 +17,16 @@ interface
     MixStrings,
     MixWinUtils,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
     FarColor,
     FarCtrl,
     FarMatch,
     FarMenu,
+    FarConfig,
     FarColorDlg;
 
 
@@ -124,17 +129,24 @@ interface
  {-----------------------------------------------------------------------------}
 
   const
-    cDefaultLang   = 'English';
-    cPlugRegFolder = 'EdtFind';
+    cPluginName = 'EdtFind';
+    cPluginDescr = 'EdtFind FAR plugin';
+    cPluginAuthor = 'Max Rusov';
 
-    cPluginGUID    = $444E4645;
-
-    cFindHistory   = 'SearchText';
-    cReplHistory   = 'ReplaceText';
+   {$ifdef Far3}
+    cPluginID   :TGUID = '{E4ABD267-C2F9-4158-818F-B0E040A2AB9F}';
+    cMenuID     :TGUID = '{66E82FF0-8DAA-4504-9745-7690DE0483CB}';
+    cConfigID   :TGUID = '{61E52218-E3EC-410A-AEED-BB6B41D7CA90}';
+   {$else}
+    cPluginID    = $444E4645;
+   {$endif Far3}
 
     cFindDlgID    :TGUID = '{A0562FC4-25FA-48DC-BA5E-48EFA639865F}';
     cReplaceDlgID :TGUID = '{070544C7-E2F6-4E7B-B348-7583685B5647}';
     cGrepDlgID    :TGUID = '{39BE672E-9303-4F06-A38A-ECC35ABD98B6}';
+
+    cFindHistory   = 'SearchText';
+    cReplHistory   = 'ReplaceText';
 
 
   var
@@ -158,11 +170,11 @@ interface
 
     optXLatMask       :Boolean = True;   { јвтоматическое XLAT преобразование при поиске }
 
-    optCurFindColor   :Integer;
-    optMatchColor     :Integer;
+    optCurFindColor   :TFarColor;
+    optMatchColor     :TFarColor;
 
-    optGrepNumColor   :Integer;
-    optGrepFoundColor :Integer;
+    optGrepNumColor   :TFarColor;
+    optGrepFoundColor :TFarColor;
 
 
   type
@@ -269,17 +281,15 @@ interface
     vRegExp :THandle;
     vStr :TString;
   begin
-    if FARAPI.RegExpControl(0, RECTL_CREATE, @vRegExp) = 0 then
+    if FarRegExpControl(0, RECTL_CREATE, @vRegExp) = 0 then
       Wrong;
     try
       vStr := RegexpQuote(AStr);
-      Result := FARAPI.RegExpControl(vRegExp, RECTL_COMPILE, PTChar(vStr)) <> 0;
+      Result := FarRegExpControl(vRegExp, RECTL_COMPILE, PTChar(vStr)) <> 0;
     finally
-      FARAPI.RegExpControl(vRegExp, RECTL_FREE, nil);
+      FarRegExpControl(vRegExp, RECTL_FREE, nil);
     end;
   end;
-
-
 
 
   function MaskStr(const AStr :TString) :TString;
@@ -292,7 +302,7 @@ interface
       C := AStr[I];
       if (Ord(C) < $20) or (C = '"') or (C = '\') then
 //      Result := Result + '\' + Int2Str(Ord(c))
-        Result := Result + '\x' + Format('%.2x', [Ord(c)])
+        Result := Result + '\x' + Format('%.4x', [Ord(c)])
       else
         Result := Result + C;
     end;
@@ -309,21 +319,6 @@ interface
 
 
  {-----------------------------------------------------------------------------}
-
-  procedure AddToHistory(const AHist, AStr :TString);
-  var
-    hDlg :THandle;
-    vItems :array[0..0] of TFarDialogItem;
-  begin
-    vItems[0] := NewItemApi(DI_Edit, 0, 0, 5, -1, DIF_HISTORY, '', PTChar(AHist) );
-    hDlg := FARAPI.DialogInit(hModule, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, nil, 0);
-    try
-      FARAPI.SendDlgMessage(hDlg, DM_ADDHISTORY, 0, TIntPtr(PTChar(AStr)));
-    finally
-      FARAPI.DialogFree(hDlg);
-    end;
-  end;
-  
 
 (*
   function DlgGetText(ADlg :THandle; AItemID :Integer) :TFarStr;
@@ -358,7 +353,43 @@ interface
 *)
 
 
+  procedure AddToHistory(const AHist, AStr :TString);
+ {$ifdef Far3}
+(*
+  var
+    hDlg :THandle;
+    vItems :array[0..0] of TFarDialogItem;
+  begin
+    vItems[0] := NewItemApi(DI_Edit, 0, 0, 5, -1, DIF_HISTORY, '', PTChar(AHist) );
+    hDlg := FARAPI.DialogInit(cPluginID, GUID_NULL, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, nil, 0);
+    try
+      FARAPI.SendDlgMessage(hDlg, DM_ADDHISTORY, 0, PTChar(AStr));
+    finally
+      FARAPI.DialogFree(hDlg);
+    end;
+*)
+  begin    
+ {$else}
+  var
+    hDlg :THandle;
+    vItems :array[0..0] of TFarDialogItem;
+  begin
+    vItems[0] := NewItemApi(DI_Edit, 0, 0, 5, -1, DIF_HISTORY, '', PTChar(AHist) );
+    hDlg := FARAPI.DialogInit(hModule, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, nil, 0);
+    try
+      FARAPI.SendDlgMessage(hDlg, DM_ADDHISTORY, 0, TIntPtr(PTChar(AStr)));
+    finally
+      FARAPI.DialogFree(hDlg);
+    end;
+ {$endif Far3}
+  end;
+
+
   function GetLastHistory(const AHist :TString) :TString;
+ {$ifdef Far3}
+  begin
+    {!!!}
+ {$else}
   var
     vPath, vStr :TString;
     vKey :HKEY;
@@ -372,6 +403,7 @@ interface
         RegCloseKey(vKey);
       end;
     end;
+ {$endif Far3}
   end;
 
 
@@ -386,19 +418,19 @@ interface
 
   procedure RestoreDefColor;
   begin
-    optCurFindColor   := $2F;
-    optMatchColor     := $F0;
-    optGrepNumColor   := $08;
-    optGrepFoundColor := $0A;
+    optCurFindColor   := MakeColor(clWhite, clGreen);
+    optMatchColor     := MakeColor(clBlack, clWhite);
+    optGrepNumColor   := MakeColor(clGray, 0);
+    optGrepFoundColor := MakeColor(clLime, 0);
   end;
 
 
   procedure ColorMenu;
   var
     vMenu :TFarMenu;
-    vBkColor :Integer;
+    vBkColor :DWORD;
   begin
-    vBkColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUTEXT));
+    vBkColor := GetColorBG(FarGetColor(COL_MENUTEXT));
 
     vMenu := TFarMenu.CreateEx(
       GetMsg(strOptions),
@@ -430,7 +462,7 @@ interface
         end;
 
 //      FARAPI.EditorControl(ECTL_REDRAW, nil);
-        FARAPI.AdvControl(hModule, ACTL_REDRAWALL, nil);
+        FarAdvControl(ACTL_REDRAWALL, nil);
 
         WriteSetup;
       end;
@@ -443,88 +475,73 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure ReadSetup;
+  procedure PluginConfig(AStore :Boolean);
   var
-    vKey :HKEY;
+    vConfig :TFarConfig;
+
+    procedure LocOpt(const AName :TString; AOpt :TFindOption);
+    var
+      vValue :Boolean;
+    begin
+      vValue := AOpt in gOptions;
+      vConfig.LogValue(AName, vValue);
+      if not AStore then
+        SetFindOptions(gOptions, AOpt, vValue);
+    end;
+
   begin
-    if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then
-      Exit;
+    vConfig := TFarConfig.CreateEx(AStore, cPluginName);
     try
-      SetFindOptions(gOptions, foCaseSensitive, RegQueryLog(vKey, 'CaseSensitive', foCaseSensitive in gOptions));
-      SetFindOptions(gOptions, foWholeWords, RegQueryLog(vKey, 'WholeWords', foWholeWords in gOptions));
-      SetFindOptions(gOptions, foRegexp, RegQueryLog(vKey, 'Regexp', foRegexp in gOptions));
-      SetFindOptions(gOptions, foPromptOnReplace, RegQueryLog(vKey, 'PromptOnReplace', foPromptOnReplace in gOptions));
+      with vConfig do begin
+        if not Exists then
+          Exit;
 
-      optSelectFound := RegQueryLog(vKey, 'SelectFound', optSelectFound);
-      optCursorAtEnd := RegQueryLog(vKey, 'CursorAtEnd', optCursorAtEnd);
-      optCenterAlways := RegQueryLog(vKey, 'CenterAlways', optCenterAlways);
-      optLoopSearch := RegQueryLog(vKey, 'LoopSearch', optLoopSearch);
-      optShowAllFound := RegQueryLog(vKey, 'ShowAllFound', optShowAllFound);
-      optPersistMatch := RegQueryLog(vKey, 'PersistentMatches', optPersistMatch);
-      optMarkWholeTab := RegQueryLog(vKey, 'MarkWholeTab', optMarkWholeTab);
-      optShowProgress := RegQueryLog(vKey, 'ShowProgress', optShowProgress);
+        LocOpt('CaseSensitive', foCaseSensitive);
+        LocOpt('WholeWords', foWholeWords);
+        LocOpt('Regexp', foRegexp);
+        LocOpt('PromptOnReplace', foPromptOnReplace);
 
-      optGroupUndo := RegQueryLog(vKey, 'GroupUndo', optGroupUndo);
+        LogValue('SelectFound', optSelectFound);
+        LogValue('CursorAtEnd', optCursorAtEnd);
+        LogValue('CenterAlways', optCenterAlways);
+        LogValue('LoopSearch', optLoopSearch);
+        LogValue('ShowAllFound', optShowAllFound);
+        LogValue('PersistentMatches', optPersistMatch);
+        LogValue('MarkWholeTab', optMarkWholeTab);
+        LogValue('ShowProgress', optShowProgress);
 
-      optGrepShowLines := RegQueryLog(vKey, 'GrepShowLines', optGrepShowLines);
-      optGrepTrimSpaces := RegQueryLog(vKey, 'GrepTrimSpaces', optGrepTrimSpaces);
-      oprGrepShowMatch := RegQueryLog(vKey, 'GrepShowMatch', oprGrepShowMatch);
-      optGrepAutoSync := RegQueryLog(vKey, 'GrepAutoSync', optGrepAutoSync);
-      optGrepShowHints := RegQueryLog(vKey, 'GrepShowHints', optGrepShowHints);
-      optGrepMaximized := RegQueryLog(vKey, 'GrepMaximized', optGrepMaximized);
+        LogValue('GroupUndo', optGroupUndo);
 
-      optXLatMask := RegQueryLog(vKey, 'XLatMask', optXLatMask);
+        LogValue('GrepShowLines', optGrepShowLines);
+        LogValue('GrepTrimSpaces', optGrepTrimSpaces);
+        LogValue('GrepShowMatch', oprGrepShowMatch);
+        LogValue('GrepAutoSync', optGrepAutoSync);
+        LogValue('GrepShowHints', optGrepShowHints);
+        LogValue('GrepMaximized', optGrepMaximized);
 
-      optCurFindColor := RegQueryInt(vKey, 'FindColor', optCurFindColor);
-      optMatchColor := RegQueryInt(vKey, 'MatchColor', optMatchColor);
-      optGrepNumColor := RegQueryInt(vKey, 'GrepNumColor', optGrepNumColor);
-      optGrepFoundColor := RegQueryInt(vKey, 'GrepFoundColor', optGrepFoundColor);
+        LogValue('XLatMask', optXLatMask);
+
+        ColorValue('FindColor', optCurFindColor);
+        ColorValue('MatchColor', optMatchColor);
+        ColorValue('GrepNumColor', optGrepNumColor);
+        ColorValue('GrepFoundColor', optGrepFoundColor);
+      end;
 
     finally
-      RegCloseKey(vKey);
+      vConfig.Destroy;
     end;
   end;
 
 
-  procedure WriteSetup;
-  var
-    vKey :HKEY;
+  procedure ReadSetup;
   begin
-    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
-    try
-      RegWriteLog(vKey, 'CaseSensitive', foCaseSensitive in gOptions);
-      RegWriteLog(vKey, 'WholeWords', foWholeWords in gOptions);
-      RegWriteLog(vKey, 'Regexp', foRegexp in gOptions);
-      RegWriteLog(vKey, 'PromptOnReplace', foPromptOnReplace in gOptions);
+    PluginConfig(False);
+  end;
 
-      RegWriteLog(vKey, 'SelectFound', optSelectFound);
-      RegWriteLog(vKey, 'CursorAtEnd', optCursorAtEnd);
-      RegWriteLog(vKey, 'CenterAlways', optCenterAlways);
-      RegWriteLog(vKey, 'LoopSearch', optLoopSearch);
-      RegWriteLog(vKey, 'ShowAllFound', optShowAllFound);
-      RegWriteLog(vKey, 'PersistentMatches', optPersistMatch);
-      RegWriteLog(vKey, 'MarkWholeTab', optMarkWholeTab);
-      RegWriteLog(vKey, 'ShowProgress', optShowProgress);
 
-      RegWriteLog(vKey, 'GroupUndo', optGroupUndo);
-
-      RegWriteLog(vKey, 'GrepShowLines', optGrepShowLines);
-      RegWriteLog(vKey, 'GrepTrimSpaces', optGrepTrimSpaces);
-      RegWriteLog(vKey, 'GrepShowMatch', oprGrepShowMatch);
-      RegWriteLog(vKey, 'GrepAutoSync', optGrepAutoSync);
-      RegWriteLog(vKey, 'GrepShowHints', optGrepShowHints);
-      RegWriteLog(vKey, 'GrepMaximized', optGrepMaximized);
-
-      RegWriteLog(vKey, 'XLatMask', optXLatMask);
-
-      RegWriteInt(vKey, 'FindColor', optCurFindColor);
-      RegWriteInt(vKey, 'MatchColor', optMatchColor);
-      RegWriteInt(vKey, 'GrepNumColor', optGrepNumColor);
-      RegWriteInt(vKey, 'GrepFoundColor', optGrepFoundColor);
-
-    finally
-      RegCloseKey(vKey);
-    end;
+  procedure WriteSetup;
+  begin
+    PluginConfig(True);
   end;
 
 

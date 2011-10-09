@@ -1,9 +1,9 @@
 {$I Defines.inc} { см. также DefApp.inc }
 
 {$APPTYPE CONSOLE}
-{$ifdef bDelphi}
+{$ifdef Debug}
  {$ImageBase $40C00000}
-{$endif bDelphi}
+{$endif Debug}
 
 library EdtFind;
 
@@ -18,13 +18,22 @@ uses
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
+  FarPlug,
   EdtFindMain;
 
 exports
-  SetStartupInfoW,
+ {$ifdef Far3}
+  GetGlobalInfoW,
+ {$else}
   GetMinFarVersionW,
+ {$endif Far3}
+  SetStartupInfoW,
   GetPluginInfoW,
+ {$ifdef Far3}
+  OpenW,
+ {$else}
   OpenPluginW,
+ {$endif Far3}
   ConfigureW,
   ProcessSynchroEventW,
  {$ifdef bAdvSelect}
@@ -35,4 +44,6 @@ exports
 
 {$R EdtFindW.res}
 
+begin
+  Plug := TEdtFindPlug.Create;
 end.

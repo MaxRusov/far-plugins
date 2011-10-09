@@ -16,7 +16,11 @@ interface
     MixUtils,
     MixStrings,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
     FarKeysW,
     FarCtrl,
     FarDlg,
@@ -32,6 +36,7 @@ interface
       procedure InitDialog; override;
       function CloseDialog(ItemID :Integer) :Boolean; override;
 
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
       procedure ErrorHandler(E :Exception); override;
 
@@ -212,6 +217,20 @@ interface
   end;
 
 
+  function TReplaceDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
+  begin
+    Result := True;
+    case AKey of
+      KEY_CTRLP:
+        InsertText(FInitExpr);
+      KEY_F9:
+        OptionsMenu;
+    else
+      Result := inherited KeyDown(AID, AKey);
+    end;
+  end;
+
+
   function TReplaceDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
   begin
     Result := 1;
@@ -237,18 +256,6 @@ interface
           InsertRegexp(IdFindEdt)
         else
           Result := inherited DialogHandler(Msg, Param1, Param2);
-
-      DN_KEY: begin
-        case Param2 of
-          KEY_CTRLP:
-            InsertText(FInitExpr);
-          KEY_F9:
-            OptionsMenu;
-        else
-          Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
-      end;
-
     else
       Result := inherited DialogHandler(Msg, Param1, Param2);
     end;

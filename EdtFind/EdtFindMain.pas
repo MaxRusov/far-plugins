@@ -19,8 +19,14 @@ interface
     MixClasses,
     MixFormat,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
     FarCtrl,
+    FarPlug,
+    FarMenu,
 
     EdtFindCtrl,
     EdtFinder,
@@ -29,18 +35,23 @@ interface
     EdtFindGrep;
 
 
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-  function GetMinFarVersionW :Integer; stdcall;
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
-  procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
-  function ConfigureW(Item: integer) :Integer; stdcall;
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
+  type
+    TEdtFindPlug = class(TFarPlug)
+    public
+      procedure Init; override;
+      procedure Startup; override;
+      procedure ExitFar; override;
+      procedure GetInfo; override;
+      procedure Configure; override;
+      function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      procedure SynchroEvent(AParam :Pointer); override;
+      procedure ErrorHandler(E :Exception); override;
+     {$ifdef bAdvSelect}
+      function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
+      function EditorInput(const ARec :TInputRecord) :Integer; override;
+     {$endif bAdvSelect}
+    end;
 
- {$ifdef bAdvSelect}
-  function ProcessEditorInputW(const ARec :INPUT_RECORD) :Integer; stdcall;
-  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
- {$endif bAdvSelect}
 
   procedure GotoFoundPos(ARow, ACol, ALen :Integer; AForward :Boolean = True; ATopLine :Integer = 0);
 
@@ -152,7 +163,7 @@ interface
     vEdtInfo :TEditorInfo;
   begin
     FillChar(vEdtInfo, SizeOf(vEdtInfo), 0);
-    if FARAPI.EditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
+    if FarEditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
       Exit;
     gEdtID := vEdtInfo.EditorID;
   end;
@@ -187,13 +198,13 @@ interface
     end;
 
     if ARedraw and vWasChange then
-      FARAPI.EditorControl(ECTL_REDRAW, nil);
+      FarEditorControl(ECTL_REDRAW, nil);
 
     if gEdtMess <> '' then begin
       gEdtMess := '';
 //    vWasChange := True;
-      FARAPI.EditorControl(ECTL_REDRAW, nil);
-      FARAPI.AdvControl(hModule, ACTL_REDRAWALL, nil);
+      FarEditorControl(ECTL_REDRAW, nil);
+      FarAdvControl(ACTL_REDRAWALL, nil);
     end;
   end;
 
@@ -313,7 +324,7 @@ interface
     vInfo :TEditorInfo;
   begin
     vNewTop := -1; vNewLeft := -1;
-    if (ACol1 <> -1) and (FARAPI.EditorControl(ECTL_GETINFO, @vInfo) = 1) then begin
+    if (ACol1 <> -1) and (FarEditorControl(ECTL_GETINFO, @vInfo) = 1) then begin
       if ATopLine = 0 then
         vHeight := vInfo.WindowSizeY
       else
@@ -331,7 +342,7 @@ interface
     vPos.LeftPos := vNewLeft;
     vPos.CurTabPos := -1;
     vPos.Overtype := -1;
-    FARAPI.EditorControl(ECTL_SETPOSITION, @vPos);
+    FarEditorControl(ECTL_SETPOSITION, @vPos);
   end;
 
 
@@ -344,7 +355,7 @@ interface
     vSel.BlockStartPos := ACol;
     vSel.BlockWidth := ALen;
     vSel.BlockHeight := 1;
-    FARAPI.EditorControl(ECTL_SELECT, @vSel);
+    FarEditorControl(ECTL_SELECT, @vSel);
   end;
 
 
@@ -354,7 +365,7 @@ interface
   begin
     FillChar(vSel, SizeOf(vSel), 0);
     vSel.BlockType := BTYPE_NONE;
-    FARAPI.EditorControl(ECTL_SELECT, @vSel);
+    FarEditorControl(ECTL_SELECT, @vSel);
   end;
 
 
@@ -398,7 +409,7 @@ interface
       Exit;
 
     FillChar(vEdtInfo, SizeOf(vEdtInfo), 0);
-    if FARAPI.EditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
+    if FarEditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
       Exit;
 
     if AEntire then begin
@@ -462,7 +473,7 @@ interface
           ShowAllMatch(AStr, AOpt);
        {$endif bAdvSelect}
 
-        FARAPI.EditorControl(ECTL_REDRAW, nil);
+        FarEditorControl(ECTL_REDRAW, nil);
         Result := True;
       end else
       begin
@@ -497,7 +508,7 @@ interface
           if vErrorMode = 2 then begin
             {xxx}
             gEdtMess := GetMsgStr(strNotFound);
-            FARAPI.EditorControl(ECTL_REDRAW, nil);
+            FarEditorControl(ECTL_REDRAW, nil);
           end else
          {$endif bAdvSelect}
             ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AStr,
@@ -584,7 +595,7 @@ interface
     FreeObj(vFinder);
 
     ShowAllMatch(AStr, AOpt);
-    FARAPI.EditorControl(ECTL_REDRAW, nil);
+    FarEditorControl(ECTL_REDRAW, nil);
   end;
 
 
@@ -655,7 +666,7 @@ interface
       if vHighLight then
         ShowAllMatch(AFindStr, AOpt);
      {$endif bAdvSelect}
-      FARAPI.EditorControl(ECTL_REDRAW, nil);
+      FarEditorControl(ECTL_REDRAW, nil);
     end;
 
   var
@@ -677,7 +688,7 @@ interface
       Exit;
 
     FillChar(vEdtInfo, SizeOf(vEdtInfo), 0);
-    if FARAPI.EditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
+    if FarEditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
       Exit;
 
     if AEntire then begin
@@ -717,7 +728,7 @@ interface
 
     if optGroupUndo then begin
       vUndoRec.Command := EUR_BEGIN;
-      FARAPI.EditorControl(ECTL_UNDOREDO, @vUndoRec);
+      FarEditorControl(ECTL_UNDOREDO, @vUndoRec);
     end;
 
     vPrompt := foPromptOnReplace in AOpt;
@@ -769,7 +780,7 @@ interface
           Inc(gFoundCount);
 
           vStrInfo.StringNumber := vRow;
-          if FARAPI.EditorControl(ECTL_GETSTRING, @vStrInfo) <> 1 then
+          if FarEditorControl(ECTL_GETSTRING, @vStrInfo) <> 1 then
             Wrong;
           if vStrInfo.StringLength < vCol + vFindLen then
             Wrong;
@@ -812,11 +823,11 @@ interface
             vStrSet.StringLength := vFinder.ResStrLen;
             vStrSet.StringEOL := vStrInfo.StringEOL;
 
-            FARAPI.EditorControl(ECTL_SETSTRING, @vStrSet);
+            FarEditorControl(ECTL_SETSTRING, @vStrSet);
             if vPrompt then begin
               if optSelectFound then
                 SelectClear;
-              FARAPI.EditorControl(ECTL_REDRAW, nil);
+              FarEditorControl(ECTL_REDRAW, nil);
             end;
 
             Inc(gReplCount);
@@ -885,7 +896,7 @@ interface
 
       if optGroupUndo then begin
         vUndoRec.Command := EUR_END;
-        FARAPI.EditorControl(ECTL_UNDOREDO, @vUndoRec);
+        FarEditorControl(ECTL_UNDOREDO, @vUndoRec);
       end;
 
       FreeObj(vFinder);
@@ -952,48 +963,38 @@ interface
 
 
   procedure OpenMenu;
-  const
-    cMenuCount = 10;
   var
-    vRes :Integer;
-    vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
+    vMenu :TFarMenu;
   begin
-    vItems := MemAllocZero(cMenuCount * SizeOf(TFarMenuItemEx));
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strTitle),
+    [
+      GetMsg(strMFind),
+      GetMsg(strMFindAt),
+      GetMsg(strMReplace),
+      GetMsg(strMReplaceAt),
+      GetMsg(strMFindNext),
+      GetMsg(strMFindPrev),
+      GetMsg(strMFindPickWord),
+      GetMsg(strMRemoveHilight),
+      '',
+      GetMsg(strMOptions)
+    ]);
     try
-      vItem := @vItems[0];
-      SetMenuItemChrEx(vItem, GetMsg(strMFind));
-      SetMenuItemChrEx(vItem, GetMsg(strMFindAt));
-      SetMenuItemChrEx(vItem, GetMsg(strMReplace));
-      SetMenuItemChrEx(vItem, GetMsg(strMReplaceAt));
-      SetMenuItemChrEx(vItem, GetMsg(strMFindNext));
-      SetMenuItemChrEx(vItem, GetMsg(strMFindPrev));
-      SetMenuItemChrEx(vItem, GetMsg(strMFindPickWord));
-      SetMenuItemChrEx(vItem, GetMsg(strMRemoveHilight), IntIf((gMatchStr <> '') or (gEdtMess <> ''), 0, MIF_DISABLE));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(strMOptions));
+      vMenu.Enabled[7] := (gMatchStr <> '') or (gEdtMess <> '');
 
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        GetMsg(strTitle),
-        '',
-        'MainMenu',
-        nil, nil,
-        Pointer(vItems),
-        cMenuCount);
-
-      if vRes = -1 then
+      vMenu.Help := 'MainMenu';
+      if not vMenu.Run then
         Exit;
 
-      case vRes of
+      case vMenu.ResIdx of
         0..7:
-          RunCommand(vRes + 1);
-
+          RunCommand(vMenu.ResIdx + 1);
         9: OptionsMenu;
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
@@ -1155,127 +1156,108 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- { Ёкспортируемые процедуры                                                    }
+ { TEdtFindPlug                                                                }
  {-----------------------------------------------------------------------------}
 
-  function GetMinFarVersionW :Integer; stdcall;
+  procedure TEdtFindPlug.Init; {override;}
   begin
-    Result := MakeFarVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING };
+    inherited Init;
+
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
+
+   {$ifdef Far3}
+    FGUID := cPluginID;
+   {$else}
+    FID := cPluginID;
+   {$endif Far3}
+
+   {$ifdef Far3}
+   {$else}
+    FMinFarVer := MakeVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING };
+   {$endif Far3}
   end;
 
 
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
+  procedure TEdtFindPlug.Startup; {override;}
   begin
-//  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
-    hModule := psi.ModuleNumber;
-    FARAPI := psi;
-    FARSTD := psi.fsf^;
-
-//  hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
+//  hFarWindow := FarAdvControl(ACTL_GETFARHWND, nil);
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
-    FRegRoot := psi.RootKey;
 
     RestoreDefColor;
-
     ReadSetup;
+
     gLastOpt := gOptions;
   end;
 
 
-  var
-    PluginMenuStrings: array[0..0] of PFarChar;
-    ConfigMenuStrings: array[0..0] of PFarChar;
-
-
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
+  procedure TEdtFindPlug.ExitFar; {override;}
   begin
-//  TraceF('GetPluginInfo: %s', ['']);
-    pi.StructSize:= SizeOf(pi);
-    pi.Flags:= PF_DISABLEPANELS or PF_EDITOR {or PF_VIEWER or PF_DIALOG};
-
-    PluginMenuStrings[0] := GetMsg(strTitle);
-    pi.PluginMenuStringsNumber := 1;
-    pi.PluginMenuStrings := Pointer(@PluginMenuStrings);
-
-    ConfigMenuStrings[0]:= GetMsg(strTitle);
-    pi.PluginConfigStrings := Pointer(@ConfigMenuStrings);
-    pi.PluginConfigStringsNumber := 1;
-
-    pi.Reserved := cPluginGUID;
-  end;
-
-
-  procedure ExitFARW; stdcall;
-  begin
-//  Trace('ExitFAR');
+    {???}
     WriteSetup;
   end;
 
 
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
+  procedure TEdtFindPlug.GetInfo; {override;}
+  begin
+    FFlags:= PF_DISABLEPANELS or PF_EDITOR {or PF_VIEWER or PF_DIALOG};
+
+    FMenuStr := GetMsg(strTitle);
+    FConfigStr := FMenuStr;
+   {$ifdef Far3}
+    FMenuID  := cMenuID;
+    FConfigID  := cConfigID;
+   {$endif Far3}
+  end;
+
+
+  function TEdtFindPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
     Result := INVALID_HANDLE_VALUE;
-//  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
-    try
 
-      if OpenFrom and OPEN_FROMMACRO <> 0 then begin
+    if AFrom and OPEN_FROMMACRO <> 0 then begin
 
-//      RunCommand(Item and not OPEN_FROMMACRO)
+      if AFrom and OPEN_FROMMACROSTRING <> 0 then
+        Result := HandleIf(ParseCommand(PTChar(AParam)), INVALID_HANDLE_VALUE, 0)
+      else begin
+        if AParam <= 4 then
+          FarAdvControl(ACTL_SYNCHRO, Pointer(AParam))
+        else
+          RunCommand(AParam);
+      end;
 
-        if OpenFrom and OPEN_FROMMACROSTRING <> 0 then
-          Result := HandleIf(ParseCommand(PTChar(Item)), INVALID_HANDLE_VALUE, 0)
-        else begin
-          if Item <= 4 then
-            FARAPI.AdvControl(hModule, ACTL_SYNCHRO, Pointer(Item))
-          else
-            RunCommand(Item);
-        end;
-
-      end else
-      if OpenFrom in [OPEN_EDITOR] then
-        OpenMenu;
-
-    except
-      on E :ECtrlBreak do
-        {Nothing};
-      on E :Exception do
-        HandleError(E);
-    end;
+    end else
+    if AFrom in [OPEN_EDITOR] then
+      OpenMenu;
   end;
 
 
-  function ConfigureW(Item: integer) :Integer; stdcall;
+  procedure TEdtFindPlug.SynchroEvent(AParam :Pointer); {override;}
   begin
-    Result := 1;
-    try
-      OptionsMenu;
-    except
-      on E :Exception do
-        HandleError(E);
-    end;
+    RunCommand(TIntPtr(AParam));
   end;
 
 
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
+  procedure TEdtFindPlug.Configure; {override;}
   begin
-//  TraceF('ProcessSynchroEventW. Event=%d, Param=%d', [Event, Integer(Param)]);
-    Result := 0;
-    if Event <> SE_COMMONSYNCHRO then
-      Exit;
-    RunCommand(TIntPtr(Param));
+    OptionsMenu;
   end;
 
 
- {-----------------------------------------------------------------------------}
+  procedure TEdtFindPlug.ErrorHandler(E :Exception); {override;}
+  begin
+    if E is ECtrlBreak then
+      {Nothing}
+    else
+      HandleError(E);
+  end;
+
 
  {$ifdef bAdvSelect}
 
-  function ProcessEditorInputW(const ARec :INPUT_RECORD) :Integer; stdcall;
+  function TEdtFindPlug.EditorInput(const ARec :TInputRecord) :Integer; {override;}
   begin
-//  TraceF('ProcessEditorInputW: Event=%d', [ARec.EventType]);
-    if ARec.EventType = 0 then begin
-      {???}
-    end else
     if ARec.EventType = KEY_EVENT then begin
       with ARec.Event.KeyEvent do begin
         if bKeyDown and not (wVirtualKeyCode in [0, VK_SHIFT, VK_CONTROL, VK_MENU]) then begin
@@ -1295,27 +1277,17 @@ interface
   end;
 
 
-  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
+  function TEdtFindPlug.EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
 
-    procedure EdtSetColor(const ASel :TEdtSelection; AColor :Integer);
-    var
-      vColor :TEditorColor;
+    procedure EdtSetColor(const ASel :TEdtSelection; ASet :Boolean; AColor :TFarColor);
     begin
-      if ASel.FLen > 0 then begin
-        vColor.StringNumber := ASel.FRow;
-        vColor.ColorItem := 0;
-        if AColor <> -1 then begin
-          vColor.StartPos := ASel.FCol;
-          vColor.EndPos := ASel.FCol + ASel.FLen - 1;
-          vColor.Color := AColor or IntIf(optMarkWholeTab, 0, ECF_TAB1);
-        end else
-        begin
-          vColor.StartPos := ASel.FCol;
-          vColor.EndPos := ASel.FCol + ASel.FLen - 1;
-          vColor.Color := 0;
-        end;
-        FARAPI.EditorControl(ECTL_ADDCOLOR, @vColor);
-      end;
+      if ASel.FLen <= 0 then
+        Exit;
+
+      if ASet then
+        FarEditorSetColor(ASel.FRow, ASel.FCol, ASel.FLen, AColor, optMarkWholeTab)
+      else
+        FarEditorDelColor(ASel.FRow, ASel.FCol, ASel.FLen);
     end;
 
 
@@ -1350,7 +1322,6 @@ interface
     vInfo :TEditorInfo;
     vHelper :TEdtHelper;
   begin
-//  TraceF('ProcessEditorEvent: %d, %x', [AEvent, TIntPtr(AParam)]);
     Result := 0;
 
     case AEvent of
@@ -1371,17 +1342,17 @@ interface
           if AParam = EEREDRAW_LINE then
             Exit;
 
-          FARAPI.EditorControl(ECTL_GETINFO, @vInfo);
+          FarEditorControl(ECTL_GETINFO, @vInfo);
           vHelper := FindEdtHelper(vInfo.EditorID, False);
 
           if vHelper <> nil then begin
             if vHelper.FFound.FLen > 0 then begin
-              EdtSetColor(vHelper.FFound, -1);
+              EdtSetColor(vHelper.FFound, False, UndefColor);
               vHelper.FFound.FLen := 0;
             end;
             if vHelper.FAllFound.Count > 0 then begin
               for I := 0 to vHelper.FAllFound.Count - 1 do
-                EdtSetColor(PEdtSelection(vHelper.FAllFound.PItems[I])^, -1);
+                EdtSetColor(PEdtSelection(vHelper.FAllFound.PItems[I])^, False, UndefColor);
               vHelper.FAllFound.Clear;
             end;
           end;
@@ -1407,12 +1378,12 @@ interface
 
               if gMatches <> nil then
                 for I := 0 to gMatches.Count - 1 do begin
-                  EdtSetColor(PEdtSelection(gMatches.PItems[I])^, optMatchColor);
+                  EdtSetColor(PEdtSelection(gMatches.PItems[I])^, True, optMatchColor);
                   vHelper.AddFound(PEdtSelection(gMatches.PItems[I])^);
                 end;
 
               if gFound.FLen > 0 then begin
-                EdtSetColor(gFound, optCurFindColor);
+                EdtSetColor(gFound, True, optCurFindColor);
                 vHelper.FFound := gFound;
               end;
             end;
@@ -1420,7 +1391,6 @@ interface
 
           if gEdtMess <> '' then
             EdtShowMessage;
-
         end;
     end;
   end;
