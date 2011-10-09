@@ -258,7 +258,7 @@ interface
   begin
     vRec.FIdx := AIndex;
     vRec.FPos := Word(APos);
-    vRec.FLen := Byte(ALen);
+    vRec.FLen := Word(ALen);
     AddData(vRec);
   end;
 

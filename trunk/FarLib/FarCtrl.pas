@@ -188,11 +188,15 @@ interface
   function FarSendDlgMessage(ADlg :THandle; AMsg, AParam1 :Integer; AParam2 :Pointer) :TIntPtr; overload;
   function FarAdvControl(ACommand :Integer; AParam :Pointer) :Integer;
   function FarEditorControl(ACommand :Integer; AParam :Pointer) :Integer;
+  function FarRegexpControl(AHandle :THandle; ACommand :Integer; AParam :Pointer) :Integer;
 
   function FarGetColor(ASysColor :TPaletteColors) :TFarColor;
   function IsUndefColor(const AColor :TFarColor) :Boolean;
-  function MakeColor(AFGColor, ABGColor :Cardinal) :TFarColor;
+  function MakeColor(AFGColor, ABGColor :DWORD) :TFarColor;
+  function GetColorFG(const AColor :TFarColor) :DWORD;
+  function GetColorBG(const AColor :TFarColor) :DWORD;
   function ChangeFG(const AColor, AFGColor :TFarColor) :TFarColor;
+  function ChangeBG(const AColor, ABGColor :TFarColor) :TFarColor;
   function GetOptColor(const AColor :TFarColor; ASysColor :TPaletteColors) :TFarColor;
 
   function FarPanelItem(AHandle :THandle; ACmd, AIndex :Integer) :PPluginPanelItem;
@@ -201,9 +205,10 @@ interface
   function FarPanelString(AHandle :THandle; ACmd :Integer) :TFarStr;
   function FarPanelGetCurrentDirectory(AHandle :THandle) :TFarStr;
   function FarGetCurrentDirectory :TFarStr;
-  function EditorControlString(ACmd :Integer) :TFarStr;
 
+  function FarGetPanelInfo(AHandle :THandle; var AInfo :TPanelInfo) :Boolean;
   function FarPanelGetSide :Integer;
+
   procedure FarPostMacro(const AStr :TFarStr; AFlags :DWORD =
     {$ifdef Far3}
      KMFLAGS_DISABLEOUTPUT or KMFLAGS_NOSENDKEYSTOPLUGINS;
@@ -220,7 +225,12 @@ interface
   function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
   procedure FarPanelGetSelectedItems(Active :Boolean; AItems :TStringList);
   procedure FarPanelSetSelectedItems(Active :Boolean; AItems :TStringList; AClearAll :Boolean = True);
+
+  procedure FarEditorSetColor(ARow, ACol, ALen :Integer; AColor :TFarColor; AWholeTab :Boolean = False);
+  procedure FarEditorDelColor(ARow, ACol, ALen :Integer);
+  function EditorControlString(ACmd :Integer) :TFarStr;
   procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = 0; ACol :Integer = 1);
+
   function FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName :PTString = nil; ATypeName :PTString = nil) :boolean;
   function FarExpandFileName(const AFileName :TString) :TString;
   function FarGetWindowRect :TSmallRect;
@@ -439,7 +449,7 @@ interface
   begin
     SetLength(vStr, AMaxLen);
    {$ifdef Far3}
-    FillZero(vDlgID, SizeOf(vDlgID));
+    vDlgID := GUID_NULL;
    {$endif Far3}
     Result := FARAPI.InputBox(
      {$ifdef Far3}
@@ -551,9 +561,19 @@ interface
   function FarEditorControl(ACommand :Integer; AParam :Pointer) :Integer;
   begin
    {$ifdef Far3}
-    Result := FARAPI.EditorControl(-1{!!!-???}, ACommand, 0, AParam);
+    Result := FARAPI.EditorControl(-1, ACommand, 0, AParam);
    {$else}
     Result := FARAPI.EditorControl(ACommand, AParam);
+   {$endif Far3}
+  end;
+
+
+  function FarRegexpControl(AHandle :THandle; ACommand :Integer; AParam :Pointer) :Integer;
+  begin
+   {$ifdef Far3}
+    Result := FARAPI.RegExpControl(AHandle, ACommand, 0, AParam);
+   {$else}
+    Result := FARAPI.RegExpControl(AHandle, ACommand, AParam);
    {$endif Far3}
   end;
 
@@ -581,11 +601,40 @@ interface
   function MakeColor(AFGColor, ABGColor :Cardinal) :TFarColor;
   begin
    {$ifdef Far3}
-    Result.Flags := FCF_4BITMASK;
+    Result.Flags := 0; //FCF_4BITMASK;
     Result.ForegroundColor := AFGColor;
+    if AFGColor <= $0F then
+      Result.Flags := Result.Flags or FCF_FG_4BIT;
     Result.BackgroundColor := ABGColor;
+    if ABGColor <= $0F then
+      Result.Flags := Result.Flags or FCF_BG_4BIT;
+    Result.Reserved := nil;
    {$else}
     Result := (ABGColor * $10) + AFGColor;
+   {$endif Far3}
+  end;
+
+
+  function GetColorFG(const AColor :TFarColor) :DWORD;
+  begin
+   {$ifdef Far3}
+    Result := AColor.ForegroundColor;
+    if FCF_FG_4BIT and AColor.Flags <> 0 then
+      Result := Result and $0F;
+   {$else}
+    Result := AColor and $0F;
+   {$endif Far3}
+  end;
+
+
+  function GetColorBG(const AColor :TFarColor) :DWORD;
+  begin
+   {$ifdef Far3}
+    Result := AColor.BackgroundColor;
+    if FCF_BG_4BIT and AColor.Flags <> 0 then
+      Result := Result and $0F;
+   {$else}
+    Result := (AColor and $F0) shr 4;
    {$endif Far3}
   end;
 
@@ -593,14 +642,23 @@ interface
   function ChangeFG(const AColor, AFGColor :TFarColor) :TFarColor;
   begin
    {$ifdef Far3}
-    Result := AColor;
-    Result.ForegroundColor := AFGColor.ForegroundColor;
+    Result := MakeColor(GetColorFG(AFGColor), GetColorBG(AColor));
    {$else}
     Result := (AColor and $F0) or (AFGColor and $0F);
    {$endif Far3}
   end;
 
-  
+
+  function ChangeBG(const AColor, ABGColor :TFarColor) :TFarColor;
+  begin
+   {$ifdef Far3}
+    Result := MakeColor(GetColorFG(AColor), GetColorBG(ABGColor));
+   {$else}
+    Result := (AColor and $0F) or (ABGColor and $F0);
+   {$endif Far3}
+  end;
+
+
   function GetOptColor(const AColor :TFarColor; ASysColor :TPaletteColors) :TFarColor;
   begin
     Result := AColor;
@@ -609,15 +667,22 @@ interface
   end;
 
 
+  function FarGetPanelInfo(AHandle :THandle; var AInfo :TPanelInfo) :Boolean;
+  begin
+    FillZero(AInfo, SizeOf(AInfo));
+   {$ifdef Far3}
+    AInfo.StructSize := SizeOf(AInfo);
+   {$endif Far3}
+    Result := FARAPI.Control(AHandle, FCTL_GetPanelInfo, 0, @AInfo) <> 0;
+  end;
+
+
+
   function FarPanelGetSide :Integer;
   var
     vInfo  :TPanelInfo;
   begin
-    FillZero(vInfo, SizeOf(vInfo));
-   {$ifdef Far3}
-    vInfo.StructSize := SizeOf(vInfo);
-   {$endif Far3}
-    FARAPI.Control(PANEL_ACTIVE, FCTL_GetPanelInfo, 0, @vInfo);
+    FarGetPanelInfo(PANEL_ACTIVE, vInfo);
     if PFLAGS_PANELLEFT and vInfo.Flags <> 0 then
       Result := 0  {Left}
     else
@@ -707,32 +772,6 @@ interface
 
 // FCTL_GETCOLUMNTYPES           = 27;
 // FCTL_GETCOLUMNWIDTHS          = 28;
-
-  function EditorControlString(ACmd :Integer) :TFarStr;
-  var
-    vLen :Integer;
-  begin
-    Result := '';
-    vLen := FarEditorControl(ACmd, nil);
-    if vLen > 1 then begin
-      SetLength(Result, vLen - 1);
-      FarEditorControl(ACmd, PFarChar(Result));
-    end;
-  end;
-
-(*
-  function EditorControlString(ACmd :Integer) :TFarStr;
-  var
-    vLen :Integer;
-  begin
-    Result := '';
-    vLen := FARAPI.EditorControl(ACmd, nil);
-    if vLen > 1 then begin
-      SetLength(Result, vLen - 1);
-      FARAPI.EditorControl(ACmd, PFarChar(Result));
-    end;
-  end;
-*)
 
  {-----------------------------------------------------------------------------}
 
@@ -1059,6 +1098,74 @@ interface
   end;
 
 
+ {-----------------------------------------------------------------------------}
+ { Editor/Viwer control                                                        }
+
+  procedure FarEditorSetColor(ARow, ACol, ALen :Integer; AColor :TFarColor; AWholeTab :Boolean = False);
+  var
+    vColor :TEditorColor;
+  begin
+   {$ifdef Far3}
+    vColor.StructSize := SizeOf(vColor);
+    vColor.StringNumber := ARow;
+    vColor.StartPos := ACol;
+    vColor.EndPos := ACol + ALen - 1;
+    vColor.ColorItem := 0;
+    vColor.Color := AColor;
+    vColor.Owner := PluginID;
+    vColor.Priority := EDITOR_COLOR_NORMAL_PRIORITY;
+    vColor.Flags := IntIf(AWholeTab, 0, ECF_TABMARKFIRST);
+   {$else}
+    vColor.StringNumber := ARow;
+    vColor.StartPos := ACol;
+    vColor.EndPos := ACol + ALen - 1;
+    vColor.ColorItem := 0;
+    vColor.Color := AColor or IntIf(AWholeTab, 0, ECF_TAB1);
+   {$endif Far3}
+    FarEditorControl(ECTL_ADDCOLOR, @vColor);
+  end;
+
+
+  procedure FarEditorDelColor(ARow, ACol, ALen :Integer);
+ {$ifdef Far3}
+  var
+    vColor :TEditorDeleteColor;
+  begin
+    vColor.StructSize := SizeOf(vColor);
+    vColor.StringNumber := ARow;
+    vColor.StartPos := ACol;
+    vColor.Owner := PluginID;
+    FarEditorControl(ECTL_DELCOLOR, @vColor);
+ {$else}
+  var
+    vColor :TEditorColor;
+  begin
+    vColor.StringNumber := ARow;
+    vColor.ColorItem := 0;
+    vColor.StartPos := ACol;
+    vColor.EndPos := ACol + ALen - 1;
+    vColor.Color := 0;
+    FarEditorControl(ECTL_ADDCOLOR, @vColor);
+ {$endif Far3}
+  end;
+
+
+  //ECTL_GETFILENAME
+
+  function EditorControlString(ACmd :Integer) :TFarStr;
+  var
+    vLen :Integer;
+  begin
+    Result := '';
+    vLen := FarEditorControl(ACmd, nil);
+    if vLen > 1 then begin
+      SetLength(Result, vLen - 1);
+      FarEditorControl(ACmd, PFarChar(Result));
+    end;
+  end;
+
+
+
   procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = 0; ACol :Integer = 1);
   var
     vName :TFarStr;
@@ -1069,6 +1176,10 @@ interface
     else
       FARAPI.Viewer(PFarChar(vName), nil, 0, 0, -1, -1, AFlags, CP_AUTODETECT);
   end;
+
+
+
+ {-----------------------------------------------------------------------------}
 
 
   function FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName :PTString = nil; ATypeName :PTString = nil) :boolean;
@@ -1156,6 +1267,8 @@ interface
     FARSTD.XLat(PTChar(Result), 0, Length(AStr), 0);
   end;
 
+
+ {-----------------------------------------------------------------------------}
 
   function ShiftStateToFarKeyState(AShift :Integer) :Integer;
   begin
