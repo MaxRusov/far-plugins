@@ -19,7 +19,11 @@ interface
     MixClasses,
     MixFormat,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
     FarCtrl,
 
     EdtFindCtrl;
@@ -229,13 +233,13 @@ interface
       if not (foCaseSensitive in AOpt) then
         FExpr := FExpr + 'i';
 
-      if FARAPI.RegExpControl(0, RECTL_CREATE, @FRegExp) = 0 then
+      if FarRegExpControl(0, RECTL_CREATE, @FRegExp) = 0 then
         Wrong;
-      if FARAPI.RegExpControl(FRegExp, RECTL_COMPILE, PTChar(FExpr)) = 0 then
+      if FarRegExpControl(FRegExp, RECTL_COMPILE, PTChar(FExpr)) = 0 then
         AppErrorId(strBadRegexp);
-      FARAPI.RegExpControl(FRegExp, RECTL_OPTIMIZE, nil);
+      FarRegExpControl(FRegExp, RECTL_OPTIMIZE, nil);
 
-      FBrackets := FARAPI.RegExpControl(FRegExp, RECTL_BRACKETSCOUNT, nil);
+      FBrackets := FarRegExpControl(FRegExp, RECTL_BRACKETSCOUNT, nil);
       if FBrackets <= 0 then
         Wrong;
     end;
@@ -250,7 +254,7 @@ interface
     MemFree(FRepBuf);
     FreeObj(FRepList);
     if FRegExp <> 0 then
-      FARAPI.RegExpControl(FRegExp, RECTL_FREE, nil);
+      FarRegExpControl(FRegExp, RECTL_FREE, nil);
   end;
 
 
@@ -291,7 +295,7 @@ interface
       vRegExp.Reserved := nil;
 
       if AForward then begin
-        if FARAPI.RegExpControl(FRegExp, RECTL_SEARCHEX, @vRegExp) = 1 then begin
+        if FarRegExpControl(FRegExp, RECTL_SEARCHEX, @vRegExp) = 1 then begin
           ADelta := FMatches[0].Start;
           AFindLen := FMatches[0].EndPos - FMatches[0].Start;
           Result := True;
@@ -301,7 +305,7 @@ interface
         while True do begin
           vRegExp.Position := ADelta;
 
-          if FARAPI.RegExpControl(FRegExp, RECTL_MATCHEX, @vRegExp) = 1 then begin
+          if FarRegExpControl(FRegExp, RECTL_MATCHEX, @vRegExp) = 1 then begin
             ADelta := FMatches[0].Start;
             AFindLen := FMatches[0].EndPos - FMatches[0].Start;
             Result := True;
@@ -414,7 +418,11 @@ interface
     if APercent <> -1 then
       vMess := vMess + #10 + GetProgressStr(vLen, APercent);
     vMess := gProgressTitle + #10 + vMess;
+   {$ifdef Far3}
+    FARAPI.Message(cPluginID, GUID_NULL, FMSG_ALLINONE, nil, PPCharArray(PTChar(vMess)), 0, 0);
+   {$else}
     FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PTChar(vMess)), 0, 0);
+   {$endif Far3}
     CheckInterrupt;
   end;
 
@@ -431,7 +439,7 @@ interface
     Result := False;
 
     FillChar(vEdtInfo, SizeOf(vEdtInfo), 0);
-    if FARAPI.EditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
+    if FarEditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
       Exit;
 
    {$ifdef bTrace}
@@ -485,7 +493,7 @@ interface
 //        LocShowMessage(FOrig, (100 * (vRow - vBegRow)) div (vEndRow - vBegRow));
 
         vStrInfo.StringNumber := vRow;
-        if FARAPI.EditorControl(ECTL_GETSTRING, @vStrInfo) = 1 then begin
+        if FarEditorControl(ECTL_GETSTRING, @vStrInfo) = 1 then begin
 //        if soSelectedOnly in Options then begin
 //          FBlock.ColRange(Loc.Row, Col1, Col2);
 //          MaxLimit(Col2, ERow.Len + 1);

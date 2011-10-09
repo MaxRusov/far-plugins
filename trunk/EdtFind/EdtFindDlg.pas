@@ -17,7 +17,11 @@ interface
     MixStrings,
     MixClasses,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
     FarColor,
 
     FarKeysW,
@@ -43,6 +47,7 @@ interface
       procedure InitDialog; override;
       function CloseDialog(ItemID :Integer) :Boolean; override;
 
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
       procedure ErrorHandler(E :Exception); override;
 
@@ -160,44 +165,35 @@ interface
 
   function RegexpMenu(var ARegexp :TString) :Boolean;
   var
-    I, vRes :Integer;
-    vStr :TString;
-    vItems :PFarMenuItemsArray;
+    I :Integer;
+    vMenu :TFarMenu;
+    vStrs :array of PFarChar;
   begin
     Result := False;
     if RegexpList = nil then
       InitRegexpList;
 
-    vItems := MemAllocZero(RegexpList.Count * SizeOf(TFarMenuItemEx));
+    SetLength(vStrs, RegexpList.Count);
+    for I := 0 to RegexpList.Count - 1 do
+      vStrs[I] := PFarChar(RegexpList.PStrings[I]^);
+
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strRegexpTitle),
+      vStrs);
     try
-      for I := 0 to RegexpList.Count - 1 do begin
-        vStr := RegexpList[I];
-        SetMenuItemStr(@vItems[I], vStr, IntIf(vStr <> '', 0, MIF_SEPARATOR));
-      end;
+      vMenu.Help := ':RegExp';
+      if not vMenu.Run then
+        Exit;
 
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        GetMsg(strRegexpTitle),
-        '',
-        ':RegExp',
-        nil, nil,
-        Pointer(vItems),
-        RegexpList.Count);
-
-      if vRes <> -1 then begin
-        ARegexp := ExtractWord(1, RegexpList[vRes], [' ']);
-        if ARegexp[1] = '\' then
-          ARegexp := '\' + ARegexp;
-        Result := True;
-      end;
+      ARegexp := ExtractWord(1, RegexpList[vMenu.ResIdx], [' ']);
+      Result := True;
 
     finally
-      CleanupMenu(@vItems[0], RegexpList.Count);
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
-
+  
  {-----------------------------------------------------------------------------}
  { TFindDlg                                                                    }
  {-----------------------------------------------------------------------------}
@@ -356,6 +352,20 @@ interface
   end;
 
 
+  function TFindDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
+  begin
+    Result := True;
+    case AKey of
+      KEY_CTRLP:
+        InsertText(FInitExpr);
+      KEY_F9:
+        OptionsMenu;
+    else
+      Result := inherited KeyDown(AID, AKey);
+    end;
+  end;
+
+
   function TFindDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
   begin
     Result := 1;
@@ -381,18 +391,6 @@ interface
           InsertRegexp(IdFindEdt)
         else
           Result := inherited DialogHandler(Msg, Param1, Param2);
-
-      DN_KEY: begin
-        case Param2 of
-          KEY_CTRLP:
-            InsertText(FInitExpr);
-          KEY_F9:
-            OptionsMenu;
-        else
-          Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
-      end;
-
     else
       Result := inherited DialogHandler(Msg, Param1, Param2);
     end;
@@ -423,10 +421,10 @@ interface
     vPos, vBeg :Integer;
   begin
     Result := '';
-    FillChar(vInfo, SizeOf(vInfo), 0);
-    if FARAPI.EditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
+    FillZero(vInfo, SizeOf(vInfo));
+    if FarEditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
       vStrInfo.StringNumber := -1;
-      if FARAPI.EditorControl(ECTL_GETSTRING, @vStrInfo) = 1 then begin
+      if FarEditorControl(ECTL_GETSTRING, @vStrInfo) = 1 then begin
         with vStrInfo do begin
           vStr := StringText;
           if vStr = '' then

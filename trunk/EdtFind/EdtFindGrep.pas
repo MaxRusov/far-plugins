@@ -18,7 +18,11 @@ interface
     MixStrings,
     MixClasses,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
     FarKeysW,
     FarColor,
     FarCtrl,
@@ -34,30 +38,12 @@ interface
 
 
   type
-    PFilterRec = ^TFilterRec;
-    TFilterRec = packed record
-      FIdx :Integer;
-      FPos :Word;
-      FLen :Word;
-    end;
-
-    TMyFilter = class(TExList)
-    public
-      procedure Add(AIndex, APos, ALen :Integer);
-
-    private
-      function GetItems(AIndex :Integer) :Integer;
-
-    public
-      property Items[AIndex :Integer] :Integer read GetItems; default;
-    end;
-
-
-  type
     TDrawBuf = class(TBasis)
     public
       constructor Create; override;
       destructor Destroy; override;
+
+      procedure SetPalette(const APalette :array of TFarColor);
 
       procedure Clear;
       procedure Add(AChr :TChar; Attr :Byte; ACount :Integer = 1);
@@ -73,6 +59,7 @@ interface
       FAttrs        :PByteArray;
       FCount        :Integer;
       FSize         :Integer;
+      FPalette      :array of TFarColor;
 
       procedure SetSize(ASize :Integer);
 
@@ -82,40 +69,11 @@ interface
 
 
   type
-    TListBase = class(TFarListDlg)
+    TGrepDlg = class(TFilteredListDlg)
     public
       constructor Create; override;
       destructor Destroy; override;
 
-    protected
-      procedure Prepare; override;
-      procedure InitDialog; override;
-      function CloseDialog(ItemID :Integer) :Boolean; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
-
-      procedure SelectItem(ACode :Integer); virtual;
-      procedure UpdateHeader; virtual;
-      procedure ReinitGrid; virtual;
-      procedure ReinitAndSaveCurrent; virtual;
-
-      procedure GridPosChange(ASender :TFarGrid); virtual;
-      procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean); virtual;
-      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer); virtual;
-      function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; virtual;
-      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); virtual;
-
-    protected
-      FDrawBuf        :TDrawBuf;
-      FFilter         :TMyFilter;
-      FFilterMask     :TString;
-      FTotalCount     :Integer;
-      FFoundColor     :Integer;
-    end;
-
-
-  type
-    TGrepDlg = class(TListBase)
-    public
       function GetStringForHint(ARow :Integer; var AEdtRow :Integer) :TString;
 
     protected
@@ -128,15 +86,17 @@ interface
       procedure ReinitAndSaveCurrent; override;
 
       procedure GridPosChange(ASender :TFarGrid); override;
-      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer); override;
+      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor); override;
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; override;
-      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); override;
+      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); override;
 
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
     private
-      FMatches  :TExList;
-      FNeedSync :Boolean;
+      FDrawBuf     :TDrawBuf;
+      FMatches    :TExList;
+      FNeedSync   :Boolean;
 
       procedure SyncEditor;
       function RowToIdx(ARow :Integer) :Integer;
@@ -174,28 +134,7 @@ interface
     end;
   end;
 
-
- {-----------------------------------------------------------------------------}
- { TMyFilter                                                                   }
- {-----------------------------------------------------------------------------}
-
-  procedure TMyFilter.Add(AIndex, APos, ALen :Integer);
-  var
-    vRec :TFilterRec;
-  begin
-    vRec.FIdx := AIndex;
-    vRec.FPos := Word(APos);
-    vRec.FLen := Byte(ALen);
-    AddData(vRec);
-  end;
-
-
-  function TMyFilter.GetItems(AIndex :Integer) :Integer;
-  begin
-    Result := PFilterRec(PItems[AIndex]).FIdx;
-  end;
-
-
+  
  {-----------------------------------------------------------------------------}
  { TDrawBuf                                                                    }
  {-----------------------------------------------------------------------------}
@@ -212,6 +151,16 @@ interface
     MemFree(FChars);
     MemFree(FAttrs);
     inherited Destroy;
+  end;
+
+
+  procedure TDrawBuf.SetPalette(const APalette :array of TFarColor);
+  var
+    I :Integer;
+  begin
+    SetLength(FPalette, High(APalette) + 1);
+    for I := 0 to High(APalette) do
+      FPalette[I] := APalette[I];
   end;
 
 
@@ -304,11 +253,11 @@ interface
         Inc(J);
       vPartLen := J - I;
       if I + vPartLen = FCount then
-        FARAPI.Text(X, Y, vAtr, FChars + I )
+        FARAPI.Text(X, Y, FPalette[vAtr], FChars + I )
       else begin
         vTmp := (FChars + I + vPartLen)^;
         (FChars + I + vPartLen)^ := #0;
-        FARAPI.Text(X, Y, vAtr, FChars + I );
+        FARAPI.Text(X, Y, FPalette[vAtr], FChars + I );
         (FChars + I + vPartLen)^ := vTmp;
       end;
       Inc(X, vPartLen);
@@ -326,161 +275,29 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- { TListBase                                                                   }
+ { TGrepDlg                                                                    }
  {-----------------------------------------------------------------------------}
 
-  constructor TListBase.Create; {override;}
+  constructor TGrepDlg.Create; {override;}
   begin
     inherited Create;
     RegisterHints(Self);
     FDrawBuf := TDrawBuf.Create;
-//  FFilter := TMyFilter.CreateSize(SizeOf(TFilterRec));
-    FFoundColor := GetOptColor(optGrepFoundColor, COL_MENUHIGHLIGHT);
   end;
 
 
-  destructor TListBase.Destroy; {override;}
+  destructor TGrepDlg.Destroy; {override;}
   begin
-    FreeObj(FFilter);
     FreeObj(FDrawBuf);
     UnregisterHints;
     inherited Destroy;
   end;
 
 
-  procedure TListBase.Prepare; {override;}
-  begin
-    inherited Prepare;
-    FGUID := cGrepDlgID;
-    FGrid.OnCellClick := GridCellClick;
-    FGrid.OnPosChange := GridPosChange;
-    FGrid.OnGetCellColor := GridGetCellColor;
-    FGrid.OnGetCellText := GridGetDlgText;
-    FGrid.OnPaintCell := GridPaintCell;
-    FGrid.Options := [goRowSelect {, goFollowMouse} {,goWheelMovePos} ];
-  end;
-
-
-  procedure TListBase.InitDialog; {override;}
-  begin
-    SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
-    ReinitGrid;
-  end;
-
-
-  function TListBase.CloseDialog(ItemID :Integer) :Boolean; {override;}
-  begin
-    Result := True;
-  end;
-
-
-  procedure TListBase.UpdateHeader; {virtual;}
-  begin
-  end;
-
-
-  procedure TListBase.ReinitGrid; {virtual;}
-  begin
-  end;
-
-
-  procedure TListBase.ReinitAndSaveCurrent; {virtual;}
-  begin
-  end;
-
-
-  procedure TListBase.GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean); {virtual;}
-  begin
-//  TraceF('GridCellClick: Pos=%d x %d, Button=%d, Double=%d', [ACol, ARow, AButton, Byte(ADouble)]);
-    if AButton = 1 then
-      SelectItem(IntIf(ADouble, 2, 1));
-  end;
-
-
-  procedure TListBase.GridPosChange(ASender :TFarGrid); {virtual;}
-  begin
-    {Abstract}
-  end;
-
-
-  procedure  TListBase.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer); {virtual;}
-  begin
-    {Abstract}
-  end;
-
-
-  function TListBase.GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; {virtual;}
-  begin
-    Result := '';
-  end;
-
-
-  procedure TListBase.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); {virtual;}
-  begin
-    {Abstract}
-  end;
-
-
-  procedure TListBase.SelectItem(ACode :Integer);  {virtual;}
-  begin
-    {Abstract}
-  end;
-
-
-  function TListBase.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
-
-    procedure LocSetFilter(const ANewFilter :TString);
-    begin
-      if ANewFilter <> FFilterMask then begin
-//      TraceF('Mask: %s', [ANewFilter]);
-//      FFilterMode := ANewFilter <> '';
-        FFilterMask := ANewFilter;
-        ReinitAndSaveCurrent;
-      end;
-    end;
-
-  begin
-    Result := 1;
-    case Msg of
-      DN_KEY: begin
-        case Param2 of
-          KEY_ENTER:
-            SelectItem(2);
-
-          { Фильтрация }
-          KEY_DEL, KEY_ALT, KEY_RALT:
-            LocSetFilter('');
-          KEY_BS:
-            if FFilterMask <> '' then
-              LocSetFilter( Copy(FFilterMask, 1, Length(FFilterMask) - 1));
-
-          KEY_ADD      : LocSetFilter( FFilterMask + '+' );
-          KEY_SUBTRACT : LocSetFilter( FFilterMask + '-' );
-          KEY_DIVIDE   : LocSetFilter( FFilterMask + '/' );
-          KEY_MULTIPLY : LocSetFilter( FFilterMask + '*' );
-
-        else
-//        TraceF('Key: %d', [Param2]);
-          if ((Param2 >= 32) and (Param2 <= $7F)) or ((Param2 >= 32) and (Param2 < $FFFF) and IsCharAlpha(TChar(Param2))) then
-            LocSetFilter(FFilterMask + WideChar(Param2))
-          else
-            Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
-      end;
-
-    else
-      Result := inherited DialogHandler(Msg, Param1, Param2);
-    end;
-  end;
-
-
- {-----------------------------------------------------------------------------}
- { TGrepDlg                                                                    }
- {-----------------------------------------------------------------------------}
-
   procedure TGrepDlg.Prepare; {override;}
   begin
     inherited Prepare;
+    FGUID := cGrepDlgID;
     FHelpTopic := 'Grep';
     SetWindowSize(optGrepMaximized);
   end;
@@ -532,7 +349,7 @@ interface
     vCount := 0;
     FreeObj(FFilter);
     if vMask <> '' then begin
-      FFilter := TMyFilter.CreateSize(SizeOf(TFilterRec));
+      FFilter := TListFilter.CreateSize(SizeOf(TFilterRec));
       if optXLatMask then
         vXMask := FarXLatStr(vMask);
     end;
@@ -598,7 +415,7 @@ interface
     if vSel <> nil then begin
       with vSel^ do
         GotoFoundPos( FRow, FCol, FLen, True, GetDlgRect.Top );
-      FARAPI.AdvControl(hModule, ACTL_REDRAWALL, nil);
+      FarAdvControl(ACTL_REDRAWALL, nil);
       ResizeDialog;
     end;
   end;
@@ -620,11 +437,11 @@ interface
   end;
 
 
-  procedure TGrepDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer); {override;}
+  procedure TGrepDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor); {override;}
   begin
     if ACol >= 0 then
       case FGrid.Column[ACol].Tag of
-        1: AColor := (AColor and $F0) or (optGrepNumColor and $0F)
+        1: AColor := ChangeFG(AColor, optGrepNumColor);
       end;
   end;
 
@@ -644,36 +461,41 @@ interface
   end;
 
 
-  procedure TGrepDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); {override;}
+  procedure TGrepDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); {override;}
   var
     vIdx, vLen, vSkip, vPos, vPos2 :Integer;
     vStr :PTChar;
     vSel :PEdtSelection;
     vRec :PFilterRec;
+    vFoundColor :TFarColor;
   begin
     vIdx := RowToIdx(ARow);
     vStr := GetEdtStr(vIdx, vLen);
     if vStr <> nil then begin
       FDrawBuf.Clear;
 
+      vFoundColor := ChangeFG(AColor, GetOptColor(optGrepFoundColor, COL_MENUHIGHLIGHT));
+      FDrawBuf.SetPalette([AColor, optMatchColor, vFoundColor]);
+
       vSkip := 0;
       if optGrepTrimSpaces then
         vSkip := StrTrimFirst(vStr, vLen);
 
-      FDrawBuf.AddStrExpandTabsEx(vStr, vLen, AColor);
+      FDrawBuf.AddStrExpandTabsEx(vStr, vLen, 0);
 
       if oprGrepShowMatch then begin
         vSel := FMatches.PItems[vIdx];
         vPos := ChrExpandTabsLen(vStr, IntMin(vSel.FCol - vSkip, vLen));
         vPos2 := ChrExpandTabsLen(vStr, IntMin(vSel.FCol + vSel.FLen - vSkip, vLen));
-        FDrawBuf.FillAttr(vPos, vPos2 - vPos, optMatchColor);
+        FDrawBuf.FillAttr(vPos, vPos2 - vPos, 1);
       end;
 
       if FFilter <> nil then begin
         vRec := PFilterRec(FFilter.PItems[ARow]);
         vPos := ChrExpandTabsLen(vStr, IntMin(vRec.FPos - vSkip, vLen));
         vPos2 := ChrExpandTabsLen(vStr, IntMin(vRec.FPos + vRec.FLen - vSkip, vLen));
-        FDrawBuf.FillLoAttr(vPos, vPos2 - vPos, optGrepFoundColor);
+        FDrawBuf.FillAttr(vPos, vPos2 - vPos, 2);
+//      FDrawBuf.FillLoAttr(vPos, vPos2 - vPos, 2);
       end;
 
       FDrawBuf.Paint(X, Y, 0, AWidth);
@@ -727,7 +549,7 @@ interface
     if (AIdx >= 0) and (AIdx < FMatches.Count) then begin
       vSel := FMatches.PItems[AIdx];
       vStrInfo.StringNumber := vSel.FRow;
-      if FARAPI.EditorControl(ECTL_GETSTRING, @vStrInfo) = 1 then begin
+      if FarEditorControl(ECTL_GETSTRING, @vStrInfo) = 1 then begin
         ALen := vStrInfo.StringLength;
         Result := vStrInfo.StringText;
       end;
@@ -818,7 +640,7 @@ interface
   end;
 
 
-  function TGrepDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  function TGrepDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
 
      procedure LocChangeSize;
      begin
@@ -829,6 +651,38 @@ interface
      end;
 
   begin
+    Result := True;
+    case AKey of
+      KEY_SHIFTSPACE:
+        SyncEditor;
+
+      KEY_SPACE:
+        if FFilterMask = '' then
+          SyncEditor
+        else
+          Result := inherited KeyDown(AID, AKey);
+
+      KEY_CTRL1:
+        ToggleOption(optGrepShowLines);
+      KEY_CTRL2:
+        ToggleOption(oprGrepShowMatch);
+      KEY_CTRL3:
+        ToggleOption(optGrepTrimSpaces);
+      KEY_CTRL4:
+        ToggleOption(optGrepAutoSync);
+      KEY_CTRLM:
+        LocChangeSize;
+
+      KEY_F9:
+        OptionsMenu;
+    else
+      Result := inherited KeyDown(AID, AKey);
+    end;
+  end;
+
+
+  function TGrepDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  begin
     Result := 1;
     case Msg of
       DN_ENTERIDLE:
@@ -837,35 +691,6 @@ interface
             SyncEditor;
           FNeedSync := False;
         end;
-
-      DN_KEY: begin
-        case Param2 of
-          KEY_SHIFTSPACE:
-            SyncEditor;
-
-          KEY_SPACE:
-            if FFilterMask = '' then
-              SyncEditor
-            else
-              Result := inherited DialogHandler(Msg, Param1, Param2);
-
-          KEY_CTRL1:
-            ToggleOption(optGrepShowLines);
-          KEY_CTRL2:
-            ToggleOption(oprGrepShowMatch);
-          KEY_CTRL3:
-            ToggleOption(optGrepTrimSpaces);
-          KEY_CTRL4:
-            ToggleOption(optGrepAutoSync);
-          KEY_CTRLM:
-            LocChangeSize;
-
-          KEY_F9:
-            OptionsMenu;
-        else
-          Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
-      end;
     else
       Result := inherited DialogHandler(Msg, Param1, Param2);
     end;
