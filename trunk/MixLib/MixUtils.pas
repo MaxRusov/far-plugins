@@ -34,6 +34,10 @@ interface
     faAnyFile   = $0000003F;
 
 
+  const
+    GUID_NULL :TGUID = '{00000000-0000-0000-0000-000000000000}';
+
+
   type
   { General arrays }
 
