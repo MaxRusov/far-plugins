@@ -14,6 +14,7 @@
   http://forum.farmanager.com/viewtopic.php?f=5&t=3817
 
 == Загрузить ==
+ * [http://code.google.com/p/far-plugins/downloads/list?q=morehistory Все версии]
 
  * [http://far-plugins.googlecode.com/files/MoreHistory.2.v12.rar MoreHistory 1.0.12 for FAR 2]
  * [http://far-plugins.googlecode.com/files/MoreHistory.2.x64.v12.rar MoreHistory 1.0.12 for FAR 2 x64]
