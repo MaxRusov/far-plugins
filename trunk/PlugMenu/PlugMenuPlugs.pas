@@ -25,13 +25,14 @@ interface
     MixClasses,
     MixWinUtils,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
     FarCtrl,
 
+    FarConfig,
     PlugMenuCtrl;
 
 
@@ -50,18 +51,28 @@ interface
 
     TFarPluginCmd = class(TNamedObject)
     public
-      constructor CreateEx(APlugin :TFarPlugin; AIndex :Integer; const AName :TString);
+      constructor CreateEx(APlugin :TFarPlugin; AIndex :Integer; const AName :TString
+       {$ifdef Far3}
+        ; const AGUID  :TGUID
+       {$endif Far3}
+      );
 
       function GetMenuTitle :TString;
 
       procedure SetHotkey(AHotkey :TChar);
       procedure SetHidden(AHidden :Boolean);
 
+     {$ifdef Far3}
+     {$else}
       procedure UpdateLastAccess;
       procedure MarkAccessed;
+     {$endif Far3}
 
     private
       FVisName      :TString;
+     {$ifdef Far3}
+      FGUID         :TGUID;
+     {$endif Far3}
       FPlugin       :TFarPlugin;
       FIndex        :Integer;
       FHotkey       :TChar;
@@ -70,8 +81,16 @@ interface
       FAccessDate   :TDateTime;
       FHidden       :Boolean;
 
+     {$ifdef Far3}
+      procedure SaveSettings;
+     {$endif Far3}
+      procedure RestoreSettings;
+
     public
       property VisName :TString read FVisName;
+     {$ifdef Far3}
+      property GUID :TGUID read FGUID;
+     {$endif Far3}
       property Plugin :TFarPlugin read FPlugin;
       property Hotkey :TChar read FHotkey;
       property AutoHotkey :TChar read FAutoHotkey;
@@ -83,12 +102,25 @@ interface
 
     TFarPlugin = class(TBasis)
     public
-      constructor CreateEx(const ADllName, ARegPath :TString; AHandle :THandle);
+
+      constructor CreateEx(
+       {$ifdef Far3}
+        const AInfo :TFarPluginInfo
+       {$else}
+        const ADllName, ARegPath :TString; AHandle :THandle
+       {$endif Far3}
+      );
       destructor Destroy; override;
 
-      procedure UpdatePluginInfo(const ARegPath :TString; AHandle :THandle);
+      procedure UpdatePluginInfo(
+       {$ifdef Far3}
+        const AInfo :TFarPluginInfo
+       {$else}
+        const ARegPath :TString; AHandle :THandle
+       {$endif Far3}
+      );
       procedure UpdateLoaded;
-      procedure UpdateHotkey;
+      procedure UpdateSettings;
 
       function GetPluginModuleHandle :THandle;
       function GetFileName(AMode :Integer) :TString;
@@ -97,11 +129,8 @@ interface
       function GetCategory :TPluginCategory;
       function AccessibleInContext(AWinType :Integer) :Boolean;
 
-      procedure MarkAsPreload(AOn :Boolean);
-     {$ifdef bUnicode}
       procedure PluginLoad;
       procedure PluginUnload(AUnregister :Boolean);
-     {$endif bUnicode}
       function PluginSetup :boolean;
       procedure PluginHelp;
       procedure UpdateVerInfo;
@@ -122,13 +151,28 @@ interface
       FUnregistered :Boolean;
       FUnicode      :Boolean;
 
+     {$ifdef Far3}
+      FGUID         :TGUID;
+      FConfGUID     :TGUID;
+      FPlugVer      :TVersionInfo;
+      FPlugTitle    :TString;
+      FPlugDescr    :TString;
+      FPlugAuthor   :TString;
+     {$endif Far3}
+
       FDescription  :TString;
       FCopyright    :TString;
       FVersion      :TString;
 
+     {$ifdef Far3}
+      function GetPluginKey :TString;
+     {$else}
       function GetRegDllKey :TString;
-      function GetPluginRelativePath :TString;
       function FindRegCachePath :TString;
+      procedure MarkAsPreload(AOn :Boolean);
+     {$endif Far3}
+
+      function GetPluginRelativePath :TString;
       function GetCommand(AIndex :Integer) :TFarPluginCmd;
 
     public
@@ -142,7 +186,12 @@ interface
       property Loaded :Boolean read FLoaded;
       property Unregistered :Boolean read FUnregistered;
       property Unicode :Boolean read FUnicode;
-
+     {$ifdef Far3}
+      property PlugTitle :TString read FPlugTitle;
+      property PlugDescr :TString read FPlugDescr;
+      property PlugAuthor :TString read FPlugAuthor;
+      property GUID :TGUID read FGUID;
+     {$endif Far3}
       property Description :TString read FDescription;
       property Copyright :TString read FCopyright;
       property Version :TString read FVersion;
@@ -158,10 +207,8 @@ interface
   procedure UpdatePluginHotkeys;
   procedure AssignAutoHotkeys(AWinType :Integer);
 
- {$ifdef bUnicode}
   function LoadNewPlugin(const AFileName :TString) :TFarPlugin;
   procedure UnLoadPlugin(const AFileName :TString);
- {$endif bUnicode}
 
   function FindPlugin(const AFileName :TString) :TFarPlugin;
 
@@ -176,11 +223,21 @@ interface
     MixDebug;
 
 
+ {$ifdef Far3}
+  var
+    gConfig :TFarConfig;
+ {$endif Far3}
+
+
  {-----------------------------------------------------------------------------}
  { TFarPluginCmd                                                               }
  {-----------------------------------------------------------------------------}
 
-  constructor TFarPluginCmd.CreateEx(APlugin :TFarPlugin; AIndex :Integer; const AName :TString);
+  constructor TFarPluginCmd.CreateEx(APlugin :TFarPlugin; AIndex :Integer; const AName :TString
+   {$ifdef Far3}
+    ; const AGUID  :TGUID
+   {$endif Far3}
+  );
   var
     vPos :Integer;
   begin
@@ -189,6 +246,9 @@ interface
     FVisName := AName;
     FPlugin := APlugin;
     FIndex := AIndex;
+   {$ifdef Far3}
+    FGUID := AGUID;
+   {$endif Far3}
 
     vPos := ChrPos('&', FName);
     if (vPos > 0) and (vPos < Length(FName)) then begin
@@ -196,7 +256,10 @@ interface
       Delete(FVisName, vPos, 1);
     end;
 
+   {$ifdef Far3}
+   {$else}
     UpdateLastAccess;
+   {$endif Far3}
   end;
 
 
@@ -210,8 +273,14 @@ interface
   end;
 
 
-
   procedure TFarPluginCmd.SetHotkey(AHotkey :TChar);
+ {$ifdef Far3}
+  begin
+    if FHotkey <> AHotkey then begin
+      FHotkey := AHotkey;
+      SaveSettings;
+    end;
+ {$else}
   var
     vPath :TString;
     vKey :HKey;
@@ -233,21 +302,25 @@ interface
     begin
       RegOpenWrite(HKCU, vPath, vKey);
       try
-       {$ifdef bUnicode}
         RegWriteStr(vKey, 'Hotkey', AHotkey);
-       {$else}
-        RegWriteStr(vKey, 'Hotkey', StrAnsiToOem(AHotkey));
-       {$endif bUnicode}
       finally
         RegCloseKey(vKey);
       end;
     end;
 
     FHotkey := AHotkey;
+ {$endif Far3}
   end;
 
 
   procedure TFarPluginCmd.SetHidden(AHidden :Boolean);
+ {$ifdef Far3}
+  begin
+    if FHidden <> AHidden then begin
+      FHidden := AHidden;
+      SaveSettings;
+    end;
+ {$else}
   var
     vName :TString;
   begin
@@ -258,9 +331,88 @@ interface
         vName := vName + '%' + Int2Str(FIndex);
       RegSetIntValue(HKCU, FRegRoot + '\' + cPlugRegFolder + '\' + cHiddenRegFolder, vName, Byte(FHidden));
     end;
+ {$endif Far3}
   end;
 
 
+ {$ifdef Far3}
+  procedure TFarPluginCmd.SaveSettings;
+  var
+    vPath, vStr :TString;
+  begin
+    vPath := FPlugin.GetPluginKey;
+    if FIndex <> 0 then
+      vPath := vPath + '%' + Int2Str(FIndex);
+
+    with TFarConfig.CreateEx(True, cPluginName) do
+      try
+        if OpenKey('Plugins\' + vPath) then begin
+          vStr := '';
+          if FHotkey <> #0 then
+            vStr := FHotkey;
+          StrValue('Hotkey', vStr);
+          LogValue('Hidden', FHidden);
+        end;
+      finally
+        Destroy;
+      end;
+  end;
+
+
+  procedure TFarPluginCmd.RestoreSettings;
+  var
+    vPath, vStr :TString;
+    vConfig :TFarConfig;
+  begin
+    FHotkey := #0;
+    FHidden := False;
+
+    vPath := FPlugin.GetPluginKey;
+    if FIndex <> 0 then
+      vPath := vPath + '%' + Int2Str(FIndex);
+
+    vConfig := gConfig;
+    if gConfig = nil then
+      vConfig := TFarConfig.CreateEx(False, cPluginName);
+    try
+      with vConfig do begin
+        if OpenKey('Plugins\' + vPath) then begin
+          vStr := '';
+          StrValue('Hotkey', vStr);
+          if vStr <> '' then
+            FHotkey := vStr[1];
+
+          LogValue('Hidden', FHidden);
+        end;
+      end;
+    finally
+      if gConfig = nil then
+        vConfig.Destroy;
+    end;
+  end;
+
+ {$else}
+
+  procedure TFarPluginCmd.RestoreSettings;
+  var
+    vPath, vStr :TString;
+    vHotkey :TChar;
+  begin
+    vPath := AddFileName(FHotkeysRoot, FPlugin.GetRegDllKey);
+    if FIndex <> 0 then
+      vPath := vPath + '%' + Int2Str(FIndex);
+
+    vStr := RegGetStrValue(HKCU, vPath, 'Hotkey', '');
+    vHotkey := #0;
+    if vStr <> '' then
+      vHotkey := vStr[1];
+    FHotkey := vHotkey;
+  end;
+ {$endif Far3}
+
+
+ {$ifdef Far3}
+ {$else}
   procedure TFarPluginCmd.MarkAccessed;
   var
     vName :TString;
@@ -289,6 +441,7 @@ interface
 
     FHidden := RegGetIntValue(HKCU, FRegRoot + '\' + cPlugRegFolder + '\' + cHiddenRegFolder, vName, 0) <> 0;
   end;
+ {$endif Far3}
 
 
  {-----------------------------------------------------------------------------}
@@ -296,52 +449,67 @@ interface
  {-----------------------------------------------------------------------------}
 
   type
-   {$ifdef bUnicode}
+   {$ifdef Far3}
+   {$else}
     PPCharArrayA = ^TPCharArrayA;
     TPCharArrayA = packed array[0..Pred(MaxLongint div SizeOf(PAnsiChar))] of PAnsiChar;
 
     PPluginInfoA = ^TPluginInfoA;
     TPluginInfoA = record
-       StructSize : Integer;
-       Flags : DWORD;
-       DiskMenuStrings : PPCharArrayA;
-       DiskMenuNumbers : PIntegerArray;
-       DiskMenuStringsNumber : Integer;
-       PluginMenuStrings : PPCharArrayA;
-       PluginMenuStringsNumber : Integer;
-       PluginConfigStrings : PPCharArrayA;
-       PluginConfigStringsNumber : Integer;
-       CommandPrefix : PAnsiChar;
-       Reserved : DWORD;
+      StructSize : Integer;
+      Flags : DWORD;
+      DiskMenuStrings : PPCharArrayA;
+      DiskMenuNumbers : PIntegerArray;
+      DiskMenuStringsNumber : Integer;
+      PluginMenuStrings : PPCharArrayA;
+      PluginMenuStringsNumber : Integer;
+      PluginConfigStrings : PPCharArrayA;
+      PluginConfigStringsNumber : Integer;
+      CommandPrefix : PAnsiChar;
+      Reserved : DWORD;
     end;
-   {$endif bUnicode}
 
     TGetPluginInfo = procedure(var AInfo :TPluginInfo); stdcall;
-   {$ifdef bUnicode}
     TGetPluginInfoA = procedure(var AInfo :TPluginInfoA); stdcall;
-   {$endif bUnicode}
+   {$endif Far3}
 
+   {$ifdef Far3}
+    TConfigure = function(const AInfo :TConfigureInfo) :Integer; stdcall;
+   {$else}
     TConfigure = function(ANumber :Integer) :Integer; stdcall;
-   {$ifdef bUnicode}
+   {$endif Far3}
     TConfigureA = function(ANumber :Integer) :Integer; stdcall;
-   {$endif bUnicode}
 
 
-  constructor TFarPlugin.CreateEx(const ADllName, ARegPath :TString; AHandle :THandle);
+  constructor TFarPlugin.CreateEx(
+    {$ifdef Far3}
+     const AInfo :TFarPluginInfo
+    {$else}
+     const ADllName, ARegPath :TString; AHandle :THandle
+    {$endif Far3}
+  );
   var
     vFileAge :Integer;
   begin
     inherited Create;
     FCommands := TObjList.Create;
 
+   {$ifdef Far3}
+    FFileName := AInfo.ModuleName;
+   {$else}
     FFileName := ADllName;
+   {$endif Far3}
 
     FFileDate := 0;
     vFileAge := FileAge(FFileName);
     if vFileAge <> -1 then
       FFileDate := FileDateToDateTime(vFileAge);
 
+   {$ifdef Far3}
+    UpdatePluginInfo(AInfo);
+   {$else}
     UpdatePluginInfo(ARegPath, AHandle);
+   {$endif Far3}
   end;
 
 
@@ -352,27 +520,63 @@ interface
   end;
 
 
-  procedure TFarPlugin.UpdatePluginInfo(const ARegPath :TString; AHandle :THandle);
+  procedure TFarPlugin.UpdatePluginInfo(
+   {$ifdef Far3}
+    const AInfo :TFarPluginInfo
+   {$else}
+    const ARegPath :TString; AHandle :THandle
+   {$endif Far3}
+  );
+ {$ifdef Far3}
+  var
+    I :Integer;
+  begin
+    FGUID := AInfo.Info1.Guid;
+    FPlugVer := AInfo.Info1.Version;
+    FPlugTitle := AInfo.Info1.Title;
+    FPlugDescr := AInfo.Info1.Description;
+    FPlugAuthor := AInfo.Info1.Author;
+
+    FFlags := AInfo.Info2.Flags;
+    FPreload := PF_PRELOAD and FFlags <> 0;
+
+    FUnicode := FPF_FAR1 and AInfo.Flags = 0;
+
+    FCommands.FreeAll;
+    for I := 0 to AInfo.Info2.PluginMenu.Count - 1 do
+      FCommands.Add(
+        TFarPluginCmd.CreateEx(Self, I, AInfo.Info2.PluginMenu.Strings[I], AInfo.Info2.PluginMenu.Guids[I]));
+
+    FHasCommands := FCommands.Count > 0;
+    if not FHasCommands then
+      { Добавляем одну фиктивную команду }
+      FCommands.Add( TFarPluginCmd.CreateEx(Self, 0, '', GUID_NULL) );
+
+    FConfigString := '';
+    if AInfo.Info2.PluginConfig.Count > 0 then begin
+      FConfigString := AInfo.Info2.PluginConfig.Strings[0];
+      FConfGUID := AInfo.Info2.PluginConfig.Guids[0];
+    end;
+//  FConfigString := StrDeleteChars(FConfigString, ['&']); ???
+
+    FPrefixes := AInfo.Info2.CommandPrefix;
+
+ {$else}
+
   var
     I :Integer;
     vStr :TString;
     vGetPluginInfo :TGetPluginInfo;
     vInfo :TPluginInfo;
-   {$ifdef bUnicode}
     vGetPluginInfoA :TGetPluginInfoA;
     vInfoA :TPluginInfoA;
-   {$endif bUnicode}
   begin
 //  TraceF('UpdatePluginInfo: %s, %s', [FFileName, ARegPath]);
 
     FCommands.FreeAll;
     FConfigString := '';
     FPrefixes := '';
-   {$ifdef bUnicode}
     FUnicode := True;
-   {$else}
-    FUnicode := False;
-   {$endif bUnicode}
 
     if ARegPath <> '' then begin
       { Считаем информацию из кэша в реестре }
@@ -382,31 +586,25 @@ interface
 
         I := 0;
         while True do begin
-          vStr := StrOemToAnsi(RegGetStrValue(HKCU, ARegPath, FCacheMenuValue + Int2Str(I), ''));
+          vStr := RegGetStrValue(HKCU, ARegPath, FCacheMenuValue + Int2Str(I), '');
           if vStr = '' then
             Break;
           FCommands.Add( TFarPluginCmd.CreateEx(Self, I, vStr) );
           Inc(I);
         end;
 
-        FConfigString := StrOemToAnsi(RegGetStrValue(HKCU, ARegPath, FCacheConfigValue + '0', ''));
-        FPrefixes := StrOemToAnsi(RegGetStrValue(HKCU, ARegPath, 'CommandPrefix', ''));
+        FConfigString := RegGetStrValue(HKCU, ARegPath, FCacheConfigValue + '0', '');
+        FPrefixes := RegGetStrValue(HKCU, ARegPath, 'CommandPrefix', '');
 
-       {$ifdef bUnicode}
         if RegGetIntValue(HKCU, AddFileName(ARegPath, 'Exports'), 'OpenPlugin', -1) <> -1 then
           FUnicode := False;
-       {$endif bUnicode}
       end else
         AHandle := GetPluginModuleHandle;
     end;
 
     if AHandle <> 0 then begin
       { Плугин уже загружен, спросим у него самого }
-     {$ifdef bUnicode}
       vGetPluginInfo := GetProcAddress( AHandle, 'GetPluginInfoW' );
-     {$else}
-      vGetPluginInfo := GetProcAddress( AHandle, 'GetPluginInfo' );
-     {$endif bUnicode}
       if Assigned(vGetPluginInfo) then begin
         FillChar(vInfo, SizeOf(vInfo), 0);
         vGetPluginInfo(vInfo);
@@ -426,7 +624,6 @@ interface
           FPrefixes := FarChar2Str(vInfo.CommandPrefix);
       end;
 
-     {$ifdef bUnicode}
       if not Assigned(vGetPluginInfo) then begin
         { Возможно, это ансишный плагин... }
         vGetPluginInfoA := GetProcAddress( AHandle, 'GetPluginInfo' );
@@ -440,20 +637,17 @@ interface
           FPreload := PF_PRELOAD and vInfoA.Flags <> 0;
 
           for I := 0 to vInfoA.PluginMenuStringsNumber - 1 do begin
-//          vStr := StrOemToAnsi(vInfoA.PluginMenuStrings[I]) + ' [A]';
             vStr := MixStrings.StrOemToAnsi(vInfoA.PluginMenuStrings[I]);
             FCommands.Add( TFarPluginCmd.CreateEx(Self, I, vStr) );
           end;
 
           if vInfoA.PluginConfigStringsNumber > 0 then
-//          FConfigString := StrOemToAnsi(vInfoA.PluginConfigStrings[0]) + ' [A]';
             FConfigString := MixStrings.StrOemToAnsi(vInfoA.PluginConfigStrings[0]);
 
           if vInfoA.CommandPrefix <> nil then
             FPrefixes := MixStrings.StrOemToAnsi(vInfoA.CommandPrefix);
         end;
       end;
-     {$endif bUnicode}
     end;
 
     FHasCommands := FCommands.Count > 0;
@@ -462,10 +656,33 @@ interface
       FCommands.Add( TFarPluginCmd.CreateEx(Self, 0, '') );
 
     FConfigString := StrDeleteChars(FConfigString, ['&']);
+ {$endif Far3}
   end;
 
 
   procedure TFarPlugin.UpdateLoaded;
+ {$ifdef Far3}
+  var
+    vIndex :Integer;
+    vPlugInfo :PFarPluginInfo;
+  begin
+    FLoaded := GetPluginModuleHandle <> 0;
+    if FLoaded then begin
+      vIndex := FarPluginControl(PCTL_FINDPLUGIN, PFM_GUID, @FGUID);
+      if vIndex <> - 1 then begin
+        vPlugInfo := nil;
+        try
+          if FarGetPluginInfo(vIndex, vPlugInfo) then begin
+            UpdatePluginInfo(vPlugInfo^);
+//          UpdateHotkey;
+            FUnregistered := False;
+          end;
+        finally
+          MemFree(vPlugInfo);
+        end;
+      end;
+    end;
+ {$else}
   var
     vHandle :THandle;
   begin
@@ -473,31 +690,21 @@ interface
     FLoaded := vHandle <> 0;
     if FLoaded then begin
       UpdatePluginInfo('', vHandle);
-      UpdateHotkey;
+      UpdateSettings;
       FUnregistered := False;
     end;
+ {$endif Far3}
   end;
 
 
-  procedure TFarPlugin.UpdateHotkey;
+  procedure TFarPlugin.UpdateSettings;
   var
     I :Integer;
-    vPath, vPath1, vStr :TString;
-    vHotkey :TChar;
   begin
-    if FHasCommands then begin
-      vPath := AddFileName(FHotkeysRoot, GetRegDllKey);
-      for I := 0 to FCommands.Count - 1 do begin
-        vPath1 := vPath;
-        if I > 0 then
-          vPath1 := vPath + '%' + Int2Str(I);
-        vStr := StrOemToAnsi(RegGetStrValue(HKCU, vPath1, 'Hotkey', ''));
-        vHotkey := #0;
-        if vStr <> '' then
-          vHotkey := vStr[1];
-        Command[I].FHotkey := vHotkey;
-      end;
-    end;
+//  TraceF('UpdateSettings: %s', [FFileName]);
+    if FHasCommands then
+      for I := 0 to FCommands.Count - 1 do
+        Command[I].RestoreSettings;
   end;
 
 
@@ -507,12 +714,17 @@ interface
   end;
 
 
+//function TFarPlugin.GetPluginModuleHandle :THandle;
+//var
+//  vStr :TString;
+//begin
+//  vStr := ExtractFileName(FFileName);
+//  Result := GetModuleHandle(PTChar(vStr));
+//end;
+
   function TFarPlugin.GetPluginModuleHandle :THandle;
-  var
-    vStr :TString;
   begin
-    vStr := ExtractFileName(FFileName);
-    Result := GetModuleHandle(PTChar(vStr));
+    Result := GetModuleHandle(PTChar(FFileName));
   end;
 
 
@@ -534,11 +746,6 @@ interface
   end;
 
 
-  function TFarPlugin.GetRegDllKey :TString;
-  begin
-    Result := StrReplaceChars(GetPluginRelativePath, ['\'], '/');
-  end;
-
 
   function TFarPlugin.GetPluginRelativePath :TString;
   var
@@ -549,33 +756,6 @@ interface
       Result := ExtractRelativePath(vFarPath, FFileName)
     else
       Result := FFileName;
-  end;
-
-
-  function TFarPlugin.FindRegCachePath :TString;
- {$ifdef bUnicode}
-  begin
-    { Новый формат кэша плагинов Far/2 build 910+ }
-    Result := AddFileName(FCacheRoot, StrReplaceChars(FFileName, ['\'], '/'));
- {$else}
-  { Вообще говоря, функция используется только в Far/2. Но, оставим, для общности... }
-  var
-    I :Integer;
-    vDllName, vPath :TString;
-  begin
-    I := 0;
-    while True do begin
-      vPath := AddFileName(FCacheRoot, 'Plugin' + Int2Str(I));
-      if not RegHasKey(HKCU, vPath) then
-        Break;
-      vDllName := RegGetStrValue(HKCU, vPath, FCacheDllValue, '');
-      if StrEqual(vDllName, FFileName) then begin
-        Result := vPath;
-        Exit;
-      end;
-      Inc(I);
-    end;
- {$endif bUnicode}
   end;
 
 
@@ -659,6 +839,30 @@ interface
   end;
 
 
+ {$ifdef Far3}
+  function TFarPlugin.GetPluginKey :TString;
+  begin
+    if FUnicode then
+      Result := GUIDToString(FGUID)
+    else
+      {ANSI-плагины не обладают устойчивым GUID. Он меняется после очистки кэша}
+      Result := StrReplaceChars(GetPluginRelativePath, ['\'], '/');
+  end;
+
+ {$else}
+  function TFarPlugin.GetRegDllKey :TString;
+  begin
+    Result := StrReplaceChars(GetPluginRelativePath, ['\'], '/');
+  end;
+
+
+  function TFarPlugin.FindRegCachePath :TString;
+  begin
+    { Новый формат кэша плагинов Far/2 build 910+ }
+    Result := AddFileName(FCacheRoot, StrReplaceChars(FFileName, ['\'], '/'));
+  end;
+
+
   procedure TFarPlugin.MarkAsPreload(AOn :Boolean);
   var
     vRegPath :TString;
@@ -667,22 +871,34 @@ interface
     if vRegPath <> '' then
       RegSetIntValue(HKCU, vRegPath, 'Preload', IntIf(AOn, 1, 0));
   end;
+ {$endif Far3}
 
 
- {$ifdef bUnicode}
   procedure TFarPlugin.PluginLoad;
+ {$ifdef Far3}
+  var
+    vHandle :THandle;
+  begin
+    vHandle := GetPluginModuleHandle;
+    if vHandle = 0 then begin
+      FarPluginControl(PCTL_FORCEDLOADPLUGIN, PLT_PATH, PFarChar(FFileName));
+      UpdateLoaded;
+    end;
+    FUnregistered := False;
+ {$else}
   var
     vHandle :THandle;
   begin
     vHandle := GetPluginModuleHandle;
     if vHandle = 0 then begin
       { Принуждаем FAR загрузит плагин в память }
-      FARAPI.PluginsControl(INVALID_HANDLE_VALUE, PCTL_UNLOADPLUGIN, PLT_PATH, PFarChar(FFileName));
+      FarPluginControl(PCTL_UNLOADPLUGIN, PLT_PATH, PFarChar(FFileName));
       MarkAsPreload(True);
-      FARAPI.PluginsControl(INVALID_HANDLE_VALUE, PCTL_LOADPLUGIN, PLT_PATH, PFarChar(FFileName));
+      FarPluginControl(PCTL_LOADPLUGIN, PLT_PATH, PFarChar(FFileName));
       UpdateLoaded;
     end;
     FUnregistered := False;
+ {$endif Far3}
   end;
 
 
@@ -696,53 +912,51 @@ interface
       Exit;
     end;
 
-    FARAPI.PluginsControl(INVALID_HANDLE_VALUE, PCTL_UNLOADPLUGIN, PLT_PATH, PFarChar(FFileName));
-(*
-    if not AUnregister then begin
-      {!!!}
-//    MarkAsPreload(False);
+    FarPluginControl(PCTL_UNLOADPLUGIN, PLT_PATH, PFarChar(FFileName));
 
-      FARAPI.PluginsControl(INVALID_HANDLE_VALUE, PCTL_LOADPLUGIN, PLT_PATH, PFarChar(FFileName));
-      FUnregistered := False;
-    end else
-*)
+//  if not AUnregister then begin
+//    MarkAsPreload(False);
+//    FarPluginControl(PCTL_LOADPLUGIN, PLT_PATH, PFarChar(FFileName));
+//    FUnregistered := False;
+//  end else
+
       FUnregistered := True;
 
     UpdateLoaded;
   end;
- {$endif bUnicode}
 
 
   function TFarPlugin.PluginSetup :boolean;
   var
     vHandle :THandle;
     vConfigure :TConfigure;
-   {$ifdef bUnicode}
     vConfigureA :TConfigureA;
-   {$endif bUnicode}
+   {$ifdef Far3}
+    vInfo :TConfigureInfo;
+   {$endif Far3}
   begin
     Result := False;
     vHandle := GetPluginModuleHandle;
-   {$ifdef bUnicode}
+
     if vHandle = 0 then begin
       PluginLoad;
       vHandle := GetPluginModuleHandle;
     end;
-   {$endif bUnicode}
 
     if vHandle <> 0 then begin
-      {$ifdef bUnicode}
        vConfigure := GetProcAddress( vHandle, 'ConfigureW' );
-      {$else}
-       vConfigure := GetProcAddress( vHandle, 'Configure' );
-      {$endif bUnicode}
        if Assigned(vConfigure) then begin
+        {$ifdef Far3}
+         vInfo.StructSize := SizeOf(vInfo);
+         vInfo.GUID := @FConfGuid;
+         vConfigure(vInfo);
+        {$else}
          vConfigure(0);
+        {$endif Far3}
          UpdateLoaded;
          Result := True;
        end;
 
-      {$ifdef bUnicode}
        if not Result then begin
          { Возможно, это ансишный плагин... }
          vConfigureA := GetProcAddress( vHandle, 'Configure' );
@@ -752,7 +966,6 @@ interface
            Result := True;
          end;
        end;
-      {$endif bUnicode}
     end;
   end;
 
@@ -923,19 +1136,35 @@ interface
 //    try
         TFarPlugin(FPlugins[I]).UpdateLoaded;
 //    except
-//      {!!!}
 //    end;
     end;
   end;
 
+
+ {$ifdef Far3}
+  procedure UpdatePluginHotkeys;
+  var
+    I :Integer;
+  begin
+    gConfig := TFarConfig.CreateEx(False, cPluginName);
+    try
+      for I := 0 to FPlugins.Count - 1 do
+        TFarPlugin(FPlugins[I]).UpdateSettings;
+    finally
+      FreeObj(gConfig);
+    end; 
+  end;
+
+ {$else}
 
   procedure UpdatePluginHotkeys;
   var
     I :Integer;
   begin
     for I := 0 to FPlugins.Count - 1 do
-      TFarPlugin(FPlugins[I]).UpdateHotkey;
+      TFarPlugin(FPlugins[I]).UpdateSettings;
   end;
+ {$endif Far3}
 
 
   function FindPlugin(const AFileName :TString) :TFarPlugin;
@@ -969,6 +1198,32 @@ interface
 
 
   procedure FirstInitFarPluginsList;
+ {$ifdef Far3}
+  var
+    I :Integer;
+    vInfo :TFarPlugins;
+    vPlugInfo :PFarPluginInfo;
+  begin
+    FPlugins.FreeAll;
+
+    vInfo.StructSize := SizeOf(vInfo);
+    if FarPluginControl(PCTL_GETPLUGINS, 0, @vInfo) = 0 then
+      Exit;
+
+    vPlugInfo := nil;
+    try
+      for I := 0 to vInfo.PluginsCount - 1 do begin
+        if FarGetPluginInfo(I, vPlugInfo) then
+          FPlugins.Add( TFarPlugin.CreateEx(vPlugInfo^) );
+      end;
+    finally
+      MemFree(vPlugInfo);
+    end;
+
+    FPlugins.SortList(True, 0);
+
+ {$else}
+
   var
     vDlls :TStrList;
 
@@ -1030,12 +1285,8 @@ interface
             SetString(vName, PTChar(@vStr), vLen);
             vPath := AddFileName(FCacheRoot, vName);
 
-           {$ifdef bUnicode}
             { Новый формат кэша плагинов Far/2 build 910+ }
             vDllName := StrReplaceChars(vName, ['/'], '\');
-           {$else}
-            vDllName := RegGetStrValue(HKCU, vPath, FCacheDllValue, '');
-           {$endif bUnicode}
 
             vCache.AddSorted( TDescrObject.CreateEx(vDllName, vPath), 0, dupIgnore );
             Inc(I);
@@ -1060,11 +1311,7 @@ interface
           vName := ExtractFileName(vDllName);
           vHandle := GetModuleHandle(PTChar(vName));
           if vHandle <> 0 then begin
-           {$ifdef bUnicode}
             if Assigned( GetProcAddress( vHandle, 'SetStartupInfo' ) ) or Assigned( GetProcAddress( vHandle, 'SetStartupInfoW' ) ) then begin
-           {$else}
-            if Assigned( GetProcAddress( vHandle, 'SetStartupInfo' ) ) then begin
-           {$endif bUnicode}
               FPlugins.Add( TFarPlugin.CreateEx(vDllName, '', vHandle) );
             end;
           end;
@@ -1077,24 +1324,57 @@ interface
     end;
 
     FPlugins.SortList(True, 0);
+ {$endif Far3}
   end;
 
 
-  procedure ReInitFarPluginsList;
-  begin
-    { Обновление списка плагинов, после смены языка }
-    UpdateLoadedPlugins;
-    FPlugins.SortList(True, 0);
-  end;
 
-
- {$ifdef bUnicode}
   function LoadNewPlugin(const AFileName :TString) :TFarPlugin;
+ {$ifdef Far3}
+  var
+    vRes, vIndex :Integer;
+    vPlugin :TFarPlugin;
+    vPlugInfo :PFarPluginInfo;
+  begin
+    Result := nil;
+
+    vRes := FarPluginControl(PCTL_LOADPLUGIN, PLT_PATH, PFarChar(AFileName));
+    if vRes = 0 then
+      AppErrorId(strPluginLoadError);
+
+    vIndex := FarPluginControl(PCTL_FINDPLUGIN, PFM_MODULENAME, PFarChar(AFileName));
+    if vIndex < 0 then
+      Exit;
+
+    vPlugInfo := nil;
+    try
+      if not FarGetPluginInfo(vIndex, vPlugInfo) then
+        Exit;
+
+      vPlugin := FindPlugin(AFileName);
+      if vPlugin = nil then begin
+        vPlugin := TFarPlugin.CreateEx(vPlugInfo^);
+        FPlugins.Add( vPlugin );
+      end else
+      begin
+        vPlugin.UpdatePluginInfo(vPlugInfo^);
+        vPlugin.FUnregistered := False;
+      end;
+
+      FPlugins.SortList(True, 0);
+      Result := vPlugin;
+
+    finally
+      MemFree(vPlugInfo);
+    end;
+
+ {$else}
+
   var
     vRes :Integer;
     vPlugin :TFarPlugin;
   begin
-    vRes := FARAPI.PluginsControl(INVALID_HANDLE_VALUE, PCTL_LOADPLUGIN, PLT_PATH, PFarChar(AFileName));
+    vRes := FarPluginControl(PCTL_LOADPLUGIN, PLT_PATH, PFarChar(AFileName));
     if vRes = 0 then
       AppErrorId(strPluginLoadError);
 
@@ -1107,8 +1387,9 @@ interface
     vPlugin.FUnregistered := False;
     vPlugin.UpdatePluginInfo( vPlugin.FindRegCachePath, 0 );
     FPlugins.SortList(True, 0);
-    
+
     Result := vPlugin;
+ {$endif Far3}
   end;
 
 
@@ -1121,12 +1402,11 @@ interface
     if vPlugin <> nil then
       vPlugin.PluginUnload(True)
     else begin
-      vRes := FARAPI.PluginsControl(INVALID_HANDLE_VALUE, PCTL_UNLOADPLUGIN, PLT_PATH, PFarChar(AFileName));
+      vRes := FarPluginControl(PCTL_UNLOADPLUGIN, PLT_PATH, PFarChar(AFileName));
       if vRes = 0 then
         AppErrorId(strPluginUnloadError);
     end;
   end;
- {$endif bUnicode}
 
 
   var
@@ -1143,7 +1423,9 @@ interface
       gLang := vLang;
     end else
     if vLang <> gLang then begin
-      ReInitFarPluginsList;
+      { Обновление списка плагинов, после смены языка }
+      UpdateLoadedPlugins;
+      FPlugins.SortList(True, 0);
       gLang := vLang;
     end;
   end;

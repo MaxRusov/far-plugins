@@ -29,10 +29,6 @@
 "&Access time         Ctrl-4"
 "&Plugin flags        Ctrl-5"
 "&Sort By...          Ctrl-F12"
-"A&uto hotkey"
-"Show h&ints"
-"F&ollow mouse"
-"&Wrap mode"
 
 "Sort By"
 "&Command             Ctrl-F1"
@@ -41,6 +37,18 @@
 "&Access Time         Ctrl-F4"
 "&Plugin Flags        Ctrl-F5"
 "&Unsorted            Ctrl-F11"
+
+"Options"
+"&Auto hotkey"
+"Show &hints"
+"&Follow mouse"
+"&Wrap mode"
+"&Colors..."
+
+"Colors"
+"&1 Hidden color"
+"&2 Quick filter"
+"&Restore Defaults"
 
 "Plugin information"
 "File name"
@@ -64,3 +72,10 @@
 
 "Open File Dialog"
 "Dialog Tool plugin not installed"
+
+"Color"
+"Foreground"
+"Background"
+"Sample"
+"Set"
+"Cancel"

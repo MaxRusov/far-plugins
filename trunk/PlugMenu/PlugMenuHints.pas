@@ -15,13 +15,11 @@ interface
     Windows,
     MixTypes,
     MixStrings,
-
-   {$ifdef bUnicodeFar}
-    PluginW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-   {$endif bUnicodeFar}
-
+    PluginW,
+   {$endif Far3}
     FarCtrl,
     FarDlg,
     FarGrid,
@@ -82,7 +80,7 @@ interface
   begin
     FAPI := API;
     AInfo.Flags := PF_ProcessDialog or PF_CanChangeSize;
-    ReadSetup;
+//  ReadSetup;
   end;
 
 
@@ -139,6 +137,10 @@ interface
       AItem.AddStringInfo(GetMsgStr(strInfoCopyright), vCommand.Plugin.Copyright);
     if vCommand.Plugin.Version <> '' then
       AItem.AddStringInfo(GetMsgStr(strInfoVersion), vCommand.Plugin.Version);
+
+// {$ifdef Far3}
+//  AItem.AddStringInfo('Command GUID', GUIDToString(vCommand.GUID));
+// {$endif Far3}
 
     AItem.AddDateInfo(GetMsgStr(strInfoModified), vCommand.Plugin.FileDate);
 

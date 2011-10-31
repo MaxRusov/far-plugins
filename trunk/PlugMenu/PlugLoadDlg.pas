@@ -16,11 +16,11 @@ interface
     MixTypes,
     MixUtils,
     MixWinUtils,
-   {$ifdef bUnicodeFar}
-    PluginW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
     FarCtrl,
     FarDlg,
 
@@ -102,7 +102,6 @@ interface
 
     procedure LocSelectFile;
     var
-      vMacro :TActlKeyMacro;
       vStr :TString;
     begin
       SendMsg(DM_SETFOCUS, IdEdit, 0);
@@ -110,11 +109,7 @@ interface
       vStr := Format('F11 $if(Menu.Select("%s", 2) > 0) Enter $else Esc MsgBox("%s", "%s", 1) $end',
         [GetMsgStr(strOpenFileDialog), GetMsgStr(strLoadDlgTitle), GetMsgStr(strDialogToolNotInstalled)]);
 
-      vMacro.Command := MCMD_POSTMACROSTRING;
-      vMacro.Param.PlainText.SequenceText := PTChar(vStr);
-      vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
-
-      FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+      FarPostMacro(vStr);
     end;
 
   begin

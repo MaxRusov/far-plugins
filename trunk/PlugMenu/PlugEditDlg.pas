@@ -16,11 +16,11 @@ interface
     Windows,
     MixTypes,
     MixUtils,
-   {$ifdef bUnicodeFar}
-    PluginW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
     FarCtrl,
     FarDlg,
     
@@ -61,12 +61,12 @@ interface
   procedure TEditDlg.Prepare; {override;}
   const
     DX = 60;
-    DY =  9;
+    DY = 11;
   begin
+    FGUID := cPlugEditID;
     FHelpTopic := 'AssignHotkey';
     FWidth := DX;
     FHeight := DY;
-    FItemCount := 5;
     FDialog := CreateDialog(
       [
         NewItemApi(DI_DoubleBox, 3,  1, DX-6, DY-2, 0, GetMsg(strEditDlgTitle)),
@@ -74,8 +74,13 @@ interface
 //      NewItemApi(DI_ComboBox,  5,  4, 2, -1, 0, '' ),
         NewItemApi(DI_FixEdit,   5,  4, 1, -1, 0, '' ),
         NewItemApi(DI_Text,      8,  4, DX-13, -1, 0, GetMsg(strEditDlgPrompt) ),
-        NewItemApi(DI_CheckBox,  5,  6, 1, -1, 0, GetMsg(strHideCommand) )
-      ]
+        NewItemApi(DI_CheckBox,  5,  6, 1, -1, 0, GetMsg(strHideCommand) ),
+
+        NewItemApi(DI_Text,      0, DY-4, -1, -1, DIF_SEPARATOR, ''),
+        NewItemApi(DI_DefButton, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strButOk)),
+        NewItemApi(DI_Button,    0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strButCancel))
+      ],
+      @FItemCount
     );
   end;
 
