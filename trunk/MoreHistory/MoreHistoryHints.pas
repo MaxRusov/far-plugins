@@ -19,11 +19,11 @@ interface
     MixStrings,
     MixClasses,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
 
     FarCtrl,
     FarDlg,

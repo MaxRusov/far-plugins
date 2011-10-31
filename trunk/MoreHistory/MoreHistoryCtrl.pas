@@ -17,13 +17,14 @@ interface
     MixStrings,
     MixClasses,
     MixWinUtils,
-   {$ifdef bUnicodeFar}
-    PluginW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
     FarColor,
     FarCtrl,
+    FarConfig,
     FarColorDlg;
 
 
@@ -36,17 +37,26 @@ interface
       strMFoldersHistory,
       strMViewEditHistory,
       strMModifyHistory,
+      strMCommandHistory,
+      strMPreviousCommand,
+      strMNextCommand,
       strMOptions1,
 
       strFoldersHistoryTitle,
       strViewEditHistoryTitle,
       strModifyHistoryTitle, 
+      strCommandHistoryTitle, 
 
       strConfirmation,
       strDeleteSelectedPrompt,
       strClearSelectedPrompt,
       strMakeTransitPrompt,
       strMakeActualPrompt,
+
+      strFileNotFound,
+      strCreateFileBut,
+      strDeleteBut,
+      strCancel,
 
       strHintPath,
       strHintFTP,
@@ -123,17 +133,39 @@ interface
 
 
   const
-    cPlugRegFolder    = 'MoreHistory';
+    cPluginName = 'MoreHistory';
+    cPluginDescr = 'MoreHistory FAR plugin';
+    cPluginAuthor = 'Max Rusov';
+
+   {$ifdef Far3}
+    cPluginID    :TGUID = '{0AB780BC-36CA-4FDA-B321-70520D875CDE}';
+    cMenuID      :TGUID = '{DD417DBF-0F42-4187-9960-7694A6F7A5A3}';
+    cConfigID    :TGUID = '{0989445B-AFF6-46AA-9832-0972BBE10730}';
+   {$else}
+    cPluginID    = $5453484D;  //MHST
+   {$endif Far3}
+
+    cFoldersDlgID  :TGUID = '{DDA833F3-3EA1-4B96-B867-590CE29AE6E0}';
+    cFilesDlgID    :TGUID = '{EF4E9F0A-56EA-4510-92D9-FC361FE1FA9A}';
+   {$ifdef bCmdHistory}
+    cCommandsDlgID :TGUID = '{433B0FAD-56A5-46E1-BCFB-462DEAAE35C9}';
+   {$endif bCmdHistory}
+
     cPluginFolder     = 'MoreHistory';
     cFldHistFileName  = 'Folders.dat';
     cEdtHistFileName  = 'Editors.dat';
+   {$ifdef bCmdHistory}
+    cCmdHistFileName  = 'Commands.dat';
+   {$endif bCmdHistory}
 
     cSignature :array[0..3] of AnsiChar = 'MHSF';
     cFldVersion   = 1;
 //  cEdtVersion   = 2;  { +FSaveCount }
     cEdtVersion   = 3;  { +FModCol }
+   {$ifdef bCmdHistory}
+    cCmdVersion   = 1;
+   {$endif bCmdHistory}
 
-    cDlgHistRegRoot = cFarRegRoot + '\SavedDialogHistory';
     cHilterHistName = 'MoreHistory.Filter';
 
     cDefHistoryLength = 64;
@@ -194,22 +226,31 @@ interface
     optFldExclusions   :TString = '';
     optEdtExclusions   :TString = '%TEMP%\*';
 
-    optHiddenColor     :Integer;
-    optFoundColor      :Integer;
-    optSelectedColor   :Integer;
-    optGroupColor      :Integer;
+    optHiddenColor     :TFarColor;
+    optFoundColor      :TFarColor;
+    optSelectedColor   :TFarColor;
+    optGroupColor      :TFarColor;
 
   const
     cFldPrefix         = 'mh';
     cEdtPrefix         = 'mhe';
-    cPrefixes          :TFarStr = cFldPrefix + ':' + cEdtPrefix;
+   {$ifdef bCmdHistory}
+    cCmdPrefix         = 'mhc';
+   {$endif bCmdHistory}
+
+    cPrefixes  =
+      cFldPrefix
+      + ':' +
+      cEdtPrefix
+     {$ifdef bCmdHistory}
+      + ':' +
+      cCmdPrefix
+     {$endif bCmdHistory}
+      ;
 
 
   var
     FRegRoot  :TString;
-
-  var
-    FLastFilter :TString;
 
 
   function GetMsg(AMess :TMessages) :PFarChar;
@@ -220,8 +261,9 @@ interface
   procedure ReadSettings;
   procedure ReadSetup(const AMode :TString);
   procedure WriteSetup(const AMode :TString);
+//procedure ChangedSettings;
 
-  function GetHistoryList(const AHistName :TString) :TStrList;
+  function GetHistoryList(const AHistName :TString) :TStrList; 
   procedure AddToHistory(const AHist, AStr :TString);
 
 {******************************************************************************}
@@ -252,126 +294,113 @@ interface
 
   procedure RestoreDefColor;
   begin
-    optHiddenColor     := clGray;
-    optGroupColor      := clBlue;
-    optFoundColor      := clLime;
-    optSelectedColor   := clBkGreen;
+    optHiddenColor     := MakeColor(clGray, 0);
+    optGroupColor      := MakeColor(clBlue, 0);
+    optFoundColor      := MakeColor(clLime, 0);
+    optSelectedColor   := MakeColor(0, clGreen);
   end;
 
 
  {-----------------------------------------------------------------------------}
 
   procedure ReadSettings;
-  var
-    vKey :HKEY;
   begin
-    if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then
-      Exit;
-    try
-      optHistoryFolder := RegQueryStr(vKey, 'HistoryFolder', optHistoryFolder);
-      optHistoryLimit  := RegQueryInt(vKey, 'HistoryLimit', optHistoryLimit);
-      optFldExclusions := RegQueryStr(vKey, 'Exclusions', optFldExclusions);
-      optEdtExclusions := RegQueryStr(vKey, 'EdtExclusions', optEdtExclusions);
-    finally
-      RegCloseKey(vKey);
-    end;
+    with TFarConfig.CreateEx(False, cPluginName) do
+      try
+        if Exists then begin
+          StrValue('HistoryFolder', optHistoryFolder);
+          IntValue('HistoryLimit', optHistoryLimit);
+          StrValue('Exclusions', optFldExclusions);
+          StrValue('EdtExclusions', optEdtExclusions);
+        end;
+      finally
+        Destroy;
+      end;
+  end;
+
+
+  procedure PluginConfig(AStore :Boolean; const AMode :TString);
+  begin
+    with TFarConfig.CreateEx(AStore, cPluginName) do
+      try
+        if Exists then begin
+          LogValue('ShowGrid', optShowGrid);
+          LogValue('ShowHints', optShowHints);
+          LogValue('FollowMouse', optFollowMouse);
+          LogValue('WrapMode', optWrapMode);
+          LogValue('NewAtTop', optNewAtTop);
+          LogValue('HideCurrent', optHideCurrent);
+          LogValue('XLatMask', optXLatMask);
+          LogValue('SaveMask', optSaveMask);
+
+          IntValue('MidnightHour', optMidnightHour);
+
+          ColorValue('HiddenColor', optHiddenColor);
+          ColorValue('FoundColor', optFoundColor);
+          ColorValue('SelectedColor', optSelectedColor);
+          ColorValue('GroupColor', optGroupColor);
+
+          if AStore then begin
+//          StrValue('HistoryFolder', optHistoryFolder);
+//          IntValue('HistoryLimit', optHistoryLimit);
+            StrValue('Exclusions', optFldExclusions);
+            StrValue('EdtExclusions', optEdtExclusions);
+          end;
+
+          if (AMode <> '') and OpenKey('View\' + AMode) then begin
+
+            LogValue('ShowTransit', optShowHidden);
+            LogValue('Hierarchical', optHierarchical);
+            Byte(optHierarchyMode) := IntValue1('HierarchyMode', Byte(optHierarchyMode));
+            IntValue('SortMode', optSortMode);
+
+            LogValue('ShowSeparateName', optSeparateName);
+            LogValue('ShowFullPath', optShowFullPath);
+            LogValue('ShowDate', optShowDate);
+            LogValue('ShowHits', optShowHits);
+            LogValue('ShowModify', optShowModify);
+            LogValue('ShowSaves', optShowSaves);
+
+          end;
+        end;
+      finally
+        Destroy;
+      end;
   end;
 
 
   procedure ReadSetup(const AMode :TString);
-  var
-    vKey :HKEY;
   begin
-    if RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder + StrIf(AMode <> '', '\View\' + AMode, ''), vKey) then begin
-      try
-        optShowHidden := RegQueryLog(vKey, 'ShowTransit', optShowHidden);
-        optHierarchical := RegQueryLog(vKey, 'Hierarchical', optHierarchical);
-        Byte(optHierarchyMode) := RegQueryInt(vKey, 'HierarchyMode', Byte(optHierarchyMode));
-        optSortMode  := RegQueryInt(vKey, 'SortMode', optSortMode);
-
-        optSeparateName := RegQueryLog(vKey, 'ShowSeparateName', optSeparateName);
-        optShowFullPath := RegQueryLog(vKey, 'ShowFullPath', optShowFullPath);
-        optShowDate := RegQueryLog(vKey, 'ShowDate', optShowDate);
-        optShowHits := RegQueryLog(vKey, 'ShowHits', optShowHits);
-        optShowModify := RegQueryLog(vKey, 'ShowModify', optShowModify);
-        optShowSaves := RegQueryLog(vKey, 'ShowSaves', optShowSaves);
-      finally
-        RegCloseKey(vKey);
-      end;
-    end;
-
-    if RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then begin
-      try
-        optShowGrid := RegQueryLog(vKey, 'ShowGrid', optShowGrid);
-        optShowHints := RegQueryLog(vKey, 'ShowHints', optShowHints);
-        optFollowMouse := RegQueryLog(vKey, 'FollowMouse', optFollowMouse);
-        optWrapMode := RegQueryLog(vKey, 'WrapMode', optWrapMode);
-        optNewAtTop := RegQueryLog(vKey, 'NewAtTop', optNewAtTop);
-        optHideCurrent := RegQueryLog(vKey, 'HideCurrent', optHideCurrent);
-        optXLatMask := RegQueryLog(vKey, 'XLatMask', optXLatMask);
-        optSaveMask := RegQueryLog(vKey, 'SaveMask', optSaveMask);
-
-        optMidnightHour := RegQueryInt(vKey, 'MidnightHour', optMidnightHour);
-
-        optHiddenColor := RegQueryInt(vKey, 'HiddenColor', optHiddenColor);
-        optFoundColor := RegQueryInt(vKey, 'FoundColor', optFoundColor);
-        optSelectedColor := RegQueryInt(vKey, 'SelectedColor', optSelectedColor);
-        optGroupColor := RegQueryInt(vKey, 'GroupColor', optGroupColor);
-
-      finally
-        RegCloseKey(vKey);
-      end;
-    end;
+    PluginConfig(False, AMode);
   end;
 
 
   procedure WriteSetup(const AMode :TString);
-  var
-    vKey :HKEY;
   begin
-    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder + StrIf(AMode <> '', '\View\' + AMode, ''), vKey);
-    try
-      RegWriteLog(vKey, 'ShowTransit', optShowHidden);
-      RegWriteLog(vKey, 'Hierarchical', optHierarchical);
-      RegWriteInt(vKey, 'HierarchyMode', Byte(optHierarchyMode));
-      RegWriteInt(vKey, 'SortMode', optSortMode);
-
-      RegWriteLog(vKey, 'ShowSeparateName', optSeparateName);
-      RegWriteLog(vKey, 'ShowFullPath', optShowFullPath);
-      RegWriteLog(vKey, 'ShowDate', optShowDate);
-      RegWriteLog(vKey, 'ShowHits', optShowHits);
-      RegWriteLog(vKey, 'ShowModify', optShowModify);
-      RegWriteLog(vKey, 'ShowSaves', optShowSaves);
-    finally
-      RegCloseKey(vKey);
-    end;
-
-    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
-    try
-      RegWriteLog(vKey, 'ShowGrid', optShowGrid);
-      RegWriteLog(vKey, 'ShowHints', optShowHints);
-      RegWriteLog(vKey, 'FollowMouse', optFollowMouse);
-      RegWriteLog(vKey, 'WrapMode', optWrapMode);
-      RegWriteLog(vKey, 'NewAtTop', optNewAtTop);
-      RegWriteLog(vKey, 'HideCurrent', optHideCurrent);
-      RegWriteLog(vKey, 'XLatMask', optXLatMask);
-      RegWriteLog(vKey, 'SaveMask', optSaveMask);
-
-      RegWriteInt(vKey, 'HiddenColor', optHiddenColor);
-      RegWriteInt(vKey, 'GroupColor', optGroupColor);
-      RegWriteInt(vKey, 'FoundColor', optFoundColor);
-      RegWriteInt(vKey, 'SelectedColor', optSelectedColor);
-
-      RegWriteStr(vKey, 'Exclusions', optFldExclusions);
-      RegWriteStr(vKey, 'EdtExclusions', optEdtExclusions);
-
-    finally
-      RegCloseKey(vKey);
-    end;
+    PluginConfig(True, AMode);
   end;
 
 
  {-----------------------------------------------------------------------------}
+
+ {$ifdef Far3}
+
+  function GetHistoryList(const AHistName :TString) :TStrList;
+  begin
+    {!!!}
+    Result := nil;
+  end;
+
+  procedure AddToHistory(const AHist, AStr :TString);
+  begin
+    {!!!}
+  end;
+
+ {$else}
+
+  const
+    cDlgHistRegRoot = cFarRegRoot + '\SavedDialogHistory';
+
 
   function GetHistoryList(const AHistName :TString) :TStrList;
   var
@@ -412,6 +441,7 @@ interface
       FARAPI.DialogFree(hDlg);
     end;
   end;
+ {$endif Far3}
 
 
 initialization

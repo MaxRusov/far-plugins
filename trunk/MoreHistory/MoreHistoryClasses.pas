@@ -13,9 +13,6 @@ interface
   uses
     Windows,
     ShlObj,
-    PluginW,
-    FarColor,
-
     MixTypes,
     MixUtils,
     MixFormat,
@@ -23,11 +20,19 @@ interface
     MixClasses,
     MixWinUtils,
 
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
+    PluginW,
+   {$endif Far3}
+    FarColor,
+
     FarCtrl,
     FarMatch,
     FarConMan,
     FarMenu,
     FarColorDlg,
+    FarConfig,
 
     MoreHistoryCtrl;
 
@@ -45,10 +50,10 @@ interface
       function GetDomain :TString; virtual;
       function GetGroup :TString; virtual;
 
-      function CalcSize :Integer; virtual; abstract;
-      procedure WriteTo(var APtr :Pointer1); virtual; abstract;
-      procedure ReadFrom(var APtr :Pointer1; AVersion :Integer); virtual; abstract;
-      function IsValid :Boolean; virtual; abstract;
+      function CalcSize :Integer; virtual;
+      procedure WriteTo(var APtr :Pointer1); virtual;
+      procedure ReadFrom(var APtr :Pointer1; AVersion :Integer); virtual;
+      function IsValid :Boolean; virtual;
 
       function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
       function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; override;
@@ -63,6 +68,7 @@ interface
       property Time :TDateTime read FTime;
       property Flags :Cardinal read FFlags;
     end;
+
 
     TFldHistoryEntry = class(THistoryEntry)
     public
@@ -123,6 +129,25 @@ interface
     end;
 
 
+   {$ifdef bCmdHistory}
+    TCmdHistoryEntry = class(THistoryEntry)
+    public
+      procedure HitInfoClear;
+
+      function CalcSize :Integer; override;
+      procedure WriteTo(var APtr :Pointer1); override;
+      procedure ReadFrom(var APtr :Pointer1; AVersion :Integer); override;
+      function IsValid :Boolean; override;
+
+    private
+      FHits  :Integer;
+
+    public
+      property Hits :Integer read FHits;
+    end;
+   {$endif bCmdHistory}
+
+
     TFilterMask = class(TBasis)
     public
       constructor CreateEx(const AMask :TString; AXlat, AExact :Boolean);
@@ -136,8 +161,11 @@ interface
       FExact    :Boolean;
       FRegExp   :Boolean;
       FNot      :Boolean;
+      FFromBeg  :Boolean;
     end;
 
+
+    { Базовый класс для историй }
 
     THistory = class(TBasis)
     public
@@ -151,6 +179,7 @@ interface
       function TryLockHistory :Boolean;
 
       procedure SetModified;
+      function TryLockAndStore :Boolean;
       procedure StoreModifiedHistory;
       procedure LoadModifiedHistory;
 
@@ -160,6 +189,10 @@ interface
       function GetHistoryFolder :TString; virtual;
       function StoreHistory :Boolean; virtual;
       function RestoreHistory :Boolean; virtual;
+
+      function GetAddHeaderSize :Integer; virtual;
+      procedure WriteAddHeaderTo(APtr :Pointer1; ASize :Integer); virtual;
+      procedure ReadAddHeaderFrom(APtr :Pointer1; ASize :Integer; AVersion :Integer); virtual;
 
     private
       FCSLock     :TRTLCriticalSection;
@@ -181,10 +214,11 @@ interface
     end;
 
 
+    { История папок }
+
     TFldHistory = class(THistory)
     public
       constructor Create; override;
-      destructor Destroy; override;
 
       procedure InitExclusion; override;
 
@@ -195,6 +229,8 @@ interface
       procedure AddHistoryStr(const APath :TString; AFinal :Boolean);
     end;
 
+
+    { История редактора }
 
     TEdtAction = (
       eaOpenView,
@@ -212,6 +248,34 @@ interface
     end;
 
 
+    { История команд }
+
+   {$ifdef bCmdHistory}
+    TCmdHistory = class(THistory)
+    public
+      constructor Create; override;
+//    procedure InitExclusion; override;
+      procedure UpdateHistory;
+
+      function CmdLineFilter(const AStr :TString) :TString;
+      procedure CmdLineNext(AForward :Boolean; const AStr :TString);
+
+    protected
+      function GetAddHeaderSize :Integer; override;
+      procedure WriteAddHeaderTo(APtr :Pointer1; ASize :Integer); override;
+      procedure ReadAddHeaderFrom(APtr :Pointer1; ASize :Integer; AVersion :Integer); override;
+
+    private
+      FTimeStamp :TDateTime;
+      FLastMask  :TString;
+      FLastCmd   :TString;
+      FLastIndex :Integer;
+
+      procedure AddHistoryStr(const APath :TString; ATime :TDateTime);
+    end;
+   {$endif bCmdHistory}
+
+
   function GetConsoleTitleStr :TString;
   function GetCurrentPanelPath :TString;
 
@@ -226,6 +290,9 @@ interface
   var
     FldHistory :TFldHistory;
     EdtHistory :TEdtHistory;
+   {$ifdef bCmdHistory}
+    CmdHistory :TCmdHistory;
+   {$endif bCmdHistory}
 
 
 {******************************************************************************}
@@ -305,18 +372,25 @@ interface
   var
     vWinInfo :TWindowInfo;
     vPanInfo :TPanelInfo;
+    vVisible, vPlugin :Boolean;
   begin
     Result := '';
     FarGetWindowInfo(-1, vWinInfo);
     if vWinInfo.WindowType <> WTYPE_PANELS then
       Exit;
 
-    FillZero(vPanInfo, SizeOf(vPanInfo));
-    FARAPI.Control(PANEL_ACTIVE, FCTL_GetPanelInfo, 0, @vPanInfo);
-    if (vPanInfo.PanelType <> PTYPE_FILEPANEL) or (vPanInfo.Visible = 0) then
+    FarGetPanelInfo(PANEL_ACTIVE, vPanInfo);
+   {$ifdef Far3}
+    vVisible := PFLAGS_VISIBLE and vPanInfo.Flags <> 0;
+    vPlugin  := PFLAGS_PLUGIN and vPanInfo.Flags <> 0;
+   {$else}
+    vVisible := vPanInfo.Visible <> 0;
+    vPlugin  := vPanInfo.Plugin <> 0;
+   {$endif Far3}
+    if (vPanInfo.PanelType <> PTYPE_FILEPANEL) or not vVisible then
       Exit;
 
-    if (vPanInfo.Plugin = 0) {or (PFLAGS_REALNAMES and vPanInfo.Flags <> 0)} then
+    if not vPlugin {or (PFLAGS_REALNAMES and vPanInfo.Flags <> 0)} then
       Result := FarPanelGetCurrentDirectory(PANEL_ACTIVE)
     else
       Result := GetPluginPath(PANEL_ACTIVE);
@@ -364,9 +438,28 @@ interface
   end;
 
 
-  procedure InsertText(const AStr :TString);
+  function MaskStr(const AStr :TString) :TString;
+  var
+    I :Integer;
+    C :TChar;
   begin
-    FarPostMacro( 'print(@"' + AStr + '")' );
+    Result := '';
+    for I := 1 to length(AStr) do begin
+      C := AStr[I];
+      if (Ord(C) < $20) or (C = '"') or (C = '\') then
+//      Result := Result + '\' + Int2Str(Ord(c))
+        Result := Result + '\x' + Format('%.4x', [Ord(c)])
+      else
+        Result := Result + C;
+    end;
+  end;
+
+  procedure InsertText(const AStr :TString);
+  var
+    vStr :TString;
+  begin
+    vStr := 'print("' + MaskStr(AStr) + '")';
+    FarPostMacro(vStr);
   end;
 
 
@@ -391,14 +484,26 @@ interface
   end;
 
 
+  function FileTimeToDateTime(const AFileTime :TFileTime) :TDateTime;
+  var
+    vDosTime :Integer;
+  begin
+    Result := 0;
+    vDosTime := FileTimeToDosFileDate(AFileTime);
+    if vDosTime <> -1 then
+      Result := FileDateToDateTime(vDosTime);
+  end;
+
+
  {-----------------------------------------------------------------------------}
 
   procedure ColorMenu;
   var
     vMenu :TFarMenu;
-    vBkColor :Integer;
+    vBkColor :DWORD;
+    vOk, vChanged :Boolean;
   begin
-    vBkColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUTEXT));
+    vBkColor := GetColorBG(FarGetColor(COL_MENUTEXT));
 
     vMenu := TFarMenu.CreateEx(
       GetMsg(strColorsTitle),
@@ -411,26 +516,33 @@ interface
       GetMsg(strMRestoreDefaults)
     ]);
     try
+      vChanged := False;
+
       while True do begin
         vMenu.SetSelected(vMenu.ResIdx);
 
         if not vMenu.Run then
-          Exit;
+          Break;
 
         case vMenu.ResIdx of
-          0: ColorDlg('', optHiddenColor, vBkColor);
-          1: ColorDlg('', optGroupColor, vBkColor);
-          2: ColorDlg('', optFoundColor, vBkColor);
-          3: ColorDlg('', optSelectedColor);
-
-          5: RestoreDefColor;
+          0: vOk := ColorDlg('', optHiddenColor, vBkColor);
+          1: vOk := ColorDlg('', optGroupColor, vBkColor);
+          2: vOk := ColorDlg('', optFoundColor, vBkColor);
+          3: vOk := ColorDlg('', optSelectedColor);
+        else
+          RestoreDefColor;
+          vOk := True;
         end;
 
-//      FARAPI.EditorControl(ECTL_REDRAW, nil);
-        FARAPI.AdvControl(hModule, ACTL_REDRAWALL, nil);
-
-        WriteSetup('');
+        if vOk then begin
+//        FARAPI.EditorControl(ECTL_REDRAW, nil);
+          FarAdvControl(ACTL_REDRAWALL, nil);
+          vChanged := True;
+        end;
       end;
+
+      if vChanged then
+        WriteSetup('');
 
     finally
       FreeObj(vMenu);
@@ -438,9 +550,11 @@ interface
   end;
 
 
+
   procedure OptionsMenu;
   var
     vMenu :TFarMenu;
+    vChanged :Boolean;
   begin
     vMenu := TFarMenu.CreateEx(
       GetMsg(strOptionsTitle2),
@@ -457,6 +571,7 @@ interface
       GetMsg(strMColors)
     ]);
     try
+      vChanged := False;
       vMenu.Help := 'Options';
       while True do begin
         vMenu.Checked[0] := optShowHints;
@@ -469,7 +584,7 @@ interface
         vMenu.SetSelected(vMenu.ResIdx);
 
         if not vMenu.Run then
-          Exit;
+          Break;
 
         case vMenu.ResIdx of
           0: optShowHints := not optShowHints;
@@ -490,13 +605,17 @@ interface
           9: ColorMenu;
         end;
 
-        WriteSetup('');
+        vChanged := True;
       end;
+
+      if vChanged then
+        WriteSetup('');
 
     finally
       FreeObj(vMenu);
     end;
   end;
+
 
  {-----------------------------------------------------------------------------}
  { THistoryEntry                                                               }
@@ -559,6 +678,47 @@ interface
     else
       Result := '';
     end;
+  end;
+
+
+  function THistoryEntry.CalcSize :Integer; {virtual;}
+  begin
+    Result := SizeOf(Word) + Length(FPath) * SizeOf(TChar) + SizeOf(FTime) {+ SizeOf(FHits) + Sizeof(FFlags)};
+  end;
+
+
+  procedure THistoryEntry.WriteTo(var APtr :Pointer1); {virtual;}
+  var
+    vLen :Integer;
+  begin
+    vLen := Length(FPath);
+    PWord(APtr)^ := vLen;
+    Inc(APtr, SizeOf(Word));
+    Move(PTChar(FPath)^, APtr^, vLen * SizeOf(TChar));
+    Inc(APtr, vLen * SizeOf(TChar));
+
+    Move(FTime, APtr^, SizeOf(TDateTime));
+    Inc(APtr, SizeOf(TDateTime));
+  end;
+
+
+  procedure THistoryEntry.ReadFrom(var APtr :Pointer1; AVersion :Integer); {virtual;}
+  var
+    vLen :Integer;
+  begin
+    vLen := PWord(APtr)^;
+    Inc(APtr, SizeOf(Word));
+    SetString(FPath, PTChar(APtr), vLen);
+    Inc(APtr, vLen * SizeOf(TChar));
+
+    Move(APtr^, FTime, SizeOf(TDateTime));
+    Inc(APtr, SizeOf(TDateTime));
+  end;
+
+
+  function THistoryEntry.IsValid :Boolean; {virtual;}
+  begin
+    Result := True;
   end;
 
 
@@ -631,24 +791,13 @@ interface
 
   function TFldHistoryEntry.CalcSize :Integer; {override;}
   begin
-    Result := SizeOf(Word) + Length(FPath) * SizeOf(TChar) + SizeOf(FTime) + SizeOf(FHits) + Sizeof(FFlags);
+    Result := inherited CalcSize + SizeOf(FHits) + Sizeof(FFlags);
   end;
 
 
   procedure TFldHistoryEntry.WriteTo(var APtr :Pointer1); {override;}
-  var
-    vLen :Integer;
   begin
-//  TraceF('%d, %s', [length(FPath), FPath]);
-
-    vLen := Length(FPath);
-    PWord(APtr)^ := vLen;
-    Inc(APtr, SizeOf(Word));
-    Move(PTChar(FPath)^, APtr^, vLen * SizeOf(TChar));
-    Inc(APtr, vLen * SizeOf(TChar));
-
-    Move(FTime, APtr^, SizeOf(TDateTime));
-    Inc(APtr, SizeOf(TDateTime));
+    inherited WriteTo(APtr);
 
     PInteger(APtr)^ := FHits;
     Inc(APtr, SizeOf(Integer));
@@ -659,16 +808,8 @@ interface
 
 
   procedure TFldHistoryEntry.ReadFrom(var APtr :Pointer1; AVersion :Integer); {override;}
-  var
-    vLen :Integer;
   begin
-    vLen := PWord(APtr)^;
-    Inc(APtr, SizeOf(Word));
-    SetString(FPath, PTChar(APtr), vLen);
-    Inc(APtr, vLen * SizeOf(TChar));
-
-    Move(APtr^, FTime, SizeOf(TDateTime));
-    Inc(APtr, SizeOf(TDateTime));
+    inherited ReadFrom(APtr, AVersion);
 
     FHits := PInteger(APtr)^;
     Inc(APtr, SizeOf(Integer));
@@ -818,6 +959,54 @@ interface
 
 
  {-----------------------------------------------------------------------------}
+ { TCmdHistoryEntry                                                            }
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bCmdHistory}
+  procedure TCmdHistoryEntry.HitInfoClear;
+  begin
+    FHits := 0;
+  end;
+
+
+  function TCmdHistoryEntry.CalcSize :Integer; {override;}
+  begin
+    Result := inherited CalcSize + SizeOf(FHits) + Sizeof(FFlags);
+  end;
+
+
+  procedure TCmdHistoryEntry.WriteTo(var APtr :Pointer1); {override;}
+  begin
+    inherited WriteTo(APtr);
+
+    PInteger(APtr)^ := FHits;
+    Inc(APtr, SizeOf(Integer));
+
+    PInteger(APtr)^ := FFlags;
+    Inc(APtr, SizeOf(Integer));
+  end;
+
+
+  procedure TCmdHistoryEntry.ReadFrom(var APtr :Pointer1; AVersion :Integer); {override;}
+  begin
+    inherited ReadFrom(APtr, AVersion);
+
+    FHits := PInteger(APtr)^;
+    Inc(APtr, SizeOf(Integer));
+
+    FFlags := PInteger(APtr)^;
+    Inc(APtr, SizeOf(Integer));
+  end;
+
+
+  function TCmdHistoryEntry.IsValid :Boolean; {override;}
+  begin
+    Result := FPath <> '';
+  end;
+ {$endif bCmdHistory}
+
+
+ {-----------------------------------------------------------------------------}
  { TFilterMask                                                                 }
  {-----------------------------------------------------------------------------}
 
@@ -831,6 +1020,12 @@ interface
     vPos := ChrPos('|', AMask);
     if vPos = 0 then begin
       FMask := AMask;
+      if (FMask <> '') and (FMask[1] = '^') then begin
+        FFromBeg := True;
+        Delete(FMask, 1, 1);
+        if (FMask = '') or (FMask[Length(FMask)] <> '*') then
+          FMask := FMask + '*';
+      end;
       if (FMask <> '') and (FMask[1] = '!') then begin
         FNot := True;
         Delete(FMask, 1, 1);
@@ -871,6 +1066,9 @@ interface
     if FSubMasks = nil then begin
       if FExact then
         Result := StringMatch(FMask, FXMask, PTChar(AStr), APos, ALen)
+      else
+      if FFromBeg then
+        Result := StringMatch(FMask, FXMask, PTChar(AStr), APos, ALen, [moIgnoreCase, moWilcards])
       else
         Result := ChrCheckXMask(FMask, FXMask, PTChar(AStr), FRegExp, APos, ALen);
       if FNot then
@@ -962,6 +1160,23 @@ interface
   end;
 
 
+  function THistory.TryLockAndStore :Boolean;
+  begin
+    Result := False;
+    if TryLockHistory then begin
+      try
+        try
+          StoreModifiedHistory;
+          Result := True;
+        except
+        end;
+      finally
+        UnlockHistory;
+      end;
+    end;
+  end;
+
+
   procedure THistory.StoreModifiedHistory;
   begin
     if FModified then begin
@@ -992,7 +1207,7 @@ interface
 
   function THistory.StoreHistory :Boolean;
   var
-    I, vSize :Integer;
+    I, vSize, vAddHeaderSize :Integer;
     vFolder, vFileName, vBackupFileName, vTmpFileName :TString;
     vMemory :Pointer;
     vPtr :PAnsiChar;
@@ -1015,7 +1230,9 @@ interface
 
       LockHistory;
       try
-        vSize := SizeOf(cSignature) + SizeOf(Byte){Version} + SizeOf(Integer){Reserved} + SizeOf(Integer){Count};
+        vAddHeaderSize := GetAddHeaderSize;
+
+        vSize := SizeOf(cSignature) + SizeOf(Byte){Version} + SizeOf(Integer){AddHeaderSize} + vAddHeaderSize + SizeOf(Integer){Count};
         for I := 0 to FHistory.Count - 1 do
           Inc(vSize, Items[I].CalcSize);
 
@@ -1024,10 +1241,15 @@ interface
         vPtr := vMemory;
         PInteger(vPtr)^ := Integer(cSignature);
         Inc(vPtr, SizeOf(Integer));
+
         PByte(vPtr)^ := FVersion;
         Inc(vPtr, SizeOf(Byte));
-        PInteger(vPtr)^ := 0;
+
+        PInteger(vPtr)^ := vAddHeaderSize;
         Inc(vPtr, SizeOf(Integer));
+        WriteAddHeaderTo(vPtr, vAddHeaderSize);
+        Inc(vPtr, vAddHeaderSize);
+
         PInteger(vPtr)^ := FHistory.Count;
         Inc(vPtr, SizeOf(Integer));
 
@@ -1083,7 +1305,7 @@ interface
 
   function THistory.RestoreHistory :Boolean;
   var
-    I, vSize, vCount, vVersion :Integer;
+    I, vSize, vAddHeaderSize, vCount, vVersion :Integer;
     vFolder, vFileName :TString;
     vPtr :PAnsiChar;
     vFile :Integer;
@@ -1119,11 +1341,17 @@ interface
       if PInteger(vPtr)^ <> Integer(cSignature) then
         Exit;
       Inc(vPtr, SizeOf(Integer));
+
       vVersion := PByte(vPtr)^;
       if vVersion > FVersion then
         Exit;
       Inc(vPtr, SizeOf(Byte));
+
+      vAddHeaderSize := PInteger(vPtr)^;
       Inc(vPtr, SizeOf(Integer));
+      ReadAddHeaderFrom(vPtr, vAddHeaderSize, vVersion);
+      Inc(vPtr, vAddHeaderSize);
+
       vCount := PInteger(vPtr)^;
       Inc(vPtr, SizeOf(Integer));
 
@@ -1144,11 +1372,24 @@ interface
   end;
 
 
+  function THistory.GetAddHeaderSize :Integer; {virtual;}
+  begin
+    Result := 0;
+  end;
+
+  procedure THistory.WriteAddHeaderTo(APtr :Pointer1; ASize :Integer); {virtual;}
+  begin
+  end;
+
+  procedure THistory.ReadAddHeaderFrom(APtr :Pointer1; ASize :Integer; AVersion :Integer); {virtual;}
+  begin
+  end;
+
+
   function THistory.GetItems(AIndex :Integer) :THistoryEntry;
   begin
     Result := FHistory[AIndex];
   end;
-
 
 
  {-----------------------------------------------------------------------------}
@@ -1161,12 +1402,6 @@ interface
     FFileName  := cFldHistFileName;
     FVersion   := cFldVersion;
     FItemClass := TFldHistoryEntry;
-  end;
-
-
-  destructor TFldHistory.Destroy; {override;}
-  begin
-    inherited Destroy;
   end;
 
 
@@ -1360,9 +1595,170 @@ interface
   end;
 
 
+ {-----------------------------------------------------------------------------}
+ { TCmdHistory                                                                 }
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bCmdHistory}
+
+  constructor TCmdHistory.Create; {override;}
+  begin
+    inherited Create;
+    FFileName := cCmdHistFileName;
+    FVersion  := cCmdVersion;
+    FItemClass := TCmdHistoryEntry;
+    FLastCmd := #0;
+  end;
+
+
+  procedure TCmdHistory.UpdateHistory;
+  var
+    I :Integer;
+    vHandle :THandle;
+    vData :TFarSettingsEnum;
+    vTime, vNow :TDateTime;
+  begin
+    LockHistory;
+    try
+      vHandle := FarOpenSetings(GUID_NULL);
+      if vHandle = 0 then
+        Exit;
+
+      try
+        FillZero(vData, SizeOf(vData));
+        vData.Root := FSSF_HISTORY_CMD;
+        if FARAPI.SettingsControl(vHandle, SCTL_ENUM, 0, @vData) = 0 then
+          Exit;
+
+        vNow := Now + EncodeTime(0, 0, 1, 0);
+        for I := 0 to Integer(vData.Count) - 1 do
+          with vData.Value.Histories[I] do begin
+            vTime := FileTimeToDateTime(Time);
+            if (vTime > FTimeStamp) and (vTime <= vNow) then
+              AddHistoryStr(Name, vTime);
+          end;
+        FTimeStamp := Now;
+
+      finally
+        FARAPI.SettingsControl(vHandle, SCTL_FREE, 0, nil);
+      end;
+
+    finally
+      UnlockHistory;
+    end;
+  end;
+
+
+  procedure TCmdHistory.AddHistoryStr(const APath :TString; ATime :TDateTime);
+  var
+    vIndex :Integer;
+    vEntry :TCmdHistoryEntry;
+  begin
+//  TraceF('Add history: %s, %s', [DateTimeToStr(ATime), APath]);
+
+    if FHistory.FindKey(Pointer(APath), 0, [], vIndex) then begin
+      vEntry := FHistory[vIndex];
+      FHistory.Move(vIndex, FHistory.Count - 1);
+      Inc(vEntry.FHits);
+      vEntry.FTime := ATime;
+      FModified := True;
+    end else
+    begin
+      vEntry := TCmdHistoryEntry.CreateEx(APath);
+      vEntry.FTime := ATime;
+      vEntry.FHits := 1;
+      FHistory.Add(vEntry);
+      if FHistory.Count > optHistoryLimit then
+        FHistory.DeleteRange(0, FHistory.Count - optHistoryLimit);
+      FModified := True;
+    end;
+    
+    FLastCmd := #0;
+  end;
+
+
+  function TCmdHistory.GetAddHeaderSize :Integer; {virtual;}
+  begin
+    Result := SizeOf(TDateTime);
+  end;
+
+  procedure TCmdHistory.WriteAddHeaderTo(APtr :Pointer1; ASize :Integer); {virtual;}
+  begin
+    PDateTime(APtr)^ := FTimeStamp;
+  end;
+
+  procedure TCmdHistory.ReadAddHeaderFrom(APtr :Pointer1; ASize :Integer; AVersion :Integer); {virtual;}
+  begin
+    Assert(ASize = SizeOf(TDateTime));
+    FTimeStamp := PDateTime(APtr)^;
+  end;
+
+
+  function TCmdHistory.CmdLineFilter(const AStr :TString) :TString;
+  begin
+    if AStr <> FLastCmd then
+      Result := AStr
+    else
+      Result := FLastMask;
+    if Result <> '' then
+      Result := '^' + Result;  
+  end;
+
+
+  procedure TCmdHistory.CmdLineNext(AForward :Boolean; const AStr :TString);
+  var
+    i :Integer;
+  begin
+    CmdHistory.LoadModifiedHistory;
+    CmdHistory.UpdateHistory;
+
+    if AStr <> FLastCmd then begin
+      FLastMask := AStr;
+
+      FLastIndex := -1;
+      for i := FHistory.Count - 1 downto 0 do
+        if UpCompareSubStr(FLastMask, Items[i].Path) = 0 then begin
+          FLastIndex := i;
+          Break;
+        end;
+
+    end else
+    begin
+      i := FLastIndex;
+      while True do begin
+        if AForward then
+          Inc(i)
+        else
+          Dec(i);
+        if (i < 0) or (i >= FHistory.Count) then
+          Break;
+        if UpCompareSubStr(FLastMask, Items[i].Path) = 0 then
+          Break;
+      end;
+
+      if (i >= 0) and (i < FHistory.Count) then
+        FLastIndex := i
+      else begin
+        Beep;
+        Exit;
+      end;
+    end;
+
+    if (FLastIndex >= 0) and (FLastIndex < FHistory.Count) then begin
+      FLastCmd := Items[FLastIndex].Path;
+      FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(FLastCmd));
+    end else
+      Beep;
+  end;
+
+ {$endif bCmdHistory}
+
 
 initialization
 finalization
   FreeObj(FldHistory);
   FreeObj(EdtHistory);
+ {$ifdef bCmdHistory}
+  FreeObj(CmdHistory);
+ {$endif bCmdHistory}
 end.

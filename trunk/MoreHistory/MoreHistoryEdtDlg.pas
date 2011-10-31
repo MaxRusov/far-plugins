@@ -12,8 +12,6 @@ interface
 
   uses
     Windows,
-    PluginW,
-    FarKeysW,
 
     MixTypes,
     MixUtils,
@@ -21,6 +19,13 @@ interface
     MixStrings,
     MixClasses,
     MixWinUtils,
+
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
+    PluginW,
+   {$endif Far3}
+    FarKeysW,
 
     FarColor,
     FarCtrl,
@@ -40,6 +45,7 @@ interface
     TEdtMenuDlg = class(TMenuBaseDlg)
     public
       constructor Create; override;
+      destructor Destroy; override;
 
     protected
       function AcceptSelected(AItem :THistoryEntry; ACode :Integer) :Boolean; override;
@@ -50,11 +56,11 @@ interface
 
       function ItemMarkHidden(AItem :THistoryEntry) :Boolean; override;
       function GetEntryStr(AItem :THistoryEntry; AColTag :Integer) :TString; override;
-      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); override;
+      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); override;
 
       procedure ChangeHierarchMode; override;
 
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
 
     private
       FMode       :Integer;
@@ -63,12 +69,17 @@ interface
       FMaxFileLen :Integer;
       FMaxPathLen :Integer;
 
+      function CheckFileExists(const AFileName :TString) :Boolean;
       procedure ViewOrEditCurrent(AEdit :Boolean);
 
       procedure CommandsMenu;
       procedure ProfileMenu;
       procedure SortByMenu;
     end;
+
+
+  var
+    FFilesLastFilter :TString;
 
 
   procedure OpenEdtHistoryDlg(const ACaption, AModeName :TString; AMode :Integer; const AFilter :TString);
@@ -89,11 +100,26 @@ interface
   constructor TEdtMenuDlg.Create; {override;}
   begin
     inherited Create;
+//  RegisterHints(Self);  !!!
+    FGUID := cFilesDlgID;
+    FHelpTopic := 'EdtHistoryList';
+  end;
+
+
+  destructor TEdtMenuDlg.Destroy; {override;}
+  begin
+//  UnregisterHints;
+    inherited Destroy;
   end;
 
 
   function TEdtMenuDlg.AcceptSelected(AItem :THistoryEntry; ACode :Integer) :Boolean; {override;}
   begin
+    Result := False;
+    if ACode <> 2 then
+      if not CheckFileExists(AItem.Path) then
+        Exit;
+      
     Result := inherited AcceptSelected(AItem, ACode);
   end;
 
@@ -210,7 +236,7 @@ interface
   end;
 
 
-  procedure TEdtMenuDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); {override;}
+  procedure TEdtMenuDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); {override;}
   var
     vRec :PFilterRec;
     vItem :THistoryEntry;
@@ -257,6 +283,31 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  function TEdtMenuDlg.CheckFileExists(const AFileName :TString) :Boolean;
+  var
+    vRes :Integer;
+  begin
+    Result := True;
+    if not WinFileExists(AFileName) then begin
+
+      vRes := ShowMessage(GetMsgStr(strConfirmation), GetMsgStr(strFileNotFound) + #10 + AFileName + #10 +
+        GetMsgStr(strCreateFileBut) + #10 + GetMsgStr(strDeleteBut) + #10 + GetMsgStr(strCancel),
+        FMSG_WARNING, 3);
+
+      case vRes of
+        0: {};
+        1:
+        begin
+          Result := False;
+          DeleteSelected;
+        end;
+      else
+        Result := False;
+      end;
+    end;
+  end;
+
+
   procedure TEdtMenuDlg.ViewOrEditCurrent(AEdit :Boolean);
   var
     vSave :THandle;
@@ -265,11 +316,13 @@ interface
     vItem := GetHistoryEntry(FGrid.CurRow);
     if (vItem <> nil) and (DlgItemFlag(FGrid.CurRow) and 2 = 0) then begin
 
+      if not CheckFileExists(vItem.Path) then
+        Exit;
+
       { Глючит, если в процессе просмотра/редактирования файла изменить размер консоли...}
       SendMsg(DM_ShowDialog, 0, 0);
       vSave := FARAPI.SaveScreen(0, 0, -1, -1);
       try
-        {!!! Проверить существование файла}
         {!!! Проверить, что файл уже открыт на редактирование }
         FarEditOrView(vItem.Path, AEdit, EF_ENABLE_F6);
       finally
@@ -434,54 +487,48 @@ interface
     end else
       optHierarchical := False;
     ReinitAndSaveCurrent;
-    WriteSetup(FModeName);
+    FSetChanged := True;
   end;
 
 
-
-  function TEdtMenuDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr): TIntPtr; {override;}
+  function TEdtMenuDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
   begin
-    Result := 1;
-    case Msg of
-      DN_KEY: begin
-        case Param2 of
-          KEY_F2:
-            CommandsMenu;
-          KEY_F9:
-            ProfileMenu;
-          KEY_CTRLF12:
-            SortByMenu;
+    Result := True;
+    case AKey of
 
-          KEY_F3:
-            ViewOrEditCurrent(False);
-          KEY_F4:
-            ViewOrEditCurrent(True);
+      KEY_F2:
+        CommandsMenu;
+      KEY_F9:
+        ProfileMenu;
+      KEY_CTRLF12:
+        SortByMenu;
 
-          KEY_CTRLN:
-            ToggleOption(optSeparateName);
-          KEY_CTRL1:
-            ToggleOption(optShowFullPath);
-          KEY_CTRL2:
-            ToggleOption(optShowDate);
-          KEY_CTRL3:
-            ToggleOption(optShowHits);
-          KEY_CTRL4:
-            ToggleOption(optShowModify);
-          KEY_CTRL5:
-            ToggleOption(optShowSaves);
+      KEY_F3:
+        ViewOrEditCurrent(False);
+      KEY_F4:
+        ViewOrEditCurrent(True);
 
-          { Сортировка }
-          KEY_CTRLF4, KEY_CTRLSHIFTF4:
-            SetOrder(-4);
-          KEY_CTRLF5, KEY_CTRLSHIFTF5:
-            SetOrder(-5);
+      KEY_CTRLN:
+        ToggleOption(optSeparateName);
+      KEY_CTRL1:
+        ToggleOption(optShowFullPath);
+      KEY_CTRL2:
+        ToggleOption(optShowDate);
+      KEY_CTRL3:
+        ToggleOption(optShowHits);
+      KEY_CTRL4:
+        ToggleOption(optShowModify);
+      KEY_CTRL5:
+        ToggleOption(optShowSaves);
 
-        else
-          Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
-      end;
+      { Сортировка }
+      KEY_CTRLF4, KEY_CTRLSHIFTF4:
+        SetOrder(-4);
+      KEY_CTRLF5, KEY_CTRLSHIFTF5:
+        SetOrder(-5);
+
     else
-      Result := inherited DialogHandler(Msg, Param1, Param2);
+      Result := inherited KeyDown(AID, AKey);
     end;
   end;
 
@@ -507,7 +554,7 @@ interface
     vInfo :TEditorInfo;
   begin
     Result := 0;
-    if FARAPI.EditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
+    if FarEditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
       Result := vInfo.CurLine + 1;
     end;
   end;
@@ -521,7 +568,7 @@ interface
   begin
     Dec(ARow); Dec(ACol);
     vNewTop := -1;
-    if FARAPI.EditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
+    if FarEditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
       if ATopLine = 0 then
         vHeight := vInfo.WindowSizeY
       else
@@ -535,7 +582,7 @@ interface
     vPos.CurTabPos := -1;
     vPos.LeftPos := -1;
     vPos.Overtype := -1;
-    FARAPI.EditorControl(ECTL_SETPOSITION, @vPos);
+    FarEditorControl(ECTL_SETPOSITION, @vPos);
   end;
 
 
@@ -545,17 +592,20 @@ interface
     vFileName :TString;
     vFound :Boolean;
   begin
-    {!!! Проверить существование файла }
     vFileName := EditorFile(-1);
     vFound := StrEqual(vFileName, AFileName);
     if not vFound then begin
-      vCount := FARAPI.AdvControl(hModule, ACTL_GETWINDOWCOUNT, nil);
+      vCount := FarAdvControl(ACTL_GETWINDOWCOUNT, nil);
       for I := 0 to vCount - 1 do begin
         vFileName := EditorFile(I);
         vFound := StrEqual(vFileName, AFileName);
         if vFound then begin
-          FARAPI.AdvControl(hModule, ACTL_SETCURRENTWINDOW, Pointer(TIntPtr(I)));
-          FARAPI.AdvControl(hModule, ACTL_COMMIT, nil);
+         {$ifdef Far3}
+          FARAPI.AdvControl(PluginID, ACTL_SETCURRENTWINDOW_, I, nil);
+         {$else}
+          FarAdvControl(ACTL_SETCURRENTWINDOW, Pointer(TIntPtr(I)));
+         {$endif Far3}
+          FarAdvControl(ACTL_COMMIT, nil);
           Break;
         end;
       end;
@@ -635,7 +685,7 @@ interface
 
         vFilter := AFilter;
         if (vFilter = '') and optSaveMask then
-          vFilter := FLastFilter;
+          vFilter := FFilesLastFilter;
         vDlg.SetFilter(vFilter);
 
         vFinish := False;
@@ -658,6 +708,7 @@ interface
         end;
 
       finally
+        FFilesLastFilter := vDlg.GetFilter;
         FreeObj(vDlg);
       end;
 

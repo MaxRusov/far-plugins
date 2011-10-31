@@ -8,17 +8,26 @@
 "&Folders history"
 "&View/Edit history"
 "&Modify history"
+"&Command History"
+"&Previous Command"
+"&Next Command"
 "&Options"
 
 "Folders History"
 "View/Edit History"
 "Modify History"
+"Command History"
 
 "Confirmation"
 "Delete all selected entries?"
 "Clear hit info for all selected entries?"
 "Mark all selected entries as transit?"
 "Mark all selected entries as actual?"
+
+"File not found"
+"&Create file"
+"&Delete from history"
+"Cancel"
 
 "Path"
 "FTP"
