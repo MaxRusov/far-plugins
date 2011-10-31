@@ -18,30 +18,33 @@ interface
     MixStrings,
     MixWinUtils,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
     FarCtrl,
+    FarPlug,
 
     PlugMenuCtrl,
     PlugMenuPlugs,
     PlugListDlg;
 
+    
+  type
+    TPlugMenuPlug = class(TFarPlug)
+    public
+      destructor Destroy; override;
+      procedure Init; override;
+      procedure Startup; override;
+      procedure Configure; override;
+      procedure GetInfo; override;
+      function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      procedure SynchroEvent(AParam :Pointer); override;
+      procedure ErrorHandler(E :Exception); override;
 
- {$ifdef bUnicodeFar}
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-  function GetMinFarVersionW :Integer; stdcall;
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
-  procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
- {$else}
-  procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
-  procedure ExitFAR; stdcall;
-  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
- {$endif bUnicodeFar}
+    private
+    end;
 
 
 {******************************************************************************}
@@ -52,6 +55,8 @@ interface
     MixDebug;
 
 
+ {$ifdef Far3}
+ {$else}
   function GetPluginsPath :TString;
   var
     vPtr :PTChar;
@@ -100,6 +105,7 @@ interface
     end else
       Result := GetPluginsPath;
   end;
+ {$endif Far3}
 
 
  {-----------------------------------------------------------------------------}
@@ -133,38 +139,49 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- { Экспортируемые процедуры                                                    }
+ { TPlugMenuPlug                                                               }
  {-----------------------------------------------------------------------------}
 
- {$ifdef bUnicodeFar}
-  function GetMinFarVersionW :Integer; stdcall;
+  destructor TPlugMenuPlug.Destroy; {override;}
   begin
-//  Result := MakeFarVersion(2, 0, 910);    { Новый формат кэша плагинов. }
-//  Result := MakeFarVersion(2, 0, 995);    { Изменена TWindowInfo }
-//  Result := MakeFarVersion(2, 0, 1148);   { ConvertPath }
-    Result := MakeFarVersion(2, 0, 1573);   { ACTL_GETFARRECT }
+    inherited Destroy;
   end;
- {$endif bUnicodeFar}
 
 
- {$ifdef bUnicodeFar}
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
- {$else}
-  procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
- {$endif bUnicodeFar}
+  procedure TPlugMenuPlug.Init; {override;}
   begin
-//  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
-    hModule := psi.ModuleNumber;
-    Move(psi, FARAPI, SizeOf(FARAPI));
-    Move(psi.fsf^, FARSTD, SizeOf(FARSTD));
+    inherited Init;
 
-    hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
+
+   {$ifdef Far3}
+    FGUID := cPluginID;
+   {$else}
+   {$endif Far3}
+
+   {$ifdef Far3}
+   {$else}
+//  FMinFarVer := MakeVersion(2, 0, 910);    { Новый формат кэша плагинов. }
+//  FMinFarVer := MakeVersion(2, 0, 995);    { Изменена TWindowInfo }
+//  FMinFarVer := MakeVersion(2, 0, 1148);   { ConvertPath }
+    FMinFarVer := MakeVersion(2, 0, 1573);   { ACTL_GETFARRECT }
+   {$endif Far3}
+  end;
+
+
+  procedure TPlugMenuPlug.Startup; {override;}
+  begin
+    hFarWindow := FarAdvControl(ACTL_GETFARHWND, nil);
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
 
-    FModulePath := RemoveBackSlash(ExtractFilePath(psi.ModuleName));
+    FModulePath := RemoveBackSlash(ExtractFilePath(FARAPI.ModuleName));
     FFarExePath := RemoveBackSlash(ExtractFilePath(GetExeModuleFileName));
 
-    FRegRoot := psi.RootKey;
+   {$ifdef Far3}
+   {$else}
+    FRegRoot := FARAPI.RootKey;
     FFarRegRoot := RemoveBackSlash(ExtractFilePath(FRegRoot));
     FCacheRoot := AddFileName(FFarRegRoot, cRegCacheKey);
     FHotkeysRoot := AddFileName(FFarRegRoot, cRegHotkeyKey);
@@ -174,88 +191,73 @@ interface
     FCacheConfigValue := cRegCacheConfigValue;
 
     FPluginsPath := RemoveBackSlash(GetPluginsPathEx);
-
     if not FSkipAddPaths then
       FAddPluginsPaths := RegGetStrValue(HKCU, AddFileName(FFarRegRoot, cRegSystemKey), cRegPersPlugPathValue, '');
+   {$endif Far3}
 
+    RestoreDefColor;
     ReadSetup;
   end;
 
 
-  var
-    PluginMenuStrings: array[0..0] of PFarChar;
-
-
- {$ifdef bUnicodeFar}
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
- {$else}
-  procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
- {$endif bUnicodeFar}
+  procedure TPlugMenuPlug.GetInfo; {override;}
   begin
-//  Trace('GetPluginInfo');
+    FFlags := PF_EDITOR or PF_VIEWER or PF_DIALOG or PF_FULLCMDLINE;
 
-    pi.StructSize:= SizeOf(pi);
-    pi.Flags:= PF_EDITOR or PF_VIEWER or PF_DIALOG or PF_FULLCMDLINE;
+    FMenuStr := GetMsg(strTitle);
+    FConfigStr := FMenuStr;
+   {$ifdef Far3}
+    FMenuID := cMenuID;
+    FConfigID := cConfigID;
+   {$endif Far3}
 
-    PluginMenuStrings[0] := GetMsg(strTitle);
-    pi.PluginMenuStringsNumber := 1;
-    pi.PluginMenuStrings := Pointer(@PluginMenuStrings);
-   {$ifdef bUnicode}
-    pi.CommandPrefix := cPlugMenuPrefix + ':' + cPlugLoadPrefix + ':' + cPlugUnloadPrefix;
-   {$else}
-    pi.CommandPrefix := cPlugMenuPrefix;
-   {$endif bUnicode}
+    FPrefix := cPlugMenuPrefix + ':' + cPlugLoadPrefix + ':' + cPlugUnloadPrefix;
   end;
 
 
- {$ifdef bUnicodeFar}
-  procedure ExitFARW; stdcall;
- {$else}
-  procedure ExitFAR; stdcall;
- {$endif bUnicodeFar}
+  procedure TPlugMenuPlug.Configure; {override;}
   begin
-//  Trace('ExitFAR');
+    ConfigDlg;
   end;
 
-  
- {$ifdef bUnicodeFar}
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
- {$else}
-  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
- {$endif bUnicodeFar}
+
+  function TPlugMenuPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   var
     vWinInfo :TWindowInfo;
   begin
     Result := INVALID_HANDLE_VALUE;
-//  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
 
-    try
-     {$ifndef bUnicode}
-      SetFileApisToAnsi;
-      try
-     {$endif bUnicode}
-        InitFarPluginsList;
+    InitFarPluginsList;
 
-        FillChar(vWinInfo, SizeOf(vWinInfo), 0);
-        vWinInfo.Pos := -1;
-        FARAPI.AdvControl(hModule, ACTL_GETSHORTWINDOWINFO, @vWinInfo);
-
-        if OpenFrom = OPEN_COMMANDLINE then
-          OpenCmdLine(FarChar2Str(PFarChar(Item)), vWinInfo.WindowType)
-        else
-        if OpenFrom in [OPEN_PLUGINSMENU, OPEN_EDITOR, OPEN_VIEWER, OPEN_DIALOG] then
-          OpenMenu(vWinInfo.WindowType);
-
-     {$ifndef bUnicode}
-      finally
-        SetFileApisToOEM;
-      end;
-     {$endif bUnicode}
-
-    except
-      on E :Exception do
-        ShowMessage('PlugMenu', E.Message, FMSG_WARNING or FMSG_MB_OK);
+    if AFrom and OPEN_FROMMACRO <> 0 then begin
+      if AFrom and OPEN_FROMMACROSTRING <> 0 then
+        {}
+      else
+        FarAdvControl(ACTL_SYNCHRO, Pointer(AParam))
+    end else
+    begin
+      FarGetWindowInfo(-1, vWinInfo);
+      if AFrom = OPEN_COMMANDLINE then
+        OpenCmdLine(FarChar2Str(PFarChar(AParam)), vWinInfo.WindowType)
+      else
+      if AFrom in [OPEN_PLUGINSMENU, OPEN_EDITOR, OPEN_VIEWER, OPEN_DIALOG] then
+        OpenMenu(vWinInfo.WindowType);
     end;
+  end;
+
+
+  procedure TPlugMenuPlug.SynchroEvent(AParam :Pointer); {override;}
+  var
+    vWinInfo :TWindowInfo;
+  begin
+    FarGetWindowInfo(-1, vWinInfo);
+    OpenMenu(vWinInfo.WindowType);
+  end;
+
+
+  procedure TPlugMenuPlug.ErrorHandler(E :Exception); {override;}
+  begin
+    ShowMessage('PlugMenu', E.Message, FMSG_WARNING or FMSG_MB_OK);
   end;
 
 

@@ -1,9 +1,9 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{$ifdef bDelphi}
+{$ifdef Debug}
  {$ImageBase $40500000}
-{$endif bDelphi}
+{$endif Debug}
 
 library PlugMenu;
 
@@ -12,22 +12,23 @@ uses
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
+  FarPlug,
   PlugMenuMain;
 
 exports
- {$ifdef bUnicode}
+ {$ifdef Far3}
+  GetGlobalInfoW,
+ {$endif Far3}
   SetStartupInfoW,
-  GetMinFarVersionW,
   GetPluginInfoW,
-  OpenPluginW,
-  ExitFARW;
+ {$ifdef Far3}
+  OpenW,
  {$else}
-  SetStartupInfo,
-  GetPluginInfo,
-  OpenPlugin,
-  ExitFAR;
- {$endif bUnicode}
-
+  OpenPluginW,
+ {$endif Far3}
+  ConfigureW,
+  ProcessSynchroEventW,
+  ExitFARW;
 
  {$ifdef bUnicode}
   {$R PlugMenuW.res}
@@ -35,5 +36,6 @@ exports
   {$R PlugMenuA.res}
  {$endif bUnicode}
 
-
+begin
+  Plug := TPlugMenuPlug.Create;
 end.

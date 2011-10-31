@@ -19,18 +19,18 @@ interface
     MixUtils,
     MixFormat,
     MixStrings,
-   {$ifdef bUnicodeFar}
-    PluginW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
     FarCtrl,
     FarDlg,
 
     PlugMenuCtrl,
     PlugMenuPlugs;
 
-    
+
   procedure ViewPluginInfo(APlugin :TFarPlugin);
 
 
@@ -57,24 +57,30 @@ interface
     Result := ShellExecuteEx(@vInfo);
   end;
 
+
  {-----------------------------------------------------------------------------}
 
+  type
+    TPlugProps = (
+      ppFileName,
+      ppFolder,
+      ppModified,
+     {$ifdef Far3}
+      ppTitle,
+      ppDescr,
+      ppAuthor,
+      ppGUID,
+     {$endif Far3}
+      ppVerinfo,
+      ppCopyright,
+      ppVersion,
+      ppEncoding,
+      ppFlags,
+      ppPrefixes
+    );
+
   const
-    cProps = 9;
-
-    IdFileName  = 12;
-    IdFolder    = IdFileName+1;
-    IdModified  = IdFileName+2;
-    IdDescr     = IdFileName+3;
-    IdCopyright = IdFileName+4;
-    IdVersion   = IdFileName+5;
-    IdMode      = IdFileName+6;
-    IdFlags     = IdFileName+7;
-    IdPrefixes  = IdFileName+8;
-
-    IdButOk     = IdFileName+10;
-    IdButProp   = IdFileName+11;
-
+    IdFileName  = 12{$ifdef Far3} + 5 {$endif};
 
   type
     FInfoDlg = class(TFarDialog)
@@ -90,8 +96,8 @@ interface
     private
       FPlugin :TFarPlugin;
 
-      FPrompts :Array[0..cProps - 1] of TString;
-      FDatas   :Array[0..cProps - 1] of TString;
+      FPrompts :Array[TPlugProps] of TString;
+      FDatas   :Array[TPlugProps] of TString;
     end;
 
 
@@ -104,46 +110,61 @@ interface
 
   procedure FInfoDlg.Prepare; {override;}
   const
-    DY = 17;
+    DY = 17 {$ifdef Far3} + 5 {$endif};
+    cInfoType = DI_EDIT;
+    cInfoFlags = DIF_READONLY;
   var
-    I :Integer;
-    vDX1, vDX2, vMaxWidth :Integer;
+    I :TPlugProps;
+    vDX1, vDX2, vDY1, vMaxWidth :Integer;
     vSize :TSize;
   begin
+    FGUID := cPlugInfoID;
     vSize := FarGetWindowSize;
     vMaxWidth := vSize.CX - 4;
 
-    FPrompts[0] := GetMsg(strInfoFileName);
-    FPrompts[1] := GetMsg(strInfoFolder);
-    FPrompts[2] := GetMsg(strInfoModified);
-    FPrompts[3] := GetMsg(strInfoDescr);
-    FPrompts[4] := GetMsg(strInfoCopyright);
-    FPrompts[5] := GetMsg(strInfoVersion);
-    FPrompts[6] := GetMsg(strInfoEncoding);
-    FPrompts[7] := GetMsg(strInfoFlags);
-    FPrompts[8] := GetMsg(strInfoPrefixes);
+    FPrompts[ppFileName]  := GetMsg(strInfoFileName);
+    FPrompts[ppFolder]    := GetMsg(strInfoFolder);
+    FPrompts[ppModified]  := GetMsg(strInfoModified);
+   {$ifdef Far3}
+    FPrompts[ppTitle]     := 'Title';  {!!!Localize}
+    FPrompts[ppDescr]     := 'Description';
+    FPrompts[ppAuthor]    := 'Author';
+    FPrompts[ppGUID]      := 'GUID';
+   {$endif Far3}
+    FPrompts[ppVerinfo]   := GetMsg(strInfoDescr);
+    FPrompts[ppCopyright] := GetMsg(strInfoCopyright);
+    FPrompts[ppVersion]   := GetMsg(strInfoVersion);
+    FPrompts[ppEncoding]  := GetMsg(strInfoEncoding);
+    FPrompts[ppFlags]     := GetMsg(strInfoFlags);
+    FPrompts[ppPrefixes]  := GetMsg(strInfoPrefixes);
 
-    FDatas[0] := ExtractFileName(FPlugin.FileName);
-    FDatas[1] := RemoveBackSlash(ExtractFilePath(FPlugin.FileName));
-    FDatas[2] := DateTimeToStr(FPlugin.FileDate);
-    FDatas[3] := FPlugin.Description;
-    FDatas[4] := FPlugin.Copyright;
-    FDatas[5] := FPlugin.Version;
-    FDatas[6] := StrIf(FPlugin.Unicode, 'Unicode', 'Ansi');
-    FDatas[7] := FPlugin.GetFlagsStrEx;
-    FDatas[8] := StrReplace(FPlugin.Prefixes, ':', ', ', [rfReplaceAll]);
+    FDatas[ppFileName]  := ExtractFileName(FPlugin.FileName);
+    FDatas[ppFolder]    := RemoveBackSlash(ExtractFilePath(FPlugin.FileName));
+    FDatas[ppModified]  := DateTimeToStr(FPlugin.FileDate);
+   {$ifdef Far3}
+    FDatas[ppTitle]     := FPlugin.PlugTitle;
+    FDatas[ppDescr]     := FPlugin.PlugDescr;
+    FDatas[ppAuthor]    := FPlugin.PlugAuthor;
+    FDatas[ppGUID]      := GUIDToString(FPlugin.GUID);
+   {$endif Far3}
+    FDatas[ppVerinfo]   := FPlugin.Description;
+    FDatas[ppCopyright] := FPlugin.Copyright;
+    FDatas[ppVersion]   := FPlugin.Version;
+    FDatas[ppEncoding]  := StrIf(FPlugin.Unicode, 'Unicode', 'Ansi');
+    FDatas[ppFlags]     := FPlugin.GetFlagsStrEx;
+    FDatas[ppPrefixes]  := StrReplace(FPlugin.Prefixes, ':', ', ', [rfReplaceAll]);
 
     vDX1 := 0;
-    for I := 0 to cProps - 1 do
+    for I := Low(TPlugProps) to High(TPlugProps) do
       vDX1 := IntMax(vDX1, Length(FPrompts[I]));
 
-    for I := 0 to cProps - 1 do
+    for I := Low(TPlugProps) to High(TPlugProps) do
       FPrompts[I] := StrLeftAjust(FPrompts[I], vDX1) + ' :';
-    Inc(vDX1, 2);  
+    Inc(vDX1, 2);
 
     vDX2 := 0;
-    for I := 0 to cProps - 1 do
-      vDX2 := IntMax(vDX2, Length(FDatas[I]));
+    for I := Low(TPlugProps) to High(TPlugProps) do
+      vDX2 := IntMax(vDX2, Length(FDatas[I]) + 1{Edit});
 
     FHeight := DY;
     FWidth := vDX1 + vDX2 + 11;
@@ -152,38 +173,53 @@ interface
       vDX2 := FWidth - vDX1 - 11;
     end;
 
-    FItemCount := 24;
+    vDY1 := 5 {$ifdef Far3} + 5 {$endif};
     FDialog := CreateDialog(
       [
         NewItemApi(DI_DoubleBox, 3,  1, FWidth-6, DY-2, 0, GetMsg(strPlugInfoTitle)),
-        NewItemApi(DI_Text,      5,  2, 5+vDX1, -1,  0,  PTChar(FPrompts[0]) ),
-        NewItemApi(DI_Text,      5,  3, 5+vDX1, -1,  0,  PTChar(FPrompts[1]) ),
-        NewItemApi(DI_Text,      5,  4, 5+vDX1, -1,  0,  PTChar(FPrompts[2]) ),
-        NewItemApi(DI_Text,      0,  5, -1,     -1,  DIF_SEPARATOR, ''),
-        NewItemApi(DI_Text,      5,  6, 5+vDX1, -1,  0,  PTChar(FPrompts[3]) ),
-        NewItemApi(DI_Text,      5,  7, 5+vDX1, -1,  0,  PTChar(FPrompts[4]) ),
-        NewItemApi(DI_Text,      5,  8, 5+vDX1, -1,  0,  PTChar(FPrompts[5]) ),
-        NewItemApi(DI_Text,      0,  9, -1,     -1,  DIF_SEPARATOR, ''),
-        NewItemApi(DI_Text,      5, 10, 5+vDX1, -1,  0,  PTChar(FPrompts[6]) ),
-        NewItemApi(DI_Text,      5, 11, 5+vDX1, -1,  0,  PTChar(FPrompts[7]) ),
-        NewItemApi(DI_Text,      5, 12, 5+vDX1, -1,  0,  PTChar(FPrompts[8]) ),
+        NewItemApi(DI_Text,      5,  2, 5+vDX1, -1,  0,  PTChar(FPrompts[ppFileName]) ),
+        NewItemApi(DI_Text,      5,  3, 5+vDX1, -1,  0,  PTChar(FPrompts[ppFolder]  ) ),
+        NewItemApi(DI_Text,      5,  4, 5+vDX1, -1,  0,  PTChar(FPrompts[ppModified]) ),
+       {$ifdef Far3}
+        NewItemApi(DI_Text,      0,  5, -1,     -1,  DIF_SEPARATOR, ' FAR3 Info '),   {!!!Localize}
+        NewItemApi(DI_Text,      5,  6, 5+vDX1, -1,  0,  PTChar(FPrompts[ppTitle] ) ),
+        NewItemApi(DI_Text,      5,  7, 5+vDX1, -1,  0,  PTChar(FPrompts[ppDescr] ) ),
+        NewItemApi(DI_Text,      5,  8, 5+vDX1, -1,  0,  PTChar(FPrompts[ppAuthor]) ),
+        NewItemApi(DI_Text,      5,  9, 5+vDX1, -1,  0,  PTChar(FPrompts[ppGUID]) ),
+       {$endif Far3}
+        NewItemApi(DI_Text,      0,  vDY1+0, -1,     -1,  DIF_SEPARATOR, ' Version Info '), {!!!Localize}
+        NewItemApi(DI_Text,      5,  vDY1+1, 5+vDX1, -1,  0,  PTChar(FPrompts[ppVerinfo]  ) ),
+        NewItemApi(DI_Text,      5,  vDY1+2, 5+vDX1, -1,  0,  PTChar(FPrompts[ppCopyright]) ),
+        NewItemApi(DI_Text,      5,  vDY1+3, 5+vDX1, -1,  0,  PTChar(FPrompts[ppVersion]  ) ),
+        NewItemApi(DI_Text,      0,  vDY1+4, -1,     -1,  DIF_SEPARATOR, ''),
+        NewItemApi(DI_Text,      5,  vDY1+5, 5+vDX1, -1,  0,  PTChar(FPrompts[ppEncoding]) ),
+        NewItemApi(DI_Text,      5,  vDY1+6, 5+vDX1, -1,  0,  PTChar(FPrompts[ppFlags]   ) ),
+        NewItemApi(DI_Text,      5,  vDY1+7, 5+vDX1, -1,  0,  PTChar(FPrompts[ppPrefixes]) ),
 
-        NewItemApi(DI_Text, 6+vDX1,  2, vDX2, -1,  0,  '' ),
-        NewItemApi(DI_Text, 6+vDX1,  3, vDX2, -1,  0,  '' ),
-        NewItemApi(DI_Text, 6+vDX1,  4, vDX2, -1,  0,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  2, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  3, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  4, vDX2, -1,  cInfoFlags,  '' ),
 
-        NewItemApi(DI_Text, 6+vDX1,  6, vDX2, -1,  0,  '' ),
-        NewItemApi(DI_Text, 6+vDX1,  7, vDX2, -1,  0,  '' ),
-        NewItemApi(DI_Text, 6+vDX1,  8, vDX2, -1,  0,  '' ),
+       {$ifdef Far3}
+        NewItemApi(cInfoType, 6+vDX1,  6, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  7, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  8, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  9, vDX2, -1,  cInfoFlags,  '' ),
+       {$endif Far3}
 
-        NewItemApi(DI_Text, 6+vDX1, 10, vDX2, -1,  0,  '' ),
-        NewItemApi(DI_Text, 6+vDX1, 11, vDX2, -1,  0,  '' ),
-        NewItemApi(DI_Text, 6+vDX1, 12, vDX2, -1,  0,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  vDY1+1, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  vDY1+2, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  vDY1+3, vDX2, -1,  cInfoFlags,  '' ),
 
-        NewItemApi(DI_Text,   0, DY-4, -1, -1, DIF_SEPARATOR, ''),
-        NewItemApi(DI_Button, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strButClose)),
-        NewItemApi(DI_Button, 0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strButProps))
-      ]
+        NewItemApi(cInfoType, 6+vDX1,  vDY1+5, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  vDY1+6, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  vDY1+7, vDX2, -1,  cInfoFlags,  '' ),
+
+        NewItemApi(DI_Text,      0, DY-4, -1, -1, DIF_SEPARATOR, ''),
+        NewItemApi(DI_DefButton, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strButClose)),
+        NewItemApi(DI_Button,    0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strButProps))
+      ],
+      @FItemCount
     );
 
 //  FHelpTopic := 'PluginInfo';
@@ -192,10 +228,11 @@ interface
 
   procedure FInfoDlg.InitDialog; {override;}
   var
-    I :Integer;
+    I :TPlugProps;
   begin
-    for I := 0 to cProps - 1 do
-      SetText(IdFileName + I, FDatas[I]);
+    SendMsg(DM_SetFocus, FItemCount - 2, 0);
+    for I := Low(TPlugProps) to High(TPlugProps) do
+      SetText(IdFileName + byte(I), FDatas[I]);
   end;
 
 
@@ -210,7 +247,7 @@ interface
     Result := 1;
     case Msg of
       DN_BTNCLICK:
-        if Param1 = IdButProp then begin
+        if Param1 = FItemCount-1 {IdButProp} then begin
           ShellOpenEx(hFarWindow, FPlugin.FileName)
         end else
           Result := inherited DialogHandler(Msg, Param1, Param2);

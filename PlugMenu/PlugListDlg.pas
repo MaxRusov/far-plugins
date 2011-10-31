@@ -19,18 +19,19 @@ interface
     MixStrings,
     MixClasses,
     MixWinUtils,
-   {$ifdef bUnicodeFar}
-    PluginW,
-    FarKeysW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-    FarKeys,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
+    FarKeysW,
     FarColor,
     FarCtrl,
     FarMatch,
+    FarMenu,
     FarDlg,
     FarGrid,
+    FarListDlg,
 
     PlugMenuCtrl,
     PlugMenuPlugs,
@@ -40,51 +41,9 @@ interface
 
 
   var
-    PluginAutoShortcut :Boolean = True;
-
-    PluginShowLoaded   :Boolean = True;
-   {$ifdef bUnicode}
-    PluginShowAnsi     :Boolean = True;
-   {$endif bUnicode}
-    PluginShowFileName :Integer = 0;
-    PluginShowFlags    :Boolean = False;
-    PluginShowDate     :Integer = 0;
-    PluginShowUseDate  :Integer = 0;
-
-    PluginShowHidden   :Integer = 0;
-
-    PluginSortMode     :Integer = 0;
-    PluginSortGroup    :Boolean = False;
-
-    optShowHints       :Boolean = True;
-    optFollowMouse     :Boolean = True;
-    optWrapMode        :Boolean = True;
-
-    optHiddenColor     :Integer = 0;
-    optFoundColor      :Integer = $0A;
-//  optSelectedColor   :Integer = $20;
-
-
-  var
-    LastPlugin         :TString;
-    LastFilter         :TString;
-    LastColumn         :Integer;
-
-  const
-   {$ifdef bUnicode}
-    chrHiddenMark       :TChar = #$2022;
-    chrUnaccessibleMark :TChar = #9632 { $25AC };
-    chrUpMark           :TChar = #$18; { $1E }
-    chrDnMark           :TChar = #$19; { $1F }
-   {$else}
-    chrHiddenMark       :TChar = #$07;
-    chrUnaccessibleMark :TChar = #$16;
-    chrUpMark           :TChar = #$18; { $1E }
-    chrDnMark           :TChar = #$19; { $1F }
-   {$endif bUnicode}
-
-    chrLoadedMark       :TChar = '*';
-    chrUnregisteredMark :TChar = 'x';
+    LastPlugin  :TString;
+    LastFilter  :TString;
+    LastColumn  :Integer;
 
 
   type
@@ -114,7 +73,7 @@ interface
 
 
   type
-    TMenuDlg = class(TFarDialog)
+    TMenuDlg = class(TFarListDlg)
     public
       constructor Create; override;
       destructor Destroy; override;
@@ -128,15 +87,14 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
+      function CloseDialog(ItemID :Integer) :Boolean; override;
+
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
     private
-      FGrid           :TFarGrid;
-
-      FHotkeyColor1   :Integer;
-      FHotkeyColor2   :Integer;
-      FHiddenColor    :Integer;
-      FFoundColor     :Integer;
+      FHotkeyColor1   :TFarColor;
+      FHotkeyColor2   :TFarColor;
 
       FWindowType     :Integer;
       FFilter         :TMyFilter;
@@ -144,7 +102,8 @@ interface
       FFilterMask     :TString;
       FFilterColumn   :Integer;
       FTotalCount     :Integer;
-      FMenuMaxWidth   :Integer;
+      
+      FSetChanged     :Boolean;
 
       FChoosenCmd     :TFarPluginCmd;
       FChoosenCommand :Integer;
@@ -152,10 +111,9 @@ interface
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
       procedure GridPosChange(ASender :TFarGrid);
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
-      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
-      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
+      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor);
 
-      procedure ResizeDialog;
       procedure UpdateHeader;
       procedure UpdateFooter;
       procedure ReinitGrid;
@@ -175,9 +133,7 @@ interface
       procedure SelectItem(ACode :Integer);
       procedure ToggleOption(var AOption :Boolean; ASaveCurrent :Boolean);
       procedure ToggleOptionInt(var AOption :Integer; ANewValue :Integer; ASaveCurrent :Boolean);
-     {$ifdef bUnicode}
       procedure PromptAndLoadPlugin;
-     {$endif bUnicode}
 
       function DlgItemsCount :Integer;
       function CurrentDlgIndex :Integer;
@@ -192,9 +148,6 @@ interface
 
   procedure OpenMenu(AWinType :Integer; const AInitFilter :TString = '');
 
-  procedure ReadSetup;
-  procedure WriteSetup;
-
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -202,73 +155,6 @@ interface
   uses
     PlugMenuHints,
     MixDebug;
-
-
- {-----------------------------------------------------------------------------}
-
-  procedure ReadSetup;
-  var
-    vKey :HKEY;
-  begin
-    if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then
-      Exit;
-    try
-      PluginAutoShortcut := RegQueryLog(vKey, 'AutoHotkey',  PluginAutoShortcut);
-      PluginShowHidden   := RegQueryInt(vKey, 'ShowHidden',  PluginShowHidden);
-      optShowHints       := RegQueryLog(vKey, 'ShowHints',   optShowHints);
-      optFollowMouse     := RegQueryLog(vKey, 'FollowMouse', optFollowMouse);
-      optWrapMode        := RegQueryLog(vKey, 'WrapMode',    optWrapMode);
-
-      PluginShowLoaded   := RegQueryLog(vKey, 'ShowLoadedMark', PluginShowLoaded);
-     {$ifdef bUnicode}
-      PluginShowAnsi     := RegQueryLog(vKey, 'ShowAnsiMark', PluginShowAnsi);
-     {$endif bUnicode}
-
-      PluginShowFileName := RegQueryInt(vKey, 'ShowFileName', PluginShowFileName);
-      PluginShowFlags    := RegQueryLog(vKey, 'ShowFlags', PluginShowFlags);
-      PluginShowDate     := RegQueryInt(vKey, 'ShowModifyTime', PluginShowDate);
-      PluginShowUseDate  := RegQueryInt(vKey, 'ShowAccessTime', PluginShowUseDate);
-
-      PluginSortMode     := RegQueryInt(vKey, 'SortMode', PluginSortMode);
-
-      optHiddenColor     := RegQueryInt(vKey, 'HiddenColor', optHiddenColor);
-      optFoundColor      := RegQueryInt(vKey, 'FoundColor', optFoundColor);
-//    optSelectedColor   := RegQueryInt(vKey, 'SelectedColor', optSelectedColor);
-
-    finally
-      RegCloseKey(vKey);
-    end;
-  end;
-
-
-  procedure WriteSetup;
-  var
-    vKey :HKEY;
-  begin
-    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
-    try
-      RegWriteLog(vKey, 'AutoHotkey',  PluginAutoShortcut);
-      RegWriteInt(vKey, 'ShowHidden',  PluginShowHidden);
-      RegWriteLog(vKey, 'ShowHints',   optShowHints);
-      RegWriteLog(vKey, 'FollowMouse', optFollowMouse);
-      RegWriteLog(vKey, 'WrapMode',    optWrapMode);
-
-      RegWriteLog(vKey, 'ShowLoadedMark', PluginShowLoaded);
-     {$ifdef bUnicode}
-      RegWriteLog(vKey, 'ShowAnsiMark', PluginShowAnsi);
-     {$endif bUnicode}
-
-      RegWriteInt(vKey, 'ShowFileName', PluginShowFileName);
-      RegWriteLog(vKey, 'ShowFlags', PluginShowFlags);
-      RegWriteInt(vKey, 'ShowModifyTime', PluginShowDate);
-      RegWriteInt(vKey, 'ShowAccessTime', PluginShowUseDate);
-
-      RegWriteInt(vKey, 'SortMode', PluginSortMode);
-
-    finally
-      RegCloseKey(vKey);
-    end;
-  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -351,32 +237,14 @@ interface
  { TMenuDlg                                                                    }
  {-----------------------------------------------------------------------------}
 
-  const
-    cDlgMinWidth  = 40;
-    cDlgMinHeight = 5;
-
-    IdFrame  = 0;
-    IdList   = 1;
-    IdStatus = 2;
-
-
   constructor TMenuDlg.Create; {override;}
   begin
     inherited Create;
     RegisterHints(Self);
     FFilter := TMyFilter.CreateSize(SizeOf(TFilterRec));
 
-    FHotkeyColor1 := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUHIGHLIGHT));
-    FHotkeyColor2 := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUSELECTEDHIGHLIGHT));
-
-    FHiddenColor := optHiddenColor;
-    if FHiddenColor = 0 then
-      FHiddenColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUDISABLEDTEXT));
-
-    FFoundColor := optFoundColor;
-    if FFoundColor = 0 then
-      FFoundColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUHIGHLIGHT));
-
+    FHotkeyColor1 := FarGetColor(COL_MENUHIGHLIGHT);
+    FHotkeyColor2 := FarGetColor(COL_MENUSELECTEDHIGHLIGHT);
   end;
 
 
@@ -390,30 +258,18 @@ interface
 
 
   procedure TMenuDlg.Prepare; {override;}
-  const
-    DX = 20;
-    DY = 10;
   begin
+    inherited Prepare;
+    
+    FGUID := cPlugListID;
     FHelpTopic := 'PluginCommands';
-    FWidth := DX;
-    FHeight := DY;
-    FItemCount := 3;
 
-    FDialog := CreateDialog(
-      [
-        NewItemApi(DI_DoubleBox,   2, 1, DX - 4, DY - 2, 0, ''),
-        NewItemApi(DI_USERCONTROL, 3, 2, DX - 6, DY - 4, 0, '' ),
-        NewItemApi(DI_Text,        3, 3, DX - 6, 1, DIF_CENTERTEXT, '...')
-      ]
-    );
-
-    FGrid := TFarGrid.CreateEx(Self, IdList);
     FGrid.OnCellClick := GridCellClick;
     FGrid.OnPosChange := GridPosChange;
     FGrid.OnGetCellText := GridGetDlgText;
     FGrid.OnGetCellColor := GridGetCellColor;
     FGrid.OnPaintCell := GridPaintCell;
-    FGrid.Options := [goRowSelect, goFollowMouse, goWrapMode {,goWheelMovePos} ];
+    FGrid.Options := [{goRowSelect,} goFollowMouse, goWrapMode {,goWheelMovePos} ];
   end;
 
 
@@ -421,6 +277,7 @@ interface
   var
     vIndex :Integer;
   begin
+    SendMsg(DM_ShowItem, IdStatus, 1);
     SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
     FFilter.FWindowType := FWindowType;
     ReinitGrid;
@@ -433,38 +290,11 @@ interface
   end;
 
 
-  procedure TMenuDlg.ResizeDialog;
-  var
-    vWidth, vHeight :Integer;
-    vRect :TSmallRect;
-    vSize :TSize;
+  function TMenuDlg.CloseDialog(ItemID :Integer) :Boolean; {override;}
   begin
-    vSize := FarGetWindowSize;
-
-    vWidth := FMenuMaxWidth + 6;
-    if vWidth > vSize.CX - 4 then
-      vWidth := vSize.CX - 4;
-    vWidth := IntMax(vWidth, cDlgMinWidth);
-
-    vHeight := FGrid.RowCount + 4;
-    if vHeight > vSize.CY - 2 then
-      vHeight := vSize.CY - 2;
-    vHeight := IntMax(vHeight, cDlgMinHeight);
-
-    vRect := SBounds(2, 1, vWidth - 5, vHeight - 3);
-    SendMsg(DM_SETITEMPOSITION, IdFrame, @vRect);
-
-    SRectGrow(vRect, -1, -1);
-    if vRect.Bottom - vRect.Top + 2 <= FGrid.RowCount then
-      Inc(vRect.Right);
-    SendMsg(DM_SETITEMPOSITION, IdList, @vRect);
-    FGrid.UpdateSize(vRect.Left, vRect.Top, vRect.Right - vRect.Left + 1, vRect.Bottom - vRect.Top + 1);
-
-    SendMsg(DM_GETITEMPOSITION, IdStatus, @vRect);
-    vRect.Top := vHeight - 2; vRect.Bottom := vRect.Top;
-    SendMsg(DM_SETITEMPOSITION, IdStatus, @vRect);
-
-    SetDlgPos(-1, -1, vWidth, vHeight);
+    if FSetChanged then
+      WriteSetup;
+    Result := True;
   end;
 
 
@@ -559,7 +389,7 @@ interface
   end;
 
 
-  procedure TMenuDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
+  procedure TMenuDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
   begin
     if ARow < FFilter.Count then begin
       with GetCommand(ARow) do begin
@@ -570,19 +400,20 @@ interface
         end else
         begin
           if (PluginShowHidden > 0) and (Hidden or not CheckWinType(FWindowType, Plugin)) then
-            AColor := (AColor and not $0F) or (FHiddenColor and $0F);
+            AColor := ChangeFG(AColor, optHiddenColor);
         end;
       end;
     end;
   end;
 
 
-  procedure TMenuDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+  procedure TMenuDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor);
   var
     vRec :PFilterRec;
     vStr :TString;
     vPos, X1 :Integer;
     vSelected :Boolean;
+    vColor :TFarColor;
     vMark :array[0..1] of TChar;
   begin
     if ARow < FFilter.Count then begin
@@ -593,8 +424,12 @@ interface
         if ACol = 0 then begin
           if True then begin
             { Назначенный Hotkey }
-            if Hotkey <> #0 then
-              FGrid.DrawChr(X, Y, @Hotkey, 1, IntIf(vSelected, FHotkeyColor2, FHotkeyColor1));
+            if Hotkey <> #0 then begin
+              vColor := FHotkeyColor1;
+              if vSelected then
+                vColor := FHotkeyColor2;
+              FGrid.DrawChr(X, Y, @Hotkey, 1, vColor);
+            end;
             Inc(X, 2);
             Dec(AWidth, 2);
           end;
@@ -628,7 +463,6 @@ interface
             Dec(X1);
           end;
 
-         {$ifdef bUnicode}
           if PluginShowAnsi then begin
             if not Plugin.Unicode then begin
               { Метка ansi-шного плагина }
@@ -637,7 +471,6 @@ interface
             end;
 //          Dec(X1);
           end;
-         {$endif bUnicode}
         end;
 
         if AWidth > 0 then begin
@@ -646,28 +479,31 @@ interface
 
           if (vRec.FLen > 0) and (FGrid.Column[ACol].Tag = FFilterColumn) then
             { Выделение части строки, совпадающей с фильтром... }
-            FGrid.DrawChrEx(X, Y, PTChar(vStr), AWidth, vRec.FPos, vRec.FLen, AColor, (AColor and not $0F) or (FFoundColor and $0F))
+            FGrid.DrawChrEx(X, Y, PTChar(vStr), AWidth, vRec.FPos, vRec.FLen, AColor, ChangeFG(AColor, optFoundColor))
           else begin
             vPos := -1;
             if (ACol = 0) and PluginAutoShortcut and not FFilterMode and (AutoHotkey <> #0) then
               vPos := ChrPos(AutoHotkey, vStr);
 
-            if vPos > 0 then
-              FGrid.DrawChrEx(X, Y, PTChar(vStr), AWidth, vPos - 1, 1, AColor, IntIf(vSelected, FHotkeyColor2, FHotkeyColor1))
-            else
+            if vPos > 0 then begin
+              vColor := FHotkeyColor1;
+              if vSelected then
+                vColor := FHotkeyColor2;
+              FGrid.DrawChrEx(X, Y, PTChar(vStr), AWidth, vPos - 1, 1, AColor, vColor);
+            end else
               FGrid.DrawChr(X, Y, PTChar(vStr), AWidth, AColor);
           end;
-
         end;
       end;
     end;
   end;
 
 
+(*
   procedure TMenuDlg.ReinitGrid;
   var
     I, J, K, vLen, vPos, vMaxLen1, vMaxLen2 :Integer;
-    vTitle, vDllName, vMask, vStr :TString;
+    vTitle, vDllName, vMask, vXMask, vStr :TString;
     vPlugin :TFarPlugin;
     vCommand :TFarPluginCmd;
     vHasMask :Boolean;
@@ -682,10 +518,15 @@ interface
     vMask := FFilterMask;
     if vMask <> '' then begin
       if (FFilterColumn = 5) and (vMask[1] <> '*') then
+        { Фильтрация по флагам - всегда по вхождению }
         vMask := '*' + vMask;
+
       vHasMask := (ChrPos('*', vMask) <> 0) or (ChrPos('?', vMask) <> 0);
       if vHasMask and (vMask[Length(vMask)] <> '*') {and (vMask[Length(vMask)] <> '?')} then
         vMask := vMask + '*';
+
+      if optXLatMask then
+        vXMask := FarXLatStr(vMask);
     end;
 
     vDllName := '';
@@ -716,7 +557,7 @@ interface
             4: vStr := Date2StrMode(vCommand.AccessDate, PluginShowUseDate);
             5: vStr := vPlugin.GetFlagsStr;
           end;
-          if not CheckMask(vMask, vStr, vHasMask, vPos, vLen) then
+          if not ChrCheckXMask(vMask, vXMask, PTChar(vStr), vHasMask, vPos, vLen) then
             Continue;
         end;
 
@@ -738,10 +579,8 @@ interface
       Inc(vMaxLen1, 1); { Hidden mark }
     if PluginShowLoaded then
       Inc(vMaxLen1, 2);
-   {$ifdef bUnicode}
     if PluginShowAnsi then
       Inc(vMaxLen1, 1 + IntIf(PluginShowLoaded, 0, 1));
-   {$endif bUnicode}
 
     FGrid.ResetSize;
     FGrid.Columns.FreeAll;
@@ -759,6 +598,133 @@ interface
     FMenuMaxWidth := vMaxLen1 + 2;
     for I := 1 to FGrid.Columns.Count - 1 do
       Inc(FMenuMaxWidth, FGrid.Column[I].Width + 1);
+
+    FGrid.RowCount := FFilter.Count;
+
+    if optFollowMouse then
+      FGrid.Options := FGrid.Options + [goFollowMouse]
+    else
+      FGrid.Options := FGrid.Options - [goFollowMouse];
+
+    if optWrapMode then
+      FGrid.Options := FGrid.Options + [goWrapMode]
+    else
+      FGrid.Options := FGrid.Options - [goWrapMode];
+
+    SendMsg(DM_ENABLEREDRAW, 0, 0);
+    try
+      UpdateHeader;
+      ResizeDialog;
+      UpdateFooter;
+    finally
+      SendMsg(DM_ENABLEREDRAW, 1, 0);
+    end;
+  end;
+*)
+
+  procedure TMenuDlg.ReinitGrid;
+  var
+    I, J, K, vLen, vPos, vMaxLen1, vMaxLen2 :Integer;
+    vTitle, vDllName, vMask, vXMask, vStr :TString;
+    vPlugin :TFarPlugin;
+    vCommand :TFarPluginCmd;
+    vHasMask :Boolean;
+  begin
+//  Trace('ReinitGrid...');
+    FFilter.Clear;
+    vMaxLen1 := 0;
+    vMaxLen2 := 0;
+    FTotalCount := 0;
+
+    vHasMask := False;
+    vMask := FFilterMask;
+    if vMask <> '' then begin
+      if (FFilterColumn = 5) and (vMask[1] <> '*') then
+        { Фильтрация по флагам - всегда по вхождению }
+        vMask := '*' + vMask;
+
+      vHasMask := (ChrPos('*', vMask) <> 0) or (ChrPos('?', vMask) <> 0);
+      if vHasMask and (vMask[Length(vMask)] <> '*') {and (vMask[Length(vMask)] <> '?')} then
+        vMask := vMask + '*';
+
+      if optXLatMask then
+        vXMask := FarXLatStr(vMask);
+    end;
+
+    vDllName := '';
+    for I := 0 to FPlugins.Count - 1 do begin
+      vPlugin := FPlugins[I];
+
+      if PluginShowHidden < 2 then
+        if not CheckWinType(FWindowType, vPlugin) then
+          Continue;
+
+      for J := 0 to vPlugin.Commands.Count - 1 do begin
+        vCommand := vPlugin.Command[J];
+        if PluginShowHidden < 1 then
+          if vCommand.Hidden then
+            Continue;
+
+        vTitle := vCommand.GetMenuTitle;
+        if (PluginShowFileName > 0) or (FFilterColumn = 2) then
+          vDllName := vPlugin.GetFileName(PluginShowFileName);
+
+        Inc(FTotalCount);
+        vPos := 0; vLen := 0;
+        if vMask <> '' then begin
+          case FFilterColumn of
+            1: vStr := vTitle;
+            2: vStr := vDllName;
+            3: vStr := Date2StrMode(vPlugin.FileDate, PluginShowDate);
+            4: vStr := Date2StrMode(vCommand.AccessDate, PluginShowUseDate);
+            5: vStr := vPlugin.GetFlagsStr;
+          end;
+          if not ChrCheckXMask(vMask, vXMask, PTChar(vStr), vHasMask, vPos, vLen) then
+            Continue;
+        end;
+
+        K := (I shl 16) + J;
+        FFilter.Add(K, vPos, vLen);
+
+        vMaxLen1 := IntMax(vMaxLen1, Length(vTitle));
+        if PluginShowFileName > 0 then
+          vMaxLen2 := IntMax(vMaxLen2, Length(vDllName));
+      end;
+    end;
+
+//  if PluginSortMode <> 0 then
+      FFilter.SortList(True, PluginSortMode);
+
+    if True then
+      Inc(vMaxLen1, 2); { Hotkey }
+    if PluginShowHidden > 0 then
+      Inc(vMaxLen1, 1); { Hidden mark }
+    if PluginShowLoaded then
+      Inc(vMaxLen1, 2);
+    if PluginShowAnsi then
+      Inc(vMaxLen1, 1 + IntIf(PluginShowLoaded, 0, 1));
+
+    FGrid.ResetSize;
+    FGrid.Columns.FreeAll;
+    FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', vMaxLen1 + 2, 15, taLeftJustify, [coColMargin, coOwnerDraw], 1) );
+    if PluginShowFileName > 0 then
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', vMaxLen2 + 2, 15, taLeftJustify, [coColMargin, coOwnerDraw], 2) );
+    if PluginShowDate > 0 then
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', Length(Date2StrMode(Now, PluginShowDate)) + 2, 8+2, taLeftJustify, [coColMargin, coOwnerDraw], 3) );
+    if PluginShowUseDate > 0 then
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', Length(Date2StrMode(Now, PluginShowUseDate)) + 2, 8+2, taLeftJustify, [coColMargin, coOwnerDraw], 4) );
+    if PluginShowFlags then
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', 5+2, 5+2, taLeftJustify, [coColMargin, coOwnerDraw], 5) );
+
+    FGrid.ReduceColumns(FarGetWindowSize.CX - (10 + FGrid.Columns.Count));
+
+    FMenuMaxWidth := 0;
+    for I := 0 to FGrid.Columns.Count - 1 do
+      with FGrid.Column[I] do
+        if Width <> 0 then
+          Inc(FMenuMaxWidth, Width + IntIf(coNoVertLine in Options, 0, 1) );
+    Dec(FMenuMaxWidth);
+
 
     FGrid.RowCount := FFilter.Count;
 
@@ -917,45 +883,39 @@ interface
 
 //  LocReinitAndSaveCurrent;
     ReinitGrid;
-    WriteSetup;
+    FSetChanged := True;
   end;
 
 
   procedure TMenuDlg.SortByDlg;
-  const
-    cSortMenuCount = 6;
   var
+    vMenu :TFarMenu;
     vRes :Integer;
     vChr :TChar;
-    vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
   begin
-    vItems := MemAllocZero(cSortMenuCount * SizeOf(TFarMenuItemEx));
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(StrSortByTitle),
+    [
+      GetMsg(StrSortByName),
+      GetMsg(StrSortByFileName),
+      GetMsg(StrSortByModificationTime),
+      GetMsg(StrSortByAccessTime),
+      GetMsg(StrSortByPluginFlags),
+      GetMsg(StrSortByUnsorted)
+    ]);
     try
-      vItem := @vItems[0];
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByName));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByFileName));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByModificationTime));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByAccessTime));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByPluginFlags));
-      SetMenuItemChrEx(vItem, GetMsg(StrSortByUnsorted));
-
       vRes := Abs(PluginSortMode) - 1;
       if vRes = -1 then
         vRes := 5;
       vChr := '+';
       if PluginSortMode < 0 then
         vChr := '-';
-      vItems[vRes].Flags := SetFlag(0, MIF_CHECKED or Word(vChr), True);
+      vMenu.Items[vRes].Flags := SetFlag(0, MIF_CHECKED or Word(vChr), True);
 
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        GetMsg(StrSortByTitle),
-        '',
-        '',
-        nil, nil,
-        Pointer(vItems),
-        cSortMenuCount);
+      if not vMenu.Run then
+        Exit;
+
+      vRes := vMenu.ResIdx;
 
       if vRes <> -1 then begin
         Inc(vRes);
@@ -967,81 +927,63 @@ interface
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
+
  {-----------------------------------------------------------------------------}
 
+(*
   procedure TMenuDlg.OptionsDlg;
-  const
-    cMenuCount = 15;
   var
-    vRes, I :Integer;
-    vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
+    vMenu :TFarMenu;
   begin
-    vItems := MemAllocZero(cMenuCount * SizeOf(TFarMenuItemEx));
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strOptionsTitle),
+    [
+      GetMsg(strShowHidden),
+      '',
+      GetMsg(strLoadedMark),
+      GetMsg(strAnsiMark),
+      GetMsg(strFileName),
+      GetMsg(strModificationTime),
+      GetMsg(strAccessTime),
+      GetMsg(strPluginFlags),
+      '',
+      GetMsg(strSortBy),
+      '',
+      GetMsg(strAutoHotkey),
+      GetMsg(strShowHints),
+      GetMsg(strFollowMouse),
+      GetMsg(strWrapMode)
+    ]);
     try
-      vItem := @vItems[0];
-      SetMenuItemChrEx(vItem, GetMsg(strShowHidden));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(strLoadedMark));
-      SetMenuItemChrEx(vItem, GetMsg(strAnsiMark));
-      SetMenuItemChrEx(vItem, GetMsg(strFileName));
-      SetMenuItemChrEx(vItem, GetMsg(strModificationTime));
-      SetMenuItemChrEx(vItem, GetMsg(strAccessTime));
-      SetMenuItemChrEx(vItem, GetMsg(strPluginFlags));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(strSortBy));
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(strAutoHotkey));
-      SetMenuItemChrEx(vItem, GetMsg(strShowHints));
-      SetMenuItemChrEx(vItem, GetMsg(strFollowMouse));
-      SetMenuItemChrEx(vItem, GetMsg(strWrapMode));
-
-      vRes := 0;
       while True do begin
-        vItems[0].Flags := SetFlag(0, MIF_CHECKED1, PluginShowHidden > 0);
+        vMenu.Checked[0] := PluginShowHidden > 0;
 
-        vItems[2].Flags := SetFlag(0, MIF_CHECKED1, PluginShowLoaded);
-       {$ifdef bUnicodeFar}
-        vItems[3].Flags := SetFlag(0, MIF_CHECKED1, PluginShowAnsi);
-       {$else}
-        vItems[3].Flags := SetFlag(0, MIF_DISABLE, True);
-       {$endif bUnicodeFar}
-        vItems[4].Flags := SetFlag(0, MIF_CHECKED1, PluginShowFileName > 0);
-        vItems[5].Flags := SetFlag(0, MIF_CHECKED1, PluginShowDate > 0);
-        vItems[6].Flags := SetFlag(0, MIF_CHECKED1, PluginShowUseDate > 0);
-        vItems[7].Flags := SetFlag(0, MIF_CHECKED1, PluginShowFlags);
+        vMenu.Checked[2] := PluginShowLoaded;
+        vMenu.Checked[3] := PluginShowAnsi;
+        vMenu.Checked[4] := PluginShowFileName > 0;
+        vMenu.Checked[5] := PluginShowDate > 0;
+        vMenu.Checked[6] := PluginShowUseDate > 0;
+        vMenu.Checked[7] := PluginShowFlags;
 
-        vItems[11].Flags := SetFlag(0, MIF_CHECKED1, PluginAutoShortcut);
-        vItems[12].Flags := SetFlag(0, MIF_CHECKED1, optShowHints);
-        vItems[13].Flags := SetFlag(0, MIF_CHECKED1, optFollowMouse);
-        vItems[14].Flags := SetFlag(0, MIF_CHECKED1, optWrapMode);
+        vMenu.Checked[11] := PluginAutoShortcut;
+        vMenu.Checked[12] := optShowHints;
+        vMenu.Checked[13] := optFollowMouse;
+        vMenu.Checked[14] := optWrapMode;
 
-        for I := 0 to cMenuCount - 1 do
-          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
+        vMenu.SetSelected(vMenu.ResIdx);
 
-        vRes := FARAPI.Menu(hModule, -1, -1, 0,
-          FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strOptionsTitle),
-          '',
-          '',
-          nil, nil,
-          Pointer(vItems),
-          cMenuCount);
-
-        if vRes = -1 then
+        if not vMenu.Run then
           Exit;
 
-        case vRes of
+        case vMenu.ResIdx of
           0 : ToggleOptionInt(PluginShowHidden, IntIf(PluginShowHidden = 0, 2, 0), True);
 
           2 : ToggleOption(PluginShowLoaded, False);
-         {$ifdef bUnicodeFar}
           3 : ToggleOption(PluginShowAnsi, False);
-         {$endif bUnicodeFar}
           4 : ToggleOptionInt(PluginShowFileName, IntIf(PluginShowFileName < 2, PluginShowFileName + 1, 0), False);
           5 : ToggleOptionInt(PluginShowDate, IntIf(PluginShowDate < 2, PluginShowDate + 1, 0), False);
           6 : ToggleOptionInt(PluginShowUseDate, IntIf(PluginShowUseDate < 2, PluginShowUseDate + 1, 0), False);
@@ -1057,10 +999,64 @@ interface
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
+*)
 
+
+  procedure TMenuDlg.OptionsDlg;
+  var
+    vMenu :TFarMenu;
+  begin
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strOptionsTitle),
+    [
+      GetMsg(strShowHidden),
+      '',
+      GetMsg(strLoadedMark),
+      GetMsg(strAnsiMark),
+      GetMsg(strFileName),
+      GetMsg(strModificationTime),
+      GetMsg(strAccessTime),
+      GetMsg(strPluginFlags),
+      '',
+      GetMsg(strSortBy)
+    ]);
+    try
+      while True do begin
+        vMenu.Checked[0] := PluginShowHidden > 0;
+
+        vMenu.Checked[2] := PluginShowLoaded;
+        vMenu.Checked[3] := PluginShowAnsi;
+        vMenu.Checked[4] := PluginShowFileName > 0;
+        vMenu.Checked[5] := PluginShowDate > 0;
+        vMenu.Checked[6] := PluginShowUseDate > 0;
+        vMenu.Checked[7] := PluginShowFlags;
+
+        vMenu.SetSelected(vMenu.ResIdx);
+
+        if not vMenu.Run then
+          Exit;
+
+        case vMenu.ResIdx of
+          0 : ToggleOptionInt(PluginShowHidden, IntIf(PluginShowHidden = 0, 2, 0), True);
+
+          2 : ToggleOption(PluginShowLoaded, False);
+          3 : ToggleOption(PluginShowAnsi, False);
+          4 : ToggleOptionInt(PluginShowFileName, IntIf(PluginShowFileName < 2, PluginShowFileName + 1, 0), False);
+          5 : ToggleOptionInt(PluginShowDate, IntIf(PluginShowDate < 2, PluginShowDate + 1, 0), False);
+          6 : ToggleOptionInt(PluginShowUseDate, IntIf(PluginShowUseDate < 2, PluginShowUseDate + 1, 0), False);
+          7 : ToggleOption(PluginShowFlags, False);
+
+          9 : SortByDlg;
+        end;
+      end;
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
 
  {-----------------------------------------------------------------------------}
 
@@ -1096,7 +1092,7 @@ interface
       ReinitAndSaveCurrent
     else
       ReinitGrid;
-    WriteSetup;
+    FSetChanged := True;
   end;
 
 
@@ -1107,11 +1103,10 @@ interface
       ReinitAndSaveCurrent
     else
       ReinitGrid;
-    WriteSetup;
+    FSetChanged := True;
   end;
 
 
- {$ifdef bUnicode}
   procedure TMenuDlg.PromptAndLoadPlugin;
   var
     vFileName :TString;
@@ -1121,14 +1116,15 @@ interface
     if LoadPluginDlg(vFileName) then begin
       vPlugin := LoadNewPlugin(vFileName);
       ReinitGrid;
-      vIndex := FindCommand( vPlugin.Command[0] );
-      SetCurrent( vIndex, False );
+      if vPlugin <> nil then begin
+        vIndex := FindCommand( vPlugin.Command[0] );
+        SetCurrent( vIndex, False );
+      end;
     end;
   end;
- {$endif bUnicode}
 
 
-  function TMenuDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  function TMenuDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
 
     procedure SetFilter(const ANewFilter :TString);
     begin
@@ -1143,7 +1139,6 @@ interface
     end;
 
 
-   {$ifdef bUnicode}
     procedure LocLoadPlugin;
     var
       vPlugin :TFarPlugin;
@@ -1170,202 +1165,192 @@ interface
       if vRes <> 0 then
         Exit;
 
-      {!!!}  
+      {!!!}
       vPlugin.PluginUnload(False);
       AssignAutoHotkeys(FWindowType);
       ReinitGrid;
     end;
-   {$endif bUnicode}
 
   var
     vChr :TChar;
     vKey, vIndex :Integer;
   begin
+    Result := True;
+
+    case AKey of
+      KEY_ENTER, KEY_SHIFTENTER:
+        SelectItem(1);
+      KEY_SHIFTF1:
+        begin
+          FChoosenCmd := CurrentCommand;
+          if FChoosenCmd <> nil then begin
+            FChoosenCommand := 2;
+            SendMsg(DM_CLOSE, -1, 0);
+          end else
+            Beep;
+        end;
+      KEY_F2:
+        OptionsDlg;
+      KEY_F3:
+        PlugInfoDlg;
+      KEY_F4:
+        begin
+          FChoosenCmd := CurrentCommand;
+          if FChoosenCmd <> nil then
+            if EditPlugin(FChoosenCmd) then begin
+              AssignAutoHotkeys(FWindowType);
+              ReinitGrid;
+            end;
+        end;
+      KEY_F9:
+        begin
+          FChoosenCmd := CurrentCommand;
+          if (FChoosenCmd <> nil) and (FChoosenCmd.Plugin.ConfigString <> '') then begin
+            FChoosenCommand := IntIf(AKey = KEY_F9, 3, 4);
+            SendMsg(DM_CLOSE, -1, 0);
+          end else
+            Beep;
+        end;
+      KEY_SHIFTF9:
+        begin
+          ConfigDlg;
+          ReinitGrid;
+        end;
+
+      KEY_CTRLL:
+        PromptAndLoadPlugin;
+      KEY_INS:
+        LocLoadPlugin;
+      KEY_DEL:
+        LocUnloadPlugin;
+
+      KEY_CTRLPGDN:
+        begin
+          FChoosenCmd := CurrentCommand;
+          if (FChoosenCmd <> nil) and (FWindowType = WTYPE_PANELS) then begin
+            FChoosenCommand := 5;
+            SendMsg(DM_CLOSE, -1, 0);
+          end else
+            Beep;
+        end;
+
+      KEY_CTRLH, KEY_CTRLSHIFTH:
+        begin
+          if PluginShowHidden <> 0 then
+            PluginShowHidden := 0
+          else
+          if AKey = KEY_CTRLH then
+            PluginShowHidden := 2
+          else
+            PluginShowHidden := 1;
+          ReinitAndSaveCurrent;
+          FSetChanged := True;
+        end;
+
+      KEY_CTRLG:
+        ToggleOption(PluginSortGroup, True);
+      KEY_CTRLA:
+        ToggleOption(PluginAutoShortcut, False);
+
+      KEY_CTRL1:
+        ToggleOption(PluginShowLoaded, False);
+      KEY_CTRLSHIFT1:
+        ToggleOption(PluginShowAnsi, False);
+      KEY_CTRL2:
+        ToggleOptionInt(PluginShowFileName, IntIf(PluginShowFileName < 2, PluginShowFileName + 1, 0), False);
+      KEY_CTRL3:
+        ToggleOptionInt(PluginShowDate, IntIf(PluginShowDate < 2, PluginShowDate + 1, 0), False);
+      KEY_CTRL4:
+        ToggleOptionInt(PluginShowUseDate, IntIf(PluginShowUseDate < 2, PluginShowUseDate + 1, 0), False);
+      KEY_CTRL5:
+        ToggleOption(PluginShowFlags, False);
+
+      KEY_CTRLF10:
+        SetOrder(0);
+      KEY_CTRLF1, KEY_CTRLSHIFTF1:
+        SetOrder(1);
+      KEY_CTRLF2, KEY_CTRLSHIFTF2:
+        SetOrder(2);
+      KEY_CTRLF3, KEY_CTRLSHIFTF3:
+        SetOrder(-3);
+      KEY_CTRLF4, KEY_CTRLSHIFTF4:
+        SetOrder(-4);
+      KEY_CTRLSHIFTF5:
+        SetOrder(-5);
+      KEY_CTRLF11:
+        SetOrder(0);
+      KEY_CTRLF12:
+        SortByDlg;
+
+      KEY_ALT, KEY_RALT:
+        begin
+          FFilterMode := not FFilterMode;
+          if FFilterMode then
+            FFilterColumn := FGrid.Column[FGrid.CurCol].Tag
+          else
+            FFilterMask := '';
+          ReinitAndSaveCurrent;
+        end;
+//    KEY_DEL:
+//      SetFilter('');
+      KEY_BS:
+        if FFilterMask <> '' then
+          SetFilter( Copy(FFilterMask, 1, Length(FFilterMask) - 1));
+    else
+      begin
+//      TraceF('Key: %d', [Param2]);
+
+        vChr := #0;
+        vKey := AKey and not KEY_ALT;
+
+        case vKey of
+          KEY_ADD      : vChr := '+';
+          KEY_SUBTRACT : vChr := '-';
+          KEY_DIVIDE   : vChr := '/';
+          KEY_MULTIPLY : vChr := '*';
+        else
+          if (vKey >= 32) and (vKey < $FFFF) then begin
+            vChr := TChar(vKey);
+          end;
+        end;
+
+        if vChr <> #0 then begin
+          if (KEY_ALT and AKey <> 0) or FFilterMode then
+            SetFilter(FFilterMask + CharLoCase(vChr))
+          else begin
+            vIndex := FindShortcut(vChr);
+            if vIndex <> -1 then begin
+              SetCurrent(vIndex, False);
+              FChoosenCmd := CurrentCommand;
+              if (FChoosenCmd <> nil) and CheckWinType(FWindowType, FChoosenCmd.Plugin) then begin
+                FChoosenCommand := 1;
+                SendMsg(DM_CLOSE, -1, 0);
+              end else
+                Beep;
+            end else
+              Beep;
+          end;
+          Exit;
+        end;
+
+        Result := inherited KeyDown(AID, AKey)
+      end;
+    end;
+  end;
+
+
+  function TMenuDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  begin
 //  TraceF('InfoDialogProc: FHandle=%d, Msg=%d, Param1=%d, Param2=%d', [FHandle, Msg, Param1, Param2]);
     Result := 1;
     case Msg of
-      DN_CTLCOLORDIALOG:
-        Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUTEXT));
-      DN_CTLCOLORDLGITEM:
-        if (Param1 = IdFrame) or (Param1 = IDStatus) then
-          Result := CtrlPalette([COL_MENUTITLE, COL_MENUHIGHLIGHT, COL_MENUBOX])
-        else
-          Result := Param2;
-
       DN_RESIZECONSOLE: begin
+(*
         ResizeDialog;
         UpdateFooter; { Чтобы центрировался status-line }
         SetCurrent(FGrid.CurRow, False);
-      end;
-
-      DN_KEY: begin
-//      TraceF('Key = %d', [Param2]);
-        case Param2 of
-          KEY_ENTER, KEY_SHIFTENTER:
-            SelectItem(1);
-          KEY_SHIFTF1:
-            begin
-              FChoosenCmd := CurrentCommand;
-              if FChoosenCmd <> nil then begin
-                FChoosenCommand := 2;
-                SendMsg(DM_CLOSE, -1, 0);
-              end else
-                Beep;
-            end;
-          KEY_F2:
-            OptionsDlg;
-          KEY_F3:
-            PlugInfoDlg;
-          KEY_F4:
-            begin
-              FChoosenCmd := CurrentCommand;
-              if FChoosenCmd <> nil then
-                if EditPlugin(FChoosenCmd) then begin
-                  AssignAutoHotkeys(FWindowType);
-                  ReinitGrid;
-                end;
-            end;
-          KEY_F9, KEY_SHIFTF9:
-            begin
-              FChoosenCmd := CurrentCommand;
-              if (FChoosenCmd <> nil) and (FChoosenCmd.Plugin.ConfigString <> '') then begin
-                FChoosenCommand := IntIf(Param2 = KEY_F9, 3, 4);
-                SendMsg(DM_CLOSE, -1, 0);
-              end else
-                Beep;
-            end;
-
-         {$ifdef bUnicode}
-          KEY_CTRLL:
-            PromptAndLoadPlugin;
-          KEY_INS:
-            LocLoadPlugin;
-          KEY_DEL:
-            LocUnloadPlugin;
-         {$endif bUnicode}
-
-          KEY_CTRLPGDN:
-            begin
-              FChoosenCmd := CurrentCommand;
-              if (FChoosenCmd <> nil) and (FWindowType = WTYPE_PANELS) then begin
-                FChoosenCommand := 5;
-                SendMsg(DM_CLOSE, -1, 0);
-              end else
-                Beep;
-            end;
-
-          KEY_CTRLH, KEY_CTRLSHIFTH:
-            begin
-              if PluginShowHidden <> 0 then
-                PluginShowHidden := 0
-              else
-              if Param2 = KEY_CTRLH then
-                PluginShowHidden := 2
-              else
-                PluginShowHidden := 1;
-              ReinitAndSaveCurrent;
-              WriteSetup;
-            end;
-
-          KEY_CTRLG:
-            ToggleOption(PluginSortGroup, True);
-          KEY_CTRLA:
-            ToggleOption(PluginAutoShortcut, False);
-
-          KEY_CTRL1:
-            ToggleOption(PluginShowLoaded, False);
-         {$ifdef bUnicode}
-          KEY_CTRLSHIFT1:
-            ToggleOption(PluginShowAnsi, False);
-         {$endif bUnicode}
-          KEY_CTRL2:
-            ToggleOptionInt(PluginShowFileName, IntIf(PluginShowFileName < 2, PluginShowFileName + 1, 0), False);
-          KEY_CTRL3:
-            ToggleOptionInt(PluginShowDate, IntIf(PluginShowDate < 2, PluginShowDate + 1, 0), False);
-          KEY_CTRL4:
-            ToggleOptionInt(PluginShowUseDate, IntIf(PluginShowUseDate < 2, PluginShowUseDate + 1, 0), False);
-          KEY_CTRL5:
-            ToggleOption(PluginShowFlags, False);
-
-          KEY_CTRLF10:
-            SetOrder(0);
-          KEY_CTRLF1, KEY_CTRLSHIFTF1:
-            SetOrder(1);
-          KEY_CTRLF2, KEY_CTRLSHIFTF2:
-            SetOrder(2);
-          KEY_CTRLF3, KEY_CTRLSHIFTF3:
-            SetOrder(-3);
-          KEY_CTRLF4, KEY_CTRLSHIFTF4:
-            SetOrder(-4);
-          KEY_CTRLSHIFTF5:
-            SetOrder(-5);
-          KEY_CTRLF11:
-            SetOrder(0);
-          KEY_CTRLF12:
-            SortByDlg;
-
-          KEY_ALT, KEY_RALT:
-            begin
-              FFilterMode := not FFilterMode;
-              if FFilterMode then
-                FFilterColumn := FGrid.Column[FGrid.CurCol].Tag
-              else
-                FFilterMask := '';
-              ReinitAndSaveCurrent;
-            end;
-//        KEY_DEL:
-//          SetFilter('');
-          KEY_BS:
-            if FFilterMask <> '' then
-              SetFilter( Copy(FFilterMask, 1, Length(FFilterMask) - 1));
-
-        else
-//        TraceF('Key: %d', [Param2]);
-
-          vChr := #0;
-          vKey := Param2 and not KEY_ALT;
-
-          case vKey of
-            KEY_ADD      : vChr := '+';
-            KEY_SUBTRACT : vChr := '-';
-            KEY_DIVIDE   : vChr := '/';
-            KEY_MULTIPLY : vChr := '*';
-          else
-           {$ifdef bUnicodeFar}
-            if (vKey >= 32) and (vKey < $FFFF) then
-           {$else}
-            if (vKey >= 32) and (vKey <= $FF) then
-           {$endif bUnicodeFar}
-            begin
-              vChr := TChar(vKey);
-             {$ifdef bUnicodeFar}
-             {$else}
-              ChrOemToAnsi(vChr, 1);
-             {$endif bUnicodeFar}
-            end;
-          end;
-
-          if vChr <> #0 then begin
-            if (KEY_ALT and Param2 <> 0) or FFilterMode then
-              SetFilter(FFilterMask + CharLoCase(vChr))
-            else begin
-              vIndex := FindShortcut(vChr);
-              if vIndex <> -1 then begin
-                SetCurrent(vIndex, False);
-                FChoosenCmd := CurrentCommand;
-                if (FChoosenCmd <> nil) and CheckWinType(FWindowType, FChoosenCmd.Plugin) then begin
-                  FChoosenCommand := 1;
-                  SendMsg(DM_CLOSE, -1, 0);
-                end else
-                  Beep;
-              end else
-                Beep;
-            end;
-            Exit;
-          end;
-
-          Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
+*)
+        ReinitAndSaveCurrent
       end;
 
     else
@@ -1377,8 +1362,23 @@ interface
  {-----------------------------------------------------------------------------}
 
   function TMenuDlg.RunCurrentCommand :Boolean;
+ {$ifdef Far3}
   var
-    vMacro :TActlKeyMacro;
+    vStr, vName :TString;
+  begin
+//  FChoosenCmd.MarkAccessed;
+
+    vName := FChoosenCmd.Name;
+
+//  vStr := Format('F11 $if(Menu.Select("%s") > 0) $MMode 1 Enter $else Esc $end', [vName]);
+    vStr := Format('F11 $if(Menu.Select("%s", 2) > 0) Enter $else Esc $end',  [vName]);
+
+    FarPostMacro(vStr);
+    Result := True;
+
+ {$else}
+
+  var
     vStr, vName :TString;
   begin
     FChoosenCmd.MarkAccessed;
@@ -1390,28 +1390,18 @@ interface
     if FChoosenCmd.PerfHotkey <> #0 then
       vName := StrDeleteChars(vName, ['&']);
 
-//  vStr := Format('F11 $if(Menu.Select("%s") > 0) $MMode 1 Enter $else Esc $end',
-//    [StrWin2Dos(vName)]);
-    vStr := Format('F11 $if(Menu.Select("%s") > 0) Enter $else Esc $end',
-      [StrAnsiToOem(vName)]);
+//  vStr := Format('F11 $if(Menu.Select("%s") > 0) $MMode 1 Enter $else Esc $end', [vName]);
+    vStr := Format('F11 $if(Menu.Select("%s") > 0) Enter $else Esc $end',  [vName]);
 
-    vMacro.Command := MCMD_POSTMACROSTRING;
-    vMacro.Param.PlainText.SequenceText := PTChar(vStr);
-    vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
-
-    FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+    FarPostMacro(vStr);
     Result := True;
+ {$endif Far3}
   end;
 
 
   function TMenuDlg.OpenConfig(ATryLoad :Boolean) :Boolean;
   var
     vPlugin :TFarPlugin;
-   {$ifdef bUnicode}
-   {$else}
-    vStr :TString;
-    vMacro :TActlKeyMacro;
-   {$endif bUnicode}
   begin
     vPlugin := FChoosenCmd.Plugin;
 
@@ -1422,36 +1412,7 @@ interface
       { В результате вызова диалога настройки список команд обновляется }
       FChoosenCmd := vPlugin.Command[0]
     end else
-    begin
-     {$ifdef bUnicode}
       Result := True;
-     {$else}
-      if ATryLoad then begin
-        { Попытка принудително загрузить плагин путем открытия и закрытия стандартного диалога настроек }
-
-        if FWindowType = WTYPE_PANELS then begin
-          vStr := Format(
-            'F9 End Left Down Down Down Down Down Enter $if(Menu.Select("%s",2) > 0) Enter Esc $end Esc ' +
-            'F11 $if(Menu.Select("%s",2) > 0) Enter ShiftF9 $end',
-            [StrAnsiToOem(vPlugin.ConfigString), GetMsg(strTitle)]);
-
-          vMacro.Command := MCMD_POSTMACROSTRING;
-          vMacro.Param.PlainText.SequenceText := PTChar(vStr);
-          vMacro.Param.PlainText.Flags := KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
-
-          FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
-          LastFilter := FFilterMask;
-          LastColumn := FFilterColumn;
-        end else
-          Beep {ShowMessage(GetMsgStr(strTitle), 'Данная функция пока не реализована', FMSG_WARNING or FMSG_MB_OK)};
-
-      end else
-      begin
-        Result := True;
-        Exit;
-      end;
-     {$endif bUnicode}
-    end;
   end;
 
 
@@ -1460,11 +1421,7 @@ interface
     vPath :TString;
   begin
     vPath := RemoveBackSlash(ExtractFilePath(FChoosenCmd.Plugin.FileName));
-   {$ifdef bUnicode}
     FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETPANELDIR, 0, PChar(vPath));
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETPANELDIR, PChar(vPath));
-   {$endif bUnicode}
     Result := True;
   end;
 
