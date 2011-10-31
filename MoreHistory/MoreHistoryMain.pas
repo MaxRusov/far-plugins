@@ -13,7 +13,11 @@ interface
   uses
     Windows,
     Messages,
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
+   {$endif Far3}
 
     MixTypes,
     MixUtils,
@@ -23,24 +27,30 @@ interface
     FarCtrl,
     FarConMan,
     FarMenu,
+    FarPlug,
 
     MoreHistoryCtrl,
-    MoreHistoryClasses,
     MoreHistoryDlg,
-    MoreHistoryEdtDlg;
+    MoreHistoryEdtDlg,
+   {$ifdef bCmdHistory}
+    MoreHistoryCmdDlg,
+   {$endif bCmdHistory}
+    MoreHistoryClasses;
 
-
-  function GetMinFarVersionW :Integer; stdcall;
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
-  procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
-  function OpenFilePluginW(const AName :PTChar; Data :Pointer; DataSize :Integer; OpMode :Integer) :THandle; stdcall;
-  function ConfigureW(Item: integer) :Integer; stdcall;
-  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
-  function ProcessViewerEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
-
+  type
+    TMoreHistoryPlug = class(TFarPlug)
+    public
+      procedure Init; override;
+      procedure Startup; override;
+      procedure ExitFar; override;
+      procedure GetInfo; override;
+      procedure Configure; override;
+      function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :Integer; override;
+      procedure SynchroEvent(AParam :Pointer); override;
+      function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
+      function ViewerEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
+    end;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -149,27 +159,11 @@ interface
         begin
 //        Trace('Go sleep...');
 
-          if FldHistory.TryLockHistory then begin
-            try
-              try
-                FldHistory.StoreModifiedHistory;
-              except
-              end;
-            finally
-              FldHistory.UnlockHistory;
-            end;
-          end;
-
-          if EdtHistory.TryLockHistory then begin
-            try
-              try
-                EdtHistory.StoreModifiedHistory;
-              except
-              end;
-            finally
-              EdtHistory.UnlockHistory;
-            end;
-          end;
+          FldHistory.TryLockAndStore;
+          EdtHistory.TryLockAndStore;
+         {$ifdef bCmdHistory}
+          CmdHistory.TryLockAndStore;
+         {$endif bCmdHistory}
 
           vLastActive := False;
         end;
@@ -181,7 +175,7 @@ interface
           vLastTitle := vStr;
           FCallInProgress := True;
 //        TraceF('Call... (%s)', [vStr]);
-          FARAPI.AdvControl(hModule, ACTL_SYNCHRO, nil);
+          FarAdvControl(ACTL_SYNCHRO, nil);
         end;
       end;
 
@@ -199,7 +193,7 @@ interface
   procedure SetHistoryWatcher(AOn :Boolean);
   begin
     if AOn <> (HistThread <> nil) then begin
-      if AOn then 
+      if AOn then
         HistThread := THistThread.Create
       else begin
         SetEvent(HistThread.FEvent);
@@ -213,10 +207,54 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
+  type
+    TPluginCmd = (
+      pcFolderHistory,
+      pcEditorHistory,
+      pcModifyHistory,
+     {$ifdef bCmdHistory}
+      pcCommandHistory,
+      pcPrevCommand,
+      pcNextCommand,
+     {$endif bCmdHistory}
+      pcOptions
+    );
+
+
+  procedure RunCommand(ACmd :TPluginCmd; const AStr :TString = '');
+
+   {$ifdef bCmdHistory}
+    function LocGetCmdStr :TString;
+    begin
+      if AStr <> '' then
+        Result := AStr
+      else
+        Result := FarPanelString(PANEL_NONE, FCTL_GETCMDLINE);
+    end;
+   {$endif bCmdHistory}
+
+  begin
+    case ACmd of
+      pcFolderHistory:  OpenHistoryDlg(GetMsg(strFoldersHistoryTitle), 'Folders', 0, AStr);
+      pcEditorHistory:  OpenEdtHistoryDlg(GetMsg(strViewEditHistoryTitle), 'Files\View', 0, AStr);
+      pcModifyHistory:  OpenEdtHistoryDlg(GetMsg(strModifyHistoryTitle), 'Files\Modify', 1, AStr);
+     {$ifdef bCmdHistory}
+      pcCommandHistory: OpenCmdHistoryDlg(GetMsg(strCommandHistoryTitle), 'Commands', CmdHistory.CmdLineFilter(LocGetCmdStr) );
+      pcPrevCommand:    CmdHistory.CmdLineNext(False, LocGetCmdStr);
+      pcNextCommand:    CmdHistory.CmdLineNext(True, LocGetCmdStr);
+     {$endif bCmdHistory}
+      pcOptions:        OptionsMenu;
+    end;
+  end;
+
+
   procedure OpenMenu;
   var
     vMenu :TFarMenu;
+    vWinInfo :TWindowInfo;
   begin
+    FarGetWindowInfo(-1, vWinInfo);
+
     vMenu := TFarMenu.CreateEx(
       GetMsg(strTitle),
     [
@@ -224,20 +262,40 @@ interface
       '',
       GetMsg(strMViewEditHistory),
       GetMsg(strMModifyHistory),
+
+     {$ifdef bCmdHistory}
+      '',
+      GetMsg(strMCommandHistory),
+      GetMsg(strMPreviousCommand),
+      GetMsg(strMNextCommand),
+     {$endif bCmdHistory}
+
       '',
       GetMsg(strMOptions1)
     ]);
     try
+     {$ifdef bCmdHistory}
+      vMenu.Enabled[6] := vWinInfo.WindowType = WTYPE_PANELS;
+      vMenu.Enabled[7] := vWinInfo.WindowType = WTYPE_PANELS;
+     {$endif bCmdHistory}
+
       if not vMenu.Run then
         Exit;
 
       case vMenu.ResIdx of
-        0 : OpenHistoryDlg(GetMsg(strFoldersHistoryTitle), 'Folders', 0, '');
+        0 : RunCommand(pcFolderHistory);
 
-        2 : OpenEdtHistoryDlg(GetMsg(strViewEditHistoryTitle), 'Files\View', 0, '');
-        3 : OpenEdtHistoryDlg(GetMsg(strModifyHistoryTitle), 'Files\Modify', 1, '');
+        2 : RunCommand(pcEditorHistory);
+        3 : RunCommand(pcModifyHistory);
 
-        5 : OptionsMenu;
+       {$ifdef bCmdHistory}
+        5 : RunCommand(pcCommandHistory);
+        6 : RunCommand(pcNextCommand);
+        7 : RunCommand(pcPrevCommand);
+       {$endif bCmdHistory}
+
+      else
+        RunCommand(pcOptions);
       end;
 
     finally
@@ -245,158 +303,169 @@ interface
     end;
   end;
 
-
+  
   procedure OpenCmdLine(const AStr :TString);
   var
     vStr :TString;
   begin
     vStr := ExtractWords(2, MaxInt, AStr, [':']);
+
     if UpCompareSubStr(cFldPrefix + ':', AStr) = 0 then
-      OpenHistoryDlg(GetMsg(strFoldersHistoryTitle), 'Folders', 0, vStr)
+      RunCommand(pcFolderHistory, vStr)
     else
     if UpCompareSubStr(cEdtPrefix + ':', AStr) = 0 then
-      OpenEdtHistoryDlg(GetMsg(strViewEditHistoryTitle), 'Files\View', 0, vStr);
+      RunCommand(pcEditorHistory, vStr)
+   {$ifdef bCmdHistory}
+    else
+    if UpCompareSubStr(cCmdPrefix + ':', AStr) = 0 then
+      RunCommand(pcCommandHistory, vStr)
+   {$endif bCmdHistory}
+    ;
   end;
 
 
  {-----------------------------------------------------------------------------}
- { Экспортируемые процедуры                                                    }
+ { TMoreHistoryPlug                                                            }
  {-----------------------------------------------------------------------------}
 
-  function GetMinFarVersionW :Integer; stdcall;
+  procedure TMoreHistoryPlug.Init; {override;}
   begin
-    Result := MakeFarVersion(2, 0, 1573);   { ACTL_GETFARRECT }
+    inherited Init;
+
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
+
+   {$ifdef Far3}
+    FGUID := cPluginID;
+   {$else}
+    FID := cPluginID;
+   {$endif Far3}
+
+   {$ifdef Far3}
+   {$else}
+    FMinFarVer := MakeVersion(2, 0, 1573);   { ACTL_GETFARRECT }
+   {$endif Far3}
   end;
 
 
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
+  procedure TMoreHistoryPlug.Startup; {override;}
   begin
-//  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
-    hModule := psi.ModuleNumber;
-    FARAPI := psi;
-    FARSTD := psi.fsf^;
-
     hStdin := GetStdHandle(STD_INPUT_HANDLE);
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
-    FRegRoot := psi.RootKey;
 
     { Получаем Handle консоли Far'а }
-    hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
-
-//  InitConsoleProc;
-//  hConWindow := GetConsoleWindow;
-//  CanCheckWindow := GetConsoleWindow = hFarWindow;
+    hFarWindow := FarAdvControl(ACTL_GETFARHWND, nil);
 
     RestoreDefColor;
     ReadSettings;
 
     FldHistory := TFldHistory.Create;
     EdtHistory := TEdtHistory.Create;
+   {$ifdef bCmdHistory}
+    CmdHistory := TCmdHistory.Create;
+   {$endif bCmdHistory}
+
     SetHistoryWatcher(True);
   end;
 
 
-  var
-    PluginMenuStrings: array[0..0] of PFarChar;
-    ConfigMenuStrings: array[0..0] of PFarChar;
-
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
+  procedure TMoreHistoryPlug.ExitFar; {override;}
   begin
-//  TraceF('GetPluginInfo: %s', ['']);
-
-    pi.StructSize:= SizeOf(pi);
-    pi.Flags:= PF_PRELOAD or PF_EDITOR or PF_VIEWER or PF_DIALOG or PF_FULLCMDLINE;
-
-    PluginMenuStrings[0]:= GetMsg(strTitle);
-    pi.PluginMenuStrings:= Pointer(@PluginMenuStrings);
-    pi.PluginMenuStringsNumber:= 1;
-
-    ConfigMenuStrings[0]:= GetMsg(strTitle);
-    pi.PluginConfigStrings := Pointer(@ConfigMenuStrings);
-    pi.PluginConfigStringsNumber := 1;
-
-    pi.CommandPrefix := PFarChar(cPrefixes);
-
-    FldHistory.AddCurrentToHistory;
-  end;
-
-
-  procedure ExitFARW; stdcall;
-  begin
-//  Trace('ExitFAR');
     SetHistoryWatcher(False);
+    
     FldHistory.StoreModifiedHistory;
     EdtHistory.StoreModifiedHistory;
+   {$ifdef bCmdHistory}
+    CmdHistory.StoreModifiedHistory;
+   {$endif bCmdHistory}
+
     FreeObj(FldHistory);
     FreeObj(EdtHistory);
+   {$ifdef bCmdHistory}
+    FreeObj(CmdHistory);
+   {$endif bCmdHistory}
   end;
 
 
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
+  procedure TMoreHistoryPlug.GetInfo; {override;}
   begin
-//  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
-    Result:= INVALID_HANDLE_VALUE;
-    try
-      if OpenFrom = OPEN_COMMANDLINE then
-        OpenCmdLine(StrOEMToAnsi(PFarChar(Item)))
-      else
-        OpenMenu;
-    except
-      on E :Exception do
-        HandleError(E);
-    end;
-  end;
+    FFlags := PF_PRELOAD or PF_EDITOR or PF_VIEWER or PF_DIALOG or PF_FULLCMDLINE;
+    FPrefix := cPrefixes;
 
+    FMenuStr := GetMsg(strTitle);
+    FConfigStr := FMenuStr;
+   {$ifdef Far3}
+    FMenuID  := cMenuID;
+    FConfigID  := cConfigID;
+   {$endif Far3}
 
-  function OpenFilePluginW(const AName :PTChar; Data :Pointer; DataSize :Integer; OpMode :Integer) :THandle; stdcall;
-  begin
-//  TraceF('OpenFilePluginW: %s', [AName]);
-    Result:= INVALID_HANDLE_VALUE;
     FldHistory.AddCurrentToHistory;
   end;
 
 
-  function ConfigureW(Item: integer) :Integer; stdcall;
+  function TMoreHistoryPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
-    Result := 1;
+    if AFrom and OPEN_FROMMACRO <> 0 then begin
+
+      if AFrom and OPEN_FROMMACROSTRING <> 0 then
+        {!!!}
+      else
+      if (AParam >= 1) and (AParam <= Byte(High(TPluginCmd))) then
+        RunCommand(TPluginCmd(AParam - 1))
+      else
+        OpenMenu;
+
+    end else
+    if AFrom = OPEN_COMMANDLINE then
+      OpenCmdLine(PFarChar(AParam))
+    else
+      OpenMenu;
+    Result := INVALID_HANDLE_VALUE;
+  end;
+
+
+  procedure TMoreHistoryPlug.Configure; {override;}
+  begin
+    ReadSetup('');
+    OptionsMenu;
+  end;
+
+
+  procedure TMoreHistoryPlug.SynchroEvent(AParam :Pointer); {override;}
+  var
+    vStr :TString;
+  begin
     try
-      ReadSetup('');
-      OptionsMenu;
-    except
-      on E :Exception do
-        HandleError(E);
-    end;
-  end;
+      { История не должна меняться, пока активен диалог }
+      if HistDlgOpened then
+        Exit;
 
+      FldHistory.LockHistory;
+      try
+        FldHistory.LoadModifiedHistory;
 
-(*
-  function ProcessEditorInputW(const ARec :INPUT_RECORD) :Integer; stdcall;
-  begin
-//  TraceF('ProcessEditorInputW: Event=%d', [ARec.EventType]);
-    if ARec.EventType = 0 then begin
-      {???}
-    end else
-    if ARec.EventType = KEY_EVENT then begin
-      with ARec.Event.KeyEvent do begin
-        if bKeyDown and not (wVirtualKeyCode in [0, VK_SHIFT, VK_CONTROL, VK_MENU]) then begin
-//        TraceF('ProcessEditorInputW (KEY_EVENT): Press=%d, Key=%d', [Byte(bKeyDown), wVirtualKeyCode]);
-          EdtClearMark(not optPersistMatch);
+        vStr := GetCurrentPanelPath;
+        if vStr <> '' then begin
+//        TraceF('Add: %s', [vStr]);
+          FldHistory.AddHistory(vStr, False);
+        end else
+        if GLastAdded <> '' then begin
+          vStr := GLastAdded;
+          FldHistory.AddHistory(vStr, True);
         end;
+
+      finally
+        FldHistory.UnlockHistory;
       end;
-    end else
-    if ARec.EventType = _MOUSE_EVENT then begin
-      with ARec.Event.MouseEvent do
-        if MOUSE_MOVED and dwEventFlags = 0 then begin
-//        TraceF('ProcessEditorInputW (MOUSE_EVENT): Flags=%d', [dwEventFlags]);
-          EdtClearMark(not optPersistMatch);
-        end
+
+    finally
+      FCallInProgress := False;
     end;
-    Result := 0;
   end;
-*)
 
 
-  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
+  function TMoreHistoryPlug.EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
   var
     vName :TString;
     vInfo :TEditorInfo;
@@ -424,7 +493,7 @@ interface
       vRow := 0; vCol := 0;
       if vAction = eaModify then begin
         FillZero(vInfo, SizeOf(vInfo));
-        if FARAPI.EditorControl(ECTL_GETINFO, @vInfo) <> 1 then
+        if FarEditorControl(ECTL_GETINFO, @vInfo) <> 1 then
           Exit;
         vRow := vInfo.CurLine + 1;
         vCol := vInfo.CurPos + 1;
@@ -438,7 +507,7 @@ interface
   end;
 
 
-  function ProcessViewerEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
+  function TMoreHistoryPlug.ViewerEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
   var
     vName :TString;
     vInfo :TViewerInfo;
@@ -456,7 +525,7 @@ interface
 
     FillZero(vInfo, SizeOf(vInfo));
     vInfo.StructSize := SizeOf(vInfo);
-    FARAPI.ViewerControl(VCTL_GetInfo, @vInfo);
+    FarViewerControl(VCTL_GetInfo, @vInfo);
     vName := FarChar2Str(vInfo.FileName);
 
     vQuickView := vInfo.WindowSizeX < FarGetWindowSize.cx;
@@ -473,41 +542,10 @@ interface
   end;
 
 
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
-  var
-    vStr :TString;
+  function TMoreHistoryPlug.Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :Integer; {override;}
   begin
-//  TraceF('ProcessSynchroEventW. Event=%d, Param=%d', [Event, Integer(Param)]);
+    FldHistory.AddCurrentToHistory;
     Result := 0;
-    try
-      if Event <> SE_COMMONSYNCHRO then
-        Exit;
-
-      { История не должна меняться, пока активен диалог }
-      if HistDlgOpened then
-        Exit;
-
-      FldHistory.LockHistory;
-      try
-        FldHistory.LoadModifiedHistory;
-
-        vStr := GetCurrentPanelPath;
-        if vStr <> '' then begin
-//        TraceF('Add: %s', [vStr]);
-          FldHistory.AddHistory(vStr, False);
-        end else
-        if GLastAdded <> '' then begin
-          vStr := GLastAdded;
-          FldHistory.AddHistory(vStr, True);
-        end;
-
-      finally
-        FldHistory.UnlockHistory;
-      end;
-
-    finally
-      FCallInProgress := False;
-    end;
   end;
 
 

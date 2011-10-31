@@ -12,9 +12,6 @@ REGEDIT4
 "Exclusions"=""
 ;"Exclusions"="?:\\*|\\\\*"
 
-; Новые пункты истории размещаются сверху
-"NewAtTop"=dword:00
-
 ; Показывать разделительные линии
 "ShowGrid"=dword:00
 

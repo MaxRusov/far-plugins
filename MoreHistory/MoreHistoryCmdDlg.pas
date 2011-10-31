@@ -1,6 +1,6 @@
 {$I Defines.inc}
 
-unit MoreHistoryDlg;
+unit MoreHistoryCmdDlg;
 
 {******************************************************************************}
 {* (c) 2009 Max Rusov                                                         *}
@@ -42,7 +42,7 @@ interface
 
 
   type
-    TFldMenuDlg = class(TMenuBaseDlg)
+    TCmdMenuDlg = class(TMenuBaseDlg)
     public
       constructor Create; override;
       destructor Destroy; override;
@@ -61,11 +61,9 @@ interface
       function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
 
     private
-      FMode    :Integer;
       FMaxHits :Integer;
 
       procedure ClearSelectedHits;
-      procedure MarkSelected(Actual :Boolean);
 
       procedure CommandsMenu;
       procedure ProfileMenu;
@@ -74,12 +72,11 @@ interface
 
 
   var
-    FFolderLastFilter :TString;
+    FCmdLastFilter :TString;
 
 
-  function HistDlgOpened :Boolean;
+  procedure OpenCmdHistoryDlg(const ACaption, AModeName :TString; const AFilter :TString);
 
-  procedure OpenHistoryDlg(const ACaption, AModeName :TString; AMode :Integer; const AFilter :TString);
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -90,49 +87,39 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- { TFldMenuDlg                                                                 }
+ { TCmdMenuDlg                                                                 }
  {-----------------------------------------------------------------------------}
 
-  constructor TFldMenuDlg.Create; {override;}
+  constructor TCmdMenuDlg.Create; {override;}
   begin
     inherited Create;
-    RegisterHints(Self);
-    FGUID := cFoldersDlgID;
-    FHelpTopic := 'HistoryList';
+//  RegisterHints(Self); !!!
+    FGUID := cCommandsDlgID;
+    FHelpTopic := 'CmdHistoryList';
   end;
 
 
-  destructor TFldMenuDlg.Destroy; {override;}
+  destructor TCmdMenuDlg.Destroy; {override;}
   begin
-    UnregisterHints;
+//  UnregisterHints;  !!!
     inherited Destroy;
   end;
 
 
-  function TFldMenuDlg.ItemVisible(AItem :THistoryEntry) :Boolean; {override;}
-  var
-    vItem :TFldHistoryEntry;
+  function TCmdMenuDlg.ItemVisible(AItem :THistoryEntry) :Boolean; {override;}
   begin
-    Result := False;
-    vItem := AItem as TFldHistoryEntry;
-    if (FMode <> 0) and (vItem.GetMode <> FMode) then
-      Exit;
-    if not optShowHidden and not vItem.IsFinal then
-      Exit;
-    if optHideCurrent and StrEqual(GLastAdded, vItem.Path) then
-      Exit;
     Result := True;
   end;
 
 
-  procedure TFldMenuDlg.AcceptItem(AItem :THistoryEntry; AGroup :TMyFilter); {override;}
+  procedure TCmdMenuDlg.AcceptItem(AItem :THistoryEntry; AGroup :TMyFilter); {override;}
   begin
     inherited AcceptItem(AItem, AGroup);
-    FMaxHits := IntMax(FMaxHits, (AItem as TFldHistoryEntry).Hits);
+    FMaxHits := IntMax(FMaxHits, (AItem as TCmdHistoryEntry).Hits);
   end;
 
 
-  procedure TFldMenuDlg.ReinitColumns; {override;}
+  procedure TCmdMenuDlg.ReinitColumns; {override;}
   var
     vOpt :TColOptions;
     vDateLen, vHitsLen :Integer;
@@ -153,7 +140,7 @@ interface
   end;
 
 
-  procedure TFldMenuDlg.ReinitGrid; {override;}
+  procedure TCmdMenuDlg.ReinitGrid; {override;}
   begin
     FMaxHits := 0;
     inherited ReinitGrid;
@@ -162,23 +149,23 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function TFldMenuDlg.ItemMarkHidden(AItem :THistoryEntry) :Boolean; {override;}
+  function TCmdMenuDlg.ItemMarkHidden(AItem :THistoryEntry) :Boolean; {override;}
   begin
-    Result := not (AItem as TFldHistoryEntry).IsFinal;
+    Result := False;
   end;
 
 
-  function TFldMenuDlg.GetEntryStr(AItem :THistoryEntry; AColTag :Integer) :TString; {override;}
+  function TCmdMenuDlg.GetEntryStr(AItem :THistoryEntry; AColTag :Integer) :TString; {override;}
   begin
     if AColTag = 3 then
-      Result := Int2Str((AItem as TFldHistoryEntry).Hits)
+      Result := Int2Str((AItem as TCmdHistoryEntry).Hits)
     else
       Result := inherited GetEntryStr(AItem, AColTag);
   end;
 
  {-----------------------------------------------------------------------------}
 
-  procedure TFldMenuDlg.CommandsMenu;
+  procedure TCmdMenuDlg.CommandsMenu;
   var
     vMenu :TFarMenu;
   begin
@@ -186,9 +173,6 @@ interface
       GetMsg(strCommandsTitle),
     [
       GetMsg(strMOpen),
-      '',
-      GetMsg(strMMarkTranzit),
-      GetMsg(strMMarkActual),
       '',
       GetMsg(strMDelete),
       GetMsg(strMClearHitCount),
@@ -202,13 +186,10 @@ interface
       case vMenu.ResIdx of
         0 : SelectItem(1);
 
-        2 : MarkSelected(False);
-        3 : MarkSelected(True);
+        2 : DeleteSelected;
+        3 : ClearSelectedHits;
 
-        5 : DeleteSelected;
-        6 : ClearSelectedHits;
-
-        8 : ProfileMenu;
+        5 : ProfileMenu;
       end;
 
     finally
@@ -217,7 +198,7 @@ interface
   end;
 
 
-  procedure TFldMenuDlg.ProfileMenu;
+  procedure TCmdMenuDlg.ProfileMenu;
   var
     vMenu :TFarMenu;
   begin
@@ -262,7 +243,7 @@ interface
   end;
 
   
-  procedure TFldMenuDlg.SortByMenu;
+  procedure TCmdMenuDlg.SortByMenu;
   var
     vMenu :TFarMenu;
     vRes :Integer;
@@ -304,7 +285,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure TFldMenuDlg.ChangeHierarchMode; {override;}
+  procedure TCmdMenuDlg.ChangeHierarchMode; {override;}
   begin
     if not optHierarchical then begin
       optHierarchical := True;
@@ -319,13 +300,13 @@ interface
   end;
 
 
-  procedure TFldMenuDlg.ClearSelectedHits;
+  procedure TCmdMenuDlg.ClearSelectedHits;
   var
     I :Integer;
-    vItem :TFldHistoryEntry;
+    vItem :TCmdHistoryEntry;
   begin
     if FSelectedCount = 0 then begin
-      vItem := GetHistoryEntry(FGrid.CurRow, True) as TFldHistoryEntry;
+      vItem := GetHistoryEntry(FGrid.CurRow, True) as TCmdHistoryEntry;
       if vItem = nil then
         Exit;
       vItem.HitInfoClear;
@@ -335,45 +316,16 @@ interface
         Exit;
       for I := 0 to FGrid.RowCount - 1 do
         if DlgItemSelected(I) then
-           with GetHistoryEntry(I) as TFldHistoryEntry do
+           with GetHistoryEntry(I) as TCmdHistoryEntry do
              HitInfoClear;
     end;
-    FldHistory.SetModified;
+    CmdHistory.SetModified;
     ReinitGrid;
   end;
 
 
-  procedure TFldMenuDlg.MarkSelected(Actual :Boolean);
-  var
-    I :Integer;
-    vItem :TFldHistoryEntry;
-    vStr :TString;
-  begin
-    if FSelectedCount = 0 then begin
-      vItem := GetHistoryEntry(FGrid.CurRow, True) as TFldHistoryEntry;
-      if vItem = nil then
-        Exit;
-      vItem.SetFinal(Actual);
-    end else
-    begin
-      if Actual then
-        vStr := GetMsgStr(strMakeActualPrompt)
-      else
-        vStr := GetMsgStr(strMakeTransitPrompt);
-      if ShowMessage(GetMsgStr(strConfirmation), vStr, FMSG_MB_YESNO) <> 0 then
-        Exit;
-      for I := 0 to FGrid.RowCount - 1 do
-        if DlgItemSelected(I) then
-          with GetHistoryEntry(I) as TFldHistoryEntry do
-            SetFinal(Actual);
-    end;
-    FldHistory.SetModified;
-    ReinitGrid;
-    FGrid.GotoLocation(FGrid.CurCol, FGrid.CurRow, lmScroll);
-  end;
 
-
-  function TFldMenuDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
+  function TCmdMenuDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
   begin
     Result := True;
     case AKey of
@@ -386,11 +338,6 @@ interface
 
       KEY_SHIFTF8:
         ClearSelectedHits;
-
-      KEY_F5:
-        MarkSelected(False);
-      KEY_SHIFTF5:
-        MarkSelected(True);
 
       KEY_CTRL2:
         ToggleOption(optShowDate);
@@ -409,23 +356,43 @@ interface
   var
     vMenuLock :Integer;
 
-    
-  function HistDlgOpened :Boolean;
+
+  procedure ApplyCmd(const ACmd :TString);
+  var
+    vWinInfo :TWindowInfo;
   begin
-    Result := vMenuLock > 0;
+    FarGetWindowInfo(-1, vWinInfo);
+    if vWinInfo.WindowType = WTYPE_PANELS then begin
+      FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(ACmd));
+      FarPostMacro('history.enable(1);Enter', 0);
+    end else
+      Beep;
   end;
 
 
-  procedure OpenHistoryDlg(const ACaption, AModeName :TString; AMode :Integer; const AFilter :TString);
+  procedure InsertCmd(const ACmd :TString);
   var
-    vDlg :TFldMenuDlg;
+    vWinInfo :TWindowInfo;
+  begin
+    FarGetWindowInfo(-1, vWinInfo);
+    if vWinInfo.WindowType = WTYPE_PANELS then
+      FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(ACmd))
+    else
+      InsertText(ACmd);
+  end;
+
+
+  procedure OpenCmdHistoryDlg(const ACaption, AModeName :TString; const AFilter :TString);
+  var
+    vDlg :TCmdMenuDlg;
     vFinish :Boolean;
     vFilter :TString;
   begin
     if vMenuLock > 0 then
       Exit;
 
-    FldHistory.AddCurrentToHistory;
+    CmdHistory.LoadModifiedHistory;
+    CmdHistory.UpdateHistory;
 
     optShowHidden := False;
     optSeparateName := False;
@@ -439,17 +406,16 @@ interface
     ReadSetup(AModeName);
 
     Inc(vMenuLock);
-    FldHistory.LockHistory;
-    vDlg := TFldMenuDlg.Create;
+    CmdHistory.LockHistory;
+    vDlg := TCmdMenuDlg.Create;
     try
       vDlg.FCaption := ACaption;
-      vDlg.FHistory := FldHistory;
-      vDlg.FMode := AMode;
+      vDlg.FHistory := CmdHistory;
       vDlg.FModeName := AModeName;
 
       vFilter := AFilter;
       if (vFilter = '') and optSaveMask then
-        vFilter := FFolderLastFilter;
+        vFilter := FCmdLastFilter;
       vDlg.SetFilter(vFilter);
 
       vFinish := False;
@@ -458,23 +424,19 @@ interface
           Exit;
 
         case vDlg.FResCmd of
-          1: JumpToPath(vDlg.FResStr, '');
-          2: InsertText(vDlg.FResStr);
-          3: JumpToPath(ExtractFilePath(vDlg.FResStr), ExtractFileName(vDlg.FResStr));
+          1: ApplyCmd(vDlg.FResStr);
+          2: InsertCmd(vDlg.FResStr);
         end;
         vFinish := True;
       end;
 
     finally
-      FFolderLastFilter := vDlg.GetFilter;
+      FCmdLastFilter := vDlg.GetFilter;
       FreeObj(vDlg);
-      FldHistory.UnlockHistory;
+      CmdHistory.UnlockHistory;
       Dec(vMenuLock);
     end;
   end;
 
 
 end.
-
-
-

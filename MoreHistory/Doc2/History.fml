@@ -1,0 +1,87 @@
+;;
+;; More History
+;;
+
+const MoreHistory = 0x5453484D
+
+const FolderHist    = 1
+const EditorHist    = 2
+const ModifyHist    = 3
+//const CommandHist   = 4
+//const PrevCommand   = 5
+//const NextCommand   = 6
+//const Options       = 7
+
+
+macro Key = "AltF12" Area = "Shell Editor Viewer Dialog" Descr = "More history: Folders"
+{{
+  $if (!CallPlugin(#%MoreHistory, #%FolderHist))  
+    $AKey
+  $end
+}}
+
+
+macro Key = "AltF11" Area = "Shell Editor Viewer Dialog" Descr = "More history: Edit/View History"
+{{
+  $if (!CallPlugin(#%MoreHistory, #%EditorHist))  
+    $AKey
+  $end
+}}
+
+
+//macro Key = "AltF11" Area = "Shell Editor Viewer Dialog" Descr = "More history: Modify History"
+//{{
+//  $if (!CallPlugin(#%MoreHistory, #%ModifyHist))  
+//    $AKey
+//  $end
+//}}
+
+
+
+/*
+Не поддерживается для Far2
+
+macro Key = "AltF8" Area = "Shell Editor Viewer Dialog" Descr = "More history: Commands History"
+{{
+  $if (!CallPlugin(#%MoreHistory, #%CommandHist))  
+    $AKey
+  $end
+}}
+
+
+macro Key = "CtrlE" Area = "Shell" Descr = "More history: Prev command"
+{{
+  $if (!CallPlugin(#%MoreHistory, #%PrevCommand))  
+    $AKey
+  $end
+}}
+
+
+macro Key = "CtrlShiftE" Area = "Shell" Descr = "More history: Next command"
+{{
+  $if (!CallPlugin(#%MoreHistory, #%NextCommand))  
+    $AKey
+  $end
+}}
+*/
+
+;;
+;; Стандартные истории
+;;
+
+macro Key = "AltShiftF12" Area = "Shell" Descr = "Standart History: Folders"
+{{
+  AltF12
+}}
+
+macro Key = "AltShiftF11" Area = "Shell Editor Viewer" Descr = "Standart History: Edit/View"
+{{
+  AltF11
+}}
+
+/*
+macro Key = "AltShiftF8" Area = "Shell" Descr = "Standart History: Command"
+{{
+  ALtF8
+}}
+*/

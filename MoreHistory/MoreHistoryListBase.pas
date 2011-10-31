@@ -13,14 +13,18 @@ interface
   uses
     Windows,
 
-    PluginW,
-    FarKeysW,
-
     MixTypes,
     MixUtils,
     MixFormat,
     MixStrings,
     MixClasses,
+
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
+    PluginW,
+   {$endif Far3}
+    FarKeysW,
 
     FarCtrl,
     FarGrid,
@@ -83,7 +87,7 @@ interface
       procedure Prepare; override;
       procedure InitDialog; override;
       function CloseDialog(ItemID :Integer) :Boolean; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
 
     protected
       function AcceptSelected(AItem :THistoryEntry; ACode :Integer) :Boolean; virtual;
@@ -110,6 +114,7 @@ interface
       FFixedCount     :Integer;
       FFilterMask     :TString;
       FSelectedCount  :Integer;
+      FFilterChanged  :Boolean;
 
       FFilterHist     :TStrList;
       FHistIndex      :Integer;
@@ -123,15 +128,17 @@ interface
       FResStr         :TString;
       FResCmd         :Integer;
 
+      FSetChanged     :Boolean;
+
       procedure SelectItem(ACode :Integer);
       procedure DeleteSelected;
 
-      procedure DrawTextEx(X, Y, AWidth :Integer; AChr :PTChar; APos, ALen :Integer; AColor :Integer);
+      procedure DrawTextEx(X, Y, AWidth :Integer; AChr :PTChar; APos, ALen :Integer; AColor :TFarColor);
 
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
-      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
-      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); virtual;
+      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
+      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); virtual;
 
       procedure UpdateHeader;
       procedure ReinitAndSaveCurrent(AItem :THistoryEntry = nil);
@@ -277,7 +284,6 @@ interface
   procedure TMenuBaseDlg.Prepare; {override;}
   begin
     inherited Prepare;
-    FHelpTopic := 'HistoryList';
 
     FGrid.OnCellClick := GridCellClick;
     FGrid.OnGetCellText := GridGetDlgText;
@@ -307,10 +313,13 @@ interface
   var
     vStr :TString;
   begin
+    if FSetChanged then
+      WriteSetup(FModeName);
+
     vStr := GetFilter;
     if vStr <> '' then
       AddToHistory(cHilterHistName, vStr);
-    FLastFilter := vStr;
+//  FLastFilter := vStr;
     Result := True;
   end;
 
@@ -385,7 +394,7 @@ interface
   end;
 
 
-  procedure TMenuBaseDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
+  procedure TMenuBaseDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
   var
     vRec :PFilterRec;
     vItem :THistoryEntry;
@@ -403,21 +412,22 @@ interface
       begin
         if vRec.FIdx < 0 then
           Exit;
+
         vItem := FHistory[vRec.FIdx];
         if (vRec.FSel and 2 <> 0) then begin
-          if AColor <> FGrid.SelColor then
-            AColor := (AColor and not $0F) or (optGroupColor and $0F)
+          if not EqualColor(AColor, FGrid.SelColor) then
+            AColor := ChangeFG(AColor, optGroupColor)
         end else
         if ItemMarkHidden(vItem) {and not vRec.FSel} then
-          AColor := (AColor and not $0F) or (optHiddenColor and $0F)
+          AColor := ChangeFG(AColor, optHiddenColor)
       end;
     end;
   end;
 
 
-  procedure TMenuBaseDlg.DrawTextEx(X, Y, AWidth :Integer; AChr :PTChar; APos, ALen :Integer; AColor :Integer);
+  procedure TMenuBaseDlg.DrawTextEx(X, Y, AWidth :Integer; AChr :PTChar; APos, ALen :Integer; AColor :TFarColor);
 
-    procedure LocDrawPart(var AChr :PTChar; var ARest :Integer; ALen :Integer; AColor :Integer);
+    procedure LocDrawPart(var AChr :PTChar; var ARest :Integer; ALen :Integer; AColor :TFarColor);
     begin
       if ARest > 0 then begin
         if ALen > ARest then
@@ -439,13 +449,13 @@ interface
       LocDrawPart(AChr, AWidth, AWidth, AColor)
     else begin
       LocDrawPart(AChr, AWidth, APos, AColor);
-      LocDrawPart(AChr, AWidth, ALen, (AColor and not $0F) or (optFoundColor and $0F) );
+      LocDrawPart(AChr, AWidth, ALen, ChangeFG(AColor, optFoundColor) );
       LocDrawPart(AChr, AWidth, AWidth, AColor);
     end;
   end;
 
 
-  procedure TMenuBaseDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+  procedure TMenuBaseDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor);
   var
     vRec :PFilterRec;
     vItem :THistoryEntry;
@@ -801,7 +811,7 @@ interface
       optSortMode := -AOrder;
 //  LocReinitAndSaveCurrent;
     ReinitGrid;
-    WriteSetup(FModeName);
+    FSetChanged := True;
   end;
 
 
@@ -844,6 +854,9 @@ interface
 
   procedure TMenuBaseDlg.PrevFilter(APrev :Boolean);
   begin
+   {$ifdef Far3}
+    {!!!}
+   {$else}
     if FFilterHist = nil then begin
       FFilterHist := GetHistoryList(cHilterHistName);
       FHistIndex := -1;
@@ -868,6 +881,7 @@ interface
 
     SetFilter(FFilterHist[FHistIndex]);
     ReinitAndSaveCurrent;
+   {$endif Far3}
   end;
 
 
@@ -956,11 +970,11 @@ interface
   begin
     AOption := not AOption;
     ReinitAndSaveCurrent;
-    WriteSetup(FModeName);
+    FSetChanged := True;
   end;
 
 
-  function TMenuBaseDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr): TIntPtr; {override;}
+  function TMenuBaseDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
 
     procedure LocCopySelected;
     var
@@ -1107,115 +1121,106 @@ interface
       end;
     end;
 
-
   begin
-//  TraceF('InfoDialogProc: FHandle=%d, Msg=%d, Param1=%d, Param2=%d', [FHandle, Msg, Param1, Param2]);
-    Result := 1;
-    case Msg of
-      DN_KEY: begin
-//      TraceF('Key = %d', [Param2]);
-        case Param2 of
-          KEY_ENTER, KEY_NUMENTER:
-            SelectItem(1);
-          KEY_CTRLENTER, KEY_CTRL + KEY_NUMENTER:
-            SelectItem(2);
-          KEY_CTRLPGDN:
-            SelectItem(3);
+    Result := True;
 
-          KEY_SHIFTF9: begin
-            OptionsMenu;
-            ReinitAndSaveCurrent;
-          end;
-
-          { Выделение }
-          KEY_INS:
-            LocSelectCurrent;
-          KEY_CTRLADD:
-            LocSelectAll(0, 1);
-          KEY_CTRLSUBTRACT:
-            LocSelectAll(0, 0);
-          KEY_CTRLMULTIPLY:
-            LocSelectAll(0, -1);
-          KEY_ALTADD:
-            LocSelectAll(FGrid.CurRow, 1);
-
-          { Операции над выделенными }
-          KEY_CTRLINS:
-            LocCopySelected;
-          KEY_CTRLDEL, KEY_F8:
-            DeleteSelected;
-
-          { Управление отображением }
-          KEY_CTRLH:
-            ToggleOption(optShowHidden);
-
-          KEY_CTRLG:
-            ChangeHierarchMode; {ToggleOption(optHierarchical);}
-          KEY_CTRLI:
-            ToggleOption(optNewAtTop);
-          KEY_CTRLF:
-            QueryFilter;
-          KEY_CTRLLEFT:
-            PrevFilter(True);
-          KEY_CTRLRIGHT:
-            PrevFilter(False);
-          KEY_CTRLDOWN:
-            LocNextGroup(True);
-          KEY_CTRLUP:
-            LocNextGroup(False);
-
-          KEY_CTRL0:
-            ToggleOption(optShowGrid);
-
-          { Сортировка }
-          KEY_CTRLF1, KEY_CTRLSHIFTF1:
-            SetOrder(1);
-          KEY_CTRLF2, KEY_CTRLSHIFTF2:
-            SetOrder(-2);
-          KEY_CTRLF3, KEY_CTRLSHIFTF3:
-            SetOrder(-3);
-          KEY_CTRLF11:
-            SetOrder(0);
-
-          { Фильтрация }
-          KEY_DEL, KEY_ALT, KEY_RALT:
-            LocSetFilter('');
-          KEY_BS:
-            if FFilterMask <> '' then
-              LocSetFilter( Copy(FFilterMask, 1, Length(FFilterMask) - 1));
-
-          KEY_ADD      : LocSetFilter( FFilterMask + '+' );
-          KEY_SUBTRACT : LocSetFilter( FFilterMask + '-' );
-          KEY_DIVIDE   : LocSetFilter( FFilterMask + '/' );
-          KEY_MULTIPLY : LocSetFilter( FFilterMask + '*' );
-
-          KEY_TAB:
-            PushFilter;
-          KEY_CTRLBS:
-            PopFilter;
-
-        else
-//        TraceF('Key: %d', [Param2]);
-         {$ifdef bUnicodeFar}
-          if (Param2 >= 32) and (Param2 < $FFFF) then
-         {$else}
-          if (Param2 >= 32) and (Param2 <= $FF) then
-         {$endif bUnicodeFar}
-          begin
-           {$ifdef bUnicodeFar}
-            LocSetFilter(FFilterMask + WideChar(Param2));
-           {$else}
-            LocSetFilter(FFilterMask + StrOEMToAnsi(AnsiChar(Param2)));
-           {$endif bUnicodeFar}
-          end else
-            Result := inherited DialogHandler(Msg, Param1, Param2);
+    case AKey of
+      KEY_BS, KEY_ADD, KEY_SUBTRACT, KEY_DIVIDE, KEY_MULTIPLY, 32..$FFFF:
+        if not FFilterChanged then begin
+          FFilterMask := '';
+          FFilterChanged := True;
         end;
+    end;
+
+    case AKey of
+      KEY_ENTER, KEY_NUMENTER:
+        SelectItem(1);
+      KEY_CTRLENTER, KEY_CTRL + KEY_NUMENTER:
+        SelectItem(2);
+      KEY_CTRLPGDN:
+        SelectItem(3);
+
+      KEY_SHIFTF9: begin
+        OptionsMenu;
+        ReinitAndSaveCurrent;
       end;
 
-    else
-      Result := inherited DialogHandler(Msg, Param1, Param2);
+      { Выделение }
+      KEY_INS:
+        LocSelectCurrent;
+      KEY_CTRLADD:
+        LocSelectAll(0, 1);
+      KEY_CTRLSUBTRACT:
+        LocSelectAll(0, 0);
+      KEY_CTRLMULTIPLY:
+        LocSelectAll(0, -1);
+      KEY_ALTADD:
+        LocSelectAll(FGrid.CurRow, 1);
+
+      { Операции над выделенными... }
+      KEY_CTRLINS:
+        LocCopySelected;
+      KEY_CTRLDEL, KEY_F8:
+        DeleteSelected;
+
+      { Управление отображением }
+      KEY_CTRLH:
+        ToggleOption(optShowHidden);
+
+      KEY_CTRLG:
+        ChangeHierarchMode; {ToggleOption(optHierarchical);}
+      KEY_CTRLI:
+        ToggleOption(optNewAtTop);
+      KEY_CTRLF:
+        QueryFilter;
+      KEY_CTRLLEFT:
+        PrevFilter(True);
+      KEY_CTRLRIGHT:
+        PrevFilter(False);
+      KEY_CTRLDOWN:
+        LocNextGroup(True);
+      KEY_CTRLUP:
+        LocNextGroup(False);
+
+      KEY_CTRL0:
+        ToggleOption(optShowGrid);
+
+      { Сортировка }
+      KEY_CTRLF1, KEY_CTRLSHIFTF1:
+        SetOrder(1);
+      KEY_CTRLF2, KEY_CTRLSHIFTF2:
+        SetOrder(-2);
+      KEY_CTRLF3, KEY_CTRLSHIFTF3:
+        SetOrder(-3);
+      KEY_CTRLF11:
+        SetOrder(0);
+
+      { Фильтрация }
+      KEY_DEL, KEY_ALT, KEY_RALT:
+        LocSetFilter('');
+      KEY_BS:
+        if FFilterMask <> '' then
+          LocSetFilter( Copy(FFilterMask, 1, Length(FFilterMask) - 1));
+
+      KEY_ADD      : LocSetFilter( FFilterMask + '+' );
+      KEY_SUBTRACT : LocSetFilter( FFilterMask + '-' );
+      KEY_DIVIDE   : LocSetFilter( FFilterMask + '/' );
+      KEY_MULTIPLY : LocSetFilter( FFilterMask + '*' );
+
+      KEY_TAB:
+        PushFilter;
+      KEY_CTRLBS:
+        PopFilter;
+
+      else
+//      TraceF('Key: %d', [Param2]);
+        if (AKey >= 32) and (AKey < $FFFF) then
+          LocSetFilter(FFilterMask + WideChar(AKey))
+        else
+          Result := inherited KeyDown(AID, AKey);
     end;
   end;
+
 
 end.
 

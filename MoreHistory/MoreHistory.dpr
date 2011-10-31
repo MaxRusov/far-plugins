@@ -1,9 +1,9 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{$ifdef bDelphi}
+{$ifdef Debug}
  {$ImageBase $40800000}
-{$endif bDelphi}
+{$endif Debug}
 
 library MoreHistory;
 
@@ -12,14 +12,24 @@ uses
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
+  FarPlug,
   MoreHistoryMain;
 
 exports
+ {$ifdef Far3}
+  GetGlobalInfoW,
+ {$else}
   GetMinFarVersionW,
+ {$endif Far3}
   SetStartupInfoW,
   GetPluginInfoW,
+ {$ifdef Far3}
+  OpenW,
+  AnalyseW,
+ {$else}
   OpenPluginW,
   OpenFilePluginW,
+ {$endif Far3}
   ConfigureW,
   ProcessEditorEventW,
   ProcessViewerEventW,
@@ -28,4 +38,6 @@ exports
 
 {$R MoreHistoryW.res}
 
+begin
+  Plug := TMoreHistoryPlug.Create;
 end.
