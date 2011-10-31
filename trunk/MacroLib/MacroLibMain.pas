@@ -558,6 +558,8 @@ interface
 
 //  MacroLibrary.RescanMacroses(True);
 //  MacroLibrary.CheckEvent(maShell, meOpen);
+
+    FarAdvControl(ACTL_SYNCHRO, TRunEvent.CreateEx(meOpen, maShell));
   end;
 
 
@@ -597,7 +599,7 @@ interface
     if optCmdPrefix <> '' then
       AInfo.CommandPrefix := PTChar(optCmdPrefix);
 
-    FarAdvControl(ACTL_SYNCHRO, TRunEvent.CreateEx(meOpen, maShell));
+//  FarAdvControl(ACTL_SYNCHRO, TRunEvent.CreateEx(meOpen, maShell));
   end;
 
 
