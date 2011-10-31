@@ -35,6 +35,8 @@ interface
 
     IdFrame = 0;
     IdList = 1;
+    IdStatus = 2;
+
 
   type
     TFarListDlg = class(TFarDialog)
@@ -149,8 +151,9 @@ interface
     FHeight := DY;
     FDialog := CreateDialog(
       [
-        NewItemApi(DI_DoubleBox, 2, 1, DX - 4, DY - 2, 0, ''),
-        NewItemApi(DI_USERCONTROL, 3, 2, DX - 6, DY - 4, 0, '' )
+        NewItemApi(DI_DoubleBox,   2, 1, DX - 4, DY - 2, 0, ''),
+        NewItemApi(DI_USERCONTROL, 3, 2, DX - 6, DY - 4, 0, '' ),
+        NewItemApi(DI_Text,        3, 3, 3, 1, DIF_CENTERTEXT or DIF_HIDDEN, '')
       ],
       @FItemCount
     );
@@ -199,6 +202,10 @@ interface
       Inc(vRect.Right);
     SendMsg(DM_SETITEMPOSITION, IdList, @vRect);
     FGrid.UpdateSize(vRect.Left, vRect.Top, vRect.Right - vRect.Left + 1, vRect.Bottom - vRect.Top + 1);
+
+    SendMsg(DM_GETITEMPOSITION, IdStatus, @vRect);
+    vRect.Top := vHeight - 2; vRect.Bottom := vRect.Top;
+    SendMsg(DM_SETITEMPOSITION, IdStatus, @vRect);
   end;
 
 
@@ -226,7 +233,7 @@ interface
        {$endif Far3}
 
       DN_CTLCOLORDLGITEM:
-        if Param1 = IdFrame then
+        if (Param1 = IdFrame) or (Param1 = IDStatus) then
          {$ifdef Far3}
           CtrlPalette([COL_MENUTITLE, COL_MENUHIGHLIGHT, COL_MENUBOX], PFarDialogItemColors(Param2)^)
          {$else}

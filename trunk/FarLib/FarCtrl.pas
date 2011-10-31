@@ -188,11 +188,13 @@ interface
   function FarSendDlgMessage(ADlg :THandle; AMsg, AParam1 :Integer; AParam2 :Pointer) :TIntPtr; overload;
   function FarAdvControl(ACommand :Integer; AParam :Pointer) :Integer;
   function FarEditorControl(ACommand :Integer; AParam :Pointer) :Integer;
+  function FarViewerControl(ACommand :Integer; AParam :Pointer) :Integer;
   function FarRegexpControl(AHandle :THandle; ACommand :Integer; AParam :Pointer) :Integer;
 
   function FarGetColor(ASysColor :TPaletteColors) :TFarColor;
   function IsUndefColor(const AColor :TFarColor) :Boolean;
   function MakeColor(AFGColor, ABGColor :DWORD) :TFarColor;
+  function EqualColor(AColor1, AColor2 :TFarColor) :Boolean;
   function GetColorFG(const AColor :TFarColor) :DWORD;
   function GetColorBG(const AColor :TFarColor) :DWORD;
   function ChangeFG(const AColor, AFGColor :TFarColor) :TFarColor;
@@ -203,6 +205,7 @@ interface
   function FarPanelItemName(AHandle :THandle; ACmd, AIndex :Integer) :TString;
     { ACmd = FCTL_GETPANELITEM, FCTL_GETSELECTEDPANELITEM, FCTL_GETCURRENTPANELITEM }
   function FarPanelString(AHandle :THandle; ACmd :Integer) :TFarStr;
+    { ACmd = FCTL_GETPANELDIR, FCTL_GETPANELFORMAT, FCTL_GETPANELHOSTFILE, FCTL_GETCMDLINE, FCTL_GETCOLUMNTYPES}
   function FarPanelGetCurrentDirectory(AHandle :THandle) :TFarStr;
   function FarGetCurrentDirectory :TFarStr;
 
@@ -219,6 +222,11 @@ interface
   function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean; ACoord :PCoord = nil) :Boolean;
   function FarGetMacroArea :Integer;
   function FarGetMacroState :Integer;
+
+  function FarPluginControl(ACommand :Integer; AParam1 :Integer; AParam2 :Pointer) :Integer;
+ {$ifdef Far3}
+  function FarGetPluginInfo(AIndex :Integer; var AInfo :PFarPluginInfo; APreallocate :Integer = 1024) :Boolean;
+ {$endif Far3}
 
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   function FarPanelGetCurrentItem(Active :Boolean) :TString;
@@ -568,6 +576,16 @@ interface
   end;
 
 
+  function FarViewerControl(ACommand :Integer; AParam :Pointer) :Integer;
+  begin
+   {$ifdef Far3}
+    Result := FARAPI.ViewerControl(-1, ACommand, 0, AParam);
+   {$else}
+    Result := FARAPI.ViewerControl(ACommand, AParam);
+   {$endif Far3}
+  end;
+
+
   function FarRegexpControl(AHandle :THandle; ACommand :Integer; AParam :Pointer) :Integer;
   begin
    {$ifdef Far3}
@@ -611,6 +629,16 @@ interface
     Result.Reserved := nil;
    {$else}
     Result := (ABGColor * $10) + AFGColor;
+   {$endif Far3}
+  end;
+
+
+  function EqualColor(AColor1, AColor2 :TFarColor) :Boolean;
+  begin
+   {$ifdef Far3}
+    Result := (AColor1.ForegroundColor = AColor2.ForegroundColor) and (AColor1.BackgroundColor = AColor2.BackgroundColor) and (AColor1.Flags = AColor2.Flags);
+   {$else}
+    Result := AColor1 = AColor2;
    {$endif Far3}
   end;
 
@@ -899,6 +927,37 @@ interface
  {$endif Far3}
   end;
 
+ {-----------------------------------------------------------------------------}
+
+  function FarPluginControl(ACommand :Integer; AParam1 :Integer; AParam2 :Pointer) :Integer;
+  begin
+    Result := FARAPI.PluginsControl(INVALID_HANDLE_VALUE, ACommand, AParam1, AParam2);
+  end;
+
+ {$ifdef Far3}
+  function FarGetPluginInfo(AIndex :Integer; var AInfo :PFarPluginInfo; APreallocate :Integer = 1024) :Boolean;
+  var
+    vSize :Integer;
+  begin
+    Result := False;
+    if (AInfo = nil) and (APreallocate > 0)  then begin
+      vSize := SizeOf(TFarPluginInfo) + APreallocate;
+      AInfo := MemAllocZero(vSize);
+      AInfo.Size := vSize;
+    end;
+
+    vSize := FarPluginControl(PCTL_GETPLUGININFO, AIndex, AInfo);
+    if vSize > 0 then begin
+      if (AInfo = nil) or (Cardinal(vSize) > AInfo.Size) then begin
+        { Зарезервированного места не хватило. Надо увеличить... }
+        ReallocMem(AInfo, vSize);
+        AInfo.Size := vSize;
+        Result := FarPluginControl(PCTL_GETPLUGININFO, AIndex, AInfo) > 0;
+      end else
+        Result := True;
+    end;
+  end;
+ {$endif Far3}
 
  {-----------------------------------------------------------------------------}
 
@@ -1194,12 +1253,12 @@ interface
 
     if FarAdvControl(ACTL_GETWINDOWINFO, @AInfo) <> 0 then begin
 
-      if (AName <> nil) and (AInfo.NameSize > 0) then begin
+      if (AName <> nil) and (AInfo.NameSize > 1) then begin
         SetString(AName^, nil, AInfo.NameSize - 1);
         AInfo.Name := PTChar(AName^);
       end;
 
-      if (ATypeName <> nil) and (AInfo.TypeNameSize > 0) then begin
+      if (ATypeName <> nil) and (AInfo.TypeNameSize > 1) then begin
         SetString(ATypeName^, nil, AInfo.TypeNameSize - 1);
         AInfo.TypeName := PTChar(ATypeName^);
       end;
@@ -1230,11 +1289,7 @@ interface
   function FarGetWindowRect :TSmallRect;
   begin
     FillChar(Result, SizeOf(Result), 0);
-   {$ifdef Far3}
-    FARAPI.AdvControl(PluginID, ACTL_GETFARRECT, 0, @Result);
-   {$else}
-    FARAPI.AdvControl(hModule, ACTL_GETFARRECT, @Result);
-   {$endif bUnicodeFar}
+    FarAdvControl(ACTL_GETFARRECT, @Result);
   end;
 
 

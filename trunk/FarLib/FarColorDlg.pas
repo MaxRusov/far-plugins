@@ -430,7 +430,6 @@ interface
   function ColorDlg(const ATitle :TString; var AColor :TFarColor; AFixedBG :DWORD = UndefAttr; AFixedFG :DWORD = UndefAttr) :Boolean;
   var
     vDlg :TColorDlg;
-    vRes :Integer;
   begin
     vDlg := TColorDlg.Create;
     try
@@ -439,9 +438,8 @@ interface
       vDlg.FFixedBG := AFixedBG;
       vDlg.FFixedFG := AFixedFG;
 
-      vRes := vDlg.Run;
+      Result := vDlg.Run = IdSetBut;
 
-      Result := (vRes <> -1) and (vRes <> IdCancel);
       if Result then
         AColor := vDlg.FColor;
 
