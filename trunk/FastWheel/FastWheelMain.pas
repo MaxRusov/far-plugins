@@ -17,18 +17,32 @@ interface
     MixStrings,
     MixWinUtils,
     MixClasses,
-
+   {$ifdef Far3}
+    Plugin3,
+   {$else}
     PluginW,
-    FarKeys,
-
-    FarCtrl;
+   {$endif Far3}
+    FarKeysW,
+    FarCtrl,
+    FarConfig,
+    FarPlug;
 
   const
     strTitle = 1;
 
   const
-    cPluginGUID    = $4C485745;
+    cPluginName = 'FastWheel';
+    cPluginDescr = 'FastWheel plugin for FAR manager';
+    cPluginAuthor = 'Max Rusov';
+
+   {$ifdef Far3}
+    cPluginID    :TGUID = '{4DF17F5F-E79B-46B1-A70C-04B573CECAA4}';
+    cMenuID      :TGUID = '{03A3A9EF-445C-4B8D-8F65-9B6B97C606F1}';
+    cConfigID    :TGUID = '{5813F8AF-587D-4191-8B37-83ECF8A5FBA4}';
+   {$else}
+    cPluginID      = $4C485745;
     cPlugRegFolder = 'FastWheel';
+   {$endif Far3}
 
     cWavFileName   = 'Click.wav';
 
@@ -39,16 +53,25 @@ interface
     opt_MaxSpeed     :Integer = 3;
 
 
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-//function GetMinFarVersionW :Integer; stdcall;
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
-  procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
-  function ConfigureW(Item: integer) :Integer; stdcall;
+  type
+    TFastWheelPlug = class(TFarPlug)
+    public
+      procedure Init; override;
+      procedure Startup; override;
+      procedure GetInfo; override;
+      procedure ExitFar; override;
+      procedure Configure; override;
+      function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
 
-  function ProcessEditorInputW(const ARec :INPUT_RECORD) :Integer; stdcall;
-  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
+      procedure SynchroEvent(AParam :Pointer); override;
+      function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
+      function EditorInput(const ARec :TInputRecord) :Integer; override;
+
+    private
+      FLastScroll   :DWORD;
+      FLastImpact   :Integer;
+    end;
+
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -75,37 +98,23 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure ReadSetup;
-  var
-    vRoot :TString;
-    vKey :HKEY;
+
+  procedure PluginConfig(AStore :Boolean);
   begin
-    vRoot := FARAPI.RootKey;
-    if RegOpenRead(HKCU, vRoot + '\' + cPlugRegFolder, vKey) then begin
+    with TFarConfig.CreateEx(AStore, cPluginName) do
       try
-        opt_AccelPeriod  := RegQueryInt(vKey, 'Period', opt_AccelPeriod);
-        opt_Acceleration := RegQueryInt(vKey, 'Acceleration', opt_Acceleration);
-        opt_ScrollDelay  := RegQueryInt(vKey, 'Delay', opt_ScrollDelay);
-        opt_MaxSpeed     := RegQueryInt(vKey, 'MaxSpeed', opt_MaxSpeed);
+        if not Exists then
+          Exit;
+
+        IntValue('Acceleration', opt_Acceleration);
+
+//      IntValue('Period', opt_AccelPeriod);
+//      IntValue('Delay', opt_ScrollDelay);
+//      IntValue('MaxSpeed', opt_MaxSpeed);
+
       finally
-        RegCloseKey(vKey);
+        Destroy;
       end;
-    end;
-  end;
-
-
-  procedure WriteSetup;
-  var
-    vRoot :TString;
-    vKey :HKEY;
-  begin
-    vRoot := FARAPI.RootKey;
-    RegOpenWrite(HKCU, vRoot + '\' + cPlugRegFolder, vKey);
-    try
-      RegWriteInt(vKey, 'Acceleration', opt_Acceleration);
-    finally
-      RegCloseKey(vKey);
-    end;
   end;
 
 
@@ -116,7 +125,7 @@ interface
     vStr := Int2Str(opt_Acceleration);
     if FarInputBox(GetMsg(strTitle), 'Acceleration', vStr) then begin
       opt_Acceleration := IntMax(Str2IntDef(vStr, opt_Acceleration), 1);
-      WriteSetup;
+      PluginConfig(True);
     end;
   end;
 
@@ -175,7 +184,7 @@ interface
   procedure PlayScrollSound;
   begin
     if FSound <> nil then
-      PlaySound(FSound, 0, SND_MEMORY or SND_ASYNC or SND_NOWAIT);
+      PlaySound(FSound, 0, SND_MEMORY or SND_ASYNC or SND_NOWAIT or SND_NOSTOP);
   end;
 
 
@@ -252,8 +261,8 @@ interface
           ApiCheck(SetWaitableTimer(FWTimer, vDelay, 0, nil, nil, False));
 
 //        TraceF('Run... (Impacts=%d, Steps=%s)', [FImpact, vDelta]);
-//        PlayScrollSound;
-          FARAPI.AdvControl(hModule, ACTL_SYNCHRO, pointer(vDelta * vDir));
+          PlayScrollSound;
+          FarAdvControl(ACTL_SYNCHRO, pointer(vDelta * vDir));
 //        WaitForSingleObject(FEvent2, 1000);
           WaitForMultipleObjects(2, PWOHandleArray(@vHandles), True, 1000);
 
@@ -297,81 +306,75 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- { Ёкспортируемые процедуры                                                    }
+ {                                                                             }
  {-----------------------------------------------------------------------------}
 
-(*
-  function GetMinFarVersionW :Integer; stdcall;
+  procedure TFastWheelPlug.Init; {override;}
   begin
-    Result := 0;
-  end;
-*)
+    inherited Init;
 
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
 
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-  begin
-//  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
-    hModule := psi.ModuleNumber;
-    FARAPI := psi;
-    FARSTD := psi.fsf^;
-
-//  InitScrollSound;
-    ReadSetup;
+   {$ifdef Far3}
+    FGUID := cPluginID;
+   {$else}
+    FID := cPluginID;
+   {$endif Far3}
   end;
 
 
-
-  var
-    PluginMenuStrings: array[0..0] of PFarChar;
-
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
+  procedure TFastWheelPlug.Startup; {override;}
   begin
-//  TraceF('GetPluginInfo: %s', ['']);
-    pi.StructSize:= SizeOf(pi);
-    pi.Flags:= {PF_DISABLEPANELS or} PF_EDITOR or PF_VIEWER {or PF_DIALOG};
-
-    PluginMenuStrings[0] := GetMsg(strTitle);
-//  pi.PluginMenuStringsNumber := 1;
-//  pi.PluginMenuStrings := Pointer(@PluginMenuStrings);
-
-    pi.PluginConfigStrings := Pointer(@PluginMenuStrings);
-    pi.PluginConfigStringsNumber := 1;
-
-    pi.Reserved := cPluginGUID;
+    InitScrollSound;
+    PluginConfig(False);
   end;
 
 
-  procedure ExitFARW; stdcall;
+  procedure TFastWheelPlug.ExitFar; {override;}
   begin
-//  Trace('ExitFAR');
     SetWheelThread(False);
     MemFree(FSound);
 //  WriteSetup;
   end;
 
 
+  procedure TFastWheelPlug.GetInfo; {override;}
+  begin
+    FFlags := {PF_DISABLEPANELS or} PF_EDITOR or PF_VIEWER {or PF_DIALOG};
 
-  var
-    FLastScroll   :DWORD;
-    FLastImpact   :Integer;
+    FMenuStr := GetMsg(strTitle);
+    FConfigStr := FMenuStr;
+   {$ifdef Far3}
+    FMenuID := cMenuID;
+    FConfigID := cConfigID;
+   {$endif Far3}
+  end;
 
 
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
+  procedure TFastWheelPlug.Configure; {override;}
+  begin
+    OptionsDlg;
+  end;
+
+
+  function TFastWheelPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   var
     vTime :DWORD;
     vPeriod, vDirection, vImpacts :Integer;
   begin
-    Result:= INVALID_HANDLE_VALUE;
-//  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
+    Result := INVALID_HANDLE_VALUE;
+//  TraceF('Open: %d, %d', [AFrom, AParam]);
 
     SetWheelThread(True);
 
-    if OpenFrom and OPEN_FROMMACRO <> 0 then begin
+    if AFrom and OPEN_FROMMACRO <> 0 then begin
       vTime := GetTickCount;
 
       EnterCriticalSection(FLock);
       try
-        vDirection := IntIf(Item = 1, -1, 1);
+        vDirection := IntIf(AParam = 1, -1, 1);
         if vDirection <> FDirection then
           ImmediateStop;
 
@@ -400,35 +403,7 @@ interface
   end;
 
 
-
-  function ConfigureW(Item: integer) :Integer; stdcall;
-  begin
-    Result := 1;
-    OptionsDlg;
-  end;
-
-
-
-  function ProcessEditorInputW(const ARec :INPUT_RECORD) :Integer; stdcall;
-  begin
-    if ARec.EventType = _MOUSE_EVENT then
-      if ARec.Event.MouseEvent.dwEventFlags = 0 then
-        {  лик мышкой останавливает прокрутку }
-        ImmediateStop;
-    Result := 0;
-  end;
-
-
-  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
-  begin
-//  TraceF('ProcessEditorEvent: %d, %x', [AEvent, TIntPtr(AParam)]);
-    if AEvent in [EE_CLOSE, EE_KILLFOCUS, EE_GOTFOCUS] then
-      ImmediateStop;
-    Result := 0;
-  end;
-
-
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
+  procedure TFastWheelPlug.SynchroEvent(AParam :Pointer); {override;}
   var
     I, vDelta :Integer;
     vWinInfo :TWindowInfo;
@@ -438,33 +413,26 @@ interface
     vPanPos  :TPanelRedrawInfo;
     vStr :TString;
   begin
-//  TraceF('ProcessSynchroEventW. Event=%d, Param=%d', [Event, Integer(Param)]);
-    Result := 0;
-    if Event <> SE_COMMONSYNCHRO then
-      Exit;
-
     try
-      vDelta := TIntPtr(Param);
+      vDelta := TIntPtr(AParam);
 //    TraceF('Scroll. Delta=%d', [vDelta]);
 
-      FillZero(vWinInfo, SizeOf(vWinInfo));
-      vWinInfo.Pos := -1;
-      FARAPI.AdvControl(hModule, ACTL_GETSHORTWINDOWINFO, @vWinInfo);
+      FarGetWindowInfo(-1, vWinInfo);
 
       if vWinInfo.WindowType = WTYPE_PANELS then begin
 
         FillZero(vPanInfo, SizeOf(vPanInfo));
         FARAPI.Control(PANEL_ACTIVE, FCTL_GETPANELINFO, 0, @vPanInfo);
 
-        vPanPos.CurrentItem := RangeLimit(vPanInfo.CurrentItem + vDelta, 0, vPanInfo.ItemsNumber);
-        vPanPos.TopPanelItem := RangeLimit(vPanInfo.TopPanelItem + vDelta, 0, vPanInfo.ItemsNumber);
+        vPanPos.CurrentItem := RangeLimit(Integer(vPanInfo.CurrentItem) + vDelta, 0, vPanInfo.ItemsNumber);
+        vPanPos.TopPanelItem := RangeLimit(Integer(vPanInfo.TopPanelItem) + vDelta, 0, vPanInfo.ItemsNumber);
         FARAPI.Control(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, @vPanPos);
 
       end else
       if vWinInfo.WindowType = WTYPE_EDITOR then begin
 
         FillZero(vEdtInfo, SizeOf(vEdtInfo));
-        FARAPI.EditorControl(ECTL_GETINFO, @vEdtInfo);
+        FarEditorControl(ECTL_GETINFO, @vEdtInfo);
 
         vEdtPos.CurLine := RangeLimit(vEdtInfo.CurLine + vDelta, 0, vEdtInfo.TotalLines);
         vEdtPos.TopScreenLine := RangeLimit(vEdtInfo.TopScreenLine + vDelta, 0, vEdtInfo.TotalLines);
@@ -473,8 +441,8 @@ interface
         vEdtPos.CurTabPos := -1;
         vEdtPos.LeftPos := -1;
         vEdtPos.Overtype := -1;
-        FARAPI.EditorControl(ECTL_SETPOSITION, @vEdtPos);
-        FARAPI.EditorControl(ECTL_REDRAW, nil);
+        FarEditorControl(ECTL_SETPOSITION, @vEdtPos);
+        FarEditorControl(ECTL_REDRAW, nil);
 
       end else
       if vWinInfo.WindowType = WTYPE_VIEWER then begin
@@ -489,7 +457,7 @@ interface
             vStr := vStr + 'Up';
         end;
 
-        FarPostMacro(vStr, KSFLAGS_NOSENDKEYSTOPLUGINS);
+        FarPostMacro(vStr{, KSFLAGS_NOSENDKEYSTOPLUGINS});
 //      FARAPI.ViewerControl(VCTL_REDRAW, nil);
 
       end else
@@ -499,6 +467,24 @@ interface
       if WheelThread <> nil then
         SetEvent(WheelThread.FEvent2);
     end;
+  end;
+
+
+  function TFastWheelPlug.EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
+  begin
+    if AEvent in [EE_CLOSE, EE_KILLFOCUS, EE_GOTFOCUS] then
+      ImmediateStop;
+    Result := 0;
+  end;
+
+
+  function TFastWheelPlug.EditorInput(const ARec :TInputRecord) :Integer; {override;}
+  begin
+    if ARec.EventType = _MOUSE_EVENT then
+      if ARec.Event.MouseEvent.dwEventFlags = 0 then
+        {  лик мышкой останавливает прокрутку }
+        ImmediateStop;
+    Result := 0;
   end;
 
 
