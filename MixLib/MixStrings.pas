@@ -83,6 +83,8 @@ interface
   function TryStrToInt(const Str :TString; var Num :Integer) :Boolean;
   function Str2IntDef(const Str :TString; Def :Integer) :Integer;
   function Str2Int(const Str :TString) :Integer;
+  function TryHex2Uns(const AHexStr :TString; var Num :Cardinal) :Boolean;
+  function TryHex2Int64(const AHexStr :TString; var Num :TInt64) :Boolean;
   function Hex2Int64(const AHexStr :TString) :TInt64;
   function Str2FloatDef(const Str :TString; const Def :TFloat) :TFloat;
 
@@ -817,14 +819,27 @@ interface
   end;
 
 
-  function Hex2Int64(const AHexStr :TString) :TInt64;
+  function TryHex2Uns(const AHexStr :TString; var Num :Cardinal) :Boolean;
   var
-    vStr :TString;
     vErr :Integer;
   begin
-    vStr := '$' + AHexStr;
-    Val(vStr, Result, vErr);
-    if vErr <> 0 then
+    Val('$' + AHexStr, Num, vErr);
+    Result := vErr = 0;
+  end;
+
+
+  function TryHex2Int64(const AHexStr :TString; var Num :TInt64) :Boolean;
+  var
+    vErr :Integer;
+  begin
+    Val('$' + AHexStr, Num, vErr);
+    Result := vErr = 0;
+  end;
+
+
+  function Hex2Int64(const AHexStr :TString) :TInt64;
+  begin
+    if not TryHex2Int64(AHexStr, Result) then
       AppErrorResFmt(@SInvalidInteger, [AHexStr]);
   end;
 

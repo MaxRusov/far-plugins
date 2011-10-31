@@ -82,7 +82,11 @@ interface
       constructor CreateFmtHelp(const Msg :TString; const Args: array of const; AHelpContext: Integer);
       constructor CreateResHelp(ResString :Pointer{PResStringRec}; AHelpContext: Integer);
       constructor CreateResFmtHelp(ResString :Pointer{PResStringRec}; const Args: array of const; AHelpContext: Integer);
+      procedure AfterConstruction; override;
     private
+     {$ifdef bDebug}
+      FMessage0 :TAnsiStr;  { Чтобы не глючил отладчик }
+     {$endif bDebug}
       FMessage :TString;
       FHelpContext :Integer;
     public
@@ -358,6 +362,14 @@ interface
    {$ifdef bTraceError}
     TraceException(nil, ClassName, FMessage);
    {$endif bTraceError}
+  end;
+
+
+  procedure Exception.AfterConstruction; {override;}
+  begin
+   {$ifdef bDebug}
+    FMessage0 := FMessage;
+   {$endif bDebug}
   end;
 
 
