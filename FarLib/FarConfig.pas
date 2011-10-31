@@ -16,6 +16,7 @@ interface
     MixTypes,
     MixUtils,
     MixClasses,
+    MixStrings,
     MixWinUtils,
    {$ifdef Far3}
     Plugin3,
@@ -31,23 +32,39 @@ interface
       constructor CreateEx(AStore :Boolean; const AName :TString);
       destructor Destroy; override;
 
+      function OpenKey(const AName :TString) :Boolean;
+
       procedure StrValue(const AName :TString; var AValue :TString);
       procedure IntValue(const AName :TString; var AValue :Integer);
       procedure LogValue(const AName :TString; var AValue :Boolean);
       procedure ColorValue(const AName :TString; var AValue :TFarColor);
+      function IntValue1(const AName :TString; AValue :Integer) :Integer;
 
     private
       FStore   :Boolean;
      {$ifdef Far3}
       FHandle  :THandle;
+      FCurKey  :THandle;
      {$else}
+      FPath    :TString;
       FRootKey :HKEY;
+      FCurKey  :HKEY;
      {$endif Far3}
       FExists  :Boolean;
 
     public
       property Exists :Boolean read FExists;
     end;
+
+
+ {$ifdef Far3}
+  function FarOpenSetings(const APluginID :TGUID) :THandle;
+  function FarOpenKey(AHandle, AKey :THandle; const AName :TString) :THandle;
+  function FarCreateKey(AHandle, AKey :THandle; const AName :TString) :THandle;
+  function FarSetValue(AHandle, AKey :THandle; const AName :TString; AType :Integer; AInt :Int64; AStr :PFarChar) :Boolean;
+  function FarGetValueInt(AHandle, AKey :THandle; const AName :TString; ADefault :Int64) :Int64;
+  function FarGetValueStr(AHandle, AKey :THandle; const AName :TString; var AStr :TString) :Boolean;
+ {$endif Far3}
 
 
 {******************************************************************************}
@@ -82,7 +99,8 @@ API для хранения настроек:
                             Param2 - указатель на FarSettingsItem.
                             Value заполняет фар, остальное - плагин.
 
-   SCTL_SUBKEY            - hHandle - HANDLE, который вернул SCTL_CREATE.
+   SCTL_CREATESUBKEY, SCTL_OPENSUBKEY (было SCTL_SUBKEY)
+                            - hHandle - HANDLE, который вернул SCTL_CREATE.
                             Param2 - указатель на FarSettingsValue.
                             возвращает описатель подключа с именем Value для ключа с описателем Root.
 
@@ -108,18 +126,38 @@ API для хранения настроек:
   begin
     Result := 0;
     vCreate.StructSize := SizeOf(vCreate);
-    vCreate.Guid := PluginID;
+    vCreate.Guid := APluginID;
     vCreate.Handle := 0;
     if FARAPI.SettingsControl(INVALID_HANDLE_VALUE, SCTL_CREATE, 0, @vCreate) <> 0 then
       Result := vCreate.Handle;
   end;
 
 
-  function FarSetValue(AHandle :THandle; const AName :TString; AType :Integer; AInt :Int64; AStr :PFarChar) :Boolean;
+  function FarOpenKey(AHandle, AKey :THandle; const AName :TString) :THandle;
+  var
+    vItem :TFarSettingsValue;
+  begin
+    vItem.Root := AKey;
+    vItem.Value := PFarChar(AName);
+    Result := THandle(FARAPI.SettingsControl(AHandle, SCTL_OPENSUBKEY, 0, @vItem));
+  end;
+
+
+  function FarCreateKey(AHandle, AKey :THandle; const AName :TString) :THandle;
+  var
+    vItem :TFarSettingsValue;
+  begin
+    vItem.Root := AKey;
+    vItem.Value := PFarChar(AName);
+    Result := THandle(FARAPI.SettingsControl(AHandle, SCTL_CREATESUBKEY, 0, @vItem));
+  end;
+
+
+  function FarSetValue(AHandle, AKey :THandle; const AName :TString; AType :Integer; AInt :Int64; AStr :PFarChar) :Boolean;
   var
     vItem :TFarSettingsItem;
   begin
-    vItem.Root := 0;
+    vItem.Root := AKey;
     vItem.Name := PFarChar(AName);
     vItem.FType := AType;
     case AType of
@@ -136,12 +174,12 @@ API для хранения настроек:
   end;
 
 
-  function FarGetValueInt(AHandle :THandle; const AName :TString; ADefault :Int64) :Int64;
+  function FarGetValueInt(AHandle, AKey :THandle; const AName :TString; ADefault :Int64) :Int64;
   var
     vItem :TFarSettingsItem;
   begin
     FillZero(vItem, SIzeOf(vItem));
-    vItem.Root := 0;
+    vItem.Root := AKey;
     vItem.Name := PFarChar(AName);
     vItem.FType := FST_QWORD;
     if FARAPI.SettingsControl(AHandle, SCTL_GET, 0, @vItem) <> 0 then
@@ -151,12 +189,12 @@ API для хранения настроек:
   end;
 
 
-  function FarGetValueStr(AHandle :THandle; const AName :TString; var AStr :TString) :Boolean;
+  function FarGetValueStr(AHandle, AKey :THandle; const AName :TString; var AStr :TString) :Boolean;
   var
     vItem :TFarSettingsItem;
   begin
     FillZero(vItem, SIzeOf(vItem));
-    vItem.Root := 0;
+    vItem.Root := AKey;
     vItem.Name := PFarChar(AName);
     vItem.FType := FST_STRING;
     Result := FARAPI.SettingsControl(AHandle, SCTL_GET, 0, @vItem) <> 0;
@@ -171,23 +209,21 @@ API для хранения настроек:
  {-----------------------------------------------------------------------------}
 
   constructor TFarConfig.CreateEx(AStore :Boolean; const AName :TString);
- {$ifndef Far3}
-  var
-    vPath :TString;
- {$endif Far3}
   begin
     Create;
     FStore := AStore;
    {$ifdef Far3}
     FHandle := FarOpenSetings(PluginID);
     FExists := FHandle <> 0;
+    FCurKey := 0;
    {$else}
-    vPath := TString(FARAPI.RootKey) + '\' + AName;
+    FPath := TString(FARAPI.RootKey) + '\' + AName;
     if AStore then begin
-      RegOpenWrite(HKCU, vPath, FRootKey);
+      RegOpenWrite(HKCU, FPath, FRootKey);
       FExists := True;
     end else
-      FExists := RegOpenRead(HKCU, vPath, FRootKey);
+      FExists := RegOpenRead(HKCU, FPath, FRootKey);
+    FCurKey := FRootKey;
    {$endif Far3}
   end;
 
@@ -198,6 +234,8 @@ API для хранения настроек:
     if FHandle <> 0 then
       FARAPI.SettingsControl(FHandle, SCTL_FREE, 0, nil);
    {$else}
+    if (FCurKey <> 0) and (FCurKey <> FRootKey) then
+      RegCloseKey(FCurKey);
     if FRootKey <> 0 then
       RegCloseKey(FRootKey);
    {$endif Far3}
@@ -205,18 +243,58 @@ API для хранения настроек:
   end;
 
 
+  function TFarConfig.OpenKey(const AName :TString) :Boolean;
+  var
+    vName :TString;
+   {$ifdef Far3}
+    vPtr :PTChar;
+   {$endif Far3}
+  begin
+   {$ifdef Far3}
+    FCurKey := 0;
+    Result := True;
+    if AName <> '' then begin
+      vPtr := PTChar(AName);
+      while (vPtr^ <> #0) and (Result) do begin
+        vName := ExtractNextWord(vPtr, ['\']);
+        if FStore then
+          FCurKey := FarCreateKey(FHandle, FCurKey, vName)
+        else
+          FCurKey := FarOpenKey(FHandle, FCurKey, vName);
+        Result := FCurKey <> 0;
+      end;
+    end;
+   {$else}
+    if AName = '' then begin
+      if (FCurKey <> 0) and (FCurKey <> FRootKey) then
+        RegCloseKey(FCurKey);
+      FCurKey := FRootKey;
+      Result := True;
+    end else
+    begin
+      vName := FPath + '\' + AName;
+      if FStore then begin
+        RegOpenWrite(HKCU, vName, FCurKey);
+        Result := True;
+      end else
+        Result := RegOpenRead(HKCU, vName, FCurKey);
+    end
+   {$endif Far3}
+  end;
+
+
   procedure TFarConfig.StrValue(const AName :TString; var AValue :TString);
   begin
    {$ifdef Far3}
     if FStore then
-      FarSetValue(FHandle, AName, FST_STRING, 0, PTChar(AValue))
+      FarSetValue(FHandle, FCurKey, AName, FST_STRING, 0, PTChar(AValue))
     else
-      FarGetValueStr(FHandle, AName, AValue);
+      FarGetValueStr(FHandle, FCurKey, AName, AValue);
    {$else}
     if FStore then
-      RegWriteStr(FRootKey, AName, AValue)
+      RegWriteStr(FCurKey, AName, AValue)
     else
-      AValue := RegQueryStr(FRootKey, AName, AValue);
+      AValue := RegQueryStr(FCurKey, AName, AValue);
    {$endif Far3}
   end;
 
@@ -225,15 +303,22 @@ API для хранения настроек:
   begin
    {$ifdef Far3}
     if FStore then
-      FarSetValue(FHandle, AName, FST_QWORD, AValue, nil)
+      FarSetValue(FHandle, FCurKey, AName, FST_QWORD, AValue, nil)
     else
-      AValue := FarGetValueInt(FHandle, AName, AValue);
+      AValue := FarGetValueInt(FHandle, FCurKey, AName, AValue);
    {$else}
     if FStore then
-      RegWriteInt(FRootKey, AName, AValue)
+      RegWriteInt(FCurKey, AName, AValue)
     else
-      AValue := RegQueryInt(FRootKey, AName, AValue);
+      AValue := RegQueryInt(FCurKey, AName, AValue);
    {$endif Far3}
+  end;
+
+
+  function TFarConfig.IntValue1(const AName :TString; AValue :Integer) :Integer;
+  begin
+    IntValue(AName, AValue);
+    Result := AValue;
   end;
 
 
@@ -254,9 +339,9 @@ API для хранения настроек:
   begin
     vInt := MakeInt64(GetColorFG(AValue), GetColorBG(AValue));
     if FStore then
-      FarSetValue(FHandle, AName, FST_QWORD, vInt, nil)
+      FarSetValue(FHandle, FCurKey, AName, FST_QWORD, vInt, nil)
     else begin
-      vInt := FarGetValueInt(FHandle, AName, vInt);
+      vInt := FarGetValueInt(FHandle, FCurKey, AName, vInt);
       AValue := MakeColor(Int64Rec(vInt).Lo, Int64Rec(vInt).Hi);
     end;
  {$else}

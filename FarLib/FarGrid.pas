@@ -54,6 +54,7 @@ interface
    TColumnFormat = class(TBasis)
    public
      constructor CreateEx(const AName, AHeader :TString; AWidth :Integer; Alignment :TAlignment; AOptions :TColOptions; ATag :Integer);
+     constructor CreateEx2(const AName, AHeader :TString; AWidth, AMinWidth :Integer; Alignment :TAlignment; AOptions :TColOptions; ATag :Integer);
 
    private
      FName         :TString;
@@ -230,7 +231,7 @@ interface
      property OnDeltaChange :TPosChange read FOnDeltaChange write FOnDeltaChange;
    end;
 
-  
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -252,6 +253,13 @@ interface
     FAlignment := Alignment;
     FOptions := AOptions;
     FTag := ATag;
+  end;
+
+  constructor TColumnFormat.CreateEx2(const AName, AHeader :TString; AWidth, AMinWidth :Integer; Alignment :TAlignment; AOptions :TColOptions; ATag :Integer);
+  begin
+    CreateEx(AName, AHeader, AWidth, Alignment, AOptions, ATag);
+    if AMinWidth > 0 then
+      FMinWidth := IntMin(AMinWidth, AWidth);
   end;
 
 
@@ -497,9 +505,9 @@ interface
     function LocGetValue(var ARec :TFarGetValue) :Integer;
     begin
       Result := 0;
-      if ARec.GetType in [7, 11] then begin
-        ARec.Val.ValueType := FMVT_INTEGER;
-        ARec.Val.Value.i := IntIf(ARec.GetType = 7, CurRow + 1, RowCount);
+      if ARec._Type in [7, 11] then begin
+        ARec.Value._Type := FMVT_INTEGER;
+        ARec.Value.Value._Integer := IntIf(ARec._Type = 7, CurRow + 1, RowCount);
         Result := 1
       end;
     end;
@@ -668,7 +676,10 @@ interface
     if AMouse.dwButtonState and RIGHTMOST_BUTTON_PRESSED <> 0 then
       vButton := 2;
 
+//  TraceF('Mouse: Event: %d, Pos: %d x %d', [AMouse.dwEventFlags, AMouse.dwMousePosition.X, AMouse.dwMousePosition.Y]);
 //  TraceF('Mouse: Event: %d, Pos: %d x %d', [AMouse.dwEventFlags, vPos.X, vPos.Y]);
+    if AMouse.dwEventFlags = 0 then
+      NOP;
 
     if ((AMouse.dwEventFlags = 0) or (AMouse.dwEventFlags = DOUBLE_CLICK)) and (vButton <> 0) then begin
       { Нажатие }

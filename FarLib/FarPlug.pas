@@ -43,6 +43,7 @@ interface
       procedure ExitFar; virtual;
 
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; virtual;
+      function Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :Integer; virtual;
       procedure Configure; virtual;
 
       procedure SynchroEvent(AParam :Pointer); virtual;
@@ -92,6 +93,7 @@ interface
   procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
   procedure GetPluginInfoW(var AInfo :TPluginInfo); stdcall;
   function OpenW(var AInfo :TOpenInfo): THandle; stdcall;
+  function AnalyseW(const AInfo :TAnalyseInfo) :Integer; stdcall;
   function ConfigureW(const AInfo :TConfigureInfo) :Integer; stdcall;
   function ProcessSynchroEventW(const AInfo :TProcessSynchroEventInfo) :Integer; stdcall;
   function ProcessDialogEventW(const AInfo :TProcessDialogEventInfo) :Integer; stdcall;
@@ -105,6 +107,7 @@ interface
   procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
   procedure GetPluginInfoW(var AInfo :TPluginInfo); stdcall;
   function OpenPluginW(OpenFrom :Integer; AItem :INT_PTR): THandle; stdcall;
+  function OpenFilePluginW(const AName :PTChar; AData :Pointer; ADataSize :Integer; AMode :Integer) :THandle; stdcall;
   function ConfigureW(AItem: integer) :Integer; stdcall;
   function ProcessSynchroEventW(Event :integer; AParam :Pointer) :Integer; stdcall;
   function ProcessDialogEventW(AEvent :Integer; AParam :PFarDialogEvent) :Integer; stdcall;
@@ -166,7 +169,13 @@ interface
 
   function TFarPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {virtual;}
   begin
-    Result:= INVALID_HANDLE_VALUE;
+    Result := INVALID_HANDLE_VALUE;
+  end;
+
+
+  function TFarPlug.Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :Integer; {virtual;}
+  begin
+    Result := 0;
   end;
 
 
@@ -321,7 +330,7 @@ interface
   function OpenPluginW;
  {$endif Far3}
   begin
-    Result:= INVALID_HANDLE_VALUE;
+    Result := INVALID_HANDLE_VALUE;
     try
      {$ifdef Far3}
       Result := Plug.Open(AInfo.OpenFrom, AInfo.Data);
@@ -333,6 +342,24 @@ interface
         Plug.ErrorHandler(E);
     end;
   end;
+
+  
+ {$ifdef Far3}
+  function AnalyseW;
+  begin
+    with AInfo do
+      Result := Plug.Analyse(FileName, Buffer, BufferSize, OpMode);
+  end;
+
+ {$else}
+
+  function OpenFilePluginW;
+  begin
+    Result := INVALID_HANDLE_VALUE;
+    if Plug.Analyse(AName, AData, ADataSize, AMode) <> 0 then
+      {!!!};
+  end;
+ {$endif Far3}
 
 
   function ConfigureW;
