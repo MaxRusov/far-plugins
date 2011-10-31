@@ -57,7 +57,7 @@ const
   FARMANAGERVERSION_MAJOR = 3;
   FARMANAGERVERSION_MINOR = 0;
   FARMANAGERVERSION_REVISION = 0;
-  FARMANAGERVERSION_BUILD = 2204;
+  FARMANAGERVERSION_BUILD = 2250;
 
 type
 //TFarChar = AnsiChar;
@@ -90,6 +90,9 @@ type
 
   PIntegerArray = ^TIntegerArray;
   TIntegerArray = packed array[0..Pred(MaxLongint div SizeOf(Integer))] of Integer;
+
+  PGuidsArray = ^TGuidsArray;
+  TGuidsArray = packed array[0..Pred(MaxLongint div SizeOf(TGUID))] of TGUID;
 
 const
   FARMACRO_KEY_EVENT = KEY_EVENT or $8000;
@@ -1719,32 +1722,33 @@ type
 { FARMACROVARTYPE }
 
 const
-  FMVT_UNKNOWN  = -1;
-  FMVT_INTEGER  = 0;
-  FMVT_STRING   = 1;
-  FMVT_DOUBLE   = 2;
+  FMVT_UNKNOWN  = 0;
+  FMVT_INTEGER  = 1;
+  FMVT_STRING   = 2;
+  FMVT_DOUBLE   = 3;
 
 (*
 struct FarMacroValue
 {
-	enum FARMACROVARTYPE type;
-	union
-	{
-		__int64  i;
-		double   d;
-		const wchar_t *s;
-	}
-	Value;
+  enum FARMACROVARTYPE Type;
+  union
+  {
+    __int64  Integer;
+    double   Double;
+    const wchar_t *String;
+  }
+  Value
+  ;
 };
 *)
 type
   PFarMacroValue = ^TFarMacroValue;
   TFarMacroValue = record
-    ValueType :Integer;
+    _Type :Integer;
     Value : record case Integer of
-      0 : (i :Int64);
-      1 : (d :Double);
-      2 : (s :PFarChar);
+      0 : (_Integer :Int64);
+      1 : (_Double :Double);
+      2 : (_String :PFarChar);
     end;
   end;
 
@@ -1794,24 +1798,27 @@ struct ProcessMacroInfo
 #endif // END FAR_USE_INTERNALS
 *)
 
+
 (*
-struct TFarGetValue
+struct FarGetValue
 {
-	int GetType;
-	struct FarMacroValue Val;
+  int Type;
+  struct FarMacroValue Value;
 };
 *)
 type
   PFarGetValue = ^TFarGetValue;
   TFarGetValue = record
-    GetType :Integer;
-    Val :TFarMacroValue;
+    _Type :Integer;
+    Value :TFarMacroValue;
   end;
 
 {------------------------------------------------------------------------------}
 
+{ FARSETCOLORFLAGS }
+
 type
-  TFARSETCOLORFLAGS = Int64;
+  TFarSetColorFlags = Int64;
 
 const
   FSETCLR_NONE    = 0;
@@ -1829,7 +1836,7 @@ struct FarSetColors
 type
   PFarSetColors = ^TFarSetColors;
   TFarSetColors = record
-    Flags :TFARSETCOLORFLAGS;
+    Flags :TFarSetColorFlags;
     StartIndex :size_t;
     ColorCount :size_t;
     Colors :PFarColorArray;
@@ -1910,164 +1917,182 @@ type
             end;
 
 
-          { VIEWER_CONTROL_COMMANDS }
+{------------------------------------------------------------------------------}
 
-          const
-            VCTL_GETINFO     = 0;
-            VCTL_QUIT        = 1;
-            VCTL_REDRAW      = 2;
-            VCTL_SETKEYBAR   = 3;
-            VCTL_SETPOSITION = 4;
-            VCTL_SELECT      = 5;
-            VCTL_SETMODE     = 6;
+{ VIEWER_CONTROL_COMMANDS }
 
-
-          { VIEWER_OPTIONS }
-
-          const
-            VOPT_SAVEFILEPOSITION = 1;
-            VOPT_AUTODETECTTABLE  = 2;
+const
+  VCTL_GETINFO     = 0;
+  VCTL_QUIT        = 1;
+  VCTL_REDRAW      = 2;
+  VCTL_SETKEYBAR   = 3;
+  VCTL_SETPOSITION = 4;
+  VCTL_SELECT      = 5;
+  VCTL_SETMODE     = 6;
 
 
-          {VIEWER_SETMODE_TYPES}
+{ VIEWER_OPTIONS }
 
-          const
-            VSMT_HEX       = 0;
-            VSMT_WRAP      = 1;
-            VSMT_WORDWRAP  = 2;
+type
+  TViewerOptions = Int64;
+
+const
+  VOPT_NONE             = 0;
+  VOPT_SAVEFILEPOSITION = 1;
+  VOPT_AUTODETECTTABLE  = 2;
+
+{VIEWER_SETMODE_TYPES}
+
+const
+  VSMT_HEX       = 0;
+  VSMT_WRAP      = 1;
+  VSMT_WORDWRAP  = 2;
 
 
-          {VIEWER_SETMODEFLAGS_TYPES}
+{VIEWER_SETMODEFLAGS_TYPES}
 
-          const
-            VSMFL_REDRAW   = $00000001;
+type
+  TViewerSetModeFlagsTypes = Int64;
 
-          (*
-          struct ViewerSetMode {
-            int Type;
-            union {
-              int iParam;
-              wchar_t *wszParam;
-            } Param;
-            DWORD Flags;
-            DWORD Reserved;
-          };
-          *)
+const
+  VSMFL_REDRAW   = $00000001;
 
-          type
-            PViewerSetMode = ^TViewerSetMode;
-            TViewerSetMode = record
-              ParamType : Integer;
+(*
+struct ViewerSetMode
+{
+  enum VIEWER_SETMODE_TYPES Type;
+  union
+  {
+    int iParam;
+    wchar_t *wszParam;
+  }
+  Param;
+  VIEWER_SETMODEFLAGS_TYPES Flags;
+  DWORD_PTR Reserved;
+};
+*)
+type
+  PViewerSetMode = ^TViewerSetMode;
+  TViewerSetMode = record
+    ParamType :Integer;
+    Param : record case Integer of
+      0 : (iParam : Integer);
+      1 : (wszParam : PFarChar);
+    end;
+    Flags :TViewerSetModeFlagsTypes;
+    Reserved :DWORD_PTR;
+  end;
 
-              Param : record case Integer of
-                0 : (iParam : Integer);
-                1 : (wszParam : PFarChar);
-              end;
+(*
+struct ViewerSelect
+{
+  __int64 BlockStartPos;
+  int     BlockLen;
+};
+*)
+type
+  TFarInt64Part = record
+    LowPart :DWORD;
+    HighPart :DWORD;
+  end;
 
-              Flags : DWORD;
-              Reserved : DWORD;
-            end;
+  TFarInt64 = record
+    case Integer of
+      0 : (i64 :Int64);
+      1 : (Part :TFarInt64Part);
+  end;
 
-          (*
-          struct ViewerSelect
-          {
-            __int64 BlockStartPos;
-            int     BlockLen;
-          };
-          *)
-          type
-            TFarInt64Part = record
-              LowPart :DWORD;
-              HighPart :DWORD;
-            end;
+  PViewerSelect = ^TViewerSelect;
+  TViewerSelect = record
+    BlockStartPos :TFarInt64;
+    BlockLen :Integer;
+  end;
 
-            TFarInt64 = record
-              case Integer of
-                0 : (i64 : Int64);
-                1 : (Part : TFarInt64Part);
-            end;
 
-            PViewerSelect = ^TViewerSelect;
-            TViewerSelect = record
-              BlockStartPos :TFarInt64;
-              BlockLen :Integer;
-            end;
+{ VIEWER_SETPOS_FLAGS }
 
-          { VIEWER_SETPOS_FLAGS }
+type
+  TViewerSetPosFlags = Int64;
 
-          const
-            VSP_NOREDRAW    = $0001;
-            VSP_PERCENT     = $0002;
-            VSP_RELATIVE    = $0004;
-            VSP_NORETNEWPOS = $0008;
+const
+  VSP_NOREDRAW    = $0001;
+  VSP_PERCENT     = $0002;
+  VSP_RELATIVE    = $0004;
+  VSP_NORETNEWPOS = $0008;
 
-          (*
-          struct ViewerSetPosition
-          {
-            DWORD Flags;
-            __int64 StartPos;
-            __int64 LeftPos;
-          };
-          *)
-          type
-            PViewerSetPosition = ^TViewerSetPosition;
-            TViewerSetPosition = record
-              Flags : DWORD;
-              StartPos : TFarInt64;
-              LeftPos : TFarInt64;
-            end;
+(*
+struct ViewerSetPosition
+{
+  VIEWER_SETPOS_FLAGS Flags;
+  __int64 StartPos;
+  __int64 LeftPos;
+};
 
-          (*
-          struct ViewerMode{
-            UINT CodePage;
-            int Wrap;
-            int WordWrap;
-            int Hex;
-            DWORD Reserved[4];
-          };
-          *)
-          type
-            PViewerMode = ^TViewerMode;
-            TViewerMode = record
-              CodePage :UINT;
-              Wrap : Integer;
-              WordWrap : Integer;
-              Hex : Integer;
-              Reserved : array [0..3] of DWORD;
-            end;
+*)
+type
+  PViewerSetPosition = ^TViewerSetPosition;
+  TViewerSetPosition = record
+    Flags :TViewerSetPosFlags;
+    StartPos :TFarInt64;
+    LeftPos :TFarInt64;
+  end;
 
-          (*
-          struct ViewerInfo
-          {
-            int    StructSize;
-            int    ViewerID;
-            const wchar_t *FileName;
-            __int64 FileSize;
-            __int64 FilePos;
-            int    WindowSizeX;
-            int    WindowSizeY;
-            DWORD  Options;
-            int    TabSize;
-            struct ViewerMode CurMode;
-            __int64 LeftPos;
-          };
-          *)
-          type
-            PViewerInfo = ^TViewerInfo;
-            TViewerInfo = record
-              StructSize : Integer;
-              ViewerID : Integer;
-              FileName : PFarChar;
-              FileSize : TFarInt64;
-              FilePos : TFarInt64;
-              WindowSizeX : Integer;
-              WindowSizeY : Integer;
-              Options : DWORD;
-              TabSize : Integer;
-              CurMode : TViewerMode;
-              LeftPos : TFarInt64;
-            end;
-            
+(*
+struct ViewerMode
+{
+  UINT CodePage;
+  int Wrap;
+  int WordWrap;
+  int Hex;
+  DWORD_PTR Reserved[4];
+};
+*)
+type
+  PViewerMode = ^TViewerMode;
+  TViewerMode = record
+    CodePage :UINT;
+    Wrap :Integer;
+    WordWrap :Integer;
+    Hex :Integer;
+    Reserved :array[0..3] of DWORD_PTR;
+  end;
+
+(*
+struct ViewerInfo
+struct ViewerInfo
+{
+  size_t StructSize;
+  int ViewerID;
+  int TabSize;
+  const wchar_t *FileName;
+  struct ViewerMode CurMode;
+  __int64 FileSize;
+  __int64 FilePos;
+  __int64 LeftPos;
+  VIEWER_OPTIONS Options;
+  int WindowSizeX;
+  int WindowSizeY;
+};
+*)
+type
+  PViewerInfo = ^TViewerInfo;
+  TViewerInfo = record
+    StructSize :size_t;
+    ViewerID :Integer;
+    TabSize :Integer;
+    FileName :PFarChar;
+    CurMode :TViewerMode;
+
+    FileSize :TFarInt64;
+    FilePos :TFarInt64;
+    LeftPos :TFarInt64;
+
+    Options :TViewerOptions;
+
+    WindowSizeX :Integer;
+    WindowSizeY :Integer;
+  end;
+
 
 { VIEWER_EVENTS }
 
@@ -2547,12 +2572,48 @@ const
   PCTL_LOADPLUGIN       = 0;
   PCTL_UNLOADPLUGIN     = 1;
   PCTL_FORCEDLOADPLUGIN = 2;
+  PCTL_GETPLUGINS       = 3;  { Param2 - TFarPlugins }
+  PCTL_GETPLUGININFO    = 4;  { Param2 - TFarPluginInfo }
+  PCTL_FINDPLUGIN       = 5;
 
 
 { FAR_PLUGIN_LOAD_TYPE }
 
 const
   PLT_PATH = 0;
+
+
+{ FAR_PLUGIN_FIND_MODE }
+
+const
+  PFM_GUID        = 0;
+  PFM_MODULENAME  = 1;
+
+{ FAR_PLUGIN_FLAGS }
+
+type
+  TFarPluginFlags = Int64;
+
+const
+  FPF_NONE         = 0;
+  FPF_FAR1         = $00000001;
+  FPF_FAR2         = $00000002;
+  FPF_LOADED       = $00000004;
+
+(*
+struct FarPlugins
+{
+  size_t StructSize;
+  int PluginsCount;
+};
+*)
+type
+  {PCTL_GETPLUGINS}
+  PFarPlugins = ^TFarPlugins;
+  TFarPlugins = record
+    StructSize :size_t;
+    PluginsCount :Integer;
+  end;
 
 
 {FAR_FILE_FILTER_CONTROL_COMMANDS}
@@ -2646,6 +2707,27 @@ const
   FST_DATA     = 4;
 
 
+{ FARSETTINGS_SUBFOLDERS }
+
+const
+  FSSF_ROOT              =  0;
+  FSSF_HISTORY_CMD       =  1;
+  FSSF_HISTORY_FOLDER    =  2;
+  FSSF_HISTORY_VIEW      =  3;
+  FSSF_HISTORY_EDIT      =  4;
+  FSSF_HISTORY_EXTERNAL  =  5;
+  FSSF_FOLDERSHORTCUT_0  =  6;
+  FSSF_FOLDERSHORTCUT_1  =  7;
+  FSSF_FOLDERSHORTCUT_2  =  8;
+  FSSF_FOLDERSHORTCUT_3  =  9;
+  FSSF_FOLDERSHORTCUT_4  = 10;
+  FSSF_FOLDERSHORTCUT_5  = 11;
+  FSSF_FOLDERSHORTCUT_6  = 12;
+  FSSF_FOLDERSHORTCUT_7  = 13;
+  FSSF_FOLDERSHORTCUT_8  = 14;
+  FSSF_FOLDERSHORTCUT_9  = 15;
+
+
 (*
 struct FarSettingsCreate
 {
@@ -2715,11 +2797,42 @@ type
   end;
 
 (*
+struct FarSettingsHistory
+{
+  const wchar_t* Name;
+  const wchar_t* Param;
+  GUID PluginId;
+  const wchar_t* File;
+  FILETIME Time;
+  BOOL Lock;
+};
+*)
+type
+  PFarSettingsHistory = ^TFarSettingsHistory;
+  TFarSettingsHistory = record
+    Name :PFarChar;
+    Param :PFarChar;
+    PluginId :TGUID;
+    _File :PFarChar;
+    Time :FILETIME;
+    Lock :BOOL;
+  end;
+
+  PFarSettingsHistoryArray = ^TFarSettingsHistoryArray;
+  TFarSettingsHistoryArray = packed array[0..MaxInt div SizeOf(TFarSettingsHistory) - 1] of TFarSettingsHistory;
+
+
+(*
 struct FarSettingsEnum
 {
   size_t Root;
   size_t Count;
-  const struct FarSettingsName* Items;
+  union
+  {
+    const struct FarSettingsName* Items;
+    const struct FarSettingsHistory* Histories;
+  }
+  Value;
 };
 *)
 type
@@ -2727,7 +2840,10 @@ type
   TFarSettingsEnum = record
     Root :size_t;
     Count :size_t;
-    Items :PFarSettingsName;
+    Value : record case Integer of
+      0 : (Items :PFarSettingsName);
+      1 : (Histories :PFarSettingsHistoryArray);
+    end;
   end;
 
 (*
@@ -3209,6 +3325,9 @@ type
 
 { PLUGIN_FLAGS }
 
+type
+  TPluginFlags = Int64;
+
 const
   PF_NONE          = 0;
   PF_PRELOAD       = $0001;
@@ -3229,7 +3348,7 @@ struct PluginMenuItem
 type
   PPluginMenuItem = ^TPluginMenuItem;
   TPluginMenuItem = record
-    Guids :PGUID;
+    Guids :PGuidsArray;
     Strings :PPCharArray; {PFarChar;}
     Count :Integer;
   end;
@@ -3287,46 +3406,102 @@ type
     Author :PFarChar;
   end;
 
-          (*
-          struct PluginInfo
-          {
-                  size_t StructSize;
-                  PLUGIN_FLAGS Flags;
-                  struct PluginMenuItem DiskMenu;
-                  struct PluginMenuItem PluginMenu;
-                  struct PluginMenuItem PluginConfig;
-                  const wchar_t *CommandPrefix;
-          };
-          *)
-          type
-            PPluginInfo = ^TPluginInfo;
-            TPluginInfo = record
-              StructSize :size_t;
-              Flags :Int64;
-              DiskMenu :TPluginMenuItem;
-              PluginMenu :TPluginMenuItem;
-              PluginConfig :TPluginMenuItem;
-              CommandPrefix :PFarChar;
-            end;
+(*
+struct PluginInfo
+{
+  size_t StructSize;
+  PLUGIN_FLAGS Flags;
+  struct PluginMenuItem DiskMenu;
+  struct PluginMenuItem PluginMenu;
+  struct PluginMenuItem PluginConfig;
+  const wchar_t *CommandPrefix;
+};
+*)
+type
+  PPluginInfo = ^TPluginInfo;
+  TPluginInfo = record
+    StructSize :size_t;
+    Flags :TPluginFlags;
+    DiskMenu :TPluginMenuItem;
+    PluginMenu :TPluginMenuItem;
+    PluginConfig :TPluginMenuItem;
+    CommandPrefix :PFarChar;
+  end;
 
-          (*
-          struct InfoPanelLine
-          {
-            const wchar_t *Text;
-            const wchar_t *Data;
-            int  Separator;
-          };
-          *)
-          type
-            PInfoPanelLine = ^TInfoPanelLine;
-            TInfoPanelLine = record
-              Text :PFarChar;
-              Data :PFarChar;
-              Separator :Integer;
-            end;
+(*
+struct FarPluginInfo
+{
+  size_t StructSize;
+  int Index;
+  GUID Guid;
+  const wchar_t *ModuleName;
+  struct VersionInfo Version;
+  const wchar_t *Title;
+  const wchar_t *Description;
+  const wchar_t *Author;
+  PLUGIN_FLAGS Flags;
+  struct PluginMenuItem DiskMenu;
+  struct PluginMenuItem PluginMenu;
+  struct PluginMenuItem PluginConfig;
+  const wchar_t *CommandPrefix;
+};
+-->
+struct FarGetPluginInfo
+{
+  size_t Size;
+  const wchar_t *ModuleName;
+  struct GlobalInfo Info1;
+  struct PluginInfo Info2;
+};
+*)
+type
+(*
+  { PCTL_GETPLUGININFO }
+  PFarPluginInfo = ^TFarPluginInfo;
+  TFarPluginInfo = record
+    StructSize :size_t;
+    Index :Integer;
+    Guid :TGUID;
+    ModuleName :PFarChar;
+    Version :TVersionInfo;
+    Title :PFarChar;
+    Description :PFarChar;
+    Author :PFarChar;
+    Flags :TPluginFlags;
+    DiskMenu :TPluginMenuItem;
+    PluginMenu :TPluginMenuItem;
+    PluginConfig :TPluginMenuItem;
+    CommandPrefix :PFarChar;
+  end;
+*)
+  PFarPluginInfo = ^TFarPluginInfo;
+  TFarPluginInfo = record
+    Size :size_t;
+    ModuleName :PFarChar;
+    Flags :TFarPluginFlags;
+    Info1 :TGlobalInfo;
+    Info2 :TPluginInfo;
+  end;
 
-            PInfoPanelLineArray = ^TInfoPanelLineArray;
-            TInfoPanelLineArray = packed array [0..MaxInt div SizeOf(TInfoPanelLine) - 1] of TInfoPanelLine;
+
+(*
+struct InfoPanelLine
+{
+  const wchar_t *Text;
+  const wchar_t *Data;
+  int  Separator;
+};
+*)
+type
+  PInfoPanelLine = ^TInfoPanelLine;
+  TInfoPanelLine = record
+    Text :PFarChar;
+    Data :PFarChar;
+    Separator :Integer;
+  end;
+
+  PInfoPanelLineArray = ^TInfoPanelLineArray;
+  TInfoPanelLineArray = packed array [0..MaxInt div SizeOf(TInfoPanelLine) - 1] of TInfoPanelLine;
 
 
           (*
@@ -3414,65 +3589,71 @@ type
             TKeyBarTitlesArray = packed array [0..MaxInt div SizeOf(TKeyBarTitles) - 1] of TKeyBarTitles;
 
 
-          { OPERATION_MODES }
+{ OPERATION_MODES }
 
-          const
-            OPM_SILENT    = $0001;
-            OPM_FIND      = $0002;
-            OPM_VIEW      = $0004;
-            OPM_EDIT      = $0008;
-            OPM_TOPLEVEL  = $0010;
-            OPM_DESCR     = $0020;
-            OPM_QUICKVIEW = $0040;
+type
+  TOperationModes = Int64;
+
+const
+  OPM_NONE      = 0;
+  OPM_SILENT    = $0001;
+  OPM_FIND      = $0002;
+  OPM_VIEW      = $0004;
+  OPM_EDIT      = $0008;
+  OPM_TOPLEVEL  = $0010;
+  OPM_DESCR     = $0020;
+  OPM_QUICKVIEW = $0040;
+  OPM_PGDN      = $0080;
 
 
-          (*
-          struct OpenPluginInfo
-          {
-            int                   StructSize;
-            DWORD                 Flags;
-            const wchar_t           *HostFile;
-            const wchar_t           *CurDir;
-            const wchar_t           *Format;
-            const wchar_t           *PanelTitle;
-            const struct InfoPanelLine *InfoLines;
-            int                   InfoLinesNumber;
-            const wchar_t * const   *DescrFiles;
-            int                   DescrFilesNumber;
-            const struct PanelMode *PanelModesArray;
-            int                   PanelModesNumber;
-            int                   StartPanelMode;
-            int                   StartSortMode;
-            int                   StartSortOrder;
-            const struct KeyBarTitles *KeyBar;
-            const wchar_t           *ShortcutData;
-            long                  Reserved;
-          };
-          *)
-          type
-            POpenPluginInfo = ^TOpenPluginInfo;
-            TOpenPluginInfo = record
-              StructSize : Integer;
-              Flags : DWORD;
-              HostFile : PFarChar;
-              CurDir : PFarChar;
-              Format : PFarChar;
-              PanelTitle : PFarChar;
-              InfoLines : PInfoPanelLineArray;
-              InfoLinesNumber : Integer;
-              DescrFiles : PPCharArray;
-              DescrFilesNumber : Integer;
-              PanelModesArray : PPanelModeArray;
-              PanelModesNumber : Integer;
-              StartPanelMode : Integer;
-              StartSortMode : Integer;
-              StartSortOrder : Integer;
-              KeyBar : PKeyBarTitlesArray;
-              ShortcutData : PFarChar;
-              Reserved : Integer;
-            end;
+(*
+struct OpenPanelInfo
+{
+	size_t                       StructSize;
+	HANDLE                       hPanel;
+	OPENPANELINFO_FLAGS          Flags;
+	const wchar_t               *HostFile;
+	const wchar_t               *CurDir;
+	const wchar_t               *Format;
+	const wchar_t               *PanelTitle;
+	const struct InfoPanelLine  *InfoLines;
+	size_t                       InfoLinesNumber;
+	const wchar_t * const       *DescrFiles;
+	size_t                       DescrFilesNumber;
+	const struct PanelMode      *PanelModesArray;
+	size_t                       PanelModesNumber;
+	int                          StartPanelMode;
+	enum OPENPANELINFO_SORTMODES StartSortMode;
+	int                          StartSortOrder;
+	const struct KeyBarTitles   *KeyBar;
+	const wchar_t               *ShortcutData;
+	unsigned __int64             FreeSize;
+};
+*)
 
-  
+{!!!}
+
+(*
+struct AnalyseInfo
+{
+  size_t          StructSize;
+  const wchar_t  *FileName;
+  void           *Buffer;
+  size_t          BufferSize;
+  OPERATION_MODES OpMode;
+};
+*)
+type
+  PAnalyseInfo = ^TAnalyseInfo;
+  TAnalyseInfo = record
+    StructSize :size_t;
+    FileName :PFarChar;
+    Buffer :Pointer;
+    BufferSize :size_t;
+    OpMode :TOperationModes;
+  end;
+
+
 { OPENFROM }
 
 const
@@ -3797,38 +3978,38 @@ type
   end;
 
 
-          (*
-          // Exported Functions
-          int    WINAPI AnalyseW(const struct AnalyseInfo *Info);
-          void   WINAPI ClosePanelW(const struct ClosePanelInfo *Info);
-          int    WINAPI CompareW(const struct CompareInfo *Info);
-          int    WINAPI ConfigureW(const struct ConfigureInfo *Info);
-          int    WINAPI DeleteFilesW(const struct DeleteFilesInfo *Info);
-          void   WINAPI ExitFARW(const struct ExitInfo *Info);
-          void   WINAPI FreeFindDataW(const struct FreeFindDataInfo *Info);
-          void   WINAPI FreeVirtualFindDataW(const struct FreeFindDataInfo *Info);
-          int    WINAPI GetFilesW(struct GetFilesInfo *Info);
-          int    WINAPI GetFindDataW(struct GetFindDataInfo *Info);
-          void   WINAPI GetGlobalInfoW(struct GlobalInfo *Info);
-          void   WINAPI GetOpenPanelInfoW(struct OpenPanelInfo *Info);
-          void   WINAPI GetPluginInfoW(struct PluginInfo *Info);
-          int    WINAPI GetVirtualFindDataW(struct GetVirtualFindDataInfo *Info);
-          int    WINAPI MakeDirectoryW(struct MakeDirectoryInfo *Info);
-          HANDLE WINAPI OpenW(const struct OpenInfo *Info);
-          int    WINAPI ProcessDialogEventW(const struct ProcessDialogEventInfo *Info);
-          int    WINAPI ProcessEditorEventW(const struct ProcessEditorEventInfo *Info);
-          int    WINAPI ProcessEditorInputW(const struct ProcessEditorInputInfo *Info);
-          int    WINAPI ProcessPanelEventW(const struct ProcessPanelEventInfo *Info);
-          int    WINAPI ProcessHostFileW(const struct ProcessHostFileInfo *Info);
-          int    WINAPI ProcessPanelInputW(const struct ProcessPanelInputInfo *Info);
-          int    WINAPI ProcessConsoleInputW(struct ProcessConsoleInputInfo *Info);
-          int    WINAPI ProcessSynchroEventW(const struct ProcessSynchroEventInfo *Info);
-          int    WINAPI ProcessViewerEventW(const struct ProcessViewerEventInfo *Info);
-          int    WINAPI PutFilesW(const struct PutFilesInfo *Info);
-          int    WINAPI SetDirectoryW(const struct SetDirectoryInfo *Info);
-          int    WINAPI SetFindListW(const struct SetFindListInfo *Info);
-          void   WINAPI SetStartupInfoW(const struct PluginStartupInfo *Info);
-          *)
+(*
+// Exported Functions
+int    WINAPI AnalyseW(const struct AnalyseInfo *Info);
+void   WINAPI ClosePanelW(const struct ClosePanelInfo *Info);
+int    WINAPI CompareW(const struct CompareInfo *Info);
+int    WINAPI ConfigureW(const struct ConfigureInfo *Info);
+int    WINAPI DeleteFilesW(const struct DeleteFilesInfo *Info);
+void   WINAPI ExitFARW(const struct ExitInfo *Info);
+void   WINAPI FreeFindDataW(const struct FreeFindDataInfo *Info);
+void   WINAPI FreeVirtualFindDataW(const struct FreeFindDataInfo *Info);
+int    WINAPI GetFilesW(struct GetFilesInfo *Info);
+int    WINAPI GetFindDataW(struct GetFindDataInfo *Info);
+void   WINAPI GetGlobalInfoW(struct GlobalInfo *Info);
+void   WINAPI GetOpenPanelInfoW(struct OpenPanelInfo *Info);
+void   WINAPI GetPluginInfoW(struct PluginInfo *Info);
+int    WINAPI GetVirtualFindDataW(struct GetVirtualFindDataInfo *Info);
+int    WINAPI MakeDirectoryW(struct MakeDirectoryInfo *Info);
+HANDLE WINAPI OpenW(const struct OpenInfo *Info);
+int    WINAPI ProcessDialogEventW(const struct ProcessDialogEventInfo *Info);
+int    WINAPI ProcessEditorEventW(const struct ProcessEditorEventInfo *Info);
+int    WINAPI ProcessEditorInputW(const struct ProcessEditorInputInfo *Info);
+int    WINAPI ProcessPanelEventW(const struct ProcessPanelEventInfo *Info);
+int    WINAPI ProcessHostFileW(const struct ProcessHostFileInfo *Info);
+int    WINAPI ProcessPanelInputW(const struct ProcessPanelInputInfo *Info);
+int    WINAPI ProcessConsoleInputW(struct ProcessConsoleInputInfo *Info);
+int    WINAPI ProcessSynchroEventW(const struct ProcessSynchroEventInfo *Info);
+int    WINAPI ProcessViewerEventW(const struct ProcessViewerEventInfo *Info);
+int    WINAPI PutFilesW(const struct PutFilesInfo *Info);
+int    WINAPI SetDirectoryW(const struct SetDirectoryInfo *Info);
+int    WINAPI SetFindListW(const struct SetFindListInfo *Info);
+void   WINAPI SetStartupInfoW(const struct PluginStartupInfo *Info);
+*)
 
 
 (*

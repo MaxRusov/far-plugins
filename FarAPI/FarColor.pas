@@ -101,7 +101,10 @@ type
     COL_COMMANDLINESELECTED,
     COL_VIEWERARROWS,
 
+   {$ifdef Far3}
+   {$else}
     COL_RESERVED0,
+   {$endif Far3}
 
     COL_DIALOGLISTSCROLLBAR,
     COL_MENUSCROLLBAR,
