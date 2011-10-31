@@ -17,13 +17,20 @@ uses
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
+  FarPlug,
   FastWheelMain;
 
 exports
+ {$ifdef Far3}
+  GetGlobalInfoW,
+ {$endif Far3}
   SetStartupInfoW,
-//GetMinFarVersionW,
   GetPluginInfoW,
+ {$ifdef Far3}
+  OpenW,
+ {$else}
   OpenPluginW,
+ {$endif Far3}
   ProcessEditorInputW,
   ProcessEditorEventW,
   ProcessSynchroEventW,
@@ -32,4 +39,6 @@ exports
 
 {$R FastWheel.res}
 
+begin
+  Plug := TFastWheelPlug.Create;
 end.
