@@ -55,6 +55,8 @@ interface
       procedure SetChecked(AIndex :Integer; AValue :Boolean);
       function GetEnabled(AIndex :Integer) :Boolean;
       procedure SetEnabled(AIndex :Integer; AValue :Boolean);
+      function GetVisible(AIndex :Integer) :Boolean;
+      procedure SetVisible(AIndex :Integer; AValue :Boolean);
 
     public
       property Items :PFarMenuItemsArray read FItems;
@@ -69,6 +71,7 @@ interface
 
       property Checked[I :Integer] :Boolean read GetChecked write SetChecked;
       property Enabled[I :Integer] :Boolean read GetEnabled write SetEnabled;
+      property Visible[I :Integer] :Boolean read GetVisible write SetVisible;
 
       property ResIdx :Integer read FResIdx;
     end;
@@ -151,6 +154,17 @@ interface
   procedure TFarMenu.SetEnabled(AIndex :Integer; AValue :Boolean);
   begin
     FItems[AIndex].Flags := SetFlag(FItems[AIndex].Flags, MIF_DISABLE, not AValue);
+  end;
+
+
+  function TFarMenu.GetVisible(AIndex :Integer) :Boolean;
+  begin
+    Result := MIF_HIDDEN and FItems[AIndex].Flags = 0;
+  end;
+
+  procedure TFarMenu.SetVisible(AIndex :Integer; AValue :Boolean);
+  begin
+    FItems[AIndex].Flags := SetFlag(FItems[AIndex].Flags, MIF_HIDDEN, not AValue);
   end;
 
 

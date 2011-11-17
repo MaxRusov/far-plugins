@@ -128,6 +128,7 @@ interface
      procedure UpdateSize(ALeft, ATop, AWidth, AHeight :Integer);
 
      procedure DrawChr(X, Y :Integer; AChr :PTChar; AMaxLen :Integer; const AColor :TFarColor);
+     procedure DrawStr(X, Y :Integer; const AStr :TString; AMaxLen :Integer; const AColor :TFarColor);
      procedure DrawChrEx(X, Y :Integer; AChr :PTChar; AMaxLen, ASelPos, ASelLen :Integer; const AColor1, AColor2 :TFarColor);
 
      procedure ReduceColumns(AMaxWidth :Integer);
@@ -330,6 +331,12 @@ interface
   end;
 
 
+  procedure TFarGrid.DrawStr(X, Y :Integer; const AStr :TString; AMaxLen :Integer; const AColor :TFarColor);
+  begin
+    DrawChr(X, Y, PTChar(AStr), AMaxLen, AColor);
+  end;
+
+
   procedure TFarGrid.DrawChrEx(X, Y :Integer; AChr :PTChar; AMaxLen, ASelPos, ASelLen :Integer; const AColor1, AColor2 :TFarColor);
 
     procedure LocDrawPart(var AChr :PTChar; var ARest :Integer; ALen :Integer; const AColor :TFarColor);
@@ -505,9 +512,9 @@ interface
     function LocGetValue(var ARec :TFarGetValue) :Integer;
     begin
       Result := 0;
-      if ARec._Type in [7, 11] then begin
-        ARec.Value._Type := FMVT_INTEGER;
-        ARec.Value.Value._Integer := IntIf(ARec._Type = 7, CurRow + 1, RowCount);
+      if ARec.fType in [7, 11] then begin
+        ARec.Value.fType := FMVT_INTEGER;
+        ARec.Value.Value.fInteger := IntIf(ARec.fType = 7, CurRow + 1, RowCount);
         Result := 1
       end;
     end;
