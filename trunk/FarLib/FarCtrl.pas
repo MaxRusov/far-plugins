@@ -434,7 +434,7 @@ interface
   begin
     vStr := ATitle + #10 + AMessage;
    {$ifdef Far3}
-    FillZero(vDlgID, SizeOf(vDlgID));
+    vDlgID := GUID_NULL;
    {$endif Far3}
     Result := FARAPI.Message(
      {$ifdef Far3}
@@ -963,26 +963,16 @@ interface
 
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   var
+    vHandle :THandle;
     vStr :TFarStr;
   begin
     if IsFullFilePath(APath) then begin
-     {$ifdef bUnicodeFar}
-      FARAPI.Control(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_SETPANELDIR, 0, PFarChar(APath));
-      FARAPI.Control(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_REDRAWPANEL, 0, nil);
-     {$else}
-      vStr := StrAnsiToOem(APath);
-      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_SETPANELDIR, FCTL_SETANOTHERPANELDIR), PFarChar(vStr));
-      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_REDRAWPANEL, FCTL_REDRAWANOTHERPANEL), nil);
-     {$endif bUnicodeFar}
+      vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
+      FARAPI.Control(vHandle, FCTL_SETPANELDIR, 0, PFarChar(APath));
+      FARAPI.Control(vHandle, FCTL_REDRAWPANEL, 0, nil);
     end else
     if APath <> '' then begin
-     {$ifdef bUnicodeFar}
       FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(APath));
-     {$else}
-      vStr := StrAnsiToOem(APath);
-      FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, PFarChar(vStr));
-     {$endif bUnicodeFar}
-
       if Active then
         vStr := 'Enter'
       else
@@ -997,19 +987,14 @@ interface
   var
     vInfo :TPanelInfo;
     vIndex :Integer;
-   {$ifdef bUnicodeFar}
     vHandle :THandle;
-   {$endif bUnicodeFar}
   begin
     Result := '';
 
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodeFar}
     vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
+
+    FillZero(vInfo, SizeOf(vInfo));
     FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
-   {$endif bUnicodeFar}
 
     if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
 
@@ -1017,11 +1002,7 @@ interface
       if (vIndex < 0) or (vIndex >= Integer(vInfo.ItemsNumber) ) then
         Exit;
 
-     {$ifdef bUnicodeFar}
       Result := FarPanelItemName(vHandle, FCTL_GETPANELITEM, vIndex);
-     {$else}
-      Result := FarChar2Str(vInfo.PanelItems[vIndex].FindData.cFileName);
-     {$endif bUnicodeFar}
     end;
   end;
 
@@ -1032,29 +1013,21 @@ interface
     vStr :TString;
     vInfo :TPanelInfo;
     vRedrawInfo :TPanelRedrawInfo;
-   {$ifdef bUnicodeFar}
     vHandle :THandle;
-   {$endif bUnicodeFar}
   begin
     Result := False;
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodeFar}
+
     vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
+
+    FillZero(vInfo, SizeOf(vInfo));
     FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
-   {$endif bUnicodeFar}
 
     if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
       vRedrawInfo.TopPanelItem := vInfo.TopPanelItem;
       vRedrawInfo.CurrentItem := vInfo.CurrentItem;
 
       for I := 0 to vInfo.ItemsNumber - 1 do begin
-       {$ifdef bUnicodeFar}
         vStr := FarPanelItemName(vHandle, FCTL_GETPANELITEM, I);
-       {$else}
-        vStr := FarChar2Str(vInfo.PanelItems[I].FindData.cFileName);
-       {$endif bUnicodeFar}
 
         if StrEqual(vStr, AItem) then begin
 //        vRedrawInfo.TopPanelItem := I; {???}
@@ -1064,11 +1037,7 @@ interface
         end;
       end;
 
-     {$ifdef bUnicodeFar}
       FARAPI.Control(vHandle, FCTL_REDRAWPANEL, 0, @vRedrawInfo);
-     {$else}
-      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_REDRAWPANEL, FCTL_REDRAWANOTHERPANEL), @vRedrawInfo);
-     {$endif bUnicodeFar}
     end;
   end;
 
