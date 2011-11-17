@@ -829,106 +829,107 @@ type
             ); stdcall;
 
 
-          {------------------------------------------------------------------------------}
-          { Menu                                                                         }
-          {------------------------------------------------------------------------------}
+{------------------------------------------------------------------------------}
+{ Menu                                                                         }
+{------------------------------------------------------------------------------}
 
-          (*
-          struct FarKey
-          {
-              WORD VirtualKeyCode;
-              DWORD ControlKeyState;
-          };
-          *)
-          type
-            PFarKey = ^TFarKey;
-            TFarKey = record
-              VirtualKeyCode :WORD;
-              ControlKeyState :DWORD;
-            end;
+(*
+struct FarKey
+{
+    WORD VirtualKeyCode;
+    DWORD ControlKeyState;
+};
+*)
+type
+  PFarKey = ^TFarKey;
+  TFarKey = record
+    VirtualKeyCode :WORD;
+    ControlKeyState :DWORD;
+  end;
 
+{ MENUITEMFLAGS }
 
-          { MENUITEMFLAGS }
+type
+  TMenuItemFlags = Int64;
 
-          const
-            MIF_NONE       = 0;
-            MIF_SELECTED   = $00010000;
-            MIF_CHECKED    = $00020000;
-            MIF_SEPARATOR  = $00040000;
-            MIF_DISABLE    = $00080000;
-            MIF_GRAYED     = $00100000;
-            MIF_HIDDEN     = $00200000;
+const
+  MIF_NONE       = 0;
+  MIF_SELECTED   = $00010000;
+  MIF_CHECKED    = $00020000;
+  MIF_SEPARATOR  = $00040000;
+  MIF_DISABLE    = $00080000;
+  MIF_GRAYED     = $00100000;
+  MIF_HIDDEN     = $00200000;
 
-          (*
-          struct FarMenuItem
-          {
-            MENUITEMFLAGS Flags;
-            const wchar_t *Text;
-            struct FarKey AccelKey;
-            DWORD_PTR Reserved;
-            DWORD_PTR UserData;
-          };
-          *)
-          type
-            PFarMenuItem = ^TFarMenuItem;
-            TFarMenuItem = record
-              Flags :Int64;
-              TextPtr :PFarChar;
-              AccelKey :TFarKey;
-              Reserved :DWORD_PTR;
-              UserData :DWORD_PTR;
-            end;
+(*
+struct FarMenuItem
+{
+  MENUITEMFLAGS Flags;
+  const wchar_t *Text;
+  struct FarKey AccelKey;
+  DWORD_PTR Reserved;
+  DWORD_PTR UserData;
+};
+*)
+type
+  PFarMenuItem = ^TFarMenuItem;
+  TFarMenuItem = record
+    Flags :TMenuItemFlags;
+    TextPtr :PFarChar;
+    AccelKey :TFarKey;
+    Reserved :DWORD_PTR;
+    UserData :DWORD_PTR;
+  end;
 
-          { FARMENUFLAGS }
+{ FARMENUFLAGS }
 
-          type
-            TFARMENUFLAGS = Int64;
+type
+  TFarMenuFlags = Int64;
 
-          const
-            FMENU_NONE                 = 0;
-            FMENU_SHOWAMPERSAND        = $00000001;
-            FMENU_WRAPMODE             = $00000002;
-            FMENU_AUTOHIGHLIGHT        = $00000004;
-            FMENU_REVERSEAUTOHIGHLIGHT = $00000008;
-            FMENU_CHANGECONSOLETITLE   = $00000010;
+const
+  FMENU_NONE                 = 0;
+  FMENU_SHOWAMPERSAND        = $00000001;
+  FMENU_WRAPMODE             = $00000002;
+  FMENU_AUTOHIGHLIGHT        = $00000004;
+  FMENU_REVERSEAUTOHIGHLIGHT = $00000008;
+  FMENU_CHANGECONSOLETITLE   = $00000010;
 
+type
+  PFarMenuItemArray = ^TFarMenuItemArray;
+  TFarMenuItemArray = packed array[0..MaxInt div SizeOf(TFarMenuItem) - 1] of TFarMenuItem;
 
-          type
-            PFarMenuItemArray = ^TFarMenuItemArray;
-            TFarMenuItemArray = packed array[0..MaxInt div SizeOf(TFarMenuItem) - 1] of TFarMenuItem;
-
-          (*
-          typedef int (WINAPI *FARAPIMENU)(
-            const GUID*         PluginId,
-            const GUID*         Id,
-            int                 X,
-            int                 Y,
-            int                 MaxHeight,
-            FARMENUFLAGS        Flags,
-            const wchar_t      *Title,
-            const wchar_t      *Bottom,
-            const wchar_t      *HelpTopic,
-            const struct FarKey *BreakKeys,
-            int                *BreakCode,
-            const struct FarMenuItem *Item,
-            size_t              ItemsNumber
-          );
-          *)
-          type
-            TFarApiMenu = function (
-              const PluginId :TGUID;
-              const ID :TGUID;
-              X, Y : Integer;
-              MaxHeight : Integer;
-              Flags :TFARMENUFLAGS;
-              Title :PFarChar;
-              Bottom :PFarChar;
-              HelpTopic :PFarChar;
-              BreakKeys :PIntegerArray; {!!!}
-              BreakCode :PIntegerArray;
-              Item :PFarMenuItemArray;
-              ItemsNumber :size_t
-            ) : Integer; stdcall;
+(*
+typedef int (WINAPI *FARAPIMENU)(
+  const GUID*         PluginId,
+  const GUID*         Id,
+  int                 X,
+  int                 Y,
+  int                 MaxHeight,
+  FARMENUFLAGS        Flags,
+  const wchar_t      *Title,
+  const wchar_t      *Bottom,
+  const wchar_t      *HelpTopic,
+  const struct FarKey *BreakKeys,
+  int                *BreakCode,
+  const struct FarMenuItem *Item,
+  size_t              ItemsNumber
+);
+*)
+type
+  TFarApiMenu = function (
+    const PluginId :TGUID;
+    const ID :TGUID;
+    X, Y : Integer;
+    MaxHeight : Integer;
+    Flags :TFARMENUFLAGS;
+    Title :PFarChar;
+    Bottom :PFarChar;
+    HelpTopic :PFarChar;
+    BreakKeys :PIntegerArray; {!!!}
+    BreakCode :PIntegerArray;
+    Item :PFarMenuItemArray;
+    ItemsNumber :size_t
+  ) : Integer; stdcall;
 
 
 {------------------------------------------------------------------------------}
@@ -938,7 +939,7 @@ type
 { PLUGINPANELITEMFLAGS }
 
 type
-  TPLUGINPANELITEMFLAGS = Int64;
+  TPluginPanelItemFlags = Int64;
 
 const
   PPIF_NONE         = 0;
@@ -984,7 +985,7 @@ type
     Owner :PFarChar;
     CustomColumnData :PPCharArray;
     CustomColumnNumber :size_t;
-    Flags :TPLUGINPANELITEMFLAGS;
+    Flags :TPluginPanelItemFlags;
     UserData :DWORD_PTR;
     FileAttributes :DWORD;
     NumberOfLinks :DWORD;
@@ -1253,144 +1254,138 @@ typedef void (WINAPI *FARAPIFREEPLUGINDIRLIST)(struct PluginPanelItem *PanelItem
   ); stdcall;
 
 
-          {------------------------------------------------------------------------------}
-          { Viewer / Editor                                                              }
-          {------------------------------------------------------------------------------}
+{------------------------------------------------------------------------------}
+{ Viewer / Editor                                                              }
+{------------------------------------------------------------------------------}
 
-          { VIEWER_FLAGS }
+{ VIEWER_FLAGS }
 
-          const
-            VF_NONMODAL              = $00000001;
-            VF_DELETEONCLOSE         = $00000002;
-            VF_ENABLE_F6             = $00000004;
-            VF_DISABLEHISTORY        = $00000008;
-            VF_IMMEDIATERETURN       = $00000100;
-            VF_DELETEONLYFILEONCLOSE = $00000200;
+type
+  TViewerFlags = Int64;
 
-          (*
-          typedef int (WINAPI *FARAPIVIEWER)(
-            const wchar_t *FileName,
-            const wchar_t *Title,
-            int X1,
-            int Y1,
-            int X2,
-            int Y2,
-            DWORD Flags,
-            UINT CodePage
-          );
-          *)
-          type
-            TFarApiViewer = function (
-              FileName : PFarChar;
-              Title : PFarChar;
-              X1, Y1, X2, Y2 : Integer;
-              Flags : DWORD;
-              CodePage : UINT
-            ) : Integer; stdcall;
+const
+  VF_NONMODAL              = $00000001;
+  VF_DELETEONCLOSE         = $00000002;
+  VF_ENABLE_F6             = $00000004;
+  VF_DISABLEHISTORY        = $00000008;
+  VF_IMMEDIATERETURN       = $00000100;
+  VF_DELETEONLYFILEONCLOSE = $00000200;
 
-
-          { EDITOR_FLAGS }
-
-          type
-            TEDITOR_FLAGS = Int64;
-
-          const
-            EN_NONE                  = 0;
-            EF_NONMODAL              = $00000001;
-            EF_CREATENEW             = $00000002;
-            EF_ENABLE_F6             = $00000004;
-            EF_DISABLEHISTORY        = $00000008;
-            EF_DELETEONCLOSE         = $00000010;
-            EF_IMMEDIATERETURN       = $00000100;
-            EF_DELETEONLYFILEONCLOSE = $00000200;
-            EF_LOCKED                = $00000400;
-            EF_DISABLESAVEPOS        = $00000800;
-
-          { EDITOR_EXITCODE }
-
-          const
-            EEC_OPEN_ERROR          = 0;
-            EEC_MODIFIED            = 1;
-            EEC_NOT_MODIFIED        = 2;
-            EEC_LOADING_INTERRUPTED = 3;
-
-          type
-          (*
-          typedef int (WINAPI *FARAPIEDITOR)(
-              const wchar_t *FileName,
-              const wchar_t *Title,
-              int X1,
-              int Y1,
-              int X2,
-              int Y2,
-              EDITOR_FLAGS Flags,
-              int StartLine,
-              int StartChar,
-              UINT CodePage
-          );
-          *)
-            TFarApiEditor = function (
-              FileName :PFarChar;
-              Title :PFarChar;
-              X1, Y1, X2, Y2 : Integer;
-              Flags :TEDITOR_FLAGS;
-              StartLine :Integer;
-              StartChar :Integer;
-              CodePage :UINT
-            ) :Integer; stdcall;
+(*
+typedef int (WINAPI *FARAPIVIEWER)(
+  const wchar_t *FileName,
+  const wchar_t *Title,
+  int X1,
+  int Y1,
+  int X2,
+  int Y2,
+  VIEWER_FLAGS Flags,
+  UINT CodePage
+);
+*)
+type
+  TFarApiViewer = function (
+    FileName :PFarChar;
+    Title :PFarChar;
+    X1, Y1, X2, Y2 :Integer;
+    Flags :TViewerFlags;
+    CodePage :UINT
+  ) :Integer; stdcall;
 
 
-          (*
-          typedef int (WINAPI *FARAPICMPNAME)(
-            const wchar_t *Pattern,
-            const wchar_t *String,
-            int SkipPath
-          );
-          *)
-            TFarApiCmpName = function (
-              Pattern : PFarChar;
-              aString : PFarChar;
-              SkipPath : Integer
-            ) : Integer; stdcall;
+{ EDITOR_FLAGS }
+
+type
+  TEditorFlags = Int64;
+
+const
+  EN_NONE                  = 0;
+  EF_NONMODAL              = $00000001;
+  EF_CREATENEW             = $00000002;
+  EF_ENABLE_F6             = $00000004;
+  EF_DISABLEHISTORY        = $00000008;
+  EF_DELETEONCLOSE         = $00000010;
+  EF_IMMEDIATERETURN       = $00000100;
+  EF_DELETEONLYFILEONCLOSE = $00000200;
+  EF_LOCKED                = $00000400;
+  EF_DISABLESAVEPOS        = $00000800;
+
+{ EDITOR_EXITCODE }
+
+const
+  EEC_OPEN_ERROR          = 0;
+  EEC_MODIFIED            = 1;
+  EEC_NOT_MODIFIED        = 2;
+  EEC_LOADING_INTERRUPTED = 3;
+
+(*
+typedef int (WINAPI *FARAPIEDITOR)(
+    const wchar_t *FileName,
+    const wchar_t *Title,
+    int X1,
+    int Y1,
+    int X2,
+    int Y2,
+    EDITOR_FLAGS Flags,
+    int StartLine,
+    int StartChar,
+    UINT CodePage
+);
+*)
+type
+  TFarApiEditor = function (
+    FileName :PFarChar;
+    Title :PFarChar;
+    X1, Y1, X2, Y2 : Integer;
+    Flags :TEditorFlags;
+    StartLine :Integer;
+    StartChar :Integer;
+    CodePage :UINT
+  ) :Integer; stdcall;
 
 
-          type
-          (*
-          typedef const wchar_t*(WINAPI *FARAPIGETMSG)(
-              const GUID* PluginId,
-              int MsgId
-          );
-          *)
-            TFarApiGetMsg = function (
-              const PluginId :TGUID;
-              MsgId :Integer
-            ) :PFarChar; stdcall;
+{------------------------------------------------------------------------------}
+
+(*
+typedef const wchar_t*(WINAPI *FARAPIGETMSG)(
+    const GUID* PluginId,
+    int MsgId
+);
+*)
+type
+  TFarApiGetMsg = function (
+    const PluginId :TGUID;
+    MsgId :Integer
+  ) :PFarChar; stdcall;
 
 
-          { FarHelpFlags }
+{ FARHELPFLAGS }
 
-          const
-            FHELP_NOSHOWERROR = $80000000;
-            FHELP_SELFHELP    = $00000000;
-            FHELP_FARHELP     = $00000001;
-            FHELP_CUSTOMFILE  = $00000002;
-            FHELP_CUSTOMPATH  = $00000004;
-            FHELP_USECONTENTS = $40000000;
+type
+  TFarHelpFlags = Int64;
+
+const
+  FHELP_NOSHOWERROR = $80000000;
+  FHELP_SELFHELP    = $00000000;
+  FHELP_FARHELP     = $00000001;
+  FHELP_CUSTOMFILE  = $00000002;
+  FHELP_CUSTOMPATH  = $00000004;
+  FHELP_USECONTENTS = $40000000;
 
 
-          (*
-          typedef BOOL (WINAPI *FARAPISHOWHELP)(
-            const wchar_t *ModuleName,
-            const wchar_t *Topic,
-            DWORD Flags
-          );
-          *)
-          type
-            TFarApiShowHelp = function (
-              ModuleName : PFarChar;
-              Topic : PFarChar;
-              Flags : DWORD
-            ) :LongBool; stdcall;
+(*
+typedef BOOL (WINAPI *FARAPISHOWHELP)(
+  const wchar_t *ModuleName,
+  const wchar_t *Topic,
+  FARHELPFLAGS Flags
+);
+*)
+type
+  TFarApiShowHelp = function (
+    ModuleName :PFarChar;
+    Topic :PFarChar;
+    Flags :TFarHelpFlags
+  ) :BOOL; stdcall;
 
 
 { ADVANCED_CONTROL_COMMANDS }
@@ -1744,11 +1739,11 @@ struct FarMacroValue
 type
   PFarMacroValue = ^TFarMacroValue;
   TFarMacroValue = record
-    _Type :Integer;
+    fType :Integer;
     Value : record case Integer of
-      0 : (_Integer :Int64);
-      1 : (_Double :Double);
-      2 : (_String :PFarChar);
+      0 : (fInteger :Int64);
+      1 : (fDouble :Double);
+      2 : (fString :PFarChar);
     end;
   end;
 
@@ -1809,7 +1804,7 @@ struct FarGetValue
 type
   PFarGetValue = ^TFarGetValue;
   TFarGetValue = record
-    _Type :Integer;
+    fType :Integer;
     Value :TFarMacroValue;
   end;
 
@@ -1857,7 +1852,7 @@ const
 { WINDOWINFO_FLAGS }
 
 type
-  TWINDOWINFO_FLAGS = Int64;
+  TWindowInfoFlags = Int64;
 
 const
   WIF_MODIFIED = $00000001;
@@ -1889,9 +1884,22 @@ type
     NameSize :Integer;
     Pos :Integer;
     WindowType :Integer; {WINDOWINFO_TYPE}
-    Flags :TWINDOWINFO_FLAGS;
+    Flags :TWindowInfoFlags;
   end;
 
+(*
+struct WindowType
+{
+  size_t StructSize;
+  int Type;
+};
+*)
+type
+  PWindowType = ^TWindowType;
+  TWindowType = record
+    StructSize :size_t;
+    fType :Integer;
+  end;
 
           { PROGRESSTATE }
 
