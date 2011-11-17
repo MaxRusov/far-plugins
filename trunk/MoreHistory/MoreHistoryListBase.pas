@@ -3,7 +3,7 @@
 unit MoreHistoryListBase;
 
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2009-2011, Max Rusov                                                   *}
 {*                                                                            *}
 {* MoreHistory plugin                                                         *}
 {******************************************************************************}
@@ -39,10 +39,10 @@ interface
   type
     PFilterRec = ^TFilterRec;
     TFilterRec = packed record
-      FIdx :Integer;
-      FPos :Word;
-      FLen :Byte;
-      FSel :Byte;
+      FIdx :Integer; { Индекс записи истории (для группы - индекс первой записи группы) }
+      FPos :Word;    { Позиция быстрого фильтра (для группы - число элементов в группе) }
+      FLen :Byte;    { Длина быстрого фильтра }
+      FSel :Byte;    { 1 - Selected, 2 - Group, 4 - Expanded Group }
     end;
 
     TMyFilter = class(TExList)
@@ -50,17 +50,18 @@ interface
       constructor Create; override;
 
       procedure Add(AIndex, APos, ALen :Integer);
-      procedure AddGroup(AIndex :Integer; AExpanded :Boolean);
+      procedure AddGroup(AIndex :Integer; AExpanded :Boolean; ACount :Integer);
 
     public
       function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
       function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
 
     private
-      FHistory  :THistory;
-      FName     :TString;
-      FDomain   :TString;
-      FExpanded :Boolean;
+      FHistory   :THistory;
+      FName      :TString;
+      FDomain    :TString;
+      FExpanded  :Boolean;
+      FItemCount :Integer;
 
       function GetItems(AIndex :Integer) :Integer;
 
@@ -160,7 +161,6 @@ interface
   function Date2StrMode(ADate :TDateTime; AMode :Integer; ATimeGroup :Boolean) :TString;
   function Date2StrLen(AMode :Integer) :Integer;
 
-
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -170,13 +170,18 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+
   function Date2StrMode(ADate :TDateTime; AMode :Integer; ATimeGroup :Boolean) :TString;
   begin
     if AMode = 0 then begin
       if (Trunc(ADate) = Date) or ATimeGroup then
         Result := FormatTime('H:mm', ADate)
       else begin
-        Result := FormatDate('ddd,dd', ADate);
+        if ADate > FirstDayOfMonth(Date) then
+          Result := FormatDate('ddd,dd', ADate)
+        else
+          Result := FormatDate('dd/MM', ADate);
+//        Result := FormatDate('dd MMM', ADate);
       end;
     end else
       Result := FormatDate('dd.MM.yy', ADate) + ' ' + FormatTime('HH:mm', ADate); //FormatDateTime('dd/mm/yy hh:nn', ADate);
@@ -189,6 +194,7 @@ interface
   begin
     if AMode = 0 then
       Result := 5
+//    Result := 6
     else
       Result := 14;
   end;
@@ -218,12 +224,12 @@ interface
   end;
 
 
-  procedure TMyFilter.AddGroup(AIndex :Integer; AExpanded :Boolean);
+  procedure TMyFilter.AddGroup(AIndex :Integer; AExpanded :Boolean; ACount :Integer);
   var
     vRec :TFilterRec;
   begin
     vRec.FIdx := AIndex;
-    vRec.FPos := 0;
+    vRec.FPos := Word(ACount);
     vRec.FLen := 0;
     vRec.FSel := 2;
     if AExpanded then
@@ -363,7 +369,9 @@ interface
   begin
     case AColTag of
 //    1 : Result := AItem.Path;
-      2 : Result := Date2StrMode(AItem.Time, optDateFormat, optHierarchical and (optHierarchyMode = hmDate));
+      2 :
+        Result := Date2StrMode(AItem.Time, optDateFormat,
+          optHierarchical and (optHierarchyMode = hmDate) {or ...Вчера?} );
     else
       Result := '';
     end;
@@ -386,7 +394,7 @@ interface
       if vRec.FIdx < 0 then
         Exit;
 
-      if (vRec.FSel and 2 <> 0) and (vRec.FSel and 4 <> 0) then
+      if (vRec.FSel and 2 <> 0) and (ACol > 0) {and (vRec.FSel and 4 <> 0)} then
         Exit;
 
       Result := GetEntryStr(FHistory[vRec.FIdx], FGrid.Column[ACol].Tag)
@@ -459,6 +467,7 @@ interface
   var
     vRec :PFilterRec;
     vItem :THistoryEntry;
+    vStr :TString;
     vDelta :Integer;
   begin
     if (ARow < FFilter.Count) and (FGrid.Column[ACol].Tag = 1) then begin
@@ -470,8 +479,15 @@ interface
 
       if FHierarchical then begin
         if vRec.FSel and 2 <> 0 then begin
-          SetFarStr(FGrid.RowBuf, vItem.GetGroup, AWidth);
-          FARAPI.Text(X, Y, AColor, FGrid.RowBuf);
+
+          vStr := vItem.GetGroup;
+          FGrid.DrawChr(X, Y, PTChar(vStr), AWidth, AColor);
+          Inc(X, length(vStr)); Dec(AWidth, length(vStr));
+
+          vStr := ' (' + Int2Str(vRec.FPos) + ')';
+          if AWidth >= length(vStr) then
+            FGrid.DrawChr(X, Y, PTChar(vStr), AWidth, ChangeFG(AColor, optCountColor));
+
         end else
         if optHierarchyMode <> hmDomain then begin
           Inc(X, 1); Dec(AWidth, 1);
@@ -479,10 +495,8 @@ interface
         end else
         begin
           Inc(X, 1); Dec(AWidth, 1);
-          vDelta := length(vItem.GetDomain);
-          if vDelta > length(vItem.Path) then
-            vDelta := Length(vItem.Path);
-          DrawTextEx(X, Y, AWidth, PTChar(vItem.Path) + vDelta, vRec.FPos - vDelta, vRec.FLen, AColor);
+          vStr := vItem.GetNameWithoutDomain(vDelta);
+          DrawTextEx(X, Y, AWidth, PTChar(vStr), vRec.FPos - vDelta, vRec.FLen, AColor);
         end;
       end else
         DrawTextEx(X, Y, AWidth, PTChar(vItem.Path), vRec.FPos, vRec.FLen, AColor);
@@ -498,13 +512,13 @@ interface
 
   procedure TMenuBaseDlg.AcceptItem(AItem :THistoryEntry; AGroup :TMyFilter); {virtual;}
   var
-    vLen :Integer;
+    vLen, vDelta :Integer;
   begin
     vLen := Length(AItem.Path);
     if AGroup <> nil then begin
-      Inc(vLen);
       if optHierarchyMode = hmDomain then
-        Dec(vLen, Length(AGroup.Name));
+        vLen := length(AItem.GetNameWithoutDomain(vDelta));
+      Inc(vLen); { Отступ в группе }
     end;
     FMenuMaxWidth := IntMax(FMenuMaxWidth, vLen)
   end;
@@ -617,6 +631,7 @@ interface
 
             if vGroup.FExpanded or (vGroup.Count = 0) then
               vGroup.Add(FIdx, FPos, FLen);
+            Inc(vGroup.FItemCount);
           end;
         end;
 
@@ -630,15 +645,15 @@ interface
           with PFilterRec(vGroup.PItems[0])^ do begin
             if vPrevExpanded or (vGroup.FExpanded and (I > 0)) then
               FFilter.Add(-1, 0, 0);
-            FFilter.AddGroup(FIdx, vGroup.FExpanded);
-            FMenuMaxWidth := IntMax(FMenuMaxWidth, Length(vGroup.Name));
+            FFilter.AddGroup(FIdx, vGroup.FExpanded, vGroup.FItemCount);
+            FMenuMaxWidth := IntMax(FMenuMaxWidth, Length(vGroup.Name) + Int2StrLen(vGroup.FItemCount) + 3);
           end;
 
           if vGroup.FExpanded then begin
             for J := 0 to vGroup.Count - 1 do
               with PFilterRec(vGroup.PItems[J])^ do begin
                 vHist := FHistory[FIdx];
-                if (optHierarchyMode = hmDomain) and StrEqual(vGroup.Domain, vHist.Path) then
+                if (optHierarchyMode = hmDomain) and False (*StrEqual(vGroup.Domain, vHist.Path)*) then
                   Continue;
                 AcceptItem(vHist, vGroup);
                 FFilter.Add(FIdx, FPos, FLen);
@@ -798,8 +813,49 @@ interface
  {-----------------------------------------------------------------------------}
 
   procedure TMenuBaseDlg.ChangeHierarchMode; {virtual;}
+  var
+    vMenu :TFarMenu;
+    vMode :THierarchyMode;
   begin
-    {Abstaract}
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strGroupByTitle),
+    [
+      GetMsg(strMGroupByPeriod),
+      GetMsg(strMGroupByDate),
+      GetMsg(strMGroupByFolder),
+      '',
+      GetMsg(strMGroupNone)
+    ]);
+    try
+      while True do begin
+        for vMode := Low(THierarchyMode) to High(THierarchyMode) do
+          vMenu.Checked[byte(vMode)] := optHierarchical and (vMode = optHierarchyMode);
+        vMenu.Checked[4] := not optHierarchical;
+        vMenu.SetSelected(IntIf(optHierarchical, Integer(optHierarchyMode), 4));
+
+        if not vMenu.Run then
+          Break;
+
+        if vMenu.ResIdx = 4 then begin
+          if optHierarchical then begin
+            optHierarchical := False;
+            ReinitAndSaveCurrent;
+            FSetChanged := True;
+          end;
+        end else
+        begin
+          vMode := THierarchyMode(vMenu.ResIdx);
+          if (vMode <> optHierarchyMode) or not optHierarchical then begin
+            optHierarchical := True;
+            optHierarchyMode := vMode;
+            ReinitAndSaveCurrent;
+            FSetChanged := True;
+          end;
+        end;
+      end;
+    finally
+      FreeObj(vMenu);
+    end;
   end;
 
 
@@ -920,8 +976,13 @@ interface
           Exit;
       end;
 
-      if AcceptSelected(vItem, ACode) then
-        SendMsg(DM_CLOSE, -1, 0);
+      try
+        if AcceptSelected(vItem, ACode) then
+          SendMsg(DM_CLOSE, -1, 0);
+      except
+        on E :Exception do
+          ErrorHandler(E);
+      end;
 
     end else
       Beep;
@@ -1168,7 +1229,9 @@ interface
         ToggleOption(optShowHidden);
 
       KEY_CTRLG:
-        ChangeHierarchMode; {ToggleOption(optHierarchical);}
+        ChangeHierarchMode;
+      KEY_CTRLSHIFTG:
+        ToggleOption(optHierarchical);
       KEY_CTRLI:
         ToggleOption(optNewAtTop);
       KEY_CTRLF:

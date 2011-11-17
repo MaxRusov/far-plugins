@@ -3,7 +3,7 @@
 unit MoreHistoryDlg;
 
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2009-2011, Max Rusov                                                   *}
 {*                                                                            *}
 {* MoreHistory plugin                                                         *}
 {******************************************************************************}
@@ -48,6 +48,7 @@ interface
       destructor Destroy; override;
 
     protected
+      function AcceptSelected(AItem :THistoryEntry; ACode :Integer) :Boolean; override;
       function ItemVisible(AItem :THistoryEntry) :Boolean; override;
       procedure AcceptItem(AItem :THistoryEntry; AGroup :TMyFilter); override;
       procedure ReinitColumns; override;
@@ -56,13 +57,13 @@ interface
       function ItemMarkHidden(AItem :THistoryEntry) :Boolean; override;
       function GetEntryStr(AItem :THistoryEntry; AColTag :Integer) :TString; override;
 
-      procedure ChangeHierarchMode; override;
-
       function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
 
     private
       FMode    :Integer;
       FMaxHits :Integer;
+
+      function CheckFolderExists(var AName :TString) :Boolean;
 
       procedure ClearSelectedHits;
       procedure MarkSelected(Actual :Boolean);
@@ -109,6 +110,80 @@ interface
   end;
 
 
+  function TFldMenuDlg.AcceptSelected(AItem :THistoryEntry; ACode :Integer) :Boolean; {override;}
+  var
+    vName :TString;
+  begin
+    Result := False;
+    vName := AItem.Path;
+    if ACode <> 2 then
+      if IsFullFilePath(vName) then
+        if not CheckFolderExists(vName) then
+          Exit;
+
+    Result := inherited AcceptSelected(AItem, ACode);
+    FResStr := vName;
+  end;
+
+
+  function TFldMenuDlg.CheckFolderExists(var AName :TString) :Boolean;
+  var
+    vRes :Integer;
+    vFolder :TString;
+  begin
+    Result := True;
+    if not WinFolderExists(AName) then begin
+
+      vFolder := GetNearestExistFolder(AName);
+
+      if vFolder <> '' then begin
+
+        vRes := ShowMessage(GetMsgStr(strConfirmation),
+          GetMsgStr(strFolderNotFound) + #10 + AName + #10 +
+          GetMsgStr(strNearestFolderIs) + #10 + vFolder + #10 +
+          GetMsgStr(strGotoNearestBut) + #10 + GetMsgStr(strCreateFolderBut) + #10 + GetMsgStr(strDeleteBut) + #10 + GetMsgStr(strCancel),
+          FMSG_WARNING, 4);
+
+        case vRes of
+          0: AName := vFolder;
+          1:
+          begin
+            if not CreateFolders(AName) then
+              AppError(GetMsgStr(strCannotCreateFolder) + #10 + AName);
+          end;
+          2:
+          begin
+            Result := False;
+            DeleteSelected;
+          end;
+        else
+          Result := False;
+        end;
+
+      end else
+      begin
+
+        vRes := ShowMessage(GetMsgStr(strConfirmation),
+          GetMsgStr(strFolderNotFound) + #10 + AName + #10 +
+          GetMsgStr(strDeleteBut) + #10 + GetMsgStr(strCancel),
+          FMSG_WARNING, 2);
+
+        case vRes of
+          0:
+          begin
+            Result := False;
+            DeleteSelected;
+          end;
+        else
+          Result := False;
+        end;
+      end;
+
+    end;
+  end;
+
+
+
   function TFldMenuDlg.ItemVisible(AItem :THistoryEntry) :Boolean; {override;}
   var
     vItem :TFldHistoryEntry;
@@ -138,7 +213,7 @@ interface
     vDateLen, vHitsLen :Integer;
   begin
     vDateLen := Date2StrLen(optDateFormat);
-    vHitsLen := Length(Int2Str(FMaxHits));
+    vHitsLen := Int2StrLen(FMaxHits);
 
     vOpt := [coColMargin];
     if not optShowGrid then
@@ -304,21 +379,6 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure TFldMenuDlg.ChangeHierarchMode; {override;}
-  begin
-    if not optHierarchical then begin
-      optHierarchical := True;
-      optHierarchyMode := hmDate;
-    end else
-    if optHierarchyMode <> hmDomain then begin
-      optHierarchyMode := hmDomain
-    end else
-      optHierarchical := False;
-    ReinitAndSaveCurrent;
-    FSetChanged := True;
-  end;
-
-
   procedure TFldMenuDlg.ClearSelectedHits;
   var
     I :Integer;
@@ -458,9 +518,9 @@ interface
           Exit;
 
         case vDlg.FResCmd of
-          1: JumpToPath(vDlg.FResStr, '');
+          1: JumpToPath(vDlg.FResStr, '', False);
           2: InsertText(vDlg.FResStr);
-          3: JumpToPath(ExtractFilePath(vDlg.FResStr), ExtractFileName(vDlg.FResStr));
+          3: JumpToPath(ExtractFilePath(vDlg.FResStr), ExtractFileName(vDlg.FResStr), False);
         end;
         vFinish := True;
       end;

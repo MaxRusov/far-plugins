@@ -3,7 +3,7 @@
 unit MoreHistoryCtrl;
 
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2009-2011, Max Rusov                                                   *}
 {*                                                                            *}
 {* MoreHistory plugin                                                         *}
 {******************************************************************************}
@@ -17,6 +17,7 @@ interface
     MixStrings,
     MixClasses,
     MixWinUtils,
+    MixFormat,
    {$ifdef Far3}
     Plugin3,
    {$else}
@@ -25,14 +26,19 @@ interface
     FarColor,
     FarCtrl,
     FarConfig,
+    FarMenu,
     FarColorDlg;
 
 
   type
     TMessages = (
       strLang,
+
       strTitle,
       strError,
+
+      strOk,
+      strCancel,
 
       strMFoldersHistory,
       strMViewEditHistory,
@@ -44,8 +50,8 @@ interface
 
       strFoldersHistoryTitle,
       strViewEditHistoryTitle,
-      strModifyHistoryTitle, 
-      strCommandHistoryTitle, 
+      strModifyHistoryTitle,
+      strCommandHistoryTitle,
 
       strConfirmation,
       strDeleteSelectedPrompt,
@@ -54,15 +60,27 @@ interface
       strMakeActualPrompt,
 
       strFileNotFound,
+      strFolderNotFound,
+      strNearestFolderIs,
       strCreateFileBut,
+      strCreateFolderBut,
+      strGotoNearestBut,
       strDeleteBut,
-      strCancel,
 
       strHintPath,
       strHintFTP,
       strHintPrefix,
       strHintLastVisited,
       strHintVisitCount,
+
+      strHintFile,
+      strHintFolder,
+      strHintLastOpen,
+      strHintLastSave,
+
+      strHintCommand,
+      strHintLastRun,
+      strHintRunCount,
 
       strCommandsTitle,
       strMOpen,
@@ -88,19 +106,16 @@ interface
       strMSortBy,
 
       strOptionsTitle2,
-      strMShowHints,
-      strMFollowMouse,
-      strMWrapMode,
-      strMHideCurrent,
-      strMAutoXLatMask,
-      strMRememberLastMask,
+      strMGeneralOptions,
       strMFldExclusions,
       strMEdtExclusions,
+      strMCmdExclusions,
       strMColors,
 
       strColorsTitle,
       strMHiddenColor,
       strMGroupColor,
+      strMGroupCountColor,
       strMQuickFilter,
       strMSelectedColor,
       strMRestoreDefaults,
@@ -113,20 +128,48 @@ interface
       strMBySaveCount,
       strMUnsorted,
 
+      strGroupByTitle,
+      strMGroupByPeriod,
+      strMGroupByDate,
+      strMGroupByFolder,
+      strMGroupNone,
+
+      strGeneralOptionsTitle,
+      strHistoryLimit,
+      strMHideCurrent,
+      strCaseSensitiveCommands,
+      strVisualizationOptions,
+      strWrapMode,
+      strFollowMouse,
+      strShowHints,
+      strAutoXLatMask,
+      strRememberLastMask,
+      strMidnightHour,
+      strValidRangeError,
+
       strFilterTitle,
       strFilterPrompt,
 
       strFldExclTitle,
       strEdtExclTitle,
+      strCmdExclTitle,
       strExclPrompt,
 
       strToday,
       strYesterday,
+      strThisWeek,
+      strThisMonth,
+      strThisYear,
+      strPastYears,
+      strFuture,
       strDaysAgo,
+      strDaysForward,
       strDays1,
       strDays2,
       strDays5,
       strDays21,
+
+      strCannotCreateFolder,
 
       strColorDialog
     );
@@ -166,9 +209,11 @@ interface
     cCmdVersion   = 1;
    {$endif bCmdHistory}
 
-    cHilterHistName = 'MoreHistory.Filter';
+    cMinHistoryLimit  = 64;
+    cMaxHistoryLimit  = 9999;
+    cDefHistoryLimit  = 1000;
 
-    cDefHistoryLength = 64;
+    cHilterHistName = 'MoreHistory.Filter';
 
    {$ifdef bUnicodeFar}
     chrHiddenMark   = #$2022;
@@ -186,17 +231,19 @@ interface
 
   type
     THierarchyMode = (
+      hmPeriod,
       hmDate,
-      hmDomain,
+      hmDomain
 //    hmDateDomain
 //    hmDomainDate
-      hmModDate
+//    hmModDate
     );
 
   var
+    { Настройки, зависящие от режима}
     optShowHidden      :Boolean = False;
     optHierarchical    :Boolean = True;
-    optHierarchyMode   :THierarchyMode = hmDate;
+    optHierarchyMode   :THierarchyMode = hmPeriod;
     optSortMode        :Integer = 0;
 
     optSeparateName    :Boolean = True;   { Показвать раздельно имя файла и путь }
@@ -206,30 +253,35 @@ interface
     optShowModify      :Boolean = True;   { Показывать дату модификации }
     optShowSaves       :Boolean = False;  { Показывать количество сохранений }
 
+    { Настройки, независящие от режима}
     optShowGrid        :Boolean = False;
-    optShowHints       :Boolean = True;
-    optFollowMouse     :Boolean = False;
-    optWrapMode        :Boolean = False;
     optNewAtTop        :Boolean = True;
     optHideCurrent     :Boolean = True;
+
+    optShowHints       :Boolean = True;   { Показывать подсказки через FarHints }
+    optFollowMouse     :Boolean = False;  { Курсор бегает за мышкой (как в меню) }
+    optWrapMode        :Boolean = False;  { Курсор бегает по кругу }
     optXLatMask        :Boolean = True;   { Автоматическое XLAT преобразование при поиске }
     optSaveMask        :Boolean = False;  { Сохранение старой маски при повторном вызове плагина }
 
-    optMidnightHour    :Integer = 0;
+    optMidnightHour    :Integer = 0;      { Время (час), начала нового дня (для группировки по времени) }
     optDateFormat      :Integer = 0;
 
     optHistoryFolder   :TString = '';
-    optHistoryLimit    :Integer = 1000;
+    optHistoryLimit    :Integer = cDefHistoryLimit;
     optSkipTransit     :Boolean = True;
     optSkipQuickView   :Boolean = True;
+    optCaseSensCmdHist :Integer = 0;      { Регистро-чувствительная история команд (2 - только аргументы)}
 
     optFldExclusions   :TString = '';
     optEdtExclusions   :TString = '%TEMP%\*';
+    optCmdExclusions   :TString = '';
 
     optHiddenColor     :TFarColor;
     optFoundColor      :TFarColor;
     optSelectedColor   :TFarColor;
     optGroupColor      :TFarColor;
+    optCountColor      :TFarColor;
 
   const
     cFldPrefix         = 'mh';
@@ -257,13 +309,21 @@ interface
   function GetMsgStr(AMess :TMessages) :TString;
   procedure HandleError(AError :Exception);
 
+  function DayOfWeek(ADateTime :TDateTime) :Integer;
+  function FirstDayOfMonth(ADateTime :TDateTime) :TDateTime;
+  function FileTimeToDateTime(const AFileTime :TFileTime) :TDateTime;
+  procedure InsertText(const AStr :TString);
+  function GetNearestExistFolder(const APath :TString) :TString;
+  function CreateFolders(const APath :TString) :Boolean;
+
   procedure RestoreDefColor;
+  procedure ColorMenu;
   procedure ReadSettings;
   procedure ReadSetup(const AMode :TString);
   procedure WriteSetup(const AMode :TString);
 //procedure ChangedSettings;
 
-  function GetHistoryList(const AHistName :TString) :TStrList; 
+  function GetHistoryList(const AHistName :TString) :TStrList;
   procedure AddToHistory(const AHist, AStr :TString);
 
 {******************************************************************************}
@@ -292,14 +352,170 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  function DayOfWeek(ADateTime :TDateTime) :Integer;
+  begin
+    Result := (Trunc(ADateTime) + DateDelta - 1) mod 7 + 1;
+  end;
+
+
+  function FirstDayOfMonth(ADateTime :TDateTime) :TDateTime;
+  var
+    vYear, vMonth, vDay :Word;
+  begin
+    DecodeDate(ADateTime, vYear, vMonth, vDay);
+    Result := EncodeDate(vYear, vMonth, 1);
+  end;
+
+
+  function FileTimeToDateTime(const AFileTime :TFileTime) :TDateTime;
+  var
+    vDosTime :Integer;
+  begin
+    Result := 0;
+    vDosTime := FileTimeToDosFileDate(AFileTime);
+    if vDosTime <> -1 then
+      Result := FileDateToDateTime(vDosTime);
+  end;
+
+
+  function MaskStr(const AStr :TString) :TString;
+  var
+    I :Integer;
+    C :TChar;
+  begin
+    Result := '';
+    for I := 1 to length(AStr) do begin
+      C := AStr[I];
+      if (Ord(C) < $20) or (C = '"') or (C = '\') then
+//      Result := Result + '\' + Int2Str(Ord(c))
+        Result := Result + '\x' + Format('%.4x', [Ord(c)])
+      else
+        Result := Result + C;
+    end;
+  end;
+
+
+  procedure InsertText(const AStr :TString);
+  var
+    vStr :TString;
+  begin
+    vStr := 'print("' + MaskStr(AStr) + '")';
+    FarPostMacro(vStr);
+  end;
+
+
+  function GetNearestExistFolder(const APath :TString) :TString;
+  var
+    vDrive, vPath :TString;
+  begin
+    Result := '';
+    if FileNameIsLocal(APath) then begin
+      vDrive := AddBackSlash(ExtractFileDrive(APath));
+      if WinFolderExists(vDrive) then begin
+        vPath := RemoveBackSlash(APath);
+        while Length(vPath) > 3 do begin
+          if WinFolderExists(vPath) then begin
+            Result := vPath;
+            Exit;
+          end;
+          vPath := RemoveBackSlash(ExtractFilePath(vPath));
+        end;
+        Result := vDrive;
+      end;
+    end;
+  end;
+
+  
+  function CreateFolders(const APath :TString) :Boolean;
+  var
+    vDrive :TString;
+
+    function LocCreate(const APath :TString) :Boolean;
+    begin
+      Result := True;
+      if (APath = '') or (vDrive = APath) or WinFolderExists(APath) then
+        Exit;
+      Result := LocCreate(RemoveBackSlash(ExtractFilePath(APath)));
+      if Result then
+        Result := CreateDir(APath);
+    end;
+
+  begin
+    Result := False;
+    vDrive := ExtractFileDrive(APath);
+    if FileNameIsLocal(APath) then
+      vDrive := AddBackSlash(vDrive);
+    if (vDrive = '') or WinFolderExists(vDrive) then
+      Result := LocCreate(APath);
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
   procedure RestoreDefColor;
   begin
     optHiddenColor     := MakeColor(clGray, 0);
-    optGroupColor      := MakeColor(clBlue, 0);
     optFoundColor      := MakeColor(clLime, 0);
     optSelectedColor   := MakeColor(0, clGreen);
+
+    optGroupColor      := MakeColor(clBlue, 0);
+    optCountColor      := MakeColor(clGray, 0);
   end;
 
+
+  procedure ColorMenu;
+  var
+    vMenu :TFarMenu;
+    vBkColor :DWORD;
+    vOk, vChanged :Boolean;
+  begin
+    vBkColor := GetColorBG(FarGetColor(COL_MENUTEXT));
+
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strColorsTitle),
+    [
+      GetMsg(strMHiddenColor),
+      GetMsg(strMGroupColor),
+      GetMsg(strMGroupCountColor),
+      GetMsg(strMQuickFilter),
+      GetMsg(strMSelectedColor),
+      '',
+      GetMsg(strMRestoreDefaults)
+    ]);
+    try
+      vChanged := False;
+
+      while True do begin
+        vMenu.SetSelected(vMenu.ResIdx);
+
+        if not vMenu.Run then
+          Break;
+
+        case vMenu.ResIdx of
+          0: vOk := ColorDlg('', optHiddenColor, vBkColor);
+          1: vOk := ColorDlg('', optGroupColor, vBkColor);
+          2: vOk := ColorDlg('', optCountColor, vBkColor);
+          3: vOk := ColorDlg('', optFoundColor, vBkColor);
+          4: vOk := ColorDlg('', optSelectedColor);
+        else
+          RestoreDefColor;
+          vOk := True;
+        end;
+
+        if vOk then begin
+//        FARAPI.EditorControl(ECTL_REDRAW, nil);
+          FarAdvControl(ACTL_REDRAWALL, nil);
+          vChanged := True;
+        end;
+      end;
+
+      if vChanged then
+        WriteSetup('');
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
 
  {-----------------------------------------------------------------------------}
 
@@ -312,6 +528,7 @@ interface
           IntValue('HistoryLimit', optHistoryLimit);
           StrValue('Exclusions', optFldExclusions);
           StrValue('EdtExclusions', optEdtExclusions);
+          StrValue('CmdExclusions', optCmdExclusions);
         end;
       finally
         Destroy;
@@ -334,6 +551,7 @@ interface
           LogValue('SaveMask', optSaveMask);
 
           IntValue('MidnightHour', optMidnightHour);
+          IntValue('CaseSensCmdHist', optCaseSensCmdHist);
 
           ColorValue('HiddenColor', optHiddenColor);
           ColorValue('FoundColor', optFoundColor);
@@ -345,6 +563,7 @@ interface
 //          IntValue('HistoryLimit', optHistoryLimit);
             StrValue('Exclusions', optFldExclusions);
             StrValue('EdtExclusions', optEdtExclusions);
+            StrValue('CmdExclusions', optCmdExclusions);
           end;
 
           if (AMode <> '') and OpenKey('View\' + AMode) then begin
