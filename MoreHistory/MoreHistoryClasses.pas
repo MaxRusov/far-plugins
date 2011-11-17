@@ -3,7 +3,7 @@
 unit MoreHistoryClasses;
 
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2009-2011, Max Rusov                                                   *}
 {*                                                                            *}
 {* MoreHistory plugin                                                         *}
 {******************************************************************************}
@@ -34,6 +34,7 @@ interface
     FarColorDlg,
     FarConfig,
 
+    MoreHistoryOptionsDlg,
     MoreHistoryCtrl;
 
 
@@ -49,6 +50,7 @@ interface
 
       function GetDomain :TString; virtual;
       function GetGroup :TString; virtual;
+      function GetNameWithoutDomain(var ADelta :Integer) :TString; virtual;
 
       function CalcSize :Integer; virtual;
       procedure WriteTo(var APtr :Pointer1); virtual;
@@ -138,6 +140,10 @@ interface
       procedure WriteTo(var APtr :Pointer1); override;
       procedure ReadFrom(var APtr :Pointer1; AVersion :Integer); override;
       function IsValid :Boolean; override;
+
+      function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
+      function GetDomain :TString; override;
+      function GetNameWithoutDomain(var ADelta :Integer) :TString; override;
 
     private
       FHits  :Integer;
@@ -254,7 +260,7 @@ interface
     TCmdHistory = class(THistory)
     public
       constructor Create; override;
-//    procedure InitExclusion; override;
+      procedure InitExclusion; override;
       procedure UpdateHistory;
 
       function CmdLineFilter(const AStr :TString) :TString;
@@ -279,13 +285,14 @@ interface
   function GetConsoleTitleStr :TString;
   function GetCurrentPanelPath :TString;
 
-  procedure JumpToPath(const APath, AFileName :TString);
-  procedure InsertText(const AStr :TString);
+  procedure JumpToPath(const APath, AFileName :TString; ASetPassive :Boolean);
 
   procedure OptionsMenu;
 
   var
-    GLastAdded :TString;  { Последняя добавленная папка, для опциональной фильтрации }
+    GLastAdded :TString;  { Последняя добавленная папка, для опциональной фильтрации (optHideCurrent) }
+
+    GroupByModDate :Boolean;  { Модификатор группировки для истории изменений }
 
   var
     FldHistory :TFldHistory;
@@ -410,6 +417,99 @@ interface
   end;
 
 
+ {-----------------------------------------------------------------------------}
+
+  procedure FarPanelSetPath(AHandle :THandle; const APath, AItem :TString);
+  var
+    vOldPath :TFarStr;
+  begin
+    vOldPath := FarPanelGetCurrentDirectory(AHandle);
+    if not StrEqual(vOldPath, APath) then begin
+      FARAPI.Control(AHandle, FCTL_SETPANELDIR, 0, PFarChar(APath));
+      if AItem = '' then
+        FARAPI.Control(AHandle, FCTL_REDRAWPANEL, 0, nil);
+    end;
+
+    if AItem <> '' then
+      FarPanelSetCurrentItem(AHandle = PANEL_ACTIVE, AItem)
+  end;
+
+
+  procedure JumpToPath(const APath, AFileName :TString; ASetPassive :Boolean);
+  var
+    vHandle :THandle;
+    vWinInfo :TWindowInfo;
+    vInfo :TPanelInfo;
+    vMacro, vStr :TString;
+    vVisible, vRealFolder :Boolean;
+  begin
+    FldHistory.AddHistoryStr( RemoveBackSlash(APath), True);
+
+    vHandle := HandleIf(ASetPassive, PANEL_PASSIVE, PANEL_ACTIVE);
+
+    FarGetWindowInfo(-1, vWinInfo);
+    FarGetPanelInfo(vHandle, vInfo);
+   {$ifdef Far3}
+    vVisible := PFLAGS_VISIBLE and vInfo.Flags <> 0;
+   {$else}
+    vVisible := vInfo.Visible <> 0;
+   {$endif Far3}
+
+    vRealFolder := IsFullFilePath(APath);
+
+    if vRealFolder and vVisible and (vInfo.PanelType = PTYPE_FILEPANEL) then begin
+      { Установка каталога и файла через API }
+      FarPanelSetPath(vHandle, APath, AFileName);
+
+      if vWinInfo.WindowType <> WTYPE_PANELS then
+        { Макросом переходим на панель... }
+        FarPostMacro('F12 0');
+
+    end else
+    begin
+      { ...или через макрос }
+      vMacro := '';
+
+      case vInfo.PanelType of
+        PTYPE_FILEPANEL:
+          if not vVisible then
+            vMacro := 'CtrlP ';
+        PTYPE_TREEPANEL:
+          vMacro := 'CtrlT ';
+        PTYPE_QVIEWPANEL:
+          vMacro := 'CtrlQ ';
+        PTYPE_INFOPANEL:
+          vMacro := 'CtrlL ';
+      end;
+
+      if vRealFolder then begin
+        vMacro := vMacro +
+          'panel.setpath('  + StrIf(ASetPassive, '1', '0') + ', @"' + APath + '"' +
+          StrIf(AFileName <> '', ', @"' + AFileName + '"', '') +
+          ')';
+      end else
+      begin
+        vStr := '';
+        FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(vStr));
+        vMacro := vMacro +
+          'print(@"' + APath + '") Enter';
+        if ASetPassive then
+          vMacro := 'Tab ' + vMacro + ' Tab';
+        if AFileName <> '' then
+          vMacro := vMacro +
+            ' panel.setpos(' + StrIf(ASetPassive, '1', '0') + ', @"' + AFileName + '")';
+      end;
+
+      if vWinInfo.WindowType <> WTYPE_PANELS then
+        vMacro := 'F12 0 $if (Shell) ' + vMacro + ' $end';
+
+      FarPostMacro(vMacro);
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
   function NumMode(ANum :Integer) :Integer;
     {-Для сопряжения числительных }
   const
@@ -427,129 +527,67 @@ interface
   end;
 
 
-  {!!! Взять алгоритмы из SameFolder...}
-  procedure JumpToPath(const APath, AFileName :TString);
-  begin
-    {!!!Lock???}
-    FldHistory.AddHistoryStr( RemoveBackSlash(APath), True);
-    FarPanelJumpToPath(True, APath);
-    if AFileName <> '' then
-      FarPanelSetCurrentItem(True, AFileName);
-  end;
-
-
-  function MaskStr(const AStr :TString) :TString;
-  var
-    I :Integer;
-    C :TChar;
-  begin
-    Result := '';
-    for I := 1 to length(AStr) do begin
-      C := AStr[I];
-      if (Ord(C) < $20) or (C = '"') or (C = '\') then
-//      Result := Result + '\' + Int2Str(Ord(c))
-        Result := Result + '\x' + Format('%.4x', [Ord(c)])
-      else
-        Result := Result + C;
-    end;
-  end;
-
-  procedure InsertText(const AStr :TString);
-  var
-    vStr :TString;
-  begin
-    vStr := 'print("' + MaskStr(AStr) + '")';
-    FarPostMacro(vStr);
-  end;
-
-
-  function DateToRangeStr(ADateTime :TDateTime) :TString;
+  function DateToRangeStr(ADateTime :TDateTime; AByPeriod :Boolean) :TString;
   const
     cDays :array[1..4] of TMessages = (strDays1, strDays2, strDays5, strDays21);
   var
     vDate0, vDateI, vDays :Integer;
+    vDateW0, vDateM0, vDateY0 :Integer;
+    vYear, vMonth, vDay :Word;
   begin
-    vDate0 := Trunc(Date);
+//    vDate0 := Trunc(Date);
+    vDate0 := Trunc(Now - EncodeTime(optMidnightHour, 0, 0, 0));
     vDateI := Trunc(ADateTime - EncodeTime(optMidnightHour, 0, 0, 0));
 
-    vDays := vDate0 - vDateI;
-    if vDays <= 0 then
-      Result := GetMsgStr(strToday)
-//  else
-//  if vDays = 1 then
-//    Result := GetMsgStr(strYesterday)
-    else
-      Result := Int2Str(vDays) + ' ' + Format(GetMsgStr(strDaysAgo), [GetMsgStr(cDays[NumMode(vDays)])]);
-    Result := Result + ', ' + FormatDate('ddd, dd', Trunc(vDateI));
-  end;
+    if not AByPeriod then begin
+      vDays := vDate0 - vDateI;
 
+      if vDays = 0 then
+        Result := GetMsgStr(strToday)
+      else
+      if vDays > 0 then
+        Result := Int2Str(vDays) + ' ' + Format(GetMsgStr(strDaysAgo), [GetMsgStr(cDays[NumMode(vDays)])])
+      else
+        Result := Int2Str(vDays) + ' ' + Format(GetMsgStr(strDaysForward), [GetMsgStr(cDays[NumMode(-vDays)])]);
 
-  function FileTimeToDateTime(const AFileTime :TFileTime) :TDateTime;
-  var
-    vDosTime :Integer;
-  begin
-    Result := 0;
-    vDosTime := FileTimeToDosFileDate(AFileTime);
-    if vDosTime <> -1 then
-      Result := FileDateToDateTime(vDosTime);
-  end;
+      Result := Result + ', ' + FormatDate('ddd dd', Trunc(vDateI));
 
+    end else
+    begin
+      DecodeDate(vDate0, vYear, vMonth, vDay);
 
- {-----------------------------------------------------------------------------}
+      { День начала... }
+      vDateW0 := vDate0 - DayOfWeek(vDate0) + 1;       {...текущей недели }
+      vDateM0 := Trunc(EncodeDate(vYear, vMonth, 1));  {...текущего месяца }
+      vDateY0 := Trunc(EncodeDate(vYear, 1, 1));       {...текущего года }
 
-  procedure ColorMenu;
-  var
-    vMenu :TFarMenu;
-    vBkColor :DWORD;
-    vOk, vChanged :Boolean;
-  begin
-    vBkColor := GetColorBG(FarGetColor(COL_MENUTEXT));
+      if vDateI > vDate0 then
+        Result := GetMsgStr(strFuture)
+      else
+      if vDateI = vDate0 then
+        Result := GetMsgStr(strToday)
+      else
+      if vDateI = vDate0 - 1 then
+        Result := GetMsgStr(strYesterday)
+      else
+      if vDateI >= vDateW0 then
+        Result := GetMsgStr(strThisWeek)
+      else
+      if vDateI >= vDateM0 then
+        Result := GetMsgStr(strThisMonth)
+      else
+      if vDateI >= vDateY0 then
+        Result := GetMsgStr(strThisYear)
+      else
+        Result := GetMsgStr(strPastYears);
 
-    vMenu := TFarMenu.CreateEx(
-      GetMsg(strColorsTitle),
-    [
-      GetMsg(strMHiddenColor),
-      GetMsg(strMGroupColor),
-      GetMsg(strMQuickFilter),
-      GetMsg(strMSelectedColor),
-      '',
-      GetMsg(strMRestoreDefaults)
-    ]);
-    try
-      vChanged := False;
-
-      while True do begin
-        vMenu.SetSelected(vMenu.ResIdx);
-
-        if not vMenu.Run then
-          Break;
-
-        case vMenu.ResIdx of
-          0: vOk := ColorDlg('', optHiddenColor, vBkColor);
-          1: vOk := ColorDlg('', optGroupColor, vBkColor);
-          2: vOk := ColorDlg('', optFoundColor, vBkColor);
-          3: vOk := ColorDlg('', optSelectedColor);
-        else
-          RestoreDefColor;
-          vOk := True;
-        end;
-
-        if vOk then begin
-//        FARAPI.EditorControl(ECTL_REDRAW, nil);
-          FarAdvControl(ACTL_REDRAWALL, nil);
-          vChanged := True;
-        end;
-      end;
-
-      if vChanged then
-        WriteSetup('');
-
-    finally
-      FreeObj(vMenu);
+      if (vDateI = vDate0) or (vDateI = vDate0 - 1) then
+        Result := Result + ', ' + FormatDate('ddd dd', Trunc(vDateI));
     end;
   end;
 
 
+ {-----------------------------------------------------------------------------}
 
   procedure OptionsMenu;
   var
@@ -557,52 +595,43 @@ interface
     vChanged :Boolean;
   begin
     vMenu := TFarMenu.CreateEx(
-      GetMsg(strOptionsTitle2),
+      GetMsg(strTitle) {GetMsg(strOptionsTitle2)},
     [
-      GetMsg(strMShowHints),
-      GetMsg(strMFollowMouse),
-      GetMsg(strMWrapMode),
-      GetMsg(strMHideCurrent),
-      GetMsg(strMAutoXLatMask),
-      GetMsg(strMRememberLastMask),
+      GetMsg(strMGeneralOptions),
       '',
       GetMsg(strMFldExclusions),
       GetMsg(strMEdtExclusions),
+      GetMsg(strMCmdExclusions),
+      '',
       GetMsg(strMColors)
     ]);
     try
       vChanged := False;
       vMenu.Help := 'Options';
       while True do begin
-        vMenu.Checked[0] := optShowHints;
-        vMenu.Checked[1] := optFollowMouse;
-        vMenu.Checked[2] := optWrapMode;
-        vMenu.Checked[3] := optHideCurrent;
-        vMenu.Checked[4] := optXLatMask;
-        vMenu.Checked[5] := optSaveMask;
-
         vMenu.SetSelected(vMenu.ResIdx);
 
         if not vMenu.Run then
           Break;
 
         case vMenu.ResIdx of
-          0: optShowHints := not optShowHints;
-          1: optFollowMouse := not optFollowMouse;
-          2: optWrapMode := not optWrapMode;
-          3: optHideCurrent := not optHideCurrent;
-          4: optXLatMask := not optXLatMask;
-          5: optSaveMask := not optSaveMask;
+          0: OptionsDlg;
 
-          7:
+          2:
             if FarInputBox(GetMsg(strFldExclTitle), GetMsg(strExclPrompt), optFldExclusions) then
               FldHistory.InitExclusion;
-
-          8:
+          3:
             if FarInputBox(GetMsg(strEdtExclTitle), GetMsg(strExclPrompt), optEdtExclusions) then
               EdtHistory.InitExclusion;
+          4:
+           {$ifdef bCmdHistory}
+            if FarInputBox(GetMsg(strCmdExclTitle), GetMsg(strExclPrompt), optCmdExclusions) then
+              CmdHistory.InitExclusion;
+           {$else}
+            Sorry;
+           {$endif bCmdHistory}
 
-          9: ColorMenu;
+          6: ColorMenu;
         end;
 
         vChanged := True;
@@ -615,7 +644,6 @@ interface
       FreeObj(vMenu);
     end;
   end;
-
 
  {-----------------------------------------------------------------------------}
  { THistoryEntry                                                               }
@@ -664,11 +692,23 @@ interface
   end;
 
 
+  function THistoryEntry.GetNameWithoutDomain(var ADelta :Integer) :TString; {virtual;}
+  begin
+//  ADelta := 0;
+//  Result := FPath;
+
+    ADelta := IntMin(length(GetDomain), length(FPath));
+    Result := Copy(FPath, ADelta + 1, MaxInt);
+  end;
+
+
   function THistoryEntry.GetGroup :TString; {virtual;}
   begin
     case optHierarchyMode of
+      hmPeriod:
+        Result := DateToRangeStr(FTime, True);
       hmDate:
-        Result := DateToRangeStr(FTime);
+        Result := DateToRangeStr(FTime, False);
       hmDomain:
         Result := GetDomain
 //    hmDateDomain:
@@ -848,9 +888,18 @@ interface
 
   function TEdtHistoryEntry.GetGroup :TString; {override;}
   begin
-    if optHierarchyMode = hmModDate then
-      Result := DateToRangeStr(FEdtTime)
-    else
+    if GroupByModDate then begin
+
+      case optHierarchyMode of
+        hmPeriod:
+          Result := DateToRangeStr(FEdtTime, True);
+        hmDate:
+          Result := DateToRangeStr(FEdtTime, False);
+      else
+        Result := inherited GetGroup;
+      end;
+
+    end else
       Result := inherited GetGroup;
   end;
 
@@ -963,6 +1012,55 @@ interface
  {-----------------------------------------------------------------------------}
 
  {$ifdef bCmdHistory}
+
+  function TCmdHistoryEntry.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {override;}
+  begin
+    {TODO: поддержать режим сравнения только командной строки...}
+    if optCaseSensCmdHist = 0 then
+      Result := UpCompareStr(FPath, TString(Key))
+    else
+      Result := CompareStr(FPath, TString(Key));
+  end;
+
+
+  function TCmdHistoryEntry.GetDomain :TString; {override;}
+  var
+    vPath :TString;
+    vStr :PTChar;
+    vPos :Integer;
+  begin
+    vStr := PTChar(FPath);
+    while vStr^ = ' ' do
+      Inc(vStr);
+    if vStr^ = '"' then
+      vPath := AnsiExtractQuotedStr(vStr, '"')
+    else
+      vPath := ExtractNextWord(vStr, [' ']);
+    while vStr^ = ' ' do
+      Inc(vStr);
+
+    vPos := ChrPos(':', vPath);
+    if (vPos <> 0) and not FileNameIsLocal(vPath) then
+      { Вызов плагина FAR через префикс }
+      Result := copy(vPath, 1, vPos)
+    else
+    if (vStr^ <> #0) or ((ChrPos('.', vPath) = 0) and not IsFullFilePath(vPath)) then
+      { Вызов команды (так как есть аргументы или не похоже(?) на имя файла) }
+      Result := vPath
+    else begin
+      {!!!Localize}
+      Result := 'Files/Folders';
+    end;
+  end;
+
+
+  function TCmdHistoryEntry.GetNameWithoutDomain(var ADelta :Integer) :TString; {virtual;}
+  begin
+    ADelta := 0;
+    Result := FPath;
+  end;
+
+
   procedure TCmdHistoryEntry.HitInfoClear;
   begin
     FHits := 0;
@@ -1506,24 +1604,6 @@ interface
   end;
 
 
-(*
-      eaOpenView,
-      eaOpenEdit,
-      eaSaveEdit,
-      eaGotFocus,
-      eaModify
-
-//    FPath      :TString;     { Имя файла }
-//    FTime      :TDateTime;   { Время последнего доступа }
-//    FFlags     :Integer;     { Редактирование/просмотр/флаги }
-      FHits      :Integer;     { Количество открытий файла }
-      FEdtTime   :TDateTime;   { Время последней модификации }
-      FSaveCount :Integer;     { Количество сохранений файла }
-      FModRow    :Integer;     { Место последней модификации }
-      FModCol    :Integer;     { -/-/- }
-      FEncoding  :Word;        { Кодировка }
-*)
-
   procedure TEdtHistory.AddHistory(const AName :TString; Action :TEdtAction; ARow, ACol :Integer);
   var
     vNow   :TDateTime;
@@ -1611,6 +1691,14 @@ interface
   end;
 
 
+  procedure TCmdHistory.InitExclusion; {override;}
+  begin
+    FreeObj(FExclusions);
+    if optCmdExclusions <> '' then
+      FExclusions := TFilterMask.CreateEx( StrExpandEnvironment(optCmdExclusions), False, True );
+  end;
+
+
   procedure TCmdHistory.UpdateHistory;
   var
     I :Integer;
@@ -1637,7 +1725,7 @@ interface
             if (vTime > FTimeStamp) and (vTime <= vNow) then
               AddHistoryStr(Name, vTime);
           end;
-        FTimeStamp := Now;
+        FTimeStamp := vNow; {???}
 
       finally
         FARAPI.SettingsControl(vHandle, SCTL_FREE, 0, nil);
@@ -1655,12 +1743,15 @@ interface
     vEntry :TCmdHistoryEntry;
   begin
 //  TraceF('Add history: %s, %s', [DateTimeToStr(ATime), APath]);
+    if (APath = '') or not CheckExclusion(APath) then
+      Exit;
 
     if FHistory.FindKey(Pointer(APath), 0, [], vIndex) then begin
       vEntry := FHistory[vIndex];
       FHistory.Move(vIndex, FHistory.Count - 1);
-      Inc(vEntry.FHits);
+      vEntry.FPath := APath;
       vEntry.FTime := ATime;
+      Inc(vEntry.FHits);
       FModified := True;
     end else
     begin
@@ -1672,7 +1763,7 @@ interface
         FHistory.DeleteRange(0, FHistory.Count - optHistoryLimit);
       FModified := True;
     end;
-    
+
     FLastCmd := #0;
   end;
 

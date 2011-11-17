@@ -3,7 +3,7 @@
 unit MoreHistoryMain;
 
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2009-2011, Max Rusov                                                   *}
 {*                                                                            *}
 {* MoreHistory plugin                                                         *}
 {******************************************************************************}
@@ -412,7 +412,8 @@ interface
         {!!!}
       else
       if (AParam >= 1) and (AParam <= Byte(High(TPluginCmd))) then
-        RunCommand(TPluginCmd(AParam - 1))
+//      RunCommand(TPluginCmd(AParam - 1))
+        FarAdvControl(ACTL_SYNCHRO, Pointer(AParam))
       else
         OpenMenu;
 
@@ -437,26 +438,33 @@ interface
     vStr :TString;
   begin
     try
-      { История не должна меняться, пока активен диалог }
-      if HistDlgOpened then
-        Exit;
+      if AParam <> nil then
+        { Асинхронная команда }
+        RunCommand(TPluginCmd(TUnsPtr(AParam) - 1))
+      else begin
+        { Pool текущего каталога }
 
-      FldHistory.LockHistory;
-      try
-        FldHistory.LoadModifiedHistory;
+        { История не должна меняться, пока активен диалог }
+        if HistDlgOpened then
+          Exit;
 
-        vStr := GetCurrentPanelPath;
-        if vStr <> '' then begin
-//        TraceF('Add: %s', [vStr]);
-          FldHistory.AddHistory(vStr, False);
-        end else
-        if GLastAdded <> '' then begin
-          vStr := GLastAdded;
-          FldHistory.AddHistory(vStr, True);
+        FldHistory.LockHistory;
+        try
+          FldHistory.LoadModifiedHistory;
+
+          vStr := GetCurrentPanelPath;
+          if vStr <> '' then begin
+//          TraceF('Add: %s', [vStr]);
+            FldHistory.AddHistory(vStr, False);
+          end else
+          if GLastAdded <> '' then begin
+            vStr := GLastAdded;
+            FldHistory.AddHistory(vStr, True);
+          end;
+
+        finally
+          FldHistory.UnlockHistory;
         end;
-
-      finally
-        FldHistory.UnlockHistory;
       end;
 
     finally
@@ -547,7 +555,6 @@ interface
     FldHistory.AddCurrentToHistory;
     Result := 0;
   end;
-
 
 
 initialization

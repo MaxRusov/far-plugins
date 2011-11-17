@@ -3,7 +3,7 @@
 unit MoreHistoryHints;
 
 {******************************************************************************}
-{* (c) 2008 Max Rusov                                                         *}
+{* (c) 2009-2011, Max Rusov                                                   *}
 {*                                                                            *}
 {* MoreHistory plugin                                                         *}
 {* Интеграция с FAR Hints                                                     *}
@@ -66,6 +66,7 @@ interface
 
 
   uses
+    MoreHistoryListBase,
     MoreHistoryDlg,
     MixDebug;
 
@@ -85,7 +86,6 @@ interface
   begin
     FAPI := API;
     AInfo.Flags := PF_ProcessDialog or PF_CanChangeSize;
-//  ReadSetup;
   end;
 
 
@@ -99,7 +99,7 @@ interface
     vWinInfo :TWindowInfo;
     vGrid :TFarGrid;
     X, Y, vCol, vRow :Integer;
-    vHist :TFldHistoryEntry;
+    vHist :THistoryEntry;
     vDomain, vStr :TString;
   begin
     Result := False;
@@ -110,7 +110,7 @@ interface
     if not (vWinInfo.WindowType in [WTYPE_DIALOG]) or (UpCompareSubStr(FOwner.GetText(0), vStr) <> 0) then
       Exit;
 
-    vGrid := (FOwner as TFldMenuDlg).Grid;
+    vGrid := (FOwner as TMenuBaseDlg).Grid;
 
     X := AItem.MouseX;
     Y := AItem.MouseY;
@@ -123,42 +123,69 @@ interface
     if vGrid.HitTest(X, Y, vCol, vRow) <> ghsCell then
       Exit;
 
-    {!!!}
-    vHist := TFldMenuDlg(FOwner).GetHistoryEntry(vRow) as TFldHistoryEntry;
+    vHist := TMenuBaseDlg(FOwner).GetHistoryEntry(vRow);
     if vHist = nil then
       Exit;
 
     vStr := vHist.Path;
-    if TFldMenuDlg(FOwner).DlgItemFlag(vRow) and 2 <> 0 then
-      vStr := vHist.GetDomain;
 
-    if vHist.GetMode = 1 then
-      AItem.AddStringInfo(GetMsgStr(strHintPath), vStr)
-    else
-    if UpCompareSubStr('FTP:', vHist.Path) = 0 then begin
-      vDomain := vHist.GetDomain;
-      vStr := Copy(vStr, Length(vDomain) + 1, MaxInt);
-      if (Length(vStr) > 2) and (vStr[Length(vStr)] = '/') then
-        Delete(vStr, Length(vStr), 1);
-      vDomain := ExtractWord(2, vDomain, [':', '/']);
+    if vHist is TFldHistoryEntry then begin
 
-      AItem.AddStringInfo(GetMsgStr(strHintFTP), vDomain);
-      if vStr <> '' then
-        AItem.AddStringInfo(GetMsgStr(strHintPath), vStr);
+      if TFldMenuDlg(FOwner).DlgItemFlag(vRow) and 2 <> 0 then
+        vStr := vHist.GetDomain;
+
+      if TFldHistoryEntry(vHist).GetMode = 1 then
+        AItem.AddStringInfo(GetMsgStr(strHintPath), vStr)
+      else
+      if UpCompareSubStr('FTP:', vHist.Path) = 0 then begin
+        vDomain := vHist.GetDomain;
+        vStr := Copy(vStr, Length(vDomain) + 1, MaxInt);
+        if (Length(vStr) > 2) and (vStr[Length(vStr)] = '/') then
+          Delete(vStr, Length(vStr), 1);
+        vDomain := ExtractWord(2, vDomain, [':', '/']);
+
+        AItem.AddStringInfo(GetMsgStr(strHintFTP), vDomain);
+        if vStr <> '' then
+          AItem.AddStringInfo(GetMsgStr(strHintPath), vStr);
+      end else
+      begin
+        vDomain := vHist.GetDomain;
+        vStr := Copy(vStr, Length(vDomain) + 1, MaxInt);
+
+        AItem.AddStringInfo(GetMsgStr(strHintPrefix), vDomain);
+        if vStr <> '' then
+          AItem.AddStringInfo(GetMsgStr(strHintPath), vStr);
+      end;
+
+      AItem.AddDateInfo(GetMsgStr(strHintLastVisited), vHist.Time);
+      AItem.AddIntInfo(GetMsgStr(strHintVisitCount), TFldHistoryEntry(vHist).Hits);
+
+      Result := True;
     end else
-    begin
-      vDomain := vHist.GetDomain;
-      vStr := Copy(vStr, Length(vDomain) + 1, MaxInt);
+    if vHist is TEdtHistoryEntry then begin
 
-      AItem.AddStringInfo(GetMsgStr(strHintPrefix), vDomain);
-      if vStr <> '' then
-        AItem.AddStringInfo(GetMsgStr(strHintPath), vStr);
-    end;
+      AItem.AddStringInfo(GetMsgStr(strHintFile), ExtractFileName(vStr));
+      AItem.AddStringInfo(GetMsgStr(strHintPath), RemoveBackSlash(ExtractFilePath(vStr)));
 
-    AItem.AddDateInfo(GetMsgStr(strHintLastVisited), vHist.Time);
-    AItem.AddIntInfo(GetMsgStr(strHintVisitCount), vHist.Hits);
+      AItem.AddDateInfo(GetMsgStr(strHintLastOpen), vHist.Time);
 
-    Result := True;
+      if TEdtHistoryEntry(vHist).EdtTime <> 0 then
+        AItem.AddDateInfo(GetMsgStr(strHintLastSave), TEdtHistoryEntry(vHist).EdtTime);
+
+      Result := True;
+    end else
+   {$ifdef bCmdHistory}
+    if vHist is TCmdHistoryEntry then begin
+
+      AItem.AddStringInfo(GetMsgStr(strHintCommand), vStr);
+
+      AItem.AddDateInfo(GetMsgStr(strHintLastRun), vHist.Time);
+      AItem.AddIntInfo(GetMsgStr(strHintRunCount), TCmdHistoryEntry(vHist).Hits);
+
+      Result := True;
+    end else
+   {$endif bCmdHistory}
+      Result := False;
   end;
 
 
@@ -242,4 +269,6 @@ finalization
   Pointer(FIntegrationAPI) := nil;
   pointer(FHintObject) := nil;
 end.
+
+
 

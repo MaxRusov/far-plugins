@@ -3,7 +3,7 @@
 unit MoreHistoryCmdDlg;
 
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2009-2011, Max Rusov                                                   *}
 {*                                                                            *}
 {* MoreHistory plugin                                                         *}
 {******************************************************************************}
@@ -19,7 +19,7 @@ interface
     MixStrings,
     MixClasses,
     MixWinUtils,
-    
+
    {$ifdef Far3}
     Plugin3,
    {$else}
@@ -56,8 +56,6 @@ interface
       function ItemMarkHidden(AItem :THistoryEntry) :Boolean; override;
       function GetEntryStr(AItem :THistoryEntry; AColTag :Integer) :TString; override;
 
-      procedure ChangeHierarchMode; override;
-
       function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
 
     private
@@ -93,7 +91,7 @@ interface
   constructor TCmdMenuDlg.Create; {override;}
   begin
     inherited Create;
-//  RegisterHints(Self); !!!
+    RegisterHints(Self);
     FGUID := cCommandsDlgID;
     FHelpTopic := 'CmdHistoryList';
   end;
@@ -101,7 +99,7 @@ interface
 
   destructor TCmdMenuDlg.Destroy; {override;}
   begin
-//  UnregisterHints;  !!!
+    UnregisterHints;  
     inherited Destroy;
   end;
 
@@ -125,7 +123,7 @@ interface
     vDateLen, vHitsLen :Integer;
   begin
     vDateLen := Date2StrLen(optDateFormat);
-    vHitsLen := Length(Int2Str(FMaxHits));
+    vHitsLen := Int2StrLen(FMaxHits);
 
     vOpt := [coColMargin];
     if not optShowGrid then
@@ -216,7 +214,9 @@ interface
     try
       while True do begin
         vMenu.Checked[0] := optHierarchical;
+        
         vMenu.Checked[1] := optShowHidden;
+        vMenu.Visible[1] := False;
 
         vMenu.Checked[3] := optShowDate;
         vMenu.Checked[4] := optShowHits;
@@ -285,21 +285,6 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure TCmdMenuDlg.ChangeHierarchMode; {override;}
-  begin
-    if not optHierarchical then begin
-      optHierarchical := True;
-      optHierarchyMode := hmDate;
-    end else
-    if optHierarchyMode <> hmDomain then begin
-      optHierarchyMode := hmDomain
-    end else
-      optHierarchical := False;
-    ReinitAndSaveCurrent;
-    FSetChanged := True;
-  end;
-
-
   procedure TCmdMenuDlg.ClearSelectedHits;
   var
     I :Integer;
@@ -322,7 +307,6 @@ interface
     CmdHistory.SetModified;
     ReinitGrid;
   end;
-
 
 
   function TCmdMenuDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
@@ -348,7 +332,7 @@ interface
     end;
   end;
 
-  
+
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
@@ -380,6 +364,24 @@ interface
     else
       InsertText(ACmd);
   end;
+
+
+  procedure TryJumpToPath(const ACmd :TString);
+  var
+    vPath :TString;
+    vStr :PTChar;
+  begin
+    vPath := ACmd;
+    if (ACmd <> '') and (ACmd[1] = '"') then begin
+      vStr := PTChar(ACmd);
+      vPath := AnsiExtractQuotedStr(vStr, '"');
+    end else
+      vPath := ExtractWord(1, vPath, [' ']);
+    vPath := FarExpandFileName(vPath);
+    if WinFileExists(vPath) or WinFolderExists(vPath) then
+      JumpToPath(ExtractFilePath(vPath), ExtractFileName(vPath), False);
+  end;
+
 
 
   procedure OpenCmdHistoryDlg(const ACaption, AModeName :TString; const AFilter :TString);
@@ -426,6 +428,7 @@ interface
         case vDlg.FResCmd of
           1: ApplyCmd(vDlg.FResStr);
           2: InsertCmd(vDlg.FResStr);
+          3: TryJumpToPath(vDlg.FResStr);
         end;
         vFinish := True;
       end;

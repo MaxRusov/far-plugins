@@ -3,7 +3,7 @@
 unit MoreHistoryEdtDlg;
 
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2009-2011, Max Rusov                                                   *}
 {*                                                                            *}
 {* MoreHistory plugin                                                         *}
 {******************************************************************************}
@@ -58,8 +58,6 @@ interface
       function GetEntryStr(AItem :THistoryEntry; AColTag :Integer) :TString; override;
       procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); override;
 
-      procedure ChangeHierarchMode; override;
-
       function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
 
     private
@@ -100,7 +98,7 @@ interface
   constructor TEdtMenuDlg.Create; {override;}
   begin
     inherited Create;
-//  RegisterHints(Self);  !!!
+    RegisterHints(Self);
     FGUID := cFilesDlgID;
     FHelpTopic := 'EdtHistoryList';
   end;
@@ -108,7 +106,7 @@ interface
 
   destructor TEdtMenuDlg.Destroy; {override;}
   begin
-//  UnregisterHints;
+    UnregisterHints;
     inherited Destroy;
   end;
 
@@ -119,7 +117,7 @@ interface
     if ACode <> 2 then
       if not CheckFileExists(AItem.Path) then
         Exit;
-      
+
     Result := inherited AcceptSelected(AItem, ACode);
   end;
 
@@ -136,14 +134,13 @@ interface
   var
     vPos :Integer;
   begin
-//  inherited AcceptItem(AItem, AGroup);
-    if not optSeparateName and optShowFullPath then
-      FMaxPathLen := IntMax(FMaxPathLen, length(AItem.Path))
-    else begin
+    if optSeparateName or not optShowFullPath then begin
       vPos := LastDelimiter('\:', AItem.Path);
       FMaxFileLen := IntMax(FMaxFileLen, length(AItem.Path) - vPos);
       FMaxPathLen := IntMax(FMaxPathLen, vPos);
-    end;
+    end else
+      inherited AcceptItem(AItem, AGroup);
+
     FMaxHits := IntMax(FMaxHits, TEdtHistoryEntry(AItem).Hits);
     FMaxSaves := IntMax(FMaxSaves, TEdtHistoryEntry(AItem).SaveCount);
   end;
@@ -155,8 +152,8 @@ interface
     vDateLen, vHitsLen, vSavesLen :Integer;
   begin
     vDateLen := Date2StrLen(optDateFormat);
-    vHitsLen := Length(Int2Str(FMaxHits));
-    vSavesLen := Length(Int2Str(FMaxSaves));
+    vHitsLen := Int2StrLen(FMaxHits);
+    vSavesLen := Int2StrLen(FMaxSaves);
 
     vOpt := [coColMargin];
     if not optShowGrid then
@@ -224,10 +221,13 @@ interface
 //    1: Result := ExtractFileName(AItem.Path);
 //   11: Result := ExtractFilePath(AItem.Path);
 
-      2: Result := Date2StrMode(AItem.Time, optDateFormat, optHierarchical and (optHierarchyMode = hmDate));
+      2: Result := Date2StrMode(AItem.Time, optDateFormat,
+          optHierarchical and (FMode = 0) and (optHierarchyMode = hmDate) {or ...Вчера?}  );
       3: Result := Int2Str((AItem as TEdtHistoryEntry).Hits);
 
-      4: Result := Date2StrMode((AItem as TEdtHistoryEntry).EdtTime, optDateFormat, optHierarchical and (optHierarchyMode = hmModDate));
+      4: Result := Date2StrMode((AItem as TEdtHistoryEntry).EdtTime, optDateFormat,
+          optHierarchical and (FMode = 1) and (optHierarchyMode = hmDate) {or ...Вчера?}  );
+
       5: Result := Int2Str((AItem as TEdtHistoryEntry).SaveCount);
 
     else
@@ -473,24 +473,6 @@ interface
   end;
 
 
-  procedure TEdtMenuDlg.ChangeHierarchMode; {override;}
-  begin
-    if not optHierarchical then begin
-      optHierarchical := True;
-      if FMode = 0 then
-        optHierarchyMode := hmDate
-      else
-        optHierarchyMode := hmModDate
-    end else
-    if optHierarchyMode <> hmDomain then begin
-      optHierarchyMode := hmDomain
-    end else
-      optHierarchical := False;
-    ReinitAndSaveCurrent;
-    FSetChanged := True;
-  end;
-
-
   function TEdtMenuDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
   begin
     Result := True;
@@ -653,20 +635,22 @@ interface
     optShowFullPath := True;
     optHierarchical := True;
     if AMode = 0 then begin
-      optHierarchyMode := hmDate;
-      optShowDate   := True;
-      optShowHits   := True;
-      optShowModify := False;
-      optShowSaves  := False;
-      optSortMode   := 0; {Default}
+      optHierarchyMode := hmPeriod;
+      optShowDate    := True;
+      optShowHits    := True;
+      optShowModify  := False;
+      optShowSaves   := False;
+      optSortMode    := 0; {Default}
+      GroupByModDate := False;
     end else
     begin
-      optHierarchyMode := hmModDate;
-      optShowDate   := False;
-      optShowHits   := False;
-      optShowModify := True;
-      optShowSaves  := True;
-      optSortMode   := -4; {By ModTime}
+      optHierarchyMode := hmPeriod;
+      optShowDate    := False;
+      optShowHits    := False;
+      optShowModify  := True;
+      optShowSaves   := True;
+      optSortMode    := -4; {By ModTime}
+      GroupByModDate := True;
     end;
 
     ReadSetup(AModeName);
@@ -702,7 +686,7 @@ interface
                 OpenEditor(vDlg.FResStr, vDlg.FResItem.Flags and hfEdit <> 0, 0, 0);
             end;
             2: InsertText(vDlg.FResStr);
-            3: JumpToPath(ExtractFilePath(vDlg.FResStr), ExtractFileName(vDlg.FResStr));
+            3: JumpToPath(ExtractFilePath(vDlg.FResStr), ExtractFileName(vDlg.FResStr), False);
           end;
           vFinish := True;
         end;
