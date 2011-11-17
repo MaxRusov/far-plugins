@@ -22,6 +22,11 @@
 
  * [http://code.google.com/p/far-plugins/downloads/list?q=morehistory Все версии]
 
+== Пример ==
+
+[http://far-plugins.googlecode.com/svn/trunk/MoreHistory/Image/Command History Sample.png]
+
+
 ----
 
 = История изменений =
