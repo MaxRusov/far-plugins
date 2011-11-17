@@ -42,6 +42,8 @@ interface
       property Height :Integer read FHeight;
     end;
 
+  procedure GDIStretchDraw(ADC :HDC; const ADstRect :TGPRect; ASrcDC :TMemDC; const ASrcRect :TGPRect; ASmooth :Boolean = True);
+  procedure GDIPlusStretchDraw(ADC :HDC; const ADstRect :TGPRect; ASrcDC :TMemDC; const ASrcRect :TGPRect; ASmooth :Boolean = True);
 
   procedure GradientFillRect(AHandle :THandle; const ARect :TRect; AColor1, AColor2 :DWORD; AVert :Boolean);
 
@@ -201,6 +203,69 @@ interface
     end;
   end;
 
+
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
+
+  procedure GDIStretchDraw(ADC :HDC; const ADstRect :TGPRect; ASrcDC :TMemDC; const ASrcRect :TGPRect; ASmooth :Boolean = True);
+  begin
+//  if ASmooth then
+//    TraceBegF('GDIStretchDraw. Src: %d, %d, %d, %d. Dst: %d, %d, %d, %d...',
+//      [ASrcRect.X, ASrcRect.Y, ASrcRect.Width, ASrcRect.Height,
+//       ADstRect.X, ADstRect.Y, ADstRect.Width, ADstRect.Height]);
+
+    if ASmooth then
+      SetStretchBltMode(ADC, HALFTONE)
+    else
+      SetStretchBltMode(ADC, COLORONCOLOR);
+
+    StretchBlt(
+      ADC,
+      ADstRect.X, ADstRect.Y, ADstRect.Width, ADstRect.Height,
+      ASrcDC.DC,
+      ASrcRect.X, ASrcRect.Y, ASrcRect.Width, ASrcRect.Height,
+      SRCCOPY);
+
+//  if ASmooth then
+//    TraceEnd('  done');
+  end;
+
+
+  procedure GDIPlusStretchDraw(ADC :HDC; const ADstRect :TGPRect; ASrcDC :TMemDC; const ASrcRect :TGPRect; ASmooth :Boolean = True);
+  var
+    vBmp :TGPBitmap;
+    vGraphics :TGPGraphics;
+  begin
+//  TraceBegF('GDIPlusStretchDraw. Src: %d, %d, %d, %d. Dst: %d, %d, %d, %d...',
+//    [ASrcRect.X, ASrcRect.Y, ASrcRect.Width, ASrcRect.Height,
+//     ADstRect.X, ADstRect.Y, ADstRect.Width, ADstRect.Height]);
+
+    vBmp := TGPBitmap.Create(ASrcDC.FBMP, 0);
+    try
+      vGraphics := TGPGraphics.Create(ADC);
+      try
+(*      if not ASmooth then begin
+          vGraphics.SetCompositingMode(CompositingModeSourceCopy);
+          vGraphics.SetCompositingQuality(CompositingQualityHighSpeed);
+          vGraphics.SetSmoothingMode(SmoothingModeHighSpeed);
+          vGraphics.SetInterpolationMode(InterpolationModeLowQuality);
+        end else
+        begin
+          vGraphics.SetSmoothingMode(SmoothingModeHighQuality);
+        end; *)
+
+        vGraphics.DrawImage(vBmp, ADstRect, ASrcRect.X, ASrcRect.Y, ASrcRect.Width, ASrcRect.Height, UnitPixel);
+
+      finally
+        FreeObj(vGraphics);
+      end;
+    finally
+      FreeObj(vBmp);
+    end;
+
+//  TraceEnd('  done');
+  end;
 
  {-----------------------------------------------------------------------------}
  {                                                                             }

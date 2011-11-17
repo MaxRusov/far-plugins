@@ -28,7 +28,7 @@ TODO:
   + Публикация настроек
 
 Желательно:
-  - Заменить StretchBlt на вывод через GDI+?
+  + Заменить StretchBlt на вывод через GDI+?
   
   - Сохранение даты при сохранении изображений
   - Не блокировать файл для многостраничных изображений
@@ -75,7 +75,7 @@ interface
     { Увеличение размера эскиза больше размера оригинального изображения }
     { Полезно, так как получается лучшее качество, чем при StretchBlt }
 
-    cOverscaleK        = 2.0;          { Максимальный коэффициент увеличинного эскиза }
+    cOverscaleK        = 1.0;          { Максимальный коэффициент увеличинного эскиза }
     cOverscaleLimit    = 132;          { Ограничение размера увеличинного эскиза, в M }
 
   var
@@ -309,6 +309,12 @@ interface
  { TThumbnailThread                                                            }
  {-----------------------------------------------------------------------------}
 
+  var
+    { GDIPlus не поддерживает многопоточную работу. Используем критическую секцию, }
+    { чтобы, по возможности, избежать блокировок... }
+    GDIPlusCS :TRTLCriticalSection;
+
+
   type
     TTaskState = (
       tsNew,
@@ -508,79 +514,85 @@ interface
     vDimID    :TGUID;
   begin
     try
-      vThumb := nil;
-      vSize := ATask.FSize;
-     {$ifdef bShareImage}
-      vImage := ATask.FImage;
-     {$else}
-      vImage := TGPImageEx.Create(ATask.FName);
-     {$endif bShareImage}
+      EnterCriticalSection(GDIPlusCS);
       try
-        if vImage.GetLastStatus <> OK then
-          AppError(strReadImageError);
-
-        if ATask.FFrame > 0 then begin
-          FillChar(vDimID, SizeOf(vDimID), 0);
-          if vImage.GetFrameDimensionsList(@vDimID, 1) = Ok then
-            vImage.SelectActiveFrame(vDimID, ATask.FFrame);
-        end;
-
-       {$ifdef bOwnRotate}
-        if ATask.FOrient in [5,6,7,8] then
-          vSize := Size(vSize.CY, vSize.CX);
-       {$endif bOwnRotate}
-
-        vThumb := TMemDC.Create(0, vSize.CX, vSize.CY);
-
-//      GradientFillRect(vThumb.FDC, Rect(0, 0, vSize.CX, vSize.CY), RandomColor, RandomColor, True);
-        if ATask.FBackColor <> -1 then
-          GradientFillRect(vThumb.DC, Rect(0, 0, vSize.CX, vSize.CY), ATask.FBackColor, ATask.FBackColor, True);
-
-        vGraphics := TGPGraphics.Create(vThumb.DC);
+        vThumb := nil;
+        vSize := ATask.FSize;
+       {$ifdef bShareImage}
+        vImage := ATask.FImage;
+       {$else}
+        vImage := TGPImageEx.Create(ATask.FName);
+       {$endif bShareImage}
         try
-          GDICheck(vGraphics.GetLastStatus);
-//        vGraphics.SetCompositingMode(CompositingModeSourceCopy);
-//        vGraphics.SetCompositingQuality(CompositingQualityHighSpeed);
-//        vGraphics.SetSmoothingMode(SmoothingModeHighSpeed);
-//        vGraphics.SetInterpolationMode(InterpolationModeLowQuality);
+          if vImage.GetLastStatus <> OK then
+            AppError(strReadImageError);
 
-         {$ifdef bTrace}
-          TraceBegF('Render %s, %d x %d (%d M)...', [ATask.FName, vSize.CX, vSize.CY, (vSize.CX * vSize.CY * 4) div (1024 * 1024)]);
-         {$endif bTrace}
+          if ATask.FFrame > 0 then begin
+            FillChar(vDimID, SizeOf(vDimID), 0);
+            if vImage.GetFrameDimensionsList(@vDimID, 1) = Ok then
+              vImage.SelectActiveFrame(vDimID, ATask.FFrame);
+          end;
 
          {$ifdef bOwnRotate}
-         {$else}
-          if ATask.FOrient <> 0 then begin
-            RotateImage(vImage, ATask.FOrient);
-            GDICheck(vImage.GetLastStatus);
-          end;
+          if ATask.FOrient in [5,6,7,8] then
+            vSize := Size(vSize.CY, vSize.CX);
          {$endif bOwnRotate}
 
-          vGraphics.DrawImage(vImage, MakeRect(0, 0, vSize.CX, vSize.CY), 0, 0, vImage.GetWidth, vImage.GetHeight, UnitPixel, nil, ImageAbort, ATask);
-          GDICheck(vGraphics.GetLastStatus);
+          vThumb := TMemDC.Create(0, vSize.CX, vSize.CY);
 
-         {$ifdef bTrace}
-          TraceEnd('  Ready');
-         {$endif bTrace}
+//        GradientFillRect(vThumb.FDC, Rect(0, 0, vSize.CX, vSize.CY), RandomColor, RandomColor, True);
+          if ATask.FBackColor <> -1 then
+            GradientFillRect(vThumb.DC, Rect(0, 0, vSize.CX, vSize.CY), ATask.FBackColor, ATask.FBackColor, True);
+
+          vGraphics := TGPGraphics.Create(vThumb.DC);
+          try
+            GDICheck(vGraphics.GetLastStatus);
+//          vGraphics.SetCompositingMode(CompositingModeSourceCopy);
+//          vGraphics.SetCompositingQuality(CompositingQualityHighSpeed);
+//          vGraphics.SetSmoothingMode(SmoothingModeHighQuality);
+            if ATask.FFrame > 0 then 
+              vGraphics.SetInterpolationMode(InterpolationModeHighQuality);
+
+           {$ifdef bTrace}
+            TraceBegF('Render %s, %d x %d (%d M)...', [ATask.FName, vSize.CX, vSize.CY, (vSize.CX * vSize.CY * 4) div (1024 * 1024)]);
+           {$endif bTrace}
+
+           {$ifdef bOwnRotate}
+           {$else}
+            if ATask.FOrient <> 0 then begin
+              RotateImage(vImage, ATask.FOrient);
+              GDICheck(vImage.GetLastStatus);
+            end;
+           {$endif bOwnRotate}
+
+            vGraphics.DrawImage(vImage, MakeRect(0, 0, vSize.CX, vSize.CY), 0, 0, vImage.GetWidth, vImage.GetHeight, UnitPixel, nil, ImageAbort, ATask);
+            GDICheck(vGraphics.GetLastStatus);
+
+           {$ifdef bTrace}
+            TraceEnd('  Ready');
+           {$endif bTrace}
+
+          finally
+            FreeObj(vGraphics);
+          end;
+
+         {$ifdef bOwnRotate}
+          if ATask.FOrient <> 0 then
+            vThumb.Transform(ATask.FOrient);
+         {$endif bOwnRotate}
+
+          ATask.FThumb := vThumb;
+          vThumb := nil;
 
         finally
-          FreeObj(vGraphics);
+         {$ifdef bShareImage}
+         {$else}
+          FreeObj(vImage);
+         {$endif bShareImage}
+          FreeObj(vThumb);
         end;
-
-       {$ifdef bOwnRotate}
-        if ATask.FOrient <> 0 then
-          vThumb.Transform(ATask.FOrient);
-       {$endif bOwnRotate}
-
-        ATask.FThumb := vThumb;
-        vThumb := nil;
-
       finally
-       {$ifdef bShareImage}
-       {$else}
-        FreeObj(vImage);
-       {$endif bShareImage}
-        FreeObj(vThumb);
+        LeaveCriticalSection(GDIPlusCS);
       end;
 
     except
@@ -1371,7 +1383,6 @@ interface
         FreeObj(vImage);
       end;
     end;
-
 (*
     procedure LocDirectDraw;
     var
@@ -1456,11 +1467,11 @@ interface
   var
     vSize :TSize;
     vScale :Integer;
-    vRect :TRect;
     vStart :DWORD;
     vSaveDC :Integer;
-    vFastScroll :Boolean;
-    vNeedSmooth :Boolean;
+    vFastScroll, vNeedSmooth, vGDILocked, vDecrease :Boolean;
+    vDstRect, vSrcRect, vThmRect :TGPRect;
+    vRect :TRect;
   begin
     if FDC = 0 then
       Exit;
@@ -1469,19 +1480,22 @@ interface
     { во вспомогательных потоках. Не thread-safe'но, но не страшно... }
     GBackColor := AColor;
 
+    vSrcRect := MakeRect(ASrcRect);
+    vDstRect := MakeRect(ADstRect);
+
    {$ifdef bTrace}
 //  TraceBegF('Paint (%p) %s...', [Pointer(FThumbImage), ExtractFileName(FSrcName)]);
    {$endif bTrace}
 
 //  TraceF('Src: %d, %d, %d, %d. Dst: %d, %d, %d, %d',
-//    [ASrcRect.Left, ASrcRect.Top, ASrcRect.Right - ASrcRect.Left, ASrcRect.Bottom - ASrcRect.Top,
-//     ADstRect.Left, ADstRect.Top, ADstRect.Right - ADstRect.Left, ADstRect.Bottom - ADstRect.Top]);
+//    [vSrcRect.X, vSrcRect.Y, vSrcRect.Width, vSrcRect.Height,
+//     vDstRect.X, vDstRect.Y, vDstRect.Width, vDstRect.Height]);
 
     if FDirectDraw then
       LocDirectDraw
     else begin
-      vSize.cx := LocThumbSize(FImgSize.cx, ASrcRect.Right - ASrcRect.Left, ADstRect.Right - ADstRect.Left);
-      vSize.cy := LocThumbSize(FImgSize.cy, ASrcRect.Bottom - ASrcRect.Top, ADstRect.Bottom - ADstRect.Top);
+      vSize.cx := LocThumbSize(FImgSize.cx, vSrcRect.Width, vDstRect.Width);
+      vSize.cy := LocThumbSize(FImgSize.cy, vSrcRect.Height, vDstRect.Height);
 
       if (FThumbImage = nil) or (FIsThumbnail and (FAsyncTask = nil)) then begin
 
@@ -1537,7 +1551,7 @@ interface
       if FThumbImage <> nil then begin
 
         with ASrcRect do
-          vRect := Rect(LocScaleX(Left), LocScaleY(Top), LocScaleX(Right), LocScaleY(Bottom));
+          vThmRect := MakeRect(Rect(LocScaleX(Left), LocScaleY(Top), LocScaleX(Right), LocScaleY(Bottom)));
 
         if FHiQual and not FIsThumbnail and not FFirstDraw then
           if not RectEquals(FPrevSrcRect, ASrcRect) or not RectEquals(FPrevDstRect, ADstRect) then
@@ -1546,40 +1560,54 @@ interface
         FPrevSrcRect := ASrcRect;
         FPrevDstRect := ADstRect;
 
-        if (ADstRect.Right - ADstRect.Left = vRect.Right - vRect.Left) and (ADstRect.Bottom - ADstRect.Top = vRect.Bottom - vRect.Top) then begin
+        { Возможна погрешность масштабирования в рдин пиксел, учтем, чтобы не делать лишний Stretch }
+        if (Abs(vDstRect.Width - vThmRect.Width) <= 1) and (Abs(vDstRect.Height - vThmRect.Height) <= 1) then begin
          {$ifdef bTrace}
 //        TraceF('BitBlt. Thumb=%d', [Byte(FIsThumbnail)]);
          {$endif bTrace}
           BitBlt(
             FDC,
-            ADstRect.Left, ADstRect.Top, ADstRect.Right - ADstRect.Left, ADstRect.Bottom - ADstRect.Top,
+            vDstRect.X, vDstRect.Y, vDstRect.Width, vDstRect.Height,
             FThumbImage.DC,
-            vRect.Left, vRect.Top,
+            vThmRect.X, vThmRect.Y,
             SRCCOPY);
           FDraftStart := 0;
         end else
         begin
-          vNeedSmooth := GSmoothMode or ((vRect.Right - vRect.Left) >  (ADstRect.Right - ADstRect.Left));
+          { Масштабирование с уменьшением }
+          vDecrease := vDstRect.Width < vThmRect.Width;
 
-          if FHiQual and not FIsThumbnail and vNeedSmooth then begin
-            { Аккуратный, но медленный }
-            SetStretchBltMode(FDC, HALFTONE);
-          end else begin
-            { Быстрый, но не аккуратный }
-            SetStretchBltMode(FDC, COLORONCOLOR);
-            if not FIsThumbnail and vNeedSmooth then
-              FDraftStart := GetTickCount;
+          { При уменьшении масштаба всегда делаем сглаживание }
+          vNeedSmooth := (GSmoothMode or vDecrease) and not FIsThumbnail;
+
+          vGDILocked := False;
+          if FHiQual and vNeedSmooth then
+            vGDILocked := TryEnterCriticalSection(GDIPlusCS);
+          try
+
+            if FHiQual and vNeedSmooth and vGDILocked then begin
+              { Аккуратный, но медленный - режим масштабирования со сглаживанием }
+              { Уменьшаем при помощи GDI а увеличиваем - при помощи GDI+ }
+              { Так достигается оптимальное качество масштабирования }
+              { (выяснено экспериментальным путем) }
+              if vDecrease then
+                GDIStretchDraw(FDC, vDstRect, FThumbImage, vThmRect, True)
+              else
+                GDIPlusStretchDraw(FDC, vDstRect, FThumbImage, vThmRect, True);
+            end else
+            begin
+              { Быстрый, но не аккуратный }
+              GDIStretchDraw(FDC, vDstRect, FThumbImage, vThmRect, False);
+
+              { Аккуратная перерисовка - с небольшой задержкой }
+              if vNeedSmooth then
+                FDraftStart := GetTickCount;
+            end;
+
+          finally
+            if vGDILocked then
+              LeaveCriticalSection(GDIPlusCS);
           end;
-
-         {$ifdef bTrace}
-//        TraceF('StretchBlt. Thumb=%d, Qual=%s', [Byte(FIsThumbnail), StrIf(FHiQual, 'Hi', 'Lo')]);
-         {$endif bTrace}
-          StretchBlt(
-            FDC,
-            ADstRect.Left, ADstRect.Top, ADstRect.Right - ADstRect.Left, ADstRect.Bottom - ADstRect.Top,
-            FThumbImage.DC,
-            vRect.Left, vRect.Top, vRect.Right - vRect.Left, vRect.Bottom - vRect.Top,
-            SRCCOPY);
         end;
 
         FFirstDraw := False;
@@ -1705,10 +1733,16 @@ interface
         end;
 
         if (FDraftStart <> 0) and (TickCountDiff(GetTickCount, FDraftStart) > DraftDelay) then begin
-//        TraceF('%p.InvalidateRect FWnd=%d', [Pointer(Self), FWnd]);
-          FDraftStart := 0;
-          FHiQual := True;
-          InvalidateRect(FWnd, nil, False);
+          if TryEnterCriticalSection(GDIPlusCS) then begin
+            try
+//            TraceF('%p.InvalidateRect FWnd=%d', [Pointer(Self), FWnd]);
+              FDraftStart := 0;
+              FHiQual := True;
+              InvalidateRect(FWnd, nil, False);
+            finally
+              LeaveCriticalSection(GDIPlusCS);
+            end;
+          end;
         end;
 
         if (FTmpTime <> 0) and (TickCountDiff(GetTickCount, FTmpTime) > TmpMessageDelay) then begin
@@ -2184,5 +2218,10 @@ interface
   end;
 
 
+initialization
+  InitializeCriticalSection(GDIPlusCS);
+
+finalization
+  DeleteCriticalSection(GDIPlusCS);
 end.
 
