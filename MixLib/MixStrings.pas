@@ -64,6 +64,7 @@ interface
   function StrUpCase(const Str :TString) :TString;
   function StrLoCase(const Str :TString) :TString;
 
+  function CompareStr(const Str1, Str2 :TString) :Integer;
   function UpCompareBuf(const Buf1; const Buf2; Len1 :Integer; Len2 :Integer) :Integer;
   function UpCompareStr(const Str1, Str2 :TString) :Integer;
   function UpCompareSubStr(const SubStr, Str :TString) :Integer;
@@ -80,6 +81,8 @@ interface
   function Int2StrEx(Num :Integer) :TString;
   function Int64ToStr(Num :TInt64) :TString;
   function Int64ToStrEx(Num :TInt64) :TString;
+  function Int2StrLen(Num :Integer) :Integer;
+
   function TryStrToInt(const Str :TString; var Num :Integer) :Boolean;
   function Str2IntDef(const Str :TString; Def :Integer) :Integer;
   function Str2Int(const Str :TString) :Integer;
@@ -578,6 +581,15 @@ interface
   end;
 
 
+  function CompareStr(const Str1, Str2 :TString) :Integer;
+  begin
+    if Pointer(Str1) = Pointer(Str2) then
+      Result := 0
+    else
+      Result := CompareString(LOCALE_USER_DEFAULT, 0, PTChar(Str1), Length(Str1), PTChar(Str2), Length(Str2)) - 2;
+  end;
+
+
   function UpCompareBuf(const Buf1; const Buf2; Len1 :Integer; Len2 :Integer) :Integer;
   begin
     Result := CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE, @Buf1, Len1, @Buf2, Len2) - 2;
@@ -793,6 +805,13 @@ interface
   function Int64ToStrEx(Num :TInt64) :TString;
   begin
     Result := Int64ToString(Num, 3);
+  end;
+
+
+  function Int2StrLen(Num :Integer) :Integer;
+  begin
+    {!!!Оптимизировать}
+    Result := Length(Int2Str(Num));
   end;
 
 
@@ -1167,11 +1186,10 @@ interface
     I :Integer;
   begin
     I := LastDelimiter('.', FileName);
-    if I > 0 then begin
-      Result := Copy(FileName, 1, I - 1);
-    end else begin
+    if I > 0 then
+      Result := Copy(FileName, 1, I - 1)
+    else
       Result := FileName;
-    end;
   end;
 
 
@@ -1217,19 +1235,21 @@ interface
   begin
     if (Length(FileName) >= 2) and (FileName[2] = ':') then
       Result := Copy(FileName, 1, 2)
-    else if (Length(FileName) >= 2) and (FileName[1] = '\') and
-      (FileName[2] = '\') then
-    begin
+    else
+    if (Length(FileName) >= 2) and (FileName[1] = '\') and (FileName[2] = '\') then begin
       J := 0;
       I := 3;
-      While (I < Length(FileName)) and (J < 2) do
-      begin
-        if FileName[I] = '\' then Inc(J);
-        if J < 2 then Inc(I);
+      while (I < Length(FileName)) and (J < 2) do begin
+        if FileName[I] = '\' then
+          Inc(J);
+        if J < 2 then
+          Inc(I);
       end;
-      if FileName[I] = '\' then Dec(I);
+      if FileName[I] = '\' then
+        Dec(I);
       Result := Copy(FileName, 1, I);
-    end else Result := '';
+    end else
+      Result := '';
   end;
 
 
