@@ -15,8 +15,7 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/EdtFindW.v8.rar EdtFind 1.0.8 for FAR 2]
- * [http://far-plugins.googlecode.com/files/EdtFindW.X64.v8.rar EdtFind 1.0.8 for FAR 2 x64]
+ * [http://code.google.com/p/far-plugins/downloads/list?q=EdtFind Все версии]
 
 == Пример ==
 
@@ -25,6 +24,11 @@ http://far-plugins.googlecode.com/svn/trunk/EdtFind/Image/Sample.png
 ----
 
 = История изменений =
+
+== Ver 1.0.9 ==
+
+ * Версия для Far3
+
 
 == Ver 1.0.8 ==
 
