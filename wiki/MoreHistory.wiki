@@ -15,7 +15,7 @@
 
 == Загрузить ==
 
- * [http://code.google.com/p/far-plugins/downloads/list?q=morehistory Все версии]
+ * [http://code.google.com/p/far-plugins/downloads/list?q=morehistory Последняя версия]
 
 == Пример ==
 
