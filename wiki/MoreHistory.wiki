@@ -15,11 +15,6 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/MoreHistory.2.v14.rar MoreHistory 1.0.14 for FAR 2]
- * [http://far-plugins.googlecode.com/files/MoreHistory.2.x64.v14.rar MoreHistory 1.0.14 for FAR 2 x64]
- * [http://far-plugins.googlecode.com/files/MoreHistory.3.v14.rar MoreHistory 1.0.14 for FAR 3]
- * [http://far-plugins.googlecode.com/files/MoreHistory.3.x64.v14.rar MoreHistory 1.0.14 for FAR 3 x64]
-
  * [http://code.google.com/p/far-plugins/downloads/list?q=morehistory Все версии]
 
 == Пример ==
@@ -30,6 +25,12 @@ http://far-plugins.googlecode.com/svn/trunk/MoreHistory/Image/Sample.png"
 ----
 
 = История изменений =
+
+== Ver 1.0.15 ==
+
+ * Для настройки каталога HistoryFolder можно использовать переменные окружения
+
+ * Исправлено несколько ошибок 
 
 
 == Ver 1.0.14 ==
