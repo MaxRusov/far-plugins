@@ -13,12 +13,10 @@
 Поддержка Far 3
 
   PlugMenu версии 1.0.14 поддерживает Far 3. Однако, для работы PlugMenu требуется расширенное API которое в настоящий момент не включено в официальные билды Far 3. Если Вы считаете PlugMenu для Far 3 полезным плагином, пожалуйста проголосуйте за включение в основную ветку данного патча: 
-
-http://bugs.farmanager.com/view.php?id=1914
+    http://bugs.farmanager.com/view.php?id=1914
 
   Неофициальный билд Far 3 с включенным патчем Вы можете скачать:
-
-http://code.google.com/p/far-plugins/downloads/list?q=FarExe
+    http://code.google.com/p/far-plugins/downloads/list?q=FarExe
 
 
  Обсуждение: http://forum.farmanager.com/viewtopic.php?f=5&t=3608
