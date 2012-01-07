@@ -14,8 +14,10 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/PlugMenuW.13.rar PlugMenu 1.0.13 for FAR 2]
- * [http://far-plugins.googlecode.com/files/PlugMenuW.x64.13.rar PlugMenu 1.0.13 for FAR 2 x64]
+ * [http://code.google.com/p/far-plugins/downloads/list?q=PlugMenu Последняя версия]
+
+ * [http://code.google.com/p/far-plugins/downloads/list?q=PlugMenu&can=1 Все версии]
+
 
 ----
 
