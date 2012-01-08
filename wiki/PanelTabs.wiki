@@ -8,10 +8,9 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/PanelTabsW.v9.rar PanelTabs 1.0.9 for FAR 2]
- * [http://far-plugins.googlecode.com/files/PanelTabs64.v5.rar PanelTabs 1.0.5 for FAR 2 x64]
- * [http://far-plugins.googlecode.com/files/PanelTabs_v5.rar PanelTabs 1.0.5 for FAR 1.7x]
+ * [http://code.google.com/p/far-plugins/downloads/list?q=PanelTabs Последняя версия]
 
+ * [http://code.google.com/p/far-plugins/downloads/list?q=PanelTabs&can=1 Все версии]
 == Пример ==
 
 http://far-plugins.googlecode.com/svn/trunk/FarTabs/Image/Sample.png
@@ -19,6 +18,12 @@ http://far-plugins.googlecode.com/svn/trunk/FarTabs/Image/Sample.png
 ----
 
 = История изменений =
+
+
+==Ver 1.0.10==
+
+ * Поддержка Far3
+
 
 ==Ver 1.0.9==
 
