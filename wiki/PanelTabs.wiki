@@ -19,6 +19,9 @@ http://far-plugins.googlecode.com/svn/trunk/FarTabs/Image/Sample.png
 
 = История изменений =
 
+==Ver 1.0.11==
+
+ * Исправление ошибок
 
 ==Ver 1.0.10==
 
