@@ -1,0 +1,13 @@
+
+const PanelTabs = 0xA91B3F07
+
+// Команды callplugin:
+// 1 - Add tab
+// 2 - Edit tabs
+// 3 - Select tab
+// 4 - Options
+
+macro Descr="PanelTabs: select tab" Bind="RCtrl" Area="Shell" RunOnRelease=1
+{{
+  callplugin(#%PanelTabs, 3)
+}}
