@@ -29,6 +29,10 @@ http://far-plugins.googlecode.com/svn/trunk/MoreHistory/Image/Sample.png"
 
 = История изменений =
 
+== Ver 1.0.16 ==
+
+ * Far3 2343+
+
 == Ver 1.0.15 ==
 
  * Для настройки каталога HistoryFolder можно использовать переменные окружения
