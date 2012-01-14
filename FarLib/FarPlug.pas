@@ -47,7 +47,7 @@ interface
       procedure Configure; virtual;
 
       procedure SynchroEvent(AParam :Pointer); virtual;
-      function DialogEvent(AEvent :Integer; AParam :Pointer) :Integer; virtual;
+      function DialogEvent(AEvent :Integer; AParam :PFarDialogEvent) :Integer; virtual;
       function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; virtual;
       function ViewerEvent(AEvent :Integer; AParam :Pointer) :Integer; virtual;
 
@@ -189,7 +189,7 @@ interface
   end;
 
 
-  function TFarPlug.DialogEvent(AEvent :Integer; AParam :Pointer) :Integer; {virtual;}
+  function TFarPlug.DialogEvent(AEvent :Integer; AParam :PFarDialogEvent) :Integer; {virtual;}
   begin
     Result := 0;
   end;
