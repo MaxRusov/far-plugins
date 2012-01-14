@@ -603,7 +603,7 @@ interface
   var
     vMode :TFindMode;
   begin
-    SyncFindStr;
+//  SyncFindStr;
     if not FindDlg(APickWord, vMode) then
       Exit;
    {$ifdef bAdvSelect}
@@ -918,7 +918,7 @@ interface
   var
     vEntire :Boolean;
   begin
-    SyncFindStr;
+//  SyncFindStr;
     if not ReplaceDlg(APickWord, vEntire) then
       Exit;
    {$ifdef bAdvSelect}
@@ -932,7 +932,7 @@ interface
 
   procedure RepeatLast(AForward :Boolean);
   begin
-    SyncFindStr;
+//  SyncFindStr;
     if gStrFind = '' then
       Find(False)
     else
@@ -1087,6 +1087,10 @@ interface
         vRepStr := vVal;
         vAction := 5;
       end else
+      if StrEqual(vKey, 'Set') then begin
+        vFindStr := vVal;
+        vAction := 6;
+      end else
       if StrEqual(vKey, 'WholeWords') then
         SetFindOptions(vOpt, foWholeWords, vVal = '1')
       else
@@ -1140,6 +1144,8 @@ interface
           5:
             Result := ReplaceStr(vFindStr, vRepStr, vOpt, vEntire, False, not vReverse,
               vLoopMode, vHighlightMode, vErrorMode);
+          6:
+            {Nothing};
         end;
 
       except
@@ -1328,9 +1334,6 @@ interface
       EE_CLOSE: begin
         EdtClearMark(True, False);
         DeleteEdtHelper(Integer(AParam^));
-        { Чтобы при следующем поиске отработал SyncFindStr, синхронизируя }
-        { поиск в редакторе с файловым поиском }
-        gStrFind := '';
       end;
 
       EE_KILLFOCUS:

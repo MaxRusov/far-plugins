@@ -213,9 +213,8 @@ interface
   procedure InsertText(const AStr :TString);
 
   procedure AddToHistory(const AHist, AStr :TString);
-  function GetLastHistory(const AHist :TString) :TString;
-
-  procedure SyncFindStr;
+//function GetLastHistory(const AHist :TString) :TString;
+//procedure SyncFindStr;
 
   procedure RestoreDefColor;
   procedure ColorMenu;
@@ -320,55 +319,32 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-(*
-  function DlgGetText(ADlg :THandle; AItemID :Integer) :TFarStr;
-  var
-    vLen :Integer;
-    vData :TFarDialogItemData;
-  begin
-    Result := '';
-    vLen := FARAPI.SendDlgMessage(ADlg, DM_GETTEXTLENGTH, AItemID, 0);
-    if vLen > 0 then begin
-      SetLength(Result, vLen);
-      vData.PtrLength := vLen;
-      vData.PtrData := PFarChar(Result);
-      FARAPI.SendDlgMessage(ADlg, DM_GETTEXT, AItemID, TIntPtr(@vData));
-    end;
-  end;
 
-
-  function GetLastHistory(const AHist :TString) :TString;
-  var
-    hDlg :THandle;
-    vItems :array[0..0] of TFarDialogItem;
+ {$ifdef Far3}
+  function HelperDlgProc(hDlg :THandle; Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; stdcall;
   begin
-    vItems[0] := NewItemApi(DI_Edit, 0, 0, 5, -1, DIF_HISTORY or DIF_USELASTHISTORY, '', PTChar(AHist) );
-    hDlg := FARAPI.DialogInit(hModule, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, nil, 0);
-    try
-      Result := DlgGetText(hDlg, 0);
-    finally
-      FARAPI.DialogFree(hDlg);
+    if Msg = DN_INITDIALOG then begin
+      FARAPI.SendDlgMessage(hDlg, DM_ADDHISTORY, 0, PTChar(Param2));
+      FarSendDlgMessage(hDlg, DM_CLOSE, 0, 0);
     end;
+    Result := FARAPI.DefDlgProc(hDlg, Msg, Param1, Param2);
   end;
-*)
+ {$endif Far3}
 
 
   procedure AddToHistory(const AHist, AStr :TString);
  {$ifdef Far3}
-(*
   var
     hDlg :THandle;
     vItems :array[0..0] of TFarDialogItem;
   begin
     vItems[0] := NewItemApi(DI_Edit, 0, 0, 5, -1, DIF_HISTORY, '', PTChar(AHist) );
-    hDlg := FARAPI.DialogInit(cPluginID, GUID_NULL, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, nil, 0);
+    hDlg := FARAPI.DialogInit(cPluginID, GUID_NULL, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, HelperDlgProc, TIntPtr(AStr));
     try
-      FARAPI.SendDlgMessage(hDlg, DM_ADDHISTORY, 0, PTChar(AStr));
+      FARAPI.DialogRun(hDlg);
     finally
       FARAPI.DialogFree(hDlg);
     end;
-*)
-  begin    
  {$else}
   var
     hDlg :THandle;
@@ -385,10 +361,12 @@ interface
   end;
 
 
+
+(*
   function GetLastHistory(const AHist :TString) :TString;
  {$ifdef Far3}
   begin
-    {!!!}
+    Result := '';
  {$else}
   var
     vPath, vStr :TString;
@@ -409,10 +387,14 @@ interface
 
   procedure SyncFindStr;
   begin
+ {$ifdef Far3}
+    {!!!}
+ {$else}
     if gStrFind = '' then
       gStrFind := GetLastHistory(cFindHistory);
+ {$endif Far3}
   end;
-
+*)
 
  {-----------------------------------------------------------------------------}
 
