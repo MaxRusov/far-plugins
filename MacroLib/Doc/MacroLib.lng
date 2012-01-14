@@ -12,6 +12,7 @@
 "Process &hotkeys"
 "Process &mouse"
 "Macro &paths"
+"&Use Injection"
 
 "Macro paths"
 "One or more paths (separated by "";"")"

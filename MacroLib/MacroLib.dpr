@@ -18,6 +18,7 @@ uses
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
+  FarPlug,
   MacroLibMain;
 
 exports
@@ -46,4 +47,6 @@ exports
 
 {$R MacroLib.res}
 
+begin
+  Plug := TMacroLibPlug.Create;
 end.

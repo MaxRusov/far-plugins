@@ -40,40 +40,30 @@ interface
    {$endif Far3}
     FarCtrl,
     FarMenu,
+    FarPlug,
 
     MacroLibConst,
     MacroLibClasses,
     MacroParser,
     MacroListDlg;
 
-
- {$ifdef Far3}
-  procedure GetGlobalInfoW(var AInfo :TGlobalInfo); stdcall;
-  procedure ExitFARW(const AInfo :TExitInfo); stdcall;
-  procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
-  procedure GetPluginInfoW(var AInfo :TPluginInfo); stdcall;
-  function OpenW(var AInfo :TOpenInfo): THandle; stdcall;
-  function ConfigureW(const AInfo :TConfigureInfo) :Integer; stdcall;
-  function ProcessSynchroEventW(const AInfo :TProcessSynchroEventInfo) :Integer; stdcall;
-  function ProcessDialogEventW(const AInfo :TProcessDialogEventInfo) :Integer; stdcall;
-  function ProcessEditorEventW(const AInfo :TProcessEditorEventInfo) :Integer; stdcall;
-  function ProcessViewerEventW(const AInfo :TProcessViewerEventInfo) :Integer; stdcall;
- {$ifdef bUseProcessConsoleInput}
-  function ProcessConsoleInputW(const AInfo :TProcessConsoleInputInfo) :Integer; stdcall;
- {$endif bUseProcessConsoleInput}
- {$else}
-  function GetMinFarVersionW :Integer; stdcall;
-  procedure ExitFARW; stdcall;
-  procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
-  procedure GetPluginInfoW(var AInfo :TPluginInfo); stdcall;
-  function OpenPluginW(OpenFrom: integer; Item: INT_PTR): THandle; stdcall;
-  function ConfigureW(Item: integer) :Integer; stdcall;
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
-  function ProcessDialogEventW(AEvent :Integer; AParam :PFarDialogEvent) :Integer; stdcall;
-  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
-  function ProcessViewerEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
- {$endif Far3}
-
+  type
+    TMacroLibPlug = class(TFarPlug)
+    public
+      procedure Init; override;
+      procedure Startup; override;
+      procedure ExitFar; override;
+      procedure GetInfo; override;
+      procedure Configure; override;
+      function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      procedure SynchroEvent(AParam :Pointer); override;
+      function DialogEvent(AEvent :Integer; AParam :PFarDialogEvent) :Integer; override;
+      function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
+      function ViewerEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
+     {$ifdef bUseProcessConsoleInput}
+      function ConsoleInput(const ARec :TInputRecord) :Integer; override;
+     {$endif bUseProcessConsoleInput}
+    end;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -282,13 +272,19 @@ interface
       GetMsg(strMProcessHotkeys),
       GetMsg(strMProcessMouse),
       GetMsg(strMMacroPaths)
+     {$ifdef bUseInject}
+      ,GetMsg(strMUseInjecting)
+     {$endif bUseInject}
     ]);
     try
       vMenu.Help := 'Options';
-      
+
       while True do begin
         vMenu.Checked[0] := optProcessHotkey;
         vMenu.Checked[1] := optProcessMouse;
+       {$ifdef bUseInject}
+        vMenu.Checked[3] := optUseInject;
+       {$endif bUseInject}
 
         vMenu.SetSelected(vMenu.ResIdx);
 
@@ -303,6 +299,9 @@ interface
               PluginConfig(True);
               MacroLibrary.RescanMacroses(True);
             end;
+         {$ifdef bUseInject}
+          3 : ToggleOption(optUseInject);
+         {$endif bUseInject}
         end;
       end;
 
@@ -454,97 +453,37 @@ interface
   end;
 
 
-  procedure Open(AFrom :Integer; AStr :PTChar);
-  begin
-    if AFrom and OPEN_FROMMACRO <> 0 then begin
-
-      if AFrom and OPEN_FROMMACROSTRING <> 0 then
-        OpenCmdLine(AStr)
-      else
-        FarAdvControl(ACTL_SYNCHRO, nil);
-
-    end else
-    if AFrom = OPEN_COMMANDLINE then
-      OpenCmdLine(AStr)
-    else
-      MainMenu;
-  end;
-
-
-  procedure Process(AObj :TObject);
-  var
-    I :Integer;
-  begin
-    if MacroLibrary = nil then
-      Exit;
-
-    if AObj = nil then
-      MacroLibrary.ShowAvailable
-    else
-    if AObj is TMacro then
-      TMacro(AObj).Execute(0)
-    else
-    if (AObj is TRunList) and ((TRunList(AObj).Count = 1) or TRunList(AObj).RunAll) then begin
-      with TRunList(AObj) do
-        for I := 0 to Count - 1 do
-          TMacro(Items[I]).Execute(KeyCode);
-      FreeObj(AObj);
-    end else
-    if AObj is TExList then begin
-      MacroLibrary.ShowList(TExList(AObj));
-      FreeObj(AObj);
-    end else
-    if AObj is TRunEvent then begin
-      with TRunEvent(AObj) do begin
-
-        if Area = maShell then
-          { Вынужденно перенес инициализацию макросов на данный этап. }
-          { Если вызывать MCTL_ADDMACRO из процедур инициализации - Far падает }
-          MacroLibrary.RescanMacroses(True);
-
-        if FarGetMacroState = MACROSTATE_NOMACRO then
-          MacroLibrary.CheckEvent(Area, Event);
-      end;
-      FreeObj(AObj);
-    end;
-  end;
-
 
  {-----------------------------------------------------------------------------}
- { Экспортируемые процедуры                                                    }
+ { TMoreHistoryPlug                                                            }
  {-----------------------------------------------------------------------------}
 
- {$ifdef Far3}
-  procedure GetGlobalInfoW;
+  procedure TMacroLibPlug.Init; {override;}
   begin
-    AInfo.StructSize := SizeOf(AInfo);
-    AInfo.MinFarVersion := MakeFarVersion(FARMANAGERVERSION_MAJOR, FARMANAGERVERSION_MINOR, FARMANAGERVERSION_REVISION, FARMANAGERVERSION_BUILD, VS_RELEASE);
-  //AInfo.Info := PLUGIN_VERSION;
-    AInfo.GUID := cPluginID;
-    AInfo.Title := cPluginName;
-    AInfo.Description := cPluginDescr;
-    AInfo.Author := cPluginAuthor;
-  end;
- {$else}
-  function GetMinFarVersionW :Integer; stdcall;
-  begin
-//  Result := MakeFarVersion(2, 0, 1765);   { MCMD_GETAREA };
-    Result := MakeFarVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING, MCMD_POSTMACROSTRING };
-  end;
- {$endif Far3}
+    inherited Init;
 
-
-  procedure SetStartupInfoW;
-  begin
-    FARAPI := AInfo;
-    FARSTD := AInfo.fsf^;
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
 
    {$ifdef Far3}
-    PluginID := cPluginID;
+    FGUID := cPluginID;
    {$else}
-    hModule := AInfo.ModuleNumber;
+    FID := cPluginID;
    {$endif Far3}
 
+   {$ifdef Far3}
+//  FMinFarVer := MakeVersion(3, 0, 2376);   { MCTL_GETLASTERROR };
+    FMinFarVer := MakeVersion(3, 0, 2379);   { MCTL_GETLASTERROR - исправление ошибки };
+   {$else}
+//  FMinFarVer := MakeVersion(2, 0, 1765);   { MCMD_GETAREA };
+    FMinFarVer := MakeVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING, MCMD_POSTMACROSTRING };
+   {$endif Far3}
+  end;
+
+
+  procedure TMacroLibPlug.Startup; {override;}
+  begin
     FFarExePath := AddBackSlash(ExtractFilePath(GetExeModuleFileName));
 
     RestoreDefColor;
@@ -553,7 +492,8 @@ interface
     MacroLibrary := TMacroLibrary.Create;
 
    {$ifdef bUseInject}
-    InjectHandlers;
+    if optUseInject then
+      InjectHandlers;
    {$endif bUseInject}
 
 //  MacroLibrary.RescanMacroses(True);
@@ -563,134 +503,125 @@ interface
   end;
 
 
-  var
-    PluginMenuStr  :TString;
-   {$ifdef Far3}
-    PluginMenuGUID :TGUID;
-   {$endif Far3}
-
-  procedure GetPluginInfoW;
+  procedure TMacroLibPlug.ExitFar; {override;}
   begin
-//  TraceF('GetPluginInfo: %s', ['']);
-
-    AInfo.StructSize:= SizeOf(AInfo);
-    AInfo.Flags:= PF_PRELOAD or PF_EDITOR or PF_VIEWER or PF_DIALOG;
-
-    PluginMenuStr := GetMsg(strTitle);
-   {$ifdef Far3}
-    PluginMenuGUID := cMenuID;
-    AInfo.PluginMenu.Count := 1;
-    AInfo.PluginMenu.Strings := Pointer(@PluginMenuStr);
-    AInfo.PluginMenu.Guids := Pointer(@PluginMenuGUID);
-
-    AInfo.PluginConfig.Count := 1;
-    AInfo.PluginConfig.Strings := Pointer(@PluginMenuStr);
-    AInfo.PluginConfig.Guids := Pointer(@PluginMenuGUID);
-   {$else}
-    AInfo.PluginMenuStringsNumber := 1;
-    AInfo.PluginMenuStrings := Pointer(@PluginMenuStr);
-
-    AInfo.PluginConfigStringsNumber := 1;
-    AInfo.PluginConfigStrings := Pointer(@PluginMenuStr);
-
-    AInfo.Reserved := cPluginGUID;
-   {$endif Far3}
-
-    if optCmdPrefix <> '' then
-      AInfo.CommandPrefix := PTChar(optCmdPrefix);
-
-//  FarAdvControl(ACTL_SYNCHRO, TRunEvent.CreateEx(meOpen, maShell));
-  end;
-
-
-  procedure ExitFARW;
-  begin
-//  Trace('ExitFAR');
    {$ifdef bUseInject}
     RemoveHandlers;
    {$endif bUseInject}
     FreeObj(MacroLibrary);
   end;
 
- {$ifdef Far3}
-  function OpenW;
- {$else}
-  function OpenPluginW;
- {$endif Far3}
+
+  procedure TMacroLibPlug.GetInfo; {override;}
+  begin
+    FFlags:= PF_PRELOAD or PF_EDITOR or PF_VIEWER or PF_DIALOG;
+
+    FMenuStr := GetMsg(strTitle);
+    FConfigStr := FMenuStr;
+   {$ifdef Far3}
+    FMenuID := cMenuID;
+    FConfigID := cConfigID;
+   {$endif Far3}
+
+    if optCmdPrefix <> '' then
+      FPrefix := PTChar(optCmdPrefix);
+  end;
+
+
+  procedure TMacroLibPlug.Configure; {override;}
+  begin
+    OptionsMenu;
+  end;
+
+
+  function TMacroLibPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
     Result:= INVALID_HANDLE_VALUE;
-    try
-     {$ifdef Far3}
-      Open(AInfo.OpenFrom, PTChar(AInfo.Data));
-     {$else}
-      Open(OpenFrom, PTChar(Item));
-     {$endif Far3}
-    except
-      on E :Exception do
-        HandleError(E);
+
+    if AFrom and OPEN_FROMMACRO <> 0 then begin
+
+      if AFrom and OPEN_FROMMACROSTRING <> 0 then
+        OpenCmdLine(PTChar(AParam))
+      else
+        FarAdvControl(ACTL_SYNCHRO, nil);
+
+    end else
+    if AFrom = OPEN_COMMANDLINE then
+      OpenCmdLine(PTChar(AParam))
+    else
+      MainMenu;
+  end;
+
+
+  procedure TMacroLibPlug.SynchroEvent(AParam :Pointer); {override;}
+  var
+    I :Integer;
+    vObj :TObject;
+  begin
+    if MacroLibrary = nil then
+      Exit;
+
+    vObj := AParam;
+    if vObj = nil then
+      MacroLibrary.ShowAvailable
+    else
+    if vObj is TMacro then
+      TMacro(vObj).Execute(0)
+    else
+    if (vObj is TRunList) and ((TRunList(vObj).Count = 1) or TRunList(vObj).RunAll) then begin
+      with TRunList(vObj) do
+        for I := 0 to Count - 1 do
+          TMacro(Items[I]).Execute(KeyCode);
+      FreeObj(vObj);
+    end else
+    if vObj is TExList then begin
+      MacroLibrary.ShowList(TExList(vObj));
+      FreeObj(vObj);
+    end else
+    if vObj is TRunEvent then begin
+      with TRunEvent(vObj) do begin
+
+        if Area = maShell then
+          { Вынужденно перенес инициализацию макросов на данный этап. }
+          { Если вызывать MCTL_ADDMACRO из процедур инициализации - Far падает }
+          MacroLibrary.RescanMacroses(True);
+
+        if FarGetMacroState = MACROSTATE_NOMACRO then
+          MacroLibrary.CheckEvent(Area, Event);
+      end;
+      FreeObj(vObj);
     end;
   end;
 
 
-  function ConfigureW;
-  begin
-    Result := 1;
-    try
-      OptionsMenu;
-    except
-      on E :Exception do
-        HandleError(E);
-    end;
-  end;
-
-
-  function ProcessSynchroEventW;
+ {$ifdef bUseProcessConsoleInput}
+  function TMacroLibPlug.ConsoleInput(const ARec :TInputRecord) :Integer; {override;}
   begin
     Result := 0;
-   {$ifdef Far3}
-    if AInfo.Event = SE_COMMONSYNCHRO then
-      Process(AInfo.Param);
-   {$else}
-    if Event = SE_COMMONSYNCHRO then
-      Process(Param);
-   {$endif Far3}
+    if MacroLibrary = nil then
+      Exit;
+   {$ifdef bUseInject}
+    if ReadConsoleInputPtr <> nil then
+      Exit;
+   {$endif bUseInject}
+
+//  if AInfo.Flags and PCIF_FROMMAIN <> 0 then begin
+      if (ARec.EventType = KEY_EVENT) and optProcessHotkey and (FarGetMacroState = MACROSTATE_NOMACRO) then begin
+        if MacroLibrary.CheckHotkey(ARec.Event.KeyEvent) then
+          Result := 1;
+      end else
+      if (ARec.EventType = _MOUSE_EVENT) and optProcessMouse and (FarGetMacroState = MACROSTATE_NOMACRO) then begin
+        if MacroLibrary.CheckMouse(ARec.Event.MouseEvent) then
+          Result := 1;
+      end;
+//  end;
   end;
+ {$endif bUseProcessConsoleInput}
 
 
-  function ProcessEditorEventW;
+  function TMacroLibPlug.DialogEvent(AEvent :Integer; AParam :PFarDialogEvent) :Integer; {override;}
   begin
-   {$ifdef Far3}
-    if AInfo.Event = EE_READ then
-   {$else}
-    if AEvent = EE_READ then
-   {$endif Far3}
-//    MacroLibrary.CheckEvent(maEditor, meOpen);
-      FarAdvControl(ACTL_SYNCHRO, TRunEvent.CreateEx(meOpen, maEditor));
-//  EE_GOTFOCUS...
-    Result := 0;
-  end;
-
-
-  function ProcessViewerEventW;
-  begin
-   {$ifdef Far3}
-     if AInfo.Event = VE_READ then
-   {$else}
-    if AEvent = VE_READ then
-   {$endif Far3}
-//    MacroLibrary.CheckEvent(maViewer, meOpen);
-      FarAdvControl(ACTL_SYNCHRO, TRunEvent.CreateEx(meOpen, maViewer));
-    Result := 0;
-  end;
-
-
-  function ProcessDialogEventW;
-  begin
-   {$ifdef Far3}
-    if (AInfo.Event = DE_DLGPROCEND) and (AInfo.Param.Msg = DN_INITDIALOG) then
-   {$else}
     if (AEvent = DE_DLGPROCEND) and (AParam.Msg = DN_INITDIALOG) then
-   {$endif Far3}
       FarAdvControl(ACTL_SYNCHRO, TRunEvent.CreateEx(meOpen, maDialog));
 
    {$ifdef Far3}
@@ -712,26 +643,25 @@ interface
   end;
 
 
- {$ifdef bUseProcessConsoleInput}
-
-  function ProcessConsoleInputW;
+  function TMacroLibPlug.EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
   begin
-//  TraceF('ProcessConsoleInputW: Flags=%d', [AInfo.Flags]);
+    if AEvent = EE_READ then
+//    MacroLibrary.CheckEvent(maEditor, meOpen);
+      FarAdvControl(ACTL_SYNCHRO, TRunEvent.CreateEx(meOpen, maEditor));
+//  EE_GOTFOCUS...
     Result := 0;
-//  if AInfo.Flags and PCIF_FROMMAIN <> 0 then begin
-      if (AInfo.Rec.EventType = KEY_EVENT) and optProcessHotkey and (FarGetMacroState = MACROSTATE_NOMACRO) then begin
-        if MacroLibrary.CheckHotkey(AInfo.Rec.Event.KeyEvent) then
-          Result := 1;
-      end else
-      if (AInfo.Rec.EventType = _MOUSE_EVENT) and optProcessMouse and (FarGetMacroState = MACROSTATE_NOMACRO) then begin
-        if MacroLibrary.CheckMouse(AInfo.Rec.Event.MouseEvent) then  
-          Result := 1;
-      end;
-//  end;
   end;
 
- {$endif bUseProcessConsoleInput}
 
+  function TMacroLibPlug.ViewerEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
+  begin
+    if AEvent = VE_READ then
+//    MacroLibrary.CheckEvent(maViewer, meOpen);
+      FarAdvControl(ACTL_SYNCHRO, TRunEvent.CreateEx(meOpen, maViewer));
+    Result := 0;
+  end;
+
+  
 
 initialization
 finalization
