@@ -345,8 +345,9 @@ interface
     Result := '';
 
     vFrmt := FarPanelString(AHandle, FCTL_GETPANELFORMAT);
-    vPath := FarPanelString(AHandle, FCTL_GETPANELDIR);
     vHost := FarPanelString(AHandle, FCTL_GETPANELHOSTFILE);
+    vPath := FarPanelGetCurrentDirectory(AHandle);
+
    {$ifdef bTrace}
 //  TraceF('Format=%s, Path=%s, Host=%s', [vFrmt, vPath, vHost]);
    {$endif bTrace}
@@ -425,7 +426,7 @@ interface
   begin
     vOldPath := FarPanelGetCurrentDirectory(AHandle);
     if not StrEqual(vOldPath, APath) then begin
-      FARAPI.Control(AHandle, FCTL_SETPANELDIR, 0, PFarChar(APath));
+      FarPanelSetDir(AHandle, APath);
       if AItem = '' then
         FARAPI.Control(AHandle, FCTL_REDRAWPANEL, 0, nil);
     end;
@@ -1297,7 +1298,7 @@ interface
 
   function THistory.GetHistoryFolder :TString;
   begin
-    Result := optHistoryFolder;
+    Result := StrExpandEnvironment(optHistoryFolder);
     if Result = '' then
       Result := AddFileName(GetSpecialFolder(CSIDL_APPDATA), cPluginFolder);
   end;

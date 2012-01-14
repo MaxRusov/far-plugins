@@ -568,7 +568,7 @@ interface
   end;
 
 
-  procedure OpenEditor(const AFileName :TString; AEdit :Boolean; ARow, ACol :Integer; ATopLine :Integer = 0);
+  procedure OpenEditor(const AFileName :TString; AEdit :Boolean; ARow :Integer = -1; ACol :Integer = -1; ATopLine :Integer = 0);
   var
     I, vCount :Integer;
     vFileName :TString;
@@ -598,11 +598,6 @@ interface
 //      GotoPosition(ARow, ACol, ATopLine)
     end else
     begin
-      if ARow = 0 then begin
-        ARow := -1;
-        ACol := -1;
-      end;
-
       {!!!Кодировка???}
       if AEdit then begin
         FARAPI.Editor(PFarChar(AFileName), nil, 0, 0, -1, -1, EF_NONMODAL or EF_IMMEDIATERETURN or EF_ENABLE_F6, ARow, ACol, CP_AUTODETECT);
@@ -683,7 +678,7 @@ interface
                 with vDlg.FResItem as TEdtHistoryEntry do
                   OpenEditor(vDlg.FResStr, True, ModRow, ModCol);
               end else
-                OpenEditor(vDlg.FResStr, vDlg.FResItem.Flags and hfEdit <> 0, 0, 0);
+                OpenEditor(vDlg.FResStr, vDlg.FResItem.Flags and hfEdit <> 0);
             end;
             2: InsertText(vDlg.FResStr);
             3: JumpToPath(ExtractFilePath(vDlg.FResStr), ExtractFileName(vDlg.FResStr), False);
