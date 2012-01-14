@@ -6,7 +6,7 @@
 {$ifdef Far3}
 
  {$Define bUseProcessConsoleInput}
- {-$Define bUseInject}
+ {$Define bUseInject}
 
 {$else}
 

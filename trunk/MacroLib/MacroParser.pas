@@ -30,6 +30,12 @@ interface
     MacroLibConst;
 
 
+ {$ifdef Far3}
+  const
+    MACROAREA_AUTOCOMPLETION  = $10001;
+ {$endif Far3}
+
+
   var
     ParserResBase :Integer;
 
@@ -130,7 +136,12 @@ interface
       maTreePanel,
       maFindFolder,
       maUserMenu,
+     {$ifdef Far3}
+      maShellAutoCompletion,
+      maDialogAutoCompletion
+     {$else}
       maAutoCompletion
+     {$endif Far3}
     );
     TMacroAreas = set of TMacroArea;
 
@@ -512,7 +523,13 @@ interface
       Add('Tree',      MACROAREA_TREEPANEL);      Add('TreePanel',      MACROAREA_TREEPANEL);
       Add('FFolder',   MACROAREA_FINDFOLDER);     Add('FindFolder',     MACROAREA_FINDFOLDER);
       Add('UserMenu',  MACROAREA_USERMENU);
+     {$ifdef Far3}
+      Add('ShellACompl',  MACROAREA_SHELLAUTOCOMPLETION); Add('ShellAutoCompletion', MACROAREA_SHELLAUTOCOMPLETION);
+      Add('DlgACompl',    MACROAREA_DIALOGAUTOCOMPLETION); Add('DialogAutoCompletion', MACROAREA_DIALOGAUTOCOMPLETION);
+      Add('ACompl',       MACROAREA_AUTOCOMPLETION); Add('AutoCompletion', MACROAREA_AUTOCOMPLETION);
+     {$else}
       Add('ACompl',    MACROAREA_AUTOCOMPLETION); Add('AutoCompletion', MACROAREA_AUTOCOMPLETION);
+     {$endif Far3}
     end;
 
     KeyConds := TKeywordsList.Create;
@@ -552,6 +569,18 @@ interface
       Add('Include',        byte(kwpInclude));
       Add('AKey',           byte(kwpAKey));
     end;
+  end;
+
+
+
+  function KeyMacroAreaToMacroAreas(AKeyArea :Integer) :TMacroAreas;
+  begin
+   {$ifdef Far3}
+    if AKeyArea = MACROAREA_AUTOCOMPLETION then
+      Result := [maShellAutoCompletion, maDialogAutoCompletion]
+    else
+   {$endif Far3}
+      Result := [TMacroArea(AKeyArea)];
   end;
 
 
@@ -1411,7 +1440,7 @@ interface
           end;
 
         end else
-          ARes := ARes + [TMacroArea(vArea)];
+          ARes := ARes + KeyMacroAreaToMacroAreas(vArea);
       end;
     end;
   end;

@@ -284,7 +284,11 @@ interface
     Create;
     FName     := ARec.Name;
     FDescr    := ARec.Descr;
+   {$ifdef Far3}
+    FArea     := TMacroAreas(Integer(ARec.Area));
+   {$else}
     FArea     := TMacroAreas(Word(ARec.Area));
+   {$endif Far3}
     FCond     := ARec.Cond;
     FEvents   := ARec.Events;
     FWhere    := ARec.Where;
@@ -352,6 +356,7 @@ interface
 
     FillZero(vRec, SizeOf(vRec));
     vRec.StructSize := SizeOf(vRec);
+    vRec.Area := MACROAREA_COMMON;
     FarKeyToInputRecord(AKey.Key, vRec.AKey);
     vRec.Description := PFarChar(AOwner.FDescr);
     vRec.SequenceText := PFarChar(AOwner.FText);
@@ -628,7 +633,7 @@ interface
   const
     cAreaAll    = [Low(TMacroArea)..High(TMacroArea)];
     cAreaMenus  = [maMenu, maMainMenu, maUserMenu];
-    cAreaOthers = [maSearch..maAutoCompletion] - cAreaMenus;
+    cAreaOthers = [maSearch..High(TMacroArea){maAutoCompletion}] - cAreaMenus;
 
     procedure LocCheckArea(Area :TMacroArea);
     begin
@@ -651,7 +656,7 @@ interface
           LocCheckArea(maSHELL);
           LocCheckArea(maEDITOR);
           LocCheckArea(maVIEWER);
-          for I := maDialog {maSHELL} to maAutoCompletion do
+          for I := maDialog {maSHELL} to High(TMacroArea){maAutoCompletion} do
             LocCheckArea(I);
           if ((length(FDlgs) > 0) or ((length(FDlgs1) > 0))) and not (maDialog in FArea) then
             Result := AppendStrCh(Result, Format('%s(%d)', [AreaToName(maDialog), length(FDlgs) + length(FDlgs1)]), ' ');
@@ -1003,6 +1008,8 @@ interface
       vList := TRunList.Create;
       try
         vArea := TMacroArea(FarGetMacroArea);
+//      TraceF('Area: %d', [byte(vArea)]);
+
         FindMacroses(vList, vArea, AKey, APress, Result);
         CheckPriority(vList);
 

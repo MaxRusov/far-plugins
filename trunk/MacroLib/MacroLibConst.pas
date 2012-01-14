@@ -45,6 +45,7 @@ interface
       strMProcessHotkeys,
       strMProcessMouse,
       strMMacroPaths,
+      strMUseInjecting,
 
       strMacroPathsTitle,
       strMacroPathsPrompt,
@@ -83,8 +84,9 @@ interface
    {$ifdef Far3}
     cPluginID   :TGUID = '{84884660-5B2F-4581-9282-96E00AE109A2}';
     cMenuID     :TGUID = '{0E8A1143-3619-41B9-BA61-5A5C899E38C7}';
+    cConfigID   :TGUID = '{E284561E-5EB9-497B-B00D-D35195748E8C}';
    {$else}
-    cPluginGUID     = $424C434D;
+    cPluginID       = $424C434D;
    {$endif Far3}
 
     cDefMacroFolder = 'Macros';
@@ -115,6 +117,17 @@ interface
     optHoldDelay     :Integer = 500;
 
     optCmdPrefix     :TString = 'FML';
+
+   { Использовать инжектинг, для обработки клавиатуры }
+   { Данная опция имеет смысл в FAR3, если включены оба ключа: }
+   { bUseProcessConsoleInput и bUseInject }
+
+   {$ifdef bUseProcessConsoleInput}
+    optUseInject     :Boolean = False;
+   {$else}
+    optUseInject     :Boolean = True;
+   {$endif bUseProcessConsoleInput}
+
 
   var
     FFarExePath      :TString;
@@ -254,7 +267,9 @@ interface
         IntValue('DoubleDelay', optDoubleDelay);
         IntValue('HoldDelay', optHoldDelay);
 
-//      optCmdPrefix := RegQueryStr(vKey, 'CmdPrefix', optCmdPrefix);
+        StrValue('CmdPrefix', optCmdPrefix);
+
+        LogValue('UseInject', optUseInject);
 
       finally
         Destroy;
