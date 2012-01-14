@@ -57,7 +57,7 @@ const
   FARMANAGERVERSION_MAJOR = 3;
   FARMANAGERVERSION_MINOR = 0;
   FARMANAGERVERSION_REVISION = 0;
-  FARMANAGERVERSION_BUILD = 2250;
+  FARMANAGERVERSION_BUILD = 2377;
 
 type
 //TFarChar = AnsiChar;
@@ -217,6 +217,9 @@ const
 
 { FARDIALOGITEMFLAGS }
 
+type
+  TFarDialogItemFlags = int64;
+
 const
   DIF_NONE                  = 0;
   DIF_BOXCOLOR              =  $00000200;
@@ -364,54 +367,52 @@ const
   BSTATE_TOGGLE    = 3;
 
 
-          { FARLISTMOUSEREACTIONTYPE }
+{FARCOMBOBOXEVENTTYPE}
 
-          const
-            LMRT_ONLYFOCUS = 0;
-            LMRT_ALWAYS    = 1;
-            LMRT_NEVER     = 2;
-
-          {FARCOMBOBOXEVENTTYPE}
-
-          const
-            CBET_KEY         = 1;
-            CBET_MOUSE       = 2;
+const
+  CBET_KEY         = 1;
+  CBET_MOUSE       = 2;
 
 
-          {------------------------------------------------------------------------------}
-          { List                                                                         }
-          {------------------------------------------------------------------------------}
+{------------------------------------------------------------------------------}
+{ List                                                                         }
+{------------------------------------------------------------------------------}
 
-          { LISTITEMFLAGS }
+{ LISTITEMFLAGS }
 
-          const
-            LIF_SELECTED       = $00010000;
-            LIF_CHECKED        = $00020000;
-            LIF_SEPARATOR      = $00040000;
-            LIF_DISABLE        = $00080000;
-            LIF_GRAYED         = $00100000;
-            LIF_HIDDEN         = $00200000;
-            LIF_DELETEUSERDATA = $80000000;
+type
+  TListItemsFlags = int64;
 
-          (*
-          struct FarListItem
-          {
-            DWORD Flags;
-            const wchar_t *Text;
-            DWORD Reserved[3];
-          };
-          *)
-          type
-            PFarListItem = ^TFarListItem;
-            TFarListItem = record
-              Flags    :DWORD;
-              TextPtr  :PFarChar;
-              Reserved :array [0..2] of DWORD;
-            end;
+const
+  LIF_NONE           = 0;
+  LIF_SELECTED       = $00010000;
+  LIF_CHECKED        = $00020000;
+  LIF_SEPARATOR      = $00040000;
+  LIF_DISABLE        = $00080000;
+  LIF_GRAYED         = $00100000;
+  LIF_HIDDEN         = $00200000;
+  LIF_DELETEUSERDATA = $80000000;
 
-          type
-            PFarListItemArray = ^TFarListItemArray;
-            TFarListItemArray = packed array[0..MaxInt div SizeOf(TFarListItem) - 1] of TFarListItem;
+(*
+struct FarListItem
+{
+  LISTITEMFLAGS Flags;
+  const wchar_t *Text;
+  DWORD_PTR Reserved[3];
+};
+*)
+type
+  PFarListItem = ^TFarListItem;
+  TFarListItem = record
+    Flags    :TListItemsFlags;
+    TextPtr  :PFarChar;
+    Reserved :array [0..2] of DWORD_PTR;
+  end;
+
+type
+  PFarListItemArray = ^TFarListItemArray;
+  TFarListItemArray = packed array[0..MaxInt div SizeOf(TFarListItem) - 1] of TFarListItem;
+
 
           (*
           struct FarListUpdate
@@ -609,79 +610,79 @@ const
             end;
 
 
-          {------------------------------------------------------------------------------}
-          { Dialogs                                                                      }
-          {------------------------------------------------------------------------------}
+{------------------------------------------------------------------------------}
+{ Dialogs                                                                      }
+{------------------------------------------------------------------------------}
 
-          (*
-          struct FarDialogItem
-          {
-            enum FARDIALOGITEMTYPES Type;
-            int X1,Y1,X2,Y2;
-            union
-            {
-                    int Selected;
-                    struct FarList *ListItems;
-                    struct FAR_CHAR_INFO *VBuf;
-                    DWORD_PTR Reserved;
-            }
-            Param
-            ;
-            const wchar_t *History;
-            const wchar_t *Mask;
-            FARDIALOGITEMFLAGS Flags;
-            const wchar_t *Data;
-            size_t MaxLength; // terminate 0 not included (if == 0 string size is unlimited)
-            DWORD_PTR UserData;
-          };
-          *)
+(*
+struct FarDialogItem
+{
+  enum FARDIALOGITEMTYPES Type;
+  int X1,Y1,X2,Y2;
+  union
+  {
+          int Selected;
+          struct FarList *ListItems;
+          struct FAR_CHAR_INFO *VBuf;
+          DWORD_PTR Reserved;
+  }
+  Param;
+  const wchar_t *History;
+  const wchar_t *Mask;
+  FARDIALOGITEMFLAGS Flags;
+  const wchar_t *Data;
+  size_t MaxLength; // terminate 0 not included (if == 0 string size is unlimited)
+  DWORD_PTR UserData;
+};
+*)
 
-          type
-            PFarDialogItem = ^TFarDialogItem;
-            TFarDialogItem = record
-              ItemType :Integer; {FARDIALOGITEMTYPES}
-              X1, Y1, X2, Y2 :Integer;
+type
+  PFarDialogItem = ^TFarDialogItem;
+  TFarDialogItem = record
+    ItemType :Integer; {FARDIALOGITEMTYPES}
+    X1, Y1, X2, Y2 :Integer;
 
-              Param : record case Integer of
-                0 : (Selected :Integer);
-                1 : (ListItems :PFarList);
-                2 : (VBuf :PCharInfo);
-              end;
+    Param : record case Integer of
+      0 : (Selected :Integer);
+      1 : (ListItems :PFarList);
+      2 : (VBuf :PCharInfo);
+    end;
 
-              History :PFarChar;
-              Mask :PFarChar;
-              Flags :Int64; {FARDIALOGITEMFLAGS}
-              Data :PFarChar;
-              MaxLength :size_t;
-              UserDate :DWORD_PTR;
-            end;
+    History :PFarChar;
+    Mask :PFarChar;
+    Flags :TFarDialogItemFlags;
+    Data :PFarChar;
+    MaxLength :size_t;
+    UserDate :DWORD_PTR;
+  end;
 
-          type
-            PFarDialogItemArray = ^TFarDialogItemArray;
-            TFarDialogItemArray = packed array[0..MaxInt div SizeOf(TFarDialogItem) - 1] of TFarDialogItem;
+type
+  PFarDialogItemArray = ^TFarDialogItemArray;
+  TFarDialogItemArray = packed array[0..MaxInt div SizeOf(TFarDialogItem) - 1] of TFarDialogItem;
 
-          (*
-          struct FarDialogItemData
-          {
-            size_t  PtrLength;
-            wchar_t *PtrData;
-          };
-          *)
-          type
-            PFarDialogItemData = ^TFarDialogItemData;
-            TFarDialogItemData = record
-              PtrLength :SIZE_T;
-              PtrData :PFarChar;
-            end;
+
+(*
+struct FarDialogItemData
+{
+  size_t  PtrLength;
+  wchar_t *PtrData;
+};
+*)
+type
+  PFarDialogItemData = ^TFarDialogItemData;
+  TFarDialogItemData = record
+    PtrLength :size_t;
+    PtrData :PFarChar;
+  end;
 
 (*
 struct FarDialogEvent
 {
-	HANDLE hDlg;
-	int Msg;
-	int Param1;
-	void* Param2;
-	INT_PTR Result;
+  HANDLE hDlg;
+  int Msg;
+  int Param1;
+  void* Param2;
+  INT_PTR Result;
 };
 *)
 type
@@ -694,26 +695,25 @@ type
     Result :INT_PTR;
   end;
 
-          (*
-          struct OpenDlgPluginData
-          {
-            int ItemNumber;
-            HANDLE hDlg;
-          };
-          *)
-          type
-            POpenDlgPluginData = ^TOpenDlgPluginData;
-            TOpenDlgPluginData = record
-              ItemNumber :Integer;
-              hDlg :THandle;
-            end;
+(*
+struct OpenDlgPluginData
+{
+  HANDLE hDlg;
+};
+*)
+type
+  POpenDlgPluginData = ^TOpenDlgPluginData;
+  TOpenDlgPluginData = record
+    hDlg :THandle;
+  end;
+
 
 (*
 struct DialogInfo
 {
-	size_t StructSize;
-	GUID Id;
-	GUID Owner;
+  size_t StructSize;
+  GUID Id;
+  GUID Owner;
 };
 *)
 type
@@ -724,15 +724,66 @@ type
     Owner :TGUID;
   end;
 
-          { FARDIALOGFLAGS }
+(*
+struct FarGetDialogItem
+{
+  size_t Size;
+  struct FarDialogItem* Item;
+};
+*)
+type
+  PFarGetDialogItem = ^TFarGetDialogItem;
+  TFarGetDialogItem = record
+    Size :size_t;
+    Item :PFarDialogItem;
+  end;
 
-          const
-            FDLG_NONE             = 0;
-            FDLG_WARNING          = $00000001;
-            FDLG_SMALLDIALOG      = $00000002;
-            FDLG_NODRAWSHADOW     = $00000004;
-            FDLG_NODRAWPANEL      = $00000008;
-            FDLG_KEEPCONSOLETITLE = $00000010;
+(*
+#define Dlg_RedrawDialog(Info,hDlg)            Info.SendDlgMessage(hDlg,DM_REDRAW,0,0)
+
+#define Dlg_GetDlgData(Info,hDlg)              Info.SendDlgMessage(hDlg,DM_GETDLGDATA,0,0)
+#define Dlg_SetDlgData(Info,hDlg,Data)         Info.SendDlgMessage(hDlg,DM_SETDLGDATA,0,(INT_PTR)Data)
+
+#define Dlg_GetDlgItemData(Info,hDlg,ID)       Info.SendDlgMessage(hDlg,DM_GETITEMDATA,0,0)
+#define Dlg_SetDlgItemData(Info,hDlg,ID,Data)  Info.SendDlgMessage(hDlg,DM_SETITEMDATA,0,(INT_PTR)Data)
+
+#define DlgItem_GetFocus(Info,hDlg)            Info.SendDlgMessage(hDlg,DM_GETFOCUS,0,0)
+#define DlgItem_SetFocus(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_SETFOCUS,ID,0)
+#define DlgItem_Enable(Info,hDlg,ID)           Info.SendDlgMessage(hDlg,DM_ENABLE,ID,TRUE)
+#define DlgItem_Disable(Info,hDlg,ID)          Info.SendDlgMessage(hDlg,DM_ENABLE,ID,FALSE)
+#define DlgItem_IsEnable(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_ENABLE,ID,-1)
+#define DlgItem_SetText(Info,hDlg,ID,Str)      Info.SendDlgMessage(hDlg,DM_SETTEXTPTR,ID,(INT_PTR)Str)
+
+#define DlgItem_GetCheck(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_GETCHECK,ID,0)
+#define DlgItem_SetCheck(Info,hDlg,ID,State)   Info.SendDlgMessage(hDlg,DM_SETCHECK,ID,State)
+
+#define DlgEdit_AddHistory(Info,hDlg,ID,Str)   Info.SendDlgMessage(hDlg,DM_ADDHISTORY,ID,(INT_PTR)Str)
+
+#define DlgList_AddString(Info,hDlg,ID,Str)    Info.SendDlgMessage(hDlg,DM_LISTADDSTR,ID,(INT_PTR)Str)
+#define DlgList_GetCurPos(Info,hDlg,ID)        Info.SendDlgMessage(hDlg,DM_LISTGETCURPOS,ID,0)
+#define DlgList_SetCurPos(Info,hDlg,ID,NewPos) {struct FarListPos LPos={NewPos,-1};Info.SendDlgMessage(hDlg,DM_LISTSETCURPOS,ID,(INT_PTR)&LPos);}
+#define DlgList_ClearList(Info,hDlg,ID)        Info.SendDlgMessage(hDlg,DM_LISTDELETE,ID,0)
+#define DlgList_DeleteItem(Info,hDlg,ID,Index) {struct FarListDelete FLDItem={Index,1}; Info.SendDlgMessage(hDlg,DM_LISTDELETE,ID,(INT_PTR)&FLDItem);}
+#define DlgList_SortUp(Info,hDlg,ID)           Info.SendDlgMessage(hDlg,DM_LISTSORT,ID,0)
+#define DlgList_SortDown(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_LISTSORT,ID,1)
+#define DlgList_GetItemData(Info,hDlg,ID,Index)          Info.SendDlgMessage(hDlg,DM_LISTGETDATA,ID,Index)
+#define DlgList_SetItemStrAsData(Info,hDlg,ID,Index,Str) {struct FarListItemData FLID{Index,0,Str,0}; Info.SendDlgMessage(hDlg,DM_LISTSETDATA,ID,(INT_PTR)&FLID);}
+*)
+
+
+{ FARDIALOGFLAGS }
+
+type
+  TFarDialogFlags = int64;
+
+const
+  FDLG_NONE             = 0;
+  FDLG_WARNING          = $00000001;
+  FDLG_SMALLDIALOG      = $00000002;
+  FDLG_NODRAWSHADOW     = $00000004;
+  FDLG_NODRAWPANEL      = $00000008;
+  FDLG_KEEPCONSOLETITLE = $00000010;
+
 
           type
           (*
@@ -780,53 +831,54 @@ type
               Param2 :LONG_PTR
             ) :LONG_PTR; stdcall;
 
-          (*
-          typedef HANDLE(WINAPI *FARAPIDIALOGINIT)(
-              const GUID*           PluginId,
-              const GUID*           Id,
-              int                   X1,
-              int                   Y1,
-              int                   X2,
-              int                   Y2,
-              const wchar_t        *HelpTopic,
-              const struct FarDialogItem *Item,
-              size_t                ItemsNumber,
-              DWORD_PTR             Reserved,
-              FARDIALOGFLAGS        Flags,
-              FARWINDOWPROC         DlgProc,
-              void*                 Param
-          );
-          *)
-            TFarApiDialogInit = function (
-              const PluginID :TGUID;
-              const ID :TGUID;
-              X1, Y1, X2, Y2 :Integer;
-              HelpTopic :PFarChar;
-              Item :PFarDialogItemArray;
-              ItemsNumber :size_t;
-              Reserved :DWORD_PTR;
-              Flags :Int64; {FARDIALOGFLAGS}
-              DlgProc :TFarApiWindowProc;
-              Param :LONG_PTR
-            ) :THandle; stdcall;
 
-          (*
-          typedef int (WINAPI *FARAPIDIALOGRUN)(
-            HANDLE hDlg
-          );
-          *)
-            TFarApiDialogRun = function(
-              hDlg :THandle
-            ) :Integer;  stdcall;
+(*
+typedef HANDLE(WINAPI *FARAPIDIALOGINIT)(
+    const GUID*           PluginId,
+    const GUID*           Id,
+    int                   X1,
+    int                   Y1,
+    int                   X2,
+    int                   Y2,
+    const wchar_t        *HelpTopic,
+    const struct FarDialogItem *Item,
+    size_t                ItemsNumber,
+    DWORD_PTR             Reserved,
+    FARDIALOGFLAGS        Flags,
+    FARWINDOWPROC         DlgProc,
+    void*                 Param
+);
+*)
+  TFarApiDialogInit = function (
+    const PluginID :TGUID;
+    const ID :TGUID;
+    X1, Y1, X2, Y2 :Integer;
+    HelpTopic :PFarChar;
+    Item :PFarDialogItemArray;
+    ItemsNumber :size_t;
+    Reserved :DWORD_PTR;
+    Flags :TFarDialogFlags;
+    DlgProc :TFarApiWindowProc;
+    Param :LONG_PTR
+  ) :THandle; stdcall;
 
-          (*
-          typedef void (WINAPI *FARAPIDIALOGFREE)(
-            HANDLE hDlg
-          );
-          *)
-            TFarApiDialogFree = procedure(
-              hDlg :THandle
-            ); stdcall;
+(*
+typedef int (WINAPI *FARAPIDIALOGRUN)(
+  HANDLE hDlg
+);
+*)
+  TFarApiDialogRun = function(
+    hDlg :THandle
+  ) :Integer;  stdcall;
+
+(*
+typedef void (WINAPI *FARAPIDIALOGFREE)(
+  HANDLE hDlg
+);
+*)
+  TFarApiDialogFree = procedure(
+    hDlg :THandle
+  ); stdcall;
 
 
 {------------------------------------------------------------------------------}
@@ -955,7 +1007,7 @@ struct PluginPanelItem
   FILETIME LastWriteTime;
   FILETIME ChangeTime;
   unsigned __int64 FileSize;
-  unsigned __int64 PackSize;
+  unsigned __int64 AllocationSize;
   const wchar_t *FileName;
   const wchar_t *AlternateFileName;
   const wchar_t *Description;
@@ -977,8 +1029,8 @@ type
     LastAccessTime :FILETIME;
     LastWriteTime :FILETIME;
     ChangeTime :FILETIME;
-    FileSize :Int64 ;
-    PackSize :Int64 ;
+    FileSize :Int64;
+    AllocationSize :Int64;
     FileName :PFarChar;
     AlternateFileName :PFarChar;
     Description :PFarChar;
@@ -1089,11 +1141,11 @@ type
     PluginHandle :THandle;
     OwnerGuid :TGUID;
     Flags :TPANELINFOFLAGS;
-    ItemsNumber :size_t;
-    SelectedItemsNumber :size_t;
+    ItemsNumber :INT_PTR{size_t};
+    SelectedItemsNumber :INT_PTR{size_t};
     PanelRect : TRect;
-    CurrentItem :size_t;
-    TopPanelItem :size_t;
+    CurrentItem :INT_PTR{size_t};
+    TopPanelItem :INT_PTR{size_t};
     ViewMode :Integer;
     PanelType :Integer; { PANELINFOTYPE }
     SortMode :Integer; { OPENPANELINFO_SORTMODES }
@@ -1129,6 +1181,28 @@ type
     SelEnd : Integer;
   end;
 
+(*
+struct FarPanelDirectory
+{
+  size_t StructSize;
+  const wchar_t* Name;
+  const wchar_t* Param;
+  GUID PluginId;
+  const wchar_t* File;
+};
+*)
+
+type
+  PFarPanelDirectory = ^TFarPanelDirectory;
+  TFarPanelDirectory = record
+    StructSize :size_t;
+    Name :PFarChar;
+    Param :PFarChar;
+    PluginId :TGUID;
+    fFile :PFarChar;
+  end;
+
+
 {------------------------------------------------------------------------------}
 {                                                                              }
 {------------------------------------------------------------------------------}
@@ -1151,7 +1225,7 @@ const
   FCTL_SETVIEWMODE            = 7;
   FCTL_INSERTCMDLINE          = 8;
   FCTL_SETUSERSCREEN          = 9;
-  FCTL_SETPANELDIR            = 10;
+  FCTL_SETPANELDIRECTORY      = 10;
   FCTL_SETCMDLINEPOS          = 11;
   FCTL_GETCMDLINEPOS          = 12;
   FCTL_SETSORTMODE            = 13;
@@ -1165,7 +1239,7 @@ const
   FCTL_GETPANELITEM           = 21;
   FCTL_GETSELECTEDPANELITEM   = 22;
   FCTL_GETCURRENTPANELITEM    = 23;
-  FCTL_GETPANELDIR            = 24;
+  FCTL_GETPANELDIRECTORY      = 24;
   FCTL_GETCOLUMNTYPES         = 25;
   FCTL_GETCOLUMNWIDTHS        = 26;
   FCTL_BEGINSELECTION         = 27;
@@ -1549,7 +1623,7 @@ const
   MCTL_GETAREA      = 6;
   MCTL_ADDMACRO     = 7;
   MCTL_DELMACRO     = 8;
-
+  MCTL_GETLASTERROR = 9;
 
 { FARKEYMACROFLAGS }
 
@@ -1573,22 +1647,24 @@ const
 { FARMACROAREA }
 
 const
-  MACROAREA_OTHER             =  0;
-  MACROAREA_SHELL             =  1;
-  MACROAREA_VIEWER            =  2;
-  MACROAREA_EDITOR            =  3;
-  MACROAREA_DIALOG            =  4;
-  MACROAREA_SEARCH            =  5;
-  MACROAREA_DISKS             =  6;
-  MACROAREA_MAINMENU          =  7;
-  MACROAREA_MENU              =  8;
-  MACROAREA_HELP              =  9;
-  MACROAREA_INFOPANEL         = 10;
-  MACROAREA_QVIEWPANEL        = 11;
-  MACROAREA_TREEPANEL         = 12;
-  MACROAREA_FINDFOLDER        = 13;
-  MACROAREA_USERMENU          = 14;
-  MACROAREA_AUTOCOMPLETION    = 15;
+  MACROAREA_OTHER                =  0;
+  MACROAREA_SHELL                =  1;
+  MACROAREA_VIEWER               =  2;
+  MACROAREA_EDITOR               =  3;
+  MACROAREA_DIALOG               =  4;
+  MACROAREA_SEARCH               =  5;
+  MACROAREA_DISKS                =  6;
+  MACROAREA_MAINMENU             =  7;
+  MACROAREA_MENU                 =  8;
+  MACROAREA_HELP                 =  9;
+  MACROAREA_INFOPANEL            = 10;
+  MACROAREA_QVIEWPANEL           = 11;
+  MACROAREA_TREEPANEL            = 12;
+  MACROAREA_FINDFOLDER           = 13;
+  MACROAREA_USERMENU             = 14;
+  MACROAREA_SHELLAUTOCOMPLETION  = 15;
+  MACROAREA_DIALOGAUTOCOMPLETION = 16;
+  MACROAREA_COMMON               = 255;
 
 
 { FARMACROSTATE }
@@ -1669,6 +1745,7 @@ struct MacroCheckMacroText
   ;
 };
 *)
+(* !!!
 type
   PMacroCheckMacroText = ^TMacroCheckMacroText;
   TMacroCheckMacroText = record
@@ -1677,6 +1754,7 @@ type
       1 : (Result :TMacroParseResult);
     end;
   end;
+*)
 
 
 { FARADDKEYMACROFLAGS }
@@ -1706,6 +1784,7 @@ type
   TMacroAddMacro = record
     StructSize :size_t;
     Id :Pointer;
+    Area :Integer{FARMACROAREA};
     Flags :TFARKEYMACROFLAGS;
     AKey :TInputRecord;
     SequenceText :PFarChar;
@@ -2553,7 +2632,7 @@ typedef int (WINAPI *FARAPIINPUTBOX)(
     const wchar_t *HistoryName,
     const wchar_t *SrcText,
     wchar_t *DestText,
-    int   DestLength,
+    size_t DestSize,
     const wchar_t *HelpTopic,
     INPUTBOXFLAGS Flags
 );
@@ -2567,7 +2646,7 @@ type
     HistoryName : PFarChar;
     SrcText : PFarChar;
     DestText : PFarChar;
-    DestLength : Integer;
+    DestSize : size_t;
     HelpTopic : PFarChar;
     Flags :TInputBoxFlags
   ) :Integer; stdcall;
@@ -2734,6 +2813,8 @@ const
   FSSF_FOLDERSHORTCUT_7  = 13;
   FSSF_FOLDERSHORTCUT_8  = 14;
   FSSF_FOLDERSHORTCUT_9  = 15;
+  FSSF_CONFIRMATIONS     = 16;
+
 
 
 (*
@@ -2821,7 +2902,7 @@ type
     Name :PFarChar;
     Param :PFarChar;
     PluginId :TGUID;
-    _File :PFarChar;
+    fFile :PFarChar;
     Time :FILETIME;
     Lock :BOOL;
   end;
