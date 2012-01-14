@@ -228,6 +228,7 @@ interface
   function FarGetPluginInfo(AIndex :Integer; var AInfo :PFarPluginInfo; APreallocate :Integer = 1024) :Boolean;
  {$endif Far3}
 
+  procedure FarPanelSetDir(AHandle :THandle; const APath :TString);
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   function FarPanelGetCurrentItem(Active :Boolean) :TString;
   function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
@@ -237,8 +238,9 @@ interface
   procedure FarEditorSetColor(ARow, ACol, ALen :Integer; AColor :TFarColor; AWholeTab :Boolean = False);
   procedure FarEditorDelColor(ARow, ACol, ALen :Integer);
   function EditorControlString(ACmd :Integer) :TFarStr;
-  procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = 0; ACol :Integer = 1);
+  procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = -1; ACol :Integer = -1);
 
+  function FarGetWindowType :Integer;
   function FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName :PTString = nil; ATypeName :PTString = nil) :boolean;
   function FarExpandFileName(const AFileName :TString) :TString;
   function FarGetWindowRect :TSmallRect;
@@ -780,8 +782,27 @@ interface
 
 
   function FarPanelGetCurrentDirectory(AHandle :THandle) :TFarStr;
+ {$ifdef Far3}
+  var
+    vSize :Integer;
+    vInfo :PFarPanelDirectory;
+  begin
+    Result := '';
+    vSize := FARAPI.Control(AHandle, FCTL_GETPANELDIRECTORY, 0, nil);
+    if vSize > 0 then begin
+      vInfo := MemAllocZero(vSize);
+      try
+        vInfo.StructSize := SizeOf(TFarPanelDirectory);
+        FARAPI.Control(AHandle, FCTL_GETPANELDIRECTORY, vSize, vInfo);
+        Result := vInfo.Name;
+      finally
+        FreeMem(vInfo);
+      end;
+    end;
+ {$else}
   begin
     Result := FarPanelString(AHandle, FCTL_GETPANELDIR);
+ {$endif Far3}
   end;
 
 
@@ -874,6 +895,7 @@ interface
 
   function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean; ACoord :PCoord = nil) :Boolean;
  {$ifdef Far3}
+(*
   var
     vMacro :TMacroCheckMacroText;
   begin
@@ -885,6 +907,37 @@ interface
     Result := vMacro.Check.Result.ErrCode = MPEC_SUCCESS;
     if not Result and (ACoord <> nil) then
       ACoord^ := vMacro.Check.Result.ErrPos;
+*)
+(*
+1. Мелкое изменение в API:
+   MacroCheckMacroText больше нет, MSSC_CHECK ожидает MacroSendMacroText.
+   И новая команда, MCTL_GETLASTERROR ->  Param1=размер, Param2=MacroParseResult*.
+   Возвращает требуемый размер.
+*)
+  var
+    vMacro :TMacroSendMacroText;
+    vParseRes :PMacroParseResult;
+    vSize :Integer;
+  begin
+    FillZero(vMacro, SizeOf(vMacro));
+    vMacro.StructSize := SizeOf(TMacroSendMacroText);
+    vMacro.SequenceText := PTChar(AStr);
+    vMacro.Flags := IntIf(ASilent, KMFLAGS_SILENTCHECK, 0);
+    Result := FARAPI.MacroControl(PluginID, MCTL_SENDSTRING, MSSC_CHECK, @vMacro) <> 0;
+    if not Result then begin
+      vSize := FARAPI.MacroControl(PluginID, MCTL_GETLASTERROR, 0, nil);
+      if vSize > 0 then begin
+        vParseRes := MemAllocZero(vSize);
+        try
+          vParseRes.StructSize := SizeOf(TMacroParseResult);
+          FARAPI.MacroControl(PluginID, MCTL_GETLASTERROR, vSize, vParseRes);
+          if ACoord <> nil then
+            ACoord^ := vParseRes.ErrPos;
+        finally
+          MemFree(vParseRes);
+        end;
+      end;
+    end;
  {$else}
   var
     vMacro :TActlKeyMacro;
@@ -959,7 +1012,24 @@ interface
   end;
  {$endif Far3}
 
+
  {-----------------------------------------------------------------------------}
+
+  procedure FarPanelSetDir(AHandle :THandle; const APath :TString);
+ {$ifdef Far3}
+  var
+    vInfo :TFarPanelDirectory;
+  begin
+    FillZero(vInfo, SizeOf(vInfo));
+    vInfo.StructSize := SizeOf(vInfo);
+    vInfo.Name := PFarChar(APath);
+    FARAPI.Control(AHandle, FCTL_SETPANELDIRECTORY, 0, @vInfo);
+ {$else}
+  begin
+    FARAPI.Control(AHandle, FCTL_SETPANELDIR, 0, PFarChar(APath));
+ {$endif Far3}
+  end;
+
 
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   var
@@ -968,7 +1038,7 @@ interface
   begin
     if IsFullFilePath(APath) then begin
       vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
-      FARAPI.Control(vHandle, FCTL_SETPANELDIR, 0, PFarChar(APath));
+      FarPanelSetDir(vHandle, APath);
       FARAPI.Control(vHandle, FCTL_REDRAWPANEL, 0, nil);
     end else
     if APath <> '' then begin
@@ -992,9 +1062,7 @@ interface
     Result := '';
 
     vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
-
-    FillZero(vInfo, SizeOf(vInfo));
-    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+    FarGetPanelInfo(vHandle, vInfo);
 
     if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
 
@@ -1018,9 +1086,7 @@ interface
     Result := False;
 
     vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
-
-    FillZero(vInfo, SizeOf(vInfo));
-    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+    FarGetPanelInfo(vHandle, vInfo);
 
     if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
       vRedrawInfo.TopPanelItem := vInfo.TopPanelItem;
@@ -1055,9 +1121,7 @@ interface
    {$endif bDebug}
 
     vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
-
-    FillChar(vInfo, SizeOf(vInfo), 0);
-    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+    FarGetPanelInfo(vHandle, vInfo);
 
     if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
       for I := 0 to vInfo.SelectedItemsNumber - 1 do begin
@@ -1099,9 +1163,7 @@ interface
    {$endif bDebug}
 
     vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
-
-    FillChar(vInfo, SizeOf(vInfo), 0);
-    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+    FarGetPanelInfo(vHandle, vInfo);
 
     if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
       FARAPI.Control(vHandle, FCTL_BEGINSELECTION, 0, nil);
@@ -1194,7 +1256,7 @@ interface
 
 
 
-  procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = 0; ACol :Integer = 1);
+  procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = -1; ACol :Integer = -1);
   var
     vName :TFarStr;
   begin
@@ -1208,6 +1270,28 @@ interface
 
 
  {-----------------------------------------------------------------------------}
+
+  function FarGetWindowType :Integer;
+ {$ifdef Far3}
+  var
+    vInfo :TWindowType;
+  begin
+    Result := -1;
+    FillZero(vInfo, SizeOf(vInfo));
+    vInfo.StructSize := SizeOf(vInfo);
+    if FarAdvControl(ACTL_GETWINDOWTYPE, @vInfo) <> 0 then
+      Result := vInfo.fType;
+ {$else}
+  var
+    vInfo :TWindowInfo;
+  begin
+    Result := -1;
+    FillZero(vInfo, SizeOf(vInfo));
+    vInfo.Pos := -1;
+    if FarAdvControl(ACTL_GETSHORTWINDOWINFO, @vInfo) <> 0 then
+      Result := vInfo.WindowType;
+ {$endif Far3}
+  end;
 
 
   function FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName :PTString = nil; ATypeName :PTString = nil) :boolean;

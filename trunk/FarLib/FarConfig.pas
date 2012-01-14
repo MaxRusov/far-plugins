@@ -33,6 +33,12 @@ interface
       destructor Destroy; override;
 
       function OpenKey(const AName :TString) :Boolean;
+      function DeleteKey(const AName :TString) :Boolean;
+
+      function ReadStr(const AName :TString; const ADefault :TString = '') :TString;
+      procedure WriteStr(const AName :TString; const AValue :TString);
+      function ReadInt(const AName :TString; ADefault :Integer = 0) :Integer;
+      procedure WriteInt(const AName :TString; AValue :Integer);
 
       procedure StrValue(const AName :TString; var AValue :TString);
       procedure IntValue(const AName :TString; var AValue :Integer);
@@ -63,7 +69,7 @@ interface
   function FarCreateKey(AHandle, AKey :THandle; const AName :TString) :THandle;
   function FarSetValue(AHandle, AKey :THandle; const AName :TString; AType :Integer; AInt :Int64; AStr :PFarChar) :Boolean;
   function FarGetValueInt(AHandle, AKey :THandle; const AName :TString; ADefault :Int64) :Int64;
-  function FarGetValueStr(AHandle, AKey :THandle; const AName :TString; var AStr :TString) :Boolean;
+  function FarGetValueStr(AHandle, AKey :THandle; const AName :TString; const ADefault :TString) :TString;
  {$endif Far3}
 
 
@@ -153,6 +159,43 @@ API для хранения настроек:
   end;
 
 
+  function FarDeleteKey(AHandle, AKey :THandle; const AName :TString) :Boolean;
+  var
+    vItem :TFarSettingsValue;
+    vKey :THandle;
+  begin
+    Result := False;
+    vKey := FarOpenKey(AHandle, AKey, AName);
+    if vKey <> 0 then begin
+      vItem.Root := vKey;
+      vItem.Value := nil;
+      Result := FARAPI.SettingsControl(AHandle, SCTL_DELETE, 0, @vItem) <> 0;
+    end;
+  end;
+
+(*
+  function FarDeleteKey(AHandle, AKey :THandle; const AName :TString) :Boolean;
+  var
+    vItem :TFarSettingsValue;
+  begin
+    Result := False;
+    if FarOpenKey(AHandle, AKey, AName) <> 0 then begin
+      vItem.Root := AKey;
+      vItem.Value := PFarChar(AName);
+      Result := FARAPI.SettingsControl(AHandle, SCTL_DELETE, 0, @vItem) <> 0;
+    end;
+  end;
+
+  function FarDeleteKey(AHandle, AKey :THandle; const AName :TString) :Boolean;
+  var
+    vItem :TFarSettingsValue;
+  begin
+    vItem.Root := AKey;
+    vItem.Value := PFarChar(AName);
+    Result := FARAPI.SettingsControl(AHandle, SCTL_DELETE, 0, @vItem) <> 0;
+  end;
+*)
+
   function FarSetValue(AHandle, AKey :THandle; const AName :TString; AType :Integer; AInt :Int64; AStr :PFarChar) :Boolean;
   var
     vItem :TFarSettingsItem;
@@ -189,7 +232,7 @@ API для хранения настроек:
   end;
 
 
-  function FarGetValueStr(AHandle, AKey :THandle; const AName :TString; var AStr :TString) :Boolean;
+  function FarGetValueStr(AHandle, AKey :THandle; const AName :TString; const ADefault :TString) :TString;
   var
     vItem :TFarSettingsItem;
   begin
@@ -197,9 +240,10 @@ API для хранения настроек:
     vItem.Root := AKey;
     vItem.Name := PFarChar(AName);
     vItem.FType := FST_STRING;
-    Result := FARAPI.SettingsControl(AHandle, SCTL_GET, 0, @vItem) <> 0;
-    if Result then
-      AStr := vItem.Value.Str;
+    if FARAPI.SettingsControl(AHandle, SCTL_GET, 0, @vItem) <> 0 then
+      Result := vItem.Value.Str
+    else
+      Result := ADefault;
   end;
  {$endif Far3}
 
@@ -283,36 +327,74 @@ API для хранения настроек:
   end;
 
 
-  procedure TFarConfig.StrValue(const AName :TString; var AValue :TString);
+  function TFarConfig.DeleteKey(const AName :TString) :Boolean;
   begin
    {$ifdef Far3}
-    if FStore then
-      FarSetValue(FHandle, FCurKey, AName, FST_STRING, 0, PTChar(AValue))
-    else
-      FarGetValueStr(FHandle, FCurKey, AName, AValue);
+    Result := FarDeleteKey(FHandle, FCurKey, AName);
    {$else}
+    Result := RegDeleteKey(FCurKey, PTChar(AName)) = ERROR_SUCCESS;
+   {$endif Far3}
+  end;
+
+
+  function TFarConfig.ReadStr(const AName :TString; const ADefault :TString = '') :TString;
+  begin
+   {$ifdef Far3}
+    Result := FarGetValueStr(FHandle, FCurKey, AName, ADefault)
+   {$else}
+    Result := RegQueryStr(FCurKey, AName, ADefault);
+   {$endif Far3}
+  end;
+
+
+  procedure TFarConfig.WriteStr(const AName :TString; const AValue :TString);
+  begin
+   {$ifdef Far3}
+    FarSetValue(FHandle, FCurKey, AName, FST_STRING, 0, PTChar(AValue))
+   {$else}
+    RegWriteStr(FCurKey, AName, AValue)
+   {$endif Far3}
+  end;
+
+
+  procedure TFarConfig.StrValue(const AName :TString; var AValue :TString);
+  begin
     if FStore then
-      RegWriteStr(FCurKey, AName, AValue)
+      WriteStr(AName, AValue)
     else
-      AValue := RegQueryStr(FCurKey, AName, AValue);
+      AValue := ReadStr(AName, AValue);
+  end;
+
+
+
+  function TFarConfig.ReadInt(const AName :TString; ADefault :Integer = 0) :Integer;
+  begin
+   {$ifdef Far3}
+    Result := FarGetValueInt(FHandle, FCurKey, AName, ADefault);
+   {$else}
+    Result := RegQueryInt(FCurKey, AName, ADefault);
+   {$endif Far3}
+  end;
+
+
+  procedure TFarConfig.WriteInt(const AName :TString; AValue :Integer);
+  begin
+   {$ifdef Far3}
+    FarSetValue(FHandle, FCurKey, AName, FST_QWORD, AValue, nil);
+   {$else}
+    RegWriteInt(FCurKey, AName, AValue);
    {$endif Far3}
   end;
 
 
   procedure TFarConfig.IntValue(const AName :TString; var AValue :Integer);
   begin
-   {$ifdef Far3}
     if FStore then
-      FarSetValue(FHandle, FCurKey, AName, FST_QWORD, AValue, nil)
+      WriteInt(AName, AValue)
     else
-      AValue := FarGetValueInt(FHandle, FCurKey, AName, AValue);
-   {$else}
-    if FStore then
-      RegWriteInt(FCurKey, AName, AValue)
-    else
-      AValue := RegQueryInt(FCurKey, AName, AValue);
-   {$endif Far3}
+      AValue := ReadInt(AName, AValue);
   end;
+
 
 
   function TFarConfig.IntValue1(const AName :TString; AValue :Integer) :Integer;
