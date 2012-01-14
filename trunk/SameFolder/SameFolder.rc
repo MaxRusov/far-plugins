@@ -1,6 +1,18 @@
 
 #include "Build.h"
 
+#ifdef Far3
+ #define FarVerS "3"
+#else
+ #define FarVerS "2"
+#endif
+
+#ifdef x64
+ #define PlatformS "x64"
+#else
+ #define PlatformS "x32"
+#endif
+
 LANGUAGE 0, 0
 
 1 VERSIONINFO
@@ -16,7 +28,7 @@ BEGIN
     BEGIN
         BLOCK "041904E3"
         BEGIN
-            VALUE "FileDescription", "SameFolder Far plugin\0"
+            VALUE "FileDescription", "SameFolder Far plugin (Far " FarVerS " " PlatformS ")\0"
             VALUE "InternalName", "SameFolder\0"
             VALUE "OriginalFilename", "SameFolder.dll\0"
             VALUE "FileVersion", "1.0." BuildS "\0"
