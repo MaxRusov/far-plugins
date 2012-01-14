@@ -20,14 +20,14 @@ interface
     MixClasses,
     MixWinUtils,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-    FarKeysW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-    FarKeys,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
+    FarKeysW,
     FarColor,
+    FarConfig,
 
     FarCtrl,
     FarMenu,
@@ -162,7 +162,7 @@ interface
       function FindTabByKey(AKey :TChar) :Integer;
       procedure UpdateHotkeys;
       procedure RealignTabs(ANewWidth :Integer);
-      procedure StoreReg(const APath :TString);
+      procedure StoreReg(const APath :TString; AOnlyCurrent :Boolean = False);
       procedure RestoreReg(const APath :TString);
       procedure StoreFile(const AFileName :TString);
       procedure RestoreFile(const AFileName :TString);
@@ -276,7 +276,7 @@ interface
     vInfo.Wnd           := 0;
     vInfo.lpFile        := PTChar(AName);
     vInfo.lpParameters  := PTChar(AParam);
-    vInfo.lpDirectory   := nil; {!!!}
+    vInfo.lpDirectory   := nil;
     vInfo.nShow         := SW_Show;
     Result := ShellExecuteEx(@vInfo);
   end;
@@ -380,6 +380,215 @@ interface
   end;
 
 
+
+ {-----------------------------------------------------------------------------}
+ { Копипаста с MoreHistory....                                                 }
+
+(*
+  procedure FarPanelSetPath(AHandle :THandle; const APath, AItem :TString);
+  var
+    vOldPath :TFarStr;
+  begin
+    vOldPath := FarPanelGetCurrentDirectory(AHandle);
+    if not StrEqual(vOldPath, APath) then begin
+      FarPanelSetDir(AHandle, APath);
+      if AItem = '' then
+        FARAPI.Control(AHandle, FCTL_REDRAWPANEL, 0, nil);
+    end;
+
+    if AItem <> '' then
+      FarPanelSetCurrentItem(AHandle = PANEL_ACTIVE, AItem)
+  end;
+
+  procedure JumpToPath(const APath, AFileName :TString; ASetPassive :Boolean);
+  var
+    vHandle :THandle;
+    vWinInfo :TWindowInfo;
+    vInfo :TPanelInfo;
+    vMacro, vStr :TString;
+    vVisible, vRealFolder :Boolean;
+  begin
+//  FldHistory.AddHistoryStr( RemoveBackSlash(APath), True);
+
+    vHandle := HandleIf(ASetPassive, PANEL_PASSIVE, PANEL_ACTIVE);
+
+    FarGetWindowInfo(-1, vWinInfo);
+    FarGetPanelInfo(vHandle, vInfo);
+   {$ifdef Far3}
+    vVisible := PFLAGS_VISIBLE and vInfo.Flags <> 0;
+   {$else}
+    vVisible := vInfo.Visible <> 0;
+   {$endif Far3}
+
+    vRealFolder := IsFullFilePath(APath);
+
+    if vRealFolder and vVisible and (vInfo.PanelType = PTYPE_FILEPANEL) then begin
+      { Установка каталога и файла через API }
+      FarPanelSetPath(vHandle, APath, AFileName);
+
+      if vWinInfo.WindowType <> WTYPE_PANELS then
+        { Макросом переходим на панель... }
+        FarPostMacro('F12 0');
+
+    end else
+    begin
+      { ...или через макрос }
+      vMacro := '';
+
+      case vInfo.PanelType of
+        PTYPE_FILEPANEL:
+          if not vVisible then
+            vMacro := 'CtrlP ';
+        PTYPE_TREEPANEL:
+          vMacro := 'CtrlT ';
+        PTYPE_QVIEWPANEL:
+          vMacro := 'CtrlQ ';
+        PTYPE_INFOPANEL:
+          vMacro := 'CtrlL ';
+      end;
+
+      if vRealFolder then begin
+        vMacro := vMacro +
+          'panel.setpath('  + StrIf(ASetPassive, '1', '0') + ', @"' + APath + '"' +
+          StrIf(AFileName <> '', ', @"' + AFileName + '"', '') +
+          ')';
+      end else
+      begin
+        vStr := '';
+        FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(vStr));
+        vMacro := vMacro +
+          'print(@"' + APath + '") Enter';
+        if ASetPassive then
+          vMacro := 'Tab ' + vMacro + ' Tab';
+        if AFileName <> '' then
+          vMacro := vMacro +
+            ' panel.setpos(' + StrIf(ASetPassive, '1', '0') + ', @"' + AFileName + '")';
+      end;
+
+      if vWinInfo.WindowType <> WTYPE_PANELS then
+        vMacro := 'F12 0 $if (Shell) ' + vMacro + ' $end';
+
+      FarPostMacro(vMacro);
+    end;
+  end;
+*)
+
+
+  function GetNearestExistFolder(const APath :TString) :TString;
+  var
+    vDrive, vPath :TString;
+  begin
+    Result := '';
+    if FileNameIsLocal(APath) then begin
+      vDrive := AddBackSlash(ExtractFileDrive(APath));
+      if WinFolderExists(vDrive) then begin
+        vPath := RemoveBackSlash(APath);
+        while Length(vPath) > 3 do begin
+          if WinFolderExists(vPath) then begin
+            Result := vPath;
+            Exit;
+          end;
+          vPath := RemoveBackSlash(ExtractFilePath(vPath));
+        end;
+        Result := vDrive;
+      end;
+    end;
+  end;
+
+
+  function CreateFolders(const APath :TString) :Boolean;
+  var
+    vDrive :TString;
+
+    function LocCreate(const APath :TString) :Boolean;
+    begin
+      Result := True;
+      if (APath = '') or (vDrive = APath) or WinFolderExists(APath) then
+        Exit;
+      Result := LocCreate(RemoveBackSlash(ExtractFilePath(APath)));
+      if Result then
+        Result := CreateDir(APath);
+    end;
+
+  begin
+    Result := False;
+    vDrive := ExtractFileDrive(APath);
+    if FileNameIsLocal(APath) then
+      vDrive := AddBackSlash(vDrive);
+    if (vDrive = '') or WinFolderExists(vDrive) then
+      Result := LocCreate(APath);
+  end;
+
+
+  function CheckFolderExists(var AName :TString) :Boolean;
+  var
+    vRes :Integer;
+    vFolder :TString;
+  begin
+    Result := True;
+    if not WinFolderExists(AName) then begin
+
+      vFolder := GetNearestExistFolder(AName);
+
+      if vFolder <> '' then begin
+
+        vRes := ShowMessage(GetMsgStr(strConfirmation),
+          GetMsgStr(strFolderNotFound) + #10 + AName + #10 +
+          GetMsgStr(strNearestFolderIs) + #10 + vFolder + #10 +
+          GetMsgStr(strGotoNearestBut) + #10 + GetMsgStr(strCreateFolderBut) + #10 + {GetMsgStr(strDeleteBut) + #10 +} GetMsgStr(strCancel),
+          FMSG_WARNING, 3{4});
+
+        case vRes of
+          0: AName := vFolder;
+          1:
+          begin
+            if not CreateFolders(AName) then
+              AppError(GetMsgStr(strCannotCreateFolder) + #10 + AName);
+          end;
+//        2:
+//        begin
+//          Result := False;
+//          DeleteSelected;
+//        end;
+        else
+          Result := False;
+        end;
+
+      end else
+      begin
+
+        vRes := ShowMessage(GetMsgStr(strError),
+          GetMsgStr(strFolderNotFound) + #10 + AName + #10 +
+          {GetMsgStr(strDeleteBut) + #10 +} GetMsgStr(strCancel),
+          FMSG_WARNING, 1{2});
+
+        case vRes of
+          0:
+          begin
+            Result := False;
+//          DeleteSelected;
+          end;
+        else
+          Result := False;
+        end;
+      end;
+
+    end;
+  end;
+
+
+  function JumpToPath(Active :Boolean; {const} APath :TString) :Boolean;
+  begin
+    Result := False;
+    if IsFullFilePath(APath) then
+      if not CheckFolderExists(APath) then
+        Exit;
+
+    FarPanelJumpToPath(Active, APath);
+    Result := True;
+  end;
+
+
  {-----------------------------------------------------------------------------}
 
   function SafeMaskStr(const AStr :TString) :TSTring;
@@ -417,7 +626,7 @@ interface
   end;
 
 
-  procedure DrawTextChr(AChr :TChar; X, Y :Integer; AColor :Integer);
+  procedure DrawTextChr(AChr :TChar; X, Y :Integer; const AColor :TFarColor);
   var
     vBuf :array[0..1] of TChar;
   begin
@@ -427,9 +636,9 @@ interface
   end;
 
 
-  procedure DrawTextEx(const AStr :TString; X, Y :Integer; AMaxLen, ASelPos, ASelLen :Integer; AColor1, AColor2 :Integer);
+  procedure DrawTextEx(const AStr :TString; X, Y :Integer; AMaxLen, ASelPos, ASelLen :Integer; const AColor1, AColor2 :TFarColor);
 
-    procedure LocDrawPart(var AChr :PTChar; ALen :Integer; var ARest :Integer; AColor :Integer);
+    procedure LocDrawPart(var AChr :PTChar; ALen :Integer; var ARest :Integer; const AColor :TFarColor);
     var
       vBuf :Array[0..255] of TChar;
     begin
@@ -459,7 +668,7 @@ interface
     end;
   end;
 
-
+  
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
@@ -638,7 +847,7 @@ interface
     vActive := True;
     vOnPassive := False;
     repeat
-      vKey := FARAPI.AdvControl(hModule, ACTL_WAITKEY, nil);
+      vKey := FarAdvControl(ACTL_WAITKEY, nil);
 
       vReady := True;
       case vKey of
@@ -754,106 +963,80 @@ interface
  {-----------------------------------------------------------------------------}
 
   procedure TClickActions.StoreReg;
+  var
+    vConfig :TFarConfig;
 
-    procedure LocWriteAction(AKey :HKey; AIndex :Integer; Action :TClickAction);
-    var
-      vKey :HKEY;
+    procedure LocWriteAction(AIndex :Integer; Action :TClickAction);
     begin
-      RegOpenWrite(AKey, cActionRegFolder + Int2Str(AIndex), vKey);
-      try
-        RegWriteInt(vKey, cAreaRegKey, Byte(Action.Hotspot));
-        RegWriteInt(vKey, cClickRegKey, Byte(Action.ClickType));
-        RegWriteInt(vKey, cShiftsRegKey, Byte(Action.Shifts));
-        RegWriteStr(vKey, cActionRegKey, TabAction2Word(Action.Action));
-      finally
-        RegCloseKey(vKey);
+      if vConfig.OpenKey(cActionsRegFolder + '\' + cActionRegFolder + Int2Str(AIndex)) then begin
+        try
+          vConfig.WriteInt(cAreaRegKey, Byte(Action.Hotspot));
+          vConfig.WriteInt(cClickRegKey, Byte(Action.ClickType));
+          vConfig.WriteInt(cShiftsRegKey, Byte(Action.Shifts));
+          vConfig.WriteStr(cActionRegKey, TabAction2Word(Action.Action));
+        finally
+          vConfig.OpenKey( '' );
+        end;
       end;
-    end;
-
-
-    function LocDelete(AKey :HKey; AIndex :Integer) :Boolean;
-    var
-      vKey :HKEY;
-      vStr :TString;
-    begin
-      Result := False;
-      vStr := cActionRegFolder + Int2Str(AIndex);
-      if not RegOpenRead(AKey, vStr, vKey) then
-        Exit;
-
-      ApiCheckCode(RegDeleteKey(AKey, PTChar(vStr)));
-
-      RegCloseKey(vKey);
     end;
 
   var
     I :Integer;
-    vKey :HKEY;
-    vPath :TString;
   begin
-    vPath := FRegRoot + '\' + cPlugRegFolder + '\' + cActionsRegFolder;
-
-    RegOpenWrite(HKCU, vPath, vKey);
+    vConfig := TFarConfig.CreateEx(True, cPluginName);
     try
       for I := 0 to Count - 1 do
-        LocWriteAction(vKey, I, Items[I]);
+        LocWriteAction(I, Items[I]);
 
-      {Удаляем лишние папки}
-      I := Count;
-      while True do begin
-        if not LocDelete(vKey, I) then
-          Break;
-        Inc(I);
+      if vConfig.OpenKey(cActionsRegFolder) then begin
+        I := Count;
+        while vConfig.DeleteKey( cActionRegFolder + Int2Str(I) ) do
+          Inc(I);
       end;
 
     finally
-      RegCloseKey(vKey);
+      FreeObj(vConfig);
     end;
   end;
 
 
   procedure TClickActions.RestoreReg;
+  var
+    vConfig :TFarConfig;
 
-    function LocReadAction(AKey :HKey; AIndex :Integer) :Boolean;
+    function LocReadAction(AIndex :Integer) :Boolean;
     var
-      vKey :HKEY;
       vActionStr :TString;
       vArea, vClick, vShifts :Integer;
     begin
       Result := False;
-      if not RegOpenRead(AKey, cActionRegFolder + Int2Str(AIndex), vKey) then
-        Exit;
-      try
-        vArea := RegQueryInt(vKey, cAreaRegKey, -1);
-        vClick := RegQueryInt(vKey, cClickRegKey, -1);
-        vShifts := RegQueryInt(vKey, cShiftsRegKey, -1);
-        vActionStr := RegQueryStr(vKey, cActionRegKey, '');
-        if (vArea >= 1) and (vClick >= 1) and (vShifts >= 0) and (vActionStr <> '') then
-          AddSorted( TClickAction.CreateEx(THotSpot(vArea), TClickType(vClick), TKeyShifts(Byte(vShifts)), Word2TabAction(vActionStr)), 0, dupAccept);
-        Result := True;
-      finally
-        RegCloseKey(vKey);
+      if vConfig.OpenKey( cActionsRegFolder + '\' + cActionRegFolder + Int2Str(AIndex) ) then begin
+        try
+          vArea := vConfig.ReadInt(cAreaRegKey, -1);
+          vClick := vConfig.ReadInt(cClickRegKey, -1);
+          vShifts := vConfig.ReadInt(cShiftsRegKey, -1);
+          vActionStr := vConfig.ReadStr(cActionRegKey);
+          if (vArea >= 1) and (vClick >= 1) and (vShifts >= 0) and (vActionStr <> '') then
+            AddSorted( TClickAction.CreateEx(THotSpot(vArea), TClickType(vClick), TKeyShifts(Byte(vShifts)), Word2TabAction(vActionStr)), 0, dupAccept);
+          Result := True;
+        finally
+          vConfig.OpenKey( '' );
+        end;
       end;
     end;
 
   var
     I :Integer;
-    vKey :HKEY;
-    vPath :TString;
   begin
-    vPath := FRegRoot + '\' + cPlugRegFolder + '\' + cActionsRegFolder;
-
-    if not RegOpenRead(HKCU, vPath, vKey) then
-      Exit;
+    vConfig := TFarConfig.CreateEx(False, cPluginName);
     try
-      I := 0;
-      while True do begin
-        if not LocReadAction(vKey, I) then
-          Break;
-        Inc(I);
+      if vConfig.Exists then begin
+        I := 0;
+        while LocReadAction(I) do
+          Inc(I);
       end;
     finally
-      RegCloseKey(vKey);
+      FreeObj(vConfig);
     end;
   end;
 
@@ -1049,112 +1232,101 @@ interface
   end;
 
 
-  procedure TPanelTabs.StoreReg(const APath :TString);
+  procedure TPanelTabs.StoreReg(const APath :TString; AOnlyCurrent :Boolean = False);
+  var
+    vPath :TString;
+    vConfig :TFarConfig;
 
-    procedure LocWriteTab(AKey :HKey; AIndex :Integer; ATab :TPanelTab);
-    var
-      vKey :HKEY;
+    procedure LocWriteTab(AIndex :Integer; ATab :TPanelTab);
     begin
-      RegOpenWrite(AKey, cTabRegFolder + Int2Str(AIndex), vKey);
-      try
-        RegWriteStr(vKey, cCaptionRegKey, ATab.FCaption);
-        RegWriteStr(vKey, cFolderRegKey, ATab.FFolder);
-      finally
-        RegCloseKey(vKey);
+      if vConfig.OpenKey(vPath + '\' + cTabRegFolder + Int2Str(AIndex)) then begin
+        try
+          vConfig.StrValue(cCaptionRegKey, ATab.FCaption);
+          vConfig.StrValue(cFolderRegKey, ATab.FFolder);
+        finally
+          vConfig.OpenKey( '' );
+        end;
       end;
-    end;
-
-    function LocDelete(AKey :HKey; AIndex :Integer) :Boolean;
-    var
-      vKey :HKEY;
-      vStr :TString;
-    begin
-      Result := False;
-      vStr := cTabRegFolder + Int2Str(AIndex);
-      if not RegOpenRead(AKey, vStr, vKey) then
-        Exit;
-
-      ApiCheckCode(RegDeleteKey(AKey, PTChar(vStr)));
-
-      RegCloseKey(vKey);
     end;
 
   var
     I :Integer;
-    vKey :HKEY;
-    vPath :TString;
   begin
     vPath := APath;
     if vPath = '' then
-      vPath := FRegRoot + '\' + cPlugRegFolder + '\' + cTabsRegFolder + '\' + FName;
+      vPath := cTabsRegFolder + '\' + FName;
 
-    RegOpenWrite(HKCU, vPath, vKey);
+    vConfig := TFarConfig.CreateEx(True, cPluginName);
     try
-      for I := 0 to Count - 1 do
-        LocWriteTab(vKey, I, Items[I]);
+      if vConfig.OpenKey(vPath) then begin
 
-      {Удаляем лишние папки}
-      I := Count;
-      while True do begin
-        if not LocDelete(vKey, I) then
-          Break;
-        Inc(I);
+        vConfig.IntValue(cCurrentRegKey, FCurrent);
+
+        if not AOnlyCurrent then begin
+          { Сохраняем табы }
+          for I := 0 to Count - 1 do
+            LocWriteTab(I, Items[I]);
+
+          { Удаляем лишние табы }
+          if vConfig.OpenKey(vPath) then begin
+            I := Count;
+            while vConfig.DeleteKey( cTabRegFolder + Int2Str(I) ) do
+              Inc(I);
+          end;
+        end;
       end;
 
-      RegWriteInt(vKey, cCurrentRegKey, FCurrent);
-
     finally
-      RegCloseKey(vKey);
+      FreeObj(vConfig);
     end;
   end;
 
 
   procedure TPanelTabs.RestoreReg(const APath :TString);
+  var
+    vPath :TString;
+    vConfig :TFarConfig;
 
-    function LocReadTab(AKey :HKey; AIndex :Integer) :Boolean;
+    function LocReadTab(AIndex :Integer) :Boolean;
     var
-      vKey :HKEY;
       vCaption, vFolder :TString;
     begin
       Result := False;
-      if not RegOpenRead(AKey, cTabRegFolder + Int2Str(AIndex), vKey) then
-        Exit;
-      try
-        vCaption := RegQueryStr(vKey, cCaptionRegKey, '');
-        if vCaption <> '' then begin
-          vFolder := RegQueryStr(vKey, cFolderRegKey, '');
-          Add(TPanelTab.CreateEx(vCaption, vFolder));
+      if vConfig.OpenKey( vPath + '\' + cTabRegFolder + Int2Str(AIndex) ) then begin
+        try
+          vConfig.StrValue(cCaptionRegKey, vCaption);
+          if vCaption <> '' then begin
+            vConfig.StrValue(cFolderRegKey, vFolder);
+            Add(TPanelTab.CreateEx(vCaption, vFolder));
+          end;
+          Result := True;
+        finally
+          vConfig.OpenKey( '' );
         end;
-        Result := True;
-      finally
-        RegCloseKey(vKey);
       end;
     end;
 
   var
     I :Integer;
-    vKey :HKEY;
-    vPath :TString;
   begin
     vPath := APath;
     if vPath = '' then
-      vPath := FRegRoot + '\' + cPlugRegFolder + '\' + cTabsRegFolder + '\' + FName;
+      vPath := cTabsRegFolder + '\' + FName;
 
-    if not RegOpenRead(HKCU, vPath, vKey) then
-      Exit;
+    vConfig := TFarConfig.CreateEx(False, cPluginName);
     try
-      I := 0;
-      while True do begin
-        if not LocReadTab(vKey, I) then
-          Break;
-        Inc(I);
+      if vConfig.Exists and vConfig.OpenKey(vPath) then begin
+
+        vConfig.IntValue(cCurrentRegKey, FCurrent);
+
+        I := 0;
+        while LocReadTab(I) do
+          Inc(I);
+
+        UpdateHotkeys;
       end;
-
-      FCurrent := RegQueryInt(vKey, cCurrentRegKey, FCurrent);
-
-      UpdateHotkeys;
     finally
-      RegCloseKey(vKey);
+      FreeObj(vConfig);
     end;
   end;
 
@@ -1360,7 +1532,7 @@ interface
   function TTabsManager.CanPaintTabs(ACheckCursor :Boolean = False) :Boolean;
     { Вызывается из дополнительного потока. Не должна использовать не-threadsafe функции}
   var
-    vWinInfo :TWindowInfo;
+    vWinType :Integer;
     vCursorInfo :TConsoleCursorInfo;
   begin
     Result := False;
@@ -1375,18 +1547,17 @@ interface
 //    { Нет панелей... }
 //    Exit;
 
-    FillChar(vWinInfo, SizeOf(vWinInfo), 0);
-    vWinInfo.Pos := -1;
-    FARAPI.AdvControl(hModule, ACTL_GETSHORTWINDOWINFO, @vWinInfo);
-//  TraceF('WindowType=%d', [vWinInfo.WindowType]);
-    if vWinInfo.WindowType = WTYPE_PANELS then begin
+    vWinType := FarGetWindowType;
+//  TraceF('WindowType=%d', [vWinType]);
+
+    if vWinType = WTYPE_PANELS then begin
 
       if ACheckCursor then begin
         GetConsoleCursorInfo(hStdOut, vCursorInfo);
 //      TraceF('Cursor=%d', [Byte(vCursorInfo.bVisible)]);
         if not vCursorInfo.bVisible then
           { Нет курсора - значит активна не панель. Этой проверкой отсекаем ситуацию, }
-          { когда активно меню и т.п., что не определяется с помощью ACTL_GETWINDOWINFO }
+          { когда активно меню и т.п., что не определяется с помощью ACTL_GETWINDOWINFO/ACTL_GETWINDOWTYPE }
           Exit;
       end;
 
@@ -1401,15 +1572,15 @@ interface
   end;
 
 
-  function SwapFgBgColors(AColor :Byte) :Byte;
+  function SwapFgBgColors(AColor :TFarColor) :TFarColor;
   begin
-    Result := ((AColor and $0F) shl 4) + ((AColor and $F0) shr 4);
+    Result := MakeColor(GetColorBG(AColor), GetColorFG(AColor));
   end;
 
 
   procedure TTabsManager.PaintTabs(ACheckCursor :Boolean = False);
   var
-    vColorSide1, vColorSide2 :Integer;
+    vColorSide1, vColorSide2 :TFarColor;
     vWinWidth :Integer;
     vCmdLineY :Integer;
     vFolders :array[TTabKind] of TString;
@@ -1420,9 +1591,7 @@ interface
       vRes :Integer;
       vSize :TSize;
     begin
-//    vRes := FARAPI.AdvControl(hModule, ACTL_GETPANELSETTINGS, nil);
-      vRes := FARAPI.AdvControl(hModule, ACTL_GETINTERFACESETTINGS, nil);
-
+      vRes := FarAdvControl(ACTL_GETINTERFACESETTINGS, nil);
       vSize := FarGetWindowSize;
       vCmdLineY := vSize.CY - 1 - IntIf(FIS_SHOWKEYBAR and vRes <> 0, 1, 0);
       vWinWidth := vSize.CX;
@@ -1437,26 +1606,29 @@ interface
       var
         vInfo  :TPanelInfo;
         vKind  :TTabKind;
+        vVisible, vPlugin :Boolean;
       begin
-        FillChar(vInfo, SizeOf(vInfo), 0);
-       {$ifdef bUnicodeFar}
-        FARAPI.Control(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_GetPanelInfo, 0, @vInfo);
+        FarGetPanelInfo(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), vInfo);
+       {$ifdef Far3}
+        vVisible := PFLAGS_VISIBLE and vInfo.Flags <> 0;
+        vPlugin  := PFLAGS_PLUGIN and vInfo.Flags <> 0;
        {$else}
-        FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelShortInfo, FCTL_GetAnotherPanelShortInfo), @vInfo);
-       {$endif bUnicodeFar}
+        vVisible := vInfo.Visible <> 0;
+        vPlugin  := vInfo.Plugin <> 0;
+       {$endif Far3}
         if PFLAGS_PANELLEFT and vInfo.Flags <> 0 then
           vKind := tkLeft
         else
           vKind := tkRight;
 
-        if vInfo.Plugin = 0 then
+        if not vPlugin then
           vFolders[vKind] := GetPanelDir(Active)
         else
           vFolders[vKind] := '';
         if not optSeparateTabs and Active then
           vFolders[tkCommon] := vFolders[vKind];
 
-        if (vInfo.Visible = 0) {or not vInfo.Focus} then
+        if not vVisible {or not vInfo.Focus} then
           Exit;
         if vInfo.PanelRect.Bottom + 1 >= vCmdLineY then
           { Нет места для табов }
@@ -1471,6 +1643,7 @@ interface
           end;
       end;
 
+      
     begin
       vMaximized := False;
       FillChar(FRects, SizeOf(FRects), 0);
@@ -1518,7 +1691,7 @@ interface
       vTabs :TPanelTabs;
       vTab :TPanelTab;
       vStr, vStr1 :TString;
-      vHotColor :Integer;
+      vHotColor :TFarColor;
       vCurrentIndex :Integer;
     begin
       vTabs := FTabs[AKind];
@@ -1560,11 +1733,7 @@ interface
 
       for I := 0 to vTabs.Count - 1 do begin
         vTab := vTabs[I];
-       {$ifdef bUnicodefar}
         vStr := vTab.GetTabCaption;
-       {$else}
-        vStr := StrAnsiToOem(vTab.GetTabCaption);
-       {$endif bUnicodefar}
         X := vRect.Left + vTab.FDelta;
 
         vStr1 := '';
@@ -1582,7 +1751,7 @@ interface
 //        DrawTextChr(cSide2, X-1, vRect.Top, vColorSide1);
           DrawTextChr(cSide1, X-1, vRect.Top, SwapFgBgColors(vColorSide1));
 
-          vHotColor := (optNumberColor and $0F) or (optActiveTabColor and $F0);
+          vHotColor := MakeColor(GetColorFG(optNumberColor), GetColorBG(optActiveTabColor));
           if vStr1 <> '' then begin
             FARAPI.Text(X, vRect.Top, vHotColor, PTChar(vStr1));
             Dec(vWidth);
@@ -1594,7 +1763,7 @@ interface
           DrawTextChr(cSide1, X, vRect.Top, vColorSide1);
         end else
         begin
-          vHotColor := (optNumberColor and $0F) or (optPassiveTabColor and $F0);
+          vHotColor := MakeColor(GetColorFG(optNumberColor), GetColorBG(optPassiveTabColor));
           if vStr1 <> '' then begin
             FARAPI.Text(X, vRect.Top, vHotColor, PTChar(vStr1));
             Dec(vWidth);
@@ -1605,10 +1774,12 @@ interface
       end;
 
       if optShowButton then begin
+
 //      DrawTextChr(cSide2, vRect.Right - 3, vRect.Top, vColorSide2);
         DrawTextChr(cSide1, vRect.Right - 3, vRect.Top, SwapFgBgColors(vColorSide2));
         DrawTextChr('+', vRect.Right - 2, vRect.Top, optButtonColor);
         DrawTextChr(cSide1, vRect.Right - 1, vRect.Top, vColorSide2);
+
       end else
       begin
 //      vTmp[0] := cSide1;
@@ -1620,8 +1791,8 @@ interface
     if not CanPaintTabs(ACheckCursor) then
       Exit;
 
-    vColorSide1 := (optActiveTabColor and $F0) or ((optBkColor and $F0) shr 4);
-    vColorSide2 := (optButtonColor and $F0) or ((optBkColor and $F0) shr 4);
+    vColorSide1 := MakeColor(GetColorBG(optBkColor), GetColorBG(optActiveTabColor));
+    vColorSide2 := MakeColor(GetColorBG(optBkColor), GetColorBG(optButtonColor));
 
     DetectPanelSettings;
     DetectPanelsLayout;
@@ -1718,10 +1889,10 @@ interface
     begin
       vPos := ChrPos(';', APath);
       if vPos = 0 then
-        FarPanelJumpToPath(Active, APath)
+        JumpToPath(Active, APath)
       else begin
-        FarPanelJumpToPath(Active, Copy(APath, 1, vPos - 1));
-        FarPanelJumpToPath(not Active, Copy(APath, vPos + 1, MaxInt));
+        JumpToPath(Active, Copy(APath, 1, vPos - 1));
+        JumpToPath(not Active, Copy(APath, vPos + 1, MaxInt));
       end;
     end;
 
@@ -1891,9 +2062,10 @@ interface
       FPressedIndex := AIndex;
       FPressedKind := AKind;
       PaintTabs;
+      
      {$ifdef bUseInjecting}
      {$else}
-      FARAPI.Text(0, 0, 0, nil);
+      FARAPI.Text(0, 0, UndefColor, nil);
      {$endif bUseInjecting}
     end;
   end;
@@ -2094,5 +2266,4 @@ initialization
 finalization
   FreeObj(TabsManager);
 end.
-
 

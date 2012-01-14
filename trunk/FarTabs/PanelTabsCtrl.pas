@@ -17,15 +17,16 @@ interface
     MixStrings,
     MixWinUtils,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
     FarColor,
 
     FarCtrl,
     FarConMan,
+    FarConfig,
     FarColorDlg;
 
 
@@ -84,6 +85,16 @@ interface
       strActionNotDefined,
       strActionAlreadyDefined,
 
+      strConfirmation,
+//    strFileNotFound,
+      strFolderNotFound,
+      strNearestFolderIs,
+//    strCreateFileBut,
+      strCreateFolderBut,
+      strGotoNearestBut,
+//    strDeleteBut,
+      strCannotCreateFolder,
+
       strColorDialog,
       str_CD_Foreground,
       str_CD_Background,
@@ -96,7 +107,18 @@ interface
 
 
   const
-    cFarTabGUID        = $A91B3F07;
+    cPluginName = 'PanelTabs';
+    cPluginDescr = 'PanelTabs FAR plugin';
+    cPluginAuthor = 'Max Rusov';
+
+   {$ifdef Far3}
+    cPluginID    :TGUID = '{8E6FEAE8-9078-4FB9-81E8-1A58F4746037}';
+    cMenuID      :TGUID = '{8C7FD2E3-EB46-4D00-84E2-83C763DAFEA4}';
+    cConfigID    :TGUID = '{412FFADF-5DEA-4805-BBE0-FC1142FAFE01}';
+   {$else}
+    cPluginID    = $A91B3F07;
+   {$endif Far3}
+
     cFarTabPrefix      = 'tab';
 
     cTabFileExt        = 'tab';
@@ -142,15 +164,14 @@ interface
 
     optDblClickDelay   :Integer = 500;
 
-    optBkColor         :Integer = 0;
-    optActiveTabColor  :Integer = 0;
-    optPassiveTabColor :Integer = 0;
-    optNumberColor     :Integer = 0;
-    optButtonColor     :Integer = 0;
-
-//  optHiddenColor     :Integer = 0;
-//  optFoundColor      :Integer = $0A;
-//  optSelectedColor   :Integer = $20;
+    optBkColor         :TFarColor;
+    optActiveTabColor  :TFarColor;
+    optPassiveTabColor :TFarColor;
+    optNumberColor     :TFarColor;
+    optButtonColor     :TFarColor;
+//  optHiddenColor     :TFarColor;
+//  optFoundColor      :TFarColor;
+//  optSelectedColor   :TFarColor;
 
    {$ifdef bUnicodeFar}
    {$else}
@@ -158,9 +179,6 @@ interface
     TabShift1          :Word    = 0; {LEFT_ALT_PRESSED or SHIFT_PRESSED}
    {$endif bUnicodeFar}
 
-
-  var
-    FRegRoot  :TString;
 
   var
     hFarWindow  :THandle = THandle(-1);
@@ -347,72 +365,50 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure ReadSetup;
-  var
-    vKey :HKEY;
+  procedure PluginConfig(AStore :Boolean);
   begin
-    if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then
-      Exit;
-    try
-     {$ifdef bUnicodeFar}
-     {$else}
-      TabKey1 := RegQueryInt(vKey, 'CallKey', TabKey1);
-      TabShift1 := RegQueryInt(vKey, 'CallShift', TabShift1);
-     {$endif bUnicodeFar}
+    with TFarConfig.CreateEx(AStore, cPluginName) do
+      try
+        if Exists then begin
+          LogValue('ShowTabs', optShowTabs);
+          LogValue('ShowNumbers', optShowNumbers);
+          LogValue('ShowButton', optShowButton);
+          LogValue('SeparateTabs', optSeparateTabs);
+          LogValue('StoreSelection', optStoreSelection);
 
-      optShowTabs := RegQueryLog(vKey, 'ShowTabs', optShowTabs);
-      optShowNumbers := RegQueryLog(vKey, 'ShowNumbers', optShowNumbers);
-//    optShowButton := RegQueryLog(vKey, 'ShowButton', optShowButton);
-      optSeparateTabs := RegQueryLog(vKey, 'SeparateTabs', optSeparateTabs);
-      optStoreSelection := RegQueryLog(vKey, 'StoreSelection', optStoreSelection);
+          ColorValue('TabBkColor', optBkColor);
+          ColorValue('ActiveTabColor', optActiveTabColor);
+          ColorValue('PassiveTabColor', optPassiveTabColor);
+          ColorValue('NumberColor', optNumberColor);
+          ColorValue('ButtonColor', optButtonColor);
 
-      optBkColor := RegQueryInt(vKey, 'TabBkColor', optBkColor);
-      optActiveTabColor := RegQueryInt(vKey, 'ActiveTabColor', optActiveTabColor);
-      optPassiveTabColor := RegQueryInt(vKey, 'PassiveTabColor', optPassiveTabColor);
-      optNumberColor := RegQueryInt(vKey, 'NumberColor', optNumberColor);
-      optButtonColor := RegQueryInt(vKey, 'ButtonColor', optButtonColor);
-
-      optFixedMark := RegQueryStr(vKey, 'LockedMark', optFixedMark);
-      optNotFixedMark := RegQueryStr(vKey, 'UnlockedMark', optNotFixedMark);
-
-    finally
-      RegCloseKey(vKey);
-    end;
+          StrValue('LockedMark', optFixedMark);
+          StrValue('UnlockedMark', optNotFixedMark);
+        end;
+      finally
+        Destroy;
+      end;
   end;
 
 
-  procedure WriteSetup;
-  var
-    vKey :HKEY;
+  procedure ReadSetup;
   begin
-    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
-    try
+    PluginConfig(False);
+  end;
 
-      RegWriteLog(vKey, 'ShowTabs', optShowTabs);
-      RegWriteLog(vKey, 'ShowNumbers', optShowNumbers);
-//    RegWriteLog(vKey, 'ShowButton', optShowButton);
-      RegWriteLog(vKey, 'SeparateTabs', optSeparateTabs);
-      RegWriteLog(vKey, 'StoreSelection', optStoreSelection);
-
-      RegWriteInt(vKey, 'TabBkColor', optBkColor);
-      RegWriteInt(vKey, 'ActiveTabColor', optActiveTabColor);
-      RegWriteInt(vKey, 'PassiveTabColor', optPassiveTabColor);
-      RegWriteInt(vKey, 'NumberColor', optNumberColor);
-      RegWriteInt(vKey, 'ButtonColor', optButtonColor);
-
-    finally
-      RegCloseKey(vKey);
-    end;
+  procedure WriteSetup;
+  begin
+    PluginConfig(True);
   end;
 
 
   procedure RestoreDefColor;
   begin
-    optBkColor         := GetOptColor(0, COL_COMMANDLINE);
-    optActiveTabColor  := GetOptColor(0, COL_PANELTEXT);
-    optPassiveTabColor := GetOptColor(0, COL_COMMANDLINE);
-    optNumberColor     := GetOptColor(0, COL_PANELCOLUMNTITLE);
-    optButtonColor     := GetOptColor(0, COL_PANELTEXT);
+    optBkColor         := FarGetColor(COL_COMMANDLINE);
+    optActiveTabColor  := FarGetColor(COL_PANELTEXT);
+    optPassiveTabColor := FarGetColor(COL_COMMANDLINE);
+    optNumberColor     := FarGetColor(COL_PANELCOLUMNTITLE);
+    optButtonColor     := FarGetColor(COL_PANELTEXT);
   end;
 
 

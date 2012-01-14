@@ -15,13 +15,12 @@ interface
     MixTypes,
     MixUtils,
     MixStrings,
-   {$ifdef bUnicodeFar}
-    PluginW,
-    FarKeysW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-    FarKeys,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
+    FarKeysW, 
     FarColor,
     FarCtrl,
     FarDlg,
@@ -40,21 +39,24 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
+      function CloseDialog(ItemID :Integer) :Boolean; override;
+
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
 
       procedure SelectItem(ACode :Integer); virtual;
       procedure ReInitGrid; virtual;
 
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean); virtual;
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; virtual;
-      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); virtual;
+      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); virtual;
 
     protected
       FTabs           :TPanelTabs;
-      FHotkeyColor1   :Integer;
-      FHotkeyColor2   :Integer;
+      FHotkeyColor1   :TFarColor;
+      FHotkeyColor2   :TFarColor;
       FResInd         :Integer;
       FResCmd         :Integer;
+      FNeedStore      :Boolean;
 
       procedure EditCurrent;
     end;
@@ -78,8 +80,8 @@ interface
   constructor TTabsList.Create; {override;}
   begin
     inherited Create;
-    FHotkeyColor1 := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUHIGHLIGHT));
-    FHotkeyColor2 := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUSELECTEDHIGHLIGHT));
+    FHotkeyColor1 := FarGetColor(COL_MENUHIGHLIGHT);
+    FHotkeyColor2 := FarGetColor(COL_MENUSELECTEDHIGHLIGHT);
   end;
 
 
@@ -105,6 +107,14 @@ interface
     ReInitGrid;
     if FResInd <> -1 then
       SetCurrent(FResInd);
+  end;
+
+
+  function TTabsList.CloseDialog(ItemID :Integer) :Boolean; {override;}
+  begin
+    Result := inherited CloseDialog(ItemID);
+    if FNeedStore then
+      FTabs.StoreReg('');
   end;
 
 
@@ -160,15 +170,21 @@ interface
   end;
 
 
-  procedure TTabsList.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer); {virtual;}
+  procedure TTabsList.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); {virtual;}
   var
     vTab :TPanelTab;
     vStr :TString;
+    vColor :TFarColor;
   begin
     if ARow < FTabs.Count then begin
       vTab := FTabs[ARow];
       vStr := Format('%s %s', [IndexToChar(ARow), vTab.GetTabCaption]);
-      FGrid.DrawChrEx(X, Y, PTChar(vStr), AWidth, 0, 1, AColor, IntIf(FGrid.CurRow = ARow, FHotkeyColor2, FHotkeyColor1));
+
+      if FGrid.CurRow = ARow then
+        vColor := FHotkeyColor2
+      else
+        vColor := FHotkeyColor1;
+      FGrid.DrawChrEx(X, Y, PTChar(vStr), AWidth, 0, 1, AColor, vColor);
     end;
   end;
 
@@ -188,7 +204,8 @@ interface
   begin
     if FGrid.CurRow < FGrid.RowCount then begin
       if EditTab(FTabs, FGrid.CurRow) then begin
-        FTabs.StoreReg('');
+//      FTabs.StoreReg('');
+        FNeedStore := True;
         ReInitGrid;
       end;
     end else
@@ -196,7 +213,7 @@ interface
   end;
 
 
-  function TTabsList.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  function TTabsList.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
 
     procedure LocInsert;
     var
@@ -206,7 +223,8 @@ interface
       if vIndex < FGrid.RowCount then
         Inc(vIndex);
       if NewTab(FTabs, vIndex) then begin
-        FTabs.StoreReg('');
+//      FTabs.StoreReg('');
+        FNeedStore := True;
         ReInitGrid;
         SetCurrent(vIndex);
       end;
@@ -216,7 +234,8 @@ interface
     begin
       if FGrid.CurRow < FGrid.RowCount then begin
         FTabs.Delete( FGrid.CurRow );
-        FTabs.StoreReg('');
+//      FTabs.StoreReg('');
+        FNeedStore := True;
         ReInitGrid;
       end else
         Beep;
@@ -226,7 +245,8 @@ interface
     begin
       if (FGrid.CurRow < FGrid.RowCount) and (FGrid.CurRow + ADelta >= 0) and (FGrid.CurRow + ADelta < FGrid.RowCount) then begin
         FTabs.Move(FGrid.CurRow, FGrid.CurRow + ADelta);
-        FTabs.StoreReg('');
+//      FTabs.StoreReg('');
+        FNeedStore := True;
         ReInitGrid;
         SetCurrent(FGrid.CurRow + ADelta);
       end else
@@ -245,36 +265,29 @@ interface
   var
     vIndex :Integer;
   begin
-    Result := 1;
-    case Msg of
-      DN_KEY: begin
-        case Param2 of
-          KEY_ENTER:
-            SelectItem(1);
+    Result := True;
+    case AKey of
+      KEY_ENTER:
+        SelectItem(1);
 
-          KEY_F4:
-            EditCurrent;
-          KEY_INS:
-            LocInsert;
-          KEY_DEL:
-            LocDelete;
+      KEY_F4:
+        EditCurrent;
+      KEY_INS:
+        LocInsert;
+      KEY_DEL:
+        LocDelete;
 
-          KEY_CTRLUP:
-            LocMove(-1);
-          KEY_CTRLDOWN:
-            LocMove(+1);
-
-        else
-          vIndex := VKeyToIndex(Param2);
-          if vIndex <> -1 then
-            LocHotkey(vIndex)
-          else
-            Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
-      end;
+      KEY_CTRLUP:
+        LocMove(-1);
+      KEY_CTRLDOWN:
+        LocMove(+1);
 
     else
-      Result := inherited DialogHandler(Msg, Param1, Param2);
+      vIndex := VKeyToIndex(AKey);
+      if vIndex <> -1 then
+        LocHotkey(vIndex)
+      else
+        Result := inherited KeyDown(AID, AKey);
     end;
   end;
 

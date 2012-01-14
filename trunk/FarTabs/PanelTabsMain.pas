@@ -18,40 +18,38 @@ interface
     MixStrings,
     MixClasses,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-    FarKeysW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-    FarKeys,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
     FarCtrl,
     FarConMan,
+    FarPlug,
 
     PanelTabsCtrl,
     PanelTabsClasses;
 
 
- {$ifdef bUnicodeFar}
-  function GetMinFarVersionW :Integer; stdcall;
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
-  procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
-  function ConfigureW(Item: integer) :Integer; stdcall;
- {$else}
-  procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
-  procedure ExitFAR; stdcall;
-  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
-  function Configure(Item: integer) :Integer; stdcall;
- {$endif bUnicodeFar}
+  type
+    TPanelTabsPlug = class(TFarPlug)
+    public
+      procedure Init; override;
+      procedure Startup; override;
+      procedure ExitFar; override;
+
+      procedure Configure; override;
+      procedure GetInfo; override;
+      function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      procedure SynchroEvent(AParam :Pointer); override;
+      procedure ErrorHandler(E :Exception); override;
+    end;
 
 
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
+
 
   uses
     MixDebug;
@@ -503,7 +501,7 @@ interface
     end;
 
 //  TraceF('Call plugin: ACmd=%d', [ACmd]);
-    FARAPI.AdvControl(hModule, ACTL_SYNCHRO, Pointer(TIntPtr(ACmd)));
+    FarAdvControl(ACTL_SYNCHRO, Pointer(TIntPtr(ACmd)));
   end;
 
  {$else}
@@ -579,38 +577,42 @@ interface
   end;
 
 
+
  {-----------------------------------------------------------------------------}
- { Экспортируемые процедуры                                                    }
+ { TPanelTabsPlug                                                              }
  {-----------------------------------------------------------------------------}
 
- {$ifdef bUnicodeFar}
-  function GetMinFarVersionW :Integer; stdcall;
+  procedure TPanelTabsPlug.Init; {override;}
   begin
-//  Result := MakeFarVersion(2, 0, 1005);   { ProcessSynchroEvent }
-//  Result := MakeFarVersion(2, 0, 1148);   { ConvertPath }
-    Result := MakeFarVersion(2, 0, 1573);   { ACTL_GETFARRECT }
+    inherited Init;
+
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
+
+   {$ifdef Far3}
+    FGUID := cPluginID;
+   {$else}
+    FID := cPluginID;
+   {$endif Far3}
+
+   {$ifdef Far3}
+    FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
+   {$else}
+//  FMinFarVer := MakeVersion(2, 0, 1005);   { ProcessSynchroEvent }
+//  FMinFarVer := MakeVersion(2, 0, 1148);   { ConvertPath }
+    FMinFarVer := MakeVersion(2, 0, 1573);   { ACTL_GETFARRECT }
+   {$endif Far3}
   end;
- {$endif bUnicodeFar}
 
 
- {$ifdef bUnicodeFar}
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
- {$else}
-  procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
- {$endif bUnicodeFar}
+  procedure TPanelTabsPlug.Startup; {override;}
   begin
-//  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
-
-    hModule := psi.ModuleNumber;
-    FARAPI := psi;
-    FARSTD := psi.fsf^;
-
     hStdin := GetStdHandle(STD_INPUT_HANDLE);
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
-    FRegRoot := psi.RootKey;
 
     { Получаем Handle консоли Far'а }
-    hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
+    hFarWindow := FarAdvControl(ACTL_GETFARHWND, nil);
 
     RestoreDefColor;
     ReadSetup;
@@ -624,41 +626,22 @@ interface
   end;
 
 
-  var
-    PluginMenuStrings: array[0..0] of PFarChar;
-    ConfigMenuStrings: array[0..0] of PFarChar;
-
- {$ifdef bUnicodeFar}
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
- {$else}
-  procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
- {$endif bUnicodeFar}
+  procedure TPanelTabsPlug.GetInfo; {override;}
   begin
-//  TraceF('GetPluginInfo: %s', ['']);
+    FFlags := PF_PRELOAD;
 
-    pi.StructSize:= SizeOf(pi);
-    pi.Flags:= PF_PRELOAD;
+    FMenuStr := GetMsg(strTitle);
+    FConfigStr := FMenuStr;
+   {$ifdef Far3}
+    FMenuID := cMenuID;
+    FConfigID := cConfigID;
+   {$endif Far3}
 
-    PluginMenuStrings[0]:= GetMsg(strTitle);
-    pi.PluginMenuStrings := @PluginMenuStrings;
-    pi.PluginMenuStringsNumber := 1;
-
-    ConfigMenuStrings[0]:= GetMsg(strTitle);
-    pi.PluginConfigStrings := @ConfigMenuStrings;
-    pi.PluginConfigStringsNumber := 1;
-
-    pi.CommandPrefix := cFarTabPrefix;
-    pi.Reserved := cFarTabGUID;
-
-//  TabsManager.RefreshTabs;
+    FPrefix := cFarTabPrefix;
   end;
 
 
- {$ifdef bUnicodeFar}
-  procedure ExitFARW; stdcall;
- {$else}
-  procedure ExitFAR; stdcall;
- {$endif bUnicodeFar}
+  procedure TPanelTabsPlug.ExitFar; {override;}
   begin
    {$ifdef bUseInjecting}
     RemoveHandlers;
@@ -666,6 +649,7 @@ interface
 
     SetTabsThread(False);
     try
+      {???}
       TabsManager.StoreTabs;
     except
     end;
@@ -673,68 +657,45 @@ interface
   end;
 
 
- {$ifdef bUnicodeFar}
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
- {$else}
-  function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
- {$endif bUnicodeFar}
+  procedure TPanelTabsPlug.Configure; {override;}
   begin
-    Result:= INVALID_HANDLE_VALUE;
-    try
-//    TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
-
-     {$ifndef bUnicodeFar}
-      SetFileApisToAnsi;
-      try
-     {$endif bUnicodeFar}
-
-      if OpenFrom and OPEN_FROMMACRO <> 0 then begin
-        Item := Item and not OPEN_FROMMACRO;
-        if Item = 0 then begin
-          case GlobalCommand of
-            1: TabsManager.PaintTabs;
-            2: TabsManager.MouseClick;
-          end;
-          GlobalCommand := 0;
-        end else
-        begin
-          case Item of
-            1: TabsManager.AddTab(True);
-            2: TabsManager.ListTab(True);
-            3: ProcessSelectMode;
-            4: OptionsMenu;
-          end;
-        end;
-      end else
-      if OpenFrom = OPEN_COMMANDLINE then
-        OpenCmdLine(FarChar2Str(PFarChar(Item)))
-      else
-        MainMenu;
-
-     {$ifndef bUnicodeFar}
-      finally
-        SetFileApisToOEM;
-      end;
-     {$endif bUnicodeFar}
-
-    except
-      on E :Exception do
-        HandleError(E);
-    end;
+    OptionsMenu;
   end;
 
 
- {$ifdef bUnicodeFar}
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
+  function TPanelTabsPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
-//  TraceF('ProcessSynchroEventW. Event=%d, Param=%d', [Event, Integer(Param)]);
+    Result := INVALID_HANDLE_VALUE;
+    
+    if AFrom and OPEN_FROMMACRO <> 0 then begin
+      AParam := AParam and not OPEN_FROMMACRO;
+      if AParam = 0 then begin
+        case GlobalCommand of
+          1: TabsManager.PaintTabs;
+          2: TabsManager.MouseClick;
+        end;
+        GlobalCommand := 0;
+      end else
+      begin
+        case AParam of
+          1: TabsManager.AddTab(True);
+          2: TabsManager.ListTab(True);
+          3: ProcessSelectMode;
+          4: OptionsMenu;
+        end;
+      end;
+    end else
+    if AFrom = OPEN_COMMANDLINE then
+      OpenCmdLine(FarChar2Str(PFarChar(AParam)))
+    else
+      MainMenu;
+  end;
 
-    Result := 0;
+
+  procedure TPanelTabsPlug.SynchroEvent(AParam :Pointer); {override;}
+  begin
     try
-      if Event <> SE_COMMONSYNCHRO then
-        Exit;
-
-      case TUnsPtr(Param) of
+      case TUnsPtr(AParam) of
         1: TabsManager.PaintTabs(True);
         2: TabsManager.MouseClick;
       end;
@@ -744,23 +705,11 @@ interface
         HandleError(E);
     end;
   end;
- {$endif bUnicodeFar}
 
 
-
- {$ifdef bUnicodeFar}
-  function ConfigureW(Item: integer) :Integer; stdcall;
- {$else}
-  function Configure(Item: integer) :Integer; stdcall;
- {$endif bUnicodeFar}
+  procedure TPanelTabsPlug.ErrorHandler(E :Exception); {override;}
   begin
-    Result := 1;
-    try
-      OptionsMenu;
-    except
-      on E :Exception do
-        HandleError(E);
-    end;
+    ShowMessage('Panel Tabs', E.Message, FMSG_WARNING or FMSG_MB_OK);
   end;
 
 

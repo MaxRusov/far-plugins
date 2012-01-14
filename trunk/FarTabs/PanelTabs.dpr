@@ -1,9 +1,9 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{$ifdef bDelphi}
+{$ifdef Debug}
  {$ImageBase $40B00000}
-{$endif bDelphi}
+{$endif Debug}
 
 library PanelTabs;  
 
@@ -12,25 +12,29 @@ uses
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
+  FarPlug,
   MixFormat,
   PanelTabsMain;
 
 exports
- {$ifdef bUnicodeFar}
+ {$ifdef Far3}
+  GetGlobalInfoW,
+ {$else}
   GetMinFarVersionW,
+ {$endif Far3}
+
   SetStartupInfoW,
   GetPluginInfoW,
+  
+ {$ifdef Far3}
+  OpenW,
+ {$else}
   OpenPluginW,
+ {$endif Far3}
+
   ConfigureW,
   ProcessSynchroEventW,
   ExitFARW;
- {$else}
-  SetStartupInfo,
-  GetPluginInfo,
-  OpenPlugin,
-  Configure,
-  ExitFAR;
- {$endif bUnicodeFar}
 
  {$ifdef bUnicode}
   {$R PanelTabsW.res}
@@ -38,4 +42,6 @@ exports
   {$R PanelTabsA.res}
  {$endif bUnicode}
 
+begin
+  Plug := TPanelTabsPlug.Create;
 end.

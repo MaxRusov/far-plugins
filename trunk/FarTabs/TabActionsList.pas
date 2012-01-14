@@ -17,13 +17,12 @@ interface
     MixStrings,
     MixClasses,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-    FarKeysW,
+   {$ifdef Far3}
+    Plugin3,
    {$else}
-    Plugin,
-    FarKeys,
-   {$endif bUnicodeFar}
+    PluginW,
+   {$endif Far3}
+    FarKeysW,
     FarCtrl,
     FarDlg,
     FarGrid,
@@ -43,7 +42,8 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
+
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
 
       procedure ReInitGrid; virtual;
 
@@ -191,25 +191,18 @@ interface
   end;
 
 
-  function TActionsList.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  function TActionsList.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
   begin
-    Result := 1;
-    case Msg of
-      DN_KEY: begin
-        case Param2 of
-          KEY_ENTER, KEY_F4:
-            EditCurrent;
-          KEY_INS:
-            AddNew;
-          KEY_DEL:
-            DeleteCurrent;
-        else
-          Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
-      end;
-
+    Result := True;
+    case AKey of
+      KEY_ENTER, KEY_F4:
+        EditCurrent;
+      KEY_INS:
+        AddNew;
+      KEY_DEL:
+        DeleteCurrent;
     else
-      Result := inherited DialogHandler(Msg, Param1, Param2);
+      Result := inherited KeyDown(AID, AKey);
     end;
   end;
 
