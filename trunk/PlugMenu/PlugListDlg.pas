@@ -3,9 +3,9 @@
 unit PlugListDlg;
 
 {******************************************************************************}
-{* (c) 2008-2009, Max Rusov                                                   *}
+{* (c) 2008-2012 Max Rusov                                                    *}
 {*                                                                            *}
-{* PlugMenu Far plugin                                                        *}
+{* PlugMenu Far Plugin                                                        *}
 {* Основное окно - список команд                                              *}
 {******************************************************************************}
 
@@ -212,24 +212,23 @@ interface
     vCmd1 := GetPluginComman(PInteger(PItem)^);
     vCmd2 := GetPluginComman(PInteger(PAnother)^);
 
-    case Abs(Context) of
-      0 :
-        begin
-//        if PluginSortGroup then
-//          Result := IntCompare(Byte(vPlugin1.GetCategory), Byte(vPlugin2.GetCategory));
-          Result := -LogCompare(vCmd1.Plugin.AccessibleInContext(FWindowType), vCmd2.Plugin.AccessibleInContext(FWindowType));
-        end;
-      1 : Result := UpCompareStr(vCmd1.GetMenuTitle, vCmd2.GetMenuTitle);
-      2 : Result := UpCompareStr(vCmd1.Plugin.GetFileName(PluginShowFileName), vCmd2.Plugin.GetFileName(PluginShowFileName));
-      3 : Result := DateTimeCompare(vCmd1.Plugin.FileDate, vCmd2.Plugin.FileDate);
-      4 : Result := DateTimeCompare(vCmd1.AccessDate, vCmd2.AccessDate);
-      5 : Result := UpCompareStr(vCmd1.Plugin.GetFlagsStr, vCmd2.Plugin.GetFlagsStr);
-    end;
+    if SortHiddenLast then
+      Result := -LogCompare(vCmd1.Plugin.AccessibleInContext(FWindowType), vCmd2.Plugin.AccessibleInContext(FWindowType));
 
-    if Context < 0 then
-      Result := -Result;
-    if Result = 0 then
-      Result := IntCompare(PInteger(PItem)^, PInteger(PAnother)^);
+    if Result = 0 then begin
+      case Abs(PluginSortMode) of
+        1 : Result := UpCompareStr(vCmd1.GetMenuTitle, vCmd2.GetMenuTitle);
+        2 : Result := UpCompareStr(vCmd1.Plugin.GetFileName(PluginShowFileName), vCmd2.Plugin.GetFileName(PluginShowFileName));
+        3 : Result := DateTimeCompare(vCmd1.Plugin.FileDate, vCmd2.Plugin.FileDate);
+        4 : Result := DateTimeCompare(vCmd1.AccessDate, vCmd2.AccessDate);
+        5 : Result := UpCompareStr(vCmd1.Plugin.GetFlagsStr, vCmd2.Plugin.GetFlagsStr);
+      end;
+
+      if PluginSortMode < 0 then
+        Result := -Result;
+      if Result = 0 then
+        Result := IntCompare(PInteger(PItem)^, PInteger(PAnother)^);
+    end;
   end;
 
 
@@ -482,7 +481,7 @@ interface
             FGrid.DrawChrEx(X, Y, PTChar(vStr), AWidth, vRec.FPos, vRec.FLen, AColor, ChangeFG(AColor, optFoundColor))
           else begin
             vPos := -1;
-            if (ACol = 0) and PluginAutoShortcut and not FFilterMode and (AutoHotkey <> #0) then
+            if (ACol = 0) and optAutoShortcut and not FFilterMode and (AutoHotkey <> #0) then
               vPos := ChrPos(AutoHotkey, vStr);
 
             if vPos > 0 then begin
@@ -693,7 +692,7 @@ interface
     end;
 
 //  if PluginSortMode <> 0 then
-      FFilter.SortList(True, PluginSortMode);
+      FFilter.SortList(True, 0);
 
     if True then
       Inc(vMaxLen1, 2); { Hotkey }
@@ -776,7 +775,7 @@ interface
       for I := 0 to DlgItemsCount - 1 do begin
         vCommand := GetCommand(I);
         if ((vCommand.Hotkey <> #0) and HotkeyEqual(AChr, vCommand.Hotkey, ByScanCode)) or
-          (PluginAutoShortcut and (vCommand.AutoHotkey <> #0) and HotkeyEqual(AChr, vCommand.AutoHotkey, ByScanCode))
+          (optAutoShortcut and (vCommand.AutoHotkey <> #0) and HotkeyEqual(AChr, vCommand.AutoHotkey, ByScanCode))
         then begin
           Result := I;
           Exit;
@@ -901,7 +900,9 @@ interface
       GetMsg(StrSortByModificationTime),
       GetMsg(StrSortByAccessTime),
       GetMsg(StrSortByPluginFlags),
-      GetMsg(StrSortByUnsorted)
+      GetMsg(StrSortByUnsorted),
+      '',
+      GetMsg(strSortHiddenLast)
     ]);
     try
       vRes := Abs(PluginSortMode) - 1;
@@ -911,6 +912,7 @@ interface
       if PluginSortMode < 0 then
         vChr := '-';
       vMenu.Items[vRes].Flags := SetFlag(0, MIF_CHECKED or Word(vChr), True);
+      vMenu.Checked[7] := SortHiddenLast;
 
       if not vMenu.Run then
         Exit;
@@ -918,12 +920,16 @@ interface
       vRes := vMenu.ResIdx;
 
       if vRes <> -1 then begin
-        Inc(vRes);
-        if vRes = 6 then
-          vRes := 0;
-        if vRes >= 3 then
-          vRes := -vRes;
-        SetOrder(vRes);
+        if vRes = 7 then
+          ToggleOption(SortHiddenLast, False)
+        else begin
+          Inc(vRes);
+          if vRes = 6 then
+            vRes := 0;
+          if vRes >= 3 then
+            vRes := -vRes;
+          SetOrder(vRes);
+        end;
       end;
 
     finally
@@ -933,77 +939,6 @@ interface
 
 
  {-----------------------------------------------------------------------------}
-
-(*
-  procedure TMenuDlg.OptionsDlg;
-  var
-    vMenu :TFarMenu;
-  begin
-    vMenu := TFarMenu.CreateEx(
-      GetMsg(strOptionsTitle),
-    [
-      GetMsg(strShowHidden),
-      '',
-      GetMsg(strLoadedMark),
-      GetMsg(strAnsiMark),
-      GetMsg(strFileName),
-      GetMsg(strModificationTime),
-      GetMsg(strAccessTime),
-      GetMsg(strPluginFlags),
-      '',
-      GetMsg(strSortBy),
-      '',
-      GetMsg(strAutoHotkey),
-      GetMsg(strShowHints),
-      GetMsg(strFollowMouse),
-      GetMsg(strWrapMode)
-    ]);
-    try
-      while True do begin
-        vMenu.Checked[0] := PluginShowHidden > 0;
-
-        vMenu.Checked[2] := PluginShowLoaded;
-        vMenu.Checked[3] := PluginShowAnsi;
-        vMenu.Checked[4] := PluginShowFileName > 0;
-        vMenu.Checked[5] := PluginShowDate > 0;
-        vMenu.Checked[6] := PluginShowUseDate > 0;
-        vMenu.Checked[7] := PluginShowFlags;
-
-        vMenu.Checked[11] := PluginAutoShortcut;
-        vMenu.Checked[12] := optShowHints;
-        vMenu.Checked[13] := optFollowMouse;
-        vMenu.Checked[14] := optWrapMode;
-
-        vMenu.SetSelected(vMenu.ResIdx);
-
-        if not vMenu.Run then
-          Exit;
-
-        case vMenu.ResIdx of
-          0 : ToggleOptionInt(PluginShowHidden, IntIf(PluginShowHidden = 0, 2, 0), True);
-
-          2 : ToggleOption(PluginShowLoaded, False);
-          3 : ToggleOption(PluginShowAnsi, False);
-          4 : ToggleOptionInt(PluginShowFileName, IntIf(PluginShowFileName < 2, PluginShowFileName + 1, 0), False);
-          5 : ToggleOptionInt(PluginShowDate, IntIf(PluginShowDate < 2, PluginShowDate + 1, 0), False);
-          6 : ToggleOptionInt(PluginShowUseDate, IntIf(PluginShowUseDate < 2, PluginShowUseDate + 1, 0), False);
-          7 : ToggleOption(PluginShowFlags, False);
-
-          9 : SortByDlg;
-
-          11: ToggleOption(PluginAutoShortcut, False);
-          12: ToggleOption(optShowHints, False);
-          13: ToggleOption(optFollowMouse, False);
-          14: ToggleOption(optWrapMode, False);
-        end;
-      end;
-
-    finally
-      FreeObj(vMenu);
-    end;
-  end;
-*)
-
 
   procedure TMenuDlg.OptionsDlg;
   var
@@ -1250,7 +1185,9 @@ interface
       KEY_CTRLG:
         ToggleOption(PluginSortGroup, True);
       KEY_CTRLA:
-        ToggleOption(PluginAutoShortcut, False);
+        ToggleOption(optAutoShortcut, False);
+      KEY_CTRLN:
+        ToggleOption(optShowOrigName, False);
 
       KEY_CTRL1:
         ToggleOption(PluginShowLoaded, False);
@@ -1265,8 +1202,6 @@ interface
       KEY_CTRL5:
         ToggleOption(PluginShowFlags, False);
 
-      KEY_CTRLF10:
-        SetOrder(0);
       KEY_CTRLF1, KEY_CTRLSHIFTF1:
         SetOrder(1);
       KEY_CTRLF2, KEY_CTRLSHIFTF2:
@@ -1275,12 +1210,17 @@ interface
         SetOrder(-3);
       KEY_CTRLF4, KEY_CTRLSHIFTF4:
         SetOrder(-4);
-      KEY_CTRLSHIFTF5:
+      KEY_CTRLF5, KEY_CTRLSHIFTF5:
         SetOrder(-5);
+      KEY_SHIFTF11:
+        ToggleOption(SortHiddenLast, False);
       KEY_CTRLF11:
         SetOrder(0);
+      KEY_ALTF12:
+        SetOrder(FGrid.Column[FGrid.CurCol].Tag);
       KEY_CTRLF12:
         SortByDlg;
+
 
       KEY_ALT, KEY_RALT:
         begin
@@ -1421,7 +1361,8 @@ interface
     vPath :TString;
   begin
     vPath := RemoveBackSlash(ExtractFilePath(FChoosenCmd.Plugin.FileName));
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETPANELDIR, 0, PChar(vPath));
+//  FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETPANELDIR, 0, PChar(vPath));
+    FarPanelSetDir(PANEL_ACTIVE, vPath);
     Result := True;
   end;
 

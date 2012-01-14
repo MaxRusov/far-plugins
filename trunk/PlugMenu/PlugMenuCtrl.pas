@@ -3,9 +3,9 @@
 unit PlugMenuCtrl;
 
 {******************************************************************************}
-{* (c) 2008-2009, Max Rusov                                                   *}
+{* (c) 2008-2012 Max Rusov                                                    *}
 {*                                                                            *}
-{* PlugMenu Far plugin                                                        *}
+{* PlugMenu Far Plugin                                                        *}
 {******************************************************************************}
 
 interface
@@ -36,7 +36,9 @@ interface
       strError,
 
       strEditDlgTitle,
-      strEditDlgPrompt,
+      strHotkeyPrompt,
+      strCommandName,
+      strRenameCommand,
       strHideCommand,
 
       strUnloadTitle,
@@ -66,12 +68,14 @@ interface
       strSortByAccessTime,
       strSortByPluginFlags,
       strSortByUnsorted,
+      strSortHiddenLast,
 
       strOptionsTitle2,
       strAutoHotkey,
       strShowHints,
       strFollowMouse,
       strWrapMode,
+      strShowOrigName,
       strColors,
 
       strColorsTitle,
@@ -188,8 +192,6 @@ interface
 
 
   var
-    PluginAutoShortcut :Boolean = True;
-
     PluginShowLoaded   :Boolean = True;
     PluginShowAnsi     :Boolean = True;
     PluginShowFileName :Integer = 0;
@@ -200,12 +202,15 @@ interface
     PluginShowHidden   :Integer = 0;
 
     PluginSortMode     :Integer = 0;
+    SortHiddenLast     :Boolean = True;   { Недоступные плагины в конце списка }
     PluginSortGroup    :Boolean = False;
 
+    optAutoShortcut    :Boolean = True;   { Автоматическое назначение HotKey'ев }
     optXLatMask        :Boolean = True;   { Автоматическое XLAT преобразование при поиске }
-    optShowHints       :Boolean = True;
+    optShowHints       :Boolean = True;   { Показывать подсказки (через FarHints) }
     optFollowMouse     :Boolean = True;
     optWrapMode        :Boolean = True;
+    optShowOrigName    :Boolean = False;  { Показывать оригинальные имена (игнорировать переименования) }
 
     optHiddenColor     :TFarColor;
     optFoundColor      :TFarColor;
@@ -318,6 +323,7 @@ interface
       GetMsg(strShowHints),
       GetMsg(strFollowMouse),
       GetMsg(strWrapMode),
+      GetMsg(strShowOrigName),
       '',
       GetMsg(strColors)
     ]);
@@ -326,10 +332,11 @@ interface
       vMenu.Help := 'Options';
 
       while True do begin
-        vMenu.Checked[0] := PluginAutoShortcut;
+        vMenu.Checked[0] := optAutoShortcut;
         vMenu.Checked[1] := optShowHints;
         vMenu.Checked[2] := optFollowMouse;
         vMenu.Checked[3] := optWrapMode;
+        vMenu.Checked[4] := optShowOrigName;
 
         vMenu.SetSelected(vMenu.ResIdx);
 
@@ -337,12 +344,13 @@ interface
           Break;
 
         case vMenu.ResIdx of
-          0: PluginAutoShortcut := not PluginAutoShortcut;
+          0: optAutoShortcut := not optAutoShortcut;
           1: optShowHints := not optShowHints;
           2: optFollowMouse := not optFollowMouse;
           3: optWrapMode := not optWrapMode;
+          4: optShowOrigName := not optShowOrigName;
 
-          5: ColorMenu;
+          6: ColorMenu;
         end;
 
         vChanged := True;
@@ -391,13 +399,14 @@ interface
 
 //      LogValue('ShowGrid', optShowGrid);
 
-        LogValue('AutoHotkey',  PluginAutoShortcut);
         IntValue('ShowHidden',  PluginShowHidden);
 
-        LogValue('XLatMask',    optXLatMask);
-        LogValue('ShowHints',   optShowHints);
-        LogValue('FollowMouse', optFollowMouse);
-        LogValue('WrapMode',    optWrapMode);
+        LogValue('AutoHotkey',   optAutoShortcut);
+        LogValue('XLatMask',     optXLatMask);
+        LogValue('ShowHints',    optShowHints);
+        LogValue('FollowMouse',  optFollowMouse);
+        LogValue('WrapMode',     optWrapMode);
+        LogValue('ShowOrigName', optShowOrigName);
 
         LogValue('ShowLoadedMark', PluginShowLoaded);
         LogValue('ShowAnsiMark', PluginShowAnsi);
@@ -408,6 +417,7 @@ interface
         IntValue('ShowAccessTime', PluginShowUseDate);
 
         IntValue('SortMode', PluginSortMode);
+        LogValue('SortHiddenLast', SortHiddenLast);
 
         ColorValue('HiddenColor', optHiddenColor);
         ColorValue('FoundColor', optFoundColor);
