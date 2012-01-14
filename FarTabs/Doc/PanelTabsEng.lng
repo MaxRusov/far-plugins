@@ -55,6 +55,13 @@
 "Action is not defined"
 "Mouse action already defined"
 
+"Confirmation"
+"Folder not found"
+"The nearest existing folder is"
+"&Create"
+"&Goto"
+"Cannot create the folder"
+
 "Color"
 "Foreground"
 "Background"
