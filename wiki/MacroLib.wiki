@@ -15,8 +15,10 @@
 
 == Загрузить ==
 
- * [http://far-plugins.googlecode.com/files/MacroLib.v9.rar MacroLib 1.0.9 for FAR 2]
- * [http://far-plugins.googlecode.com/files/MacroLib.x64.v9.rar MacroLib 1.0.9 for FAR 2 x64]
+ * [http://code.google.com/p/far-plugins/downloads/list?q=MacroLib Последняя версия]
+
+ * [http://code.google.com/p/far-plugins/downloads/list?q=MacroLib&can=1 Все версии]
+
 
 
 == Пример ==
