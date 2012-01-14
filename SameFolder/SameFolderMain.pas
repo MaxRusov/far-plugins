@@ -103,8 +103,8 @@ interface
     Result := '';
 
     vFrmt := FarPanelString(AHandle, FCTL_GETPANELFORMAT);
-    vPath := FarPanelString(AHandle, FCTL_GETPANELDIR);
     vHost := FarPanelString(AHandle, FCTL_GETPANELHOSTFILE);
+    vPath := FarPanelGetCurrentDirectory(AHandle);
 
    {$ifdef bTrace}
     TraceF('Format=%s, Path=%s, Host=%s', [vFrmt, vPath, vHost]);
@@ -148,7 +148,7 @@ interface
      {$ifdef bTrace}
 //    TraceF('SePath=%s', [APath]);
      {$endif bTrace}
-      FARAPI.Control(AHandle, FCTL_SETPANELDIR, 0, PFarChar(APath));
+      FarPanelSetDir(AHandle, APath);
       if AItem = '' then
         FARAPI.Control(AHandle, FCTL_REDRAWPANEL, 0, nil);
     end;
@@ -554,7 +554,11 @@ interface
     FGUID := cPluginID;
    {$else}
     FID := cPluginID;
+   {$endif Far3}
 
+   {$ifdef Far3}
+    FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
+   {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1652);   { "verbatim string" }
     FMinFarVer := MakeVersion(2, 0, 1657);   { FCTL_GETPANELFORMAT }
    {$endif Far3}
