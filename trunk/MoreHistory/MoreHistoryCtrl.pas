@@ -557,10 +557,11 @@ interface
           ColorValue('FoundColor', optFoundColor);
           ColorValue('SelectedColor', optSelectedColor);
           ColorValue('GroupColor', optGroupColor);
+          ColorValue('CountColor', optCountColor);
 
           if AStore then begin
 //          StrValue('HistoryFolder', optHistoryFolder);
-//          IntValue('HistoryLimit', optHistoryLimit);
+            IntValue('HistoryLimit', optHistoryLimit);
             StrValue('Exclusions', optFldExclusions);
             StrValue('EdtExclusions', optEdtExclusions);
             StrValue('CmdExclusions', optCmdExclusions);
