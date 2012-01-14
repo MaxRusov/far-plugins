@@ -6,8 +6,10 @@
 
 "Error"
 
-"Assign hotkey"
-"Enter hotkey (letter or digit)"
+"Setup command"
+"Hot key (letter or digit)"
+"&Command name"
+"&Rename command"
 "&Hide command"
 
 "Unload"
@@ -37,12 +39,14 @@
 "&Access Time         Ctrl-F4"
 "&Plugin Flags        Ctrl-F5"
 "&Unsorted            Ctrl-F11"
+"&Hidden at bottom"
 
 "Options"
 "&Auto hotkey"
 "Show &hints"
 "&Follow mouse"
 "&Wrap mode"
+"Show original &names"
 "&Colors..."
 
 "Colors"

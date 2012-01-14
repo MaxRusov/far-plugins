@@ -4,10 +4,10 @@
 unit PlugEditDlg;
 
 {******************************************************************************}
-{* (c) 2008 Max Rusov                                                         *}
+{* (c) 2008-2012 Max Rusov                                                    *}
 {*                                                                            *}
 {* PlugMenu Far Plugin                                                        *}
-{* Диалог назначения горячих клавиш                                           *}
+{* Диалог настройки команды                                                   *}
 {******************************************************************************}
 
 interface
@@ -40,11 +40,6 @@ interface
     MixDebug;
 
 
-  const
-    IdPlugName = 1;
-    IdKeyEdit = 2;
-    IdHideCheck = 4;
-
 
   type
     TEditDlg = class(TFarDialog)
@@ -58,10 +53,17 @@ interface
     end;
 
 
+
+  const
+    IdKeyEdit = 1;
+    IdPlugName = 5;
+    IdRenameEdit = 7;
+    IdHideCheck = 8;
+
   procedure TEditDlg.Prepare; {override;}
   const
     DX = 60;
-    DY = 11;
+    DY = 14;
   begin
     FGUID := cPlugEditID;
     FHelpTopic := 'AssignHotkey';
@@ -70,11 +72,19 @@ interface
     FDialog := CreateDialog(
       [
         NewItemApi(DI_DoubleBox, 3,  1, DX-6, DY-2, 0, GetMsg(strEditDlgTitle)),
-        NewItemApi(DI_Text,      5,  2, DX-10, -1, 0, '' ),
-//      NewItemApi(DI_ComboBox,  5,  4, 2, -1, 0, '' ),
-        NewItemApi(DI_FixEdit,   5,  4, 1, -1, 0, '' ),
-        NewItemApi(DI_Text,      8,  4, DX-13, -1, 0, GetMsg(strEditDlgPrompt) ),
-        NewItemApi(DI_CheckBox,  5,  6, 1, -1, 0, GetMsg(strHideCommand) ),
+
+        NewItemApi(DI_FixEdit,   5,  2, 1, -1, 0, '' ),
+        NewItemApi(DI_Text,      8,  2, DX-13, -1, 0, GetMsg(strHotkeyPrompt) ),
+
+        NewItemApi(DI_Text,      0,  3, -1, -1, DIF_SEPARATOR, ''),
+
+        NewItemApi(DI_Text,      5,  4, DX-13, -1, 0, GetMsg(strCommandName) ),
+        NewItemApi(DI_Edit,      5,  5, DX-10, -1, DIF_READONLY, '' ),
+
+        NewItemApi(DI_Text,      5,  6, DX-13, -1, 0, GetMsg(strRenameCommand) ),
+        NewItemApi(DI_Edit,      5,  7, DX-11, -1, DIF_HISTORY, '', 'PlugMenu.CmdName' ),
+
+        NewItemApi(DI_CheckBox,  5,  9, 1, -1, 0, GetMsg(strHideCommand) ),
 
         NewItemApi(DI_Text,      0, DY-4, -1, -1, DIF_SEPARATOR, ''),
         NewItemApi(DI_DefButton, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strButOk)),
@@ -96,7 +106,10 @@ interface
   begin
 (*  SendMsg(DM_SETMAXTEXTLENGTH, IdKeyEdit, 2); *)
 
-    SetText(IdPlugName, FCommand.GetMenuTitle);
+//  SendMsg(DM_SetFocus, IdRenameEdit, 0);
+
+    SetText(IdPlugName, FCommand.GetOrigTitle);
+    SetText(IdRenameEdit, FCommand.NewName);
     if FCommand.Hotkey <> #0 then
       SetText(IdKeyEdit, FCommand.Hotkey);
 
@@ -149,6 +162,9 @@ interface
       if vStr <> '' then
         vShortcut := vStr[1];
       FCommand.SetHotkey(vShortcut);
+
+      vStr := GetText(IdRenameEdit);
+      FCommand.SetNewName(vStr);
 
       vHidden := SendMsg(DM_GetCheck, IdHideCheck, 0) <> 0;
       FCommand.SetHidden(vHidden);

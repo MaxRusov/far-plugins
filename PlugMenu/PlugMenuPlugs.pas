@@ -3,9 +3,9 @@
 unit PlugMenuPlugs;
 
 {******************************************************************************}
-{* (c) 2008-2009, Max Rusov                                                   *}
+{* (c) 2008-2012 Max Rusov                                                    *}
 {*                                                                            *}
-{* PlugMenu Far plugin                                                        *}
+{* PlugMenu Far Plugin                                                        *}
 {* Работа с плагинами                                                         *}
 {******************************************************************************}
 
@@ -57,9 +57,11 @@ interface
        {$endif Far3}
       );
 
+      function GetOrigTitle :TString;
       function GetMenuTitle :TString;
 
       procedure SetHotkey(AHotkey :TChar);
+      procedure SetNewName(const ANewName :TString);
       procedure SetHidden(AHidden :Boolean);
 
      {$ifdef Far3}
@@ -80,6 +82,7 @@ interface
       FAutoHotkey   :TChar;
       FAccessDate   :TDateTime;
       FHidden       :Boolean;
+      FNewName      :TString;
 
      {$ifdef Far3}
       procedure SaveSettings;
@@ -87,7 +90,7 @@ interface
       procedure RestoreSettings;
 
     public
-      property VisName :TString read FVisName;
+//    property VisName :TString read FVisName;
      {$ifdef Far3}
       property GUID :TGUID read FGUID;
      {$endif Far3}
@@ -97,6 +100,7 @@ interface
       property PerfHotkey :TChar read FPerfHotkey;
       property AccessDate :TDateTime read FAccessDate;
       property Hidden :Boolean read FHidden;
+      property NewName :TString read FNewName;
     end;
 
 
@@ -263,13 +267,35 @@ interface
   end;
 
 
-  function TFarPluginCmd.GetMenuTitle :TString;
+  function TFarPluginCmd.GetOrigTitle :TString;
   begin
     Result := FVisName;
     if Result = '' then
       Result := FPlugin.FConfigString;
     if Result = '' then
       Result := ExtractFileName(FPlugin.FFileName);
+  end;
+
+
+  function TFarPluginCmd.GetMenuTitle :TString;
+  begin
+    if (FNewName <> '') and not optShowOrigName then
+      Result := FNewName
+    else
+      Result := GetOrigTitle;
+  end;
+
+
+  procedure TFarPluginCmd.SetNewName(const ANewName :TString);
+  begin
+    if ANewName <> FNewName then begin
+      FNewName := ANewName;
+     {$ifdef Far3}
+      SaveSettings;
+     {$else}
+      {!!!}
+     {$endif Far3}
+    end;
   end;
 
 
@@ -352,6 +378,7 @@ interface
             vStr := FHotkey;
           StrValue('Hotkey', vStr);
           LogValue('Hidden', FHidden);
+          StrValue('NewName', FNewName);
         end;
       finally
         Destroy;
@@ -383,6 +410,7 @@ interface
             FHotkey := vStr[1];
 
           LogValue('Hidden', FHidden);
+          StrValue('NewName', FNewName);
         end;
       end;
     finally

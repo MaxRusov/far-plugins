@@ -1,0 +1,11 @@
+
+const PlugMenu = "AB9578B3-3107-4E28-BB00-3C13D47382AC"
+
+
+macro Descr="Advanced Plugin Menu" Bind="F11" 
+{{
+  $if (CallPlugin(#%PlugMenu, 0) == 0)
+    F11
+  $end
+}}
+
