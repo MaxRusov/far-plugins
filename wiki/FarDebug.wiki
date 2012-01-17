@@ -26,6 +26,7 @@
   GDB:
 
  * [http://sourceforge.net/projects/mingw/files/ MinGW]
+ * [http://cygwin.com/install.html CygWin]
 
 
 ----
