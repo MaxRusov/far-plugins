@@ -29,6 +29,10 @@ http://far-plugins.googlecode.com/svn/trunk/MacroLib/Image/Sample.png
 
 = История изменений =
 
+== Ver 1.0.15 ==
+
+  * Far 3.0.2380+ (охтыжёбтвоюмать)
+
 == Ver 1.0.14 ==
 
   * Поддержка новых версий Far3 (Far 3.0.2379+ )
