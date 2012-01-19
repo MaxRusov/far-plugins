@@ -9,9 +9,9 @@
 
 == Загрузить ==
 
- * [http://code.google.com/p/far-plugins/downloads/list?q=VisComp Последняя версия]
+ * [http://code.google.com/p/far-plugins/downloads/list?q=VisualCompare Последняя версия]
 
- * [http://code.google.com/p/far-plugins/downloads/list?q=VisComp&can=1 Все версии]
+ * [http://code.google.com/p/far-plugins/downloads/list?q=VisualCompare&can=1 Все версии]
 
 
 == Примеры ==
