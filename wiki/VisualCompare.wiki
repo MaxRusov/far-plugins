@@ -23,6 +23,11 @@ http://far-plugins.googlecode.com/svn/trunk/VisualCompare/Image/Sample2.png
 
 = История изменений =
 
+==Ver 1.0.10==
+
+ * Версия для Far 3
+
+
 ==Ver 0.9.9==
 
  * Настройка цвета окна сравнения (по умолчанию имеет цвет диалога)
