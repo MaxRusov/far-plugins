@@ -40,6 +40,8 @@ other possible license with no implications from the above license on them.
  Use PluginW!
 {$endif Far3}
 
+{$ifndef FarAPI}
+
 {$Align On}
 {$RangeChecks Off}
 
@@ -52,12 +54,14 @@ Unit Plugin3;
 interface
 
 uses Windows;
+{$endif FarAPI}
 
+{$ifndef ApiImpl}
 const
   FARMANAGERVERSION_MAJOR = 3;
   FARMANAGERVERSION_MINOR = 0;
   FARMANAGERVERSION_REVISION = 0;
-  FARMANAGERVERSION_BUILD = 2377;
+  FARMANAGERVERSION_BUILD = 2424;
 
 type
 //TFarChar = AnsiChar;
@@ -1635,6 +1639,7 @@ const
   KMFLAGS_DISABLEOUTPUT       = $00000001;
   KMFLAGS_NOSENDKEYSTOPLUGINS = $00000002;
   KMFLAGS_SILENTCHECK         = $00000001;
+  KMFLAGS_SAVEMACRO           = $00000004;  
 
 
 { FARMACROSENDSTRINGCOMMAND }
@@ -1778,17 +1783,29 @@ struct MacroAddMacro
   const wchar_t *Description;
   FARMACROCALLBACK Callback;
 };
+-->
+struct MacroAddMacro
+{
+	size_t StructSize;
+	void* Id;
+	const wchar_t *SequenceText;
+	const wchar_t *Description;
+	FARKEYMACROFLAGS Flags;
+	INPUT_RECORD AKey;
+	enum FARMACROAREA Area;
+	FARMACROCALLBACK Callback;
+};
 *)
 type
   PMacroAddMacro = ^TMacroAddMacro;
   TMacroAddMacro = record
     StructSize :size_t;
     Id :Pointer;
-    Area :Integer{FARMACROAREA};
-    Flags :TFARKEYMACROFLAGS;
-    AKey :TInputRecord;
     SequenceText :PFarChar;
     Description :PFarChar;
+    Flags :TFARKEYMACROFLAGS;
+    AKey :TInputRecord;
+    Area :Integer{FARMACROAREA};
     Callback :Pointer; {FARMACROCALLBACK}
   end;
 
@@ -2656,12 +2673,20 @@ type
 { FAR_PLUGINS_CONTROL_COMMANDS }
 
 const
+(*
   PCTL_LOADPLUGIN       = 0;
   PCTL_UNLOADPLUGIN     = 1;
   PCTL_FORCEDLOADPLUGIN = 2;
   PCTL_GETPLUGINS       = 3;  { Param2 - TFarPlugins }
   PCTL_GETPLUGININFO    = 4;  { Param2 - TFarPluginInfo }
   PCTL_FINDPLUGIN       = 5;
+*)
+  PCTL_LOADPLUGIN           = 0;
+  PCTL_UNLOADPLUGIN         = 1;
+  PCTL_FORCEDLOADPLUGIN     = 2;
+  PCTL_FINDPLUGIN           = 3;
+  PCTL_GETPLUGININFORMATION = 4;
+  PCTL_GETPLUGINS           = 5;
 
 
 { FAR_PLUGIN_LOAD_TYPE }
@@ -2670,7 +2695,7 @@ const
   PLT_PATH = 0;
 
 
-{ FAR_PLUGIN_FIND_MODE }
+{ FAR_PLUGIN_FIND_TYPE }
 
 const
   PFM_GUID        = 0;
@@ -2683,9 +2708,13 @@ type
 
 const
   FPF_NONE         = 0;
+(*
   FPF_FAR1         = $00000001;
   FPF_FAR2         = $00000002;
   FPF_LOADED       = $00000004;
+*)
+  FPF_LOADED       = $0000000000000001;
+  FPF_ANSI         = $1000000000000000;
 
 (*
 struct FarPlugins
@@ -2693,7 +2722,6 @@ struct FarPlugins
   size_t StructSize;
   int PluginsCount;
 };
-*)
 type
   {PCTL_GETPLUGINS}
   PFarPlugins = ^TFarPlugins;
@@ -2701,6 +2729,7 @@ type
     StructSize :size_t;
     PluginsCount :Integer;
   end;
+*)
 
 
 {FAR_FILE_FILTER_CONTROL_COMMANDS}
@@ -2815,6 +2844,20 @@ const
   FSSF_FOLDERSHORTCUT_9  = 15;
   FSSF_CONFIRMATIONS     = 16;
 
+(*
+enum FAR_PLUGIN_SETTINGS_LOCATION
+{
+	PSL_ROAMING = 0,
+	PSL_LOCAL   = 1,
+};
+*)
+
+
+{ FAR_PLUGIN_SETTINGS_LOCATION }
+
+const
+  PSL_ROAMING = 0;
+  PSL_LOCAL   = 1;
 
 
 (*
@@ -3277,30 +3320,46 @@ typedef size_t (WINAPI *FARSTDGETPATHROOT)(const wchar_t *Path,wchar_t *Root, si
             TFarStdMkLink = function (Src, Dest :PFarChar; Flags :DWORD) :Integer; stdcall;
             TFarGetReparsePointInfo = function (Src, Dest :PFarChar; DestSize :Integer) : Integer; stdcall;
 
-          (*
-          enum CONVERTPATHMODES
-          {
-                  CPM_FULL,
-                  CPM_REAL,
-                  CPM_NATIVE,
-          };
 
-          typedef int (WINAPI *FARCONVERTPATH)(CONVERTPATHMODES Mode, const wchar_t *Src, wchar_t *Dest, int DestSize);
-          *)
+{ CONVERTPATHMODES }
 
-          const
-            CPM_FULL   = 0;
-            CPM_REAL   = 1;
-            CPM_NATIVE = 2;
+const
+  CPM_FULL   = 0;
+  CPM_REAL   = 1;
+  CPM_NATIVE = 2;
 
-          type
-            TFarConvertPath = function(Mode :Integer {TConvertPathModes}; Src :PFarChar; Dest :PFarChar; DestSize :Integer) :Integer; stdcall;
+(*
+typedef size_t (WINAPI *FARCONVERTPATH)(enum CONVERTPATHMODES Mode, const wchar_t *Src, wchar_t *Dest, size_t DestSize);
+*)
+type
+  TFarConvertPath = function(Mode :Integer {TConvertPathModes}; Src :PFarChar; Dest :PFarChar; DestSize :size_t) :size_t; stdcall;
 
-          (*
-          typedef DWORD (WINAPI *FARGETCURRENTDIRECTORY)(DWORD Size,wchar_t* Buffer);
-          *)
-          type
-            TFarGetCurrentDirectory = function(Size :DWORD; Buffer :PFarChar) :DWORD; stdcall;
+(*
+typedef size_t (WINAPI *FARGETCURRENTDIRECTORY)(size_t Size, wchar_t* Buffer);
+*)
+type
+  TFarGetCurrentDirectory = function(Size :size_t; Buffer :PFarChar) :size_t; stdcall;
+
+
+{ FARFORMATFILESIZEFLAGS }
+
+type
+  TFarFormatFileSizeFlags = int64;
+
+const
+  FFFS_COMMAS             = $0100000000000000;
+  FFFS_FLOATSIZE          = $0200000000000000;
+  FFFS_SHOWBYTESINDEX     = $0400000000000000;
+  FFFS_ECONOMIC           = $0800000000000000;
+  FFFS_THOUSAND           = $1000000000000000;
+  FFFS_MINSIZEINDEX       = $2000000000000000;
+  FFFS_MINSIZEINDEX_MASK  = $0000000000000003;
+
+(*
+typedef size_t (WINAPI *FARFORMATFILESIZE)(unsigned __int64 Size, int Width, FARFORMATFILESIZEFLAGS Flags, wchar_t *Dest, size_t DestSize);
+*)
+type
+  TFarFormatFileSize = function(Size :Int64; Width :Integer; Flags :TFarFormatFileSizeFlags; Dest :PFarChar; DestSize :size_t) :size_t;
 
 
 { FarStandardFunctions }
@@ -3308,62 +3367,63 @@ typedef size_t (WINAPI *FARSTDGETPATHROOT)(const wchar_t *Path,wchar_t *Root, si
 type
   PFarStandardFunctions = ^TFarStandardFunctions;
   TFarStandardFunctions = record
-    StructSize           :Integer;
+    StructSize            :Integer;
 
-    atoi                 :TFarStdAtoi;
-    atoi64               :TFarStdAtoi64;
-    itoa                 :TFarStdItoa;
-    itoa64               :TFarStdItoa64;
+    atoi                  :TFarStdAtoi;
+    atoi64                :TFarStdAtoi64;
+    itoa                  :TFarStdItoa;
+    itoa64                :TFarStdItoa64;
 
-    sprintf              :Pointer;
-    sscanf               :Pointer;
+    sprintf               :Pointer;
+    sscanf                :Pointer;
 
-    qsort                :TFarStdQSort;
-    bsearch              :TFarStdBSearch;
-    qsortex              :TFarStdQSortEx;
+    qsort                 :TFarStdQSort;
+    bsearch               :TFarStdBSearch;
+    qsortex               :TFarStdQSortEx;
 
-    snprintf             :Pointer {TFarStdSNPRINTF};
+    snprintf              :Pointer {TFarStdSNPRINTF};
 
-    Reserved             :array [0..7] of DWORD_PTR;
+    Reserved              :array [0..7] of DWORD_PTR;
 
-    LIsLower             :TFarStdLocalIsLower;
-    LIsUpper             :TFarStdLocalIsUpper;
-    LIsAlpha             :TFarStdLocalIsAlpha;
-    LIsAlphaNum          :TFarStdLocalIsAlphaNum;
-    LUpper               :TFarStdLocalUpper;
-    LLower               :TFarStdLocalLower;
-    LUpperBuf            :TFarStdLocalUpperBuf;
-    LLowerBuf            :TFarStdLocalLowerBuf;
-    LStrupr              :TFarStdLocalStrUpr;
-    LStrlwr              :TFarStdLocalStrLwr;
-    LStricmp             :TFarStdLocalStrICmp;
-    LStrnicmp            :TFarStdLocalStrNICmp;
+    LIsLower              :TFarStdLocalIsLower;
+    LIsUpper              :TFarStdLocalIsUpper;
+    LIsAlpha              :TFarStdLocalIsAlpha;
+    LIsAlphaNum           :TFarStdLocalIsAlphaNum;
+    LUpper                :TFarStdLocalUpper;
+    LLower                :TFarStdLocalLower;
+    LUpperBuf             :TFarStdLocalUpperBuf;
+    LLowerBuf             :TFarStdLocalLowerBuf;
+    LStrupr               :TFarStdLocalStrUpr;
+    LStrlwr               :TFarStdLocalStrLwr;
+    LStricmp              :TFarStdLocalStrICmp;
+    LStrnicmp             :TFarStdLocalStrNICmp;
 
-    Unquote              :TFarStdUnquote;
-    LTrim                :TFarStdLTrim;
-    RTrim                :TFarStdRTrim;
-    Trim                 :TFarStdTrim;
-    TruncStr             :TFarStdTruncStr;
-    TruncPathStr         :TFarStdTruncPathStr;
-    QuoteSpaceOnly       :TFarStdQuoteSpaceOnly;
-    PointToName          :TFarStdPointToName;
-    GetPathRoot          :TFarStdGetPathRoot;
-    AddEndSlash          :TFarStdAddEndSlash;
-    CopyToClipboard      :TFarStdCopyToClipboard;
-    PasteFromClipboard   :TFarStdPasteFromClipboard;
-    FarInputRecordToName :TFarStdInputRecordToKeyName;
-    FarNameToInputRecord :TFarStdKeyNameToInputRecord;
-    XLat                 :TFarStdXLat;
-    GetFileOwner         :TFarStdGetFileOwner;
-    GetNumberOfLinks     :TFarStdGetNumberOfLinks;
-    FarRecursiveSearch   :TFarStdRecursiveSearch;
-    MkTemp               :TFarStdMkTemp;
-    DeleteBuffer         :TFarStdDeleteBuffer;
-    ProcessName          :TFarStdProcessName;
-    MkLink               :TFarStdMkLink;
-    ConvertPath          :TFarConvertPath;
-    GetReparsePointInfo  :TFarGetReparsePointInfo;
-    GetCurrentDirectory  :TFarGetCurrentDirectory;
+    Unquote               :TFarStdUnquote;
+    LTrim                 :TFarStdLTrim;
+    RTrim                 :TFarStdRTrim;
+    Trim                  :TFarStdTrim;
+    TruncStr              :TFarStdTruncStr;
+    TruncPathStr          :TFarStdTruncPathStr;
+    QuoteSpaceOnly        :TFarStdQuoteSpaceOnly;
+    PointToName           :TFarStdPointToName;
+    GetPathRoot           :TFarStdGetPathRoot;
+    AddEndSlash           :TFarStdAddEndSlash;
+    CopyToClipboard       :TFarStdCopyToClipboard;
+    PasteFromClipboard    :TFarStdPasteFromClipboard;
+    FarInputRecordToName  :TFarStdInputRecordToKeyName;
+    FarNameToInputRecord  :TFarStdKeyNameToInputRecord;
+    XLat                  :TFarStdXLat;
+    GetFileOwner          :TFarStdGetFileOwner;
+    GetNumberOfLinks      :TFarStdGetNumberOfLinks;
+    FarRecursiveSearch    :TFarStdRecursiveSearch;
+    MkTemp                :TFarStdMkTemp;
+    DeleteBuffer          :TFarStdDeleteBuffer;
+    ProcessName           :TFarStdProcessName;
+    MkLink                :TFarStdMkLink;
+    ConvertPath           :TFarConvertPath;
+    GetReparsePointInfo   :TFarGetReparsePointInfo;
+    GetCurrentDirectory   :TFarGetCurrentDirectory;
+    FormatFileSize        :TFarFormatFileSize;
   end; {TFarStandardFunctions}
 
 
@@ -3431,7 +3491,7 @@ struct PluginMenuItem
 {
   const GUID *Guids;
   const wchar_t * const *Strings;
-  int Count;
+  size_t Count;
 };
 *)
 type
@@ -3439,7 +3499,7 @@ type
   TPluginMenuItem = record
     Guids :PGuidsArray;
     Strings :PPCharArray; {PFarChar;}
-    Count :Integer;
+    Count :INT_PTR {size_t};
   end;
 
 
@@ -3517,59 +3577,25 @@ type
     CommandPrefix :PFarChar;
   end;
 
+
 (*
-struct FarPluginInfo
+struct FarGetPluginInformation
 {
   size_t StructSize;
-  int Index;
-  GUID Guid;
   const wchar_t *ModuleName;
-  struct VersionInfo Version;
-  const wchar_t *Title;
-  const wchar_t *Description;
-  const wchar_t *Author;
-  PLUGIN_FLAGS Flags;
-  struct PluginMenuItem DiskMenu;
-  struct PluginMenuItem PluginMenu;
-  struct PluginMenuItem PluginConfig;
-  const wchar_t *CommandPrefix;
-};
--->
-struct FarGetPluginInfo
-{
-  size_t Size;
-  const wchar_t *ModuleName;
-  struct GlobalInfo Info1;
-  struct PluginInfo Info2;
+  FAR_PLUGIN_FLAGS Flags;
+  struct PluginInfo PInfo;
+  struct GlobalInfo GInfo;
 };
 *)
 type
-(*
-  { PCTL_GETPLUGININFO }
-  PFarPluginInfo = ^TFarPluginInfo;
-  TFarPluginInfo = record
+  PFarGetPluginInformation = ^TFarGetPluginInformation;
+  TFarGetPluginInformation = record
     StructSize :size_t;
-    Index :Integer;
-    Guid :TGUID;
-    ModuleName :PFarChar;
-    Version :TVersionInfo;
-    Title :PFarChar;
-    Description :PFarChar;
-    Author :PFarChar;
-    Flags :TPluginFlags;
-    DiskMenu :TPluginMenuItem;
-    PluginMenu :TPluginMenuItem;
-    PluginConfig :TPluginMenuItem;
-    CommandPrefix :PFarChar;
-  end;
-*)
-  PFarPluginInfo = ^TFarPluginInfo;
-  TFarPluginInfo = record
-    Size :size_t;
     ModuleName :PFarChar;
     Flags :TFarPluginFlags;
-    Info1 :TGlobalInfo;
-    Info2 :TPluginInfo;
+    PInfo :TPluginInfo;
+    GInfo :TGlobalInfo;
   end;
 
 
@@ -4179,11 +4205,16 @@ function MakeFarVersion(Major :DWORD; Minor :DWORD; Revision :DWORD; Build :DWOR
             CopyReadOnlyId    :TGUID = '{879A8DE6-3108-4beb-80DE-6F264991CE98}';
             CopyFilesId       :TGUID = '{FCEF11C4-5490-451d-8B4A-62FA03F52759}';
             HardSymLinkId     :TGUID = '{5EB266F4-980D-46af-B3D2-2C50E64BCA81}';
+{$endif ApiImpl}
 
+{$ifndef FarAPI}
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
+{$endif FarAPI}
 
+
+{$ifndef ApiIntf}
 function MakeFarVersion(Major :DWORD; Minor :DWORD; Revision :DWORD; Build :DWORD; Stage :Integer) :TVersionInfo;
 begin
   Result.Major := Major;
@@ -4322,6 +4353,10 @@ end;
             FLID.Reserved := 0;
             Result := Info.SendDlgMessage (hDlg, DM_LISTSETDATA, ID, @FLID);
           end;
+{$endif ApiIntf}
 
-
+{$ifndef FarAPI}
+{$Warnings Off}
 end.
+{$endif FarAPI}
+

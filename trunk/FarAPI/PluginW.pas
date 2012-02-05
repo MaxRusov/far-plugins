@@ -40,6 +40,8 @@ other possible license with no implications from the above license on them.
  Use Plugin3!
 {$endif Far3}
 
+{$ifndef FarAPI}
+
 {$Align On}
 {$RangeChecks Off}
 
@@ -52,7 +54,10 @@ Unit PluginW;
 interface
 
 uses Windows;
+{$endif FarAPI}
 
+
+{$ifndef ApiImpl}
 const
   FARMANAGERVERSION_MAJOR = 2;
   FARMANAGERVERSION_MINOR = 0;
@@ -917,7 +922,7 @@ struct FAR_FIND_DATA
 *)
 type
   PFarFindData = ^TFarFindData;
-  TFarFindData = record
+  TFarFindData = {$ifdef CPUX86_64} record {$else} packed record {$endif CPUX86_64}
     dwFileAttributes : DWORD;
     ftCreationTime : TFileTime;
     ftLastAccessTime : TFileTime;
@@ -3231,12 +3236,17 @@ const
   CopyReadOnlyId    :TGUID = '{879A8DE6-3108-4beb-80DE-6F264991CE98}';
   CopyFilesId       :TGUID = '{FCEF11C4-5490-451d-8B4A-62FA03F52759}';
   HardSymLinkId     :TGUID = '{5EB266F4-980D-46af-B3D2-2C50E64BCA81}';
+{$endif ApiImpl}
 
-  
+
+{$ifndef FarAPI}
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
+{$endif FarAPI}
 
+
+{$ifndef ApiIntf}
 
 function MakeFarVersion (Major :DWORD; Minor :DWORD; Build :DWORD) :DWORD;
 begin
@@ -3373,6 +3383,11 @@ begin
   Result := Info.SendDlgMessage (hDlg, DM_LISTSETDATA, ID, LONG_PTR(@FLID));
 end;
 
+{$endif ApiIntf}
 
+
+{$ifndef FarAPI}
+{$Warnings Off}
 end.
+{$endif FarAPI}
 

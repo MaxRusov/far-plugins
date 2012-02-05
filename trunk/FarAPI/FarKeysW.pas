@@ -36,12 +36,14 @@ Far Manager plugins that use this header file can be distributed under any
 other possible license with no implications from the above license on them.
 }
 
+{$ifndef FarAPI}
 unit FarKeysW;
 
 interface
 
 uses
   Windows;
+{$endif FarAPI}
 
 { BaseDefKeyboard }
 
@@ -683,5 +685,9 @@ const
    KEY_ALT_BASE             = KEY_ALT;
    KEY_ALTSHIFT_BASE        = KEY_ALTSHIFT;
 
+{$ifndef FarAPI}
+{$Warnings Off}
 implementation
 end.
+{$endif FarAPI}
+
