@@ -10,24 +10,28 @@ uses
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
+  FarPlug,
   VisCompMain;
 
 exports
- {$ifdef bUnicodeFar}
-  SetStartupInfoW,
+ {$ifdef Far3}
+  GetGlobalInfoW,
+ {$else}
   GetMinFarVersionW,
+ {$endif Far3}
+
+  SetStartupInfoW,
   GetPluginInfoW,
+
+ {$ifdef Far3}
+  OpenW,
+ {$else}
   OpenPluginW,
+ {$endif Far3}
+
   ProcessEditorEventW,
   ConfigureW,
   ExitFARW,
- {$else}
-  SetStartupInfo,
-  GetPluginInfo,
-  OpenPlugin,
-  Configure,
-  ExitFAR,
- {$endif bUnicodeFar}
 
   CompareFiles;
   
@@ -38,4 +42,6 @@ exports
  {$endif bUnicodeFar}
 
 
+begin
+  Plug := TVisCompPlug.Create;
 end.

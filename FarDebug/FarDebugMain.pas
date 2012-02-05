@@ -19,7 +19,7 @@ interface
     MixWinUtils,
     MixClasses,
 
-    PluginW,
+    Far_API,
     FarCtrl,
     FarMenu,
 

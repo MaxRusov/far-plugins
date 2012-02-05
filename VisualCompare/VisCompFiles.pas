@@ -22,12 +22,7 @@ interface
     MixWinUtils,
     MixCRC,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-   {$else}
-    Plugin,
-   {$endif bUnicodeFar}
-
+    Far_API,
     FarCtrl,
     FarMatch,
     VisCompCtrl;
@@ -566,10 +561,11 @@ interface
 
   procedure TFileProvider.Enumerate(const AFolder :TString); {override;}
 
-    procedure LocAddItem(const aPath :TString; const aSRec :TWin32FindData);
+    function LocAddItem(const aPath :TString; const aSRec :TWin32FindData) :Boolean;
     begin
       with aSRec do
         FComparator.AddItem(cFileName, dwFileAttributes, MakeInt64(nFileSizeLow, nFileSizeHigh), FileTimeToDosFileDate(aSRec.ftLastWriteTime));
+      Result := True;
     end;
 
   var
@@ -611,10 +607,11 @@ interface
 
   procedure TSVNProvider.Enumerate(const AFolder :TString); {override;}
 
-    procedure LocAddFolder(const aPath :TString; const aSRec :TWin32FindData);
+    function LocAddFolder(const aPath :TString; const aSRec :TWin32FindData) :Boolean;
     var
       vName, vPath :TString;
     begin
+      Result := True;
       vName := aSRec.cFileName;
       if StrEqual(vName, '.svn') then
         Exit;
@@ -627,10 +624,11 @@ interface
         FComparator.AddItem(vName, dwFileAttributes, 0, 0);
     end;
 
-    procedure LocAddItem(const aPath :TString; const aSRec :TWin32FindData);
+    function LocAddItem(const aPath :TString; const aSRec :TWin32FindData) :Boolean;
     begin
       with aSRec do
         FComparator.AddItem(ClearFileExt(cFileName), dwFileAttributes, MakeInt64(nFileSizeLow, nFileSizeHigh), FileTimeToDosFileDate(aSRec.ftLastWriteTime));
+      Result := True;
     end;
 
   var
@@ -650,7 +648,7 @@ interface
   begin
     Create;
     FSide := ASide;
-    FActive := CurrentPanelSide = FSide;
+    FActive := FarPanelGetSide = FSide;
     FTitle := FarPanelGetCurrentDirectory(HandleIf(FActive, PANEL_ACTIVE, PANEL_PASSIVE));
   end;
 
@@ -682,9 +680,7 @@ interface
     vName :TString;
   begin
     vHandle := HandleIf( FActive, PANEL_ACTIVE, PANEL_PASSIVE );
-
-    FillChar(vInfo, SizeOf(vInfo), 0);
-    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+    FarGetPanelInfo(vHandle, vInfo);
 
     FRealFile := PFLAGS_REALNAMES and vInfo.Flags <> 0;
 
@@ -693,11 +689,19 @@ interface
       if vItem = nil then
         Break;
       try
+       {$ifdef Far3}
+        with vItem^ do begin
+          vName := FileName;
+          if {(vName <> '.') and} (vName <> '..') then
+            FComparator.AddItem(vName, FileAttributes, FileSize, FileTimeToDosFileDate(LastWriteTime));
+        end;
+       {$else}
         with vItem.FindData do begin
           vName := cFileName;
           if {(vName <> '.') and} (vName <> '..') then
             FComparator.AddItem(vName, dwFileAttributes, nFileSize, FileTimeToDosFileDate(ftLastWriteTime));
         end;
+       {$endif Far3}
       finally
         MemFree(vItem);
       end;
@@ -775,19 +779,11 @@ interface
   begin
     if FSave = 0 then
       InitProgress;
-
-    vMess :=
-      GetMsgStr(strCompareProgress) + #10 +
-     {$ifdef bUnicodeFar}
-      AMess;
-     {$else}
-      StrAnsiToOEM(AMess);
-     {$endif bUnicodeFar}
-
-    if APerc <> -1 then
-      vMess := vMess + #10 + GetProgressStr(FWidth, APerc);
-
-    FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PFarChar(vMess)), 0, 0);
+    if APerc = -1 then
+      vMess := AMess
+    else
+      vMess := AMess + #10 + GetProgressStr(FWidth, APerc);
+    ShowMessage(GetMsgStr(strCompareProgress), vMess, 0)
   end;
 
 
@@ -853,6 +849,8 @@ interface
       vItem :TCmpFileItem;
       vFolder1, vFolder2 :TString;
     begin
+//    TraceF('"%s" <-> "%s"', [AFolder1, AFolder2]);
+
       FCurList := AList;
 
       if AFolder1 <> #1 then begin
@@ -1316,4 +1314,6 @@ finalization
   if vTmpBuf2 <> nil then
     VirtualFree(vTmpBuf2, cTmpBufSize, MEM_DECOMMIT);
 end.
+
+
 

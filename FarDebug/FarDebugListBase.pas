@@ -18,15 +18,7 @@ interface
     MixStrings,
     MixClasses,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-    FarKeysW,
-   {$else}
-    Plugin,
-    FarKeys,
-   {$endif bUnicodeFar}
-
-    FarColor,
+    Far_API,
     FarCtrl,
     FarMatch,
     FarDlg,
@@ -291,7 +283,7 @@ interface
 
       DN_CTLCOLORDLGITEM:
         if Param1 = IdFrame then
-          Result := CtrlPalette([COL_MENUTITLE, COL_MENUHIGHLIGHT, COL_MENUBOX])
+          Result := CtrlPalette1([COL_MENUTITLE, COL_MENUHIGHLIGHT, COL_MENUBOX])
         else
           Result := Param2;
 

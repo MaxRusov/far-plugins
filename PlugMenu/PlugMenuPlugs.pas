@@ -25,11 +25,7 @@ interface
     MixClasses,
     MixWinUtils,
 
-   {$ifdef Far3}
-    Plugin3,
-   {$else}
-    PluginW,
-   {$endif Far3}
+    Far_API,
     FarCtrl,
 
     FarConfig,
@@ -109,7 +105,7 @@ interface
 
       constructor CreateEx(
        {$ifdef Far3}
-        const AInfo :TFarPluginInfo
+        const AInfo :TFarGetPluginInformation
        {$else}
         const ADllName, ARegPath :TString; AHandle :THandle
        {$endif Far3}
@@ -118,7 +114,7 @@ interface
 
       procedure UpdatePluginInfo(
        {$ifdef Far3}
-        const AInfo :TFarPluginInfo
+        const AInfo :TFarGetPluginInformation
        {$else}
         const ARegPath :TString; AHandle :THandle
        {$endif Far3}
@@ -231,6 +227,28 @@ interface
   var
     gConfig :TFarConfig;
  {$endif Far3}
+
+
+  function ValidHandle(AHandle :THandle) :Boolean;
+  begin
+    Result := (AHandle <> 0) and (AHandle <> INVALID_HANDLE_VALUE);
+  end;
+
+
+  function FarPluginUnloadByName(const AFileName :TString) :Boolean;
+ {$ifdef Far3}
+  var
+    vHandle :THandle;
+  begin
+    Result := False;
+    vHandle := THandle(FarPluginControl(PCTL_FINDPLUGIN, PFM_MODULENAME, PFarChar(AFileName)));
+    if ValidHandle(vHandle) then
+      Result := FARAPI.PluginsControl(vHandle, PCTL_UNLOADPLUGIN, 0, nil) <> 0;
+ {$else}
+  begin
+    Result := FarPluginControl(PCTL_UNLOADPLUGIN, PLT_PATH, PFarChar(AFileName)) <> 0;
+ {$endif Far3}
+  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -511,7 +529,7 @@ interface
 
   constructor TFarPlugin.CreateEx(
     {$ifdef Far3}
-     const AInfo :TFarPluginInfo
+     const AInfo :TFarGetPluginInformation
     {$else}
      const ADllName, ARegPath :TString; AHandle :THandle
     {$endif Far3}
@@ -550,7 +568,7 @@ interface
 
   procedure TFarPlugin.UpdatePluginInfo(
    {$ifdef Far3}
-    const AInfo :TFarPluginInfo
+    const AInfo :TFarGetPluginInformation
    {$else}
     const ARegPath :TString; AHandle :THandle
    {$endif Far3}
@@ -559,21 +577,21 @@ interface
   var
     I :Integer;
   begin
-    FGUID := AInfo.Info1.Guid;
-    FPlugVer := AInfo.Info1.Version;
-    FPlugTitle := AInfo.Info1.Title;
-    FPlugDescr := AInfo.Info1.Description;
-    FPlugAuthor := AInfo.Info1.Author;
+    FGUID := AInfo.GInfo.Guid;
+    FPlugVer := AInfo.GInfo.Version;
+    FPlugTitle := AInfo.GInfo.Title;
+    FPlugDescr := AInfo.GInfo.Description;
+    FPlugAuthor := AInfo.GInfo.Author;
 
-    FFlags := AInfo.Info2.Flags;
+    FFlags := AInfo.PInfo.Flags;
     FPreload := PF_PRELOAD and FFlags <> 0;
 
-    FUnicode := FPF_FAR1 and AInfo.Flags = 0;
+    FUnicode := FPF_ANSI and AInfo.Flags = 0;
 
     FCommands.FreeAll;
-    for I := 0 to AInfo.Info2.PluginMenu.Count - 1 do
+    for I := 0 to AInfo.PInfo.PluginMenu.Count - 1 do
       FCommands.Add(
-        TFarPluginCmd.CreateEx(Self, I, AInfo.Info2.PluginMenu.Strings[I], AInfo.Info2.PluginMenu.Guids[I]));
+        TFarPluginCmd.CreateEx(Self, I, AInfo.PInfo.PluginMenu.Strings[I], AInfo.PInfo.PluginMenu.Guids[I]));
 
     FHasCommands := FCommands.Count > 0;
     if not FHasCommands then
@@ -581,13 +599,13 @@ interface
       FCommands.Add( TFarPluginCmd.CreateEx(Self, 0, '', GUID_NULL) );
 
     FConfigString := '';
-    if AInfo.Info2.PluginConfig.Count > 0 then begin
-      FConfigString := AInfo.Info2.PluginConfig.Strings[0];
-      FConfGUID := AInfo.Info2.PluginConfig.Guids[0];
+    if AInfo.PInfo.PluginConfig.Count > 0 then begin
+      FConfigString := AInfo.PInfo.PluginConfig.Strings[0];
+      FConfGUID := AInfo.PInfo.PluginConfig.Guids[0];
     end;
 //  FConfigString := StrDeleteChars(FConfigString, ['&']); ???
 
-    FPrefixes := AInfo.Info2.CommandPrefix;
+    FPrefixes := AInfo.PInfo.CommandPrefix;
 
  {$else}
 
@@ -691,18 +709,18 @@ interface
   procedure TFarPlugin.UpdateLoaded;
  {$ifdef Far3}
   var
-    vIndex :Integer;
-    vPlugInfo :PFarPluginInfo;
+    vHandle :THandle;
+    vPlugInfo :PFarGetPluginInformation;
   begin
     FLoaded := GetPluginModuleHandle <> 0;
     if FLoaded then begin
-      vIndex := FarPluginControl(PCTL_FINDPLUGIN, PFM_GUID, @FGUID);
-      if vIndex <> - 1 then begin
+      vHandle := THandle(FarPluginControl(PCTL_FINDPLUGIN, PFM_GUID, @FGUID));
+      if ValidHandle(vHandle) then begin
         vPlugInfo := nil;
         try
-          if FarGetPluginInfo(vIndex, vPlugInfo) then begin
+          if FarGetPluginInfo(vHandle, vPlugInfo) then begin
             UpdatePluginInfo(vPlugInfo^);
-//          UpdateHotkey;
+//          UpdateSettings;
             FUnregistered := False;
           end;
         finally
@@ -911,6 +929,7 @@ interface
     if vHandle = 0 then begin
       FarPluginControl(PCTL_FORCEDLOADPLUGIN, PLT_PATH, PFarChar(FFileName));
       UpdateLoaded;
+      UpdateSettings;
     end;
     FUnregistered := False;
  {$else}
@@ -930,6 +949,7 @@ interface
   end;
 
 
+
   procedure TFarPlugin.PluginUnload(AUnregister :Boolean);
   var
     vHandle :THandle;
@@ -940,7 +960,7 @@ interface
       Exit;
     end;
 
-    FarPluginControl(PCTL_UNLOADPLUGIN, PLT_PATH, PFarChar(FFileName));
+    FarPluginUnloadByName(FFileName);
 
 //  if not AUnregister then begin
 //    MarkAsPreload(False);
@@ -1228,20 +1248,23 @@ interface
   procedure FirstInitFarPluginsList;
  {$ifdef Far3}
   var
-    I :Integer;
-    vInfo :TFarPlugins;
-    vPlugInfo :PFarPluginInfo;
+    I, vCount, vSize :Integer;
+    vHandles :array of THandle;
+    vPlugInfo :PFarGetPluginInformation;
   begin
     FPlugins.FreeAll;
 
-    vInfo.StructSize := SizeOf(vInfo);
-    if FarPluginControl(PCTL_GETPLUGINS, 0, @vInfo) = 0 then
+    vCount := FarPluginControl(PCTL_GETPLUGINS, 0, nil);
+    if vCount = 0 then
       Exit;
 
-    vPlugInfo := nil;
+    SetLength(vHandles, vCount);
+    FarPluginControl(PCTL_GETPLUGINS, vCount, vHandles);
+
+    vPlugInfo := nil; vSize := 0;
     try
-      for I := 0 to vInfo.PluginsCount - 1 do begin
-        if FarGetPluginInfo(I, vPlugInfo) then
+      for I := 0 to vCount - 1 do begin
+        if FarGetPluginInfo(vHandles[I], vPlugInfo, @vSize) then
           FPlugins.Add( TFarPlugin.CreateEx(vPlugInfo^) );
       end;
     finally
@@ -1360,23 +1383,19 @@ interface
   function LoadNewPlugin(const AFileName :TString) :TFarPlugin;
  {$ifdef Far3}
   var
-    vRes, vIndex :Integer;
+    vHandle :THandle;
     vPlugin :TFarPlugin;
-    vPlugInfo :PFarPluginInfo;
+    vPlugInfo :PFarGetPluginInformation;
   begin
     Result := nil;
 
-    vRes := FarPluginControl(PCTL_LOADPLUGIN, PLT_PATH, PFarChar(AFileName));
-    if vRes = 0 then
+    vHandle := THandle(FarPluginControl(PCTL_LOADPLUGIN, PLT_PATH, PFarChar(AFileName)));
+    if not ValidHandle(vHandle) then
       AppErrorId(strPluginLoadError);
 
-    vIndex := FarPluginControl(PCTL_FINDPLUGIN, PFM_MODULENAME, PFarChar(AFileName));
-    if vIndex < 0 then
-      Exit;
-
-    vPlugInfo := nil;
+    vPlugInfo := nil; 
     try
-      if not FarGetPluginInfo(vIndex, vPlugInfo) then
+      if not FarGetPluginInfo(vHandle, vPlugInfo) then
         Exit;
 
       vPlugin := FindPlugin(AFileName);
@@ -1423,15 +1442,13 @@ interface
 
   procedure UnLoadPlugin(const AFileName :TString);
   var
-    vRes :Integer;
     vPlugin :TFarPlugin;
   begin
     vPlugin := FindPlugin(AFileName);
     if vPlugin <> nil then
       vPlugin.PluginUnload(True)
     else begin
-      vRes := FarPluginControl(PCTL_UNLOADPLUGIN, PLT_PATH, PFarChar(AFileName));
-      if vRes = 0 then
+      if not FarPluginUnloadByName(AFileName) then
         AppErrorId(strPluginUnloadError);
     end;
   end;

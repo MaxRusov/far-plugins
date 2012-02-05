@@ -17,12 +17,7 @@ interface
     MixStrings,
     MixWinUtils,
     MixClasses,
-   {$ifdef Far3}
-    Plugin3,
-   {$else}
-    PluginW,
-   {$endif Far3}
-    FarKeysW,
+    Far_API,
     FarCtrl,
     FarConfig,
     FarPlug;
@@ -52,6 +47,8 @@ interface
     opt_ScrollDelay  :Integer = 8;
     opt_MaxSpeed     :Integer = 3;
 
+    opt_ShiftFilter  :Integer = RIGHT_ALT_PRESSED + LEFT_ALT_PRESSED + RIGHT_CTRL_PRESSED + LEFT_CTRL_PRESSED + SHIFT_PRESSED;
+
 
   type
     TFastWheelPlug = class(TFarPlug)
@@ -66,10 +63,15 @@ interface
       procedure SynchroEvent(AParam :Pointer); override;
       function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
       function EditorInput(const ARec :TInputRecord) :Integer; override;
+     {$ifdef bUseProcessConsoleInput}
+      function ConsoleInput(const ARec :TInputRecord) :Integer; override;
+     {$endif bUseProcessConsoleInput}
 
     private
       FLastScroll   :DWORD;
       FLastImpact   :Integer;
+
+      procedure Impact(ADirection :Integer);
     end;
 
 
@@ -261,7 +263,8 @@ interface
           ApiCheck(SetWaitableTimer(FWTimer, vDelay, 0, nil, nil, False));
 
 //        TraceF('Run... (Impacts=%d, Steps=%s)', [FImpact, vDelta]);
-          PlayScrollSound;
+//        PlayScrollSound;
+
           FarAdvControl(ACTL_SYNCHRO, pointer(vDelta * vDir));
 //        WaitForSingleObject(FEvent2, 1000);
           WaitForMultipleObjects(2, PWOHandleArray(@vHandles), True, 1000);
@@ -306,7 +309,7 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- {                                                                             }
+ { TFastWheelPlug                                                              }
  {-----------------------------------------------------------------------------}
 
   procedure TFastWheelPlug.Init; {override;}
@@ -327,7 +330,7 @@ interface
 
   procedure TFastWheelPlug.Startup; {override;}
   begin
-    InitScrollSound;
+//  InitScrollSound;
     PluginConfig(False);
   end;
 
@@ -359,6 +362,7 @@ interface
   end;
 
 
+(*
   function TFastWheelPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   var
     vTime :DWORD;
@@ -401,6 +405,55 @@ interface
       end;
     end;
   end;
+*)
+
+
+  function TFastWheelPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
+  begin
+    Result := INVALID_HANDLE_VALUE;
+//  TraceF('Open: %d, %d', [AFrom, AParam]);
+    if AFrom and OPEN_FROMMACRO <> 0 then
+      Impact(IntIf(AParam = 1, -1, 1));
+  end;
+
+
+  procedure TFastWheelPlug.Impact(ADirection :Integer);
+  var
+    vTime :DWORD;
+    vPeriod, vImpacts :Integer;
+  begin
+//  TraceF('Impact. Direction=%d', [ADirection]);
+
+    SetWheelThread(True);
+    vTime := GetTickCount;
+
+    EnterCriticalSection(FLock);
+    try
+      if ADirection <> FDirection then
+        ImmediateStop;
+
+      vImpacts := 1;
+      if FLastScroll <> 0 then begin
+        vPeriod := TickCountDiff(vTime, FLastScroll);
+        if vPeriod < opt_AccelPeriod then begin
+          vImpacts := IntMax(Round((opt_AccelPeriod - vPeriod) * opt_Acceleration / opt_AccelPeriod), 1);
+          if vImpacts > FLastImpact * 2 then
+            vImpacts := FLastImpact * 2;
+        end;
+      end;
+
+      FDirection := ADirection;
+      Inc(FImpact, vImpacts);
+//    TraceF('Impact=+d -> %d', [vImpacts, FImpact]);
+
+      FLastImpact := vImpacts;
+      FLastScroll := vTime;
+      SetEvent(WheelThread.FEvent1);
+
+    finally
+      LeaveCriticalSection(FLock);
+    end;
+  end;
 
 
   procedure TFastWheelPlug.SynchroEvent(AParam :Pointer); {override;}
@@ -421,8 +474,7 @@ interface
 
       if vWinInfo.WindowType = WTYPE_PANELS then begin
 
-        FillZero(vPanInfo, SizeOf(vPanInfo));
-        FARAPI.Control(PANEL_ACTIVE, FCTL_GETPANELINFO, 0, @vPanInfo);
+        FarGetPanelInfo(PANEL_ACTIVE, vPanInfo);
 
         vPanPos.CurrentItem := RangeLimit(Integer(vPanInfo.CurrentItem) + vDelta, 0, vPanInfo.ItemsNumber);
         vPanPos.TopPanelItem := RangeLimit(Integer(vPanInfo.TopPanelItem) + vDelta, 0, vPanInfo.ItemsNumber);
@@ -487,6 +539,31 @@ interface
     Result := 0;
   end;
 
+
+ {$ifdef bUseProcessConsoleInput}
+  function TFastWheelPlug.ConsoleInput(const ARec :TInputRecord) :Integer; {override;}
+  begin
+    Result := 0;
+    if ARec.EventType = _MOUSE_EVENT then begin
+      with ARec.Event.MouseEvent do
+        if dwEventFlags = 0 then begin
+          ImmediateStop;
+        end else
+        if dwEventFlags and MOUSE_WHEELED <> 0 then begin
+
+          if dwControlKeyState and opt_ShiftFilter <> 0 then
+            Exit;
+
+          if Integer(dwButtonState) > 0 then
+            Impact(-1)
+          else
+          if Integer(dwButtonState) < 0 then
+            Impact(1);
+          Result := 1;
+        end;
+    end;
+  end;
+ {$endif bUseProcessConsoleInput}
 
 
 initialization

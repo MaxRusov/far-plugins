@@ -3,4 +3,8 @@
 {$Define bUnicodeFar}  
 {$Define bUnicode}
 
+{$ifdef Far3}
+ {-$Define bUseProcessConsoleInput}
+{$endif Far3}
+
 {------------------------------------------------------------------------------}
