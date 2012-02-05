@@ -8,9 +8,11 @@
   Copyrigth (c) 2000-<%YEAR%> FAR group
 *)
 
+{$ifndef FarAPI}
 unit FarColor;
 
 interface
+{$endif FarAPI}
 
 { PaletteColors }
 
@@ -173,5 +175,9 @@ type
     COL_LASTPALETTECOLOR
   );
 
+{$ifndef FarAPI}
+{$Warnings Off}
 implementation
 end.
+{$endif FarAPI}
+
