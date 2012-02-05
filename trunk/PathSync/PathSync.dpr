@@ -1,7 +1,9 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{$ImageBase $40C00000}
+{$ifdef Debug}
+ {$ImageBase $40C00000}
+{$endif Debug}
 
 library PathSync;
 
@@ -10,10 +12,15 @@ uses
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
+  FarPlug,
   PathSyncMain;
 
 exports
+ {$ifdef Far3}
+  GetGlobalInfoW,
+ {$else}
   GetMinFarVersionW,
+ {$endif Far3}
   SetStartupInfoW,
   GetPluginInfoW,
   ProcessSynchroEventW,
@@ -22,4 +29,6 @@ exports
 
 {$R PathSync.res}
 
+begin
+  Plug := TPathSyncPlug.Create;
 end.

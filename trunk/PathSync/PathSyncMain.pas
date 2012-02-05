@@ -1,10 +1,9 @@
 {$I Defines.inc}
-{$Typedaddress Off}
 
 unit PathSyncMain;
 
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2009-2012 Max Rusov                                                    *}
 {*                                                                            *}
 {* PathSync plugin                                                            *}
 {******************************************************************************}
@@ -20,9 +19,24 @@ interface
     MixWinUtils,
     MixClasses,
 
-    PluginW,
-    FarColorW,
-    FarCtrl;
+    FAR_API,
+    FarCtrl,
+    FarMenu,
+    FarConfig,
+    FarPlug;
+
+
+  const
+    cPluginName = 'PathSync';
+    cPluginDescr = 'PathSync FAR plugin';
+    cPluginAuthor = 'Max Rusov';
+
+   {$ifdef Far3}
+    cPluginID   :TGUID = '{D627DF7C-6F58-4E6B-88A3-DDD7102DEC99}';
+//  cMenuID     :TGUID = '{3A0DD20B-6B24-442A-BB0D-3122E935CEAD}';
+    cConfigID   :TGUID = '{6F42D34A-3C9A-4B5B-A44D-B064ED21305B}';
+   {$else}
+   {$endif Far3}
 
   const
     cPlugRegFolder = 'PathSync';
@@ -32,16 +46,21 @@ interface
     optNotifyError :Boolean = True;
     optStoreFolder :Boolean = True;
 
-    optNormColor   :Integer = $00;
-    optErrorColor  :Integer = $0C;
+    optNormColor   :TFarColor; // = $00;
+    optErrorColor  :TFarColor; // = $0C;
 
 
-  function GetMinFarVersionW :Integer; stdcall;
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
-  function ConfigureW(Item: integer) :Integer; stdcall;
-  procedure ExitFARW; stdcall;
+  type
+    TPathSyncPlug = class(TFarPlug)
+    public
+      procedure Init; override;
+      procedure Startup; override;
+      procedure ExitFar; override;
+      procedure GetInfo; override;
+      procedure Configure; override;
+      procedure SynchroEvent(AParam :Pointer); override;
+    end;
+
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -49,9 +68,6 @@ interface
 
   uses
     MixDebug;
-
-  var
-    FRegRoot  :TString;
 
   var
     FLastPath  :TString;
@@ -70,18 +86,23 @@ interface
   end;
 
 
-  procedure FarSetColor(AIndex :Integer; AColor :Byte);
+  procedure FarSetColor(AIndex :TPaletteColors; AColor :TFarColor);
   var
     vInfo :TFarSetColors;
   begin
+    FillZero(vInfo, SizeOf(vInfo));
+   {$ifdef Far3}
+    vInfo.Flags := FSETCLR_REDRAW;
+   {$else}
     vInfo.Flags := FCLR_REDRAW;
-    vInfo.StartIndex := AIndex;
+   {$endif Far3}
+    vInfo.StartIndex := Byte(AIndex);
     vInfo.ColorCount := 1;
-    vInfo.Colors := @AColor;
-    FARAPI.AdvControl(hModule, ACTL_SETARRAYCOLOR, @vInfo);
+    vInfo.Colors := Pointer(@AColor);
+    FarAdvControl(ACTL_SETARRAYCOLOR, @vInfo);
   end;
 
-
+  
   procedure UpdateColor(ANorm :Boolean);
   begin
     if not optNotifyError then
@@ -99,40 +120,23 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure ReadSettings;
-  var
-    vKey :HKEY;
+  procedure PluginConfig(AStore :Boolean);
   begin
-    if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then
-      Exit;
-    try
-      optSyncFolder := RegQueryLog(vKey, 'SyncFolder', optSyncFolder);
-      optNotifyError := RegQueryLog(vKey, 'NotifyError', optNotifyError);
-      optStoreFolder := RegQueryLog(vKey, 'StoreFolder', optStoreFolder);
+    with TFarConfig.CreateEx(AStore, cPluginName) do
+      try
+        if not Exists then
+          Exit;
 
-      optNormColor := RegQueryInt(vKey, 'NormColor', optNormColor);
-      optErrorColor := RegQueryInt(vKey, 'ErrorColor', optErrorColor);
-    finally
-      RegCloseKey(vKey);
-    end;
-  end;
+        LogValue('SyncFolder', optSyncFolder);
+        LogValue('NotifyError', optNotifyError);
+        LogValue('StoreFolder', optStoreFolder);
 
+        ColorValue('NormColor', optNormColor);
+        ColorValue('ErrorColor', optErrorColor);
 
-  procedure WriteSettings;
-  var
-    vKey :HKEY;
-  begin
-    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
-    try
-      RegWriteLog(vKey, 'SyncFolder', optSyncFolder);
-      RegWriteLog(vKey, 'NotifyError', optNotifyError);
-      RegWriteLog(vKey, 'StoreFolder', optStoreFolder);
-
-      RegWriteInt(vKey, 'NormColor', optNormColor);
-      RegWriteInt(vKey, 'ErrorColor', optErrorColor);
-    finally
-      RegCloseKey(vKey);
-    end;
+      finally
+        Destroy;
+      end;
   end;
 
 
@@ -156,7 +160,7 @@ interface
       vStr := GetConsoleTitleStr;
       if vStr <> vLastTitle then begin
         vLastTitle := vStr;
-        FARAPI.AdvControl(hModule, ACTL_SYNCHRO, nil);
+        FarAdvControl(ACTL_SYNCHRO, nil);
       end;
       Sleep(10);
     end;
@@ -185,66 +189,71 @@ interface
 
   procedure OptionsMenu;
   var
-    vItems :array[0..2] of TFarMenuItemEx;
-    vRes :Integer;
+    vMenu :TFarMenu;
   begin
-    FillChar(vItems, SizeOf(vItems), 0);
-
-    SetMenuItemChr(@vItems[0], 'Sync folder');
-    if optSyncFolder then
-      vItems[0].Flags := MIF_CHECKED;
-
-    SetMenuItemChr(@vItems[1], 'Notify error');
-    if optSyncFolder and optNotifyError then
-      vItems[1].Flags := MIF_CHECKED;
-
-    SetMenuItemChr(@vItems[2], 'Store folder');
-    if optStoreFolder then
-      vItems[2].Flags := MIF_CHECKED;
-
-    vRes := FARAPI.Menu(hModule, -1, -1, 0,
-      FMENU_WRAPMODE or FMENU_USEEXT,
+    vMenu := TFarMenu.CreateEx(
       'Options',
-      '',
-      '',
-      nil, nil,
-      @vItems,
-      High(vItems)+1);
-    if vRes = -1 then
-      Exit;
+    [
+      'Sync folder',
+      'Notify error',
+      'Store folder'
+    ]);
+    try
+      vMenu.Checked[0] := optSyncFolder;
+      vMenu.Checked[1] := optSyncFolder and optNotifyError;
+      vMenu.Checked[2] := optStoreFolder;
 
-    case vRes of
-      0: optSyncFolder := not optSyncFolder;
-      1: optNotifyError := not optNotifyError;
-      2: optStoreFolder := not optStoreFolder;
+      if not vMenu.Run then
+        Exit;
+
+      case vMenu.ResIdx of
+        0: optSyncFolder := not optSyncFolder;
+        1: optNotifyError := not optNotifyError;
+        2: optStoreFolder := not optStoreFolder;
+      end;
+
+      PluginConfig(True);
+
+    finally
+      FreeObj(vMenu);
     end;
-
-    WriteSettings;
   end;
 
 
  {-----------------------------------------------------------------------------}
- { Ёкспортируемые процедуры                                                    }
+ { TPathSyncPlug                                                               }
  {-----------------------------------------------------------------------------}
 
-  function GetMinFarVersionW :Integer; stdcall;
+  procedure TPathSyncPlug.Init; {override;}
   begin
-//  Result := MakeFarVersion(2, 0, 1148);
-    Result := MakeFarVersion(2, 0, 1180);  {GetCurrentDirectory}
+    inherited Init;
+
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
+
+   {$ifdef Far3}
+    FGUID := cPluginID;
+   {$else}
+//  FID := cPluginID;
+   {$endif Far3}
+
+   {$ifdef Far3}
+//  FMinFarVer := MakeVersion(3, 0, ....);
+   {$else}
+    FMinFarVer := MakeVersion(2, 0, 1180);  {GetCurrentDirectory}
+   {$endif Far3}
   end;
 
 
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
+  procedure TPathSyncPlug.Startup; {override;}
   begin
-    hModule := psi.ModuleNumber;
-    Move(psi, FARAPI, SizeOf(FARAPI));
-    Move(psi.fsf^, FARSTD, SizeOf(FARSTD));
-    FRegRoot := psi.RootKey;
+    optErrorColor := MakeColor(clRed, clBlack);
 
-    ReadSettings;
-    if optNormColor = 0 then begin
-      optNormColor := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_COMMANDLINEPREFIX));
-      WriteSettings;
+    PluginConfig(False);
+    if IsUndefColor(optNormColor) then begin
+      optNormColor := FarGetColor(COL_COMMANDLINEPREFIX);
+      PluginConfig(True);
     end;
 
     SetCheckThread(True);
@@ -252,30 +261,35 @@ interface
   end;
 
 
-  var
-    ConfigMenuStrings: array[0..0] of PFarChar;
-
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
+  procedure TPathSyncPlug.ExitFar; {override;}
   begin
-    pi.StructSize:= SizeOf(pi);
-    pi.Flags:= PF_PRELOAD;
-
-    ConfigMenuStrings[0]:= 'Path Synchonizer';
-    pi.PluginConfigStrings := @ConfigMenuStrings;
-    pi.PluginConfigStringsNumber := 1;
+    UpdateColor(True);
+    SetCheckThread(False);
   end;
 
 
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
+  procedure TPathSyncPlug.GetInfo; {override;}
+  begin
+    FFlags:= PF_PRELOAD;
+
+    FConfigStr := 'Path Synchonizer';
+   {$ifdef Far3}
+    FConfigID := cConfigID;
+   {$endif Far3}
+  end;
+
+
+  procedure TPathSyncPlug.Configure; {override;}
+  begin
+    OptionsMenu;
+  end;
+
+
+  procedure TPathSyncPlug.SynchroEvent(AParam :Pointer); {override;}
   var
     vPath  :TString;
     vSetOk :Boolean;
   begin
-//  TraceF('ProcessSynchroEventW. Event=%d, Param=%d', [Event, Integer(Param)]);
-    Result := 0;
-    if Event <> SE_COMMONSYNCHRO then
-      Exit;
-
     vPath := FarGetCurrentDirectory;
     if vPath <> FLastPath then begin
      {$ifdef bTrace}
@@ -293,53 +307,6 @@ interface
       if optStoreFolder then
         RegSetStrValue(HKCU, 'Software\Far2\Panel', 'CurrentFolder', vPath);
     end;
-  end;
-
-(*
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
-  var
-    vInfo  :TPanelInfo;
-    vPath  :TString;
-    vSetOk :Boolean;
-  begin
-//  TraceF('ProcessSynchroEventW. Event=%d, Param=%d', [Event, Integer(Param)]);
-    Result := 0;
-    if Event <> SE_COMMONSYNCHRO then
-      Exit;
-
-    FillChar(vInfo, SizeOf(vInfo), 0);
-    FARAPI.Control(THandle(PANEL_ACTIVE), FCTL_GetPanelInfo, 0, @vInfo);
-
-    if (vInfo.PanelType = PTYPE_FILEPANEL) and (vInfo.Plugin = 0) then begin
-      vPath := FarPanelGetCurrentDirectory(THandle(PANEL_ACTIVE));
-      if vPath <> FLastPath then begin
-//      TraceF('Len=%d, Path=%s', [Length(vPath), vPath]);
-        vSetOk := SetCurrentDir(vPath);
-        if vSetOk then
-          vSetOk := StrEqual(vPath, GetCurrentDir);
-        UpdateColor(vSetOk);
-        FLastPath := vPath;
-      end;
-    end else
-    begin
-      UpdateColor(True);
-      FLastPath := '';
-    end;
-  end;
-*)
-
-
-  function ConfigureW(Item: integer) :Integer; stdcall;
-  begin
-    OptionsMenu;
-    Result := 1;
-  end;
-
-
-  procedure ExitFARW; stdcall;
-  begin
-    UpdateColor(True);
-    SetCheckThread(False);
   end;
 
 

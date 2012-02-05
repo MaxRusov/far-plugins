@@ -18,12 +18,8 @@ interface
     MixClasses,
     MixWinUtils,
     MixFormat,
-   {$ifdef Far3}
-    Plugin3,
-   {$else}
-    PluginW,
-   {$endif Far3}
-    FarColor,
+
+    Far_API,
     FarCtrl,
     FarConfig,
     FarMenu,

@@ -17,13 +17,7 @@ interface
     MixUtils,
     MixStrings,
     MixClasses,
-   {$ifdef Far3}
-    Plugin3,
-   {$else}
-    PluginW,
-   {$endif Far3}
-    FarKeysW,
-    FarColor,
+    Far_API,
     FarCtrl,
     FarDlg;
 

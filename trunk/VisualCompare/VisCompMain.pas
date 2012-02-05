@@ -18,12 +18,9 @@ interface
     MixStrings,
     MixWinUtils,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-   {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    Far_API,
     FarCtrl,
+    FarPlug,
 
     VisCompCtrl,
     VisCompFiles,
@@ -34,21 +31,21 @@ interface
     VisCompOptionsDlg;
 
 
- {$ifdef bUnicodeFar}
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-  function GetMinFarVersionW :Integer; stdcall;
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
-  procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
-  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
-  function ConfigureW(Item: integer) :Integer; stdcall;
- {$else}
-  procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
-  procedure ExitFAR; stdcall;
-  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
-  function Configure(Item: integer) :Integer; stdcall;
- {$endif bUnicodeFar}
+  type
+    TVisCompPlug = class(TFarPlug)
+    public
+      procedure Init; override;
+      procedure Startup; override;
+      procedure GetInfo; override;
+
+      procedure Configure; override;
+      function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
+//    procedure ErrorHandler(E :Exception); override;
+
+    private
+      FPluginLock :Integer;
+    end;
 
 
   function CompareFiles(AFileName1, AFileName2 :PTChar; AOptions :DWORD) :Integer; stdcall;
@@ -94,7 +91,7 @@ interface
     vComp :TComparator;
     vSide :Integer;
   begin
-    vSide  := CurrentPanelSide;
+    vSide  := FarPanelGetSide;
 
     vPath1 := RemoveBackSlash(AFolder1);
     if vPath1 = '' then
@@ -145,150 +142,102 @@ interface
   end;
 
 
+
  {-----------------------------------------------------------------------------}
- { Экспортируемые процедуры                                                    }
+ { TVisCompPlug                                                                }
  {-----------------------------------------------------------------------------}
 
- {$ifdef bUnicodeFar}
-  function GetMinFarVersionW :Integer; stdcall;
+  procedure TVisCompPlug.Init; {override;}
   begin
-    Result := MakeFarVersion(2, 0, 1573);   { ACTL_GETFARRECT }
+    inherited Init;
+
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
+
+   {$ifdef Far3}
+    FGUID := cPluginID;
+   {$else}
+//  FID := cPluginID;
+   {$endif Far3}
+
+   {$ifdef Far3}
+    FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
+   {$else}
+    FMinFarVer := MakeVersion(2, 0, 1573);    { ACTL_GETFARRECT }
+   {$endif Far3}
   end;
- {$endif bUnicodeFar}
 
 
- {$ifdef bUnicodeFar}
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
- {$else}
-  procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
- {$endif bUnicodeFar}
+  procedure TVisCompPlug.Startup; {override;}
   begin
-//  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
-    hModule := psi.ModuleNumber;
-    Move(psi, FARAPI, SizeOf(FARAPI));
-    Move(psi.fsf^, FARSTD, SizeOf(FARSTD));
-
-    hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
+    hStdin := GetStdHandle(STD_INPUT_HANDLE);
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
-    FRegRoot := psi.RootKey;
+
+    { Получаем Handle консоли Far'а }
+    hFarWindow := FarAdvControl(ACTL_GETFARHWND, nil);
 
     RestoreDefFilesColor;
     RestoreDefTextColor;
-    
-(*  ReadSetup;  *)
+
+//  ReadSetup;
   end;
 
 
-  var
-    PluginMenuStrings: array[0..0] of PFarChar;
-    ConfigMenuStrings: array[0..0] of PFarChar;
-
-
- {$ifdef bUnicodeFar}
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
- {$else}
-  procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
- {$endif bUnicodeFar}
+  procedure TVisCompPlug.GetInfo; {override;}
   begin
-//  TraceF('GetPluginInfo: %s', ['']);
-    pi.StructSize:= SizeOf(pi);
-    pi.Flags:= 0 {PF_EDITOR or PF_VIEWER or PF_DIALOG};
+    FFlags := 0 {PF_EDITOR or PF_VIEWER or PF_DIALOG};
 
-    PluginMenuStrings[0] := GetMsg(strTitle);
-    pi.PluginMenuStrings := @PluginMenuStrings;
-    pi.PluginMenuStringsNumber := 1;
+    FMenuStr := GetMsg(strTitle);
+    FConfigStr := FMenuStr;
+   {$ifdef Far3}
+    FMenuID := cMenuID;
+    FConfigID := cConfigID;
+   {$endif Far3}
 
-    ConfigMenuStrings[0]:= GetMsg(strTitle);
-    pi.PluginConfigStrings := @ConfigMenuStrings;
-    pi.PluginConfigStringsNumber := 1;
-
-    pi.CommandPrefix := cPlugMenuPrefix;
+    FPrefix := cPlugMenuPrefix;
   end;
 
 
- {$ifdef bUnicodeFar}
-  procedure ExitFARW; stdcall;
- {$else}
-  procedure ExitFAR; stdcall;
- {$endif bUnicodeFar}
+  procedure TVisCompPlug.Configure; {override;}
   begin
-//  Trace('ExitFAR');
+    OptionsDlg;
   end;
 
 
-  var
-    vPluginLock :Integer;
-
-
- {$ifdef bUnicodeFar}
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
- {$else}
-  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
- {$endif bUnicodeFar}
+  function TVisCompPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
-    Result:= INVALID_HANDLE_VALUE;
-//  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
-    if vPluginLock > 0 then
-      Exit;
+    Result := INVALID_HANDLE_VALUE;
 
+    Inc(FPluginLock);
     try
-      Inc(vPluginLock);
-     {$ifndef bUnicodeFar}
-      SetFileApisToAnsi;
-     {$endif bUnicodeFar}
-      try
-        ReadSetup;
-        ReadSetupColors;
+      ReadSetup;
+      ReadSetupColors;
 
-        if OpenFrom = OPEN_COMMANDLINE then
-          OpenCmdLine(FarChar2Str(PFarChar(Item)))
-        else
-          CompareFolders2('', '');
+      if AFrom = OPEN_COMMANDLINE then
+        OpenCmdLine(FarChar2Str(PFarChar(AParam)))
+      else
+        CompareFolders2('', '');
 
-      finally
-       {$ifndef bUnicodeFar}
-        SetFileApisToOEM;
-       {$endif bUnicodeFar}
-        Dec(vPluginLock);
-      end;
-
-    except
-      on E :Exception do
-        HandleError(E);
+    finally
+      Dec(FPluginLock);
     end;
   end;
 
 
-  function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
+  function TVisCompPlug.EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
   var
     vPos :TEditorSetPosition;
   begin
-//  TraceF('ProcessEditorEvent: %d, %x', [AEvent, TIntPtr(AParam)]);
     Result := 0;
     case AEvent of
       EE_READ:
         if GEditorTopRow <> -1 then begin
           vPos.TopScreenLine := GEditorTopRow;
           vPos.CurLine := -1; vPos.CurPos := -1; vPos.CurTabPos := -1; vPos.LeftPos := -1; vPos.Overtype := -1;
-          FARAPI.EditorControl(ECTL_SETPOSITION, @vPos);
+          FarEditorControl(ECTL_SETPOSITION, @vPos);
           GEditorTopRow := -1;
         end;
-    end;
-  end;
-
-
- {$ifdef bUnicodeFar}
-  function ConfigureW(Item: integer) :Integer; stdcall;
- {$else}
-  function Configure(Item: integer) :Integer; stdcall;
- {$endif bUnicodeFar}
-  begin
-    Result := 1;
-    try
-      OptionsDlg;
-    except
-      on E :Exception do
-        HandleError(E);
     end;
   end;
 

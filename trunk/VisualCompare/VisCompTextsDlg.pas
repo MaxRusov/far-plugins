@@ -17,49 +17,26 @@ interface
     MixStrings,
     MixClasses,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-    FarKeysW,
-   {$else}
-    Plugin,
-    FarKeys,
-   {$endif bUnicodeFar}
-    FarColor,
+    Far_API,
     FarCtrl,
     FarDlg,
     FarMenu,
     FarGrid,
     FarEdit,
+    FarDraw,
     FarColorDlg,
+
 
     VisCompCtrl,
     VisCompTexts;
 
 
   type
-    TDrawBuf = class(TBasis)
+    TDrawBufEx = class(TDrawBuf)
     public
-      destructor Destroy; override;
-
-      procedure Clear;
-      procedure Add(AChr :TChar; Attr :Byte; ACount :Integer = 1);
-      procedure AddStrExpandTabsEx(AStr :PTChar; ALen :Integer; AModBits :TBits; AColor1, AColor2 :Byte);
-      procedure FillAttr(APos, ACount :Integer; AColor1, AColor2 :Byte);
-
-      procedure Paint(X, Y, ADelta, ALimit :Integer);
-
-    private
-      FChars :PTChar;
-      FAttrs :PByteArray;
-      FCount :Integer;
-      FSize  :Integer;
-
-      procedure SetSize(ASize :Integer);
-
-    public
-      property Count :Integer read FCount;
+      procedure PadFillAttr(APos, ACount :Integer; AColor1, AColor2 :Byte);
+      procedure AddStrExpandTabsWithBits(AStr :PTChar; ALen :Integer; AModBits :TBits; AColor1, AColor2 :Byte);
     end;
-
 
     TTextsDlg = class(TFarDialog)
     public
@@ -69,6 +46,7 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
       procedure ErrorHandler(E :Exception); override;
 
@@ -91,19 +69,19 @@ interface
       FHeadWidth2     :Integer;
       FNeedSetCursor  :Boolean;
 
-      FDrawBuf        :TDrawBuf;
+      FDrawBuf        :TDrawBufEx;
 
       FResCmd         :Integer;
 
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
       procedure GridPosChange(ASender :TFarGrid);
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
-      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
-      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
+      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor);
 
       function RowDiffGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
-      procedure RowDiffGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
-      procedure RowDiffPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+      procedure RowDiffGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
+      procedure RowDiffPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor);
 
       procedure InitColors;
       procedure ResizeDialog;
@@ -155,37 +133,6 @@ interface
 
 
 
-(*
-  function ChrExpandTabs(AStr :PTChar; ALen :Integer; ATabLen :Integer = DefTabSize) :TString;
-  var
-    vEnd, vDst :PTChar;
-    vPos, vDstLen, vSize :Integer;
-  begin
-    vDstLen := ChrExpandTabsLen(AStr, ALen, ATabLen);
-    SetString(Result, nil, vDstLen);
-    vDst := PTChar(Result);
-    vEnd := AStr + ALen;
-    vPos := 0;
-    while AStr < vEnd do begin
-      if AStr^ <> charTab then begin
-        Assert(vPos < vDstLen);
-        vDst^ := AStr^;
-        Inc(vDst);
-        Inc(vPos);
-      end else
-      begin
-        vSize := ATabLen - (vPos mod ATabLen);
-        Assert(vPos + vSize <= vDstLen);
-        MemFillChar(vDst, vSize, ' ');
-        Inc(vDst, vSize);
-        Inc(vPos, vSize);
-      end;
-      Inc(AStr);
-    end;
-  end;
-*)
-
-
   function CorrectPosByTabs(AStr :PTChar; ALen :Integer; APos :Integer; ATabLen :Integer) :Integer;
   var
     vEnd :PTChar;
@@ -212,38 +159,20 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- { TDrawBuf                                                                    }
+ { TDrawBufEx                                                                  }
  {-----------------------------------------------------------------------------}
 
-  destructor TDrawBuf.Destroy; {override;}
+  procedure TDrawBufEx.PadFillAttr(APos, ACount :Integer; AColor1, AColor2 :Byte);
   begin
-    MemFree(FChars);
-    MemFree(FAttrs);
-    inherited Destroy;
-  end;
-
-
-  procedure TDrawBuf.Clear;
-  begin
-    FCount := 0;
-  end;
-
-
-  procedure TDrawBuf.Add(AChr :TChar; Attr :Byte; ACount :Integer = 1);
-  var
-    I :Integer;
-  begin
-    if FCount + ACount + 1 > FSize then
-      SetSize(FCount + ACount + 1);
-    for I := 0 to ACount - 1 do begin
-      FChars[FCount] := AChr;
-      FAttrs[FCount] := Attr;
-      Inc(FCount);
+    if APos + ACount > FCount then begin
+      Add(' ', AColor1, APos + ACount - FCount);
+      FChars[FCount] := #0;
     end;
+    FillAttr(APos, ACount, AColor2);
   end;
 
 
-  procedure TDrawBuf.AddStrExpandTabsEx(AStr :PTChar; ALen :Integer; AModBits :TBits; AColor1, AColor2 :Byte);
+  procedure TDrawBufEx.AddStrExpandTabsWithBits(AStr :PTChar; ALen :Integer; AModBits :TBits; AColor1, AColor2 :Byte);
   var
     vEnd :PTChar;
     vChr :TChar;
@@ -287,55 +216,6 @@ interface
   end;
 
 
-  procedure TDrawBuf.FillAttr(APos, ACount :Integer; AColor1, AColor2 :Byte);
-  begin
-    if APos + ACount > FCount then begin
-      Add(' ', AColor1, APos + ACount - FCount);
-      FChars[FCount] := #0;
-    end;
-    FillChar(FAttrs[APos], ACount, AColor2);
-  end;
-
-
-  procedure TDrawBuf.Paint(X, Y, ADelta, ALimit :Integer);
-  var
-    I, J, vEnd, vPartLen :Integer;
-    vAtr :Byte;
-    vTmp :TChar;
-  begin
-    vEnd := FCount;
-    if FCount - ADelta > ALimit then
-      vEnd := ADelta + ALimit;
-
-    I := ADelta;
-    while I < vEnd do begin
-      vAtr := FAttrs[I];
-      J := I + 1;
-      while (J < vEnd) and (FAttrs[J] = vAtr) do
-        Inc(J);
-      vPartLen := J - I;
-      if I + vPartLen = FCount then
-        FARAPI.Text(X, Y, vAtr, FChars + I )
-      else begin
-        vTmp := (FChars + I + vPartLen)^;
-        (FChars + I + vPartLen)^ := #0;
-        FARAPI.Text(X, Y, vAtr, FChars + I );
-        (FChars + I + vPartLen)^ := vTmp;
-      end;
-      Inc(X, vPartLen);
-      Inc(I, vPartLen);
-    end;
-  end;
-
-
-  procedure TDrawBuf.SetSize(ASize :Integer);
-  begin
-    ReallocMem(FChars, ASize * SizeOf(TChar));
-    ReallocMem(FAttrs, ASize * SizeOf(Byte));
-    FSize := ASize;
-  end;
-
-
  {-----------------------------------------------------------------------------}
  { TTextsDlg                                                                   }
  {-----------------------------------------------------------------------------}
@@ -359,7 +239,7 @@ interface
   begin
     inherited Create;
 (*  FFilter := TMyFilter.CreateSize(SizeOf(TFilterRec)); *)
-    FDrawBuf := TDrawBuf.Create;
+    FDrawBuf := TDrawBufEx.Create;
   end;
 
 
@@ -454,11 +334,14 @@ interface
     FGrid2.NormColor := GetOptColor(optTextColor, COL_DIALOGTEXT);
     FGrid2.SelColor  := GetOptColor(optTextSelColor, COL_DIALOGLISTSELECTEDTEXT);
 
+   {$ifdef Far3}
+   {$else}
     SetItemFlags(IdHead1, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optTextHeadColor);
     SetItemFlags(IdHead2, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optTextHeadColor);
 
     SetItemFlags(IdLineV, DIF_SETCOLOR or FGrid1.NormColor);
     SetItemFlags(IdLineH, DIF_SETCOLOR or FGrid1.NormColor);
+   {$endif Far3}
   end;
 
 
@@ -612,9 +495,9 @@ interface
   begin
     if ASender = GetCurGrid then begin
       SyncGrids(TFarEdit(ASender));
-      if optShowCurrentRows then begin
-        FRowDiff.Redraw;
-      end;
+//    if optShowCurrentRows then
+//      FRowDiff.Redraw;
+      SendMsg(DM_REDRAW, 0, 0);
     end;
   end;
 
@@ -653,7 +536,7 @@ interface
   end;
 
 
-  procedure TTextsDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
+  procedure TTextsDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
   var
     vItem :PCmpTextRow;
     vTag, vVer, vRow :Integer;
@@ -688,7 +571,7 @@ interface
         vTag := (vTag and $FF00) shr 8;
         case vTag of
           2:
-            AColor := (AColor and $F0) or (optTextNumColor and $0F)
+            AColor := ChangeFG(AColor, optTextNumColor)
         end;
       end;
     end else
@@ -696,7 +579,7 @@ interface
   end;
 
 
-  procedure TTextsDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+  procedure TTextsDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor);
   var
     vEdit :TFarEdit;
     vItem :PCmpTextRow;
@@ -713,6 +596,8 @@ interface
       vItem := FDiff[ARow];
       vRow := vItem.FRow[vVer];
 
+      FDrawBuf.SetPalette([AColor, optTextActCursorColor, optTextPasCursorColor, ASender.SelColor, optTextDiffStrColor1, optTextDiffStrColor2]);
+
       if vRow <> -1 then begin
         vPtr := FDiff.Text[vVer].PStrings[vRow];
 
@@ -723,22 +608,23 @@ interface
         if vDiff <> nil then
           vBits := vDiff.GetDiffBits(vVer);
 
-        FDrawBuf.AddStrExpandTabsEx(PTChar(vPtr^), Length(vPtr^), vBits, IntIf(vDiff = nil, AColor, optTextDiffStrColor1), optTextDiffStrColor2);
+        FDrawBuf.AddStrExpandTabsWithBits(PTChar(vPtr^), Length(vPtr^), vBits, IntIf(vDiff = nil, 0, 4), 5);
       end;
 
       if vEdit.SelShow and (ARow >= vEdit.SelBeg.Y) and (ARow <= vEdit.SelEnd.Y) then begin
         vSelBeg := IntIf(ARow = vEdit.SelBeg.Y, vEdit.SelBeg.X, 0);
         vSelEnd := IntIf(ARow = vEdit.SelEnd.Y, vEdit.SelEnd.X, AWidth + vEdit.EdtPos);
-        FDrawBuf.FillAttr(vSelBeg, vSelEnd - vSelBeg, AColor, ASender.SelColor);
+        FDrawBuf.PadFillAttr(vSelBeg, vSelEnd - vSelBeg, 0, 3);
       end;
     end;
 
     if (ARow = ASender.CurRow) and (vEdit.EdtPos >= vEdit.EdtDelta) and (not optShowCursor or (vVer <> GetCurSide)) then
-      FDrawBuf.FillAttr(vEdit.EdtPos, 1, AColor, IntIf(vVer = GetCurSide, optTextActCursorColor, optTextPasCursorColor));
+      FDrawBuf.PadFillAttr(vEdit.EdtPos, 1, 0, IntIf(vVer = GetCurSide, 1, 2));
 
     if FDrawBuf.Count > vEdit.EdtDelta then
       FDrawBuf.Paint(X, Y, vEdit.EdtDelta, AWidth);
   end;
+
 
  {-----------------------------------------------------------------------------}
 
@@ -750,7 +636,7 @@ interface
   begin
     Result := '';
     vGrid := GetCurGrid;
-    if vGrid = nil then
+    if (vGrid = nil) or not optShowCurrentRows then
       Exit;
     vDiffRow := vGrid.CurRow;
     if vDiffRow < FDiff.DiffCount then begin
@@ -766,7 +652,7 @@ interface
   end;
 
 
-  procedure TTextsDlg.RowDiffGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
+  procedure TTextsDlg.RowDiffGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
   var
     vDiffRow, vVer, vRow :Integer;
     vItem :PCmpTextRow;
@@ -774,7 +660,7 @@ interface
     vGrid :TFarGrid;
   begin
     vGrid := GetCurGrid;
-    if vGrid = nil then
+    if (vGrid = nil) or not optShowCurrentRows then
       Exit;
     vDiffRow := vGrid.CurRow;
     if vDiffRow < FDiff.DiffCount then begin
@@ -801,7 +687,7 @@ interface
 
         case FRowDiff.Column[ACol].Tag of
           2:
-            AColor := (AColor and $F0) or (optTextNumColor and $0F)
+            AColor := ChangeFG(AColor, optTextNumColor)
         end;
       end;
     end else
@@ -809,7 +695,7 @@ interface
   end;
 
 
-  procedure TTextsDlg.RowDiffPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+  procedure TTextsDlg.RowDiffPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor);
   var
     vDiffRow, vVer, vRow :Integer;
     vItem :PCmpTextRow;
@@ -819,7 +705,7 @@ interface
     vGrid :TFarGrid;
   begin
     vGrid := GetCurGrid;
-    if vGrid = nil then
+    if (vGrid = nil) or not optShowCurrentRows then
       Exit;
     vDiffRow := vGrid.CurRow;
     if vDiffRow < FDiff.DiffCount then begin
@@ -835,7 +721,8 @@ interface
           vBits := vDiff.GetDiffBits(vVer);
 
         FDrawBuf.Clear;
-        FDrawBuf.AddStrExpandTabsEx(PTChar(vPtr^), Length(vPtr^), vBits, IntIf(vDiff = nil, AColor, optTextDiffStrColor1), optTextDiffStrColor2);
+        FDrawBuf.SetPalette([AColor, optTextDiffStrColor1, optTextDiffStrColor2]);
+        FDrawBuf.AddStrExpandTabsWIthBits(PTChar(vPtr^), Length(vPtr^), vBits, IntIf(vDiff = nil, 0, 1), 2);
         FDrawBuf.Paint(X, Y, 0, AWidth);
       end;
     end;
@@ -1184,13 +1071,13 @@ interface
     end;
   end;
 
-  
+
  {-----------------------------------------------------------------------------}
 
   procedure TTextsDlg.ChangeFileFormat;
   var
-    N, vRes, vSide :Integer;
-    vItems :PFarMenuItemsArray;
+    vMenu :TFarMenu;
+    vSide :Integer;
     vText :TText;
     vStr :TFarStr;
   begin
@@ -1202,79 +1089,62 @@ interface
 
     vStr := GetMsgStr(strMDefault) + ' ' + cFormatNames[optDefaultFormat];
 
-    vItems := FarCreateMenu([
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(StrCodePages),
+    [
       GetMsg(StrMAnsi),
       GetMsg(StrMOEM),
       GetMsg(StrMUnicode),
       GetMsg(StrMUTF8),
       '',
       PFarChar(vStr)
-    ], @N);
+    ]);
     try
       if Byte(vText.Format) <= 3 then
-        vItems[Byte(vText.Format)].Flags := MIF_SELECTED;
+        vMenu.SetSelected(Byte(vText.Format));
 
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        GetMsg(StrCodePages),
-        '',
-        '',
-        nil, nil,
-        Pointer(vItems),
-        N);
-
-      if vRes = -1 then
+      if not vMenu.Run then
         Exit;
 
-      if vRes = 5 then begin
+      if vMenu.ResIdx = 5 then begin
         if GetFileFormat(optDefaultFormat) then
           WriteSetup;
       end else
-      if vRes <> Byte(vText.Format) then begin
-        vText.LoadFile(TStrFileFormat(vRes));
+      if vMenu.ResIdx <> Byte(vText.Format) then begin
+        vText.LoadFile(TStrFileFormat(vMenu.ResIdx));
         ReinitAndSaveCurrent(True);
       end;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
 
   function TTextsDlg.GetFileFormat(var AFormat :TStrFileFormat) :Boolean;
   var
-    N, vRes :Integer;
-    vItems :PFarMenuItemsArray;
+    vMenu :TFarMenu;
   begin
-    vItems := FarCreateMenu([
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(StrCodePages),
+    [
       GetMsg(StrMAnsi),
       GetMsg(StrMOEM),
       GetMsg(StrMUnicode),
       GetMsg(StrMUTF8)
-    ], @N);
+    ]);
     try
-      if Byte(AFormat) <= 3 then
-        vItems[Byte(AFormat)].Flags := MIF_SELECTED;
-
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        GetMsg(StrCodePages),
-        '',
-        '',
-        nil, nil,
-        Pointer(vItems),
-        N);
-
-      Result := vRes <> -1;
+      vMenu.SetSelected(Byte(AFormat));
+      
+      Result := vMenu.Run;
 
       if Result then
-        Byte(AFormat) := vRes;
+        Byte(AFormat) := vMenu.ResIdx;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
-
 
 
   procedure TTextsDlg.MainMenu;
@@ -1373,7 +1243,10 @@ interface
   procedure TTextsDlg.ColorsMenu;
   var
     vMenu :TFarMenu;
+    vBkColor :DWORD;
   begin
+    vBkColor := GetColorBG(FGrid1.NormColor);
+
     vMenu := TFarMenu.CreateEx(
       GetMsg(strColorsTitle),
     [
@@ -1404,7 +1277,7 @@ interface
           3: ColorDlg('', optTextDelColor);
           4: ColorDlg('', optTextDiffStrColor1);
           5: ColorDlg('', optTextDiffStrColor2);
-          6: ColorDlg('', optTextNumColor, FGrid1.NormColor);
+          6: ColorDlg('', optTextNumColor, vBkColor);
           7: ColorDlg('', optTextHeadColor);
           8: ColorDlg('', optTextActCursorColor);
           9: ColorDlg('', optTextPasCursorColor);
@@ -1424,14 +1297,71 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  function TTextsDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
+  begin
+    Result := True;
+    case AKey of
+      KEY_TAB:
+        if GetCurSide = 0 then
+          SendMsg(DM_SETFOCUS, IdList2, 0)
+        else
+          SendMsg(DM_SETFOCUS, IdList1, 0);
+
+      KEY_ALTHOME:
+        GotoNextDiff(True, True);
+      KEY_ALTEND:
+        GotoNextDiff(False, True);
+      KEY_ALTUP:
+        GotoNextDiff(False);
+      KEY_ALTDOWN:
+        GotoNextDiff(True);
+
+      KEY_F2:
+        MainMenu;
+      KEY_F3:
+        ViewOrEditCurrent(False);
+      KEY_F4:
+        ViewOrEditCurrent(True);
+      KEY_F8:
+        ChangeFileFormat;
+      KEY_F9:
+        OptionsMenu;
+
+      KEY_CTRL1:
+        ToggleOption(optShowLinesNumber);
+      KEY_CTRL2:
+        ToggleOption(optShowCurrentRows);
+      KEY_CTRL3:
+        ToggleOption(optHilightRowsDiff);
+      KEY_CTRL4:
+        ToggleOption(optShowSpaces);
+
+      KEY_CTRLINS, KEY_CTRLC:
+        CopySelected;
+
+    else
+      Result := inherited KeyDown(AID, AKey);
+    end;
+  end;
+
+
   function TTextsDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr): TIntPtr; {override;}
   var
     vGrid :TFarEdit;
   begin
-//  TraceF('InfoDialogProc: FHandle=%d, Msg=%d, Param1=%d, Param2=%d', [FHandle, Msg, Param1, Param2]);
-
     Result := 1;
     case Msg of
+     {$ifdef Far3}
+      DN_CTLCOLORDLGITEM:
+        if Param1 in [IdHead1, IdHead2] then
+          CtrlPalette([optTextHeadColor], PFarDialogItemColors(Param2)^)
+        else
+        if Param1 in [IdLineV, IdLineH] then
+          CtrlPalette([FGrid1.NormColor, FGrid1.NormColor, FGrid1.NormColor], PFarDialogItemColors(Param2)^)
+        else
+          Result := inherited DialogHandler(Msg, Param1, Param2);
+     {$endif Far3}
+
       DN_DRAGGED:
         { Запрещаем перемещение... }
         Result := 0;
@@ -1452,86 +1382,6 @@ interface
         if vGrid <> nil then
           SetCurrent(vGrid, vGrid.CurRow, lmScroll);
         FNeedSetCursor := True;
-      end;
-
-      DN_MOUSECLICK:
-        if (Param1 = IdHead1) or (Param1 = IdHead2) then
-          NOP
-        else
-          Result := inherited DialogHandler(Msg, Param1, Param2);
-
-      DN_KEY: begin
-//      TraceF('Key = %d', [Param2]);
-        case Param2 of
-          KEY_TAB:
-            if GetCurSide = 0 then
-              SendMsg(DM_SETFOCUS, IdList2, 0)
-            else
-              SendMsg(DM_SETFOCUS, IdList1, 0);
-
-          KEY_ALTHOME:
-            GotoNextDiff(True, True);
-          KEY_ALTEND:
-            GotoNextDiff(False, True);
-          KEY_ALTUP:
-            GotoNextDiff(False);
-          KEY_ALTDOWN:
-            GotoNextDiff(True);
-
-          KEY_F2:
-            MainMenu;
-          KEY_F3:
-            ViewOrEditCurrent(False);
-          KEY_F4:
-            ViewOrEditCurrent(True);
-          KEY_F8:
-            ChangeFileFormat;
-          KEY_F9:
-            OptionsMenu;
-
-          KEY_CTRL1:
-            ToggleOption(optShowLinesNumber);
-          KEY_CTRL2:
-            ToggleOption(optShowCurrentRows);
-          KEY_CTRL3:
-            ToggleOption(optHilightRowsDiff);
-          KEY_CTRL4:
-            ToggleOption(optShowSpaces);
-
-          KEY_CTRLINS, KEY_CTRLC:
-            CopySelected;
-
-(*
-          { Фильтрация }
-          KEY_DEL, KEY_ALT, KEY_RALT:
-            LocSetFilter('');
-          KEY_BS:
-            if FFilterMask <> '' then
-              LocSetFilter( Copy(FFilterMask, 1, Length(FFilterMask) - 1));
-
-          KEY_ADD      : LocSetFilter( FFilterMask + '+' );
-          KEY_SUBTRACT : LocSetFilter( FFilterMask + '-' );
-          KEY_DIVIDE   : LocSetFilter( FFilterMask + '/' );
-          KEY_MULTIPLY : LocSetFilter( FFilterMask + '*' );
-*)
-        else
-//        TraceF('Key: %d', [Param2]);
-(*
-         {$ifdef bUnicodeFar}
-          if (Param2 >= 32) and (Param2 < $FFFF) then
-         {$else}
-          if (Param2 >= 32) and (Param2 <= $FF) then
-         {$endif bUnicodeFar}
-          begin
-           {$ifdef bUnicodeFar}
-            LocSetFilter(FFilterMask + WideChar(Param2));
-           {$else}
-            LocSetFilter(FFilterMask + StrOEMToAnsi(AnsiChar(Param2)));
-           {$endif bUnicodeFar}
-          end else
-*)
-            Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
       end;
 
     else

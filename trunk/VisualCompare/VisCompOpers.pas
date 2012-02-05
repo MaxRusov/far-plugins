@@ -22,12 +22,7 @@ interface
     MixCRC,
    {$endif bUseCRC}
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-   {$else}
-    Plugin,
-   {$endif bUnicodeFar}
-
+    Far_API,
     FarCtrl,
     FarMatch,
     VisCompCtrl,

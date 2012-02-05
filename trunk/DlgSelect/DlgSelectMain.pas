@@ -13,11 +13,7 @@ interface
   uses
     Windows,
     MixTypes,
-   {$ifdef Far3}
-    Plugin3,
-   {$else}
-    PluginW,
-   {$endif Far3}
+    Far_API,
     FarCtrl;
 
   const

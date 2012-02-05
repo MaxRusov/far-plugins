@@ -19,20 +19,14 @@ interface
     MixFormat,
     MixWinUtils,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-    FarKeysW,
-   {$else}
-    Plugin,
-    FarKeys,
-   {$endif bUnicodeFar}
-    FarColor,
+    Far_API,
     FarCtrl,
     FarMatch,
     FarDlg,
     FarMenu,
     FarGrid,
     FarColorDlg,
+    FarListDlg,
 
     VisCompCtrl,
     VisCompFiles,
@@ -71,6 +65,8 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
+      function MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; override;
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
       procedure ErrorHandler(E :Exception); override;
 
@@ -102,8 +98,8 @@ interface
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
       procedure GridPosChange(ASender :TFarGrid);
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
-      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
-      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+      procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
+      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor);
 
       procedure InitColors;
       procedure ResizeDialog;
@@ -319,8 +315,11 @@ interface
     FGrid.NormColor := GetOptColor(optDlgColor, COL_DIALOGTEXT);
     FGrid.SelColor  := GetOptColor(optCurColor, COL_DIALOGLISTSELECTEDTEXT);
 
+   {$ifdef Far3}
+   {$else}
     SetItemFlags(IdHead1, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optHeadColor);
     SetItemFlags(IdHead2, DIF_SETCOLOR or DIF_SHOWAMPERSAND or optHeadColor);
+   {$endif Far3}
   end;
 
 
@@ -482,12 +481,12 @@ interface
   end;
 
 
-  procedure TFilesDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :Integer);
+  procedure TFilesDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
   var
     vRec :PFilterRec;
     vItem :TCmpFileItem;
     vTag, vVer :Integer;
-    vColor :Integer;
+    vColor :TFarColor;
   begin
     if ARow < FFilter.Count then begin
       if (ARow = FGrid.CurRow) and FWholeLine then
@@ -528,7 +527,7 @@ interface
         if (ARow = FGrid.CurRow) and (GetCurSide = vVer) then
           AColor := FGrid.SelColor;
 
-        vColor := -1;
+        vColor := UndefColor;
         if vItem.BothAttr(faPresent) then begin
           { Подсвечивается ячейка, в которой обнаружены различия }
 
@@ -589,18 +588,17 @@ interface
             vColor := optOrphanColor;
         end;
 
-        if (vRec.FSel and (1 shl vVer) <> 0) and (AColor <> FGrid.SelColor) then
+        if (vRec.FSel and (1 shl vVer) <> 0) and not EqualColor(AColor, FGrid.SelColor) then
           AColor := optSelColor;
 
-        if vColor <> -1 then
-          AColor := (AColor and $F0) or (vColor and $0F)
-
+        if not EqualColor(vColor, UndefColor) then
+          AColor := MakeColor(GetColorFG(vColor), GetColorBG(AColor));
       end;
     end;
   end;
 
 
-  procedure TFilesDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :Integer);
+  procedure TFilesDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor);
   var
     vRec :PFilterRec;
     vItem :TCmpFileItem;
@@ -608,17 +606,17 @@ interface
     vAttr :Word;
     vStr :TString;
 
-    procedure LocDrawCount(ACount :Integer; ATxtColor :Integer);
+    procedure LocDrawCount(ACount :Integer; ATxtColor :TFarColor);
     var
       vStr :TString;
     begin
       if (AWidth > 0) and (ACount <> 0) then begin
         Inc(X); Dec(AWidth);
         vStr := Int2Str(ACount);
-        if (AColor = FGrid.SelColor) and (((AColor and $F0) shr 4) = (ATxtColor and $0F)) then
+        if EqualColor(AColor, FGrid.SelColor) and (GetColorBG(AColor) = GetColorFG(ATxtColor)) then
           { Чтобы не пропадали цифры, если их цвет совпадает с фоном текущей строки }
           ATxtColor := FGrid.SelColor;
-        ATxtColor := (AColor and $F0) or (ATxtColor and $0F);
+        ATxtColor := ChangeBG( ATxtColor, AColor );
         FGrid.DrawChr(X, Y, PTChar(vStr), AWidth, ATxtColor);
         Inc(X, Length(vStr)); Dec(AWidth, Length(vStr));
       end;
@@ -628,7 +626,7 @@ interface
     begin
       if (ALen > 0) (*and (FGrid.Column[ACol].Tag = FFilterColumn)*) then
         { Выделение части строки, совпадающей с фильтром... }
-        FGrid.DrawChrEx(X, Y, PTChar(AStr), AWidth, APos, ALen, AColor, (AColor and $F0) or (optFoundColor and $0F))
+        FGrid.DrawChrEx(X, Y, PTChar(AStr), AWidth, APos, ALen, AColor, ChangeFG(AColor, optFoundColor))
       else
         FGrid.DrawChr(X, Y, PTChar(AStr), AWidth, AColor);
       Inc(X, Length(AStr)); Dec(AWidth, Length(AStr));
@@ -1153,7 +1151,10 @@ interface
   procedure TFilesDlg.ColorsMenu;
   var
     vMenu :TFarMenu;
+    vBkColor :DWORD;
   begin
+    vBkColor := GetColorBG(FGrid.NormColor);
+
     vMenu := TFarMenu.CreateEx(
       GetMsg(strColorsTitle),
     [
@@ -1182,11 +1183,11 @@ interface
           1: ColorDlg('', optCurColor);
           2: ColorDlg('', optSelColor);
           3: ColorDlg('', optDiffColor);
-          4: ColorDlg('', optSameColor, FGrid.NormColor);
-          5: ColorDlg('', optOrphanColor, FGrid.NormColor);
-          6: ColorDlg('', optNewerColor, FGrid.NormColor);
-          7: ColorDlg('', optOlderColor, FGrid.NormColor);
-          8: ColorDlg('', optFoundColor, FGrid.NormColor);
+          4: ColorDlg('', optSameColor, vBkColor);
+          5: ColorDlg('', optOrphanColor, vBkColor);
+          6: ColorDlg('', optNewerColor, vBkColor);
+          7: ColorDlg('', optOlderColor, vBkColor);
+          8: ColorDlg('', optFoundColor, vBkColor);
           9: ColorDlg('', optHeadColor);
          10: {};
          11: RestoreDefFilesColor;
@@ -1367,10 +1368,7 @@ interface
   procedure TFilesDlg.CompareCurrent(AForcePrompt :Boolean);
   var
     vItem :TCmpFileItem;
-    vRes :Integer;
-    vParam :TString;
-    vCmd :TFarStr;
-    vStr :array[0..256] of TFarChar;
+    vCmd, vParam :TString;
   begin
     if not FComp.CanCompareContents then
       begin Beep; Exit; end;
@@ -1382,23 +1380,10 @@ interface
         vCmd := optCompareCmd;
         if vCmd = '' then
           vCmd := cPlugMenuPrefix + ':';
-
-        vRes := FARAPI.InputBox(
-          GetMsg(strCompareTitle),
-          GetMsg(strCompareCommand),
-          '',
-          PFarChar(vCmd),
-          @vStr[0],
-          256,
-          nil,
-          FIB_BUTTONS or FIB_NOUSELASTHISTORY or FIB_ENABLEEMPTY);
-        if vRes <> 1 then
+        if not FarInputBox(GetMsg(strCompareTitle), GetMsg(strCompareCommand), vCmd, FIB_BUTTONS or FIB_NOUSELASTHISTORY or FIB_ENABLEEMPTY) then
           Exit;
-
-        vCmd := vStr;
         if vCmd = '' then
           Exit;
-
         optCompareCmd := vCmd;
         WriteSetup;
       end;
@@ -1496,7 +1481,7 @@ interface
         if vItem <> FItems.ParentItem then
           vName := RemoveBackSlash(vName);
 
-        vSide := CurrentPanelSide;
+        vSide := FarPanelGetSide;
 
         if vItem.ParentGroup.Folder1 <> '' then
           {!!!}
@@ -1578,7 +1563,7 @@ interface
        {$endif bUnicodeFar}
 
         FResStr := vFileName;
-        FResLog := CurrentPanelSide <> vVer;
+        FResLog := FarPanelGetSide <> vVer;
         FResCmd := 2;
         SendMsg(DM_CLOSE, -1, 0);
       end else
@@ -1641,7 +1626,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function TFilesDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr): TIntPtr; {override;}
+  function TFilesDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
 
     procedure LocFoldUnfold;
     begin
@@ -1751,17 +1736,188 @@ interface
       SendMsg(DM_REDRAW, 0, 0);
     end;
 
-
   begin
-//  TraceF('InfoDialogProc: FHandle=%d, Msg=%d, Param1=%d, Param2=%d', [FHandle, Msg, Param1, Param2]);
+    Result := True;
+    case AKey of
+      KEY_ENTER:
+        SelectCurrent(1);
+      KEY_SHIFTENTER:
+        SelectCurrent(2);
+      KEY_CTRLPGDN:
+        GotoCurrent;
+      KEY_CTRLPGUP:
+        LeaveGroup;
+      KEY_CTRL + Byte('\'):
+        begin
+          {Go to root...}
+          FItems := FComp.Results;
+          ReinitGrid;
+          SetCurrent( 0, lmScroll );
+        end;
+      KEY_CTRLINS:
+        CopySelected;
+
+      KEY_TAB:
+        begin
+          if GetCurSide = 0 then
+            FGrid.GotoLocation(FGrid.Columns.Count div 2, FGrid.CurRow, lmSimple)
+          else
+            FGrid.GotoLocation(0, FGrid.CurRow, lmSimple);
+          FWholeLine := False;
+          SendMsg(DM_REDRAW, 0, 0);
+        end;
+      KEY_LEFT:
+        begin
+          if GetCurSide = 0 then
+            FWholeLine := True
+          else begin
+            FWholeLine := False;
+            FGrid.GotoLocation(0, FGrid.CurRow, lmSimple);
+          end;
+          SendMsg(DM_REDRAW, 0, 0);
+        end;
+      KEY_RIGHT:
+        begin
+          if GetCurSide = 1 then
+            FWholeLine := True
+          else begin
+            FWholeLine := False;
+            FGrid.GotoLocation(FGrid.Columns.Count div 2, FGrid.CurRow, lmSimple);
+          end;
+          SendMsg(DM_REDRAW, 0, 0);
+        end;
+
+      KEY_F2:
+        MainMenu;
+      KEY_F3:
+        ViewOrEditCurrent(False);
+      KEY_F4:
+        ViewOrEditCurrent(True);
+      KEY_F5:
+        Sorry;
+      KEY_F6:
+        Sorry;
+      KEY_F8:
+        Sorry; //DeleteSelected;
+      KEY_F9:
+        OptionsMenu;
+
+      { Выделение }
+      KEY_INS:
+        LocSelectCurrent;
+      KEY_CTRLADD:
+        LocSelectAll(0, 1);
+      KEY_CTRLSUBTRACT:
+        LocSelectAll(0, 0);
+      KEY_CTRLMULTIPLY:
+        LocSelectAll(0, -1);
+      KEY_ALTADD:
+        LocSelectSameColor(0, 1);
+      KEY_ALTSUBTRACT:
+        LocSelectSameColor(0, -1);
+
+      KEY_CTRLP:
+        SendToTempPanel;
+      KEY_CTRLC:
+        CompareSelectedContents;
+      KEY_CTRLU:
+        LocFoldUnfold;
+
+      KEY_CTRL + Byte('='):
+        ToggleOption(optShowSame);
+      KEY_CTRL + Byte('-'):
+        ToggleOption(optShowDiff);
+      KEY_CTRL + Byte('/'):
+        ToggleOption(optShowOrphan);
+
+      KEY_CTRLM:
+        ToggleOption(optMaximized);
+
+      KEY_CTRL1:
+        ToggleOption(optShowFilesInFolders);
+      KEY_CTRL2:
+        ToggleOption(optShowSize);
+      KEY_CTRL3:
+        ToggleOption(optShowTime);
+      KEY_CTRL4:
+        ToggleOption(optShowAttr);
+      KEY_CTRL5:
+        ToggleOption(optShowFolderAttrs);
+
+      KEY_CTRLF3, KEY_CTRLSHIFTF3:
+        SetOrder(smByName, optDiffAtTop);
+      KEY_CTRLF4, KEY_CTRLSHIFTF4:
+        SetOrder(smByExt, optDiffAtTop);
+      KEY_CTRLF5, KEY_CTRLSHIFTF5:
+        SetOrder(-smByDate, optDiffAtTop);
+      KEY_CTRLF6, KEY_CTRLSHIFTF6:
+        SetOrder(-smBySize, optDiffAtTop);
+      KEY_CTRLF7, KEY_CTRLSHIFTF7:
+        SetOrder(0, not optDiffAtTop);
+      KEY_CTRLF12:
+        SortByDlg;
+
+      { Фильтрация }
+      KEY_DEL, KEY_ALT, KEY_RALT:
+        LocSetFilter('');
+      KEY_BS:
+        if FFilterMask <> '' then
+          LocSetFilter( Copy(FFilterMask, 1, Length(FFilterMask) - 1));
+
+      KEY_ADD      : LocSetFilter( FFilterMask + '+' );
+      KEY_SUBTRACT : LocSetFilter( FFilterMask + '-' );
+      KEY_DIVIDE   : LocSetFilter( FFilterMask + '/' );
+      KEY_MULTIPLY : LocSetFilter( FFilterMask + '*' );
+
+    else
+//    TraceF('Key: %d', [Param2]);
+      if (AKey >= 32) and (AKey < $FFFF) then begin
+        LocSetFilter(FFilterMask + WideChar(AKey));
+      end else
+        Result := inherited KeyDown(AID, AKey);
+    end;
+  end;
+
+
+
+  function TFilesDlg.MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; {override;}
+  begin
+    Result := False;
+    case AID of
+      IdIcon:
+        ToggleOption(optMaximized);
+      IdHead1, IdHead2:
+        NOP;
+      else
+        Result := inherited MouseEvent(AID, AMouse);
+    end;
+  end;
+
+
+
+  function TFilesDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr): TIntPtr; {override;}
+  begin
     Result := 1;
     case Msg of
       DN_CTLCOLORDIALOG:
+       {$ifdef Far3}
+        PFarColor(Param2)^ := FGrid.NormColor;
+       {$else}
         Result := FGrid.NormColor;
+       {$endif Far3}
 
       DN_CTLCOLORDLGITEM:
-        if (Param1 in [idFrame, IdIcon]) and (optDlgColor <> 0) then
-          Result := optDlgColor + (optDlgColor shl 8) + (optDlgColor shl 16)
+       {$ifdef Far3}
+        if Param1 in [IdHead1, IdHead2] then
+          CtrlPalette([optHeadColor], PFarDialogItemColors(Param2)^)
+        else
+       {$endif Far3}
+        if (Param1 in [idFrame, IdIcon]) and not IsUndefColor(optDlgColor) then
+         {$ifdef Far3}
+          CtrlPalette([optDlgColor, optDlgColor, optDlgColor], PFarDialogItemColors(Param2)^)
+         {$else}
+          Result := CtrlPalette([optDlgColor, optDlgColor, optDlgColor])
+         {$endif Far3}
         else
           Result := inherited DialogHandler(Msg, Param1, Param2);
 
@@ -1773,170 +1929,11 @@ interface
         SetCurrent(FGrid.CurRow, lmScroll);
       end;
 
-      DN_MOUSECLICK:
-        if Param1 = IdIcon then
-          ToggleOption(optMaximized)
-        else
-        if (Param1 = IdHead1) or (Param1 = IdHead2) then
-          NOP
-        else
-          Result := inherited DialogHandler(Msg, Param1, Param2);
-
-      DN_KEY: begin
-//      TraceF('Key = %d', [Param2]);
-        case Param2 of
-          KEY_ENTER:
-            SelectCurrent(1);
-          KEY_SHIFTENTER:
-            SelectCurrent(2);
-          KEY_CTRLPGDN:
-            GotoCurrent;
-          KEY_CTRLPGUP:
-            LeaveGroup;
-          KEY_CTRL + Byte('\'):
-            begin
-              {Go to root...}
-              FItems := FComp.Results;
-              ReinitGrid;
-              SetCurrent( 0, lmScroll );
-            end;
-          KEY_CTRLINS:
-            CopySelected;
-
-          KEY_TAB:
-            begin
-              if GetCurSide = 0 then
-                FGrid.GotoLocation(FGrid.Columns.Count div 2, FGrid.CurRow, lmSimple)
-              else
-                FGrid.GotoLocation(0, FGrid.CurRow, lmSimple);
-              FWholeLine := False;
-              SendMsg(DM_REDRAW, 0, 0);
-            end;
-          KEY_LEFT:
-            begin
-              if GetCurSide = 0 then
-                FWholeLine := True
-              else begin
-                FWholeLine := False;
-                FGrid.GotoLocation(0, FGrid.CurRow, lmSimple);
-              end;
-              SendMsg(DM_REDRAW, 0, 0);
-            end;
-          KEY_RIGHT:
-            begin
-              if GetCurSide = 1 then
-                FWholeLine := True
-              else begin
-                FWholeLine := False;
-                FGrid.GotoLocation(FGrid.Columns.Count div 2, FGrid.CurRow, lmSimple);
-              end;
-              SendMsg(DM_REDRAW, 0, 0);
-            end;
-
-          KEY_F2:
-            MainMenu;
-          KEY_F3:
-            ViewOrEditCurrent(False);
-          KEY_F4:
-            ViewOrEditCurrent(True);
-          KEY_F5:
-            Sorry;
-          KEY_F6:
-            Sorry;
-          KEY_F8:
-            Sorry; //DeleteSelected;
-          KEY_F9:
-            OptionsMenu;
-
-          { Выделение }
-          KEY_INS:
-            LocSelectCurrent;
-          KEY_CTRLADD:
-            LocSelectAll(0, 1);
-          KEY_CTRLSUBTRACT:
-            LocSelectAll(0, 0);
-          KEY_CTRLMULTIPLY:
-            LocSelectAll(0, -1);
-          KEY_ALTADD:
-            LocSelectSameColor(0, 1);
-          KEY_ALTSUBTRACT:
-            LocSelectSameColor(0, -1);
-
-          KEY_CTRLP:
-            SendToTempPanel;
-          KEY_CTRLC:
-            CompareSelectedContents;
-          KEY_CTRLU:
-            LocFoldUnfold;
-
-          KEY_CTRL + Byte('='):
-            ToggleOption(optShowSame);
-          KEY_CTRL + Byte('-'):
-            ToggleOption(optShowDiff);
-          KEY_CTRL + Byte('/'):
-            ToggleOption(optShowOrphan);
-
-          KEY_CTRLM:
-            ToggleOption(optMaximized);
-
-          KEY_CTRL1:
-            ToggleOption(optShowFilesInFolders);
-          KEY_CTRL2:
-            ToggleOption(optShowSize);
-          KEY_CTRL3:
-            ToggleOption(optShowTime);
-          KEY_CTRL4:
-            ToggleOption(optShowAttr);
-          KEY_CTRL5:
-            ToggleOption(optShowFolderAttrs);
-
-          KEY_CTRLF3, KEY_CTRLSHIFTF3:
-            SetOrder(smByName, optDiffAtTop);
-          KEY_CTRLF4, KEY_CTRLSHIFTF4:
-            SetOrder(smByExt, optDiffAtTop);
-          KEY_CTRLF5, KEY_CTRLSHIFTF5:
-            SetOrder(-smByDate, optDiffAtTop);
-          KEY_CTRLF6, KEY_CTRLSHIFTF6:
-            SetOrder(-smBySize, optDiffAtTop);
-          KEY_CTRLF7, KEY_CTRLSHIFTF7:
-            SetOrder(0, not optDiffAtTop);
-          KEY_CTRLF12:
-            SortByDlg;
-
-          { Фильтрация }
-          KEY_DEL, KEY_ALT, KEY_RALT:
-            LocSetFilter('');
-          KEY_BS:
-            if FFilterMask <> '' then
-              LocSetFilter( Copy(FFilterMask, 1, Length(FFilterMask) - 1));
-
-          KEY_ADD      : LocSetFilter( FFilterMask + '+' );
-          KEY_SUBTRACT : LocSetFilter( FFilterMask + '-' );
-          KEY_DIVIDE   : LocSetFilter( FFilterMask + '/' );
-          KEY_MULTIPLY : LocSetFilter( FFilterMask + '*' );
-
-        else
-//        TraceF('Key: %d', [Param2]);
-         {$ifdef bUnicodeFar}
-          if (Param2 >= 32) and (Param2 < $FFFF) then
-         {$else}
-          if (Param2 >= 32) and (Param2 <= $FF) then
-         {$endif bUnicodeFar}
-          begin
-           {$ifdef bUnicodeFar}
-            LocSetFilter(FFilterMask + WideChar(Param2));
-           {$else}
-            LocSetFilter(FFilterMask + StrOEMToAnsi(AnsiChar(Param2)));
-           {$endif bUnicodeFar}
-          end else
-            Result := inherited DialogHandler(Msg, Param1, Param2);
-        end;
-      end;
-
     else
       Result := inherited DialogHandler(Msg, Param1, Param2);
     end;
   end;
+
 
 
   procedure TFilesDlg.ErrorHandler(E :Exception); {override;}
@@ -1950,46 +1947,24 @@ interface
  {-----------------------------------------------------------------------------}
 
   procedure GotoPanel(Another :Boolean);
-  var
-    vStr :TFarStr;
-    vMacro :TActlKeyMacro;
   begin
-    if Another then begin
-      vStr := 'Tab';
-      vMacro.Command := MCMD_POSTMACROSTRING;
-      vMacro.Param.PlainText.SequenceText := PFarChar(vStr);
-      vMacro.Param.PlainText.Flags := {KSFLAGS_DISABLEOUTPUT or} KSFLAGS_NOSENDKEYSTOPLUGINS;
-      FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
-    end;
+    if Another then
+      FarPostMacro('Tab');
   end;
 
 
   procedure OpenTempPanel(const AFileName :TString; Another :Boolean);
   var
     vStr :TFarStr;
-    vMacro :TActlKeyMacro;
   begin
-   {$ifdef bUnicodeFar}
     vStr := 'Tmp:' + AFileName;
-   {$else}
-    vStr := 'Tmp: +ansi +replace ' + AFileName;
-   {$endif bUnicodeFar}
-
-   {$ifdef bUnicodeFar}
     FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(vStr));
-   {$else}
-    vStr := StrAnsiToOem(vStr);
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, PFarChar(vStr));
-   {$endif bUnicodeFar}
 
     if Another then
       vStr := 'Tab Enter'
     else
       vStr := 'Enter';
-    vMacro.Command := MCMD_POSTMACROSTRING;
-    vMacro.Param.PlainText.SequenceText := PFarChar(vStr);
-    vMacro.Param.PlainText.Flags := {KSFLAGS_DISABLEOUTPUT or} KSFLAGS_NOSENDKEYSTOPLUGINS;
-    FARAPI.AdvControl(hModule, ACTL_KEYMACRO, @vMacro);
+    FarPostMacro(vStr);
   end;
 
 
@@ -2022,7 +1997,6 @@ interface
       FreeObj(vDlg);
     end;
   end;
-
 
 end.
 

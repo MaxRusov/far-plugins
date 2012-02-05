@@ -33,11 +33,7 @@ interface
     MixClasses,
     MixWinUtils,
 
-   {$ifdef Far3}
-    Plugin3,
-   {$else}
-    PluginW,
-   {$endif Far3}
+    Far_API,
     FarCtrl,
     FarMenu,
     FarPlug,
@@ -474,7 +470,8 @@ interface
 
    {$ifdef Far3}
 //  FMinFarVer := MakeVersion(3, 0, 2376);   { MCTL_GETLASTERROR };
-    FMinFarVer := MakeVersion(3, 0, 2379);   { MCTL_GETLASTERROR - исправление ошибки };
+//  FMinFarVer := MakeVersion(3, 0, 2379);   { MCTL_GETLASTERROR - исправление ошибки };
+    FMinFarVer := MakeVersion(3, 0, 2380);   { MacroAddMacro - изменена (fuck!) };
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1765);   { MCMD_GETAREA };
     FMinFarVer := MakeVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING, MCMD_POSTMACROSTRING };

@@ -18,12 +18,9 @@ interface
     MixStrings,
     MixWinUtils,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-   {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    Far_API,
     FarCtrl,
+    FarConfig,
     FarColorDlg;
 
 
@@ -177,6 +174,20 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+   const
+    cPluginName = 'VisualCompare';
+    cPluginDescr = 'VisualCompare FAR plugin';
+    cPluginAuthor = 'Max Rusov';
+
+   {$ifdef Far3}
+    cPluginID    :TGUID = '{AF4DAB38-C00A-4653-900E-7A8230308010}';
+    cMenuID      :TGUID = '{2E2102A3-412F-4162-A5B5-9906F8679691}';
+    cConfigID    :TGUID = '{9AE80AE6-15D9-4AD4-BECF-46C1182EAE65}';
+   {$else}
+//  cPluginID    = ...;
+   {$endif Far3}
+
+
   const
     smByName  = 1;
     smByExt   = 2;
@@ -258,31 +269,27 @@ interface
     optDefaultFormat       :TStrFileFormat = sffAnsi;
 
   var
-    optDlgColor            :Integer;
-    optCurColor            :Integer;
-    optSelColor            :Integer;
-    optDiffColor           :Integer;
-    optSameColor           :Integer;
-    optOrphanColor         :Integer;
-    optOlderColor          :Integer;
-    optNewerColor          :Integer;
-    optFoundColor          :Integer;
-    optHeadColor           :Integer;
+    optDlgColor            :TFarColor;
+    optCurColor            :TFarColor;
+    optSelColor            :TFarColor;
+    optDiffColor           :TFarColor;
+    optSameColor           :TFarColor;
+    optOrphanColor         :TFarColor;
+    optOlderColor          :TFarColor;
+    optNewerColor          :TFarColor;
+    optFoundColor          :TFarColor;
+    optHeadColor           :TFarColor;
 
-    optTextColor           :Integer;
-    optTextSelColor        :Integer;
-    optTextNewColor        :Integer;
-    optTextDelColor        :Integer;
-    optTextDiffStrColor1   :Integer;
-    optTextDiffStrColor2   :Integer;
-    optTextNumColor        :Integer;
-    optTextHeadColor       :Integer;
-    optTextActCursorColor  :Integer;
-    optTextPasCursorColor  :Integer;
-
-
-  var
-    FRegRoot :TString;
+    optTextColor           :TFarColor;
+    optTextSelColor        :TFarColor;
+    optTextNewColor        :TFarColor;
+    optTextDelColor        :TFarColor;
+    optTextDiffStrColor1   :TFarColor;
+    optTextDiffStrColor2   :TFarColor;
+    optTextNumColor        :TFarColor;
+    optTextHeadColor       :TFarColor;
+    optTextActCursorColor  :TFarColor;
+    optTextPasCursorColor  :TFarColor;
 
 
   function GetMsg(AMess :TMessages) :PFarChar;
@@ -303,7 +310,6 @@ interface
 
   function ShellOpen(AWnd :THandle; const FName, Param :TString) :Boolean;
 
-  function CurrentPanelSide :Integer;
   function GetPanelDir(Active :Boolean) :TString;
 
   function IsSpecialPath(const AName :TString) :boolean;
@@ -347,209 +353,152 @@ interface
   end;
 
 
-  procedure ReadSetup;
+  procedure PluginConfig(AStore :Boolean);
   var
-    vKey :HKEY;
+    vFmt :Integer;
   begin
-    if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then
-      Exit;
-    try
-      optCompareCmd := RegQueryStr(vKey, 'CompareCmd', optCompareCmd);
+    with TFarConfig.CreateEx(AStore, cPluginName) do
+      try
+        if Exists then begin
+          StrValue('CompareCmd', optCompareCmd);
 
-      optScanRecursive := RegQueryLog(vKey, 'ScanRecursive', optScanRecursive);
-      optNoScanHidden := RegQueryLog(vKey, 'NoScanHidden', optNoScanHidden);
-      optNoScanOrphan := RegQueryLog(vKey, 'NoScanOrphan', optNoScanOrphan);
-      optScanContents := RegQueryLog(vKey, 'ScanContents', optScanContents);
-      optScanFileMask := RegQueryStr(vKey, 'ScanFileMask', optScanFileMask);
+          LogValue('ScanRecursive', optScanRecursive);
+          LogValue('NoScanHidden', optNoScanHidden);
+          LogValue('NoScanOrphan', optNoScanOrphan);
+          LogValue('ScanContents', optScanContents);
+          StrValue('ScanFileMask', optScanFileMask);
 
-      optShowFilesInFolders := RegQueryLog(vKey, 'ShowFilesInFolders', optShowFilesInFolders);
+          LogValue('ShowFilesInFolders', optShowFilesInFolders);
 
-      optShowSize := RegQueryLog(vKey, 'ShowSize', optShowSize);
-      optShowTime := RegQueryLog(vKey, 'ShowTime', optShowTime);
-      optShowAttr := RegQueryLog(vKey, 'ShowAttr', optShowAttr);
-      optShowFolderAttrs := RegQueryLog(vKey, 'ShowFolderAttrs', optShowFolderAttrs);
+          LogValue('ShowSize', optShowSize);
+          LogValue('ShowTime', optShowTime);
+          LogValue('ShowAttr', optShowAttr);
+          LogValue('ShowFolderAttrs', optShowFolderAttrs);
 
-      optShowLinesNumber := RegQueryLog(vKey, 'ShowLinesNumber', optShowLinesNumber);
-      optShowSpaces := RegQueryLog(vKey, 'ShowSpaces', optShowSpaces);
-      optShowCurrentRows := RegQueryLog(vKey, 'ShowCurrentRows', optShowCurrentRows);
-      optHilightRowsDiff := RegQueryLog(vKey, 'HilightRowsDiff', optHilightRowsDiff);
-      optTextHorzDiv := RegQueryLog(vKey, 'TextHorzDiv', optTextHorzDiv);
+          LogValue('ShowLinesNumber', optShowLinesNumber);
+          LogValue('ShowSpaces', optShowSpaces);
+          LogValue('ShowCurrentRows', optShowCurrentRows);
+          LogValue('HilightRowsDiff', optHilightRowsDiff);
+          LogValue('TextHorzDiv', optTextHorzDiv);
 
-      optHilightDiff := RegQueryLog(vKey, 'HilightDiff', optHilightDiff);
-      optDiffAtTop := RegQueryLog(vKey, 'DiffAtTop', optDiffAtTop);
-      optFileSortMode := RegQueryInt(vKey, 'SortMode', optFileSortMode);
+          LogValue('HilightDiff', optHilightDiff);
+          LogValue('DiffAtTop', optDiffAtTop);
+          IntValue('SortMode', optFileSortMode);
 
-      optCompareContents := RegQueryLog(vKey, 'CompareContents', optCompareContents);
-      optCompareSize := RegQueryLog(vKey, 'CompareSize', optCompareSize);
-      optCompareTime := RegQueryLog(vKey, 'CompareTime', optCompareTime);
-      optCompareAttr := RegQueryLog(vKey, 'CompareAttr', optCompareAttr);
-      optCompareFolderAttrs := RegQueryLog(vKey, 'CompareFolderAttrs', optCompareFolderAttrs);
+          LogValue('CompareContents', optCompareContents);
+          LogValue('CompareSize', optCompareSize);
+          LogValue('CompareTime', optCompareTime);
+          LogValue('CompareAttr', optCompareAttr);
+          LogValue('CompareFolderAttrs', optCompareFolderAttrs);
 
-      optTextIgnoreEmptyLine := RegQueryLog(vKey, 'TextIgnoreEmptyLine', optTextIgnoreEmptyLine);
-      optTextIgnoreSpace := RegQueryLog(vKey, 'TextIgnoreSpace', optTextIgnoreSpace);
-      optTextIgnoreCase := RegQueryLog(vKey, 'TextIgnoreCase', optTextIgnoreCase);
+          LogValue('TextIgnoreEmptyLine', optTextIgnoreEmptyLine);
+          LogValue('TextIgnoreSpace', optTextIgnoreSpace);
+          LogValue('TextIgnoreCase', optTextIgnoreCase);
 
-      optMaximized := RegQueryLog(vKey, 'Maximized', optMaximized);
+          LogValue('Maximized', optMaximized);
 
-      Byte(optDefaultFormat) := IntMin(RegQueryInt(vKey, 'DefaultFormat', Byte(optDefaultFormat)), Byte(sffAuto) - 1);
+(*        Byte(optDefaultFormat) := IntMin(RegQueryInt(vKey, 'DefaultFormat', Byte(optDefaultFormat)), Byte(sffAuto) - 1); *)
 
-      optEdtAutoscroll := RegQueryLog(vKey, 'AutoScroll', optEdtAutoscroll);
-      optTabSize := RegQueryInt(vKey, 'TabSize', optTabSize);
+          if AStore then
+            vFmt := Byte(optDefaultFormat);
+          IntValue('DefaultFormat', vFmt);
+          if not AStore and (vFmt < byte(sffAuto)) then
+            Byte(optDefaultFormat) := vFmt;
 
-    finally
-      RegCloseKey(vKey);
-    end;
+          LogValue('AutoScroll', optEdtAutoscroll);
+          IntValue('TabSize', optTabSize);
+        end;
+      finally
+        Destroy;
+      end;
+  end;
+
+
+  procedure ReadSetup;
+  begin
+    PluginConfig(False);
   end;
 
 
   procedure WriteSetup;
-  var
-    vKey :HKEY;
   begin
-    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
-    try
-      RegWriteStr(vKey, 'CompareCmd', optCompareCmd);
+    PluginConfig(True);
+  end;
 
-      RegWriteLog(vKey, 'ScanRecursive', optScanRecursive);
-      RegWriteLog(vKey, 'NoScanHidden', optNoScanHidden);
-      RegWriteLog(vKey, 'NoScanOrphan', optNoScanOrphan);
-      RegWriteLog(vKey, 'ScanContents', optScanContents);
-      RegWriteStr(vKey, 'ScanFileMask', optScanFileMask);
 
-      RegWriteLog(vKey, 'ShowFilesInFolders', optShowFilesInFolders);
 
-      RegWriteLog(vKey, 'ShowSize', optShowSize);
-      RegWriteLog(vKey, 'ShowTime', optShowTime);
-      RegWriteLog(vKey, 'ShowAttr', optShowAttr);
-      RegWriteLog(vKey, 'ShowFolderAttrs', optShowFolderAttrs);
+  procedure ColorsConfig(AStore :Boolean);
+  begin
+    with TFarConfig.CreateEx(AStore, cPluginName) do
+      try
+        if Exists then begin
+          ColorValue('FDlgColor',  optDlgColor);
+          ColorValue('FCurColor',  optCurColor);
+          ColorValue('FSelColor',  optSelColor);
+          ColorValue('FDiffColor',  optDiffColor);
+          ColorValue('FSameColor', optSameColor);
+          ColorValue('FOrphanColor', optOrphanColor);
+          ColorValue('FOlderColor', optOlderColor);
+          ColorValue('FNewerColor', optNewerColor);
+          ColorValue('FFoundColor', optFoundColor);
+          ColorValue('FHeadColor', optHeadColor);
 
-      RegWriteLog(vKey, 'ShowLinesNumber', optShowLinesNumber);
-      RegWriteLog(vKey, 'ShowSpaces', optShowSpaces);
-      RegWriteLog(vKey, 'ShowCurrentRows', optShowCurrentRows);
-      RegWriteLog(vKey, 'HilightRowsDiff', optHilightRowsDiff);
-      RegWriteLog(vKey, 'TextHorzDiv', optTextHorzDiv);
-
-      RegWriteLog(vKey, 'HilightDiff', optHilightDiff);
-      RegWriteLog(vKey, 'DiffAtTop', optDiffAtTop);
-      RegWriteInt(vKey, 'SortMode', optFileSortMode);
-
-      RegWriteLog(vKey, 'CompareContents', optCompareContents);
-      RegWriteLog(vKey, 'CompareSize', optCompareSize);
-      RegWriteLog(vKey, 'CompareTime', optCompareTime);
-      RegWriteLog(vKey, 'CompareAttr', optCompareAttr);
-      RegWriteLog(vKey, 'CompareFolderAttrs', optCompareFolderAttrs);
-
-      RegWriteLog(vKey, 'TextIgnoreEmptyLine', optTextIgnoreEmptyLine);
-      RegWriteLog(vKey, 'TextIgnoreSpace', optTextIgnoreSpace);
-      RegWriteLog(vKey, 'TextIgnoreCase', optTextIgnoreCase);
-
-      RegWriteLog(vKey, 'Maximized', optMaximized);
-
-      RegWriteInt(vKey, 'DefaultFormat', Byte(optDefaultFormat));
-
-      RegWriteLog(vKey, 'AutoScroll', optEdtAutoscroll);
-      RegWriteInt(vKey, 'TabSize', optTabSize);
-
-    finally
-      RegCloseKey(vKey);
-    end;
+          ColorValue('TColor', optTextColor);
+          ColorValue('TSelColor', optTextSelColor);
+          ColorValue('TDiffColor', optTextNewColor);
+          ColorValue('TDiffColor2', optTextDelColor);
+          ColorValue('TDiffStrColor1', optTextDiffStrColor1);
+          ColorValue('TDiffStrColor2', optTextDiffStrColor2);
+          ColorValue('TNumColor', optTextNumColor);
+          ColorValue('THeadColor', optTextHeadColor);
+          ColorValue('TCursorColor', optTextActCursorColor);
+          ColorValue('TPCursorColor', optTextPasCursorColor);
+        end;
+      finally
+        Destroy;
+      end;
   end;
 
 
   procedure ReadSetupColors;
-  var
-    vKey :HKEY;
   begin
-    if not RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder + '\' + cPlugColorRegFolder, vKey) then
-      Exit;
-    try
-      optDlgColor    := RegQueryInt(vKey, 'FDlgColor',  optDlgColor);
-      optCurColor    := RegQueryInt(vKey, 'FCurColor',  optCurColor);
-      optSelColor    := RegQueryInt(vKey, 'FSelColor',  optSelColor);
-      optDiffColor   := RegQueryInt(vKey, 'FDiffColor',  optDiffColor);
-      optSameColor   := RegQueryInt(vKey, 'FSameColor', optSameColor);
-      optOrphanColor := RegQueryInt(vKey, 'FOrphanColor', optOrphanColor);
-      optOlderColor  := RegQueryInt(vKey, 'FOlderColor', optOlderColor);
-      optNewerColor  := RegQueryInt(vKey, 'FNewerColor', optNewerColor);
-      optFoundColor  := RegQueryInt(vKey, 'FFoundColor', optFoundColor);
-      optHeadColor   := RegQueryInt(vKey, 'FHeadColor', optHeadColor);
-
-      optTextColor  := RegQueryInt(vKey, 'TColor', optTextColor);
-      optTextSelColor  := RegQueryInt(vKey, 'TSelColor', optTextSelColor);
-      optTextNewColor  := RegQueryInt(vKey, 'TDiffColor', optTextNewColor);
-      optTextDelColor  := RegQueryInt(vKey, 'TDiffColor2', optTextDelColor);
-      optTextDiffStrColor1  := RegQueryInt(vKey, 'TDiffStrColor1', optTextDiffStrColor1);
-      optTextDiffStrColor2  := RegQueryInt(vKey, 'TDiffStrColor2', optTextDiffStrColor2);
-      optTextNumColor  := RegQueryInt(vKey, 'TNumColor', optTextNumColor);
-      optTextHeadColor  := RegQueryInt(vKey, 'THeadColor', optTextHeadColor);
-      optTextActCursorColor := RegQueryInt(vKey, 'TCursorColor', optTextActCursorColor);
-      optTextPasCursorColor := RegQueryInt(vKey, 'TPCursorColor', optTextPasCursorColor);
-    finally
-      RegCloseKey(vKey);
-    end;
+    ColorsConfig(False);
   end;
 
 
   procedure WriteSetupColors;
-  var
-    vKey :HKEY;
   begin
-    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder + '\' + cPlugColorRegFolder, vKey);
-    try
-      RegWriteInt(vKey, 'FDlgColor',  optDlgColor);
-      RegWriteInt(vKey, 'FCurColor',  optCurColor);
-      RegWriteInt(vKey, 'FSelColor',  optSelColor);
-      RegWriteInt(vKey, 'FDiffColor', optDiffColor);
-      RegWriteInt(vKey, 'FSameColor', optSameColor);
-      RegWriteInt(vKey, 'FOrphanColor', optOrphanColor);
-      RegWriteInt(vKey, 'FOlderColor', optOlderColor);
-      RegWriteInt(vKey, 'FNewerColor', optNewerColor);
-      RegWriteInt(vKey, 'FFoundColor', optFoundColor);
-      RegWriteInt(vKey, 'FHeadColor', optHeadColor);
-
-      RegWriteInt(vKey, 'TColor', optTextColor);
-      RegWriteInt(vKey, 'TSelColor', optTextSelColor);
-      RegWriteInt(vKey, 'TDiffColor', optTextNewColor);
-      RegWriteInt(vKey, 'TDiffColor2', optTextDelColor);
-      RegWriteInt(vKey, 'TDiffStrColor1', optTextDiffStrColor1);
-      RegWriteInt(vKey, 'TDiffStrColor2', optTextDiffStrColor2);
-      RegWriteInt(vKey, 'TNumColor', optTextNumColor);
-      RegWriteInt(vKey, 'THeadColor', optTextHeadColor);
-      RegWriteInt(vKey, 'TCursorColor', optTextActCursorColor);
-      RegWriteInt(vKey, 'TPCursorColor', optTextPasCursorColor);
-    finally
-      RegCloseKey(vKey);
-    end;
+    ColorsConfig(TRue);
   end;
 
 
   procedure RestoreDefFilesColor;
   begin
-    optDlgColor      := 0;
-    optCurColor      := 0;
-    optSelColor      := $20;
-    optDiffColor     := $B0;
-    optSameColor     := $08;
-    optOrphanColor   := $09;
-    optOlderColor    := $04;
-    optNewerColor    := $0C;
-    optFoundColor    := $0A;
-    optHeadColor     := $2F;
+    optDlgColor      := UndefColor;
+    optCurColor      := UndefColor;
+    optSelColor      := MakeColor(clBlack, clGreen);
+    optDiffColor     := MakeColor(clBlack, clCyan);
+    optSameColor     := MakeColor(clGray, clBlack);
+    optOrphanColor   := MakeColor(clBlue, clBlack);
+    optOlderColor    := MakeColor(clMaroon, clBlack);
+    optNewerColor    := MakeColor(clRed, clBlack);
+    optFoundColor    := MakeColor(clLime, clBlack);
+    optHeadColor     := MakeColor(clWhite, clGreen);
   end;
 
 
   procedure RestoreDefTextColor;
   begin
-    optTextColor          := 0;
-    optTextSelColor       := 0;
-    optTextNewColor       := $B0;
-    optTextDelColor       := $70;
-    optTextDiffStrColor1  := $F0;
-    optTextDiffStrColor2  := $B0;
-    optTextNumColor       := $08;
-    optTextHeadColor      := $2F;
-    optTextActCursorColor := $CE;
-    optTextPasCursorColor := $E0;
+    optTextColor          := UndefColor;
+    optTextSelColor       := UndefColor;
+    optTextNewColor       := MakeColor(clBlack, clCyan);   // $B0;
+    optTextDelColor       := MakeColor(clBlack, clSilver); // $70;
+    optTextDiffStrColor1  := MakeColor(clBlack, clWhite);  // $F0;
+    optTextDiffStrColor2  := MakeColor(clBlack, clCyan);   // $B0;
+    optTextNumColor       := MakeColor(clGray, clBlack);   // $08;
+    optTextHeadColor      := MakeColor(clWhite, clGreen);  // $2F;
+    optTextActCursorColor := MakeColor(clYellow, clRed);   // $CE;
+    optTextPasCursorColor := MakeColor(clBlack, clYellow); // $E0;
   end;
 
 
@@ -580,42 +529,24 @@ interface
   end;
 
 
-  function CurrentPanelSide :Integer;
-  var
-    vInfo  :TPanelInfo;
-  begin
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodeFar}
-    FARAPI.Control(PANEL_ACTIVE, FCTL_GetPanelInfo, 0, @vInfo);
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelShortInfo, @vInfo);
-   {$endif bUnicodeFar}
-    if PFLAGS_PANELLEFT and vInfo.Flags <> 0 then
-      Result := 0  {Left}
-    else
-      Result := 1; {Right}
-  end;
-
-
   function GetPanelDir(Active :Boolean) :TString;
   var
+    vHandle :THandle;
     vInfo  :TPanelInfo;
+    vPlugin :Boolean;
   begin
     Result := '';
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodeFar}
-    FARAPI.Control(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_GetPanelInfo, 0, @vInfo);
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(Active, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
-   {$endif bUnicodeFar}
+    vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
+    FarGetPanelInfo(vHandle, vInfo);
     if vInfo.PanelType = PTYPE_FILEPANEL then begin
-      if vInfo.Plugin = 0 then begin
-       {$ifdef bUnicodeFar}
-        Result := FarPanelGetCurrentDirectory(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE));
-       {$else}
-        Result := StrOEMToAnsi(vInfo.CurDir);
-       {$endif bUnicodeFar}
-      end else
+     {$ifdef Far3}
+      vPlugin  := PFLAGS_PLUGIN and vInfo.Flags <> 0;
+     {$else}
+      vPlugin  := vInfo.Plugin <> 0;
+     {$endif Far3}
+      if not vPlugin then
+        Result := FarPanelGetCurrentDirectory(vHandle)
+      else
         Result := cPlugFakeDrive;
     end;
   end;

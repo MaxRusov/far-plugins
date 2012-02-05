@@ -17,13 +17,7 @@ interface
     MixUtils,
     MixStrings,
     MixClasses,
-   {$ifdef Far3}
-    Plugin3,
-   {$else}
-    PluginW,
-   {$endif Far3}
-    FarKeysW,
-    FarColor,
+    Far_API,
     FarCtrl;
 
 
@@ -89,10 +83,14 @@ interface
       FHeight    :Integer;
 
       function DlgProc(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr;
+
+
      {$ifdef Far3}
-      procedure CtrlPalette(const AColors :array of TPaletteColors; var Colors :TFarDialogItemColors);
+      procedure CtrlPalette(const AColors :array of TFarColor; var Colors :TFarDialogItemColors); overload;
+      procedure CtrlPalette1(const AColors :array of TPaletteColors; var Colors :TFarDialogItemColors); overload;
      {$else}
-      function CtrlPalette(const AColors :array of TPaletteColors) :Integer;
+      function CtrlPalette(const AColors :array of TFarColor) :Integer; overload;
+      function CtrlPalette1(const AColors :array of TPaletteColors) :Integer; overload;
      {$endif Far3}
 (*
      {$ifdef Far3}
@@ -369,22 +367,44 @@ interface
 
 
  {$ifdef Far3}
-  procedure TFarDialog.CtrlPalette(const AColors :array of TPaletteColors; var Colors :TFarDialogItemColors);
+
+  procedure TFarDialog.CtrlPalette(const AColors :array of TFarColor; var Colors :TFarDialogItemColors);
+  var
+    I :Integer;
+  begin
+    for I := 0 to IntMin(High(AColors), Colors.ColorsCount - 1) do
+      Colors.Colors[I] := AColors[i];
+  end;
+
+  procedure TFarDialog.CtrlPalette1(const AColors :array of TPaletteColors; var Colors :TFarDialogItemColors);
   var
     I :Integer;
   begin
     for I := 0 to IntMin(High(AColors), Colors.ColorsCount - 1) do
       Colors.Colors[I] := FarGetColor(AColors[i]);
+  end;
+
  {$else}
-  function TFarDialog.CtrlPalette(const AColors :array of TPaletteColors) :Integer;
+
+  function TFarDialog.CtrlPalette(const AColors :array of TFarColor) :Integer;
+  var
+    I :Integer;
+  begin
+    Result := 0;
+    for I := 0 to IntMin(High(AColors), 3) do
+      PByteArray(@Result)[I] := AColors[i];
+  end;
+
+  function TFarDialog.CtrlPalette1(const AColors :array of TPaletteColors) :Integer;
   var
     I :Integer;
   begin
     Result := 0;
     for I := 0 to IntMin(High(AColors), 3) do
       PByteArray(@Result)[I] := FarGetColor(AColors[i]);
- {$endif Far3}
   end;
+
+ {$endif Far3}
 
 
 (*

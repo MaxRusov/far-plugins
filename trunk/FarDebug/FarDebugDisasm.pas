@@ -19,10 +19,7 @@ interface
     MixStrings,
     MixClasses,
 
-    PluginW,
-    FarKeysW,
-    
-    FarColor,
+    Far_API,
     FarCtrl,
     FarDlg,
     FarGrid,

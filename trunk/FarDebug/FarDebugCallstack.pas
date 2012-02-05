@@ -18,14 +18,7 @@ interface
     MixStrings,
     MixClasses,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-    FarKeysW,
-   {$else}
-    Plugin,
-    FarKeys,
-   {$endif bUnicodeFar}
-    FarColor,
+    Far_API,
     FarCtrl,
     FarDlg,
     FarGrid,

@@ -18,11 +18,7 @@ interface
     MixStrings,
     MixWinUtils,
 
-   {$ifdef Far3}
-    Plugin3,
-   {$else}
-    PluginW,
-   {$endif Far3}
+    Far_API,
     FarCtrl,
     FarPlug,
 
@@ -162,6 +158,7 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
+    FMinFarVer := MakeVersion(3, 0, 2415);   { PCTL_GETPLUGINS/PCTL_FINDPLUGIN }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 910);    { Новый формат кэша плагинов. }
 //  FMinFarVer := MakeVersion(2, 0, 995);    { Изменена TWindowInfo }

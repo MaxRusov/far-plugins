@@ -18,19 +18,11 @@ interface
     MixStrings,
     MixClasses,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-    FarKeysW,
-   {$else}
-    Plugin,
-    FarKeys,
-   {$endif bUnicodeFar}
-    FarColor,
-
     NoisyConsts,
     NoisyUtil,
     NoisyCtrl,
 
+    Far_API,
     FarCtrl,
     FarMatch,
     FarPlayCtrl,

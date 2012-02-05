@@ -12,11 +12,7 @@ interface
 
   uses
     MixTypes,
-   {$ifdef bUnicodeFar}
-    PluginW,
-   {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    Far_API,
     FarCtrl;
 
 

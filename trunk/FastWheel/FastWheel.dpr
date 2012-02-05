@@ -1,8 +1,9 @@
 {$I Defines.inc} { см. также DefApp.inc }
 
 {$APPTYPE CONSOLE}
-{$ImageBase $40E00000}
-
+{$ifdef Debug}
+ {$ImageBase $40E00000}
+{$endif Debug}
 
 library FastWheel;
 
@@ -34,6 +35,9 @@ exports
   ProcessEditorInputW,
   ProcessEditorEventW,
   ProcessSynchroEventW,
+ {$ifdef bUseProcessConsoleInput}
+  ProcessConsoleInputW,
+ {$endif bUseProcessConsoleInput}
   ConfigureW,
   ExitFARW;
 
@@ -42,3 +46,4 @@ exports
 begin
   Plug := TFastWheelPlug.Create;
 end.
+

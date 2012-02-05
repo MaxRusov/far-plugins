@@ -17,11 +17,7 @@ interface
     MixFormat,
     MixStrings,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-   {$else}
-    Plugin,
-   {$endif bUnicodeFar}
+    Far_API,
     FarCtrl,
 
     FontsCtrl,

@@ -18,14 +18,8 @@ interface
     MixUtils,
     MixStrings,
     MixClasses,
-   {$ifdef Far3}
-    Plugin3,
-   {$else}
-    PluginW,
-   {$endif Far3}
-    FarKeysW,
-    FarColor
-    ;
+
+    Far_API;
 
   type
     TFarStr  = TWideStr;
@@ -191,7 +185,6 @@ interface
   function FarViewerControl(ACommand :Integer; AParam :Pointer) :Integer;
   function FarRegexpControl(AHandle :THandle; ACommand :Integer; AParam :Pointer) :Integer;
 
-  function FarGetColor(ASysColor :TPaletteColors) :TFarColor;
   function IsUndefColor(const AColor :TFarColor) :Boolean;
   function MakeColor(AFGColor, ABGColor :DWORD) :TFarColor;
   function EqualColor(AColor1, AColor2 :TFarColor) :Boolean;
@@ -199,6 +192,8 @@ interface
   function GetColorBG(const AColor :TFarColor) :DWORD;
   function ChangeFG(const AColor, AFGColor :TFarColor) :TFarColor;
   function ChangeBG(const AColor, ABGColor :TFarColor) :TFarColor;
+  function ColorIf(ACond :Boolean; const AColor1, AColor2 :TFarColor) :TFarColor;
+  function FarGetColor(ASysColor :TPaletteColors) :TFarColor;
   function GetOptColor(const AColor :TFarColor; ASysColor :TPaletteColors) :TFarColor;
 
   function FarPanelItem(AHandle :THandle; ACmd, AIndex :Integer) :PPluginPanelItem;
@@ -223,9 +218,9 @@ interface
   function FarGetMacroArea :Integer;
   function FarGetMacroState :Integer;
 
-  function FarPluginControl(ACommand :Integer; AParam1 :Integer; AParam2 :Pointer) :Integer;
+  function FarPluginControl(ACommand :Integer; AParam1 :Integer; AParam2 :Pointer) :INT_PTR;
  {$ifdef Far3}
-  function FarGetPluginInfo(AIndex :Integer; var AInfo :PFarPluginInfo; APreallocate :Integer = 1024) :Boolean;
+  function FarGetPluginInfo(AHandle :THandle; var AInfo :PFarGetPluginInformation; ASize :PInteger = nil) :Boolean;
  {$endif Far3}
 
   procedure FarPanelSetDir(AHandle :THandle; const APath :TString);
@@ -598,14 +593,7 @@ interface
   end;
 
 
-  function FarGetColor(ASysColor :TPaletteColors) :TFarColor;
-  begin
-   {$ifdef Far3}
-    FARAPI.AdvControl(PluginID, ACTL_GETCOLOR, Integer(ASysColor), @Result);
-   {$else}
-    Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(TIntPtr(ASysColor)));
-   {$endif Far3}
-  end;
+ {-----------------------------------------------------------------------------}
 
 
   function IsUndefColor(const AColor :TFarColor) :Boolean;
@@ -689,6 +677,25 @@ interface
   end;
 
 
+  function ColorIf(ACond :Boolean; const AColor1, AColor2 :TFarColor) :TFarColor;
+  begin
+    if ACond then
+      Result := AColor1
+    else
+      Result := AColor2;
+  end;
+
+
+  function FarGetColor(ASysColor :TPaletteColors) :TFarColor;
+  begin
+   {$ifdef Far3}
+    FARAPI.AdvControl(PluginID, ACTL_GETCOLOR, Integer(ASysColor), @Result);
+   {$else}
+    Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(TIntPtr(ASysColor)));
+   {$endif Far3}
+  end;
+
+
   function GetOptColor(const AColor :TFarColor; ASysColor :TPaletteColors) :TFarColor;
   begin
     Result := AColor;
@@ -696,6 +703,8 @@ interface
       Result := FarGetColor(ASysColor);
   end;
 
+
+ {-----------------------------------------------------------------------------}
 
   function FarGetPanelInfo(AHandle :THandle; var AInfo :TPanelInfo) :Boolean;
   begin
@@ -741,7 +750,7 @@ interface
     Result := nil;
     vSize := FARAPI.Control(AHandle, ACmd, AIndex, nil);
     if vSize > 0 then begin
-      Result := MemAlloc( vSize );
+      Result := MemAllocZero( vSize );
       FARAPI.Control(AHandle, ACmd, AIndex, Result);
     end;
  {$endif Far3}
@@ -982,13 +991,14 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function FarPluginControl(ACommand :Integer; AParam1 :Integer; AParam2 :Pointer) :Integer;
+  function FarPluginControl(ACommand :Integer; AParam1 :Integer; AParam2 :Pointer) :INT_PTR;
   begin
     Result := FARAPI.PluginsControl(INVALID_HANDLE_VALUE, ACommand, AParam1, AParam2);
   end;
 
  {$ifdef Far3}
-  function FarGetPluginInfo(AIndex :Integer; var AInfo :PFarPluginInfo; APreallocate :Integer = 1024) :Boolean;
+(*
+  function FarGetPluginInfo(AIndex :Integer; var AInfo :PFarGetPluginInformation; APreallocate :Integer = 1024) :Boolean;
   var
     vSize :Integer;
   begin
@@ -1009,6 +1019,94 @@ interface
       end else
         Result := True;
     end;
+  end;
+*)
+
+(*
+  function FarGetPluginInfo(AHandle :THandle; var AInfo :PFarGetPluginInformation; APreallocate :Integer = 1024) :Boolean;
+  var
+    vSize0, vSize :Integer;
+  begin
+    Result := False;
+    if (AInfo = nil) and (APreallocate > 0)  then begin
+      vSize0 := SizeOf(TFarGetPluginInformation) + APreallocate;
+      AInfo := MemAllocZero(vSize0);
+      AInfo.StructSize := SizeOf(TFarGetPluginInformation);
+    end;
+
+//  vSize := FarPluginControl(PCTL_GETPLUGININFORMATION, AIndex, AInfo);
+    vSize := FARAPI.PluginsControl(AHandle, PCTL_GETPLUGININFORMATION, vSize0, AInfo);
+    if vSize > 0 then begin
+      if (AInfo = nil) or (vSize > vSize0) then begin
+        { Зарезервированного места не хватило. Надо увеличить... }
+        ReallocMem(AInfo, vSize);
+//      Result := FarPluginControl(PCTL_GETPLUGININFO, AIndex, AInfo) > 0;
+        Result := FARAPI.PluginsControl(AHandle, PCTL_GETPLUGININFORMATION, vSize, AInfo) > 0;
+      end else
+        Result := True;
+    end;
+  end;
+*)
+
+(*
+  function FarGetPluginInfo(AHandle :THandle; var AInfo :PFarGetPluginInformation; var ASize :Integer) :Boolean;
+  const
+    cPreallocate = 1024;
+  var
+    vSize :Integer;
+  begin
+    Result := False;
+    if AInfo = nil then begin
+      ASize := SizeOf(TFarGetPluginInformation) + cPreallocate;
+      AInfo := MemAllocZero(ASize);
+      AInfo.StructSize := SizeOf(TFarGetPluginInformation);
+    end;
+
+//  vSize := FarPluginControl(PCTL_GETPLUGININFORMATION, AIndex, AInfo);
+    vSize := FARAPI.PluginsControl(AHandle, PCTL_GETPLUGININFORMATION, ASize, AInfo);
+    if vSize > 0 then begin
+      if vSize > ASize then begin
+        { Зарезервированного места не хватило. Надо увеличить... }
+        ReallocMem(AInfo, vSize);
+        ASize := vSize;
+//      Result := FarPluginControl(PCTL_GETPLUGININFO, AIndex, AInfo) > 0;
+        Result := FARAPI.PluginsControl(AHandle, PCTL_GETPLUGININFORMATION, ASize, AInfo) > 0;
+      end else
+        Result := True;
+    end;
+  end;
+*)
+
+  function FarGetPluginInfo(AHandle :THandle; var AInfo :PFarGetPluginInformation; ASize :PInteger = nil) :Boolean;
+  const
+    cPreallocate = 1024;
+  var
+    vSize0, vSize :Integer;
+  begin
+    Result := False;
+    vSize0 := 0;
+    if ASize <> nil then
+      vSize0 := ASize^;
+
+    if (AInfo = nil) or (vSize0 = 0) then begin
+      vSize0 := SizeOf(TFarGetPluginInformation) + cPreallocate;
+      AInfo := MemAllocZero(vSize0);
+      AInfo.StructSize := SizeOf(TFarGetPluginInformation);
+    end;
+
+    vSize := FARAPI.PluginsControl(AHandle, PCTL_GETPLUGININFORMATION, vSize0, AInfo);
+    if vSize > 0 then begin
+      if vSize > vSize0 then begin
+        { Зарезервированного места не хватило. Надо увеличить... }
+        ReallocMem(AInfo, vSize);
+        vSize0 := vSize;
+        Result := FARAPI.PluginsControl(AHandle, PCTL_GETPLUGININFORMATION, vSize0, AInfo) > 0;
+      end else
+        Result := True;
+    end;
+    
+    if ASize <> nil then
+      ASize^ := vSize0;
   end;
  {$endif Far3}
 

@@ -17,10 +17,9 @@ interface
     MixStrings,
     MixClasses,
     MixWinUtils,
-    PluginW,
 
+    Far_API,
     FarMatch,
-
     FarCtrl,
     FarDebugCtrl,
     FarDebugIO;

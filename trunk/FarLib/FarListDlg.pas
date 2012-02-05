@@ -17,13 +17,8 @@ interface
     MixUtils,
     MixStrings,
     MixClasses,
-   {$ifdef Far3}
-    Plugin3,
-   {$else}
-    PluginW,
-   {$endif Far3}
-    FarKeysW,
-    FarColor,
+
+    Far_API,
     FarCtrl,
     FarDlg,
     FarGrid;
@@ -235,9 +230,9 @@ interface
       DN_CTLCOLORDLGITEM:
         if (Param1 = IdFrame) or (Param1 = IDStatus) then
          {$ifdef Far3}
-          CtrlPalette([COL_MENUTITLE, COL_MENUHIGHLIGHT, COL_MENUBOX], PFarDialogItemColors(Param2)^)
+          CtrlPalette1([COL_MENUTITLE, COL_MENUHIGHLIGHT, COL_MENUBOX], PFarDialogItemColors(Param2)^)
          {$else}
-          Result := CtrlPalette([COL_MENUTITLE, COL_MENUHIGHLIGHT, COL_MENUBOX])
+          Result := CtrlPalette1([COL_MENUTITLE, COL_MENUHIGHLIGHT, COL_MENUBOX])
          {$endif Far3}
         else
           Result := inherited DialogHandler(Msg, Param1, Param2);

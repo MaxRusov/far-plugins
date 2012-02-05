@@ -19,16 +19,11 @@ interface
     MixWinUtils,
     MixClasses,
 
-   {$ifdef bUnicodeFar}
-    PluginW,
-   {$else}
-    Plugin,
-   {$endif bUnicodeFar}
-
     NoisyConsts,
     NoisyUtil,
     NoisyCtrl,
 
+    Far_API,
     FarCtrl,
     FarPlayCtrl,
     FarPlayInfoDlg,
