@@ -37,8 +37,8 @@ interface
       procedure Configure; override;
       procedure GetInfo; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
-      procedure ErrorHandler(E :Exception); override;
     end;
 
 
@@ -593,7 +593,8 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
-    FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
+//  FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
+    FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1005);   { ProcessSynchroEvent }
 //  FMinFarVer := MakeVersion(2, 0, 1148);   { ConvertPath }
@@ -659,10 +660,11 @@ interface
   end;
 
 
+(*
   function TPanelTabsPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
     Result := INVALID_HANDLE_VALUE;
-    
+
     if AFrom and OPEN_FROMMACRO <> 0 then begin
       AParam := AParam and not OPEN_FROMMACRO;
       if AParam = 0 then begin
@@ -686,6 +688,46 @@ interface
     else
       MainMenu;
   end;
+*)
+
+  function TPanelTabsPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
+  begin
+    Result := INVALID_HANDLE_VALUE;
+    if AFrom = OPEN_COMMANDLINE then
+      OpenCmdLine(FarChar2Str(PFarChar(AParam)))
+    else
+      MainMenu;
+  end;
+
+
+  function TPanelTabsPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  begin
+    Result := INVALID_HANDLE_VALUE;
+    if ACount = 0 then
+      MainMenu
+    else begin
+      with AParams[0] do begin
+        if fType = FMVT_INTEGER then begin
+          if Value.fInteger = 0 then begin
+            case GlobalCommand of
+              1: TabsManager.PaintTabs;
+              2: TabsManager.MouseClick;
+            end;
+            GlobalCommand := 0;
+          end else
+          begin
+            case Value.fInteger of
+              1: TabsManager.AddTab(True);
+              2: TabsManager.ListTab(True);
+              3: ProcessSelectMode;
+              4: OptionsMenu;
+            end;
+          end;
+        end;
+      end;
+    end;
+  end;
+
 
 
   procedure TPanelTabsPlug.SynchroEvent(AParam :Pointer); {override;}
@@ -700,12 +742,6 @@ interface
       on E :Exception do
         HandleError(E);
     end;
-  end;
-
-
-  procedure TPanelTabsPlug.ErrorHandler(E :Exception); {override;}
-  begin
-    ShowMessage('Panel Tabs', E.Message, FMSG_WARNING or FMSG_MB_OK);
   end;
 
 

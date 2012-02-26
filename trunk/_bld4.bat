@@ -22,73 +22,74 @@ if not exist "build.h" (
   Exit
 )
 
-rem set Version=14
-for /f "tokens=2*" %%i in ('type build.h') do (set Version=%%j)
+set VerMax=1
+rem set VerMin=14
+for /f "tokens=2*" %%i in ('type build.h') do (set VerMin=%%j)
 
 set Arc=%CurPath%Arc\%ArcName%
 if not exist %Arc% md %Arc%
 
 
-rem if not exist "%Arc%\%PrjName%.2.v%Version%.rar" goto NotExist
+rem if not exist "%Arc%\%PrjName%.2.v%VerMin%.rar" goto NotExist
 rem Echo.
-rem Echo Build %PrjName% ver %Version% already exist
+rem Echo Build %PrjName% ver %VerMin% already exist
 rem set /P Ans="Rebuild (y/n)? "
 rem if /i "%Ans%" NEQ "y" exit
 rem Echo.
 rem :NotExist
 
 
-if not exist "%Arc%\Ver.%Version%" goto NotExist
+if not exist "%Arc%\Ver.%VerMin%" goto NotExist
 Echo.
-Echo Build %PrjName% ver %Version% already exist
+Echo Build %PrjName% ver %VerMin% already exist
 set /P Ans="Rebuild (y/n)? "
 if /i "%Ans%" NEQ "y" exit
 Echo.
 :NotExist
 
 
-echo %PrjName% ver %Version% for Far2
+echo %PrjName% ver %VerMin% for Far2
 echo.
 
 call dcc.bat
 
 pushd ..\Bin\%PrjName% || exit
-rar a -r -s -x*.map %ArcName%.2.v%Version%.rar *.* > nul || exit
+rar a -r -s -x*.map %ArcName%.far2.%VerMax%.%VerMin%.rar *.* > nul || exit
 move *.rar %Arc% || exit
 popd
 
 
 echo.
-echo %PrjName% ver %Version% Far2 x64
+echo %PrjName% ver %VerMin% Far2 x64
 echo.
 
 call fpc64.bat
 
 pushd ..\Bin_64\%PrjName% || exit
-rar a -r -s -x*.map %ArcName%.2.x64.v%Version%.rar *.* > nul || exit
+rar a -r -s -x*.map %ArcName%.far2.x64.%VerMax%.%VerMin%.rar *.* > nul || exit
 move *.rar %Arc% || exit
 popd
 
 
 echo.
-echo %PrjName% ver %Version% Far3
+echo %PrjName% ver %VerMin% Far3
 echo.
 
 call dcc.bat Far3
 
 pushd ..\Bin3\%PrjName% || exit
-rar a -r -s -x*.map %ArcName%.3.v%Version%.rar *.* > nul || exit
+rar a -r -s -x*.map %ArcName%.far3.%VerMax%.%VerMin%.rar *.* > nul || exit
 move *.rar %Arc% || exit
 popd
 
 
 echo.
-echo %PrjName% ver %Version% Far3 x64
+echo %PrjName% ver %VerMin% Far3 x64
 echo.
 
 call fpc64.bat Far3
 
 pushd ..\Bin3x64\%PrjName% || exit
-rar a -r -s -x*.map %ArcName%.3.x64.v%Version%.rar *.* > nul || exit
+rar a -r -s -x*.map %ArcName%.far3.x64.%VerMax%.%VerMin%.rar *.* > nul || exit
 move *.rar %Arc% || exit
 popd

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<renewal>
+  <plugin guid="{483AC82A-5FBB-45D9-8330-2BE2FAB568F7}">
+    <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=SameFolder</url>
+    <regex arch="x86">//far-plugins.googlecode.com/files/SameFolder\.far3.(\d+)\.(\d+)\.rar</regex>
+    <regex arch="x64">//far-plugins.googlecode.com/files/SameFolder\.far3.x64.(\d+)\.(\d+)\.rar</regex>
+  </plugin>
+</renewal>

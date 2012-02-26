@@ -42,10 +42,16 @@ interface
       procedure GetInfo; override;
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
-      function Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :Integer; override;
+      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
+      function Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
-      function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
-      function ViewerEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
+      function EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
+      function ViewerEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
+
+    private
+     {$ifdef Far3}
+      FModEdtID :Integer;
+     {$endif Far3}
     end;
 
 {******************************************************************************}
@@ -331,6 +337,7 @@ interface
     FName := cPluginName;
     FDescr := cPluginDescr;
     FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison; 
 
    {$ifdef Far3}
     FGUID := cPluginID;
@@ -339,9 +346,14 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
-    FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
+//  FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
+    FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
    {$else}
     FMinFarVer := MakeVersion(2, 0, 1573);   { ACTL_GETFARRECT }
+   {$endif Far3}
+
+   {$ifdef Far3}
+    FModEdtID := -1;
    {$endif Far3}
   end;
 
@@ -403,23 +415,26 @@ interface
 
   function TMoreHistoryPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
-    if AFrom and OPEN_FROMMACRO <> 0 then begin
-
-      if AFrom and OPEN_FROMMACROSTRING <> 0 then
-        {!!!}
-      else
-      if (AParam >= 1) and (AParam <= Byte(High(TPluginCmd))) then
-//      RunCommand(TPluginCmd(AParam - 1))
-        FarAdvControl(ACTL_SYNCHRO, Pointer(AParam))
-      else
-        OpenMenu;
-
-    end else
+    Result := INVALID_HANDLE_VALUE;
     if AFrom = OPEN_COMMANDLINE then
       OpenCmdLine(PFarChar(AParam))
     else
       OpenMenu;
+  end;
+
+
+  function TMoreHistoryPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  begin
     Result := INVALID_HANDLE_VALUE;
+    if ACount = 1 then
+      with AParams[0] do
+        if fType = FMVT_INTEGER then
+          if (Value.fInteger >= 1) and (Value.fInteger <= Byte(High(TPluginCmd))) then begin
+//          RunCommand(TPluginCmd(Value.fInteger - 1))
+            FarAdvControl(ACTL_SYNCHRO, Pointer(Value.fInteger));
+            Exit;
+          end;
+    OpenMenu;
   end;
 
 
@@ -470,7 +485,7 @@ interface
   end;
 
 
-  function TMoreHistoryPlug.EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
+  function TMoreHistoryPlug.EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {override;}
   var
     vName :TString;
     vInfo :TEditorInfo;
@@ -483,11 +498,25 @@ interface
       EE_READ     : vAction := eaOpenEdit;
       EE_SAVE     : vAction := eaSaveEdit;
       EE_GOTFOCUS : vAction := eaGotFocus;
+     {$ifdef Far3}
+      EE_CHANGE:
+        begin
+          FModEdtID := AID;
+          Exit;
+        end;
+      EE_REDRAW:
+        if FModEdtID = AID then begin
+          FModEdtID := -1;
+          vAction := eaModify
+        end else
+          Exit;
+     {$else}
       EE_REDRAW   :
         if AParam = EEREDRAW_CHANGE then
           vAction := eaModify
         else
           Exit;
+     {$endif Far3}
     else
       Exit;
     end;
@@ -512,7 +541,7 @@ interface
   end;
 
 
-  function TMoreHistoryPlug.ViewerEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
+  function TMoreHistoryPlug.ViewerEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {override;}
   var
     vName :TString;
     vInfo :TViewerInfo;
@@ -547,10 +576,10 @@ interface
   end;
 
 
-  function TMoreHistoryPlug.Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :Integer; {override;}
+  function TMoreHistoryPlug.Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :THandle; {override;}
   begin
     FldHistory.AddCurrentToHistory;
-    Result := 0;
+    Result := INVALID_HANDLE_VALUE;
   end;
 
 

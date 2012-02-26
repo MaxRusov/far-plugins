@@ -71,6 +71,7 @@ interface
       procedure ExitFar; override;
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
      {$ifdef Far3}
       function ConsoleInput(const ARec :TInputRecord) :Integer; override;
@@ -545,6 +546,7 @@ interface
     FName := cPluginName;
     FDescr := cPluginDescr;
     FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison; 
 
    {$ifdef Far3}
     FGUID := cPluginID;
@@ -553,7 +555,8 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
-    FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
+//  FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
+    FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1652);   { "verbatim string" }
     FMinFarVer := MakeVersion(2, 0, 1657);   { FCTL_GETPANELFORMAT }
@@ -602,9 +605,6 @@ interface
     vSetPassive :Boolean;
   begin
     Result:= INVALID_HANDLE_VALUE;
-    if AFrom and OPEN_FROMMACRO <> 0 then
-      PluginCmd(AParam)
-    else
     if AFrom in [OPEN_DISKMENU {$ifdef Far3}, OPEN_RIGHTDISKMENU {$endif Far3}] then begin
      {$ifdef Far3}
       vSetPassive := (FarPanelGetSide = 0{Left}) = (AFrom = OPEN_RIGHTDISKMENU);
@@ -614,6 +614,19 @@ interface
       SameFolder(vSetPassive, False, False);
     end else
       MainMenu;
+  end;
+
+
+  function TSameFolderPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  begin
+    Result:= INVALID_HANDLE_VALUE;
+    if ACount = 1 then
+      with AParams[0] do
+        if fType = FMVT_INTEGER then begin
+          PluginCmd(Value.fInteger);
+          Exit;
+        end;
+    MainMenu;
   end;
 
 
