@@ -1,4 +1,4 @@
-﻿.Language=English,English
+.Language=English,English
 
 "English"
 "Visual Compare"
@@ -11,6 +11,8 @@
 "Skip &hidden files/folders"
 "Do not scan &orphan folders"
 "&Compare contents"
+"Compare as &text"
+"&Setup"
 "Invalid path: %s"
 
 "Compare texts"
@@ -33,6 +35,8 @@
 "Show &Same             Ctrl-="
 "Show &Diff             Ctrl--"
 "Show &Orphan           Ctrl-/"
+"Show &Left Orphan      Ctrl-["
+"Show &Right Orphan     Ctrl-]"
 "Compare &Contents"
 "Compare S&ize"
 "Compare &Time"
@@ -45,7 +49,7 @@
 "Show folder attrs     Ctrl-5"
 "&Hilight difference"
 "&Unfold                Ctrl-U"
-"Co&lors..."
+"C&olors..."
 
 "Sort By"
 "&Name                Ctrl-F3"
@@ -66,10 +70,12 @@
 "Ignore &empty lines"
 "Ignore &spaces"
 "Ignore &case"
+"Ignore line &breaks"
 "Show &line numbers       Ctrl-1"
 "Show current &rows       Ctrl-2"
 "&Hilight row difference  Ctrl-3"
 "Show s&paces             Ctrl-4"
+"Show line brea&ks        Ctrl-5"
 "Horizontal &divide"
 "C&olors..."
 
@@ -79,6 +85,7 @@
 "&3 Unicode"
 "&4 UTF8"
 "&Default:"
+"&Default code page:"
 
 "Colors"
 "&1 Window"
@@ -102,10 +109,12 @@
 "&8 Caption"
 "&9 Cursor"
 "&A Passive Cursor"
+"&B Spec symbols"
 "&Restore defaults"
 
 "&Autoscroll to first difference"
 "&Tab size"
+"&Max text size (M)"
 "Valid tab size is: %d - %d"
 
 "Compare files"

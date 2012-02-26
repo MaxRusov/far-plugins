@@ -20,6 +20,7 @@ interface
 
     Far_API,
     FarCtrl,
+    FarMenu,
     FarConfig,
     FarColorDlg;
 
@@ -37,6 +38,8 @@ interface
       strSkipHidden,
       strDoNotScanOrphan,
       strCompareContents,
+      strCompareAsText,
+      strCompareSetup,
       strInvalidPath,
 
       strCompareTitle,
@@ -59,6 +62,8 @@ interface
       strMShowSame,
       strMShowDiff,
       strMShowOrphan,
+      strMShowLeftOrphan,
+      strMShowRightOrphan,
       strMCompContents,
       strMCompSize,
       strMCompTime,
@@ -92,10 +97,12 @@ interface
       strMIgnoreEmptyLines,
       strMIgnoreSpaces,
       strMIgnoreCase,
+      strMIgnoreCRLF,
       strMShowLineNumbers,
       strMShowCurrentRows,
       strMHilightRowDiff,
       strMShowSpaces,
+      strMShowCRLF,
       strMHorizontalDivide,
       strMColors2,
 
@@ -105,6 +112,7 @@ interface
       strMUnicode,
       strMUTF8,
       strMDefault,
+      strMDefaultCodePage,
 
       strColorsTitle,
       strClWindow,
@@ -128,10 +136,12 @@ interface
       strClCaption2,
       strClCursor,
       strClPCursor,
+      strClSpecSymbols,
       strRestoreDefaults,
 
       strAutoscroll,
       strTabSize,
+      strMaxTextSize,
       strErrInvalidTabSize,
 
       strCompareProgress,
@@ -223,7 +233,8 @@ interface
     optScanRecursive       :Boolean = True;
     optNoScanHidden        :Boolean = True;
     optNoScanOrphan        :Boolean = True;
-    optScanContents        :Boolean = True;
+    optScanContents        :Boolean = True;   { Сравнивать содержимое }
+    optCompareAsText       :Boolean = False;  { ...как текст (по возможности) }
     optScanFileMask        :TString = '*.*';
 
     optShowFilesInFolders  :Boolean = True;
@@ -234,6 +245,7 @@ interface
 
     optShowLinesNumber     :Boolean = True;    { Показывать номера строк }
     optShowSpaces          :Boolean = False;   { Показывать пробелы и символы табуляции }
+    optShowCRLF            :Boolean = False;   { Показывать символы завершения строк }
     optShowCurrentRows     :Boolean = True;    { Показывать снизу сравнение для текущей строки }
     optHilightRowsDiff     :Boolean = True;    { Выделять цветом различия в строке }
     optTextHorzDiv         :Boolean = False;   { Горизонтальное разделение окна сравнения}
@@ -246,15 +258,19 @@ interface
 
     optShowSame            :Boolean = True;
     optShowDiff            :Boolean = True;
-    optShowOrphan          :Boolean = True;
+//  optShowOrphan          :Boolean = True;
+    optShowLeftOrphan      :Boolean = True;
+    optShowRightOrphan     :Boolean = True;
 
     optHilightDiff         :Boolean = True;
     optDiffAtTop           :Boolean = True;
     optFileSortMode        :Integer = smByName;
 
-    optTextIgnoreEmptyLine :Boolean = True;
-    optTextIgnoreSpace     :Boolean = True;
-    optTextIgnoreCase      :Boolean = True;
+    optTextIgnoreEmptyLine :Boolean = True;    { Игнорировать пустые строки }
+    optTextIgnoreSpace     :Boolean = True;    { Игнорировать пробельные символы }
+    optTextIgnoreCase      :Boolean = True;    { Игнорировать регистр }
+    optTextIgnoreCRLF      :Boolean = True;    { Игнорировать символы окончания строк }
+    optTextIgnoreExp       :Boolean = False;
 
     optMaximized           :Boolean = False;
 
@@ -265,6 +281,7 @@ interface
 
     optTabSize             :Integer = 8;
     optEdtAutoscroll       :Boolean = False;   { Автоматически переходить на первое различие }
+    optTextFileSizeLimit   :Integer = 10 * 1024 * 1024;
 
     optDefaultFormat       :TStrFileFormat = sffAnsi;
 
@@ -290,6 +307,7 @@ interface
     optTextHeadColor       :TFarColor;
     optTextActCursorColor  :TFarColor;
     optTextPasCursorColor  :TFarColor;
+    optTextSpecColor       :TFarColor;         { Цвет спец-символов (Space, Tab, CR, LF) }
 
 
   function GetMsg(AMess :TMessages) :PFarChar;
@@ -316,6 +334,8 @@ interface
   function FarExpandFileNameEx(const AName :TString) :TString;
 
   function ReduceFileName(const AName :TString; ALen :Integer) :TString;
+  
+  function GetCodePage(var AFormat :TStrFileFormat) :Boolean;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -366,6 +386,7 @@ interface
           LogValue('NoScanHidden', optNoScanHidden);
           LogValue('NoScanOrphan', optNoScanOrphan);
           LogValue('ScanContents', optScanContents);
+          LogValue('CompareAsText', optCompareAsText);
           StrValue('ScanFileMask', optScanFileMask);
 
           LogValue('ShowFilesInFolders', optShowFilesInFolders);
@@ -377,6 +398,7 @@ interface
 
           LogValue('ShowLinesNumber', optShowLinesNumber);
           LogValue('ShowSpaces', optShowSpaces);
+          LogValue('ShowCRLF', optShowCRLF);
           LogValue('ShowCurrentRows', optShowCurrentRows);
           LogValue('HilightRowsDiff', optHilightRowsDiff);
           LogValue('TextHorzDiv', optTextHorzDiv);
@@ -394,19 +416,20 @@ interface
           LogValue('TextIgnoreEmptyLine', optTextIgnoreEmptyLine);
           LogValue('TextIgnoreSpace', optTextIgnoreSpace);
           LogValue('TextIgnoreCase', optTextIgnoreCase);
+          LogValue('TextIgnoreCRLF', optTextIgnoreCRLF);
 
           LogValue('Maximized', optMaximized);
 
-(*        Byte(optDefaultFormat) := IntMin(RegQueryInt(vKey, 'DefaultFormat', Byte(optDefaultFormat)), Byte(sffAuto) - 1); *)
+//        Byte(optDefaultFormat) := IntMin(RegQueryInt(vKey, 'DefaultFormat', Byte(optDefaultFormat)), Byte(sffAuto) - 1); 
 
-          if AStore then
-            vFmt := Byte(optDefaultFormat);
+          vFmt := Byte(optDefaultFormat);
           IntValue('DefaultFormat', vFmt);
-          if not AStore and (vFmt < byte(sffAuto)) then
+          if not AStore and (vFmt >= 0) and (vFmt < byte(sffAuto)) then
             Byte(optDefaultFormat) := vFmt;
 
           LogValue('AutoScroll', optEdtAutoscroll);
           IntValue('TabSize', optTabSize);
+          IntValue('MaxTextSize', optTextFileSizeLimit);
         end;
       finally
         Destroy;
@@ -453,6 +476,7 @@ interface
           ColorValue('THeadColor', optTextHeadColor);
           ColorValue('TCursorColor', optTextActCursorColor);
           ColorValue('TPCursorColor', optTextPasCursorColor);
+          ColorValue('TSpecColor', optTextSpecColor);
         end;
       finally
         Destroy;
@@ -499,6 +523,7 @@ interface
     optTextHeadColor      := MakeColor(clWhite, clGreen);  // $2F;
     optTextActCursorColor := MakeColor(clYellow, clRed);   // $CE;
     optTextPasCursorColor := MakeColor(clBlack, clYellow); // $E0;
+    optTextSpecColor      := MakeColor(clGray, clBlack);   // $08;
   end;
 
 
@@ -582,6 +607,33 @@ interface
 
     end else
       Result := AName;
+  end;
+
+ {-----------------------------------------------------------------------------}
+
+  function GetCodePage(var AFormat :TStrFileFormat) :Boolean;
+  var
+    vMenu :TFarMenu;
+  begin
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(StrCodePages),
+    [
+      GetMsg(StrMAnsi),
+      GetMsg(StrMOEM),
+      GetMsg(StrMUnicode),
+      GetMsg(StrMUTF8)
+    ]);
+    try
+      vMenu.SetSelected(Byte(AFormat));
+
+      Result := vMenu.Run;
+
+      if Result then
+        Byte(AFormat) := vMenu.ResIdx;
+
+    finally
+      FreeObj(vMenu);
+    end;
   end;
 
 

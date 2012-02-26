@@ -20,6 +20,7 @@ interface
     Far_API,
     FarCtrl,
     FarDlg,
+    FarMenu,
     VisCompCtrl;
 
 
@@ -43,7 +44,10 @@ interface
     IdChkSkipHidden = 9;
     IdChkSkipOrphan = 10;
     IdChkContents   = 11;
-    IdCancel        = 14;
+    IdChkAsText     = 12;
+    IdSetup         = 13;
+    IdCancel        = 16;
+
 
   type
     TCompareDlg = class(TFarDialog)
@@ -54,10 +58,14 @@ interface
       procedure Prepare; override;
       procedure InitDialog; override;
       function CloseDialog(ItemID :Integer) :Boolean; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr): TIntPtr; override;
 
     private
       FFolder1 :TString;
       FFolder2 :TString;
+
+      procedure CompareTextSetup;
+      procedure EnableControls;
     end;
 
 
@@ -73,12 +81,14 @@ interface
     DY = 16;
   var
     vX2 :Integer;
+    vStr :PFarChar;
   begin
     FGUID := cPromptDlgID;
     FHelpTopic := 'Compare';
     FWidth := DX;
     FHeight := DY;
-    FItemCount := 15;
+
+    vStr := GetMsg(strCompareSetup);
 
     vX2 := DX div 2;
     FDialog := CreateDialog(
@@ -100,12 +110,15 @@ interface
         NewItemApi(DI_CHECKBOX, 5,  10,   -1,    -1,   0, GetMsg(strSkipHidden)),
         NewItemApi(DI_CHECKBOX, 5,  11,   vX2-6, -1,   0, GetMsg(strDoNotScanOrphan)),
 
-        NewItemApi(DI_CHECKBOX, vX2, 9,   DX-vX2-5,  -1,  0, GetMsg(strCompareContents)),
+        NewItemApi(DI_CHECKBOX, vX2,   9,  DX-vX2-5,  -1,  0, GetMsg(strCompareContents)),
+        NewItemApi(DI_CHECKBOX, vX2+2, 10, DX-vX2-5,  -1,  0, GetMsg(strCompareAsText)),
+
+        NewItemApi(DI_Button,   DX-8 - StrLen(vStr),  10, -1, -1, DIF_BTNNOCLOSE, vStr ),
 
         NewItemApi(DI_Text,      0, DY-4, -1, -1, DIF_SEPARATOR),
         NewItemApi(DI_DefButton, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strOk) ),
         NewItemApi(DI_Button,    0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancel) )
-      ]
+      ], @FItemCount
     );
   end;
 
@@ -120,6 +133,9 @@ interface
     SetChecked(IdChkSkipHidden, optNoScanHidden);
     SetChecked(IdChkSkipOrphan, optNoScanOrphan);
     SetChecked(IdChkContents,   optScanContents);
+    SetChecked(IdChkAsText,     optCompareAsText);
+    
+    EnableControls;
   end;
 
 
@@ -136,11 +152,83 @@ interface
       optScanFileMask := Trim(GetText(IdEdtMask));
 
       optScanRecursive := GetChecked(IdChkRecursive);
-      optNoScanHidden := GetChecked(IdChkSkipHidden);
-      optNoScanOrphan := GetChecked(IdChkSkipOrphan);
-      optScanContents := GetChecked(IdChkContents);
+      optNoScanHidden  := GetChecked(IdChkSkipHidden);
+      optNoScanOrphan  := GetChecked(IdChkSkipOrphan);
+      optScanContents  := GetChecked(IdChkContents);
+      optCompareAsText := GetChecked(IdChkAsText);
     end;
     Result := True;
+  end;
+
+
+  procedure TCompareDlg.EnableControls;
+  begin
+    SendMsg(DM_ENABLE, IdChkAsText, Byte(GetChecked(IdChkContents)));
+    SendMsg(DM_ENABLE, IdSetup, Byte(GetChecked(IdChkContents) and GetChecked(IdChkAsText)));
+  end;
+
+
+  procedure TCompareDlg.CompareTextSetup;
+  var
+    vMenu :TFarMenu;
+    vStr :TFarStr;
+  begin
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strOptionsTitle2),
+    [
+      GetMsg(StrMIgnoreEmptyLines),
+      GetMsg(StrMIgnoreSpaces),
+      GetMsg(StrMIgnoreCase),
+      GetMsg(StrMIgnoreCRLF),
+      '',
+      GetMsg(strMDefaultCodePage)
+    ]);
+    try
+      while True do begin
+        vMenu.Checked[0] := optTextIgnoreEmptyLine;
+        vMenu.Checked[1] := optTextIgnoreSpace;
+        vMenu.Checked[2] := optTextIgnoreCase;
+        vMenu.Checked[3] := optTextIgnoreCRLF;
+
+        vStr := GetMsgStr(strMDefaultCodePage) + ' ' + cFormatNames[optDefaultFormat];
+        vMenu.Items[5].TextPtr := PFarChar(vStr);
+
+        vMenu.SetSelected(vMenu.ResIdx);
+
+        if not vMenu.Run then
+          Exit;
+
+        case vMenu.ResIdx of
+          0: optTextIgnoreEmptyLine := not optTextIgnoreEmptyLine;
+          1: optTextIgnoreSpace := not optTextIgnoreSpace;
+          2: optTextIgnoreCase := not optTextIgnoreCase;
+          3: optTextIgnoreCRLF := not optTextIgnoreCRLF;
+
+          5: GetCodePage(optDefaultFormat);
+        end;
+      end;
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
+
+
+  function TCompareDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr): TIntPtr; {override;}
+  begin
+    Result := 1;
+    case Msg of
+      DN_BTNCLICK:
+        if Param1 in [IdChkContents, IdChkAsText] then
+          EnableControls
+        else
+        if Param1 = IdSetup then
+          CompareTextSetup
+        else
+          Result := inherited DialogHandler(Msg, Param1, Param2);
+    else
+      Result := inherited DialogHandler(Msg, Param1, Param2);
+    end;
   end;
 
 

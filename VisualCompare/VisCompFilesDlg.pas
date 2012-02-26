@@ -707,7 +707,13 @@ interface
       case AItem.GetResume of
         crSame   : Result := optShowSame;
         crDiff   : Result := optShowDiff;
-        crOrphan : Result := optShowOrphan;
+
+        crOrphan :
+          if faPresent and AItem.Attr[0] <> 0 then
+            Result := optShowLeftOrphan
+          else
+            Result := optShowRightOrphan
+
       else
         Result := True;
       end;
@@ -744,7 +750,7 @@ interface
       vTitle :TString;
       vNeedFilter :Boolean;
     begin
-      vNeedFilter := not optShowSame or not optShowDiff or not optShowOrphan;
+      vNeedFilter := not optShowSame or not optShowDiff or not optShowLeftOrphan or not optShowRightOrphan;
 
       for I := 0 to AList.Count - 1 do begin
         vItem := AList[I];
@@ -754,16 +760,12 @@ interface
           if vItem.Subs <> nil then begin
 
             if vItem.BothAttr(faPresent) then begin
-
               if not CheckFolderFilter(vItem) then
                 Continue;
-
             end else
             begin
-
-              if not optShowOrphan then
+              if not CheckFilter(vItem) then
                 Continue;
-
             end;
 
           end else
@@ -1073,7 +1075,9 @@ interface
     [
       GetMsg(StrMShowSame),
       GetMsg(StrMShowDiff),
-      GetMsg(StrMShowOrphan),
+//    GetMsg(StrMShowOrphan),
+      GetMsg(StrMShowLeftOrphan),  //'Show &Left only',
+      GetMsg(StrMShowRightOrphan), //'Show &Right only',
       '',
       GetMsg(StrMCompContents),
       GetMsg(StrMCompSize),
@@ -1096,22 +1100,23 @@ interface
       while True do begin
         vMenu.Checked[0] := optShowSame;
         vMenu.Checked[1] := optShowDiff;
-        vMenu.Checked[2] := optShowOrphan;
+        vMenu.Checked[2] := optShowLeftOrphan;
+        vMenu.Checked[3] := optShowRightOrphan;
         {}
-        vMenu.Checked[4] := optCompareContents;
-        vMenu.Checked[5] := optCompareSize;
-        vMenu.Checked[6] := optCompareTime;
-        vMenu.Checked[7] := optCompareAttr;
-        vMenu.Checked[8] := optCompareFolderAttrs;
+        vMenu.Checked[5] := optCompareContents;
+        vMenu.Checked[6] := optCompareSize;
+        vMenu.Checked[7] := optCompareTime;
+        vMenu.Checked[8] := optCompareAttr;
+        vMenu.Checked[9] := optCompareFolderAttrs;
         {}
-        vMenu.Checked[10] := optShowFilesInFolders;
-        vMenu.Checked[11] := optShowSize;
-        vMenu.Checked[12] := optShowTime;
-        vMenu.Checked[13] := optShowAttr;
-        vMenu.Checked[14] := optShowFolderAttrs;
+        vMenu.Checked[11] := optShowFilesInFolders;
+        vMenu.Checked[12] := optShowSize;
+        vMenu.Checked[13] := optShowTime;
+        vMenu.Checked[14] := optShowAttr;
+        vMenu.Checked[15] := optShowFolderAttrs;
         {}
-        vMenu.Checked[16] := optHilightDiff;
-        vMenu.Checked[17] := FUnfold;
+        vMenu.Checked[17] := optHilightDiff;
+        vMenu.Checked[18] := FUnfold;
 
         vMenu.SetSelected(vMenu.ResIdx);
 
@@ -1121,24 +1126,25 @@ interface
         case vMenu.ResIdx of
           0:  ToggleOption(optShowSame);
           1:  ToggleOption(optShowDiff);
-          2:  ToggleOption(optShowOrphan);
-          3:  {};
-          4:  ToggleOption(optCompareContents, True);
-          5:  ToggleOption(optCompareSize, True);
-          6:  ToggleOption(optCompareTime, True);
-          7:  ToggleOption(optCompareAttr, True);
-          8:  ToggleOption(optCompareFolderAttrs, True);
-          9:  {};
-          10: ToggleOption(optShowFilesInFolders);
-          11: ToggleOption(optShowSize);
-          12: ToggleOption(optShowTime);
-          13: ToggleOption(optShowAttr);
-          14: ToggleOption(optShowFolderAttrs);
-          15: {};
-          16: ToggleOption(optHilightDiff);
-          17: ToggleOption(FUnfold);
-          18: {};
-          19: ColorsMenu;
+          2:  ToggleOption(optShowLeftOrphan);
+          3:  ToggleOption(optShowRightOrphan);
+
+          5:  ToggleOption(optCompareContents, True);
+          6:  ToggleOption(optCompareSize, True);
+          7:  ToggleOption(optCompareTime, True);
+          8:  ToggleOption(optCompareAttr, True);
+          9:  ToggleOption(optCompareFolderAttrs, True);
+
+          11: ToggleOption(optShowFilesInFolders);
+          12: ToggleOption(optShowSize);
+          13: ToggleOption(optShowTime);
+          14: ToggleOption(optShowAttr);
+          15: ToggleOption(optShowFolderAttrs);
+
+          17: ToggleOption(optHilightDiff);
+          18: ToggleOption(FUnfold);
+
+          20: ColorsMenu;
         end;
       end;
 
@@ -1827,8 +1833,10 @@ interface
         ToggleOption(optShowSame);
       KEY_CTRL + Byte('-'):
         ToggleOption(optShowDiff);
-      KEY_CTRL + Byte('/'):
-        ToggleOption(optShowOrphan);
+      KEY_CTRL + Byte('['):
+        ToggleOption(optShowLeftOrphan);
+      KEY_CTRL + Byte(']'):
+        ToggleOption(optShowRightOrphan);
 
       KEY_CTRLM:
         ToggleOption(optMaximized);

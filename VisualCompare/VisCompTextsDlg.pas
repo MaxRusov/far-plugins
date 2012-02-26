@@ -35,7 +35,7 @@ interface
     TDrawBufEx = class(TDrawBuf)
     public
       procedure PadFillAttr(APos, ACount :Integer; AColor1, AColor2 :Byte);
-      procedure AddStrExpandTabsWithBits(AStr :PTChar; ALen :Integer; AModBits :TBits; AColor1, AColor2 :Byte);
+      procedure AddStrExpandTabsWithBits(AStr :PTChar; ALen :Integer; AModBits :TBits; AColor1, AColor2, AColor3 :Byte);
     end;
 
     TTextsDlg = class(TFarDialog)
@@ -46,6 +46,7 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
+      function CloseDialog(ItemID :Integer) :Boolean; override;
       function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
       procedure ErrorHandler(E :Exception); override;
@@ -72,6 +73,9 @@ interface
       FDrawBuf        :TDrawBufEx;
 
       FResCmd         :Integer;
+
+      FSetChanged     :Boolean;
+
 
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
       procedure GridPosChange(ASender :TFarGrid);
@@ -104,7 +108,6 @@ interface
       procedure GotoNextDiff(AForward :Boolean; AFirst :Boolean = False);
       procedure ViewOrEditCurrent(AEdit :Boolean);
       procedure ChangeFileFormat;
-      function GetFileFormat(var AFormat :TStrFileFormat) :Boolean;
       procedure MainMenu;
       procedure OptionsMenu;
       procedure ColorsMenu;
@@ -117,7 +120,6 @@ interface
 
   var
     GEditorTopRow :Integer = -1;
-
 
   procedure ShowTextsDlg(ADiff :TTextDiff);
 
@@ -172,13 +174,17 @@ interface
   end;
 
 
-  procedure TDrawBufEx.AddStrExpandTabsWithBits(AStr :PTChar; ALen :Integer; AModBits :TBits; AColor1, AColor2 :Byte);
+  procedure TDrawBufEx.AddStrExpandTabsWithBits(AStr :PTChar; ALen :Integer; AModBits :TBits; AColor1, AColor2, AColor3 :Byte);
   var
     vEnd :PTChar;
     vChr :TChar;
-    vAtr :Byte;
+    vAtr, vAtr1 :Byte;
     vSPos, vDPos, vDstLen, vSize :Integer;
   begin
+    if not optShowCRLF then
+      while (ALen > 0) and CharIsCRLF((AStr + ALen - 1)^) do
+        Dec(ALen);
+
     vDstLen := ChrExpandTabsLen(AStr, ALen, optTabSize);
     if FCount + vDstLen + 1 > FSize then
       SetSize(FCount + vDstLen + 1);
@@ -188,13 +194,20 @@ interface
     while AStr < vEnd do begin
       vChr := AStr^;
       vAtr := AColor1;
-      if (AModBits <> nil) and AModBits[vSPos] then
+      vAtr1 := AColor3;
+      if (AModBits <> nil) and AModBits[vSPos] then begin
         vAtr := AColor2;
+        vAtr1 := AColor2;
+      end;
 
       if vChr <> charTab then begin
         Assert(vDPos < vDstLen);
-        if (vChr = ' ') and optShowSpaces then
+        if CharIsCRLF(vChr) then
+          vAtr := vAtr1;
+        if (vChr = ' ') and optShowSpaces then begin
           vChr := optSpaceChar;
+          vAtr := vAtr1;
+        end;
         Add(vChr, vAtr);
         Inc(vDPos);
       end else
@@ -202,9 +215,9 @@ interface
         vSize := optTabSize - (vDPos mod optTabSize);
         Assert(vDPos + vSize <= vDstLen);
         if optShowSpaces then begin
-          Add(optTabChar, vAtr);
+          Add(optTabChar, vAtr1);
           if vSize > 1 then
-            Add(optTabSpaceChar, vAtr, vSize - 1)
+            Add(optTabSpaceChar, vAtr1, vSize - 1)
         end else
           Add(' ', vAtr, vSize);
         Inc(vDPos, vSize);
@@ -323,6 +336,14 @@ interface
 
     SendMsg(DM_SETFOCUS, IdList1, 0);
     FNeedSetCursor := True;
+  end;
+
+
+  function TTextsDlg.CloseDialog(ItemID :Integer) :Boolean; {override;}
+  begin
+    Result := inherited CloseDialog(ItemID);
+    if Result and FSetChanged then
+      WriteSetup;
   end;
 
 
@@ -505,7 +526,7 @@ interface
   function TTextsDlg.GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
   var
     vItem :PCmpTextRow;
-    vTag, vVer, vRow :Integer;
+    vTag, vVer, vRow, vLen :Integer;
     vPtr :PTString;
   begin
     Result := '';
@@ -517,7 +538,12 @@ interface
       if ACol < 0 then begin
         if vRow <> -1 then begin
           vPtr := FDiff.Text[vVer].PStrings[vRow];
-          Result := ChrExpandTabs(PTChar(vPtr^), Length(vPtr^), optTabSize);
+
+          vLen := Length(vPtr^);
+          while (vLen > 0) and CharIsCRLF(vPtr^[vLen]) do
+            Dec(vLen);
+
+          Result := ChrExpandTabs(PTChar(vPtr^), vLen, optTabSize);
         end;
       end else
       begin
@@ -588,6 +614,7 @@ interface
     vPtr :PTString;
     vBits :TBits;
     vSelBeg, vSelEnd :Integer;
+    vActive :Boolean;
   begin
     FDrawBuf.Clear;
     vEdit := TFarEdit(ASender);
@@ -596,7 +623,10 @@ interface
       vItem := FDiff[ARow];
       vRow := vItem.FRow[vVer];
 
-      FDrawBuf.SetPalette([AColor, optTextActCursorColor, optTextPasCursorColor, ASender.SelColor, optTextDiffStrColor1, optTextDiffStrColor2]);
+      FDrawBuf.SetPalette([AColor,
+        optTextActCursorColor, optTextPasCursorColor, ASender.SelColor,
+        optTextDiffStrColor1, optTextDiffStrColor2,
+        ChangeFG(AColor, optTextSpecColor)]);
 
       if vRow <> -1 then begin
         vPtr := FDiff.Text[vVer].PStrings[vRow];
@@ -608,7 +638,7 @@ interface
         if vDiff <> nil then
           vBits := vDiff.GetDiffBits(vVer);
 
-        FDrawBuf.AddStrExpandTabsWithBits(PTChar(vPtr^), Length(vPtr^), vBits, IntIf(vDiff = nil, 0, 4), 5);
+        FDrawBuf.AddStrExpandTabsWithBits(PTChar(vPtr^), Length(vPtr^), vBits, IntIf(vDiff = nil, 0, 4), 5, 6);
       end;
 
       if vEdit.SelShow and (ARow >= vEdit.SelBeg.Y) and (ARow <= vEdit.SelEnd.Y) then begin
@@ -618,8 +648,11 @@ interface
       end;
     end;
 
-    if (ARow = ASender.CurRow) and (vEdit.EdtPos >= vEdit.EdtDelta) and (not optShowCursor or (vVer <> GetCurSide)) then
-      FDrawBuf.PadFillAttr(vEdit.EdtPos, 1, 0, IntIf(vVer = GetCurSide, 1, 2));
+    vActive := vVer = GetCurSide;
+    if (ARow = ASender.CurRow) and (vEdit.EdtPos >= vEdit.EdtDelta) and
+      ((vActive and not optShowCursor) or (not vActive and not IsUndefColor(optTextPasCursorColor)))
+    then
+      FDrawBuf.PadFillAttr(vEdit.EdtPos, 1, 0, IntIf(vActive, 1, 2));
 
     if FDrawBuf.Count > vEdit.EdtDelta then
       FDrawBuf.Paint(X, Y, vEdit.EdtDelta, AWidth);
@@ -721,8 +754,8 @@ interface
           vBits := vDiff.GetDiffBits(vVer);
 
         FDrawBuf.Clear;
-        FDrawBuf.SetPalette([AColor, optTextDiffStrColor1, optTextDiffStrColor2]);
-        FDrawBuf.AddStrExpandTabsWIthBits(PTChar(vPtr^), Length(vPtr^), vBits, IntIf(vDiff = nil, 0, 1), 2);
+        FDrawBuf.SetPalette([AColor, optTextDiffStrColor1, optTextDiffStrColor2, ChangeFG(AColor, optTextSpecColor)]);
+        FDrawBuf.AddStrExpandTabsWithBits(PTChar(vPtr^), Length(vPtr^), vBits, IntIf(vDiff = nil, 0, 1), 2, 3);
         FDrawBuf.Paint(X, Y, 0, AWidth);
       end;
     end;
@@ -913,7 +946,8 @@ interface
   begin
     AOption := not AOption;
     ReinitAndSaveCurrent(ANeedRecompare);
-    WriteSetup;
+//  WriteSetup;
+    FSetChanged := True;
   end;
 
 
@@ -1025,7 +1059,6 @@ interface
   end;
 
 
-
   procedure TTextsDlg.CopySelected;
   var
     I, vSide, vRow, vLen, vBeg, vEnd :Integer;
@@ -1064,7 +1097,7 @@ interface
         end;
       end;
 
-      FarCopyToClipboard(vRows.GetTextStrEx(#13#10));
+      FarCopyToClipboard(vRows.GetTextStrEx(''));  //#13#10 - Уже в составе строки
 
     finally
       FreeObj(vRows);
@@ -1107,39 +1140,15 @@ interface
         Exit;
 
       if vMenu.ResIdx = 5 then begin
-        if GetFileFormat(optDefaultFormat) then
-          WriteSetup;
+        if GetCodePage(optDefaultFormat) then begin
+//        WriteSetup;
+          FSetChanged := True;
+        end;
       end else
       if vMenu.ResIdx <> Byte(vText.Format) then begin
         vText.LoadFile(TStrFileFormat(vMenu.ResIdx));
         ReinitAndSaveCurrent(True);
       end;
-
-    finally
-      FreeObj(vMenu);
-    end;
-  end;
-
-
-  function TTextsDlg.GetFileFormat(var AFormat :TStrFileFormat) :Boolean;
-  var
-    vMenu :TFarMenu;
-  begin
-    vMenu := TFarMenu.CreateEx(
-      GetMsg(StrCodePages),
-    [
-      GetMsg(StrMAnsi),
-      GetMsg(StrMOEM),
-      GetMsg(StrMUnicode),
-      GetMsg(StrMUTF8)
-    ]);
-    try
-      vMenu.SetSelected(Byte(AFormat));
-      
-      Result := vMenu.Run;
-
-      if Result then
-        Byte(AFormat) := vMenu.ResIdx;
 
     finally
       FreeObj(vMenu);
@@ -1193,11 +1202,13 @@ interface
       GetMsg(StrMIgnoreEmptyLines),
       GetMsg(StrMIgnoreSpaces),
       GetMsg(StrMIgnoreCase),
+      GetMsg(StrMIgnoreCRLF),
       '',
       GetMsg(StrMShowLineNumbers),
       GetMsg(strMShowCurrentRows),
       GetMsg(strMHilightRowDiff),
       GetMsg(StrMShowSpaces),
+      GetMsg(StrMShowCRLF),
       '',
       GetMsg(strMHorizontalDivide),
       GetMsg(StrMColors2)
@@ -1207,12 +1218,15 @@ interface
         vMenu.Checked[0] := optTextIgnoreEmptyLine;
         vMenu.Checked[1] := optTextIgnoreSpace;
         vMenu.Checked[2] := optTextIgnoreCase;
+        vMenu.Checked[3] := optTextIgnoreCRLF;
 
-        vMenu.Checked[4] := optShowLinesNumber;
-        vMenu.Checked[5] := optShowCurrentRows;
-        vMenu.Checked[6] := optHilightRowsDiff;
-        vMenu.Checked[7] := optShowSpaces;
-        vMenu.Checked[8] := optTextHorzDiv;
+        vMenu.Checked[5] := optShowLinesNumber;
+        vMenu.Checked[6] := optShowCurrentRows;
+        vMenu.Checked[7] := optHilightRowsDiff;
+        vMenu.Checked[8] := optShowSpaces;
+        vMenu.Checked[9] := optShowCRLF;
+
+        vMenu.Checked[11] := optTextHorzDiv;
 
         vMenu.SetSelected(vMenu.ResIdx);
 
@@ -1223,14 +1237,16 @@ interface
           0: ToggleOption(optTextIgnoreEmptyLine, True);
           1: ToggleOption(optTextIgnoreSpace, True);
           2: ToggleOption(optTextIgnoreCase, True);
-          3: {};
-          4: ToggleOption(optShowLinesNumber);
-          5: ToggleOption(optShowCurrentRows);
-          6: ToggleOption(optHilightRowsDiff);
-          7: ToggleOption(optShowSpaces);
-          8: {};
-          9: ToggleOption(optTextHorzDiv);
-         10: ColorsMenu;
+          3: ToggleOption(optTextIgnoreCRLF, True);
+
+          5: ToggleOption(optShowLinesNumber);
+          6: ToggleOption(optShowCurrentRows);
+          7: ToggleOption(optHilightRowsDiff);
+          8: ToggleOption(optShowSpaces);
+          9: ToggleOption(optShowCRLF);
+
+         11: ToggleOption(optTextHorzDiv);
+         12: ColorsMenu;
         end;
       end;
 
@@ -1260,6 +1276,7 @@ interface
       GetMsg(strClCaption2),
       GetMsg(strClCursor),
       GetMsg(strClPCursor),
+      GetMsg(strClSpecSymbols),
       '',
       GetMsg(strRestoreDefaults)
     ]);
@@ -1281,8 +1298,9 @@ interface
           7: ColorDlg('', optTextHeadColor);
           8: ColorDlg('', optTextActCursorColor);
           9: ColorDlg('', optTextPasCursorColor);
-         10: {};
-         11: RestoreDefTextColor;
+         10: ColorDlg('', optTextSpecColor, vBkColor);
+         11: {};
+         12: RestoreDefTextColor;
         end;
 
         WriteSetupColors;
@@ -1335,6 +1353,14 @@ interface
         ToggleOption(optHilightRowsDiff);
       KEY_CTRL4:
         ToggleOption(optShowSpaces);
+      KEY_CTRL5:
+        ToggleOption(optShowCRLF);
+
+      KEY_CTRL9: begin
+        ToggleOption(optTextIgnoreExp, True);
+        if optTextIgnoreExp then
+          Beep;
+      end;
 
       KEY_CTRLINS, KEY_CTRLC:
         CopySelected;
@@ -1440,3 +1466,4 @@ interface
 
 
 end.
+
