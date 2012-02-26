@@ -153,7 +153,7 @@ interface
     CRLF :array[1..2] of TChar = (charCR, charLF);
 
   function StrDetectFormat(const AFileName :TString) :TStrFileFormat;
-  function StrFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto) :TString;
+  function StrFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto; ACheckBOM :Boolean = True) :TString;
   procedure StrToFile(const AFileName :TString; const AStr :TString; AMode :TStrFileFormat = sffAuto);
 
 
@@ -1557,7 +1557,7 @@ interface
   end;
 
 
-  function StrFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto) :TString;
+  function StrFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto; ACheckBOM :Boolean = True) :TString;
   var
     vFile :THandle;
     vSize :Integer;
@@ -1569,11 +1569,11 @@ interface
     try
       vSize := GetFileSize(vFile, nil);
 
-      if ((AMode = sffAuto) or (AMode = sffUnicode)) and CheckBOM(vFile, BOM_UTF16) then begin
+      if ((AMode = sffAuto) or (AMode = sffUnicode) or ACheckBOM) and CheckBOM(vFile, BOM_UTF16) then begin
         AMode := sffUnicode;
         Dec(vSize, Length(BOM_UTF16));
       end else
-      if ((AMode = sffAuto) or (AMode = sffUTF8)) and CheckBOM(vFile, BOM_UTF8) then begin
+      if ((AMode = sffAuto) or (AMode = sffUTF8) or ACheckBOM) and CheckBOM(vFile, BOM_UTF8) then begin
         AMode := sffUTF8;
         Dec(vSize, Length(BOM_UTF8));
       end else

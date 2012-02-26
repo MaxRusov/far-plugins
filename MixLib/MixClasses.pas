@@ -254,10 +254,12 @@ interface
       function GetStrItems(Index :Integer) :TString;
       procedure PutStrItems(Index :Integer; const Value :TString);
       function GetPStrItems(Index :Integer) :PTString;
+      function GetStrPtrs(Index :Integer) :PTChar;
 
     public
       property Items[I :Integer] :TString read GetStrItems write PutStrItems; default;
       property PStrings[I :Integer] :PTString read GetPStrItems;
+      property StrPtrs[I :Integer] :PTChar read GetStrPtrs;
     end;
 
 
@@ -1051,6 +1053,15 @@ interface
           C := ItemCompare(P, @Key, Context)
         else
           C := ItemCompareKey(P, Key, Context);
+
+        if C < 0 then
+          L := I + 1
+        else begin
+          H := I - 1;
+          if C = 0 then
+            Result := True;
+        end;
+(*
         if C = 0 then begin
           Result := True;
           Index := I;
@@ -1060,6 +1071,7 @@ interface
           L := I + 1
         else
           H := I - 1;
+*)
       end;
 
       Index := L;
@@ -1430,6 +1442,12 @@ interface
   function TStrList.GetPStrItems(Index :Integer) :PTString;
   begin
     Result := GetPItems(Index);
+  end;
+
+
+  function TStrList.GetStrPtrs(Index :Integer) :PTChar;
+  begin
+    Result := PTChar(TString(inherited GetItems(Index)));
   end;
 
 
