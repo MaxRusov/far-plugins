@@ -61,7 +61,7 @@ const
   FARMANAGERVERSION_MAJOR = 3;
   FARMANAGERVERSION_MINOR = 0;
   FARMANAGERVERSION_REVISION = 0;
-  FARMANAGERVERSION_BUILD = 2424;
+  FARMANAGERVERSION_BUILD = 2487;
 
 type
 //TFarChar = AnsiChar;
@@ -1503,112 +1503,108 @@ const
   ACTL_GETWINDOWTYPE         = 28;
 
 
-          { FarSystemSettings }
+{ FarSystemSettings }
 
-          const
-            FSS_CLEARROATTRIBUTE           = $00000001;
-            FSS_DELETETORECYCLEBIN         = $00000002;
-            FSS_USESYSTEMCOPYROUTINE       = $00000004;
-            FSS_COPYFILESOPENEDFORWRITING  = $00000008;
-            FSS_CREATEFOLDERSINUPPERCASE   = $00000010;
-            FSS_SAVECOMMANDSHISTORY        = $00000020;
-            FSS_SAVEFOLDERSHISTORY         = $00000040;
-            FSS_SAVEVIEWANDEDITHISTORY     = $00000080;
-            FSS_USEWINDOWSREGISTEREDTYPES  = $00000100;
-            FSS_AUTOSAVESETUP              = $00000200;
-            FSS_SCANSYMLINK                = $00000400;
+const
+//FSS_CLEARROATTRIBUTE           = $00000001;
+  FSS_DELETETORECYCLEBIN         = $00000002;
+  FSS_USESYSTEMCOPYROUTINE       = $00000004;
+  FSS_COPYFILESOPENEDFORWRITING  = $00000008;
+  FSS_CREATEFOLDERSINUPPERCASE   = $00000010;
+  FSS_SAVECOMMANDSHISTORY        = $00000020;
+  FSS_SAVEFOLDERSHISTORY         = $00000040;
+  FSS_SAVEVIEWANDEDITHISTORY     = $00000080;
+  FSS_USEWINDOWSREGISTEREDTYPES  = $00000100;
+  FSS_AUTOSAVESETUP              = $00000200;
+  FSS_SCANSYMLINK                = $00000400;
 
-          { FarPanelSettings }
+{ FarPanelSettings }
 
-          const
-            FPS_SHOWHIDDENANDSYSTEMFILES    = $00000001;
-            FPS_HIGHLIGHTFILES              = $00000002;
-            FPS_AUTOCHANGEFOLDER            = $00000004;
-            FPS_SELECTFOLDERS               = $00000008;
-            FPS_ALLOWREVERSESORTMODES       = $00000010;
-            FPS_SHOWCOLUMNTITLES            = $00000020;
-            FPS_SHOWSTATUSLINE              = $00000040;
-            FPS_SHOWFILESTOTALINFORMATION   = $00000080;
-            FPS_SHOWFREESIZE                = $00000100;
-            FPS_SHOWSCROLLBAR               = $00000200;
-            FPS_SHOWBACKGROUNDSCREENSNUMBER = $00000400;
-            FPS_SHOWSORTMODELETTER          = $00000800;
+const
+  FPS_SHOWHIDDENANDSYSTEMFILES    = $00000001;
+  FPS_HIGHLIGHTFILES              = $00000002;
+  FPS_AUTOCHANGEFOLDER            = $00000004;
+  FPS_SELECTFOLDERS               = $00000008;
+  FPS_ALLOWREVERSESORTMODES       = $00000010;
+  FPS_SHOWCOLUMNTITLES            = $00000020;
+  FPS_SHOWSTATUSLINE              = $00000040;
+  FPS_SHOWFILESTOTALINFORMATION   = $00000080;
+  FPS_SHOWFREESIZE                = $00000100;
+  FPS_SHOWSCROLLBAR               = $00000200;
+  FPS_SHOWBACKGROUNDSCREENSNUMBER = $00000400;
+  FPS_SHOWSORTMODELETTER          = $00000800;
 
-          { FarDialogSettings }
+{ FarDialogSettings }
 
-          const
-            FDIS_HISTORYINDIALOGEDITCONTROLS    = $00000001;
-            FDIS_PERSISTENTBLOCKSINEDITCONTROLS = $00000002;
-            FDIS_AUTOCOMPLETEININPUTLINES       = $00000004;
-            FDIS_BSDELETEUNCHANGEDTEXT          = $00000008;
-            FDIS_DELREMOVESBLOCKS               = $00000010;
-            FDIS_MOUSECLICKOUTSIDECLOSESDIALOG  = $00000020;
+const
+  FDIS_HISTORYINDIALOGEDITCONTROLS    = $00000001;
+  FDIS_PERSISTENTBLOCKSINEDITCONTROLS = $00000002;
+  FDIS_AUTOCOMPLETEININPUTLINES       = $00000004;
+  FDIS_BSDELETEUNCHANGEDTEXT          = $00000008;
+  FDIS_DELREMOVESBLOCKS               = $00000010;
+  FDIS_MOUSECLICKOUTSIDECLOSESDIALOG  = $00000020;
 
-          { FarInterfaceSettings }
+{ FarInterfaceSettings }
 
-          const
-            FIS_CLOCKINPANELS                  = $00000001;
-            FIS_CLOCKINVIEWERANDEDITOR         = $00000002;
-            FIS_MOUSE                          = $00000004;
-            FIS_SHOWKEYBAR                     = $00000008;
-            FIS_ALWAYSSHOWMENUBAR              = $00000010;
-            FIS_USERIGHTALTASALTGR             = $00000080;
-            FIS_SHOWTOTALCOPYPROGRESSINDICATOR = $00000100;
-            FIS_SHOWCOPYINGTIMEINFO            = $00000200;
-            FIS_USECTRLPGUPTOCHANGEDRIVE       = $00000800;
-            FIS_SHOWTOTALDELPROGRESSINDICATOR  = $00001000;
+const
+  FIS_CLOCKINPANELS                  = $00000001;
+  FIS_CLOCKINVIEWERANDEDITOR         = $00000002;
+  FIS_MOUSE                          = $00000004;
+  FIS_SHOWKEYBAR                     = $00000008;
+  FIS_ALWAYSSHOWMENUBAR              = $00000010;
+  FIS_USERIGHTALTASALTGR             = $00000080;
+  FIS_SHOWTOTALCOPYPROGRESSINDICATOR = $00000100;
+  FIS_SHOWCOPYINGTIMEINFO            = $00000200;
+  FIS_USECTRLPGUPTOCHANGEDRIVE       = $00000800;
+  FIS_SHOWTOTALDELPROGRESSINDICATOR  = $00001000;
 
-          { FarConfirmationsSettings }
+{ FarConfirmationsSettings }
 
-          const
-            FCS_COPYOVERWRITE          = $00000001;
-            FCS_MOVEOVERWRITE          = $00000002;
-            FCS_DRAGANDDROP            = $00000004;
-            FCS_DELETE                 = $00000008;
-            FCS_DELETENONEMPTYFOLDERS  = $00000010;
-            FCS_INTERRUPTOPERATION     = $00000020;
-            FCS_DISCONNECTNETWORKDRIVE = $00000040;
-            FCS_RELOADEDITEDFILE       = $00000080;
-            FCS_CLEARHISTORYLIST       = $00000100;
-            FCS_EXIT                   = $00000200;
-            FCS_OVERWRITEDELETEROFILES = $00000400;
+const
+  FCS_COPYOVERWRITE          = $00000001;
+  FCS_MOVEOVERWRITE          = $00000002;
+  FCS_DRAGANDDROP            = $00000004;
+  FCS_DELETE                 = $00000008;
+  FCS_DELETENONEMPTYFOLDERS  = $00000010;
+  FCS_INTERRUPTOPERATION     = $00000020;
+  FCS_DISCONNECTNETWORKDRIVE = $00000040;
+  FCS_RELOADEDITEDFILE       = $00000080;
+  FCS_CLEARHISTORYLIST       = $00000100;
+  FCS_EXIT                   = $00000200;
+  FCS_OVERWRITEDELETEROFILES = $00000400;
 
-          { FarDescriptionSettings }
+{ FarDescriptionSettings }
 
-          const
-            FDS_UPDATEALWAYS      = $00000001;
-            FDS_UPDATEIFDISPLAYED = $00000002;
-            FDS_SETHIDDEN         = $00000004;
-            FDS_UPDATEREADONLY    = $00000008;
-
-
-          //const
-          //  FAR_CONSOLE_GET_MODE       = -2;
-          //  FAR_CONSOLE_TRIGGER        = -1;
-          //  FAR_CONSOLE_SET_WINDOWED   = 0;
-          //  FAR_CONSOLE_SET_FULLSCREEN = 1;
-          //  FAR_CONSOLE_WINDOWED       = 0;
-          //  FAR_CONSOLE_FULLSCREEN     = 1;
+const
+  FDS_UPDATEALWAYS      = $00000001;
+  FDS_UPDATEIFDISPLAYED = $00000002;
+  FDS_SETHIDDEN         = $00000004;
+  FDS_UPDATEREADONLY    = $00000008;
 
 
-          { FAREJECTMEDIAFLAGS }
+{ FAREJECTMEDIAFLAGS }
 
-          const
-            EJECT_NO_MESSAGE          = $00000001;
-            EJECT_LOAD_MEDIA          = $00000002;
+type
+  TFarEjectMediaFlags  = int64;
 
-          (*
-          struct ActlEjectMedia {
-            DWORD Letter;
-            DWORD Flags;
-          };
-          *)
-          type
-            PActlEjectMedia = ^TActlEjectMedia;
-            TActlEjectMedia = record
-              Letter :DWORD;
-              Flags :DWORD;
-            end;
+const
+  EJECT_NONE            = 0;
+  EJECT_NO_MESSAGE      = $00000001;
+  EJECT_LOAD_MEDIA      = $00000002;
+
+(*
+struct ActlEjectMedia
+{
+  DWORD Letter;
+  FAREJECTMEDIAFLAGS Flags;
+};
+*)
+type
+  PActlEjectMedia = ^TActlEjectMedia;
+  TActlEjectMedia = record
+    Letter :DWORD;
+    Flags :TFarEjectMediaFlags;
+  end;
 
 
 {------------------------------------------------------------------------------}
@@ -1777,23 +1773,12 @@ struct MacroAddMacro
 {
   size_t StructSize;
   void* Id;
-  FARKEYMACROFLAGS Flags;
-  INPUT_RECORD AKey;
   const wchar_t *SequenceText;
   const wchar_t *Description;
+  FARKEYMACROFLAGS Flags;
+  INPUT_RECORD AKey;
+  enum FARMACROAREA Area;
   FARMACROCALLBACK Callback;
-};
--->
-struct MacroAddMacro
-{
-	size_t StructSize;
-	void* Id;
-	const wchar_t *SequenceText;
-	const wchar_t *Description;
-	FARKEYMACROFLAGS Flags;
-	INPUT_RECORD AKey;
-	enum FARMACROAREA Area;
-	FARMACROCALLBACK Callback;
 };
 *)
 type
@@ -1842,6 +1827,10 @@ type
       2 : (fString :PFarChar);
     end;
   end;
+
+  PFarMacroValueArray = ^TFarMacroValueArray;
+  TFarMacroValueArray = packed array[0..MaxInt div SizeOf(TFarMacroValue) - 1] of TFarMacroValue;
+
 
 (*
 #ifdef FAR_USE_INTERNALS
@@ -2216,6 +2205,7 @@ const
   EE_CLOSE      = 3;
   EE_GOTFOCUS   = 6;
   EE_KILLFOCUS  = 7;
+  EE_CHANGE     = 8;
 
 
 { DIALOG_EVENTS }
@@ -2234,8 +2224,8 @@ const
 
 const
   EEREDRAW_ALL    = Pointer(0);
-  EEREDRAW_CHANGE = Pointer(1);
-  EEREDRAW_LINE   = Pointer(2);
+//EEREDRAW_CHANGE = Pointer(1);
+//EEREDRAW_LINE   = Pointer(2);
 
 
 { EDITOR_CONTROL_COMMANDS }
@@ -2407,6 +2397,7 @@ const
   EOPT_EXPANDONLYNEWTABS  = $00000080;
   EOPT_SHOWWHITESPACE     = $00000100;
   EOPT_BOM                = $00000200;
+  EOPT_SHOWLINEBREAK      = $00000400;
 
 
 { EDITOR_BLOCK_TYPES }
@@ -2608,21 +2599,45 @@ const
   EDITOR_COLOR_NORMAL_PRIORITY = $80000000;
 
 
-          (*
-          struct EditorSaveFile
-          {
-            const wchar_t *FileName;
-            const wchar_t *FileEOL;
-            UINT CodePage;
-          };
-          *)
-          type
-            PEditorSaveFile = ^TEditorSaveFile;
-            TEditorSaveFile = record
-              FileName :PFarChar;
-              FileEOL :PFarChar;
-              CodePage :UINT;
-            end;
+(*
+struct EditorSaveFile
+{
+  const wchar_t *FileName;
+  const wchar_t *FileEOL;
+  UINT CodePage;
+};
+*)
+type
+  PEditorSaveFile = ^TEditorSaveFile;
+  TEditorSaveFile = record
+    FileName :PFarChar;
+    FileEOL :PFarChar;
+    CodePage :UINT;
+  end;
+
+
+{ EDITOR_CHANGETYPE }
+
+const
+  ECTYPE_CHANGED = 0;
+  ECTYPE_ADDED   = 1;
+  ECTYPE_DELETED = 2;
+
+(*
+struct EditorChange
+{
+  size_t StructSize;
+  enum EDITOR_CHANGETYPE Type;
+  int StringNumber;
+};
+*)
+type
+  PEditorChange = ^TEditorChange;
+  TEditorChange = record
+    StructSize :size_t;
+    _Type :Integer; {EDITOR_CHANGETYPE}
+    StringNumber :Integer;
+  end;
 
 
 { INPUTBOXFLAGS }
@@ -2843,6 +2858,9 @@ const
   FSSF_FOLDERSHORTCUT_8  = 14;
   FSSF_FOLDERSHORTCUT_9  = 15;
   FSSF_CONFIRMATIONS     = 16;
+  FSSF_SYSTEM            = 17;
+  FSSF_PANEL             = 18;
+  FSSF_EDITOR            = 19;
 
 (*
 enum FAR_PLUGIN_SETTINGS_LOCATION
@@ -3719,7 +3737,7 @@ const
   OPM_DESCR     = $0020;
   OPM_QUICKVIEW = $0040;
   OPM_PGDN      = $0080;
-
+  OPM_COMMANDS  = $0100;
 
 (*
 struct OpenPanelInfo
@@ -3768,10 +3786,43 @@ type
     OpMode :TOperationModes;
   end;
 
+(*
+struct OpenAnalyseInfo
+{
+  size_t StructSize;
+  struct AnalyseInfo* Info;
+  HANDLE Handle;
+};
+*)
+type
+  POpenAnalyseInfo = ^TOpenAnalyseInfo;
+  TOpenAnalyseInfo = record
+    StructSize :size_t;
+    Info :PAnalyseInfo;
+    Handle :THandle;
+  end;
+
+(*
+struct OpenMacroInfo
+{
+  size_t StructSize;
+  size_t Count;
+  struct FarMacroValue *Values;
+};
+*)
+type
+  POpenMacroInfo = ^TOpenMacroInfo;
+  TOpenMacroInfo = record
+    StructSize :size_t;
+    Count :size_t;
+    Values :PFarMacroValueArray;
+  end;
 
 { OPENFROM }
 
 const
+  OPEN_FROM_MASK       = $FF;
+
   OPEN_DISKMENU        = 0;
   OPEN_PLUGINSMENU     = 1;
   OPEN_FINDLIST        = 2;
@@ -3783,32 +3834,21 @@ const
   OPEN_DIALOG          = 8;
   OPEN_ANALYSE         = 9;
   OPEN_RIGHTDISKMENU   = 10;
-  OPEN_FROM_MASK       = $FF;
-
-  OPEN_FROMMACRO       = $10000;
-  OPEN_FROMMACROSTRING = $20000;
-  OPEN_FROMMACRO_MASK  = $F0000;
+  OPEN_FROMMACRO_      = 11;
 
 
-          { FAR_PKF_FLAGS }
+{ FAR_EVENTS }
 
-          const
-            PKF_CONTROL    = $00000001;
-            PKF_ALT        = $00000002;
-            PKF_SHIFT      = $00000004;
-            PKF_PREPROCESS = $00080000; // for "Key", function ProcessKey()
-
-          { FAR_EVENTS }
-
-          const
-            FE_CHANGEVIEWMODE = 0;
-            FE_REDRAW         = 1;
-            FE_IDLE           = 2;
-            FE_CLOSE          = 3;
-            FE_BREAK          = 4;
-            FE_COMMAND        = 5;
-            FE_GOTFOCUS       = 6;
-            FE_KILLFOCUS      = 7;
+const
+  FE_CHANGEVIEWMODE = 0;
+  FE_REDRAW         = 1;
+  FE_IDLE           = 2;
+  FE_CLOSE          = 3;
+  FE_BREAK          = 4;
+  FE_COMMAND        = 5;
+  
+  FE_GOTFOCUS       = 6;
+  FE_KILLFOCUS      = 7;
 
 
 (*
@@ -4006,6 +4046,7 @@ struct ProcessEditorEventInfo
   size_t StructSize;
   int Event;
   void* Param;
+  int EditorID;
 };
 *)
 type
@@ -4014,6 +4055,7 @@ type
     StructSize :size_t;
     Event :Integer;
     Param :Pointer;
+    EditorID :Integer;
   end;
 
 (*
@@ -4054,6 +4096,7 @@ struct ProcessViewerEventInfo
   size_t StructSize;
   int Event;
   void* Param;
+  int ViewerID;
 };
 *)
 type
@@ -4062,6 +4105,7 @@ type
     StructSize :size_t;
     Event :Integer;
     Param :Pointer;
+    ViewerID :Integer;
   end;
 
 (*
@@ -4076,6 +4120,20 @@ type
   TClosePanelInfo = record
     StructSize :size_t;
     hPanel :THandle;
+  end;
+
+(*
+struct CloseAnalyseInfo
+{
+  size_t StructSize;
+  HANDLE Handle;
+};
+*)
+type
+  PCloseAnalyseInfo = ^TCloseAnalyseInfo;
+  TCloseAnalyseInfo = record
+    StructSize :size_t;
+    Handle :THandle;
   end;
 
 (*
@@ -4095,7 +4153,8 @@ type
 
 (*
 // Exported Functions
-int    WINAPI AnalyseW(const struct AnalyseInfo *Info);
+HANDLE WINAPI AnalyseW(const struct AnalyseInfo *Info);
+void   WINAPI CloseAnalyseW(const struct CloseAnalyseInfo *Info);
 void   WINAPI ClosePanelW(const struct ClosePanelInfo *Info);
 int    WINAPI CompareW(const struct CompareInfo *Info);
 int    WINAPI ConfigureW(const struct ConfigureInfo *Info);
