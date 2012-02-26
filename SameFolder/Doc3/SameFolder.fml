@@ -1,0 +1,23 @@
+
+//const SameFolder = 0x44464d53
+const SameFolder = "483AC82A-5FBB-45D9-8330-2BE2FAB568F7"
+
+
+macro Descr="SameFolder: Active -> Passive" Area="Shell" Key="Ctrl="
+{{
+  CallPlugin(#%SameFolder, 0)
+}}
+
+
+macro Descr="SameFolder: Folder under cursor" Area="Shell" Key="Alt="
+{{
+  CallPlugin(#%SameFolder, 1)
+}}
+
+
+/*
+macro Descr="SameFolder: Autofollow mode" Area="Shell" Key="CtrlAlt="
+{{
+  CallPlugin(#%SameFolder, 3)
+}}
+*/

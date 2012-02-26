@@ -52,10 +52,11 @@ interface
       procedure GetInfo; override;
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
       function DialogEvent(AEvent :Integer; AParam :PFarDialogEvent) :Integer; override;
-      function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
-      function ViewerEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
+      function EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
+      function ViewerEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
      {$ifdef bUseProcessConsoleInput}
       function ConsoleInput(const ARec :TInputRecord) :Integer; override;
      {$endif bUseProcessConsoleInput}
@@ -158,6 +159,7 @@ interface
   var
 //  OldPeekConsoleInputW :function(hConsoleInput :THandle; var lpBuffer: TInputRecord;
 //    nLength :DWORD; var lpNumberOfEventsRead :DWORD): BOOL; stdcall;
+
     OldReadConsoleInputW :function(hConsoleInput :THandle; var lpBuffer: TInputRecord;
       nLength :DWORD; var lpNumberOfEventsRead :DWORD): BOOL; stdcall;
 //  PeekConsoleInputPtr :PPointer;
@@ -449,7 +451,6 @@ interface
   end;
 
 
-
  {-----------------------------------------------------------------------------}
  { TMoreHistoryPlug                                                            }
  {-----------------------------------------------------------------------------}
@@ -461,6 +462,7 @@ interface
     FName := cPluginName;
     FDescr := cPluginDescr;
     FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison; 
 
    {$ifdef Far3}
     FGUID := cPluginID;
@@ -471,7 +473,8 @@ interface
    {$ifdef Far3}
 //  FMinFarVer := MakeVersion(3, 0, 2376);   { MCTL_GETLASTERROR };
 //  FMinFarVer := MakeVersion(3, 0, 2379);   { MCTL_GETLASTERROR - исправление ошибки };
-    FMinFarVer := MakeVersion(3, 0, 2380);   { MacroAddMacro - изменена (fuck!) };
+//  FMinFarVer := MakeVersion(3, 0, 2380);   { MacroAddMacro - изменена (fuck!) };
+    FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1765);   { MCMD_GETAREA };
     FMinFarVer := MakeVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING, MCMD_POSTMACROSTRING };
@@ -535,18 +538,25 @@ interface
   begin
     Result:= INVALID_HANDLE_VALUE;
 
-    if AFrom and OPEN_FROMMACRO <> 0 then begin
-
-      if AFrom and OPEN_FROMMACROSTRING <> 0 then
-        OpenCmdLine(PTChar(AParam))
-      else
-        FarAdvControl(ACTL_SYNCHRO, nil);
-
-    end else
     if AFrom = OPEN_COMMANDLINE then
       OpenCmdLine(PTChar(AParam))
     else
       MainMenu;
+  end;
+
+
+  function TMacroLibPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  begin
+    Result:= INVALID_HANDLE_VALUE;
+    if ACount = 0 then
+      MainMenu
+    else begin
+      with AParams[0] do
+        if fType = FMVT_STRING then
+          OpenCmdLine(Value.fString)
+        else
+          FarAdvControl(ACTL_SYNCHRO, nil);
+    end;
   end;
 
 
@@ -640,7 +650,7 @@ interface
   end;
 
 
-  function TMacroLibPlug.EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
+  function TMacroLibPlug.EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {override;}
   begin
     if AEvent = EE_READ then
 //    MacroLibrary.CheckEvent(maEditor, meOpen);
@@ -650,7 +660,7 @@ interface
   end;
 
 
-  function TMacroLibPlug.ViewerEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
+  function TMacroLibPlug.ViewerEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {override;}
   begin
     if AEvent = VE_READ then
 //    MacroLibrary.CheckEvent(maViewer, meOpen);

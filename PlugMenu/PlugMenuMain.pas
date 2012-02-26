@@ -36,10 +36,8 @@ interface
       procedure Configure; override;
       procedure GetInfo; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
-      procedure ErrorHandler(E :Exception); override;
-
-    private
     end;
 
 
@@ -151,6 +149,7 @@ interface
     FName := cPluginName;
     FDescr := cPluginDescr;
     FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison; 
 
    {$ifdef Far3}
     FGUID := cPluginID;
@@ -225,21 +224,20 @@ interface
     Result := INVALID_HANDLE_VALUE;
 
     InitFarPluginsList;
+    FarGetWindowInfo(-1, vWinInfo);
+    if AFrom = OPEN_COMMANDLINE then
+      OpenCmdLine(FarChar2Str(PFarChar(AParam)), vWinInfo.WindowType)
+    else
+    if AFrom in [OPEN_PLUGINSMENU, OPEN_EDITOR, OPEN_VIEWER, OPEN_DIALOG] then
+      OpenMenu(vWinInfo.WindowType);
+  end;
 
-    if AFrom and OPEN_FROMMACRO <> 0 then begin
-      if AFrom and OPEN_FROMMACROSTRING <> 0 then
-        {}
-      else
-        FarAdvControl(ACTL_SYNCHRO, Pointer(AParam))
-    end else
-    begin
-      FarGetWindowInfo(-1, vWinInfo);
-      if AFrom = OPEN_COMMANDLINE then
-        OpenCmdLine(FarChar2Str(PFarChar(AParam)), vWinInfo.WindowType)
-      else
-      if AFrom in [OPEN_PLUGINSMENU, OPEN_EDITOR, OPEN_VIEWER, OPEN_DIALOG] then
-        OpenMenu(vWinInfo.WindowType);
-    end;
+
+  function TPlugMenuPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  begin
+    Result := INVALID_HANDLE_VALUE;
+    InitFarPluginsList;
+    FarAdvControl(ACTL_SYNCHRO, nil);
   end;
 
 
@@ -249,12 +247,6 @@ interface
   begin
     FarGetWindowInfo(-1, vWinInfo);
     OpenMenu(vWinInfo.WindowType);
-  end;
-
-
-  procedure TPlugMenuPlug.ErrorHandler(E :Exception); {override;}
-  begin
-    ShowMessage('PlugMenu', E.Message, FMSG_WARNING or FMSG_MB_OK);
   end;
 
 

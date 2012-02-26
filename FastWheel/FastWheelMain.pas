@@ -59,9 +59,10 @@ interface
       procedure ExitFar; override;
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
 
       procedure SynchroEvent(AParam :Pointer); override;
-      function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
+      function EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
       function EditorInput(const ARec :TInputRecord) :Integer; override;
      {$ifdef bUseProcessConsoleInput}
       function ConsoleInput(const ARec :TInputRecord) :Integer; override;
@@ -319,11 +320,17 @@ interface
     FName := cPluginName;
     FDescr := cPluginDescr;
     FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison; 
 
    {$ifdef Far3}
     FGUID := cPluginID;
    {$else}
     FID := cPluginID;
+   {$endif Far3}
+
+   {$ifdef Far3}
+    FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
+   {$else}
    {$endif Far3}
   end;
 
@@ -362,58 +369,19 @@ interface
   end;
 
 
-(*
   function TFastWheelPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
-  var
-    vTime :DWORD;
-    vPeriod, vDirection, vImpacts :Integer;
   begin
     Result := INVALID_HANDLE_VALUE;
-//  TraceF('Open: %d, %d', [AFrom, AParam]);
-
-    SetWheelThread(True);
-
-    if AFrom and OPEN_FROMMACRO <> 0 then begin
-      vTime := GetTickCount;
-
-      EnterCriticalSection(FLock);
-      try
-        vDirection := IntIf(AParam = 1, -1, 1);
-        if vDirection <> FDirection then
-          ImmediateStop;
-
-        vImpacts := 1;
-        if FLastScroll <> 0 then begin
-          vPeriod := TickCountDiff(vTime, FLastScroll);
-          if vPeriod < opt_AccelPeriod then begin
-            vImpacts := IntMax(Round((opt_AccelPeriod - vPeriod) * opt_Acceleration / opt_AccelPeriod), 1);
-            if vImpacts > FLastImpact * 2 then
-              vImpacts := FLastImpact * 2;
-          end;
-        end;
-
-        FDirection := vDirection;
-        Inc(FImpact, vImpacts);
-//      TraceF('Impact=+d -> %d', [vImpacts, FImpact]);
-
-        FLastImpact := vImpacts;
-        FLastScroll := vTime;
-        SetEvent(WheelThread.FEvent1);
-
-      finally
-        LeaveCriticalSection(FLock);
-      end;
-    end;
   end;
-*)
 
 
-  function TFastWheelPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
+  function TFastWheelPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
   begin
     Result := INVALID_HANDLE_VALUE;
-//  TraceF('Open: %d, %d', [AFrom, AParam]);
-    if AFrom and OPEN_FROMMACRO <> 0 then
-      Impact(IntIf(AParam = 1, -1, 1));
+    if ACount = 1 then
+      with AParams[0] do
+        if fType = FMVT_INTEGER then
+          Impact(IntIf(Value.fInteger = 1, -1, 1));
   end;
 
 
@@ -522,7 +490,7 @@ interface
   end;
 
 
-  function TFastWheelPlug.EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
+  function TFastWheelPlug.EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {override;}
   begin
     if AEvent in [EE_CLOSE, EE_KILLFOCUS, EE_GOTFOCUS] then
       ImmediateStop;

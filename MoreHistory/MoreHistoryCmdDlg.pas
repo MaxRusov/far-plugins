@@ -341,7 +341,8 @@ interface
     FarGetWindowInfo(-1, vWinInfo);
     if vWinInfo.WindowType = WTYPE_PANELS then begin
       FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(ACmd));
-      FarPostMacro('history.enable(1);Enter', 0);
+//    FarPostMacro('history.enable(1);Enter', 0);
+      FarPostMacro('Enter', 0);
     end else
       Beep;
   end;

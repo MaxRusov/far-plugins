@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<renewal>
+  <plugin guid="{4DF17F5F-E79B-46B1-A70C-04B573CECAA4}">
+    <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=FastWheel</url>
+    <regex arch="x86">//far-plugins.googlecode.com/files/FastWheel\.far3.(\d+)\.(\d+)\.rar</regex>
+    <regex arch="x64">//far-plugins.googlecode.com/files/FastWheel\.far3.x64.(\d+)\.(\d+)\.rar</regex>
+  </plugin>
+</renewal>
