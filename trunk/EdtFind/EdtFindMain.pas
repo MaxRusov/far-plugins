@@ -40,10 +40,11 @@ interface
       procedure GetInfo; override;
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
       procedure ErrorHandler(E :Exception); override;
      {$ifdef bAdvSelect}
-      function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
+      function EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
       function EditorInput(const ARec :TInputRecord) :Integer; override;
      {$endif bAdvSelect}
     end;
@@ -73,16 +74,16 @@ interface
     TEdtHelper = class(TBasis)
     public
       constructor CreateEx(AId :Integer);
-      destructor Destroy; override;
 
-      procedure AddFound(const ASel :TEdtSelection);
+      procedure Reset;
+      procedure AddRow(ARow :Integer);
 
       function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
 
     private
-      FID :Integer;
-      FFound :TEdtSelection;
-      FAllFound :TExList;
+      FID   :Integer;
+      FRow1 :Integer;
+      FRow2 :Integer;
     end;
 
 
@@ -90,26 +91,29 @@ interface
   begin
     Create;
     FId := AId;
-    FAllFound := TExList.CreateSize(SizeOf(TEdtSelection));
+    Reset;
   end;
 
 
-  destructor TEdtHelper.Destroy; {override;}
+  procedure TEdtHelper.Reset;
   begin
-    FreeObj(FAllFound);
-    inherited Destroy;
+    FRow2 := -1;
+    FRow1 := MaxInt;
+  end;
+
+
+  procedure TEdtHelper.AddRow(ARow :Integer);
+  begin
+    if ARow < FRow1 then
+      FRow1 := ARow;
+    if ARow > FRow2 then
+      FRow2 := ARow;
   end;
 
 
   function TEdtHelper.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
     Result := IntCompare(FID, TIntPtr(Key));
-  end;
-
-
-  procedure TEdtHelper.AddFound(const ASel :TEdtSelection);
-  begin
-    FAllFound.AddData(ASel);
   end;
 
 
@@ -142,7 +146,9 @@ interface
 
   var
     gEdtID     :Integer        = -1;
+
     gFound     :TEdtSelection;
+    gUpdFound  :Boolean;
 
     gMatchStr  :TString;
     gMatchOpt  :TFindOptions;
@@ -151,7 +157,7 @@ interface
     gMatchRow1 :Integer;
     gMatchRow2 :Integer;
 
-    gEdtMess   :TString;
+//  gEdtMess   :TString;
 
 
   procedure SetEdtID;
@@ -171,6 +177,7 @@ interface
     gFound.FRow := ARow;
     gFound.FCol := ACol;
     gFound.FLen := ALen;
+    gUpdFound := True;
   end;
 
 
@@ -193,15 +200,15 @@ interface
       vWasChange := True;
     end;
 
-    if ARedraw and vWasChange then
+    if ARedraw and vWasChange then 
       FarEditorControl(ECTL_REDRAW, nil);
 
-    if gEdtMess <> '' then begin
-      gEdtMess := '';
+//  if gEdtMess <> '' then begin
+//    gEdtMess := '';
 //    vWasChange := True;
-      FarEditorControl(ECTL_REDRAW, nil);
-      FarAdvControl(ACTL_REDRAWALL, nil);
-    end;
+//    FarEditorControl(ECTL_REDRAW, nil);
+//    FarAdvControl(ACTL_REDRAWALL, nil);
+//  end;
   end;
 
 
@@ -215,10 +222,12 @@ interface
   end;
 
 
-  procedure UpdateMatches(const AInfo :TEditorInfo);
+  function UpdateMatches(const AInfo :TEditorInfo) :Boolean;
   var
     i, vRow1, vRow2, vRow, vCol, vFindLen, vCount :Integer;
   begin
+    Result := False;
+
     vRow1 := AInfo.TopScreenLine;
     vRow2 := vRow1 + AInfo.WindowSizeY;
 
@@ -286,6 +295,7 @@ interface
       end;
 
 //    TraceF('Known matches: %d (%d-%d)', [gMatches.Count, gMatchRow1, gMatchRow2]);
+      Result := True;
     end;
   end;
 
@@ -501,11 +511,10 @@ interface
         end else
         if vErrorMode <> 0 then begin
          {$ifdef bAdvSelect}
-          if vErrorMode = 2 then begin
-            {xxx}
-            gEdtMess := GetMsgStr(strNotFound);
-            FarEditorControl(ECTL_REDRAW, nil);
-          end else
+//        if vErrorMode = 2 then begin
+//          gEdtMess := GetMsgStr(strNotFound);
+//          FarEditorControl(ECTL_REDRAW, nil);
+//        end else
          {$endif bAdvSelect}
             ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AStr,
               FMSG_WARNING or FMSG_MB_OK);
@@ -977,7 +986,7 @@ interface
       GetMsg(strMOptions)
     ]);
     try
-      vMenu.Enabled[7] := (gMatchStr <> '') or (gEdtMess <> '');
+      vMenu.Enabled[7] := (gMatchStr <> ''); // or (gEdtMess <> '');
 
       vMenu.Help := 'MainMenu';
       if not vMenu.Run then
@@ -1168,6 +1177,7 @@ interface
     FName := cPluginName;
     FDescr := cPluginDescr;
     FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison; 
 
    {$ifdef Far3}
     FGUID := cPluginID;
@@ -1176,8 +1186,9 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
+    FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
    {$else}
-    FMinFarVer := MakeVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING };
+    FMinFarVer := MakeVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING }
    {$endif Far3}
   end;
 
@@ -1217,21 +1228,29 @@ interface
   function TEdtFindPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
     Result := INVALID_HANDLE_VALUE;
-
-    if AFrom and OPEN_FROMMACRO <> 0 then begin
-
-      if AFrom and OPEN_FROMMACROSTRING <> 0 then
-        Result := HandleIf(ParseCommand(PTChar(AParam)), INVALID_HANDLE_VALUE, 0)
-      else begin
-        if AParam <= 4 then
-          FarAdvControl(ACTL_SYNCHRO, Pointer(AParam))
-        else
-          RunCommand(AParam);
-      end;
-
-    end else
     if AFrom in [OPEN_EDITOR] then
       OpenMenu;
+  end;
+
+
+  function TEdtFindPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  begin
+    Result := INVALID_HANDLE_VALUE;
+    if ACount = 0 then
+      OpenMenu
+    else begin
+      with AParams[0] do begin
+        if fType = FMVT_STRING then
+          Result := HandleIf(ParseCommand(Value.fString), INVALID_HANDLE_VALUE, 0)
+        else
+        if fType = FMVT_INTEGER then begin
+          if Value.fInteger <= 4 then
+            FarAdvControl(ACTL_SYNCHRO, Pointer(TIntPtr(Value.fInteger)))
+          else
+            RunCommand(Value.fInteger);
+        end;
+      end;
+    end;
   end;
 
 
@@ -1279,17 +1298,22 @@ interface
   end;
 
 
-  function TEdtFindPlug.EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
+(*
+  function TEdtFindPlug.EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {override;}
 
     procedure EdtSetColor(const ASel :TEdtSelection; ASet :Boolean; AColor :TFarColor);
     begin
       if ASel.FLen <= 0 then
         Exit;
 
-      if ASet then
+      if ASet then begin
+        TraceF('SetColor: %d:%d, %d', [ASel.FRow, ASel.FCol, ASel.FLen]);
         FarEditorSetColor(ASel.FRow, ASel.FCol, ASel.FLen, AColor, optMarkWholeTab)
-      else
+      end else
+      begin
+        TraceF('DelColor: %d:%d, %d', [ASel.FRow, ASel.FCol, ASel.FLen]);
         FarEditorDelColor(ASel.FRow, ASel.FCol, ASel.FLen);
+      end;
     end;
 
 
@@ -1329,17 +1353,29 @@ interface
     case AEvent of
       EE_CLOSE: begin
         EdtClearMark(True, False);
-        DeleteEdtHelper(Integer(AParam^));
+        DeleteEdtHelper(AID);
       end;
 
       EE_KILLFOCUS:
         EdtClearMark;
 
+     {$ifdef Far3}
+      EE_CHANGE:
+        begin
+//        TraceF('ProcessEditorEventW: Change', []);
+          gMatchRow2 := 0;
+        end;
+     {$endif Far3}
+
       EE_REDRAW:
         begin
-//        TraceF('ProcessEditorEventW: Redraw. What=%d', [TIntPtr(AParam)]);
+//        TraceF('ProcessEditorEventW: Redraw', []);
+
+         {$ifdef Far3}
+         {$else}
           if AParam = EEREDRAW_LINE then
             Exit;
+         {$endif Far3}
 
           FarEditorControl(ECTL_GETINFO, @vInfo);
           vHelper := FindEdtHelper(vInfo.EditorID, False);
@@ -1356,10 +1392,13 @@ interface
             end;
           end;
 
+         {$ifdef Far3}
+         {$else}
           if AParam = EEREDRAW_CHANGE then begin
 //          EdtClearMark({ClearMatches=}True, {Redraw=}False);  { Сбросить }
             gMatchRow2 := 0;  { Поддерживать }
           end;
+         {$endif Far3}
 
           if vInfo.EditorID = gEdtID then begin
             if gMatchStr <> '' then begin
@@ -1390,6 +1429,164 @@ interface
 
           if gEdtMess <> '' then
             EdtShowMessage;
+        end;
+    end;
+  end;
+*)
+
+
+  function TEdtFindPlug.EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {override;}
+  var
+    vHelper :TEdtHelper;
+
+
+    procedure ClearAllColors(const AInfo :TEditorInfo);
+    var
+      i, vRow1, vRow2 :Integer;
+    begin
+      vRow1 := AInfo.TopScreenLine;
+      vRow2 := AInfo.TopScreenLine + AInfo.WindowSizeY - 1;
+
+      with vHelper do
+        if FRow1 <= FRow2 then
+          if ((FRow1 >= vRow1) and (FRow1 <= vRow2)) or ((vRow1 >= FRow1) and (vRow1 <= FRow2)) then begin
+            { Диапазоны пересекаются }
+            vRow1 := IntMin(vRow1, FRow1);
+            vRow2 := IntMax(vRow2, FRow2);
+          end else
+          begin
+            { Диапазоны не пересекаются }
+//          TraceF('Clear1: %d-%d', [FRow1, FRow2]);
+            for i := FRow1 to FRow2 do
+              FarEditorDelColor(i, -1, 0);
+          end;
+
+//    TraceF('Clear2: %d-%d', [vRow1, vRow2]);
+      for i := vRow1 to vRow2 do
+        FarEditorDelColor(i, -1, 0);
+
+      vHelper.Reset;
+    end;
+
+
+    procedure EdtSetColor(const ASel :TEdtSelection; AColor :TFarColor);
+    begin
+      if ASel.FLen <= 0 then
+        Exit;
+//    TraceF('SetColor: %d:%d, %d', [ASel.FRow, ASel.FCol, ASel.FLen]);
+      FarEditorSetColor(ASel.FRow, ASel.FCol, ASel.FLen, AColor, optMarkWholeTab);
+      vHelper.AddRow(ASel.FRow);
+    end;
+
+
+(*
+    procedure EdtShowMessage;
+    var
+      vCoord :TCoord;
+      vWIdth :Integer;
+      vRes :DWORD;
+      vBuf :PWord;
+    begin
+      with FarGetWindowRect do begin
+        vCoord.X := Left;
+        vCoord.Y := Bottom;
+        vWidth := Right - Left;
+      end;
+
+      vBuf := MemAlloc( SizeOf(Word) * vWidth);
+      try
+        WriteConsoleOutputCharacter(hStdOut, PTChar(gEdtMess), length(gEdtMess), vCoord, vRes);
+
+        MemFill2(vBuf, vWidth, $CE);
+        WriteConsoleOutputAttribute(hStdOut, vBuf, vWidth, vCoord, vRes);
+      finally
+        MemFree(vBuf);
+      end;
+//    FARAPI.Text(0, 1, $CE, PTChar(gEdtMess));
+//    FARAPI.Text(0, 0, 0, nil);
+    end;
+*)
+
+  var
+    I :Integer;
+    vInfo :TEditorInfo;
+    vNeedUpdate :Boolean;
+  begin
+    Result := 0;
+
+    case AEvent of
+      EE_CLOSE: begin
+        EdtClearMark(True, False);
+        DeleteEdtHelper(AID);
+      end;
+
+      EE_KILLFOCUS:
+        EdtClearMark;
+
+     {$ifdef Far3}
+      EE_CHANGE:
+        begin
+//        TraceF('ProcessEditorEventW: Change', []);
+          gMatchRow2 := 0;
+        end;
+     {$endif Far3}
+
+      EE_REDRAW:
+        begin
+//        TraceF('ProcessEditorEventW: Redraw', []);
+
+         {$ifdef Far3}
+         {$else}
+          if AParam = EEREDRAW_LINE then
+            Exit;
+          if AParam = EEREDRAW_CHANGE then begin
+//          EdtClearMark({ClearMatches=}True, {Redraw=}False);  { Сбросить }
+            gMatchRow2 := 0;  { Поддерживать }
+          end;
+         {$endif Far3}
+
+          FarEditorControl(ECTL_GETINFO, @vInfo);
+          vHelper := FindEdtHelper(vInfo.EditorID, False);
+
+          vNeedUpdate := False;
+          if (gMatchStr <> '') and (vInfo.EditorID = gEdtID) then begin
+            try
+              vNeedUpdate := UpdateMatches(vInfo);
+            except
+              FreeObj(gMatches);
+              gMatchStr := '';
+            end;
+          end;
+
+          if (gFound.FLen > 0) or (gMatches <> nil) then begin
+            if not vNeedUpdate and not gUpdFound then
+              Exit;
+          end else
+          begin
+            if (vHelper = nil) {or (vHelper.FRow2 < 0)} then
+              Exit;
+          end;
+
+          if vHelper <> nil then
+            ClearAllColors(vInfo);
+
+          if (gFound.FLen > 0) or (gMatches <> nil) then begin
+            if vHelper = nil then
+              vHelper := FindEdtHelper(vInfo.EditorID, True);
+
+            if gMatches <> nil then begin
+//            TraceF('AddColors (%d matces)', [gMatches.Count]);
+              for I := 0 to gMatches.Count - 1 do
+                EdtSetColor(PEdtSelection(gMatches.PItems[I])^, optMatchColor);
+            end;
+
+            if gFound.FLen > 0 then
+              EdtSetColor(gFound, optCurFindColor);
+          end;
+          gUpdFound := False;
+
+//        if gEdtMess <> '' then
+//          EdtShowMessage;
         end;
     end;
   end;
