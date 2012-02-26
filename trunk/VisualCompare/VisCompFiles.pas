@@ -25,7 +25,8 @@ interface
     Far_API,
     FarCtrl,
     FarMatch,
-    VisCompCtrl;
+    VisCompCtrl,
+    VisCompTexts;
 
 
   const
@@ -173,10 +174,14 @@ interface
 
       procedure CompareFolders; virtual;
       procedure CompareFolderContents(AFolder :TCmpFolder);
+
+      function NeedCompareFiles(AItem :TCmpFileItem) :Boolean;
       procedure CompareFilesContents(const ABaseFolder :TString; AList :TStringList);
 
-      function CompareContents(const AFileName1, AFileName2 :TString) :Boolean;
-      function CompareCRC(const AFileName1, AFileName2 :TString) :Boolean;
+      function CompareContents(const AFileName1, AFileName2 :TString; AItem :TCmpFileItem) :Boolean;
+      function CompareContentsText(const AFileName1, AFileName2 :TString) :Boolean;
+      function CompareContentsBin(const AFileName1, AFileName2 :TString) :Boolean;
+      function CompareContentsCRC(const AFileName1, AFileName2 :TString) :Boolean;
 
       function UpdateItemInfo(AItem :TCmpFileItem) :Boolean;
 
@@ -959,6 +964,14 @@ interface
   end;
 
 
+  function TComparator.NeedCompareFiles(AItem :TCmpFileItem) :Boolean;
+  begin
+    Result := AItem.Size[0] = AItem.Size[1];
+    if not Result and optCompareAsText then
+      Result := (optTextFileSizeLimit = 0) or ((AItem.Size[0] < optTextFileSizeLimit) and (AItem.Size[1] < optTextFileSizeLimit));
+  end;
+
+
   procedure TComparator.CompareFilesContents(const ABaseFolder :TString; AList :TStringList);
   var
     vBaseLen :Integer;
@@ -972,7 +985,7 @@ interface
         Exit;
 
       if not AItem.HasAttr(faDirectory) then begin
-        if AItem.Size[0] <> AItem.Size[1] then
+        if not NeedCompareFiles(AItem) then
           { Не совпадает размер - незачем сравнивать }
           AItem.Content := ccDiff
         else begin
@@ -988,7 +1001,7 @@ interface
           vFileName1 := RealFileName(AItem, 0);
           vFileName2 := RealFileName(AItem, 1);
 
-          if CompareContents(vFileName1, vFileName2) then
+          if CompareContents(vFileName1, vFileName2, AItem) then
             AItem.Content := ccSame
           else
             AItem.Content := ccDiff;
@@ -1010,7 +1023,7 @@ interface
     begin
       if not AItem.BothAttr(faPresent) then
         Exit;
-      if not AItem.HasAttr(faDirectory) and (AItem.Size[0] = AItem.Size[1]) then begin
+      if not AItem.HasAttr(faDirectory) and NeedCompareFiles(AItem) then begin
         Inc(ACount);
         Inc(ASize, AItem.Size[0]);
       end;
@@ -1074,7 +1087,80 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function TComparator.CompareContents(const AFileName1, AFileName2 :TString) :Boolean;
+  function TComparator.CompareContents(const AFileName1, AFileName2 :TString; AItem :TCmpFileItem) :Boolean;
+  begin
+    if optCompareAsText and ((optTextFileSizeLimit = 0) or ((AItem.Size[0] < optTextFileSizeLimit) and (AItem.Size[1] < optTextFileSizeLimit))) then
+      Result := CompareContentsText(AFileName1, AFileName2)
+    else
+      Result := CompareContentsBin(AFileName1, AFileName2);
+  end;
+
+
+  function TComparator.CompareContentsText(const AFileName1, AFileName2 :TString) :Boolean;
+
+    function LocCompare(AText1, AText2 :TText) :Boolean;
+    var
+      vRow1, vRow2 :Integer;
+    begin
+      Result := False;
+
+      vRow1 := 0;
+      vRow2 := 0;
+      while True do begin
+
+        if optTextIgnoreEmptyLine then begin
+          while (vRow1 < AText1.Count) and RowIsEmpty( AText1.StrPtrs[vRow1] ) do
+            Inc(vRow1);
+          while (vRow2 < AText2.Count) and RowIsEmpty( AText2.StrPtrs[vRow2] ) do
+            Inc(vRow2);
+        end;
+
+        if (vRow1 >= AText1.Count) or (vRow2 >= AText2.Count) then
+          Break;
+
+        if CompareStrEx(AText1.StrPtrs[vRow1], AText2.StrPtrs[vRow2]) <> scrEqual then
+          Exit;
+
+        Inc(vRow1);
+        Inc(vRow2);
+      end;
+
+      Result := (vRow1 = AText1.Count) and (vRow2 = AText2.Count);
+    end;
+
+  var
+    vStr1, vStr2 :TString;
+    vFile1, vFile2 :TText;
+  begin
+//  TraceF('CompareTxt: %s <-> %s', [ AFileName1, AFileName2 ]);
+
+    vFile1 := nil; vFile2 := nil;
+    try
+      vStr1 := StrFromFile(AFileName1, optDefaultFormat);
+      vStr2 := StrFromFile(AFileName2, optDefaultFormat);
+
+      if (ChrPos(#0, vStr1) > 0) or (ChrPos(#0, vStr1) > 0) then begin
+        { Сравниваем как двоичные файлы }
+        Result := vStr1 = vStr2;
+        Exit;
+      end;
+
+      vFile1 := TText.CreateStr(vStr1);
+      vStr1 := '';
+
+      vFile2 := TText.CreateStr(vStr2);
+      vStr2 := '';
+
+      Result := LocCompare(vFile1, vFile2);
+
+    finally
+      FreeObj(vFile1);
+      FreeObj(vFile2);
+    end;
+  end;
+
+
+  function TComparator.CompareContentsBin(const AFileName1, AFileName2 :TString) :Boolean;
   var
     vFile1, vFile2 :THandle;
     vFileSize, vRestSize :Int64;
@@ -1082,7 +1168,7 @@ interface
     vLast :DWORD;
   begin
     Result := False;
-//  TraceF('Compare: %s <-> %s', [ AFileName1, AFileName2 ]);
+//  TraceF('CompareBin: %s <-> %s', [ AFileName1, AFileName2 ]);
 
     if vTmpBuf1 = nil then begin
       vTmpBuf1 := VirtualAlloc(nil, cTmpBufSize, MEM_COMMIT, PAGE_READWRITE);
@@ -1137,7 +1223,7 @@ interface
   end;
 
 
-  function TComparator.CompareCRC(const AFileName1, AFileName2 :TString) :Boolean;
+  function TComparator.CompareContentsCRC(const AFileName1, AFileName2 :TString) :Boolean;
 
     function LocCalc(const AFileName :TString; var ACRC :TCRC) :Boolean;
     var
@@ -1182,7 +1268,7 @@ interface
     vCRC1, vCRC2 :TCRC;
   begin
     Result := False;
-//  TraceF('Compare: %s <-> %s', [ AFileName1, AFileName2 ]);
+//  TraceF('CompareCRC: %s <-> %s', [ AFileName1, AFileName2 ]);
 
     if vTmpBuf1 = nil then
 //    vTmpBuf1 := GlobalAllocMem(HeapAllocFlags, cTmpBufSize);

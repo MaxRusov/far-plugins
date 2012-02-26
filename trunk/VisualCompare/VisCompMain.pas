@@ -40,8 +40,7 @@ interface
 
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
-      function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; override;
-//    procedure ErrorHandler(E :Exception); override;
+      function EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
 
     private
       FPluginLock :Integer;
@@ -154,6 +153,7 @@ interface
     FName := cPluginName;
     FDescr := cPluginDescr;
     FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison; 
 
    {$ifdef Far3}
     FGUID := cPluginID;
@@ -162,7 +162,7 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
-    FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
+    FMinFarVer := MakeVersion(3, 0, 2343);    { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
    {$else}
     FMinFarVer := MakeVersion(2, 0, 1573);    { ACTL_GETFARRECT }
    {$endif Far3}
@@ -225,7 +225,7 @@ interface
   end;
 
 
-  function TVisCompPlug.EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; {override;}
+  function TVisCompPlug.EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {override;}
   var
     vPos :TEditorSetPosition;
   begin

@@ -8,6 +8,9 @@
 
 {$Define bFastCompare}
 
+{$Define bFastCompareRow}
+{-$Define bSpaceSync}
+
 unit VisCompTexts;
 
 interface
@@ -26,9 +29,15 @@ interface
 
 
   const
-    cTextEqualFactor = 8;  // 8..4..2..1
-//  cTextEqualFactor =16;  // 16..8..4..2..1
-    cStrEqualFactor = 12;  // 12..6..3
+//  cTextBegFactor = 16;  // 16..8..4..2..1
+    cTextBegFactor =  8;  // 8..4..2..1
+    cTextMinFactor =  1;
+
+    cStrBegFactor  = 8;   // 8..4..2..1
+    cStrMinFactor  = 1;
+
+//  cStrBegFactor  = 12;  // 12..6..3
+//  cStrMinFactor  = 3;
 
 
   type
@@ -46,16 +55,19 @@ interface
     end;
 
 
-    {!!!-Переделать на TStrList}
-    TText = class(TStringList)
+    TText = class(TStrList)
     public
       constructor CreateEx(const AName :TString);
+      constructor CreateStr(const AStr :TString);
       procedure LoadFile(AForceFormat :TStrFileFormat);
 
     private
       FName     :TString;
       FViewName :TString;
       FFormat   :TStrFileFormat;
+      FWasZero  :Boolean;
+
+      procedure StrToText(const AStr :TString);
 
     public
       property Name :TString read FName;
@@ -64,9 +76,9 @@ interface
     end;
 
     TStrCompareRes = (
-      strEqual,      { Строки совпадают }
-      strSimilar,    { Строки различаются только пробелами или регистром }
-      strDiff        { Строки различаюися }
+      scrEqual,      { Строки совпадают }
+      scrSimilar,    { Строки различаются только пробелами или регистром }
+      scrDiff        { Строки различаюися }
     );
 
     TTextDiff = class(TBasis)
@@ -93,7 +105,6 @@ interface
      {$endif bTrace}
 
       function CompareRows(ARow1, ARow2, AEndRow1, AEndRow2, ACount :Integer) :Boolean;
-      function CompareStrEx(AStr1, AStr2 :PTChar) :TStrCompareRes;
 
      {$ifdef bFastCompare}
       procedure CalcCRCs;
@@ -124,12 +135,23 @@ interface
       FDiff1 :TBits;
       FDiff2 :TBits;
 
-      function CompareChars(AStr1, AStr2, AEnd1, AEnd2 :PTChar; ACount :Integer) :Boolean;
+     {$ifdef bFastCompareRow}
+      FUpStr1, FUpStr2 :PTChar;
+      FIndexes1, FIndexes2 :TIntList;
+
+      procedure Reindex(ASrc :PTChar; ALen :Integer; var AUpStr :PTChar; var AIndex :TIntList);
+     {$endif bFastCompareRow}
+
+      function CompareChars(AStr1, AStr2, AEnd1, AEnd2 :PTChar; AFactor :Integer) :Boolean;
       function CompareChrEx(AChr1, AChr2 :TChar) :TStrCompareRes;
     end;
 
 
+  function RowIsEmpty(AStr :PTChar) :Boolean;
+  function CompareStrEx(AStr1, AStr2 :PTChar) :TStrCompareRes;
 
+  function CharIsSpace(AChr :TChar) :Boolean;
+  function CharIsCRLF(AChr :TChar) :Boolean;
   function GetTextDiffs(const AName1, AName2 :TString) :TTextDiff;
 
 {******************************************************************************}
@@ -146,23 +168,92 @@ interface
   end;
 
 
+  function CharIsCRLF(AChr :TChar) :Boolean;
+  begin
+    Result := (AChr = #13) or (AChr = #10);
+  end;
+
+
+  function CharIsEmpty(AChr :TChar) :Boolean;
+  begin
+    Result := (AChr = ' ') or (AChr = #9) or (AChr = #13) or (AChr = #10);
+  end;
+
+
   function RowIsEmpty(AStr :PTChar) :Boolean;
   begin
-    while CharIsSpace(AStr^) do
+    while CharIsEmpty(AStr^) do
       Inc(AStr);
     Result := AStr^ = #0;
   end;
 
 
-  procedure StrZeroToSpace(var AStr :TString);
+  function CompareStrEx(AStr1, AStr2 :PTChar) :TStrCompareRes;
+  begin
+    Result := scrEqual;
+    while (AStr1^ <> #0) or (AStr2^ <> #0) do begin
+      if AStr1^ = AStr2^ then begin
+        Inc(AStr1);
+        Inc(AStr2);
+      end else
+      begin
+        if CharIsSpace(AStr1^) or CharIsSpace(AStr2^) then begin
+          while CharIsSpace(AStr1^) do
+            Inc(AStr1);
+          while CharIsSpace(AStr2^) do
+            Inc(AStr2);
+          if not optTextIgnoreSpace then
+            Result := scrSimilar;
+        end else
+        if CharIsCRLF(AStr1^) or CharIsCRLF(AStr2^) then begin
+          while CharIsCRLF(AStr1^) do
+            Inc(AStr1);
+          while CharIsCRLF(AStr2^) do
+            Inc(AStr2);
+          if not optTextIgnoreCRLF then
+            Result := scrSimilar;
+        end else
+        begin
+          if CharUpCase(AStr1^) = CharUpCase(AStr2^) then begin
+            Inc(AStr1);
+            Inc(AStr2);
+            if not optTextIgnoreCase then
+              Result := scrSimilar;
+          end else
+          begin
+            Result := scrDiff;
+            Exit;
+          end;
+        end;
+      end;
+    end;
+  end;
+
+
+  function StrZeroToSpace(var AStr :TString) :Boolean;
   var
     I :Integer;
   begin
+    Result := False;
     for I := 1 to Length(AStr) do
-      if AStr[I] = #0 then
+      if AStr[I] = #0 then begin
         AStr[I] := ' ';
+        Result := True;
+      end;
   end;
 
+
+  procedure LocCorrectFactor(var AFactor :Integer; ADelta1, ADelta2 :Integer);
+    { Фактор не может превышать размеры максимальной сравниваемой области }
+  var
+    vMin :Integer;
+  begin
+    vMin := IntMin(ADelta1, ADelta2);
+    if vMin = 0 then
+      Exit;
+    while (AFactor > 1) and (AFactor > vMin) do
+      AFactor := AFactor div 2;
+  end;
 
  {-----------------------------------------------------------------------------}
  { TText                                                                       }
@@ -176,7 +267,13 @@ interface
   end;
 
 
+  constructor TText.CreateStr(const AStr :TString);
+  begin
+    Create;
+    StrToText(AStr);
+  end;
 
+  
   procedure TText.LoadFile(AForceFormat :TStrFileFormat);
   var
     vStr :TString;
@@ -188,10 +285,32 @@ interface
         FFormat := optDefaultFormat;
     end;
 
-    vStr := StrFromFile(FName, FFormat);
+    vStr := StrFromFile(FName, FFormat, AForceFormat = sffAuto);
 
-    StrZeroToSpace(vStr);
-    Text := vStr;
+    FWasZero := StrZeroToSpace(vStr);
+
+    StrToText(vStr);
+  end;
+
+
+  procedure TText.StrToText(const AStr :TString);
+  var
+    vPtr, vBeg :PTChar;
+    vStr :TString;
+  begin
+    Clear;
+    vPtr := PTChar(AStr);
+    while vPtr^ <> #0 do begin
+      vBeg := vPtr;
+      while (vPtr^ <> #0) and (vPtr^ <> #10) and (vPtr^ <> #13) do
+        Inc(vPtr);
+      if vPtr^ = #13 then
+        Inc(vPtr);
+      if vPtr^ = #10 then
+        Inc(vPtr);
+      SetString(vStr, vBeg, vPtr - vBeg);
+      Add(vStr);
+    end;
   end;
 
 
@@ -292,6 +411,74 @@ interface
 
 
  {-----------------------------------------------------------------------------}
+ { TRowIndex                                                                   }
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bFastCompareRow}
+  type
+    TRowIndex = class(TIntList)
+    public
+      constructor CreateEx(ARowStr :PTChar);
+      function FindFirst(AChr :TChar; AFirstPos :Integer) :Integer;
+
+    protected
+      function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
+      function ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; override;
+
+    private
+      FRowStr :PTChar;
+    end;
+
+
+  constructor TRowIndex.CreateEx(ARowStr :PTChar);
+  begin
+    Create;
+    FRowStr := ARowStr;
+  end;
+
+
+  function TRowIndex.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
+  var
+    vPos1, vPos2 :Integer;
+  begin
+    vPos1 := PIntPtr(PItem)^;
+    vPos2 := PIntPtr(PAnother)^;
+    Result := IntCompare( Word((FRowStr + vPos1)^), Word((FRowStr + vPos2)^) );
+    if Result = 0 then
+      Result := IntCompare( vPos1, vPos2 );
+  end;
+
+
+  function TRowIndex.ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; {override;}
+  var
+    vPos :Integer;
+  begin
+    vPos := PIntPtr(PItem)^;
+    Result := IntCompare( Word((FRowStr + vPos)^), PPoint(Key).x );
+    if Result = 0 then
+      Result := IntCompare( vPos, PPoint(Key).y );
+  end;
+
+
+  function TRowIndex.FindFirst(AChr :TChar; AFirstPos :Integer) :Integer;
+  var
+    vIndex, vPos :Integer;
+    vKey :TPoint;
+  begin
+    Result := -1;
+    vKey.x := Word(AChr);
+    vKey.y := AFirstPos;
+    FindKey(@vKey, 0, [foBinary], vIndex);
+    if vIndex < Count then begin
+      vPos := Items[vIndex];
+      if ((FRowStr + vPos)^ = AChr) and (vPos >= AFirstPos) then
+        Result := vIndex;
+    end;
+  end;
+ {$endif bFastCompareRow}
+
+
+ {-----------------------------------------------------------------------------}
  { TTextDiff                                                                   }
  {-----------------------------------------------------------------------------}
 
@@ -361,7 +548,7 @@ interface
         vMinRows := IntMin( ACount1, ACount2 );
         vMaxRows := IntMax( ACount1, ACount2 );
 
-        if (AFactor > 1) and (vMinRows > 0) and (vMaxRows > 1) then begin
+        if (AFactor > cTextMinFactor) and (vMinRows > 0) and (vMaxRows > 1) then begin
           { Рекурсивно попробуем с меньшим фактором... }
           ComparePart(ARow1, ARow2, ARow1 + ACount1, ARow2 + ACount2, AFactor div 2);
           Inc(ARow1, ACount1);
@@ -393,7 +580,7 @@ interface
             Dec(ACount2);
           end;
 
-          
+
           vMinRows := IntMin( ACount1, ACount2 );
 
           if (ACount1 > 0) and (ACount2 > 0) then begin
@@ -540,25 +727,12 @@ interface
 
      {$endif bFastCompare}
 
-
-      procedure LocCorrectFactor;
-        { Фактор не может превышать размеры максимальной сравниваемой области }
-      var
-        vMin :Integer;
-      begin
-        vMin := IntMin(AEndRow1 - ABegRow1, AEndRow2 - ABegRow2);
-        if vMin = 0 then
-          Exit;
-        while (AFactor > 1) and (AFactor > vMin) do
-          AFactor := AFactor div 2;
-      end;
-
     var
       vRow1, vRow2, vDelta1, vDelta2 :Integer;
       vRes :TStrCompareRes;
       vPtr1, vPtr2 :PTChar;
     begin
-      LocCorrectFactor;
+      LocCorrectFactor(AFactor, AEndRow1 - ABegRow1, AEndRow2 - ABegRow2);
 //    TraceF('Compare: %d(%d) x %d(%d), Factor=%d', [ABegRow1, AEndRow1-ABegRow1, ABegRow2, AEndRow2-ABegRow2, AFactor]);
 
       vRow1 := ABegRow1;
@@ -570,10 +744,13 @@ interface
         vPtr1 := FText[0].StrPtrs[vRow1];
         vPtr2 := FText[1].StrPtrs[vRow2];
 
+       {$ifdef bTrace}
+        Inc(FRowCompare);
+       {$endif bTrace}
         vRes := CompareStrEx(vPtr1, vPtr2);
 
-        if vRes in [strEqual, strSimilar] then begin
-          AppedRows(vRow1, vRow2, 1, IntIf(vRes = strSimilar, 1, 0));
+        if vRes in [scrEqual, scrSimilar] then begin
+          AppedRows(vRow1, vRow2, 1, IntIf(vRes = scrSimilar, 1, 0));
           Inc(vRow1);
           Inc(vRow2);
         end else
@@ -588,7 +765,7 @@ interface
         end;
       end;
 
-     { Добавляем хвосты, как несовпадающий диапазон }
+      { Добавляем хвосты, как несовпадающий диапазон }
       LocAddDiffs(vRow1, vRow2, AEndRow1 - vRow1, AEndRow2 - vRow2);
     end;
 
@@ -608,7 +785,7 @@ interface
     ReindexCRCs;
    {$endif bFastCompare}
 
-    ComparePart(0, 0, FText[0].Count, FText[1].Count, cTextEqualFactor);
+    ComparePart(0, 0, FText[0].Count, FText[1].Count, cTextBegFactor);
 //  OptimizeEmptyLines;
 
    {$ifdef bTrace}
@@ -628,7 +805,11 @@ interface
         Exit;
       vPtr1 := FText[0].StrPtrs[ARow1];
       vPtr2 := FText[1].StrPtrs[ARow2];
-      if CompareStrEx(vPtr1, vPtr2) = strDiff then begin
+      
+     {$ifdef bTrace}
+      Inc(FRowCompare);
+     {$endif bTrace}
+      if CompareStrEx(vPtr1, vPtr2) = scrDiff then begin
 
         if RowIsEmpty(vPtr1) then begin
           Inc(ARow1);
@@ -648,43 +829,6 @@ interface
         Dec(ACount);
     end;
     Result := True;
-  end;
-
-
-  function TTextDiff.CompareStrEx(AStr1, AStr2 :PTChar) :TStrCompareRes;
-  begin
-    Result := strEqual;
-   {$ifdef bTrace}
-    Inc(FRowCompare);
-   {$endif bTrace}
-    while (AStr1^ <> #0) or (AStr2^ <> #0) do begin
-      if AStr1^ = AStr2^ then begin
-        Inc(AStr1);
-        Inc(AStr2);
-      end else
-      begin
-        if CharIsSpace(AStr1^) or CharIsSpace(AStr2^) then begin
-          while CharIsSpace(AStr1^) do
-            Inc(AStr1);
-          while CharIsSpace(AStr2^) do
-            Inc(AStr2);
-          if not optTextIgnoreSpace then
-            Result := strSimilar;
-        end else
-        begin
-          if CharUpCase(AStr1^) = CharUpCase(AStr2^) then begin
-            Inc(AStr1);
-            Inc(AStr2);
-            if not optTextIgnoreCase then
-              Result := strSimilar;
-          end else
-          begin
-            Result := strDiff;
-            Exit;
-          end;
-        end;
-      end;
-    end;
   end;
 
 
@@ -734,7 +878,7 @@ interface
     end;
 
   begin
-    while CharIsSpace(AStr^) do
+    while CharIsEmpty(AStr^) do
       Inc(AStr);
 
     if AStr^ = #0 then begin
@@ -746,8 +890,8 @@ interface
     vPart := 0;
     while AStr^ <> #0 do begin
 
-      if CharIsSpace(AStr^) then begin
-        while CharIsSpace(AStr^) do
+      if CharIsEmpty(AStr^) then begin
+        while CharIsEmpty(AStr^) do
           Inc(AStr);
         if AStr^ = #0 then
           Break;
@@ -838,6 +982,12 @@ interface
 
   destructor TRowDiff.Destroy; {override;}
   begin
+   {$ifdef bFastCompareRow}
+    FreeMem(FUpStr1);
+    FreeMem(FUpStr2);
+    FreeObj(FIndexes1);
+    FreeObj(FIndexes2);
+   {$endif bFastCompareRow}
     FreeObj(FDiff1);
     FreeObj(FDiff2);
     inherited Destroy;
@@ -859,114 +1009,296 @@ interface
     end;
 
 
-    procedure ComparePart(AStr1, AStr2 :PTChar; AEnd1, AEnd2 :PTChar; AFactor :Integer);
+    procedure ComparePart(ABegStr1, ABegStr2, AEndStr1, AEndStr2 :PTChar; AFactor :Integer);
 
-      procedure LocAddDiffs(var AStr1, AStr2 :PTChar; ACount, ACount1, ACount2 :Integer);
+      procedure LocAddDiffs(var AStr1, AStr2 :PTChar; ACount1, ACount2 :Integer);
+
+        procedure LocCheckSpace(var AStr :PTChar; var ACount :Integer);
+        begin
+//        while (ACount > 0) and CharIsSpace(AStr^) do begin
+//          Inc(AStr);
+//          Dec(ACount);
+//        end;
+
+          if optTextIgnoreSpace then
+            while (ACount > 0) and CharIsSpace((AStr + ACount - 1)^) do
+              Dec(ACount);
+        end;
+
+      var
+        vMin, vMax :Integer;
+        vStr1, vStr2 :PTChar;
       begin
-        if (AFactor > 3) and (ACount > 0) then begin
+        vMin := IntMin( ACount1, ACount2 );
+        vMax := IntMax( ACount1, ACount2 );
+        if (AFactor > cStrMinFactor) and (vMin > 0) and (vMax > 1) then begin
           { Рекурсивно попробуем с меньшим фактором... }
-          ComparePart(AStr1, AStr2, AStr1 + ACount + ACount1, AStr2 + ACount + ACount2, AFactor div 2);
-          Inc(AStr1, ACount + ACount1);
-          Inc(AStr2, ACount + ACount2);
+          ComparePart(AStr1, AStr2, AStr1 + ACount1, AStr2 + ACount2, AFactor div 2);
+          Inc(AStr1, ACount1);
+          Inc(AStr2, ACount2);
         end else
         begin
-          if ACount > 0 then begin
-            MarkStr(AStr1, AStr2, ACount);
-            Inc(AStr1, ACount);
-            Inc(AStr2, ACount);
-          end;
-          if ACount1 > 0 then begin
-            MarkStr(AStr1, nil, ACount1);
-            Inc(AStr1, ACount1);
-          end;
-          if ACount2 > 0 then begin
-            MarkStr(nil, AStr2, ACount2);
-            Inc(AStr2, ACount2);
-          end;
+          vStr1 := AStr1;
+          Inc(AStr1, ACount1);
+
+          vStr2 := AStr2;
+          Inc(AStr2, ACount2);
+
+          LocCheckSpace(vStr1, ACount1);
+          LocCheckSpace(vStr2, ACount2);
+
+          MarkStr(vStr1, nil, ACount1);
+          MarkStr(nil, vStr2, ACount2);
         end;
       end;
+
+     {$ifdef bFastCompareRow}
+
+      { Двоичный взаимный поиск }
+
+      function LocResync(AStr1, AStr2 :PTChar; var ADelta1, ADelta2 :Integer) :Boolean;
+      var
+        vAPos1, vAPos2 :Integer;
+        vBest :Integer;
+
+        procedure LocFind(AVer :Integer; ABaseDelta, ASrcPos :Integer; AKey :TChar; AIndex :TRowIndex; ABegPos, AEndPos :Integer);
+        var
+          vIndex, vPos, vPos1, vPos2, vDelta :Integer;
+        begin
+         {$ifdef bSpaceSync }
+         {$else}
+          if CharIsSpace(AKey) then
+            Exit;
+         {$endif bSpaceSync }
+
+          vIndex := AIndex.FindFirst(AKey, ABegPos);
+          if vIndex <> -1 then begin
+
+            vPos1 := ASrcPos;
+            vPos2 := ASrcPos;
+
+            vPos := AIndex[vIndex];
+            while True do begin
+              if vPos >= AEndPos then
+                Break;
+              if ABaseDelta + vPos - ABegPos >= vBest then
+                Break; { Лучше уже не будет... }
+
+              if AVer = 0 then
+                vPos2 := vPos
+              else
+                vPos1 := vPos;
+
+              if CompareChars(AAStr1 + vPos1, AAStr2 + vPos2, AEndStr1, AEndStr2, AFactor) then begin
+                while (vPos1 > vAPos1) and (vPos2 > vAPos2) and CharIsSpace((FUpStr1 + vPos1 - 1)^) and CharIsSpace((FUpStr2 + vPos2 - 1)^) do begin
+                  Dec(vPos1);
+                  Dec(vPos2);
+                end;
+
+                vDelta := ABaseDelta + vPos - ABegPos;
+                if vDelta < vBest then begin
+                  vBest := vDelta;
+                  ADelta1 := vPos1 - vAPos1;
+                  ADelta2 := vPos2 - vAPos2;
+                  Result := True;
+                  Break;
+                end;
+              end;
+
+              if vIndex >= AIndex.Count - 1 then
+                Break;
+              Inc(vIndex);
+              vPos := AIndex[vIndex];
+              if (AIndex.FRowStr + vPos)^ <> AKey then
+                Break;
+            end;
+          end;
+        end;
+
+      var
+        I :Integer;
+      begin
+        Result := False;
+
+        vAPos1 := AStr1 - AAStr1;
+        vAPos2 := AStr2 - AAStr2;
+
+        vBest := MaxInt;
+        for I := 0 to IntMin(AEndStr1 - AStr1, AEndStr2 - AStr2) - 1 do begin
+          if I > vBest then
+            Break; { Лучше уже не будет... }
+          if AStr1 + I < AEndStr1 then
+            LocFind( 0, I, vAPos1 + I, (FUpStr1 + vAPos1 + I)^, TRowIndex(FIndexes2), vAPos2 + I, AEndStr2 - AAStr2 );
+          if AStr2 + I < AEndStr2 then
+            LocFind( 1, I, vAPos2 + I, (FUpStr2 + vAPos2 + I)^, TRowIndex(FIndexes1), vAPos1 + I, AEndStr1 - AAStr1 );
+        end;
+      end;
+
+     {$else}
+
+      { Линейный взаимный поиск (тормозит) }
+
+      function LocResync(AStr1, AStr2 :PTChar; var ADelta1, ADelta2 :Integer) :Boolean;
+
+        function LocCompare(AD1, AD2 :Integer) :Boolean;
+        begin
+          Result := CompareChars(AStr1 + AD1, AStr2 + AD2, AEndStr1, AEndStr2, AFactor);
+          if Result then begin
+            ADelta1 := AD1;
+            ADelta2 := AD2;
+          end;
+        end;
+
+      var
+        I, J :Integer;
+      begin
+        Result := True;
+        for I := 1 to IntMax(AEndStr1 - AStr1, AEndStr2 - AStr2) do begin
+          for J := 0 to I - 1 do begin
+            if LocCompare(J, I) then
+              Exit;
+            if LocCompare(I, J) then
+              Exit;
+          end;
+          if LocCompare(I, I) then
+            Exit;
+        end;
+        Result := False;
+      end;
+
+     {$endif bFastCompareRow}
+
 
     var
-      I, vDelta, vMaxDelta :Integer;
+      vStr1, vStr2 :PTChar;
+      vDelta1, vDelta2 :Integer;
       vRes :TStrCompareRes;
-      vFound :Boolean;
     begin
+      LocCorrectFactor(AFactor, AEndStr1 - ABegStr1, AEndStr2 - ABegStr2);
+
+      vStr1 := ABegStr1;
+      vStr2 := ABegStr2;
       while True do begin
-        if (AStr1 >= AEnd1) or (AStr2 >= AEnd2) then
+        if (vStr1 >= AEndStr1) or (vStr2 >= AEndStr2) then
           Break;
 
-        vRes := CompareChrEx(AStr1^, AStr2^);
-        if vRes in [strEqual, strSimilar] then begin
-          if vRes <> strEqual then
-            MarkStr(AStr1, AStr2, 1);
-          Inc(AStr1);
-          Inc(AStr2);
+        vRes := CompareChrEx(vStr1^, vStr2^);
+
+        if vRes in [scrEqual, scrSimilar] then begin
+          if vRes <> scrEqual then
+            { Разный регистр или Space/Tab}
+            MarkStr(vStr1, vStr2, 1);
+          Inc(vStr1);
+          Inc(vStr2);
         end else
         begin
-
-          if CharIsSpace(AStr1^) then begin
+          if CharIsSpace(vStr1^) then begin
             if not optTextIgnoreSpace then
-              MarkStr(AStr1, nil, 1);
-            Inc(AStr1);
+              MarkStr(vStr1, nil, 1);
+            Inc(vStr1);
             Continue;
           end;
-          if CharIsSpace(AStr2^) then begin
+          if CharIsSpace(vStr2^) then begin
             if not optTextIgnoreSpace then
-              MarkStr(nil, AStr2, 1);
-            Inc(AStr2);
+              MarkStr(nil, vStr2, 1);
+            Inc(vStr2);
             Continue;
           end;
 
-          vDelta := 1;
-          vMaxDelta := IntMax(AEnd1 - AStr1, AEnd2 - AStr2);
-          vFound := False;
-          while vDelta < vMaxDelta do begin
-            for I := 0 to vDelta do begin
-              if CompareChars(AStr1 + I, AStr2 + vDelta, AEnd1, AEnd2, AFactor) then begin
-                LocAddDiffs(AStr1, AStr2, I, 0, vDelta - I);
-                vFound := True;
-                Break;
-              end;
-              if CompareChars(AStr1 + vDelta, AStr2 + I, AEnd1, AEnd2, AFactor) then begin
-                LocAddDiffs(AStr1, AStr2, I, vDelta - I, 0);
-                vFound := True;
-                Break;
-              end
-            end;
-            if vFound then
-              Break;
-
-            Inc(vDelta);
-          end;
-          if not vFound then
+          { Пробуем восстановить синхронизацию с фактором совпадения AFactor (взаимный поиск)... }
+          if not LocResync(vStr1, vStr2, vDelta1, vDelta2) then
             Break;
 
+          { Добавляем несовпадающий диапазон }
+          LocAddDiffs(vStr1, vStr2, vDelta1, vDelta2);
         end;
       end;
 
-      I := IntMin(AEnd1 - AStr1, AEnd2 - AStr2);
-      LocAddDiffs(AStr1, AStr2, I, AEnd1 - AStr1 - I, AEnd2 - AStr2 - I);
+      { Добавляем хвосты, как несовпадающий диапазон }
+      LocAddDiffs(vStr1, vStr2, AEndStr1 - vStr1, AEndStr2 - vStr2);
     end;
+
+
+    procedure LocCompareRowBreak(var ALen1, ALen2 :Integer);
+    var
+      vEqual :Boolean;
+      vStr1, vStr2 :PTChar;
+    begin
+      vStr1 := AAStr1 + ALen1 - 1;
+      vStr2 := AAStr2 + ALen2 - 1;
+      while (vStr1 >= AAStr1) and (vStr2 >= AAStr2) and (vStr1^ = vStr2^) and CharIsCRLF(vStr1^) do begin
+        Dec(vStr1);
+        Dec(vStr2);
+      end;
+      vEqual := not ((vStr1 >= AAStr1) and CharIsCRLF(vStr1^)) and not ((vStr2 >= AAStr2) and CharIsCRLF(vStr2^));
+
+      while (ALen1 > 0) and CharIsCRLF((AAStr1 + ALen1 - 1)^) do begin
+        if not vEqual and not optTextIgnoreCRLF then
+          FDiff1[ALen1 - 1] := True;
+        Dec(ALen1);
+      end;
+
+      while (ALen2 > 0) and CharIsCRLF((AAStr2 + ALen2 - 1)^) do begin
+        if not vEqual and not optTextIgnoreCRLF then
+          FDiff2[ALen2 - 1] := True;
+        Dec(ALen2);
+      end;
+    end;
+
 
   var
     vLen1, vLen2 :Integer;
   begin
     vLen1 := StrLen(AAStr1);
     vLen2 := StrLen(AAStr2);
+
     FDiff1.Size := vLen1;
     FDiff2.Size := vLen2;
-    ComparePart(AAStr1, AAStr2, AAStr1 + vLen1, AAStr2 + vLen2, cStrEqualFactor);
+
+    LocCompareRowBreak(vLen1, vLen2);
+
+   {$ifdef bFastCompareRow}
+    Reindex(AAStr1, vLen1, FUpStr1, FIndexes1);
+    Reindex(AAStr2, vLen2, FUpStr2, FIndexes2);
+   {$endif bFastCompareRow}
+
+    ComparePart(AAStr1, AAStr2, AAStr1 + vLen1, AAStr2 + vLen2, cStrBegFactor);
   end;
 
 
+ {-----------------------------------------------------------------------------}
 
-  function TRowDiff.CompareChars(AStr1, AStr2, AEnd1, AEnd2 :PTChar; ACount :Integer) :Boolean;
+  function TRowDiff.CompareChars(AStr1, AStr2, AEnd1, AEnd2 :PTChar; AFactor :Integer) :Boolean;
+
+    function CharWeight(AChr :TChar) :TFloat;
+    begin
+      if CharIsSpace(AChr) then begin
+       {$ifdef bSpaceSync}
+        Result := 0.34;
+       {$else}
+        Result := 0;
+       {$endif bSpaceSync}
+        exit;
+      end;
+
+      if CharIsWordChar(AChr) then begin
+        Result := 0.34; { Три совпадающих символа подряд восстанавливают синхронизацию }
+        exit;
+      end;
+
+      Result := 1;
+    end;
+
+  var
+    vFactor :TFloat;
   begin
     Result := False;
-    while ACount > 0 do begin
+    vFactor := AFactor;
+    while vFactor > 0 do begin
       if (AStr1 >= AEnd1) or (AStr2 >= AEnd2) then
         Exit;
-      if CompareChrEx(AStr1^, AStr2^) = strDiff then begin
+
+      if CompareChrEx(AStr1^, AStr2^) = scrDiff then begin
 
         if CharIsSpace(AStr1^) then begin
           Inc(AStr1);
@@ -980,10 +1312,11 @@ interface
         Result := False;
         Exit;
       end;
+
+      vFactor := vFactor - CharWeight(AStr1^);
+
       Inc(AStr1);
       Inc(AStr2);
-      if not CharIsSpace(AStr1^) then
-        Dec(ACount);
     end;
     Result := True;
   end;
@@ -991,18 +1324,18 @@ interface
 
   function TRowDiff.CompareChrEx(AChr1, AChr2 :TChar) :TStrCompareRes;
   begin
-    Result := strEqual;
+    Result := scrEqual;
     if AChr1 <> AChr2 then begin
       if CharIsSpace(AChr1) and CharIsSpace(AChr2) then begin
         if not optTextIgnoreSpace then
-          Result := strSimilar;
+          Result := scrSimilar;
       end else
       begin
         if CharUpCase(AChr1) = CharUpCase(AChr2) then begin
           if not optTextIgnoreCase then
-            Result := strSimilar;
+            Result := scrSimilar;
         end else
-          Result := strDiff;
+          Result := scrDiff;
       end;
     end;
   end;
@@ -1015,6 +1348,34 @@ interface
     else
       Result := FDiff2;
   end;
+
+
+ {$ifdef bFastCompareRow}
+  procedure TRowDiff.Reindex(ASrc :PTChar; ALen :Integer; var AUpStr :PTChar; var AIndex :TIntList);
+  var
+    I :Integer;
+  begin
+    AUpStr := MemAlloc((ALen + 1) * SizeOf(TChar));
+    StrMove(AUpStr, ASrc, ALen);
+    (AUpStr + ALen)^ := #0;
+
+    CharUpperBuff(AUpStr, ALen);
+
+    AIndex := TRowIndex.CreateEx(AUpStr);
+    for I := 0 to ALen - 1 do begin
+     {$ifdef bSpaceSync }
+      if CharIsSpace((AUpStr + I)^) then
+        (AUpStr + I)^ := ' ';
+      AIndex.Add(I);
+     {$else}
+      if not CharIsSpace( (AUpStr + I)^ ) then
+        AIndex.Add(I);
+     {$endif bSpaceSync }
+    end;
+
+    AIndex.SortList(True, 0);
+  end;
+ {$endif bFastCompareRow}
 
 
  {-----------------------------------------------------------------------------}

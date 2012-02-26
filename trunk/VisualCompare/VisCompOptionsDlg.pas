@@ -56,12 +56,13 @@ interface
   const
     IdAutoscroll    = 1;
     IdEdtTab        = 3;
-    IdCancel        = 6;
+    IdMaxTextSize   = 5;
+    IdCancel        = 8;
 
   procedure TOptionsDlg.Prepare; {override;}
   const
     DX = 76;
-    DY = 10;
+    DY = 13;
   begin
     FHelpTopic := 'Options';
     FWidth := DX;
@@ -76,6 +77,9 @@ interface
         NewItemApi(DI_Text,      5,  4,   DX-10,  -1,   0, GetMsg(strTabSize)),
         NewItemApi(DI_FixEdit,   5,  5,   3,  -1,   0),
 
+        NewItemApi(DI_Text,      5,  7,   DX-10,  -1,   0, GetMsg(strMaxTextSize)),
+        NewItemApi(DI_FixEdit,   5,  8,   3,  -1,   0),
+
         NewItemApi(DI_Text,      0, DY-4, -1, -1, DIF_SEPARATOR),
         NewItemApi(DI_DefButton, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strOk) ),
         NewItemApi(DI_Button,    0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancel) )
@@ -86,22 +90,26 @@ interface
 
   procedure TOptionsDlg.InitDialog; {override;}
   begin
-    SetText(IdEdtTab, Int2Str(optTabSize));
     SetChecked(IdAutoscroll,  optEdtAutoscroll);
+    SetText(IdEdtTab, Int2Str(optTabSize));
+    SetText(IdMaxTextSize, Int2Str(optTextFileSizeLimit div (1024 * 1024)));
   end;
 
 
   function TOptionsDlg.CloseDialog(ItemID :Integer) :Boolean; {override;}
   var
-    vTabSize :Integer;
+    vTabSize, vMaxSize :Integer;
   begin
     if (ItemID <> -1) and (ItemID <> IdCancel) then begin
       vTabSize := Str2Int(GetText(IdEdtTab));
       if (vTabSize <= 0) or (vTabSize > 9) then
         AppErrorIdFmt(strErrInvalidTabSize, [1, 9]);
 
+      vMaxSize := Str2Int(GetText(IdMaxTextSize));
+
       optTabSize := Str2Int(GetText(IdEdtTab));
       optEdtAutoscroll := GetChecked(IdAutoscroll);
+      optTextFileSizeLimit := vMaxSize * 1024 * 1024;
     end;
     Result := True;
   end;
