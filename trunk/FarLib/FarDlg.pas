@@ -631,7 +631,7 @@ interface
       if vKey <> 0 then
         Result := KeyDown(vKey);
     end else
-      Result := MouseEvent(AEvent);
+      Result := MouseClick(AEvent);
   end;
  {$endif Far3}
 
@@ -644,20 +644,24 @@ interface
 //    DN_KILLFOCUS:
 
      {$ifdef Far3}
-      DN_INPUT, DN_CONTROLINPUT:
+      DN_CONTROLINPUT:
         with INPUT_RECORD(Pointer(Param2)^) do
           if EventType = KEY_EVENT then
             Result := Byte(KeyDownEx(Event.KeyEvent))
           else
           if EventType = _MOUSE_EVENT then
             Result := Byte(MouseEventEx(Event.MouseEvent));
+      DN_INPUT:
+        with INPUT_RECORD(Pointer(Param2)^) do
+          if EventType = _MOUSE_EVENT then
+            Result := Byte(MouseEvent(Event.MouseEvent));
      {$else}
       DN_KEY:
         Result := Byte(KeyDown(Param2));
-      DN_MOUSEEVENT:
-        Result := Byte(MouseEvent(PMouseEventRecord(Param2)^));
       DN_MOUSECLICK:
         Result := Byte(MouseClick(PMouseEventRecord(Param2)^));
+      DN_MOUSEEVENT:
+        Result := Byte(MouseEvent(PMouseEventRecord(Param2)^));
      {$endif Far3}
 
       DN_DRAWDLGITEM:
@@ -667,6 +671,43 @@ interface
     end;
   end;
 
+
+(*
+  function TFarCustomControl.EventHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :Integer; {virtual;}
+  begin
+    Result := 1;
+    case Msg of
+//    DN_GOTFOCUS:
+//    DN_KILLFOCUS:
+
+     {$ifdef Far3}
+      DN_CONTROLINPUT:
+        with INPUT_RECORD(Pointer(Param2)^) do
+          if EventType = KEY_EVENT then
+            Result := Byte(KeyDownEx(Event.KeyEvent))
+          else
+          if EventType = _MOUSE_EVENT then
+            Result := Byte(MouseClick(Event.MouseEvent));
+      DN_INPUT:
+        with INPUT_RECORD(Pointer(Param2)^) do
+          if EventType = _MOUSE_EVENT then
+            Result := Byte(MouseEventEx(Event.MouseEvent));
+     {$else}
+      DN_KEY:
+        Result := Byte(KeyDown(Param2));
+      DN_MOUSECLICK:
+        Result := Byte(MouseClick(PMouseEventRecord(Param2)^));
+      DN_MOUSEEVENT:
+        Result := Byte(MouseEvent(PMouseEventRecord(Param2)^));
+     {$endif Far3}
+
+      DN_DRAWDLGITEM:
+        Paint(PFarDialogItem(Param2)^);
+    else
+      Result := FARAPI.DefDlgProc(FOwner.FHandle, Msg, Param1, Param2);
+    end;
+  end;
+*)
 
 end.
 

@@ -118,6 +118,34 @@ interface
     TFarMenuItemsArray = array[0..MaxInt div SizeOf(TFarMenuItem) - 1] of TFarMenuItem;
    {$endif Far3}
 
+
+ {$ifdef Far3}
+ {$else}
+
+  { Для унификации с Far3}
+
+  const
+    FMVT_UNKNOWN  = 0;
+    FMVT_INTEGER  = 1;
+    FMVT_STRING   = 2;
+    FMVT_DOUBLE   = 3;
+
+  type
+    PFarMacroValue = ^TFarMacroValue;
+    TFarMacroValue = record
+      fType :Integer;
+      Value : record case Integer of
+        0 : (fInteger :Int64);
+        1 : (fDouble :Double);
+        2 : (fString :PFarChar);
+      end;
+    end;
+
+    PFarMacroValueArray = ^TFarMacroValueArray;
+    TFarMacroValueArray = packed array[0..MaxInt div SizeOf(TFarMacroValue) - 1] of TFarMacroValue;
+
+ {$endif Far3}
+
  {-----------------------------------------------------------------------------}
 
   var

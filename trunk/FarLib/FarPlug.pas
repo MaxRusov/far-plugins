@@ -38,13 +38,15 @@ interface
       procedure ExitFar; virtual;
 
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; virtual;
-      function Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :Integer; virtual;
+      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; virtual;
+      function Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :THandle; virtual;
+      procedure CloseAnalyse(AHandle :THandle); virtual;
       procedure Configure; virtual;
 
       procedure SynchroEvent(AParam :Pointer); virtual;
       function DialogEvent(AEvent :Integer; AParam :PFarDialogEvent) :Integer; virtual;
-      function EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; virtual;
-      function ViewerEvent(AEvent :Integer; AParam :Pointer) :Integer; virtual;
+      function EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; virtual;
+      function ViewerEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; virtual;
 
       function EditorInput(const ARec :TInputRecord) :Integer; virtual;
      {$ifdef Far3}
@@ -81,6 +83,7 @@ interface
     Plug :TFarPlug;
 
   function MakeVersion(Major, Minor, Build :Integer) :TVersion;
+  function GetSelfVerison :TVersion;
 
 
  {$ifdef Far3}
@@ -88,7 +91,8 @@ interface
   procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
   procedure GetPluginInfoW(var AInfo :TPluginInfo); stdcall;
   function OpenW(var AInfo :TOpenInfo): THandle; stdcall;
-  function AnalyseW(const AInfo :TAnalyseInfo) :Integer; stdcall;
+  function AnalyseW(const AInfo :TAnalyseInfo) :THandle; stdcall;
+  procedure CloseAnalyseW(const AInfo :TCloseAnalyseInfo); stdcall;
   function ConfigureW(const AInfo :TConfigureInfo) :Integer; stdcall;
   function ProcessSynchroEventW(const AInfo :TProcessSynchroEventInfo) :Integer; stdcall;
   function ProcessDialogEventW(const AInfo :TProcessDialogEventInfo) :Integer; stdcall;
@@ -126,6 +130,36 @@ interface
     Result.Major := Major;
     Result.Minor := Minor;
     Result.Build := Build;
+  end;
+
+
+  function GetSelfVerison :TVersion;
+  var
+    vName :array[0..Max_Path] of TChar;
+    vBuf  :Pointer;
+    vSize :DWORD;
+    vTemp :DWORD;
+    vInfo :PVSFixedFileInfo;
+  begin
+    Result.Major := 1; Result.Minor := 0;  Result.Build := 0;
+
+    GetModuleFileName(hInstance, vName, High(vName) + 1);
+
+    vSize := GetFileVersionInfoSize( vName, vTemp);
+    if vSize > 0 then begin
+      GetMem(vBuf, vSize);
+      try
+        GetFileVersionInfo( vName, vTemp, vSize, vBuf);
+        if VerQueryValue(vBuf, '\', Pointer(vInfo), vSize) then begin
+          Result.Major := LongRec(vInfo.dwFileVersionMS).Hi;
+          Result.Minor := LongRec(vInfo.dwFileVersionMS).Lo;
+//        Result.Build := LongRec(vInfo.dwFileVersionLS).Hi;
+          Result.Build := LongRec(vInfo.dwFileVersionLS).Lo;
+        end;
+      finally
+        FreeMem(vBuf);
+      end;
+    end;
   end;
 
 
@@ -168,9 +202,20 @@ interface
   end;
 
 
-  function TFarPlug.Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :Integer; {virtual;}
+  function TFarPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {virtual;}
   begin
-    Result := 0;
+    Result := INVALID_HANDLE_VALUE;
+  end;
+
+
+  function TFarPlug.Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :THandle; {virtual;}
+  begin
+    Result := INVALID_HANDLE_VALUE;
+  end;
+
+
+  procedure TFarPlug.CloseAnalyse(AHandle :THandle); {virtual;}
+  begin
   end;
 
 
@@ -189,12 +234,12 @@ interface
     Result := 0;
   end;
 
-  function TFarPlug.EditorEvent(AEvent :Integer; AParam :Pointer) :Integer; {virtual;}
+  function TFarPlug.EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {virtual;}
   begin
     Result := 0;
   end;
 
-  function TFarPlug.ViewerEvent(AEvent :Integer; AParam :Pointer) :Integer; {virtual;}
+  function TFarPlug.ViewerEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {virtual;}
   begin
     Result := 0;
   end;
@@ -215,7 +260,7 @@ interface
 
   procedure TFarPlug.ErrorHandler(E :Exception); {virtual;}
   begin
-    ShowMessage('Error', E.Message, FMSG_WARNING or FMSG_MB_OK);
+    ShowMessage(FName, E.Message, FMSG_WARNING or FMSG_MB_OK);
   end;
 
 
@@ -318,7 +363,7 @@ interface
     Plug.ExitFar;
   end;
 
-
+(*
  {$ifdef Far3}
   function OpenW;
  {$else}
@@ -337,8 +382,53 @@ interface
         Plug.ErrorHandler(E);
     end;
   end;
+*)
 
-  
+ {$ifdef Far3}
+  function OpenW;
+ {$else}
+  function OpenPluginW;
+  var
+    vVal :TFarMacroValue;
+ {$endif Far3}
+  begin
+    Result := INVALID_HANDLE_VALUE;
+    try
+
+     {$ifdef Far3}
+      if AInfo.OpenFrom = OPEN_FROMMACRO_ then begin
+
+        with POpenMacroInfo(AInfo.Data)^ do
+          Result := Plug.OpenMacro(Count, Values);
+
+      end else
+        Result := Plug.Open(AInfo.OpenFrom, AInfo.Data);
+
+     {$else}
+
+      if OpenFrom and OPEN_FROMMACRO <> 0 then begin
+
+        { Для унификации с Far3 }
+
+        if OpenFrom and OPEN_FROMMACROSTRING <> 0 then
+          vVal.fType := FMVT_STRING
+        else
+          vVal.fType := FMVT_INTEGER;
+        vVal.Value.fInteger := AItem;
+
+        Result := Plug.OpenMacro(1, Pointer(@vVal));
+
+      end else
+        Result := Plug.Open(OpenFrom, AItem);
+     {$endif Far3}
+
+    except
+      on E :Exception do
+        Plug.ErrorHandler(E);
+    end;
+  end;
+
+
  {$ifdef Far3}
   function AnalyseW;
   begin
@@ -346,13 +436,17 @@ interface
       Result := Plug.Analyse(FileName, Buffer, BufferSize, OpMode);
   end;
 
+  procedure CloseAnalyseW;
+  begin
+    with AInfo do
+      Plug.CloseAnalyse(Handle);
+  end;
+
  {$else}
 
   function OpenFilePluginW;
   begin
-    Result := INVALID_HANDLE_VALUE;
-    if Plug.Analyse(AName, AData, ADataSize, AMode) <> 0 then
-      {!!!};
+    Result := Plug.Analyse(AName, AData, ADataSize, AMode);
   end;
  {$endif Far3}
 
@@ -399,24 +493,36 @@ interface
 
 
   function ProcessEditorEventW;
+ {$ifdef Far3}
   begin
-   {$ifdef Far3}
     with AInfo do
-      Result := Plug.EditorEvent(Event, Param);
-   {$else}
-    Result := Plug.EditorEvent(AEvent, AParam);
-   {$endif Far3}
+      Result := Plug.EditorEvent(EditorID, Event, Param);
+ {$else}
+  var
+    vID :Integer;
+  begin
+    vID := 0;
+    if AEvent in [EE_GOTFOCUS, EE_KILLFOCUS, EE_CLOSE] then
+      vID := Integer(AParam^);
+    Result := Plug.EditorEvent(vID, AEvent, AParam);
+ {$endif Far3}
   end;
 
 
   function ProcessViewerEventW;
+ {$ifdef Far3}
   begin
-   {$ifdef Far3}
     with AInfo do
-      Result := Plug.ViewerEvent(Event, Param);
-   {$else}
-    Result := Plug.ViewerEvent(AEvent, AParam);
-   {$endif Far3}
+      Result := Plug.ViewerEvent(ViewerID, Event, Param);
+ {$else}
+  var
+    vID :Integer;
+  begin
+    vID := 0;
+    if AEvent in [VE_GOTFOCUS, VE_KILLFOCUS, VE_CLOSE] then
+      vID := Integer(AParam^);
+    Result := Plug.ViewerEvent(vID, AEvent, AParam);
+ {$endif Far3}
   end;
 
 
