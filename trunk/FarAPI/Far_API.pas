@@ -2,9 +2,9 @@
 {$Align On}
 {$RangeChecks Off}
 
-{$ifdef CPUX86_64}
+{$ifdef FPC}
  {$PACKRECORDS C}
-{$endif CPUX86_64}
+{$endif FPC}
 
 unit Far_Api;
 

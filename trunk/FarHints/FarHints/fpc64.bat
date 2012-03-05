@@ -1,5 +1,10 @@
 @Echo off
 
+if /i "%1" == "Far3" (
+  echo Not supported
+  goto :EOF
+)
+
 Set BinPath=..\..\Bin_64\FarHints
 Set DcuPath=..\..\Units64\FarHints\FarHints
 
