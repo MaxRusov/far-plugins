@@ -2461,25 +2461,25 @@ type
     Reserved : array [0..4] of DWORD;
   end;
 
-          (*
-          struct EditorBookMarks
-          {
-            long *Line;
-            long *Cursor;
-            long *ScreenLine;
-            long *LeftPos;
-            DWORD Reserved[4];
-          };
-          *)
-          type
-            PEditorBookMarks = ^TEditorBookMarks;
-            TEditorBookMarks = record
-              Line : PIntegerArray;
-              Cursor : PIntegerArray;
-              ScreenLine : PIntegerArray;
-              LeftPos : PIntegerArray;
-              Reserved : array [0..3] of DWORD;
-            end;
+(*
+struct EditorBookMarks
+{
+  long *Line;
+  long *Cursor;
+  long *ScreenLine;
+  long *LeftPos;
+  DWORD Reserved[4];
+};
+*)
+type
+  PEditorBookMarks = ^TEditorBookMarks;
+  TEditorBookMarks = record
+    Line : PIntegerArray;
+    Cursor : PIntegerArray;
+    ScreenLine : PIntegerArray;
+    LeftPos : PIntegerArray;
+    Reserved : array [0..3] of DWORD;
+  end;
 
 (*
 struct EditorSetPosition
@@ -2503,41 +2503,41 @@ type
     Overtype : Integer;
   end;
 
-          (*
-          struct EditorSelect
-          {
-            int BlockType;
-            int BlockStartLine;
-            int BlockStartPos;
-            int BlockWidth;
-            int BlockHeight;
-          };
-          *)
-          type
-            PEditorSelect = ^TEditorSelect;
-            TEditorSelect = record
-              BlockType : Integer;
-              BlockStartLine : Integer;
-              BlockStartPos : Integer;
-              BlockWidth : Integer;
-              BlockHeight : Integer;
-            end;
+(*
+struct EditorSelect
+{
+  int BlockType;
+  int BlockStartLine;
+  int BlockStartPos;
+  int BlockWidth;
+  int BlockHeight;
+};
+*)
+type
+  PEditorSelect = ^TEditorSelect;
+  TEditorSelect = record
+    BlockType : Integer;
+    BlockStartLine : Integer;
+    BlockStartPos : Integer;
+    BlockWidth : Integer;
+    BlockHeight : Integer;
+  end;
 
-          (*
-          struct EditorConvertPos
-          {
-            int StringNumber;
-            int SrcPos;
-            int DestPos;
-          };
-          *)
-          type
-            PEditorConvertPos = ^TEditorConvertPos;
-            TEditorConvertPos = record
-              StringNumber : Integer;
-              SrcPos : Integer;
-              DestPos : Integer;
-            end;
+(*
+struct EditorConvertPos
+{
+  int StringNumber;
+  int SrcPos;
+  int DestPos;
+};
+*)
+type
+  PEditorConvertPos = ^TEditorConvertPos;
+  TEditorConvertPos = record
+    StringNumber : Integer;
+    SrcPos : Integer;
+    DestPos : Integer;
+  end;
 
 
 { EDITORCOLORFLAGS }
