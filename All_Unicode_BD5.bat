@@ -1,3 +1,3 @@
 @Echo off
 
-call _CompileAll Dcc*.bat -dUnicode %*
+call _CompileAll Dcc*.bat %*
