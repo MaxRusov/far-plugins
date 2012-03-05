@@ -1,3 +1,3 @@
 @Echo off
 
-call _CompileAll FPC.*bat -dUnicode %*
+call _CompileAll FPC.*bat %*
