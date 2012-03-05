@@ -32,6 +32,9 @@ interface
  {$endif Far3}
 
 
+  const
+    cRegexpChar = '/';
+
   var
     ParserResBase :Integer;
 
@@ -167,10 +170,24 @@ interface
 
     TKeyArray = array of TKeyRec;
 
+
+   {$ifdef bUseKeyMask}
+    TKeyMaskRec = record
+      Mask :TString;
+      KMod :TKeyModifier;
+    end;
+
+    TKeyMaskArray = array of TKeyMaskRec;
+   {$endif bUseKeyMask}
+
+
     TMacroRec = record
       Name     :TString;           { Имя макроса (для вызова по имени, необязательное) }
       Descr    :TString;           { Описание макроса (для показа пользователю) }
       Bind     :TKeyArray;         { Массив кодов клавиш с модификаторами - array of TKeyRec }
+     {$ifdef bUseKeyMask}
+      Bind1    :TKeyMaskArray;     { Альтернативная привязка - по регулярным выражениям }
+     {$endif bUseKeyMask}
       Area     :TMacroAreas;       { Битовая маска MacroAreas }
       Dlgs     :TGUIDArray;        { Массив GUID-ов диалогов - для привязки макроса к диалогу }
       Dlgs1    :TStrArray;         { Массив Заголовков диалогов - альтернативный вариант привязки }
@@ -305,7 +322,7 @@ interface
       procedure SkipLineComment(var APtr :PTChar);
       procedure SkipMultilineComment(var APtr :PTChar);
       procedure SkipCRLF(var APtr :PTChar);
-      procedure ParseBindStr(APtr :PTChar; var ARes :TKeyArray);
+      procedure ParseBindStr(APtr :PTChar {; var ARes :TKeyArray} );
       procedure ParseAreaStr(APtr :PTChar; var ARes :TMacroAreas);
       procedure ParseCondStr(APtr :PTChar; var ARes :TMacroConditions);
       procedure ParseEventStr(APtr :PTChar; var ARes :TMacroEvents);
@@ -323,6 +340,12 @@ interface
       property OnError :TOnError read FOnError write FOnError;
     end;
 
+
+ {$ifdef bUseKeyMask}
+  function CheckRegexp(ARegexp :PTChar) :Boolean;
+  function MatchRegexp(ARegexp, AStr :PTChar; AStrLen :Integer) :Boolean;
+  function MatchRegexpStr(const ARegexp, AStr :TString) :Boolean;
+ {$endif bUseKeyMask}
 
   function KeyNameParse(AName :PTChar; var AKey :Integer; var AMod :TKeyModifier) :Boolean;
 
@@ -450,6 +473,62 @@ interface
       Result := True;
     end;
   end;
+
+
+ {$ifdef bUseKeyMask}
+  function CheckRegexp(ARegexp :PTChar) :Boolean;
+  var
+    vRegExp :THandle;
+  begin
+    Result := False;
+    if FarRegExpControl(0, RECTL_CREATE, @vRegExp) = 0 then
+      Exit;
+    try
+      Result := FarRegExpControl(vRegExp, RECTL_COMPILE, ARegexp) <> 0;
+    finally
+      FarRegExpControl(vRegExp, RECTL_FREE, nil);
+    end;
+  end;
+
+
+  function MatchRegexp(ARegexp, AStr :PTChar; AStrLen :Integer) :Boolean;
+  var
+    vRegExp :THandle;
+    vSearch :TRegExpSearch;
+    vMatch  :TRegExpMatch;
+  begin
+    Result := False;
+    if FarRegExpControl(0, RECTL_CREATE, @vRegExp) = 0 then
+      Exit;
+    try
+      if FarRegExpControl(vRegExp, RECTL_COMPILE, ARegexp) = 0 then
+        Exit;
+//    FarRegExpControl(FRegExp, RECTL_OPTIMIZE, nil); ???
+
+      vSearch.Text := AStr;
+      vSearch.Position := 0;
+      vSearch.Length := AStrLen;
+      vSearch.Match := @vMatch;
+      vSearch.Count := 1;
+
+      if FarRegExpControl(vRegExp, RECTL_MATCHEX, @vSearch) = 1 then
+        Result := (vMatch.Start = 0) and (vMatch.EndPos = AStrLen);
+
+    finally
+      FarRegExpControl(vRegExp, RECTL_FREE, nil);
+    end;
+  end;
+
+
+  function MatchRegexpStr(const ARegexp, AStr :TString) :Boolean;
+  var
+    vRegexp :TString;
+  begin
+//  TraceF('MatchRegexp (Regexp=%s, KeyStr=%s)', [ARegexp, AStr]);
+    vRegexp := ARegexp + 'i';
+    Result := MatchRegexp(PTChar(vRegexp), PTChar(AStr), length(AStr));
+  end;
+ {$endif bUseKeyMask}
 
 
  {-----------------------------------------------------------------------------}
@@ -1289,9 +1368,24 @@ interface
   end;
 
 
-  function KeyNameParse(AName :PTChar; var AKey :Integer; var AMod :TKeyModifier) :Boolean;
+  function KeyModParse(AName :PTChar; var AMod :TKeyModifier) :Boolean;
   var
     vModi :Integer;
+  begin
+    Result := False;
+    AMod := kmPress;
+    if AName <> nil then begin
+      vModi := KeyMods.GetKeyword(AName, StrLen(AName));
+      if vModi = -1 then
+        Exit;
+      AMod := TKeyModifier(vModi);
+    end;
+    Result := True;
+  end;
+
+
+  function KeyNameParse(AName :PTChar; var AKey :Integer; var AMod :TKeyModifier) :Boolean;
+  var
     vPtr, vName :PTChar;
     vTmp :array[0..255] of TChar;
   begin
@@ -1303,6 +1397,7 @@ interface
     else begin
       vName := @vTmp[0];
       StrLCopy(vName, AName, IntMin(vPtr - AName, High(vTmp)));
+      Inc(vPtr);
     end;
 
     AKey := NameToFarKey(vName);
@@ -1310,37 +1405,86 @@ interface
       Exit;
 
     AMod := kmPress;
-    if vPtr <> nil then begin
-      Inc(vPtr);
-
-      vModi := KeyMods.GetKeyword(vPtr, StrLen(vPtr));
-      if vModi = -1 then
+    if vPtr <> nil then
+      if not KeyModParse(vPtr, AMod) then
         Exit;
-
-      AMod := TKeyModifier(vModi);
-    end;
 
     Result := True;
   end;
 
 
-  procedure TMacroParser.ParseBindStr(APtr :PTChar; var ARes :TKeyArray);
+ {$ifdef bUseKeyMask}
+  function KeyMaskParse(AName :PTChar; ACheck :Boolean; var AMask :TString; var AMod :TKeyModifier) :Boolean;
   var
-    vKey :Integer;
-    vMod :TKeyModifier;
-    vBuf :array[0..255] of TChar;
+    vLen :Integer;
+    vPtr :PTChar;
+  begin
+    Result := False;
+
+    vLen := strlen(AName);
+    vPtr := AName + vLen;
+
+    while (vPtr > AName) and ((vPtr - 1)^ <> cRegexpChar) do
+      Dec(vPtr);
+    if (vPtr - AName) <= 1 then
+      Exit;
+
+    if vPtr^ = ':' then begin
+      vPtr^ := #0;
+      Inc(vPtr);
+    end else
+      vPtr := nil;
+
+    if ACheck then
+      if not CheckRegexp(AName) then
+        Exit;
+
+    AMask := AName;
+
+    AMod := kmPress;
+    if vPtr <> nil then
+      if not KeyModParse(vPtr, AMod) then
+        Exit;
+
+    Result := True;
+  end;
+ {$endif bUseKeyMask}
+
+
+  procedure TMacroParser.ParseBindStr(APtr :PTChar {; var ARes :TKeyArray} );
+  var
+    vKey  :Integer;
+    vMod  :TKeyModifier;
+   {$ifdef bUseKeyMask}
+    vMask :TString;
+   {$endif bUseKeyMask}
+    vBuf  :array[0..255] of TChar;
   begin
     while CanExtractNext(APtr, @vBuf[0], high(vBuf), [' ', charTab]) do begin
+     {$ifdef bUseKeyMask}
+      if vBuf[0] = cRegexpChar then begin
+        if (moCompatible in FMacro.Options) then
+          begin Warning1(errNotSupportedInFarMacro, APtr); Exit; end;
 
-      if not KeyNameParse(@vBuf[0], vKey, vMod) then
-        begin Warning1(errBadHotkey, APtr); Exit; end;
+        if not KeyMaskParse(@vBuf[0], FCheckBody, vMask, vMod) then
+          begin Warning1(errBadHotkey, APtr); Exit; end;
 
-      if (moCompatible in FMacro.Options) and (vMod <> kmPress) then
-        begin Warning1(errNotSupportedInFarMacro, APtr); Exit; end;
+        SetLength(FMacro.Bind1, Length(FMacro.Bind1) + 1);
+        FMacro.Bind1[Length(FMacro.Bind1) - 1].Mask := vMask;
+        FMacro.Bind1[Length(FMacro.Bind1) - 1].KMod := vMod;
+      end else
+     {$endif bUseKeyMask}
+      begin
+        if not KeyNameParse(@vBuf[0], vKey, vMod) then
+          begin Warning1(errBadHotkey, APtr); Exit; end;
 
-      SetLength(ARes, Length(ARes) + 1);
-      ARes[Length(ARes) - 1].Key := vKey;
-      ARes[Length(ARes) - 1].KMod := vMod;
+        if (moCompatible in FMacro.Options) and (vMod <> kmPress) then
+          begin Warning1(errNotSupportedInFarMacro, APtr); Exit; end;
+
+        SetLength(FMacro.Bind, Length(FMacro.Bind) + 1);
+        FMacro.Bind[Length(FMacro.Bind) - 1].Key := vKey;
+        FMacro.Bind[Length(FMacro.Bind) - 1].KMod := vMod;
+      end;
     end;
   end;
 
@@ -1490,6 +1634,9 @@ interface
     FMacro.Name     := '';
     FMacro.Descr    := '';
     FMacro.Bind     := nil;
+   {$ifdef bUseKeyMask}
+    FMacro.Bind1    := nil;
+   {$endif bUseKeyMask}
     FMacro.Area     := [];
     FMacro.Dlgs     := nil;
     FMacro.Dlgs1    := nil;
@@ -1509,7 +1656,7 @@ interface
 
   procedure TMacroParser.SetMacroParam(AParam :Integer; ALex :TLexType);
   begin
-    if (AParam in [kwName, kwDescr, kwBind, kwArea, kwCond, kwEvent, kwWhere]) and (Alex <> lexString) then
+    if (AParam in [kwName, kwDescr, kwBind, kwArea, kwCond, kwEvent, kwWhere]) and (ALex <> lexString) then
       begin Warning(errExceptString); exit; end;
 
     if (moCompatible in FMacro.Options) and (AParam in [kwEvent, kwPriority, kwRunOnRel, kwEatOnRun]) then
@@ -1518,7 +1665,7 @@ interface
     case AParam of
       kwName     : FMacro.Name  := FBuf.GetStrValue;
       kwDescr    : FMacro.Descr := FBuf.GetStrValue;
-      kwBind     : ParseBindStr(FBuf.Buf, FMacro.Bind);
+      kwBind     : ParseBindStr(FBuf.Buf{, FMacro.Bind});
       kwArea     : ParseAreaStr(FBuf.Buf, FMacro.Area);
       kwCond     : ParseCondStr(FBuf.Buf, FMacro.Cond);
       kwEvent    : ParseEventStr(FBuf.Buf, FMacro.Events);
