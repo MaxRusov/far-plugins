@@ -68,6 +68,9 @@ interface
       FDescr    :TString;          { Описание макрокоманды }
       FWhere    :TString;          { Условие запуска (пока не используется) }
       FBind     :TKeyArray;        { Список кнопок для запуска }
+     {$ifdef bUseKeyMask}
+      FBind1    :TKeyMaskArray;    { Альтернативная привязка - по регулярным выражениям }
+     {$endif bUseKeyMask}
       FEvents   :TMacroEvents;     { Список событий для запуска }
       FArea     :TMacroAreas;      { Маска макрообластей }
       FDlgs     :TGUIDArray;       { Список GUID-ов диалогов }
@@ -82,7 +85,7 @@ interface
       FFileName :TString;
       FRow      :Integer;
       FCol      :Integer;
-      FIndex    :Integer;
+      FIndex    :Integer;  
 
       FIDs      :TObjList;          { ID макросов, добавленных в FAR. Для удаления. }
 
@@ -114,22 +117,13 @@ interface
     end;
 
 
-    PIndexRec = ^TIndexRec;
-    TIndexRec = record
-      FKey   :Integer;
-      FIndex :Integer;
-    end;
-
-    TMacroIndex = class(TExList)
+    TKeyIndex = class(TExList)
     public
-      function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
-      function ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; override;
+      function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; override;
+      function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
 
     private
-      function GetIndexRec(AIndex :Integer) :PIndexRec;
-
-    public
-      property IndexRec[I :Integer] :PIndexRec read GetIndexRec; default;
+      FKey  :Integer;
     end;
 
 
@@ -154,7 +148,7 @@ interface
     private
       FMacroses    :TObjList;
       FNewMacroses :TObjList;
-      FIndex       :TMacroIndex;
+      FKeyIndex    :TObjList;
       FRevision    :Integer;
       FSilence     :Boolean;
       FLastKey     :Integer;
@@ -165,11 +159,12 @@ interface
       FCancelled   :Boolean;
 
       FWindowType  :Integer;
+      FDialogID    :THandle;
       FConditions  :TMacroConditions;
 
       procedure ScanMacroFolder(const AFolder :TString);
       function ParseMacroFile(const AFileName :TString) :boolean;
-      procedure Reindex;
+      procedure Reindex;  
 
       procedure AddMacro(Sender :TMacroParser; const ARec :TMacroRec);
       procedure ParseError(Sender :TMacroParser; ACode :Integer; const AMessage :TString; const AFileName :TString; ARow, ACol :Integer);
@@ -303,6 +298,14 @@ interface
     if Length(ARec.Bind) > 0 then
       Move(ARec.Bind[0], FBind[0], Length(ARec.Bind) * SizeOf(TKeyRec));
 
+   {$ifdef bUseKeyMask}
+    SetLength(FBind1, Length(ARec.Bind1));
+    if Length(ARec.Bind1) > 0 then begin
+      Move(ARec.Bind1[0], FBind1[0], Length(ARec.Bind1) * SizeOf(TKeyMaskRec));
+      FillZero(ARec.Bind1[0], Length(ARec.Bind1) * SizeOf(TKeyMaskRec));
+    end;
+   {$endif bUseKeyMask}
+
     FFileName := AFileName;
     FRow := ARec.Row;
     FCol := ARec.Col;
@@ -314,6 +317,9 @@ interface
   begin
     RemoveFromFar;
     FBind := nil;
+   {$ifdef bUseKeyMask}
+    FBind1 := nil;
+   {$endif bUseKeyMask}
     FDlgs := nil;
     FDlgs1 := nil;
     FEdts := nil;
@@ -414,70 +420,96 @@ interface
   function TMacro.CheckKeyCondition(Area :TMacroArea; AKey :Integer; APress :TKeyPress; ALib :TMacroLibrary; var AEat :Boolean) :Boolean;
     { Press:  kpDown, kpAuto, kpHold, kpUp, kpDouble, kpAll }
   var
+    vRes, vFin, vEat :Boolean;
+
+    function LocTestMod(AMod :TKeyModifier) :Boolean;
+    begin
+      Result := False;
+      case AMod of
+        kmPress: begin
+          { Обычный хоткей: все, кроме отпускания }
+          vRes := not (APress in [kpUp, kpShiftUp]);
+          vEat := True;
+          Result := True;
+        end;
+        kmRelease: begin
+          { На отпускание }
+          vRes := APress in [kpUp, kpAll];
+          vEat := True;
+          Result := True;
+        end;
+        kmSingle: begin
+          { На SingleClick }
+          vRes := APress in [kpDown, kpAuto, kpHold, kpAll];
+          vEat := APress <> kpDouble;
+        end;
+        kmDouble: begin
+          { На DoubleClick }
+          vRes := APress in [kpDouble, kpAll];
+          vEat := vRes;
+          vFin := vRes;
+        end;
+        kmHold: begin
+          { На удержание }
+          vRes := APress in [kpHold, kpAll];
+          vEat := vRes;
+          vFin := vRes;
+        end;
+        kmDown: begin
+          { На нажатие }
+          vRes := APress in [kpDown, kpDouble, kpAll];
+          vEat := vRes;
+        end;
+        kmUp: begin
+          { На отжатие }
+          vRes := APress in [kpUp, kpShiftUp, kpAll];
+          vEat := vRes;
+        end;
+      end;
+      if vRes then
+        Result := True;
+    end;
+
+  var
     I :Integer;
-    vEat, vFinal :Boolean;
+   {$ifdef bUseKeyMask}
+    vKeyName :TString;
+   {$endif bUseKeyMask}
   begin
     Result := False;
-    vEat := False;
-    vFinal := False;
 
     { Поскольку теперь используем индекс, то какая-то кнопка точно совпадет }
     if not CheckAreaCondition(Area, ALib) then
       Exit;
 
+    vRes := False;
+    vEat := False;
+    vFin := False;
+
     for I := 0 to length(FBind) - 1 do
-//    if (FBind[I].Key = AKey) and CheckAreaCondition(Area, ALib) then begin
       if FBind[I].Key = AKey then begin
-        case FBind[I].KMod of
-          kmPress: begin
-            { Обычный хоткей: все, кроме отпускания }
-            Result := not (APress in [kpUp, kpShiftUp]);
-            vEat := True;
-            Break;
-          end;
-          kmRelease: begin
-            { На отпускание }
-            Result := APress in [kpUp, kpAll];
-            vEat := True;
-            Break;
-          end;
-          kmSingle: begin
-            { На SingleClick }
-            Result := APress in [kpDown, kpAuto, kpHold, kpAll];
-            vEat := APress <> kpDouble;
-          end;
-          kmDouble: begin
-            { На DoubleClick }
-            Result := APress in [kpDouble, kpAll];
-            vEat := Result;
-            vFinal := Result;
-          end;
-          kmHold: begin
-            { На удержание }
-            Result := APress in [kpHold, kpAll];
-            vEat := Result;
-            vFinal := Result;
-          end;
-          kmDown: begin
-            { На нажатие }
-            Result := APress in [kpDown, kpDouble, kpAll];
-            vEat := Result;
-          end;
-          kmUp: begin
-            { На отжатие }
-            Result := APress in [kpUp, kpShiftUp, kpAll];
-            vEat := Result;
-          end;
-        end;
-        if Result then
+        if LocTestMod(FBind[I].KMod) then
           Break;
       end;
 
+   {$ifdef bUseKeyMask}
+    if not vRes and (length(FBind1) > 0) then begin
+      vKeyName := FarKeyToName(AKey);
+      for I := 0 to length(FBind1) - 1 do
+        if MatchRegexpStr(FBind1[I].Mask, vKeyName) then begin
+          if LocTestMod(FBind1[I].KMod) then
+            Break;
+        end;
+    end;
+   {$endif bUseKeyMask}
+
     if vEat and (moEatOnRun in FOptions) then begin
       AEat := True;
-      if vFinal then
+      if vFin then
         ALib.CancellPress;
     end;
+
+    Result := vRes;
   end;
 
 
@@ -607,20 +639,29 @@ interface
 
   function TMacro.GetBindAsStr(AMode :Integer) :TString;
   var
-    I :Integer;
+    I, vCount :Integer;
   begin
     Result := '';
-    if length(FBind) > 0 then begin
-      if AMode <= 1 then begin
-        for I := 0 to length(FBind) - 1 do
-          Result := AppendStrCh(Result, KeyToName(FBind[I]), ' ');
-      end else
-      begin
-        Result := KeyToName(FBind[0]);
-        if length(FBind) > 1 then
-          Result := Result + ' (' + Int2Str(length(FBind)) + ')';
-      end;
+    vCount := 0;
+
+   {$ifdef bUseKeyMask}
+    Inc(vCount, length(FBind1));
+    for I := 0 to length(FBind1) - 1 do begin
+      if (AMode > 1) and (Result <> '') then
+        Break;
+      Result := AppendStrCh(Result, FBind1[I].Mask, ' ');
     end;
+   {$endif bUseKeyMask}
+
+    Inc(vCount, length(FBind));
+    for I := 0 to length(FBind) - 1 do begin
+      if (AMode > 1) and (Result <> '') then
+        Break;
+      Result := AppendStrCh(Result, KeyToName(FBind[I]), ' ');
+    end;
+
+    if (AMode > 1) and (vCount > 1) then
+      Result := Result + ' (' + Int2Str(vCount) + ')';
   end;
 
 
@@ -702,29 +743,19 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- { TMacroIndex                                                               }
+ { TKeyIndex                                                                   }
  {-----------------------------------------------------------------------------}
 
-  function TMacroIndex.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
+  function TKeyIndex.CompareObj(Another :TBasis; Context :TIntPtr) :Integer; {override;}
   begin
-    Result := IntCompare( PIndexRec(PItem).FKey, PIndexRec(PAnother).FKey );
-    if Result = 0 then
-      Result := IntCompare( PIndexRec(PItem).FIndex, PIndexRec(PAnother).FIndex );
+    Result := IntCompare( FKey, TKeyIndex(Another).FKey );
   end;
 
-
-  function TMacroIndex.ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; {override;}
+  function TKeyIndex.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
-    Result := IntCompare( PIndexRec(PItem).FKey, TIntPtr(Key) );
-    if (Result = 0) and (Context <> 0) then
-      Result := IntCompare( PIndexRec(PItem).FIndex, Context );
+    Result := IntCompare( FKey, TIntPtr(Key) );
   end;
 
-
-  function TMacroIndex.GetIndexRec(AIndex :Integer) :PIndexRec;
-  begin
-    Result := PItems[AIndex];
-  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -735,14 +766,14 @@ interface
   begin
     inherited Create;
     FMacroses := TObjList.Create;
-    FIndex := TMacroIndex.CreateSize(SizeOf(TIndexRec));
+    FKeyIndex := TObjList.Create;
   end;
 
 
   destructor TMacroLibrary.Destroy; {override;}
   begin
     FreeObj(FMacroses);
-    FreeObj(FIndex);
+    FreeObj(FKeyIndex);
     inherited Destroy;
   end;
 
@@ -856,26 +887,18 @@ interface
 
   procedure TMacroLibrary.Reindex;
   var
-    I, J, vIndex :Integer;
+    I :Integer;
     vMacro :TMacro;
-    vRec :TIndexRec;
   begin
-    FIndex.Clear;
+    FKeyIndex.Clear;
     for I := 0 to FMacroses.Count - 1 do begin
       vMacro := FMacroses[I];
-      if not (moCompatible in vMacro.FOptions) then begin
-        for J := 0 to length(vMacro.FBind) - 1 do begin
-          vRec.FKey := vMacro.FBind[J].Key;
-          vRec.FIndex := I;
-          if not FIndex.FindKey(Pointer(TIntPtr(vRec.FKey)), I, [foBinary], vIndex) then
-            FIndex.InsertData(vIndex, vRec);
-        end;
-      end else
+      if moCompatible in vMacro.FOptions then
         vMacro.AddToFar;
     end;
   end;
 
-
+  
  {-----------------------------------------------------------------------------}
 
   function TMacroLibrary.CheckHotkey(const ARec :TKeyEventRecord) :boolean;
@@ -1034,44 +1057,71 @@ interface
 
 
   procedure TMacroLibrary.FindMacroses(AList :TExList; Area :TMacroArea; AKey :Integer; APress :TKeyPress; var AEat :Boolean);
-(*
-    { Вариант с последовательным перебором }
+
+
+    procedure LocFindAll(AList :TKeyIndex);
+    var
+      I, J :Integer;
+      vMacro :TMacro;
+      vMatch :Boolean;
+     {$ifdef bUseKeyMask}
+      vKeyName :TString;
+     {$endif bUseKeyMask}
+    begin
+     {$ifdef bUseKeyMask}
+      vKeyName := FarKeyToName(AKey);
+     {$endif bUseKeyMask}
+
+      for I := 0 to FMacroses.Count - 1 do begin
+        vMacro := FMacroses[I];
+        if not (moCompatible in vMacro.FOptions) then begin
+          vMatch := False;
+
+          for J := 0 to length(vMacro.FBind) - 1 do
+            if vMacro.FBind[J].Key = AKey then begin
+              vMatch := True;
+              break;
+            end;
+
+         {$ifdef bUseKeyMask}
+          if not vMatch and (length(vMacro.FBind1) > 0) then begin
+            for J := 0 to length(vMacro.FBind1) - 1 do
+              if MatchRegexpStr(vMacro.FBind1[J].Mask, vKeyName) then begin
+                vMatch := True;
+                break;
+              end;
+          end;
+         {$endif bUseKeyMask}
+
+          if vMatch then
+            AList.Add(vMacro);
+        end;
+      end;
+    end;
+
+
     procedure LocFind(AKey :Integer);
     var
       I :Integer;
       vMacro :TMacro;
+      vList :TKeyIndex;
     begin
-      for I := 0 to FMacroses.Count - 1 do begin
-        vMacro := FMacroses[I];
+      if FKeyIndex.FindKey( Pointer(TIntPtr(AKey)), 0, [foBinary], I) then
+        vList := FKeyIndex[I]
+      else begin
+        vList := TKeyIndex.Create;
+        vList.FKey := AKey;
+        LocFindAll(vList);
+        FKeyIndex.Insert(I, vList);
+      end;
+
+      for I := 0 to vList.Count - 1 do begin
+        vMacro := vList[ I ];
         if vMacro.CheckKeyCondition(Area, AKey, APress, Self, AEat) then
           AList.Add(vMacro);
       end;
     end;
-*)
-    { Вариант с двоичным поиском }
-    procedure LocFind(AKey :Integer);
-    var
-      vIndex :Integer;
-      vMacro :TMacro;
-    begin
-      if FIndex.FindKey( Pointer(TIntPtr(AKey)), 0, [foBinary], vIndex) then begin
 
-        while (vIndex > 0) and (FIndex[vIndex - 1].FKey = AKey) do
-          Dec(vIndex);
-
-        while True do begin
-          vMacro := FMacroses[ FIndex[vIndex].FIndex ];
-          if not (moCompatible in vMacro.FOptions) then
-            if vMacro.CheckKeyCondition(Area, AKey, APress, Self, AEat) then
-              AList.Add(vMacro);
-
-          Inc(vIndex);
-          if (vIndex >= FIndex.Count) or (FIndex[vIndex].FKey <> AKey) then
-            Break;
-        end;
-
-      end;
-    end;
 
   begin
     InitConditions;
@@ -1213,6 +1263,7 @@ interface
   procedure TMacroLibrary.InitConditions;
   begin
     FWindowType := -1;
+    FDialogID   := 0;
     FConditions := [];
   end;
 
@@ -1223,8 +1274,16 @@ interface
     var
       vWinInfo :TWindowInfo;
     begin
-      FarGetWindowInfo(-1, vWinInfo);
-      FWindowType := vWinInfo.WindowType;
+      if FarGetWindowInfo(-1, vWinInfo) then begin
+        FWindowType := vWinInfo.WindowType;
+        if FWindowType = WTYPE_DIALOG then begin
+         {$ifdef Far3}
+          FDialogID := vWinInfo.ID;
+         {$else}
+          FDialogID := GetTopDlgHandle;
+         {$endif Far3}
+        end;
+      end;
     end;
 
     procedure InitCmdLineCondition;
@@ -1240,18 +1299,28 @@ interface
     procedure InitBlockCondition;
     var
       vEdtInfo :TEditorInfo;
+      vCtrlID :Integer;
+      vSelect :TEditorSelect;
+      vSelected :Boolean;
     begin
+      vSelected := False;
       if FWindowType = WTYPE_EDITOR then begin
         FillZero(vEdtInfo, SizeOf(vEdtInfo));
         FarEditorControl(ECTL_GETINFO, @vEdtInfo);
-        SetMacroCondition(FConditions, mcBlockNotSelected, vEdtInfo.BlockType <> BTYPE_NONE);
+        vSelected := vEdtInfo.BlockType <> BTYPE_NONE;
       end else
       if FWindowType = WTYPE_VIEWER then begin
 //      FConditions := FConditions + [mcBlockNotSelected]
       end else
-      if FWindowType = WTYPE_DIALOG then begin
-//      FConditions := FConditions + [mcBlockNotSelected]
+      if (FWindowType = WTYPE_DIALOG) and (FDialogID <> 0) then begin
+        vCtrlID := FarSendDlgMessage(FDialogID, DM_GETFOCUS, 0, 0);
+        if vCtrlID >= 0 then begin
+          FillZero(vSelect, SizeOf(vSelect));
+          if FarSendDlgMessage(FDialogID, DM_GETSELECTION, vCtrlID, @vSelect) = 1 then
+            vSelected := vSelect.BlockType <> BTYPE_NONE;
+        end;
       end;
+      SetMacroCondition(FConditions, mcBlockNotSelected, vSelected);
     end;
 
     procedure GetCondition(AHandle :THandle; var AIsPlugin, AIsFolder, AHasSelected :Boolean);

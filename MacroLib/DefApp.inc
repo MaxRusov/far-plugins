@@ -8,6 +8,8 @@
  {$Define bUseProcessConsoleInput}
  {$Define bUseInject}
 
+ {$Define bUseKeyMask}
+
 {$else}
 
  {$Define bUseInject}
