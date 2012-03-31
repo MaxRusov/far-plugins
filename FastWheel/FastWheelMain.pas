@@ -59,7 +59,7 @@ interface
       procedure ExitFar; override;
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
-      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
+      function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
 
       procedure SynchroEvent(AParam :Pointer); override;
       function EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
@@ -329,7 +329,8 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
-    FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
+//  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
+    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
    {$else}
    {$endif Far3}
   end;
@@ -375,13 +376,11 @@ interface
   end;
 
 
-  function TFastWheelPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  function TFastWheelPlug.OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; {override;}
   begin
     Result := INVALID_HANDLE_VALUE;
-    if ACount = 1 then
-      with AParams[0] do
-        if fType = FMVT_INTEGER then
-          Impact(IntIf(Value.fInteger = 1, -1, 1));
+    if AInt > 0 then
+      Impact(IntIf(AInt = 1, -1, 1));
   end;
 
 

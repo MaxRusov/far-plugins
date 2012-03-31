@@ -66,3 +66,7 @@ Ver 1.0.9
 Ver 1.10
 
  * Far3 build 2460+
+
+Ver 1.11
+
+ * Far3 build 2572+

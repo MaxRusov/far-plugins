@@ -5,7 +5,6 @@
 {******************************************************************************}
 
 {$I Defines.inc}
-{$Typedaddress Off}
 
 unit PanelTabsMain;
 
@@ -37,7 +36,7 @@ interface
       procedure Configure; override;
       procedure GetInfo; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
-      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
+      function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
     end;
 
@@ -98,7 +97,6 @@ interface
         lpWriteRegion.Top, lpWriteRegion.Bottom, lpWriteRegion.Left, lpWriteRegion.Right]);
       NeedRedrawTabs := True;
     end;
-
   end;
 
 
@@ -271,10 +269,6 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  var
-    GlobalCommand  :Integer;
-
-
   function IsActiveConsole :boolean;
   begin
     Result := WindowIsChildOf(hConsoleWnd, GetForegroundWindow) and ConManIsActiveConsole;
@@ -371,11 +365,7 @@ interface
 
   procedure TTabsThread.Execute; {override;}
   const
-   {$ifdef bUnicodeFar}
     cRetryPeriod = 0;
-   {$else}
-    cRetryPeriod = 300;
-   {$endif bUnicodeFar}
   var
     X, Y :Integer;
     vInput :TEventTypes;
@@ -486,7 +476,6 @@ interface
 
 
 
- {$ifdef bUnicodeFar}
   function TTabsThread.CallPlugin(ACmd :Integer) :Boolean;
   begin
     Result := False;
@@ -499,35 +488,6 @@ interface
 //  TraceF('Call plugin: ACmd=%d', [ACmd]);
     FarAdvControl(ACTL_SYNCHRO, Pointer(TIntPtr(ACmd)));
   end;
-
- {$else}
-
-  function TTabsThread.CallPlugin(ACmd :Integer) :Boolean;
-  var
-    vKey, vCtrl :Word;
-  begin
-    Result := False;
-
-    vKey  := TabKey1;
-    vCtrl := TabShift1;
-    if vKey = 0 then
-      Exit;
-
-    if not TabsManager.CanPaintTabs(True) then
-      Exit;
-
-//  TraceF('Call plugin: ACmd=%d', [ACmd]);
-    GlobalCommand := ACmd;
-    { Вызовем плагин в основном потоке, через механизм макросов... }
-    SendKeys(vKey, vCtrl);
-
-    { Ждем пока посланое сообщение не будет выбрано из буфера }
-    while not Terminated and ([cetKeyDown, cetKeyUp] * CheckInput <> []) do
-      Sleep(1);
-
-    Result := True;
-  end;
- {$endif bUnicodeFar}
 
 
  {-----------------------------------------------------------------------------}
@@ -660,36 +620,6 @@ interface
   end;
 
 
-(*
-  function TPanelTabsPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
-  begin
-    Result := INVALID_HANDLE_VALUE;
-
-    if AFrom and OPEN_FROMMACRO <> 0 then begin
-      AParam := AParam and not OPEN_FROMMACRO;
-      if AParam = 0 then begin
-        case GlobalCommand of
-          1: TabsManager.PaintTabs;
-          2: TabsManager.MouseClick;
-        end;
-        GlobalCommand := 0;
-      end else
-      begin
-        case AParam of
-          1: TabsManager.AddTab(True);
-          2: TabsManager.ListTab(True);
-          3: ProcessSelectMode;
-          4: OptionsMenu;
-        end;
-      end;
-    end else
-    if AFrom = OPEN_COMMANDLINE then
-      OpenCmdLine(FarChar2Str(PFarChar(AParam)))
-    else
-      MainMenu;
-  end;
-*)
-
   function TPanelTabsPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
     Result := INVALID_HANDLE_VALUE;
@@ -700,34 +630,21 @@ interface
   end;
 
 
-  function TPanelTabsPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  function TPanelTabsPlug.OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; {override;}
   begin
     Result := INVALID_HANDLE_VALUE;
-    if ACount = 0 then
+    if (AInt = 0) and (AStr = nil) then
       MainMenu
-    else begin
-      with AParams[0] do begin
-        if fType = FMVT_INTEGER then begin
-          if Value.fInteger = 0 then begin
-            case GlobalCommand of
-              1: TabsManager.PaintTabs;
-              2: TabsManager.MouseClick;
-            end;
-            GlobalCommand := 0;
-          end else
-          begin
-            case Value.fInteger of
-              1: TabsManager.AddTab(True);
-              2: TabsManager.ListTab(True);
-              3: ProcessSelectMode;
-              4: OptionsMenu;
-            end;
-          end;
-        end;
+    else
+    if AInt > 0 then begin
+      case AInt of
+        1: TabsManager.AddTab(True);
+        2: TabsManager.ListTab(True);
+        3: ProcessSelectMode;
+        4: OptionsMenu;
       end;
     end;
   end;
-
 
 
   procedure TPanelTabsPlug.SynchroEvent(AParam :Pointer); {override;}

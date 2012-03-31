@@ -83,7 +83,7 @@ interface
 {******************************************************************************}
 
   uses
-    EdtFindMain,
+    EdtFindEditor,
     MixDebug;
 
 

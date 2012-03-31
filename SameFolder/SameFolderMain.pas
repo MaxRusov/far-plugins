@@ -71,7 +71,7 @@ interface
       procedure ExitFar; override;
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
-      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
+      function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
      {$ifdef Far3}
       function ConsoleInput(const ARec :TInputRecord) :Integer; override;
@@ -556,7 +556,8 @@ interface
 
    {$ifdef Far3}
 //  FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
-    FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
+//  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
+    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1652);   { "verbatim string" }
     FMinFarVer := MakeVersion(2, 0, 1657);   { FCTL_GETPANELFORMAT }
@@ -617,15 +618,13 @@ interface
   end;
 
 
-  function TSameFolderPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  function TSameFolderPlug.OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; {override;}
   begin
     Result:= INVALID_HANDLE_VALUE;
-    if ACount = 1 then
-      with AParams[0] do
-        if fType = FMVT_INTEGER then begin
-          PluginCmd(Value.fInteger);
-          Exit;
-        end;
+    if AInt >= 0 then begin
+      PluginCmd(AInt);
+      Exit;
+    end;
     MainMenu;
   end;
 

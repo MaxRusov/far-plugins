@@ -239,7 +239,7 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
-//  FMinFarVer := MakeVersion(3, 0, ....);
+    FMinFarVer := MakeVersion(3, 0, 2572);  { Api changes }
    {$else}
     FMinFarVer := MakeVersion(2, 0, 1180);  {GetCurrentDirectory}
    {$endif Far3}

@@ -497,6 +497,9 @@ interface
   var
     vData :TFarDialogItemData;
   begin
+   {$ifdef Far3}
+    vData.StructSize := SizeOf(vData);
+   {$endif Far3}
     vData.PtrLength := Length(AStr);
     vData.PtrData := PFarChar(AStr);
     SendMsg(DM_SETTEXT, AItemID, @vData);
@@ -512,6 +515,9 @@ interface
     vLen := SendMsg(DM_GETTEXTLENGTH, AItemID, 0);
     if vLen > 0 then begin
       SetLength(Result, vLen);
+     {$ifdef Far3}
+      vData.StructSize := SizeOf(vData);
+     {$endif Far3}
       vData.PtrLength := vLen;
       vData.PtrData := PFarChar(Result);
       SendMsg(DM_GETTEXT, AItemID, @vData);

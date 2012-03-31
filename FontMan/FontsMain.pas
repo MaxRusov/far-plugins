@@ -167,6 +167,7 @@ interface
     vPanel :TFontsPanel;
   begin
 //  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
+
     Result := INVALID_HANDLE_VALUE;
     try
      {$ifndef bUnicode}
@@ -199,6 +200,7 @@ interface
     vPanel :TFontsPanel;
   begin
 //  TraceF('ClosePlugin: %d', [AHandle]);
+
     vPanel := FindFontsPanel(AHandle);
     if vPanel <> nil then
       FreeFontsPanel(vPanel);
