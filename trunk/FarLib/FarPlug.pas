@@ -38,7 +38,10 @@ interface
       procedure ExitFar; virtual;
 
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; virtual;
-      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; virtual;
+      function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; virtual;
+     {$ifdef Far3}
+      function OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; virtual;
+     {$endif Far3}
       function Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :THandle; virtual;
       procedure CloseAnalyse(AHandle :THandle); virtual;
       procedure Configure; virtual;
@@ -202,10 +205,37 @@ interface
   end;
 
 
+(*
   function TFarPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {virtual;}
   begin
     Result := INVALID_HANDLE_VALUE;
   end;
+*)
+
+  function TFarPlug.OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; {virtual;}
+  begin
+    Result := INVALID_HANDLE_VALUE;
+  end;
+
+
+ {$ifdef Far3}
+  function TFarPlug.OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {virtual;}
+  begin
+    Result := INVALID_HANDLE_VALUE;
+    if ACount = 0 then
+      Result := OpenMacro(0, nil)
+    else
+    if ACount = 1 then begin
+      with AParams[0] do begin
+        if fType = FMVT_INTEGER then
+          Result := OpenMacro(Value.fInteger, nil)
+        else
+        if fType = FMVT_STRING then
+          Result := OpenMacro(0, Value.fString)
+      end;
+    end;
+  end;
+ {$endif Far3}
 
 
   function TFarPlug.Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :THandle; {virtual;}
@@ -363,77 +393,62 @@ interface
     Plug.ExitFar;
   end;
 
-(*
+
  {$ifdef Far3}
   function OpenW;
- {$else}
-  function OpenPluginW;
- {$endif Far3}
+  var
+    vRes :THandle;
   begin
-    Result := INVALID_HANDLE_VALUE;
+    Result := 0;
     try
-     {$ifdef Far3}
-      Result := Plug.Open(AInfo.OpenFrom, AInfo.Data);
-     {$else}
-      Result := Plug.Open(OpenFrom, AItem);
-     {$endif Far3}
+      if AInfo.OpenFrom = OPEN_FROMMACRO_ then begin
+        with POpenMacroInfo(AInfo.Data)^ do
+          vRes := Plug.OpenMacroEx(Count, Values);
+      end else
+      begin
+        vRes := Plug.Open(AInfo.OpenFrom, AInfo.Data);
+        if vRes = INVALID_HANDLE_VALUE then
+          vRes := 0;
+      end;
+
+      Result := vRes;
+      
     except
       on E :Exception do
         Plug.ErrorHandler(E);
     end;
   end;
-*)
-
- {$ifdef Far3}
-  function OpenW;
  {$else}
   function OpenPluginW;
-  var
-    vVal :TFarMacroValue;
- {$endif Far3}
   begin
     Result := INVALID_HANDLE_VALUE;
     try
-
-     {$ifdef Far3}
-      if AInfo.OpenFrom = OPEN_FROMMACRO_ then begin
-
-        with POpenMacroInfo(AInfo.Data)^ do
-          Result := Plug.OpenMacro(Count, Values);
-
-      end else
-        Result := Plug.Open(AInfo.OpenFrom, AInfo.Data);
-
-     {$else}
-
       if OpenFrom and OPEN_FROMMACRO <> 0 then begin
-
-        { Для унификации с Far3 }
-
         if OpenFrom and OPEN_FROMMACROSTRING <> 0 then
-          vVal.fType := FMVT_STRING
+          Result := Plug.OpenMacro(0, Pointer(AItem))
         else
-          vVal.fType := FMVT_INTEGER;
-        vVal.Value.fInteger := AItem;
-
-        Result := Plug.OpenMacro(1, Pointer(@vVal));
-
+          Result := Plug.OpenMacro(AItem, nil)
       end else
         Result := Plug.Open(OpenFrom, AItem);
-     {$endif Far3}
-
     except
       on E :Exception do
         Plug.ErrorHandler(E);
     end;
   end;
+ {$endif Far3}
 
 
  {$ifdef Far3}
   function AnalyseW;
+  var
+    vRes :THandle;
   begin
-    with AInfo do
-      Result := Plug.Analyse(FileName, Buffer, BufferSize, OpMode);
+    with AInfo do begin
+      vRes := Plug.Analyse(FileName, Buffer, BufferSize, OpMode);
+      if vRes = INVALID_HANDLE_VALUE then
+        vRes := 0;
+      Result := vRes;
+    end;
   end;
 
   procedure CloseAnalyseW;

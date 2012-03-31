@@ -61,7 +61,7 @@ const
   FARMANAGERVERSION_MAJOR = 3;
   FARMANAGERVERSION_MINOR = 0;
   FARMANAGERVERSION_REVISION = 0;
-  FARMANAGERVERSION_BUILD = 2487;
+  FARMANAGERVERSION_BUILD = 2579;
 
 type
 //TFarChar = AnsiChar;
@@ -418,201 +418,227 @@ type
   TFarListItemArray = packed array[0..MaxInt div SizeOf(TFarListItem) - 1] of TFarListItem;
 
 
-          (*
-          struct FarListUpdate
-          {
-            int Index;
-            struct FarListItem Item;
-          };
-          *)
-          type
-            PFarListUpdate = ^TFarListUpdate;
-            TFarListUpdate = record
-              Index :Integer;
-              Item :TFarListItem;
-            end;
+(*
+struct FarListUpdate
+{
+  size_t StructSize;
+  int Index;
+  struct FarListItem Item;
+};
+*)
+type
+  PFarListUpdate = ^TFarListUpdate;
+  TFarListUpdate = record
+    StructSize :size_t;
+    Index :Integer;
+    Item :TFarListItem;
+  end;
 
-          (*
-          struct FarListInsert
-          {
-            int Index;
-            struct FarListItem Item;
-          };
-          *)
-          type
-            PFarListInsert = ^TFarListInsert;
-            TFarListInsert = record
-              Index :Integer;
-              Item :TFarListItem;
-            end;
+(*
+struct FarListInsert
+{
+  size_t StructSize;
+  int Index;
+  struct FarListItem Item;
+};
+*)
+type
+  PFarListInsert = ^TFarListInsert;
+  TFarListInsert = record
+    StructSize :size_t;
+    Index :Integer;
+    Item :TFarListItem;
+  end;
 
-          (*
-          struct FarListGetItem
-          {
-            int ItemIndex;
-            struct FarListItem Item;
-          };
-          *)
-          type
-            PFarListGetItem = ^TFarListGetItem;
-            TFarListGetItem = record
-              ItemIndex :Integer;
-              Item :TFarListItem;
-            end;
+(*
+struct FarListGetItem
+{
+  size_t StructSize;
+  int ItemIndex;
+  struct FarListItem Item;
+};
+*)
+type
+  PFarListGetItem = ^TFarListGetItem;
+  TFarListGetItem = record
+    StructSize :size_t;
+    ItemIndex :Integer;
+    Item :TFarListItem;
+  end;
 
-          (*
-          struct FarListPos
-          {
-            int SelectPos;
-            int TopPos;
-          };
-          *)
-          type
-            PFarListPos = ^TFarListPos;
-            TFarListPos = record
-              SelectPos : Integer;
-              TopPos : Integer;
-            end;
+(*
+struct FarListPos
+{
+  size_t StructSize;
+  int SelectPos;
+  int TopPos;
+};
+*)
+type
+  PFarListPos = ^TFarListPos;
+  TFarListPos = record
+    StructSize :size_t;
+    SelectPos :Integer;
+    TopPos :Integer;
+  end;
 
-          { FARLISTFINDFLAGS }
+{ FARLISTFINDFLAGS }
 
-          const
-             LIFIND_EXACTMATCH = $00000001;
+type
+  TFarListFindFlags = int64;
 
-          (*
-          struct FarListFind
-          {
-            int StartIndex;
-            const wchar_t *Pattern;
-            DWORD Flags;
-            DWORD Reserved;
-          };
-          *)
-          type
-            PFarListFind = ^TFarListFind;
-            TFarListFind = record
-              StartIndex : Integer;
-              Pattern : PFarChar;
-              Flags : DWORD;
-              Reserved : DWORD;
-            end;
+const
+  LIFIND_NONE       = 0;
+  LIFIND_EXACTMATCH = $00000001;
 
-          (*
-          struct FarListDelete
-          {
-            int StartIndex;
-            int Count;
-          };
-          *)
-          type
-            PFarListDelete = ^TFarListDelete;
-            TFarListDelete = record
-              StartIndex : Integer;
-              Count : Integer;
-            end;
+(*
+struct FarListFind
+{
+  size_t StructSize;
+  int StartIndex;
+  const wchar_t *Pattern;
+  FARLISTFINDFLAGS Flags;
+  DWORD_PTR Reserved;
+};
+*)
+type
+  PFarListFind = ^TFarListFind;
+  TFarListFind = record
+    StructSize :size_t;
+    StartIndex :Integer;
+    Pattern :PFarChar;
+    Flags : TFarListFindFlags;
+    Reserved :DWORD_PTR;
+  end;
 
-          { FARLISTINFOFLAGS }
+(*
+struct FarListDelete
+{
+  size_t StructSize;
+  int StartIndex;
+  int Count;
+};
+*)
+type
+  PFarListDelete = ^TFarListDelete;
+  TFarListDelete = record
+    StructSize :size_t;
+    StartIndex :Integer;
+    Count :Integer;
+  end;
 
-          const
-            LINFO_SHOWNOBOX         = $00000400;
-            LINFO_AUTOHIGHLIGHT     = $00000800;
-            LINFO_REVERSEHIGHLIGHT  = $00001000;
-            LINFO_WRAPMODE          = $00008000;
-            LINFO_SHOWAMPERSAND     = $00010000;
+{ FARLISTINFOFLAGS }
 
-          (*
-          struct FarListInfo
-          {
-            DWORD Flags;
-            int ItemsNumber;
-            int SelectPos;
-            int TopPos;
-            int MaxHeight;
-            int MaxLength;
-            DWORD Reserved[6];
-          };
-          *)
-          type
-            PFarListInfo = ^TFarListInfo;
-            TFarListInfo = record
-              Flags :DWORD;
-              ItemsNumber :Integer;
-              SelectPos :Integer;
-              TopPos :Integer;
-              MaxHeight :Integer;
-              MaxLength :Integer;
-              Reserved :array [0..5] of DWORD;
-           end;
+type
+  TFarListInfoFlags = int64;
 
-          (*
-          struct FarListItemData
-          {
-            int   Index;
-            int   DataSize;
-            void *Data;
-            DWORD Reserved;
-          };
-          *)
-          type
-            PFarListItemData = ^TFarListItemData;
-            TFarListItemData = record
-              Index :Integer;
-              DataSize :Integer;
-              Data :Pointer;
-              Reserved :DWORD;
-            end;
+const
+  LINFO_NONE              = 0;
+  LINFO_SHOWNOBOX         = $00000400;
+  LINFO_AUTOHIGHLIGHT     = $00000800;
+  LINFO_REVERSEHIGHLIGHT  = $00001000;
+  LINFO_WRAPMODE          = $00008000;
+  LINFO_SHOWAMPERSAND     = $00010000;
 
-          (*
-          struct FarList
-          {
-            int ItemsNumber;
-            struct FarListItem *Items;
-          };
-          *)
-          type
-            PFarList = ^TFarList;
-            TFarList = record
-              ItemsNumber : Integer;
-              Items :PFarListItemArray;
-            end;
+(*
+struct FarListInfo
+{
+  size_t StructSize;
+  FARLISTINFOFLAGS Flags;
+  size_t ItemsNumber;
+  int SelectPos;
+  int TopPos;
+  int MaxHeight;
+  int MaxLength;
+  DWORD_PTR Reserved[6];
+};
+*)
+type
+  PFarListInfo = ^TFarListInfo;
+  TFarListInfo = record
+    StructSize :size_t;
+    Flags :TFarListInfoFlags;
+    ItemsNumber :size_t;
+    SelectPos :Integer;
+    TopPos :Integer;
+    MaxHeight :Integer;
+    MaxLength :Integer;
+    Reserved :array[0..5] of DWORD_PTR;
+ end;
 
-          (*
-          struct FarListTitles
-          {
-            int   TitleLen;
-            const wchar_t *Title;
-            int   BottomLen;
-            const wchar_t *Bottom;
-          };
-          *)
-          type
-            PFarListTitles = ^TFarListTitles;
-            TFarListTitles = record
-              TitleLen :Integer;
-              Title :PFarChar;
-              BottomLen :Integer;
-              Bottom :PFarChar;
-           end;
+(*
+struct FarListItemData
+{
+  size_t StructSize;
+  int Index;
+  size_t DataSize;
+  void *Data;
+  DWORD_PTR Reserved;
+};
+*)
+type
+  PFarListItemData = ^TFarListItemData;
+  TFarListItemData = record
+    StructSize :size_t;
+    Index :Integer;
+    DataSize :size_t;
+    Data :Pointer;
+    Reserved :DWORD_PTR;
+  end;
 
+(*
+struct FarList
+{
+  size_t ItemsNumber;
+  struct FarListItem *Items;
+};
+*)
+type
+  PFarList = ^TFarList;
+  TFarList = record
+    ItemsNumber :size_t;
+    Items :PFarListItemArray;
+  end;
 
-          (*
-          struct FarDialogItemColors
-          {
-            unsigned __int64 Flags;
-            size_t ColorsCount;
-            struct FarColor* Colors;
-            void* Reserved;
-          };
-          *)
-          type
-            PFarDialogItemColors = ^TFarDialogItemColors;
-            TFarDialogItemColors = record
-              Flags :Int64;
-              ColorsCount :size_t;
-              Colors :PFarColorArray;
-              Reserved :Pointer;
-            end;
+(*
+struct FarListTitles
+{
+  size_t StructSize;
+  size_t TitleSize;
+  const wchar_t *Title;
+  size_t BottomSize;
+  const wchar_t *Bottom;
+};
+*)
+type
+  PFarListTitles = ^TFarListTitles;
+  TFarListTitles = record
+    StructSize :size_t;
+    TitleLen :size_t;
+    Title :PFarChar;
+    BottomLen :size_t;
+    Bottom :PFarChar;
+  end;
 
+(*
+struct FarDialogItemColors
+{
+  size_t StructSize;
+  unsigned __int64 Flags;
+  size_t ColorsCount;
+  struct FarColor* Colors;
+  void* Reserved;
+};
+*)
+type
+  PFarDialogItemColors = ^TFarDialogItemColors;
+  TFarDialogItemColors = record
+    StructSize :size_t;
+    Flags :Int64;
+    ColorsCount :size_t;
+    Colors :PFarColorArray;
+    Reserved :Pointer;
+  end;
 
 {------------------------------------------------------------------------------}
 { Dialogs                                                                      }
@@ -625,10 +651,10 @@ struct FarDialogItem
   int X1,Y1,X2,Y2;
   union
   {
-          int Selected;
-          struct FarList *ListItems;
-          struct FAR_CHAR_INFO *VBuf;
-          DWORD_PTR Reserved;
+    int Selected;
+    struct FarList *ListItems;
+    struct FAR_CHAR_INFO *VBuf;
+    DWORD_PTR Reserved;
   }
   Param;
   const wchar_t *History;
@@ -668,6 +694,7 @@ type
 (*
 struct FarDialogItemData
 {
+  size_t StructSize;
   size_t  PtrLength;
   wchar_t *PtrData;
 };
@@ -675,6 +702,7 @@ struct FarDialogItemData
 type
   PFarDialogItemData = ^TFarDialogItemData;
   TFarDialogItemData = record
+    StructSize :size_t;
     PtrLength :size_t;
     PtrData :PFarChar;
   end;
@@ -702,12 +730,14 @@ type
 (*
 struct OpenDlgPluginData
 {
+  size_t StructSize;
   HANDLE hDlg;
 };
 *)
 type
-  POpenDlgPluginData = ^TOpenDlgPluginData;
-  TOpenDlgPluginData = record
+  POpenDlgPluginData_ = ^TOpenDlgPluginData_;
+  TOpenDlgPluginData_ = record
+    StructSize :size_t;
     hDlg :THandle;
   end;
 
@@ -731,13 +761,15 @@ type
 (*
 struct FarGetDialogItem
 {
+  size_t StructSize;
   size_t Size;
   struct FarDialogItem* Item;
 };
 *)
 type
-  PFarGetDialogItem = ^TFarGetDialogItem;
-  TFarGetDialogItem = record
+  PFarGetDialogItem_ = ^TFarGetDialogItem_;
+  TFarGetDialogItem_ = record
+    StructSize :size_t;
     Size :size_t;
     Item :PFarDialogItem;
   end;
@@ -765,13 +797,24 @@ type
 
 #define DlgList_AddString(Info,hDlg,ID,Str)    Info.SendDlgMessage(hDlg,DM_LISTADDSTR,ID,(INT_PTR)Str)
 #define DlgList_GetCurPos(Info,hDlg,ID)        Info.SendDlgMessage(hDlg,DM_LISTGETCURPOS,ID,0)
+
 #define DlgList_SetCurPos(Info,hDlg,ID,NewPos) {struct FarListPos LPos={NewPos,-1};Info.SendDlgMessage(hDlg,DM_LISTSETCURPOS,ID,(INT_PTR)&LPos);}
+-->
+#define DlgList_SetCurPos(Info,hDlg,ID,NewPos) {struct FarListPos LPos={sizeof(FarListPos),NewPos,-1};Info.SendDlgMessage(hDlg,DM_LISTSETCURPOS,ID,(INT_PTR)&LPos);}
+
 #define DlgList_ClearList(Info,hDlg,ID)        Info.SendDlgMessage(hDlg,DM_LISTDELETE,ID,0)
+
 #define DlgList_DeleteItem(Info,hDlg,ID,Index) {struct FarListDelete FLDItem={Index,1}; Info.SendDlgMessage(hDlg,DM_LISTDELETE,ID,(INT_PTR)&FLDItem);}
+-->
+#define DlgList_DeleteItem(Info,hDlg,ID,Index) {struct FarListDelete FLDItem={sizeof(FarListDelete),Index,1}; Info.SendDlgMessage(hDlg,DM_LISTDELETE,ID,(INT_PTR)&FLDItem);}
+
 #define DlgList_SortUp(Info,hDlg,ID)           Info.SendDlgMessage(hDlg,DM_LISTSORT,ID,0)
 #define DlgList_SortDown(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_LISTSORT,ID,1)
 #define DlgList_GetItemData(Info,hDlg,ID,Index)          Info.SendDlgMessage(hDlg,DM_LISTGETDATA,ID,Index)
+
 #define DlgList_SetItemStrAsData(Info,hDlg,ID,Index,Str) {struct FarListItemData FLID{Index,0,Str,0}; Info.SendDlgMessage(hDlg,DM_LISTSETDATA,ID,(INT_PTR)&FLID);}
+-->
+#define DlgList_SetItemStrAsData(Info,hDlg,ID,Index,Str) {struct FarListItemData FLID{sizeof(FarListItemData),Index,0,Str,0}; Info.SendDlgMessage(hDlg,DM_LISTSETDATA,ID,(INT_PTR)&FLID);}
 *)
 
 
@@ -1217,6 +1260,7 @@ const
   PANEL_NONE	              = THandle(-1);
   PANEL_ACTIVE	              = THandle(-1);
   PANEL_PASSIVE	              = THandle(-2);
+  PANEL_STOP                  = THandle(-1);
 
 const
   FCTL_CLOSEPANEL             = 0;
@@ -1473,7 +1517,7 @@ type
 
 const
   ACTL_GETFARMANAGERVERSION  = 0;
-  ACTL_GETSYSWORDDIV         = 1;
+//ACTL_GETSYSWORDDIV         = 1;
   ACTL_WAITKEY               = 2;
   ACTL_GETCOLOR              = 3;
   ACTL_GETARRAYCOLOR         = 4;
@@ -1483,14 +1527,14 @@ const
   ACTL_SETCURRENTWINDOW_     = 8;
   ACTL_COMMIT                = 9;
   ACTL_GETFARHWND            = 10;
-  ACTL_GETSYSTEMSETTINGS     = 11;
-  ACTL_GETPANELSETTINGS      = 12;
-  ACTL_GETINTERFACESETTINGS  = 13;
-  ACTL_GETCONFIRMATIONS      = 14;
-  ACTL_GETDESCSETTINGS       = 15;
+//ACTL_GETSYSTEMSETTINGS     = 11;
+//ACTL_GETPANELSETTINGS      = 12;
+//ACTL_GETINTERFACESETTINGS  = 13;
+//ACTL_GETCONFIRMATIONS      = 14;
+//ACTL_GETDESCSETTINGS       = 15;
   ACTL_SETARRAYCOLOR         = 16;
-  ACTL_GETPLUGINMAXREADDATA  = 17;
-  ACTL_GETDIALOGSETTINGS     = 18;
+//ACTL_GETPLUGINMAXREADDATA  = 17;
+//ACTL_GETDIALOGSETTINGS     = 18;
   ACTL_REDRAWALL             = 19;
   ACTL_SYNCHRO               = 20;
   ACTL_SETPROGRESSSTATE      = 21;
@@ -1503,6 +1547,7 @@ const
   ACTL_GETWINDOWTYPE         = 28;
 
 
+(*
 { FarSystemSettings }
 
 const
@@ -1580,7 +1625,7 @@ const
   FDS_UPDATEIFDISPLAYED = $00000002;
   FDS_SETHIDDEN         = $00000004;
   FDS_UPDATEREADONLY    = $00000008;
-
+*)
 
 { FAREJECTMEDIAFLAGS }
 
@@ -1635,7 +1680,7 @@ const
   KMFLAGS_DISABLEOUTPUT       = $00000001;
   KMFLAGS_NOSENDKEYSTOPLUGINS = $00000002;
   KMFLAGS_SILENTCHECK         = $00000001;
-  KMFLAGS_SAVEMACRO           = $00000004;  
+//KMFLAGS_SAVEMACRO           = $00000004;  
 
 
 { FARMACROSENDSTRINGCOMMAND }
@@ -1942,6 +1987,7 @@ type
 const
   WIF_MODIFIED = $00000001;
   WIF_CURRENT  = $00000002;
+  WIF_MODAL    = $00000004;  
 
 
 (*
@@ -1986,28 +2032,29 @@ type
     fType :Integer;
   end;
 
-          { PROGRESSTATE }
 
-          const
-            PS_NOPROGRESS    = 0;
-            PS_INDETERMINATE = 1;
-            PS_NORMAL        = 2;
-            PS_ERROR         = 4;
-            PS_PAUSED        = 8;
+{ TASKBARPROGRESSTATE }
 
-          (*
-          struct PROGRESSVALUE
-          {
-                  unsigned __int64 Completed;
-                  unsigned __int64 Total;
-          };
-          *)
-          type
-            PProgressValue = ^TProgressValue;
-            TProgressValue = record
-              Completed :Int64;
-              Total :Int64;
-            end;
+const
+  TBPS_NOPROGRESS    = 0;
+  TBPS_INDETERMINATE = 1;
+  TBPS_NORMAL        = 2;
+  TBPS_ERROR         = 4;
+  TBPS_PAUSED        = 8;
+
+(*
+struct PROGRESSVALUE
+{
+  unsigned __int64 Completed;
+  unsigned __int64 Total;
+};
+*)
+type
+  PProgressValue = ^TProgressValue;
+  TProgressValue = record
+    Completed :Int64;
+    Total :Int64;
+  end;
 
 
 {------------------------------------------------------------------------------}
@@ -2226,7 +2273,7 @@ const
   EEREDRAW_ALL    = Pointer(0);
 //EEREDRAW_CHANGE = Pointer(1);
 //EEREDRAW_LINE   = Pointer(2);
-
+  CURRENT_EDITOR  = -1;
 
 { EDITOR_CONTROL_COMMANDS }
 
@@ -2255,20 +2302,20 @@ const
 
   ECTL_SETPARAM             = 22;
   ECTL_GETBOOKMARKS         = 23;
-  ECTL_TURNOFFMARKINGBLOCK  = 24;
+//ECTL_TURNOFFMARKINGBLOCK  = 24;
   ECTL_DELETEBLOCK          = 25;
-  ECTL_ADDSTACKBOOKMARK     = 26;
-  ECTL_PREVSTACKBOOKMARK    = 27;
-  ECTL_NEXTSTACKBOOKMARK    = 28;
-  ECTL_CLEARSTACKBOOKMARKS  = 29;
-  ECTL_DELETESTACKBOOKMARK  = 30;
-  ECTL_GETSTACKBOOKMARKS    = 31;
+  ECTL_ADDSESSIONBOOKMARK     = 26;
+  ECTL_PREVSESSIONBOOKMARK    = 27;
+  ECTL_NEXTSESSIONBOOKMARK    = 28;
+  ECTL_CLEARSESSIONBOOKMARKS  = 29;
+  ECTL_DELETESESSIONBOOKMARK  = 30;
+  ECTL_GETSESSIONBOOKMARKS    = 31;
   ECTL_UNDOREDO             = 32;
   ECTL_GETFILENAME          = 33;
   ECTL_DELCOLOR             = 34;
 
 
-  
+
           { EDITOR_SETPARAMETER_TYPES }
 
           const
@@ -2861,14 +2908,10 @@ const
   FSSF_SYSTEM            = 17;
   FSSF_PANEL             = 18;
   FSSF_EDITOR            = 19;
-
-(*
-enum FAR_PLUGIN_SETTINGS_LOCATION
-{
-	PSL_ROAMING = 0,
-	PSL_LOCAL   = 1,
-};
-*)
+  FSSF_SCREEN            = 20;
+  FSSF_DIALOG            = 21;
+  FSSF_INTERFACE         = 22;
+  FSSF_PANELLAYOUT       = 23;
 
 
 { FAR_PLUGIN_SETTINGS_LOCATION }
@@ -3154,57 +3197,55 @@ typedef INT_PTR (WINAPI *FARAPISETTINGSCONTROL)(
   ) :INT_PTR; stdcall;
 
 
-          (*
-          // <C&C++>
-          typedef int     (WINAPIV *FARSTDSPRINTF)(wchar_t *Buffer,const wchar_t *Format,...);
-          typedef int     (WINAPIV *FARSTDSNPRINTF)(wchar_t *Buffer,size_t Sizebuf,const wchar_t *Format,...);
-          typedef int     (WINAPIV *FARSTDSSCANF)(const wchar_t *Buffer, const wchar_t *Format,...);
-          // </C&C++>
-          typedef void    (WINAPI *FARSTDQSORT)(void *base, size_t nelem, size_t width, int (__cdecl *fcmp)(const void *, const void * ));
-          typedef void    (WINAPI *FARSTDQSORTEX)(void *base, size_t nelem, size_t width, int (__cdecl *fcmp)(const void *, const void *,void *userparam),void *userparam);
-          typedef void   *(WINAPI *FARSTDBSEARCH)(const void *key, const void *base, size_t nelem, size_t width, int (__cdecl *fcmp)(const void *, const void * ));
-          typedef int     (WINAPI *FARSTDGETFILEOWNER)(const wchar_t *Computer,const wchar_t *Name,wchar_t *Owner,int Size);
-          typedef int     (WINAPI *FARSTDGETNUMBEROFLINKS)(const wchar_t *Name);
-          typedef int     (WINAPI *FARSTDATOI)(const wchar_t *s);
-          typedef __int64 (WINAPI *FARSTDATOI64)(const wchar_t *s);
-          typedef wchar_t   *(WINAPI *FARSTDITOA64)(__int64 value, wchar_t *string, int radix);
-          typedef wchar_t   *(WINAPI *FARSTDITOA)(int value, wchar_t *string, int radix);
-          typedef wchar_t   *(WINAPI *FARSTDLTRIM)(wchar_t *Str);
-          typedef wchar_t   *(WINAPI *FARSTDRTRIM)(wchar_t *Str);
-          typedef wchar_t   *(WINAPI *FARSTDTRIM)(wchar_t *Str);
-          typedef wchar_t   *(WINAPI *FARSTDTRUNCSTR)(wchar_t *Str,int MaxLength);
-          typedef wchar_t   *(WINAPI *FARSTDTRUNCPATHSTR)(wchar_t *Str,int MaxLength);
-          typedef wchar_t   *(WINAPI *FARSTDQUOTESPACEONLY)(wchar_t *Str);
-          typedef const wchar_t*   (WINAPI *FARSTDPOINTTONAME)(const wchar_t *Path);
-          typedef int     (WINAPI *FARSTDGETPATHROOT)(const wchar_t *Path,wchar_t *Root, int DestSize);
-          typedef BOOL    (WINAPI *FARSTDADDENDSLASH)(wchar_t *Path);
-          typedef int     (WINAPI *FARSTDCOPYTOCLIPBOARD)(const wchar_t *Data);
-          typedef wchar_t *(WINAPI *FARSTDPASTEFROMCLIPBOARD)(void);
-          typedef int     (WINAPI *FARSTDINPUTRECORDTOKEY)(const INPUT_RECORD *r);
-          typedef int     (WINAPI *FARSTDLOCALISLOWER)(wchar_t Ch);
-          typedef int     (WINAPI *FARSTDLOCALISUPPER)(wchar_t Ch);
-          typedef int     (WINAPI *FARSTDLOCALISALPHA)(wchar_t Ch);
-          typedef int     (WINAPI *FARSTDLOCALISALPHANUM)(wchar_t Ch);
-          typedef wchar_t (WINAPI *FARSTDLOCALUPPER)(wchar_t LowerChar);
-          typedef wchar_t (WINAPI *FARSTDLOCALLOWER)(wchar_t UpperChar);
-          typedef void    (WINAPI *FARSTDLOCALUPPERBUF)(wchar_t *Buf,int Length);
-          typedef void    (WINAPI *FARSTDLOCALLOWERBUF)(wchar_t *Buf,int Length);
-          typedef void    (WINAPI *FARSTDLOCALSTRUPR)(wchar_t *s1);
-          typedef void    (WINAPI *FARSTDLOCALSTRLWR)(wchar_t *s1);
-          typedef int     (WINAPI *FARSTDLOCALSTRICMP)(const wchar_t *s1,const wchar_t *s2);
-          typedef int     (WINAPI *FARSTDLOCALSTRNICMP)(const wchar_t *s1,const wchar_t *s2,int n);
-          *)
+(*
+// <C&C++>
+typedef int (WINAPIV *FARSTDSPRINTF)(wchar_t *Buffer,const wchar_t *Format,...);
+typedef int (WINAPIV *FARSTDSNPRINTF)(wchar_t *Buffer,size_t Sizebuf,const wchar_t *Format,...);
+typedef int (WINAPIV *FARSTDSSCANF)(const wchar_t *Buffer, const wchar_t *Format,...);
+// </C&C++>
+*)
 
-          type
-            {&Cdecl+}
-            TFarStdQSortFunc = function (Param1 : Pointer; Param2 : Pointer) :Integer; cdecl;
-            TFarStdQSortExFunc = function (Param1 : Pointer; Param2 : Pointer; UserParam : Pointer) : Integer; cdecl;
+type
+//typedef void (WINAPI *FARSTDQSORT)(void *base, size_t nelem, size_t width, int (WINAPI *fcmp)(const void *, const void *,void *userparam),void *userparam);
+  TFarStdQSortFunc = function (Param1 :Pointer; Param2 :Pointer; UserParam :Pointer) :Integer; stdcall;
+  TFarStdQSort = procedure(Base :Pointer; NElem :SIZE_T; Width :SIZE_T; FCmp :TFarStdQSortFunc; UserParam :Pointer); stdcall;
 
-            {&StdCall+}
-            TFarStdQSort = procedure (Base : Pointer; NElem : SIZE_T; Width : SIZE_T; FCmp : TFarStdQSortFunc); stdcall;
-            TFarStdQSortEx = procedure (Base : Pointer; NElem : SIZE_T; Width : SIZE_T; FCmp : TFarStdQSortExFunc; UserParam : Pointer); stdcall;
-            TFarStdBSearch = procedure (Key : Pointer; Base : Pointer; NElem : SIZE_T; Width : SIZE_T; FCmp : TFarStdQSortFunc); stdcall;
+//typedef void *(WINAPI *FARSTDBSEARCH)(const void *key, const void *base, size_t nelem, size_t width, int (WINAPI *fcmp)(const void *, const void *,void *userparam),void *userparam);
+  TFarStdBSearch = procedure (Key :Pointer; Base :Pointer; NElem :SIZE_T; Width :SIZE_T; FCmp :TFarStdQSortFunc; UserParam :Pointer); stdcall;
 
+
+(*
+            typedef int     (WINAPI *FARSTDGETFILEOWNER)(const wchar_t *Computer,const wchar_t *Name,wchar_t *Owner,int Size);
+            typedef int     (WINAPI *FARSTDGETNUMBEROFLINKS)(const wchar_t *Name);
+            typedef int     (WINAPI *FARSTDATOI)(const wchar_t *s);
+            typedef __int64 (WINAPI *FARSTDATOI64)(const wchar_t *s);
+            typedef wchar_t   *(WINAPI *FARSTDITOA64)(__int64 value, wchar_t *string, int radix);
+            typedef wchar_t   *(WINAPI *FARSTDITOA)(int value, wchar_t *string, int radix);
+            typedef wchar_t   *(WINAPI *FARSTDLTRIM)(wchar_t *Str);
+            typedef wchar_t   *(WINAPI *FARSTDRTRIM)(wchar_t *Str);
+            typedef wchar_t   *(WINAPI *FARSTDTRIM)(wchar_t *Str);
+            typedef wchar_t   *(WINAPI *FARSTDTRUNCSTR)(wchar_t *Str,int MaxLength);
+            typedef wchar_t   *(WINAPI *FARSTDTRUNCPATHSTR)(wchar_t *Str,int MaxLength);
+            typedef wchar_t   *(WINAPI *FARSTDQUOTESPACEONLY)(wchar_t *Str);
+            typedef const wchar_t*   (WINAPI *FARSTDPOINTTONAME)(const wchar_t *Path);
+            typedef int     (WINAPI *FARSTDGETPATHROOT)(const wchar_t *Path,wchar_t *Root, int DestSize);
+            typedef BOOL    (WINAPI *FARSTDADDENDSLASH)(wchar_t *Path);
+            typedef int     (WINAPI *FARSTDCOPYTOCLIPBOARD)(const wchar_t *Data);
+            typedef wchar_t *(WINAPI *FARSTDPASTEFROMCLIPBOARD)(void);
+            typedef int     (WINAPI *FARSTDINPUTRECORDTOKEY)(const INPUT_RECORD *r);
+            typedef int     (WINAPI *FARSTDLOCALISLOWER)(wchar_t Ch);
+            typedef int     (WINAPI *FARSTDLOCALISUPPER)(wchar_t Ch);
+            typedef int     (WINAPI *FARSTDLOCALISALPHA)(wchar_t Ch);
+            typedef int     (WINAPI *FARSTDLOCALISALPHANUM)(wchar_t Ch);
+            typedef wchar_t (WINAPI *FARSTDLOCALUPPER)(wchar_t LowerChar);
+            typedef wchar_t (WINAPI *FARSTDLOCALLOWER)(wchar_t UpperChar);
+            typedef void    (WINAPI *FARSTDLOCALUPPERBUF)(wchar_t *Buf,int Length);
+            typedef void    (WINAPI *FARSTDLOCALLOWERBUF)(wchar_t *Buf,int Length);
+            typedef void    (WINAPI *FARSTDLOCALSTRUPR)(wchar_t *s1);
+            typedef void    (WINAPI *FARSTDLOCALSTRLWR)(wchar_t *s1);
+            typedef int     (WINAPI *FARSTDLOCALSTRICMP)(const wchar_t *s1,const wchar_t *s2);
+            typedef int     (WINAPI *FARSTDLOCALSTRNICMP)(const wchar_t *s1,const wchar_t *s2,int n);
+*)
             TFarStdGetFileOwner = function (Computer : PFarChar; Name : PFarChar; Owner : PFarChar ) : Integer; stdcall;
             TFarStdGetNumberOfLinks = function (Name : PFarChar) : Integer; stdcall;
             TFarStdAtoi = function (S : PFarChar) : Integer; stdcall;
@@ -3240,13 +3281,19 @@ typedef INT_PTR (WINAPI *FARAPISETTINGSCONTROL)(
             TFarStdLocalStrNICmp = function (S1 : PFarChar; S2 : PFarChar; N : Integer) : Integer; stdcall;
 
 
-          { PROCESSNAME_FLAGS }
+{ PROCESSNAME_FLAGS }
 
-          const
-            PN_CMPNAME      = $00000000;
-            PN_CMPNAMELIST  = $00001000;
-            PN_GENERATENAME = $00002000;
-            PN_SKIPPATH     = $00100000;
+const
+  //                       0xFFFF - length
+  //                     0xFF0000 - mode
+  //           0xFFFFFFFFFF000000 - flags
+  PN_CMPNAME          = $00000000;
+  PN_CMPNAMELIST      = $00010000;
+  PN_GENERATENAME     = $00020000;
+  PN_CHECKMASK        = $00030000;
+  PN_SKIPPATH         = $01000000;
+  PN_SHOWERRORMESSAGE = $02000000;
+
 
           (*
           typedef int (WINAPI *FARSTDPROCESSNAME)(const wchar_t *param1, wchar_t *param2, DWORD size, DWORD flags);
@@ -3397,11 +3444,11 @@ type
 
     qsort                 :TFarStdQSort;
     bsearch               :TFarStdBSearch;
-    qsortex               :TFarStdQSortEx;
+//  qsortex               :TFarStdQSortEx;
 
     snprintf              :Pointer {TFarStdSNPRINTF};
 
-    Reserved              :array [0..7] of DWORD_PTR;
+//  Reserved              :array [0..7] of DWORD_PTR;
 
     LIsLower              :TFarStdLocalIsLower;
     LIsUpper              :TFarStdLocalIsUpper;
@@ -3487,7 +3534,31 @@ type
     RegExpControl       : TFarApiRegexpControl;
     MacroControl        : TFarApiMacroControl;
     SettingsControl     : TFarApiSettingsControl;
+
+    _Private            : Pointer;
   end; {TPluginStartupInfo}
+
+(*
+typedef HANDLE (WINAPI *FARAPICREATEFILE)(const wchar_t *Object,DWORD DesiredAccess,DWORD ShareMode,LPSECURITY_ATTRIBUTES SecurityAttributes,DWORD CreationDistribution,DWORD FlagsAndAttributes,HANDLE TemplateFile);
+typedef DWORD (WINAPI *FARAPIGETFILEATTRIBUTES)(const wchar_t *FileName);
+typedef BOOL (WINAPI *FARAPISETFILEATTRIBUTES)(const wchar_t *FileName,DWORD dwFileAttributes);
+typedef BOOL (WINAPI *FARAPIMOVEFILEEX)(const wchar_t *ExistingFileName,const wchar_t *NewFileName,DWORD dwFlags);
+typedef BOOL (WINAPI *FARAPIDELETEFILE)(const wchar_t *FileName);
+typedef BOOL (WINAPI *FARAPIREMOVEDIRECTORY)(const wchar_t *DirName);
+typedef BOOL (WINAPI *FARAPICREATEDIRECTORY)(const wchar_t *PathName,LPSECURITY_ATTRIBUTES lpSecurityAttributes);
+
+struct ArclitePrivateInfo
+{
+	size_t StructSize;
+	FARAPICREATEFILE CreateFile;
+	FARAPIGETFILEATTRIBUTES GetFileAttributes;
+	FARAPISETFILEATTRIBUTES SetFileAttributes;
+	FARAPIMOVEFILEEX MoveFileEx;
+	FARAPIDELETEFILE DeleteFile;
+	FARAPIREMOVEDIRECTORY RemoveDirectory;
+	FARAPICREATEDIRECTORY CreateDirectory;
+};
+*)
 
 
 { PLUGIN_FLAGS }
@@ -3671,26 +3742,31 @@ type
             TPanelModeArray = packed array [0..MaxInt div SizeOf(TPanelMode) - 1] of TPanelMode;
 
 
-          { OPENPLUGININFO_FLAGS }
+{ OPENPLUGININFO_FLAGS }
 
-          const
-            OPIF_USEFILTER           = $00000001;
-            OPIF_USESORTGROUPS       = $00000002;
-            OPIF_USEHIGHLIGHTING     = $00000004;
-            OPIF_ADDDOTS             = $00000008;
-            OPIF_RAWSELECTION        = $00000010;
-            OPIF_REALNAMES           = $00000020;
-            OPIF_SHOWNAMESONLY       = $00000040;
-            OPIF_SHOWRIGHTALIGNNAMES = $00000080;
-            OPIF_SHOWPRESERVECASE    = $00000100;
-          //OPIF_FINDFOLDERS         = $00000200;
-            OPIF_COMPAREFATTIME      = $00000400;
-            OPIF_EXTERNALGET         = $00000800;
-            OPIF_EXTERNALPUT         = $00001000;
-            OPIF_EXTERNALDELETE      = $00002000;
-            OPIF_EXTERNALMKDIR       = $00004000;
-            OPIF_USEATTRHIGHLIGHTING = $00008000;
-            OPIF_USECRC32            = $00010000;
+type
+  TOpenPanelInfoFlags = int64;
+
+const
+  OPIF_NONE                    = 0;
+  OPIF_DISABLEFILTER           = $00000001;
+  OPIF_DISABLESORTGROUPS       = $00000002;
+  OPIF_DISABLEHIGHLIGHTING     = $00000004;
+  OPIF_ADDDOTS                 = $00000008;
+  OPIF_RAWSELECTION            = $00000010;
+  OPIF_REALNAMES               = $00000020;
+  OPIF_SHOWNAMESONLY           = $00000040;
+  OPIF_SHOWRIGHTALIGNNAMES     = $00000080;
+  OPIF_SHOWPRESERVECASE        = $00000100;
+  OPIF_COMPAREFATTIME          = $00000400;
+  OPIF_EXTERNALGET             = $00000800;
+  OPIF_EXTERNALPUT             = $00001000;
+  OPIF_EXTERNALDELETE          = $00002000;
+  OPIF_EXTERNALMKDIR           = $00004000;
+  OPIF_USEATTRHIGHLIGHTING     = $00008000;
+  OPIF_USECRC32                = $00010000;
+  OPIF_USEFREESIZE             = $00020000;
+  OPIF_SHORTCUT                = $00040000;
 
 
           (*
@@ -3817,6 +3893,23 @@ type
     Count :size_t;
     Values :PFarMacroValueArray;
   end;
+
+(*
+struct OpenShortcutInfo
+{
+  size_t StructSize;
+  const wchar_t *HostFile;
+  const wchar_t *ShortcutData;
+};
+*)
+type
+  POpenShortcutInfo = ^TOpenShortcutInfo;
+  TOpenShortcutInfo = record
+    StructSize :size_t;
+    HostFile :PFarChar;
+    ShortcutData :PFarChar;
+  end;
+
 
 { OPENFROM }
 

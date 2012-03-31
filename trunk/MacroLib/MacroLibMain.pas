@@ -52,7 +52,7 @@ interface
       procedure GetInfo; override;
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
-      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
+      function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
       function DialogEvent(AEvent :Integer; AParam :PFarDialogEvent) :Integer; override;
       function EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
@@ -474,7 +474,8 @@ interface
 //  FMinFarVer := MakeVersion(3, 0, 2376);   { MCTL_GETLASTERROR };
 //  FMinFarVer := MakeVersion(3, 0, 2379);   { MCTL_GETLASTERROR - исправление ошибки };
 //  FMinFarVer := MakeVersion(3, 0, 2380);   { MacroAddMacro - изменена (fuck!) };
-    FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
+//  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
+    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1765);   { MCMD_GETAREA };
     FMinFarVer := MakeVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING, MCMD_POSTMACROSTRING };
@@ -545,17 +546,16 @@ interface
   end;
 
 
-  function TMacroLibPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  function TMacroLibPlug.OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; {override;}
   begin
     Result:= INVALID_HANDLE_VALUE;
-    if ACount = 0 then
+    if (AInt = 0) and (AStr = nil) then
       MainMenu
     else begin
-      with AParams[0] do
-        if fType = FMVT_STRING then
-          OpenCmdLine(Value.fString)
-        else
-          FarAdvControl(ACTL_SYNCHRO, nil);
+      if AStr <> nil then
+        OpenCmdLine(AStr)
+      else
+        FarAdvControl(ACTL_SYNCHRO, nil);
     end;
   end;
 

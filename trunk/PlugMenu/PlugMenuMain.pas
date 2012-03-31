@@ -36,7 +36,7 @@ interface
       procedure Configure; override;
       procedure GetInfo; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
-      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
+      function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
     end;
 
@@ -157,7 +157,8 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
-    FMinFarVer := MakeVersion(3, 0, 2415);   { PCTL_GETPLUGINS/PCTL_FINDPLUGIN }
+//  FMinFarVer := MakeVersion(3, 0, 2415);   { PCTL_GETPLUGINS/PCTL_FINDPLUGIN }
+    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 910);    { Новый формат кэша плагинов. }
 //  FMinFarVer := MakeVersion(2, 0, 995);    { Изменена TWindowInfo }
@@ -233,7 +234,7 @@ interface
   end;
 
 
-  function TPlugMenuPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  function TPlugMenuPlug.OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; {override;}
   begin
     Result := INVALID_HANDLE_VALUE;
     InitFarPluginsList;

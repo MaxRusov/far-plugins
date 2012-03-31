@@ -316,6 +316,9 @@ interface
     var
       vData :TFarDialogItemData;
     begin
+     {$ifdef Far3}
+      vData.StructSize := SizeOf(vData);
+     {$endif Far3}
       vData.PtrLength := Length(AStr);
       vData.PtrData := PFarChar(AStr);
       FARAPI.SendDlgMessage(hDlg, DM_SETTEXT, AItemID, Integer(@vData));

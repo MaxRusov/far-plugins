@@ -42,7 +42,7 @@ interface
       procedure GetInfo; override;
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
-      function OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
+      function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
       function Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
       function EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
@@ -347,7 +347,8 @@ interface
 
    {$ifdef Far3}
 //  FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
-    FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
+//  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
+    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
    {$else}
     FMinFarVer := MakeVersion(2, 0, 1573);   { ACTL_GETFARRECT }
    {$endif Far3}
@@ -423,17 +424,17 @@ interface
   end;
 
 
-  function TMoreHistoryPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  function TMoreHistoryPlug.OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; {override;}
   begin
     Result := INVALID_HANDLE_VALUE;
-    if ACount = 1 then
-      with AParams[0] do
-        if fType = FMVT_INTEGER then
-          if (Value.fInteger >= 1) and (Value.fInteger <= Byte(High(TPluginCmd))) then begin
-//          RunCommand(TPluginCmd(Value.fInteger - 1))
-            FarAdvControl(ACTL_SYNCHRO, Pointer(Value.fInteger));
-            Exit;
-          end;
+    if (AInt >= 1) and (AInt <= Byte(High(TPluginCmd))) then begin
+     {$ifdef Far3}
+      RunCommand(TPluginCmd(AInt - 1));
+     {$else}
+      FarAdvControl(ACTL_SYNCHRO, Pointer(AInt));
+     {$endif Far3}
+      Exit;
+    end;
     OpenMenu;
   end;
 

@@ -162,7 +162,8 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
-    FMinFarVer := MakeVersion(3, 0, 2343);    { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
+//  FMinFarVer := MakeVersion(3, 0, 2343);    { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
+    FMinFarVer := MakeVersion(3, 0, 2572);    { Api changes }
    {$else}
     FMinFarVer := MakeVersion(2, 0, 1573);    { ACTL_GETFARRECT }
    {$endif Far3}

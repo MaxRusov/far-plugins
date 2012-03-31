@@ -142,6 +142,7 @@ interface
 
     cFindHistory   = 'SearchText';
     cReplHistory   = 'ReplaceText';
+    cFileHistory   = 'Masks';
 
 
   var
