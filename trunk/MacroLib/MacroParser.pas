@@ -446,11 +446,11 @@ interface
   begin
     Result := False;
     ABuf^ := #0;
-    while ChrInSet(APtr^, ADelims) do
+    while CharInSet(APtr^, ADelims) do
       Inc(APtr);
     if APtr^ <> #0 then begin
       vBeg := APtr;
-      while (APtr^ <> #0) and not ChrInSet(APtr^, ADelims) do
+      while (APtr^ <> #0) and not CharInSet(APtr^, ADelims) do
         Inc(APtr);
       StrLCopy(ABuf, vBeg, IntMin(AMaxLen, APtr - vBeg));
       Result := True;
@@ -1205,7 +1205,7 @@ interface
       Error(errUnexpectedEOF);
     Inc(APtr, 2);
 
-    while (FSeq.Len > 0) and ChrInSet(FSeq.Buf[FSeq.Len - 1], [charCR, ' ']) do
+    while (FSeq.Len > 0) and CharInSet(FSeq.Buf[FSeq.Len - 1], [charCR, ' ']) do
       Dec(FSeq.FLen);
   end;
 
@@ -1272,7 +1272,7 @@ interface
         FBuf.Add('$', 1);
         Inc(APtr, 2);
         AParam := APtr;
-        while (APtr^ <> #0) and ChrInSet(APtr^, ['0'..'9', 'a'..'f', 'A'..'F']) do
+        while (APtr^ <> #0) and CharInSet(APtr^, ['0'..'9', 'a'..'f', 'A'..'F']) do
           Inc(APtr);
       end else
       begin
@@ -1510,7 +1510,7 @@ interface
 
         if APtr^ = '.' then begin
           Inc(APtr);
-          if ChrInSet(APtr^, [#0, ' ', charTab]) then
+          if CharInSet(APtr^, [#0, ' ', charTab]) then
             begin Warning1(errBadMacroarea, APtr); Exit; end;
 
           if (APtr^ = '"') or (APtr^ = '''') then begin
@@ -1598,7 +1598,7 @@ interface
       if APtr^ <> ':' then
         begin Warning1(errExpectColon, APtr); Exit; end;
       Inc(APtr);
-      if not (((APtr^ = '0') or (APtr^ = '1')) and (((APtr + 1)^ = #0) or ChrInSet((APtr + 1)^, cWordDelims))) then
+      if not (((APtr^ = '0') or (APtr^ = '1')) and (((APtr + 1)^ = #0) or CharInSet((APtr + 1)^, cWordDelims))) then
         begin Warning1(errExpect0or1, APtr); Exit; end;
       SetMacroCondition(ARes, TMacroCondition(Byte(vCond)), APtr^ = '1');
       Inc(APtr);
