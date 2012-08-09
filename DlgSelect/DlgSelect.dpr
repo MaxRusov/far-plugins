@@ -12,6 +12,7 @@ uses
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
+  FarPlug,
   DlgSelectMain;
 
 exports
@@ -23,4 +24,6 @@ exports
 
 {$R DlgSelect.res}
 
+begin
+  Plug := TDlgSelectPlug.Create;
 end.

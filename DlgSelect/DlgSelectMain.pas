@@ -13,28 +13,32 @@ interface
   uses
     Windows,
     MixTypes,
+    MixUtils,
     Far_API,
-    FarCtrl;
+    FarCtrl,
+    FarPlug;
 
   const
    {$ifdef Far3}
     cPluginID :TGUID = '{020B85C2-DB44-45D3-9D25-939499DD7813}';
    {$endif Far3}
 
-    PLUGIN_NAME = 'DlgSelect';
-    PLUGIN_DESC = 'DlgSelect FAR plugin';
-    PLUGIN_AUTHOR = 'Max Rusov';
+    cPluginName = 'DlgSelect';
+    cPluginDescr = 'DlgSelect FAR plugin';
+    cPluginAuthor = 'Max Rusov';
 
- {$ifdef Far3}
-  procedure GetGlobalInfoW(var AInfo :TGlobalInfo); stdcall;
- {$endif Far3}
-  procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
- {$ifdef Far3}
-  function ProcessDialogEventW(var AInfo :TProcessDialogEventInfo) :Integer; stdcall;
- {$else}
-  function ProcessDialogEventW(AEvent :Integer; AParam :PFarDialogEvent) :Integer; stdcall;
- {$endif Far3}
 
+  type
+    TDlgSelectPlug = class(TFarPlug)
+    public
+      procedure Init; override;
+      function DialogEvent(AEvent :Integer; AParam :PFarDialogEvent) :Integer; override;
+
+    private
+      procedure ProcessFocus(AMsg :Integer; ADlg :THandle; AID :Integer);
+    end;
+
+    
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -42,37 +46,55 @@ interface
   uses
     MixDebug;
 
+
  {-----------------------------------------------------------------------------}
- { Ёкспортируемые процедуры                                                    }
+ { TDlgSelectPlug                                                              }
  {-----------------------------------------------------------------------------}
 
- {$ifdef Far3}
-  procedure GetGlobalInfoW(var AInfo :TGlobalInfo); stdcall;
+  procedure TDlgSelectPlug.Init; {override;}
   begin
-    AInfo.StructSize := SizeOf(AInfo);
-  //AInfo.MinFarVersion := FARMANAGERVERSION;
-  //AInfo.Info := PLUGIN_VERSION;
-    AInfo.GUID := cPluginID;
-    AInfo.Title := PLUGIN_NAME;
-    AInfo.Description := PLUGIN_DESC;
-    AInfo.Author := PLUGIN_AUTHOR;
-  end;
- {$endif Far3}
-
-
-  procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
-  begin
-    FARAPI := AInfo;
-    FARSTD := AInfo.fsf^;
+    inherited Init;
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison; 
    {$ifdef Far3}
-    PluginID := cPluginID;
-   {$else}
-    hModule := AInfo.ModuleNumber;
+    FGUID := cPluginID;
    {$endif Far3}
   end;
 
 
-  procedure ProcessFocus(AMsg :Integer; ADlg :THandle; AID :Integer);
+  function TDlgSelectPlug.DialogEvent(AEvent :Integer; AParam :PFarDialogEvent) :Integer;
+  begin
+    if AEvent = DE_DEFDLGPROCINIT then
+      ProcessFocus(AParam.Msg, AParam.hDlg, AParam.Param1);
+    Result := 0;
+  end;
+
+
+  procedure TDlgSelectPlug.ProcessFocus(AMsg :Integer; ADlg :THandle; AID :Integer);
+
+    function GetTextLen(AItemID :Integer) :Integer;
+    var
+      vLen :Integer;
+      vStr :TString;
+      vData :TFarDialogItemData;
+    begin
+      Result := 0;
+      vLen := FarSendDlgMessage(ADlg, DM_GETTEXTLENGTH, AItemID, 0);
+      if vLen > 0 then begin
+        SetLength(vStr, vLen);
+       {$ifdef Far3}
+        vData.StructSize := SizeOf(vData);
+       {$endif Far3}
+        vData.PtrLength := vLen;
+        vData.PtrData := PFarChar(vStr);
+        FarSendDlgMessage(ADlg, DM_GETTEXT, AItemID, @vData);
+        vStr := Trim(vStr);
+        Result := Length(vStr);
+      end;
+    end;
+
   var
     vLen :Integer;
     vInfo :TFarDialogItem;
@@ -81,11 +103,14 @@ interface
   begin
     if (AMsg = DN_GOTFOCUS) or (AMsg = DN_KILLFOCUS) then begin
       FarSendDlgMessage(ADlg,  DM_GETDLGITEMSHORT, AID, @vInfo);
-      if (vInfo.ItemType in [DI_EDIT, DI_PSWEDIT, DI_FIXEDIT]) and (vInfo.Flags and DIF_EDITOR = 0) then begin
+      if (vInfo.ItemType in [DI_EDIT, DI_PSWEDIT, DI_FIXEDIT ]) and (vInfo.Flags and DIF_EDITOR = 0) then begin
 //      TraceF('ProcessDialogEventW: GotFocus, ID=%d...', [vID]);
         FillChar(vSelect, SizeOf(vSelect), 0);
         if AMsg = DN_GOTFOCUS then begin
-          vLen := FarSendDlgMessage(ADlg, DM_GETTEXTLENGTH, AID, nil);
+          if vInfo.ItemType = DI_FIXEDIT then
+            vLen := GetTextLen(AID)
+          else
+            vLen := FarSendDlgMessage(ADlg, DM_GETTEXTLENGTH, AID, nil);
 
           vSelect.BlockType := BTYPE_STREAM;
           vSelect.BlockWidth := vLen;
@@ -101,23 +126,6 @@ interface
       end;
     end;
   end;
-
-
- {$ifdef Far3}
-  function ProcessDialogEventW(var AInfo :TProcessDialogEventInfo) :Integer; stdcall;
-  begin
-    if AInfo.Event = DE_DEFDLGPROCINIT then
-      ProcessFocus(AInfo.Param.Msg, AInfo.Param.hDlg, AInfo.Param.Param1);
-    Result := 0;
-  end;
- {$else}
-  function ProcessDialogEventW(AEvent :Integer; AParam :PFarDialogEvent) :Integer; stdcall;
-  begin
-    if AEvent = DE_DEFDLGPROCINIT then
-      ProcessFocus(AParam.Msg, AParam.hDlg, AParam.Param1);
-    Result := 0;
-  end;
- {$endif Far3}
 
 
 end.
