@@ -136,14 +136,14 @@ end;
 
 exports
  {$ifdef Far3}
-  GetGlobalInfoW,
+  GetGlobalInfow,
  {$endif Far3}
-  SetStartupInfoW,
-  GetPluginInfoW,
+  SetStartupInfow,
+  GetPluginInfow,
  {$ifdef Far3}
-  OpenW;
+  Openw;
  {$else}
-  OpenPluginW;
+  OpenPluginw;
  {$endif Far3}
 
 
