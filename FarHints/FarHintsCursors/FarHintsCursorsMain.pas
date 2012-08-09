@@ -244,7 +244,8 @@ interface
 
     private
       FAPI       :IFarHintsApi;
-      FRegPath   :WideString;
+      FInited    :Boolean;
+      FNeedWrite :Boolean;
       FFileName  :WideString;
       FIcon      :HIcon;
       FCursor    :HCursor;
@@ -256,27 +257,41 @@ interface
       FFrames    :Integer;
       FTime      :Cardinal;
 
+      procedure ReadSettings;
+      procedure WriteSettings;
       function GetMsg(AIndex :TStrMessage) :WideString;
     end;
 
 
   procedure TPluginObject.InitPlugin(const API :IFarHintsApi; const AInfo :IHintPluginInfo); {stdcall;}
   const
-    cMinimalRevision = 3;
+    cMinimalRevision = 7;
   begin
     FAPI := API;
 
     if FAPI.GetRevision < cMinimalRevision then
       FAPI.RaiseError(FAPI.Format('FarHints API revision %d is required', [cMinimalRevision]));
+  end;
 
-    FRegPath := FAPI.GetRegRoot + '\Cursors';
-    ShowAnimation := FAPI.GetRegValueInt(HKEY_CURRENT_USER, FRegPath, 'ShowAnimation', Byte(ShowAnimation) ) <> 0;
-    ViewSize := FAPI.GetRegValueInt(HKEY_CURRENT_USER, FRegPath, 'MaxSize', ViewSize);
+
+  procedure TPluginObject.ReadSettings;
+  begin
+    ShowAnimation := FAPI.GetRegValueInt(INVALID_HANDLE_VALUE, 'Cursors', 'ShowAnimation', Byte(ShowAnimation)) <> 0;
+    ViewSize := FAPI.GetRegValueInt(INVALID_HANDLE_VALUE, 'Cursors', 'MaxSize', ViewSize);
+    FInited := True;
+  end;
+
+
+  procedure TPluginObject.WriteSettings;
+  begin
+    FAPI.SetRegValueInt(INVALID_HANDLE_VALUE, 'Cursors', 'MaxSize', ViewSize);
   end;
 
 
   procedure TPluginObject.DonePlugin; {stdcall;}
   begin
+    if FNeedWrite then
+      WriteSettings;
   end;
 
 
@@ -291,6 +306,9 @@ interface
 
     FSizeCount := 0;
     if FAPI.CompareStr(vExt, 'ico') = 0 then begin
+      if not FInited then
+        ReadSettings;
+
       FSizeCount := ReadIconSizes(FFileName, FSizes);
 
       if FSizeCount > 0 then begin
@@ -307,6 +325,9 @@ interface
 
     end else
     if (FAPI.CompareStr(vExt, 'cur') = 0) or (FAPI.CompareStr(vExt, 'ani') = 0) then begin
+      if not FInited then
+        ReadSettings;
+
       FCursor := LoadCursorFromFileW(PWideChar(FFileName));
       if FCursor <> 0 then begin
         FFrame := 0;
@@ -422,7 +443,7 @@ interface
           AItem.UpdateHintWindow(uhwResize + uhwInvalidateItems + uhwInvalidateImage);
 
           ViewSize := IntMax(FImgSize.CX, FImgSize.CY);
-          FAPI.SetRegValueInt(HKEY_CURRENT_USER, FRegPath, 'MaxSize', ViewSize);
+          FNeedWrite := True;
         end;
       end;
     end;

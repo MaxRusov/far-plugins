@@ -158,16 +158,15 @@ interface
         if AItem.Size > 0 then
           AItem.AddInt64Info(GetMsgStr(strSize), AItem.Size);
 
-       {$ifdef bUnicodeFar}
+       {$ifdef Far3}
+        if AItem.FarItem.AllocationSize > 0 then
+          AItem.AddInt64Info(GetMsgStr(strPackedSize), AItem.FarItem.AllocationSize);
+       {$else}
         if AItem.FarItem.FindData.nPackSize > 0 then
           AItem.AddInt64Info(GetMsgStr(strPackedSize), AItem.FarItem.FindData.nPackSize);
-       {$else}
-        if AItem.FarItem.PackSize > 0 then
-          AItem.AddInt64Info(GetMsgStr(strPackedSize), AItem.FarItem.PackSize);
-       {$endif bUnicodeFar}
+       {$endif Far3}
       end;
     end;
-
 
     Result := True;
   end;

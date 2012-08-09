@@ -20,8 +20,11 @@ interface
 
     Far_API,
     FarCtrl,
+    FarConfig,
+    FarPlug,
     FarConMan,
-    
+    FarMenu,
+
     FarHintsConst,
     FarHintsAPI,
     FarHintsReg,
@@ -30,22 +33,29 @@ interface
     FarHintsClasses;
 
 
- {$ifdef bUnicodeFar}
-  function GetMinFarVersionW :Integer; stdcall;
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
- {$ifdef bSynchroCall}
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
- {$endif bSynchroCall}
-  procedure ExitFARW; stdcall;
- {$else}
-  procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
-  procedure ExitFAR; stdcall;
-  function OpenPlugin(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
- {$endif bUnicodeFar}
+  type
+    TFarHinstPlug = class(TFarPlug)
+    public
+      procedure Init; override;
+      procedure Startup; override;
+      procedure ExitFar; override;
+      procedure GetInfo; override;
+      function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
+     {$ifdef Far3}
+      function OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
+     {$endif Far3}
+      procedure SynchroEvent(AParam :Pointer); override;
+      procedure Configure; override;
+      procedure ErrorHandler(E :Exception); override;
 
+    private
+      FInited :Boolean;
+
+      procedure InitSubplugins;
+    end;
+
+    
   function GetFarHinstAPI :IFarHintsAPI; stdcall;
 
 {******************************************************************************}
@@ -61,12 +71,6 @@ interface
     gHintCommand    :Boolean;
 
   var
-    hFarWindow  :THandle = THandle(-1);
-    hConEmuWnd  :THandle = THandle(-1);
-    hStdin      :THandle;
-    hStdOut     :THandle;
-//  hMainThread :Integer;
-
     CanCheckWindow :Boolean;
 
   var
@@ -88,29 +92,6 @@ interface
     Result := 0;
     if Assigned(WinGetConsoleWindow) then
       Result := WinGetConsoleWindow;
-  end;
-
-
-  function hConsoleWnd :THandle;
-  var
-    hWnd :THandle;
-  begin
-    Result := hFarWindow;
-
-    if not IsWindowVisible(hFarWindow) then begin
-      { Запущено из-под ConEmu?... }
-      hWnd := GetAncestor(hFarWindow, GA_PARENT);
-
-      if (hWnd = 0) or (hWnd = GetDesktopWindow) then begin
-        { Новая версия ConEmu не делает SetParent... }
-        if hConEmuWnd = THandle(-1) then
-          hConEmuWnd := CheckConEmuWnd;
-        hWnd := hConEmuWnd;
-      end;
-
-      if hWnd <> 0 then
-        Result := hWnd;
-    end;
   end;
 
 
@@ -203,6 +184,37 @@ interface
     end;
 
     ClientToScreen(vWnd, Result);
+  end;
+
+
+
+  function IsVisiblePanel(const AInfo :TPanelInfo) :Boolean;
+  begin
+    Result := {$ifdef Far3}PFLAGS_VISIBLE and AInfo.Flags <> 0{$else}AInfo.Visible <> 0{$endif};
+  end;
+
+  function IsPluginPanel(const AInfo :TPanelInfo) :Boolean;
+  begin
+    Result := {$ifdef Far3}PFLAGS_PLUGIN and AInfo.Flags <> 0{$else}AInfo.Plugin <> 0{$endif};
+  end;
+
+  function FarPanelShowColumnTitles :Boolean;
+  begin
+   {$ifdef Far3}
+    Result := FarGetSetting(FSSF_PANELLAYOUT, 'ColumnTitles') <> 0;
+   {$else}
+    Result := FarAdvControl(ACTL_GETPANELSETTINGS, nil) and FPS_SHOWCOLUMNTITLES <> 0;
+   {$endif Far3}
+  end;
+
+
+  function FarPanelShowStatusLine :Boolean;
+  begin
+   {$ifdef Far3}
+    Result := FarGetSetting(FSSF_PANELLAYOUT, 'StatusLine') <> 0;
+   {$else}
+    Result := FarAdvControl(ACTL_GETPANELSETTINGS, nil) and FPS_SHOWSTATUSLINE <> 0;
+   {$endif Far3}
   end;
 
 
@@ -313,7 +325,7 @@ interface
 
   function THintThread.GetCallContext :THintCallContext;
   var
-    vWinInfo :TWindowInfo;
+    vWinType :Integer;
     vCursorInfo :TConsoleCursorInfo;
     vStr :TString;
   begin
@@ -325,11 +337,9 @@ interface
       { Чтобы хинт на сбивал Drag&Drop, да и вообще - нефиг }
       Exit;
 
-    FillChar(vWinInfo, SizeOf(vWinInfo), 0);
-    vWinInfo.Pos := -1;
-    FARAPI.AdvControl(hModule, ACTL_GETSHORTWINDOWINFO, @vWinInfo);
-//  TraceF('WindowType=%d', [vWinInfo.WindowType]);
-    if vWinInfo.WindowType = WTYPE_PANELS then begin
+    vWinType := FarGetWindowType;
+//  TraceF('WindowType=%d', [vWinType]);
+    if vWinType = WTYPE_PANELS then begin
 
       GetConsoleCursorInfo(hStdOut, vCursorInfo);
 //    TraceF('Cursor=%d', [Byte(vCursorInfo.bVisible)]);
@@ -348,7 +358,7 @@ interface
 
     end else
     begin
-      case vWinInfo.WindowType of
+      case vWinType of
         WTYPE_EDITOR:
           Result := hccEditor;
         WTYPE_VIEWER:
@@ -387,14 +397,8 @@ interface
       Exit;
 
 //  Trace('FCTL_GetPanelShortInfo...');
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodeFar}
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelInfo, 0, @vInfo);
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelShortInfo, @vInfo);
-   {$endif bUnicodeFar}
-
-    if (vInfo.Visible = 0) {or not vInfo.Focus} then
+    FarGetPanelInfo(True, vInfo);
+    if not IsVisiblePanel(vInfo) then
       Exit;
     if not (vInfo.PanelType in [PTYPE_FILEPANEL, PTYPE_TREEPANEL]) then
       { Другие типы панелей: PTYPE_QVIEWPANEL or PTYPE_INFOPANEL }
@@ -402,15 +406,10 @@ interface
     if (vInfo.PanelType = PTYPE_FILEPANEL) and (vInfo.ItemsNumber = 0) then
       Exit;
 
-   {$ifdef bUnicodeFar}
-    AFolder := FarPanelGetCurrentDirectory(INVALID_HANDLE_VALUE);
-   {$else}
-    AFolder := vInfo.CurDir;
-   {$endif bUnicodeFar}
+    AFolder := FarPanelGetCurrentDirectory;
     ACurrent := IntIf(vInfo.PanelType = PTYPE_FILEPANEL, vInfo.CurrentItem, -1);
     Result := True;
   end;
-
 
 
   procedure THintThread.Execute; {override;}
@@ -427,12 +426,13 @@ interface
     vIsTop, vLastIsTop :Boolean;
     vValid, vLastIsValid :Boolean;
     vWasAlert :Boolean;
+    vCurHintMode :THintCallMode;
   begin
     vDelay := 0;
     vLastKeyTime := 0;
     vLastCheckTime := 0;
     vNeedShow := False;
-    
+
     vCallMode := 0;
     vLastFolder := '';
     vLastCurrent := -1;
@@ -446,7 +446,7 @@ interface
     if True {not IsWindowVisible(hFarWindow)} then begin
       { Главное окно невидимо, возможно - работаем под ConEmu }
       { Выждем небольшую паузу, чтобы успел загрузиться плагин ConEmu.dll }
-      { Выжидаем паузу всегда - чтобы Far успел очистить входную очередь событий... } 
+      { Выжидаем паузу всегда - чтобы Far успел очистить входную очередь событий... }
       vStartTime := GetTickCount;
       while not Terminated and (TickCountDiff(GetTickCount, vStartTime) < 1500) do
         Sleep(1);
@@ -514,7 +514,7 @@ interface
           end;
         end;
 
-        if {FarHints.HintVisible and} FarHints.CurrentHintAge >= HideHindAgeLock then begin
+        if (FarHints.CurrentHintMode <> hcmInfo) and (FarHints.CurrentHintAge >= HideHindAgeLock) then begin
           { Хинт виден и достаточно длительное время. Делаем запрос на его сокрытие. }
           { Задержка HideHindAgeLock нужна, чтобы хинт вызываемый вручную, через макрос }
           { не пропадал сразу после появления. }
@@ -541,12 +541,13 @@ interface
 
           if (FarHintsAutoMouse or vHintForced) and vIsTop and CheckLocation { Курсор мыши в окне Far'а } then begin
             vPos := GetConsoleMousePos;
-            if FarHints.CurrentHintMode <> hcmMouse then
+
+            vCurHintMode := FarHints.CurrentHintMode;
+            if vCurHintMode = hcmCurrent then
               { Убиваем клавиатурный хинт }
               HideHint;
 
-            if not FarHints.HintVisible then begin
-
+            if vCurHintMode <> hcmMouse then begin
               if (vLastForced <> vHintForced) and not vHintForced then
                 vStartTime := 0
               else begin
@@ -555,7 +556,6 @@ interface
                 vStartTime := GetTickCount;
                 vDelay := ShowHintFirstDelay
               end;
-
             end else
             begin
               if not FarHints.InItemRect(vPos) then begin
@@ -572,7 +572,8 @@ interface
           end else
           begin
             vStartTime := 0;
-            HideHint;
+            if FarHints.CurrentHintMode <> hcmInfo then
+              HideHint;
           end;
 
           vLastForced := vHintForced;
@@ -593,7 +594,7 @@ interface
             vLastKeyTime := 0;
           end;
 
-          if vIsTop and {FarHints.HintVisible and} (FarHints.CurrentHintAge >= HideHindAgeLock) and (TickCountDiff(GetTickCount, vLastCheckTime) > 100) then begin
+          if vIsTop and (FarHints.CurrentHintMode <> hcmInfo) and (FarHints.CurrentHintAge >= HideHindAgeLock) and (TickCountDiff(GetTickCount, vLastCheckTime) > 100) then begin
             vLastCheckTime := GetTickCount;
             if FarHints.CurrentHintContext <> GetCallContext then begin
               { Чтобы Hint не "подвисал" в недопустимых контекстах }
@@ -647,7 +648,7 @@ interface
 
     gCallMode := ACallMode;
 //  TraceF('Call plugin: AKey=%d...', [Byte(AKey)]);
-    FARAPI.AdvControl(hModule, ACTL_SYNCHRO, nil);
+    FarAdvControl(ACTL_SYNCHRO, nil);
     WaitForCallComplete;
 //  Trace('  Done call');
     Result := True;
@@ -721,23 +722,13 @@ interface
  {-----------------------------------------------------------------------------}
 
   function CheckPanelExists :Boolean;
-  var
-    vWinInfo :TWindowInfo;
   begin
     Result := False;
-   {$ifdef bUnicodeFar}
-    if FARAPI.Control(hModule, FCTL_CHECKPANELSEXIST, 0, nil) = 0 then
-   {$else}
-    if FARAPI.Control(hModule, FCTL_CHECKPANELSEXIST, nil) = 0 then
-   {$endif bUnicodeFar}
+    if FARAPI.Control({$ifdef Far3}INVALID_HANDLE_VALUE{$else}hModule{$endif}, FCTL_CHECKPANELSEXIST, 0, nil) = 0 then
       { Нет панелей... }
       Exit;
 
-    FillChar(vWinInfo, SizeOf(vWinInfo), 0);
-    vWinInfo.Pos := -1;
-//  FARAPI.AdvControl(hModule, ACTL_GETWINDOWINFO, @vWinInfo);
-    FARAPI.AdvControl(hModule, ACTL_GETSHORTWINDOWINFO , @vWinInfo);
-    if vWinInfo.WindowType <> WTYPE_PANELS then
+    if FarGetWindowType <> WTYPE_PANELS then
       { Активное окно - не панель }
       Exit;
 
@@ -752,12 +743,9 @@ interface
     vShowStatus :Boolean;
 
     procedure DetectPanelSettings;
-    var
-      vRes :Integer;
     begin
-      vRes := FARAPI.AdvControl(hModule, ACTL_GETPANELSETTINGS, nil);
-      vShowTitles := (FPS_SHOWCOLUMNTITLES and vRes) <> 0;
-      vShowStatus := (FPS_SHOWSTATUSLINE and vRes) <> 0;
+      vShowTitles := FarPanelShowColumnTitles;
+      vShowStatus := FarPanelShowStatusLine
     end;
 
 
@@ -765,9 +753,7 @@ interface
 
       function ColumnsCount(const vInfo :TPanelInfo; var ASubCols :Integer) :Integer;
       var
-       {$ifdef bUnicodeFar}
         vTypesStr :TFarStr;
-       {$endif bUnicodeFar}
         vStr :PFarChar;
         vChr, vFirst :TChar;
         vSubCol :Integer;
@@ -775,12 +761,8 @@ interface
       begin
         Result := 0;
 
-       {$ifdef bUnicodeFar}
         vTypesStr := FarPanelString(HandleIf(APrimary, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_GETCOLUMNTYPES);
         vStr := PFarChar(vTypesStr);
-       {$else}
-        vStr := vInfo.ColumnTypes;
-       {$endif bUnicodeFar}
         if vStr = nil then
           Exit;
 
@@ -817,9 +799,7 @@ interface
 
       procedure FillWidths(ACount, ASubCols :Integer; AWidths :PIntegerArray; const vInfo :TPanelInfo);
       var
-       {$ifdef bUnicodeFar}
         vWidthsStr :TFarStr;
-       {$endif bUnicodeFar}
         vCol, vSubCol, vWidth :Integer;
         vStr, vBeg :PFarChar;
         vNum :TFarStr;
@@ -827,12 +807,8 @@ interface
         FillChar(AWidths^, ACount * SizeOf(Integer), 0);
         vCol := 0;
         vSubCol := 0;
-       {$ifdef bUnicodeFar}
         vWidthsStr := FarPanelString(HandleIf(APrimary, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_GETCOLUMNWIDTHS);
         vStr := PFarChar(vWidthsStr);
-       {$else}
-        vStr := vInfo.ColumnWidths;
-       {$endif bUnicodeFar}
         while vStr^ <> #0 do begin
           vBeg := vStr;
           while (vStr^ <> #0) and (vStr^ <> ',') do
@@ -933,13 +909,8 @@ interface
     begin {CheckPanel}
       Result := False;
 
-      FillChar(vInfo, SizeOf(vInfo), 0);
-     {$ifdef bUnicodefar}
-      FARAPI.Control(HandleIf(APrimary, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_GetPanelInfo, 0, @vInfo);
-     {$else}
-      FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(APrimary, FCTL_GetPanelShortInfo, FCTL_GetAnotherPanelShortInfo), @vInfo);
-     {$endif bUnicodefar}
-      if (vInfo.Visible = 0) {or not vInfo.Focus} then
+      FarGetPanelInfo(APrimary, vInfo);
+      if not IsVisiblePanel(vInfo) then
         Exit;
 
       if vInfo.PanelType = PTYPE_TREEPANEL then begin
@@ -1019,9 +990,7 @@ interface
     vPlugin :Boolean;
     vCurDir :TString;
     vPItem :PPluginPanelItem;
-   {$ifdef bUnicodeFar}
     vHandle :THandle;
-   {$endif bUnicodeFar}
   begin
     vPos := GetConsoleMousePos;
 //  TraceF('ShowMouseHint: %d x %d', [vPos.X, vPos.Y]);
@@ -1032,21 +1001,15 @@ interface
       Exit;
     end;
 
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodefar}
     vHandle := HandleIf(vPrimary, PANEL_ACTIVE, PANEL_PASSIVE);
-    FARAPI.Control(vHandle, FCTL_GetPanelInfo, 0, @vInfo);
+    FarGetPanelInfo(vHandle, vInfo);
     vCurDir := FarPanelGetCurrentDirectory(vHandle);
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, IntIf(vPrimary, FCTL_GetPanelInfo, FCTL_GetAnotherPanelInfo), @vInfo);
-    vCurDir := vInfo.CurDir;
-   {$endif bUnicodefar}
     if vIndex >= vInfo.ItemsNumber then begin
       FarHints.HideHint;
       Exit;
     end;
 
-    vPlugin := (vInfo.Plugin <> 0) and ((vInfo.Flags and PFLAGS_REALNAMES) = 0);
+    vPlugin := IsPluginPanel(vInfo) and (vInfo.Flags and PFLAGS_REALNAMES = 0);
     if vPlugin and vPrimary then
       vTitle := ExtractWord(1, GetConsoleTitleStr, ['{', '}']);
 
@@ -1054,24 +1017,16 @@ interface
 //  TraceF('ShowMouseHint: %d', [vIndex]);
    {$endif bTrace1}
 
-   {$ifdef bUnicodeFar}
     vPItem := FarPanelItem(vHandle, FCTL_GETPANELITEM, vIndex);
     try
-   {$else}
-    vPItem := @vInfo.PanelItems[vIndex];
-   {$endif bUnicodefar}
-
-    vShowPos := ConsolePosToWindowPos(vPos.X + 2, vPos.Y + 1);
-    if FarHints.ShowHint(hccPanel, hcmMouse, vPlugin, vPrimary, vTitle, vPos.X, vPos.Y, vShowPos.X, vShowPos.Y, @vItemRect, vCurDir, vPItem) then
-      {}
-    else
-      FarHints.HideHint;
-
-   {$ifdef bUnicodefar}
+      vShowPos := ConsolePosToWindowPos(vPos.X + 2, vPos.Y + 1);
+      if FarHints.ShowHint(hccPanel, hcmMouse, vPlugin, vPrimary, vTitle, vPos.X, vPos.Y, vShowPos.X, vShowPos.Y, @vItemRect, vCurDir, vPItem) then
+        {}
+      else
+        FarHints.HideHint;
     finally
       MemFree(vPItem);
     end;
-   {$endif bUnicodefar}
   end;
 
 
@@ -1092,14 +1047,8 @@ interface
       Exit;
     end;
 
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicodefar}
-    FARAPI.Control(THandle(PANEL_ACTIVE), FCTL_GetPanelInfo, 0, @vInfo);
-    vCurDir := FarPanelGetCurrentDirectory(THandle(PANEL_ACTIVE));
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelInfo, @vInfo);
-    vCurDir := vInfo.CurDir;
-   {$endif bUnicodefar}
+    FarGetPanelInfo(True, vInfo);
+    vCurDir := FarPanelGetCurrentDirectory;
 
     if vInfo.PanelType = PTYPE_TREEPANEL then begin
 
@@ -1123,7 +1072,7 @@ interface
         Exit;
       end;
 
-      vPlugin := (vInfo.Plugin <> 0) and ((vInfo.Flags and PFLAGS_REALNAMES) = 0);
+      vPlugin := IsPluginPanel(vInfo) and (vInfo.Flags and PFLAGS_REALNAMES = 0);
       if vPlugin and vPrimary then
         vTitle := ExtractWord(1, GetConsoleTitleStr, ['{', '}']);
 
@@ -1133,23 +1082,15 @@ interface
 //    TraceF('ShowKeyHint: %d', [vIndex]);
      {$endif bTrace1}
 
-     {$ifdef bUnicodeFar}
-      vPItem := FarPanelItem(THandle(PANEL_ACTIVE), FCTL_GETPANELITEM, vIndex);
+      vPItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETPANELITEM, vIndex);
       try
-     {$else}
-      vPItem := @vInfo.PanelItems[vIndex];
-     {$endif bUnicodefar}
-
-      if FarHints.ShowHint(hccPanel, hcmCurrent, vPlugin, True, vTitle, -1, -1, vPos.X, vPos.Y, @vItemRect, vCurDir, vPItem) then
-        {}
-      else
-        FarHints.HideHint;
-
-     {$ifdef bUnicodefar}
+        if FarHints.ShowHint(hccPanel, hcmCurrent, vPlugin, True, vTitle, -1, -1, vPos.X, vPos.Y, @vItemRect, vCurDir, vPItem) then
+          {}
+        else
+          FarHints.HideHint;
       finally
         MemFree(vPItem);
       end;
-     {$endif bUnicodefar}
     end;
   end;
 
@@ -1185,9 +1126,7 @@ interface
 //    Trace(vStr);
 
     finally
-     {$ifdef bUnicodefar}
       FARAPI.EditorControl(ECTL_FREEINFO, @vEdtInfo);
-     {$endif bUnicodefar}
     end;
 *)
   begin
@@ -1198,15 +1137,11 @@ interface
   procedure ShowMouseHintDlg;
   var
     vPos, vShowPos :TPoint;
-    vWinInfo :TWindowInfo;
   begin
     vPos := GetConsoleMousePos;
 //  TraceF('ShowMouseHintDlg: %d x %d', [vPos.X, vPos.Y]);
 
-    FillChar(vWinInfo, SizeOf(vWinInfo), 0);
-    vWinInfo.Pos := -1;
-    FARAPI.AdvControl(hModule, ACTL_GETSHORTWINDOWINFO, @vWinInfo);
-    if not (vWinInfo.WindowType in [WTYPE_DIALOG]) then
+    if not (FarGetWindowType in [WTYPE_DIALOG]) then
       Exit;
 
     vShowPos := ConsolePosToWindowPos(vPos.X + 2, vPos.Y + 1);
@@ -1221,14 +1156,12 @@ interface
 
   procedure MakeAutoCall(ACallMode :Integer);
   var
-    vWinInfo :TWindowInfo;
+    vWinType :Integer;
   begin
-    FillChar(vWinInfo, SizeOf(vWinInfo), 0);
-    vWinInfo.Pos := -1;
-    FARAPI.AdvControl(hModule, ACTL_GETSHORTWINDOWINFO, @vWinInfo);
-//  TraceF('WindowType=%d', [vWinInfo.WindowType]);
+    vWinType := FarGetWindowType;
+//  TraceF('WindowType=%d', [vWinType]);
     if ACallMode = 1 then begin
-      case vWinInfo.WindowType of
+      case vWinType of
         WTYPE_PANELS:
           ShowMouseHint;
         WTYPE_VIEWER:
@@ -1239,10 +1172,10 @@ interface
           ShowMouseHintDlg;
       end;
     end else
-    if (ACallMode = 2) and (vWinInfo.WindowType = WTYPE_PANELS) then begin
+    if (ACallMode = 2) and (vWinType = WTYPE_PANELS) then begin
       ShowKeyHint;
     end else
-    if (ACallMode = 3) and (vWinInfo.WindowType = WTYPE_PANELS) then begin
+    if (ACallMode = 3) and (vWinType = WTYPE_PANELS) then begin
       if FarHintsPermanent then
         ShowKeyHint;
     end;
@@ -1254,49 +1187,38 @@ interface
   procedure SubpluginCommandsRun(ACmd :Integer);
   begin
     case ACmd of
-      1: FarHints.HintCommand(0);
-      2: FarHints.HintCommand(1);
+      1: FarHints.HintCommand(cmhResize, 1);
+      2: FarHints.HintCommand(cmhResize, -1);
       3: FarHints.HideHint;
     end;
   end;
 
 
   procedure ShowSubpluginCommands;
-  const
-    vCount = 4;
   var
-    vItems :array[0..3] of TFarMenuItemEx;
-    vRes :Integer;
+    vMenu :TFarMenu;
   begin
-    FillChar(vItems, SizeOf(vItems), 0);
-
-    if FarHints.HintVisible then begin
-      SetMenuItemChr(@vItems[0], '&+ Increase');
-      SetMenuItemChr(@vItems[1], '&- Decrease');
-      vItems[2].Flags := MIF_SEPARATOR;
-      SetMenuItemChr(@vItems[3], '&Close Hint');
-    end else
-    begin
-      SetMenuItemChr(@vItems[0], '+ Increase');
-      SetMenuItemChr(@vItems[1], '- Decrease');
-      vItems[2].Flags := MIF_SEPARATOR;
-      SetMenuItemChr(@vItems[3], 'Close Hint');
-    end;
-
-    vRes := FARAPI.Menu(hModule, -1, -1, 0,
-      FMENU_WRAPMODE or FMENU_USEEXT,
+    vMenu := TFarMenu.CreateEx(
       GetMsg(strCommandsTitle),
+    [
+      '&+ Increase',
+      '&- Decrease',
       '',
-      '',
-      nil, nil,
-      @vItems,
-      vCount);
+      '&Close Hint'
+    ]);
 
-    case vRes of
-      0: SubpluginCommandsRun(1);
-      1: SubpluginCommandsRun(2);
-      2: {};
-      3: SubpluginCommandsRun(3);
+    try
+      vMenu.Enabled[0] := FarHints.HintVisible;
+      vMenu.Enabled[1] := FarHints.HintVisible;
+      vMenu.Enabled[3] := FarHints.HintVisible;
+
+      if not vMenu.Run then
+        Exit;
+
+      SubpluginCommandsRun( vMenu.ResIdx + IntIf(vMenu.ResIdx < 2, 1, 0) );
+
+    finally
+      FreeObj(vMenu);
     end;
   end;
 
@@ -1305,146 +1227,166 @@ interface
 
   procedure OptionsMenu;
   var
-    vItems :array[0..7] of TFarMenuItemEx;
-    vRes :Integer;
+    vMenu :TFarMenu;
   begin
-    FillChar(vItems, SizeOf(vItems), 0);
-
-    SetMenuItemChr(@vItems[0], GetMsg(strAutoMouse));
-    if FarHintsAutoMouse then
-      vItems[0].Flags := MIF_CHECKED;
-
-    SetMenuItemChr(@vItems[1], GetMsg(strAutoKey));
-    if FarHintsAutoKey then
-      vItems[1].Flags := MIF_CHECKED;
-
-    vItems[2].Flags := MIF_SEPARATOR;
-
-    SetMenuItemChr(@vItems[3], GetMsg(strHintInPanel));
-    if FarHintsInPanel then
-      vItems[3].Flags := MIF_CHECKED;
-
-    SetMenuItemChr(@vItems[4], GetMsg(strHintInDialog));
-    if FarHintsInDialog then
-      vItems[4].Flags := MIF_CHECKED;
-
-    vItems[5].Flags := MIF_SEPARATOR;
-
-    SetMenuItemChr(@vItems[6], GetMsg(strShellThumbnail));
-    if FarHintUseThumbnail then
-      vItems[6].Flags := MIF_CHECKED;
-
-    SetMenuItemChr(@vItems[7], GetMsg(strIconOnThumbnail));
-    if FarHintIconOnThumb then
-      vItems[7].Flags := MIF_CHECKED;
-
-    vRes := FARAPI.Menu(hModule, -1, -1, 0,
-      FMENU_WRAPMODE or FMENU_USEEXT,
+    vMenu := TFarMenu.CreateEx(
       GetMsg(strOptionsTitle),
+    [
+      GetMsg(strAutoMouse),
+      GetMsg(strAutoKey),
       '',
+      GetMsg(strHintInPanel),
+      GetMsg(strHintInDialog),
       '',
-      nil, nil,
-      @vItems,
-      High(vItems)+1);
-    if vRes = -1 then
-      Exit;
+      GetMsg(strShowIcons),
+      GetMsg(strShellThumbnail),
+      GetMsg(strIconOnThumbnail)
+    ]);
 
-    case vRes of
-      0: FarHintsAutoMouse := not FarHintsAutoMouse;
-      1: FarHintsAutoKey := not FarHintsAutoKey;
+    try
+      while True do begin
+        vMenu.Checked[0] := FarHintsAutoMouse;
+        vMenu.Checked[1] := FarHintsAutoKey;
+        vMenu.Checked[3] := FarHintsInPanel;
+        vMenu.Checked[4] := FarHintsInDialog;
+        vMenu.Checked[6] := FarHintShowIcon;
+        vMenu.Checked[7] := FarHintUseThumbnail;
+        vMenu.Checked[8] := FarHintIconOnThumb;
 
-      3: FarHintsInPanel := not FarHintsInPanel;
-      4: FarHintsInDialog := not FarHintsInDialog;
+        vMenu.SetSelected(vMenu.ResIdx);
+        if not vMenu.Run then
+          Exit;
 
-      6: FarHintUseThumbnail := not FarHintUseThumbnail;
-      7: FarHintIconOnThumb := not FarHintIconOnThumb;
+        case vMenu.ResIdx of
+          0: FarHintsAutoMouse := not FarHintsAutoMouse;
+          1: FarHintsAutoKey := not FarHintsAutoKey;
+
+          3: FarHintsInPanel := not FarHintsInPanel;
+          4: FarHintsInDialog := not FarHintsInDialog;
+
+          6: FarHintShowIcon := not FarHintShowIcon;
+          7: FarHintUseThumbnail := not FarHintUseThumbnail;
+          8: FarHintIconOnThumb := not FarHintIconOnThumb;
+        end;
+
+        WriteSomeSettings;
+      end;
+
+    finally
+      FreeObj(vMenu);
     end;
-
-    WriteSomeSettings(FRegRoot);
   end;
 
 
  {-----------------------------------------------------------------------------}
- { Экспортируемые процедуры                                                    }
+
+  function PluginCommand(ACmd :Integer) :Boolean;
+  begin
+    Result := True;
+    case ACmd of
+      0: MakeAutoCall(gCallMode);
+
+      1:
+      case FarGetWindowType of
+        WTYPE_PANELS:
+          ShowMouseHint;
+//      WTYPE_EDITOR, WTYPE_VIEWER:
+//        ShowMouseHintEdt;
+        WTYPE_DIALOG:
+          ShowMouseHintDlg;
+      else
+        Result := False;
+      end;
+
+      2: ShowKeyHint;
+
+      3:
+      begin
+        FarHintsPermanent := not FarHintsPermanent;
+        if FarHintsPermanent then
+          ShowKeyHint
+        else
+          FarHints.HideHint;
+      end;
+
+      4: ShowSubpluginCommands;
+
+      5: OptionsMenu;
+
+      41..49:
+        SubpluginCommandsRun(ACmd mod 10);
+
+    else
+      Result := False
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TFarHinstPlug                                                               }
  {-----------------------------------------------------------------------------}
 
- {$ifdef bUnicodeFar}
-  function GetMinFarVersionW :Integer; stdcall;
+  procedure TFarHinstPlug.Init; {override;}
   begin
-    Result := MakeFarVersion(2, 0, 1573);   { ACTL_GETFARRECT }
+    inherited Init;
+
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison;
+
+   {$ifdef Far3}
+    FGUID := cPluginID;
+   {$else}
+    FID := cPluginID;
+   {$endif Far3}
+
+   {$ifdef Far3}
+    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+   {$else}
+    FMinFarVer := MakeVersion(2, 0, 1573);   { ACTL_GETFARRECT }
+   {$endif Far3}
   end;
- {$endif bUnicodeFar}
 
 
- {$ifdef bUnicodeFar}
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
- {$else}
-  procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
- {$endif bUnicodeFar}
-  var
-    vStr :TString;
+  procedure TFarHinstPlug.Startup; {override;}
   begin
-//  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
-
-    hModule := psi.ModuleNumber;
-    Move(psi, FARAPI, SizeOf(FARAPI));
-    Move(psi.fsf^, FARSTD, SizeOf(FARSTD));
-
-//  vRes := FARAPI.AdvControl(hModule, ACTL_GETFARVERSION, nil);
-
     { Получаем Handle консоли Far'а }
-    hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
+    hFarWindow := FarAdvControl(ACTL_GETFARHWND, nil);
     hStdin := GetStdHandle(STD_INPUT_HANDLE);
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
 //  hMainThread := GetCurrentThreadID;
-    FRegRoot := psi.RootKey;
 
     InitConsoleProc;
 //  hConWindow := GetConsoleWindow;
     CanCheckWindow := GetConsoleWindow = hFarWindow;
 
     FarHints := TFarHintsMain.Create;
+//  InitSubplugins;
+    FarAdvControl(ACTL_SYNCHRO, scmInitSubPlugins);
+  end;
 
-    vStr := AddFileName(ExtractFilePath(psi.ModuleName), cPluginsFolder);
+
+  procedure TFarHinstPlug.InitSubplugins;
+  var
+    vStr :TString;
+  begin
+    if FInited then
+      Exit;
+
+    vStr := AddFileName(ExtractFilePath(FARAPI.ModuleName), cPluginsFolder);
     FarHints.Plugins.ScanPlugins(vStr);
 
-    ReadSetup(FRegRoot);
-//  ReadSettings(FarHints.RegRoot);
+    ReadSetup;
+//  ReadSettings;
 
     SetMouseHook(FarHintsEnabled);
+    FInited := True;
   end;
 
 
-  var
-    PluginMenuStrings: array[0..0] of PFarChar;
-
- {$ifdef bUnicodeFar}
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
- {$else}
-  procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
- {$endif bUnicodeFar}
+  procedure TFarHinstPlug.ExitFar; {override;}
   begin
-//  TraceF('GetPluginInfo: %s', ['']);
-
-    pi.StructSize:= SizeOf(pi);
-    pi.Flags:= PF_PRELOAD or PF_EDITOR or PF_VIEWER or PF_DIALOG;
-
-    PluginMenuStrings[0]:= GetMsg(strTitle);
-    pi.PluginMenuStrings:= @PluginMenuStrings;
-    pi.PluginMenuStringsNumber:= 1;
-
-    pi.Reserved := cPluginGUID;
-  end;
-
-
- {$ifdef bUnicodeFar}
-  procedure ExitFARW; stdcall;
- {$else}
-  procedure ExitFAR; stdcall;
- {$endif bUnicodeFar}
-  begin
-//  Trace('ExitFAR');
-
     SetMouseHook(False);
     FarHints.Free;
     FarHints := nil;
@@ -1454,130 +1396,204 @@ interface
   end;
 
 
- {$ifdef bUnicodeFar}
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr) :THandle; stdcall;
- {$else}
-  function OpenPlugin(OpenFrom: integer; Item :TIntPtr) :THandle; stdcall;
- {$endif bUnicodeFar}
+  procedure TFarHinstPlug.GetInfo; {override;}
+  begin
+    FFlags := PF_PRELOAD or PF_EDITOR or PF_VIEWER or PF_DIALOG;
 
-    procedure LocAction(ACode :Integer);
-    begin
-      case ACode of
-        0: MakeAutoCall(gCallMode);
+    FMenuStr := GetMsg(strTitle);
+    FConfigStr := FMenuStr;
+   {$ifdef Far3}
+    FMenuID  := cMenuID;
+    FConfigID  := cConfigID;
+   {$endif Far3}
+  end;
 
-        1:
-        case OpenFrom of
-          OPEN_PLUGINSMENU, OPEN_COMMANDLINE:
-            ShowMouseHint;
-//        OPEN_EDITOR, OPEN_VIEWER:
-//          ShowMouseHintEdt;
-          OPEN_DIALOG:
-            ShowMouseHintDlg;
-        end;
 
-        2: ShowKeyHint;
+  function TFarHinstPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
+  var
+    vMenu :TFarMenu;
+  begin
+    Result:= INVALID_HANDLE_VALUE;
 
-        3:
-        begin
-          FarHintsPermanent := not FarHintsPermanent;
-          if FarHintsPermanent then
-            ShowKeyHint
-          else
-            FarHints.HideHint;
-        end;
+    gHintCommand := True;
+    InitSubplugins;
 
-        4: ShowSubpluginCommands;
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strTitle),
+    [
+      GetMsg(strMouseHint),
+      GetMsg(strCurItemHint),
+      GetMsg(strPermanentHint),
+      GetMsg(strHintCommands),
+      '',
+      GetMsg(strOptions)
+    ]);
+    try
+      vMenu.Checked[2] := FarHintsPermanent;
 
-        5: OptionsMenu;
+      if not vMenu.Run then
+        Exit;
 
-        41..49:
-          SubpluginCommandsRun(ACode mod 10);
+      case vMenu.ResIdx of
+        0: PluginCommand(1);
+        1: PluginCommand(2);
+        2: PluginCommand(3);
+        3: PluginCommand(4);
+        5: PluginCommand(5);
       end;
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
+
+
+  function TFarHinstPlug.OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; {override;}
+  begin
+    Result := 0;
+    InitSubplugins;
+    gHintCommand := True;
+    if AStr = nil then
+      if PluginCommand(AInt) then
+        Result := INVALID_HANDLE_VALUE;
+  end;
+
+
+ {$ifdef Far3}
+  function MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :Boolean;
+
+    procedure LocShowInfo;
+    var
+      vStr :TString;
+      vDelay :Integer;
+      vConPos, vWinPos :TPoint;
+      vInfo :TConsoleScreenBufferInfo;
+    begin
+      vStr := '';
+      vDelay := InfoHintPeriod;
+      vConPos.X := -1;
+      vConPos.Y := -3;
+
+      if (ACount >= 2) and (AParams[1].fType = FMVT_STRING) then
+        vStr := AParams[1].Value.fString;
+      if (ACount >= 3) and (AParams[2].fType = FMVT_INTEGER) then
+        vConPos.X := AParams[2].Value.fInteger;
+      if (ACount >= 4) and (AParams[3].fType = FMVT_INTEGER) then
+        vConPos.Y := AParams[3].Value.fInteger;
+      if (ACount >= 5) and (AParams[4].fType = FMVT_INTEGER) then
+        vDelay := AParams[4].Value.fInteger;
+
+      if vConPos.y < 0 then begin
+//      vConPos.y := FarGetWindowRect.Bottom + vConPos.y + 1;
+        GetConsoleScreenBufferInfo(hStdOut, vInfo);
+        vConPos.y := vInfo.srWindow.Bottom - vInfo.srWindow.Top + vConPos.y + 1;
+      end;
+      vWinPos := ConsolePosToWindowPos(vConPos.X, vConPos.Y);
+      if vConPos.x = -1 then
+        vWinPos.x := -1;
+
+//    if vStr <> '' then
+        Result := FarHints.ShowInfo(vStr, vWinPos.X, vWinPos.Y, vDelay)
+//    else begin
+//      if FarHints.CurrentHintMode = hcmInfo then
+//        FarHints.HideHint;
+//    end;
     end;
 
   var
-    vItems :array[0..5] of TFarMenuItemEx;
-    vRes :Integer;
+    vMouse :Boolean;
+    vInt :Integer;
   begin
-    Result:= INVALID_HANDLE_VALUE;
-    try
-     {$ifdef bTrace1}
-      TraceF('OpenPlugin: From=%x, Item=%d, CallMode=%d', [OpenFrom, Item, gCallMode]);
-     {$endif bTrace1}
-
-      gHintCommand := True;
-
-      if OpenFrom and OPEN_FROMMACRO <> 0 then begin
-        { Быстрый вызов, через CallPlugin}
-        OpenFrom := OpenFrom and not OPEN_FROMMACRO;
-        LocAction(Item);
-      end else
-      begin
-        FillChar(vItems, SizeOf(vItems), 0);
-        SetMenuItemChr(@vItems[0], GetMsg(strMouseHint));
-        SetMenuItemChr(@vItems[1], GetMsg(strCurItemHint));
-
-        SetMenuItemChr(@vItems[2], GetMsg(strPermanentHint));
-        if FarHintsPermanent then
-          vItems[2].Flags := MIF_CHECKED;
-
-        SetMenuItemChr(@vItems[3], GetMsg(strHintCommands));
-
-        vItems[4].Flags := MIF_SEPARATOR;
-
-        SetMenuItemChr(@vItems[5], GetMsg(strOptions));
-
-        vRes := FARAPI.Menu(hModule, -1, -1, 0,
-          FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strTitle),
-          '',
-          '',
-          nil, nil,
-          @vItems,
-          High(vItems)+1);
-
-        case vRes of
-          0: LocAction(1);
-          1: LocAction(2);
-          2: LocAction(3);
-          3: LocAction(4);
-          5: LocAction(5);
-        end;
-      end;
-
-      gCallMode := 0;
-
-    except
-      on E :Exception do begin
-        ShowMessage('FarHints', E.Message, FMSG_WARNING or FMSG_MB_OK);
-        gCallMode := 0;
-      end;
+    Result := False;
+    if StrEqual(ACmd, 'Info') then
+      LocShowInfo
+    else
+    if StrEqual(ACmd, 'Hide') then
+      Result := FarHints.HideHint
+    else
+    if StrEqual(ACmd, 'Show') then begin
+      vMouse := True;
+      if (ACount >= 2) and (AParams[1].fType = FMVT_INTEGER) then
+        vMouse := AParams[1].Value.fInteger = 1;
+      Result := PluginCommand(IntIf(vMouse, 1, 2));
+    end else
+    if StrEqual(ACmd, 'Size') then begin
+      vInt := 0;
+      if (ACount >= 2) and (AParams[1].fType = FMVT_INTEGER) then
+        vInt := AParams[1].Value.fInteger;
+      if vInt <> 0 then
+        Result := FarHints.HintCommand(cmhResize, vInt);
+    end else
+    if StrEqual(ACmd, 'Color') then begin
+      vInt := 0;
+      if (ACount >= 2) and (AParams[1].fType = FMVT_INTEGER) then
+        vInt := AParams[1].Value.fInteger;
+      Result := FarHints.HintCommand(cmhColor, vInt);
+    end else
+    if StrEqual(ACmd, 'FontSize') then begin
+      vInt := 0;
+      if (ACount >= 2) and (AParams[1].fType = FMVT_INTEGER) then
+        vInt := AParams[1].Value.fInteger;
+      Result := FarHints.HintCommand(cmhFontSize, vInt);
+    end else
+    if StrEqual(ACmd, 'FontColor') then begin
+      vInt := 0;
+      if (ACount >= 2) and (AParams[1].fType = FMVT_INTEGER) then
+        vInt := AParams[1].Value.fInteger;
+      Result := FarHints.HintCommand(cmhFontColor, vInt);
+    end else
+    if StrEqual(ACmd, 'Transparency') then begin
+      vInt := 0;
+      if (ACount >= 2) and (AParams[1].fType = FMVT_INTEGER) then
+        vInt := AParams[1].Value.fInteger;
+      Result := FarHints.HintCommand(cmhTransparent, vInt);
     end;
   end;
 
 
- {$ifdef bSynchroCall}
-  function ProcessSynchroEventW(Event :integer; Param :Pointer) :Integer; stdcall;
+  function TFarHinstPlug.OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
   begin
-//  TraceF('ProcessSynchroEventW. Event=%d, Param=%d', [Event, TUnsPtr(Param)]);
-
     Result := 0;
-    try
-      try
-        if Event <> SE_COMMONSYNCHRO then
-          Exit;
-
-        MakeAutoCall(gCallMode);
-
-      finally
-        gCallMode := 0;
-      end;
-    except
-      on E :Exception do
-        ShowMessage('FarHints', E.Message, FMSG_WARNING or FMSG_MB_OK);
+    if (ACount = 0) or ((ACount = 1) and (AParams[0].fType = FMVT_INTEGER)) then
+      Result := inherited OpenMacroEx(ACount, AParams)
+    else
+    if AParams[0].fType = FMVT_STRING then begin
+      InitSubplugins;
+      gHintCommand := True;
+      if MacroCommand(AParams[0].Value.fString, ACount, AParams) then
+        Result := INVALID_HANDLE_VALUE;
     end;
   end;
- {$endif bSynchroCall}
+ {$endif Far3}
+
+
+  procedure TFarHinstPlug.SynchroEvent(AParam :Pointer); {override;}
+  begin
+    if AParam = scmInitSubPlugins then
+      InitSubplugins
+    else
+    if AParam = scmHideHint then
+      FarHints.HideHint
+    else
+    if AParam = scmSaveSettings then
+      WriteSizeSettings
+    else
+      MakeAutoCall(gCallMode);
+    gCallMode := 0;
+  end;
+
+
+  procedure TFarHinstPlug.Configure; {override;}
+  begin
+    OptionsMenu;
+  end;
+
+
+  procedure TFarHinstPlug.ErrorHandler(E :Exception); {override;}
+  begin
+    inherited ErrorHandler(E);
+    gCallMode := 0;
+  end;
 
 
  {-----------------------------------------------------------------------------}

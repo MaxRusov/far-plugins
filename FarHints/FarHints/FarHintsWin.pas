@@ -24,6 +24,9 @@ interface
     MixFormat,
     MixWin,
 
+    FAR_API,
+    FarCtrl,
+
     MSWinAPI,
     FarHintsAPI,
     FarHintsConst,
@@ -33,8 +36,8 @@ interface
 
 
   const
-    CM_SetItem    = $8FFE;
-    CM_RunCommand = $8FFF;
+    CM_SetItem     = $8FFE;
+    CM_RunCommand  = $8FFF;
 
   const
     cMinThumbSize = 32;
@@ -49,6 +52,7 @@ interface
       Mode    :THintCallMode;
       PosX    :Integer;
       PosY    :Integer;
+      Period  :Integer;
     end;
 
 
@@ -111,6 +115,7 @@ interface
       FContext     :THintCallContext;
       FCallMode    :THintCallMode;
       FShowTime    :Cardinal;      { Время появления хинта }
+      FLifePeriod  :Integer;       { Время жизни хинта }
       FPlugin      :IHintPlugin;
       FItem        :IFarItem;
       FFolder      :Boolean;
@@ -126,9 +131,17 @@ interface
       FBitmapSize  :TSize;         { Оригинальный размер bitmap-а эскиза }
       FThumbSize   :TSize;         { Отображаемый размер эскиза }
       FImageSize   :TSize;         { Размер области рисунка (эскиз и/или иконка или рисунок субплагина) }
-      FDelta1      :Integer;
+      FInitPosX    :Integer;
+      FInitPosY    :Integer;
+      FShowPrompt  :Boolean;
+      FTransp      :byte;
+      FFontSize1   :Integer;
+      FFontSize2   :Integer;
+      FFontColor1  :Integer;
+      FFontColor2  :Integer;
       FColor1      :Integer;
       FColor2      :Integer;
+      FDelta1      :Integer;       { Вспом. размер }
 
       procedure UpdateIcon(ANewIcon :Boolean);
       procedure DoneIcon;
@@ -315,6 +328,12 @@ interface
   begin
     inherited Create;
 
+    FTransp := FarHintTransp;
+    FFontSize1 := FarHintFontSize;
+    FFontSize2 := FarHintFontSize2;
+    FFontColor1 := FarHintFontColor;
+    FFontColor2 := FarHintFontColor2;
+
     FColor1 := FarHintColor;
     FColor2 := FarHintColor2;
     if (FColor2 = -1) and (FarHintColorFade <> 0) then
@@ -322,8 +341,8 @@ interface
 
     FBrush := CreateSolidBrush(FColor1);
 
-    FFont := WinCreateFont(FarHintFontName, FarHintFontSize, FarHintFontStyle);
-    FFont2 := WinCreateFont(FarHintFontName2, FarHintFontSize2, FarHintFontStyle2);
+    FFont := WinCreateFont(FarHintFontName, FFontSize1, FarHintFontStyle);
+    FFont2 := WinCreateFont(FarHintFontName2, FFontSize2, FarHintFontStyle2);
   end;
 
 
@@ -368,7 +387,7 @@ interface
 
     if CheckWin32Version(5, 1) then
       With AParams.WindowClass do
-        Style := Style or CS_DROPSHADOW;  
+        Style := Style or CS_DROPSHADOW;
   end;
 
 
@@ -471,43 +490,52 @@ interface
       end;
     end;
 
+  var
+    vVisible :Boolean;
   begin
 //  Trace('THintWindow.CMSetItem');
     with PSetItemRec(Mess.LParam)^ do begin
 
       FContext := Context;
       FCallMode := Mode;
+      FInitPosX := PosX;
+      FInitPosY := PosY;
+      FShowPrompt := FarHintShowPrompt and (FCallMode <> hcmInfo);
       SetItem(IHintPlugin(Plugin), IFarItem(Item));
 
       if FItem <> nil then begin
-        UpdateIcon(True);
-        MoveWindowTo(PosX, PosY, True);
-        if not IsWindowVisible(Handle) then
-          ShowHint
-        else
-          InvalidateHint;
+        vVisible := (FCallMode <> hcmInfo) or (FItem.Name <> '');
+        if not vVisible then
+          HideHint
+        else begin
+          UpdateIcon(True);
+          MoveWindowTo(FInitPosX, FInitPosY, True);
+
+          if not IsWindowVisible(Handle) then
+            ShowHint
+          else
+            InvalidateHint;
+        end
       end;
 
       FShowTime := GetTickCount;
+      FLifePeriod := Period;
     end;
   end;
 
 
   procedure THintWindow.CMRunCommand(var Mess :TMessage); {message CM_RunCommand;}
-  var
-    vPSize :PInteger;
-    vSize, vOldSize :Integer;
-    vCmdIntf :IHintPluginCommand;
-  begin
-    if FPlugin <> nil then begin
-     {$ifdef bTrace1}
-      TraceF('CMRunCommand %d...', [Mess.WParam]);
-     {$endif bTrace1}
 
-      FPlugin.QueryInterface(IHintPluginCommand, vCmdIntf); 
+    procedure LocResize(AInc :Boolean);
+    var
+      vPSize :PInteger;
+      vSize, vOldSize :Integer;
+      vCmdIntf :IHintPluginCommand;
+    begin
+      FPlugin.QueryInterface(IHintPluginCommand, vCmdIntf);
       if vCmdIntf <> nil then begin
 
-        vCmdIntf.RunCommand(FItem, Mess.WParam);
+        vCmdIntf.RunCommand(FItem, IntIf(AInc, 0, 1));
 
         if IF_HideSizeLabel and FItem.IconFlags = 0 then begin
           FSizeStart := GetTickCount;
@@ -515,9 +543,7 @@ interface
         end;
 
       end else
-      if (Mess.WParam in [0, 1]) and
-        FarHintShowIcon { and ... }
-      then begin
+      if FarHintShowIcon { and ... } then begin
         if not FFolder then
           vPSize := @FarHintThumbSize1
         else
@@ -529,7 +555,7 @@ interface
           vSize := vPSize^;
           vOldSize := vSize;
 
-          if Mess.WParam = 0 then
+          if AInc then
             vSize := RangeLimit(vSize + 16, cMinThumbSize, cMaxThumbSize)
           else begin
             vSize := vSize - 16;
@@ -539,14 +565,13 @@ interface
 
           if vSize <> vOldSize then begin
             vPSize^ := vSize;
-            WriteSizeSettings(FRegRoot);
+            GNeedWriteSizeSettings := True;
 
 //          TraceF('Size: %d', [vSize]);
             UpdateIcon(False);
             FSizeStart := GetTickCount;
 
-            with GetBoundsRect do
-              MoveWindowTo(Left, Top, False);
+            MoveWindowTo(FInitPosX, FInitPosY, False);
             Invalidate;
           end else
           begin
@@ -561,12 +586,82 @@ interface
         end;
       end;
     end;
+
+    procedure LocSetColor(AValue :Integer);
+    begin
+      if FColor1 <> AValue then begin
+
+        FColor1 := AValue;
+        FColor2 := -1;
+        if FarHintColorFade <> 0 then
+          FColor2 := ColorShadeOn(ColorToRGB(FColor1), FarHintColorFade);
+
+        if FBrush <> 0 then
+          DeleteObject(FBrush);
+        FBrush := CreateSolidBrush(FColor1);
+
+        Invalidate;
+      end;
+    end;
+
+    procedure LocSetFontColor(AValue :Integer);
+    begin
+      if FFontColor1 <> AValue then begin
+        FFontColor1 := AValue;
+        Invalidate;
+      end;
+    end;
+
+    procedure LocSetFontSize(AValue :Integer);
+    begin
+//    TraceF('LocSetFontSize %d...', [AValue]);
+      if FFontSize1 <> AValue then begin
+        FFontSize1 := AValue;
+
+        if FFont <> 0 then
+          DeleteObject(FFont);
+        FFont := WinCreateFont(FarHintFontName, FFontSize1, FarHintFontStyle);
+
+        MoveWindowTo(FInitPosX, FInitPosY, False);
+        Invalidate;
+      end;
+    end;
+
+    procedure LocSetTransparent(AValue :Integer);
+    begin
+//    TraceF('LocSetTransparent %d...', [AValue]);
+      if FTransp <> AValue then begin
+        FTransp := AValue;
+        SetLayered(True);
+        SetLayeredWindowAttributes(Handle, 0, FTransp, LWA_ALPHA);
+      end;
+    end;
+
+  begin
+    if FPlugin <> nil then begin
+     {$ifdef bTrace1}
+//    TraceF('CMRunCommand. WParam=%d, LParam=%d...', [Mess.WParam, Mess.LParam]);
+     {$endif bTrace1}
+
+      case Mess.wParam of
+        cmhResize:
+          LocResize(Mess.lParam > 0);
+        cmhColor:
+          LocSetColor(Mess.lParam);
+        cmhFontColor:
+          LocSetFontColor(Mess.lParam);
+        cmhFontSize:
+          LocSetFontSize(Mess.lParam);
+        cmhTransparent:
+          LocSetTransparent(Mess.lParam);
+      end;
+    end;
   end;
 
 
   procedure THintWindow.ShowHint;
   begin
-    if ((FarHintsShowPeriod > 0) or (FarHintTransp < 255)) and Assigned(SetLayeredWindowAttributes) then
+    if ((FarHintsShowPeriod > 0) or (FTransp < 255)) and Assigned(SetLayeredWindowAttributes) then
       SmoothShowOrHide(True)
     else
       Show(SW_SHOWNA);
@@ -578,6 +673,10 @@ interface
     if (FarHintsShowPeriod > 0) and Assigned(SetLayeredWindowAttributes) then
       SmoothShowOrHide(False);  
     Show(SW_Hide);
+
+    if GNeedWriteSizeSettings then
+      FarAdvControl(ACTL_SYNCHRO, scmSaveSettings);
+    GNeedWriteSizeSettings := False;
   end;
 
 
@@ -612,7 +711,7 @@ interface
   begin
 //  FarHintsShowPeriod := 250;
 
-    vLimit := RangeLimit(FarHintTransp, 0, 255);
+    vLimit := RangeLimit(FTransp, 0, 255);
 
     if AShow then begin
       SetLayered(True);
@@ -622,11 +721,12 @@ interface
     end else
     begin
       { Под XP не получается аккуратно включить Layered атрибут - промаргивает черное пятно :( }
-//    if GetWindowLong(Handle, GWL_EXSTYLE) and WS_EX_LAYERED = 0 then begin
-//      SetLayered(True);
-//      LocSetAlphaBlend(vLimit);
-//      UpdateWindow(Handle);
-//    end;
+      if CheckWin32Version(6, 0) then
+        if GetWindowLong(Handle, GWL_EXSTYLE) and WS_EX_LAYERED = 0 then begin
+          SetLayered(True);
+          LocSetAlphaBlend(vLimit);
+          UpdateWindow(Handle);
+        end;
     end;
 
     vTime := GetTickCount;
@@ -774,7 +874,7 @@ interface
       vAttr := FItem.Attrs[I];
 
       H := 0;
-      if FarHintShowPrompt then begin
+      if FShowPrompt then begin
         vStr := vAttr.Name + ':';
         vSize := TextSize(FFont2, vStr, FarHintsMaxWidth);
         Inc(vSize.cx, HSplit2);
@@ -853,12 +953,12 @@ interface
       vAttr := FItem.Attrs[I];
       H := 0;
 
-      if FarHintShowPrompt then begin
+      if FShowPrompt then begin
         vStr := vAttr.Name + ':';
         vRect := ARect;
         vRect.Top := Y;
         SelectObject(DC, FFont2);
-        SetTextColor(DC, FarHintFontColor2);
+        SetTextColor(DC, FFontColor2);
         DrawText(DC, PTChar(vStr), -1, vRect, DT_LEFT or DT_WORDBREAK or DT_NOPREFIX or DT_EXPANDTABS);
         DrawText(DC, PTChar(vStr), -1, vRect, DT_CALCRECT or DT_LEFT or DT_WORDBREAK or DT_NOPREFIX or DT_EXPANDTABS);
         H := vRect.Bottom - vRect.Top;
@@ -869,7 +969,7 @@ interface
       vRect.Top := Y;
       Inc(vRect.Left, FDelta1);
       SelectObject(DC, FFont);
-      SetTextColor(DC, FarHintFontColor);
+      SetTextColor(DC, FFontColor1);
       DrawText(DC, PTChar(vStr), -1, vRect, DT_LEFT or DT_WORDBREAK or DT_NOPREFIX or DT_EXPANDTABS);
       DrawText(DC, PTChar(vStr), -1, vRect, DT_CALCRECT or DT_LEFT or DT_WORDBREAK or DT_NOPREFIX or DT_EXPANDTABS);
       if vRect.Bottom - vRect.Top > H then
@@ -900,10 +1000,20 @@ interface
   procedure THintWindow.MoveWindowTo(X, Y :Integer; ASmooth :Boolean);
   var
     I, Xi, Yi, vFlags :Integer;
-    vSize :TSize;
     vDestRect, vSrcRect :TRect;
+    vSize :TSize;
+    vWnd :THandle;
   begin
     vSize := CalcSize;
+
+    if X = -1 then begin
+      vWnd := hConsoleWnd;
+      Windows.GetClientRect(vWnd, vSrcRect);
+      Windows.ClientToScreen(vWnd, vSrcRect.TopLeft);
+      Windows.ClientToScreen(vWnd, vSrcRect.BottomRight);
+      X := (vSrcRect.Left + vSrcRect.Right - vSize.cx) div 2;
+    end;
+
     vDestRect := Bounds(X, Y, vSize.CX, vSize.CY);
     CorrectBoundsRectForPoint(vDestRect, Point(X, Y));
 
@@ -924,7 +1034,7 @@ interface
       if GetWindowLong(Handle, GWL_EXSTYLE) and WS_EX_LAYERED <> 0 then begin
         vSrcRect := GetBoundsRect;
         if (vSrcRect.Right - vSrcRect.Left <> vDestRect.Right - vDestRect.Left) or (vSrcRect.Bottom - vSrcRect.Top <> vDestRect.Bottom - vDestRect.Top) then begin
-          if FarHintTransp = 255 then
+          if FTransp = 255 then
             { Выключение режима Layered повышает быстродействие масштабирования и уменьшает моргание... }
             SetLayered(False)
           else
@@ -1022,11 +1132,11 @@ interface
   var
     vIdleIntf :IHintPluginIdle;
   begin
-    Result := True; 
+    Result := True;
 //  Result := FPlugin.Idle(FItem);
     FPlugin.QueryInterface(IHintPluginIdle, vIdleIntf);
     if vIdleIntf <> nil then
-      Result := vIdleIntf.Idle(FItem); 
+      Result := vIdleIntf.Idle(FItem);
   end;
 
 
@@ -1054,8 +1164,7 @@ interface
           begin
             if (FBitmap <> 0) or FWaitPulsed then begin
               FWaitPulsed := False;
-              with GetBoundsRect do
-                MoveWindowTo(Left, Top, False);
+              MoveWindowTo(FInitPosX, FInitPosY, False);
               Invalidate;
             end;
           end;
@@ -1065,6 +1174,11 @@ interface
         if (FSizeStart <> 0) and (TickCountDiff(GetTickCount, FSizeStart) > 1000) then begin
           FSizeStart := 0;
           InvalidateImageHeader;
+        end;
+
+        if (FLifePeriod > 0) and (TickCountDiff(GetTickCount, FShowTime) > FLifePeriod) then begin
+          FLifePeriod := 0;
+          FarAdvControl(ACTL_SYNCHRO, scmHideHint);
         end;
 
         Result := IdleCall;
@@ -1110,8 +1224,9 @@ interface
 
   constructor TWinThread.Create;
   begin
-//  FWindow := THintWindow.Create;
     inherited Create(False);
+//  FWindow := THintWindow.Create;
+//  FreeOnTerminate := True;
   end;
 
 
@@ -1141,7 +1256,7 @@ interface
       CoUninitialize;
     end;
   end;
-  
+
 
 initialization
 //TraceF('SizeOf(TMsg)=%d', [SizeOf(TMsg)]);

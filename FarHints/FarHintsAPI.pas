@@ -23,6 +23,7 @@ interface
   4 - IHintPluginInfo interface added + some various changes
   5 - IHintPluginCommand interface added + some various changes
   6 - Embedded plugin support
+  7 - Изменено поведение функций GetRegXXX/SetRegXXX
 }
 
   type
