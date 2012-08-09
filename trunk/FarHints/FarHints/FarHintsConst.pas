@@ -13,41 +13,57 @@ interface
   uses
     Windows,
     MixTypes,
-    MixWin;
+    MixWin,
+    Far_API,
+    FarCtrl;
+
+
+  type
+    TMessages = (
+      strLang,
+      strError,
+      strTitle,
+      strCommandsTitle,
+      strOptionsTitle,
+      strMouseHint,
+      strCurItemHint,
+      strPermanentHint,
+      strHintCommands,
+      strOptions,
+      strAutoMouse,
+      strAutoKey,
+      strHintInPanel,
+      strHintInDialog,
+      strShowIcons,
+      strShellThumbnail,
+      strIconOnThumbnail,
+      strName,
+      strType,
+      strDescription,
+      strModified,
+      strSize,
+      strPackedSize
+    );
 
 
   const
-    strLang             = 0;
-    strError            = 1;
-    strTitle            = 2;
-    strCommandsTitle    = 3;
-    strOptionsTitle     = 4;
-    strMouseHint        = 5;
-    strCurItemHint      = 6;
-    strPermanentHint    = 7;
-    strHintCommands     = 8;
-    strOptions          = 9;
-    strAutoMouse        = 10;
-    strAutoKey          = 11;
-    strHintInPanel      = 12;
-    strHintInDialog     = 13;
-    strShellThumbnail   = 14;
-    strIconOnThumbnail  = 15;
-    strName             = 16;
-    strType             = 17;
-    strDescription      = 18;
-    strModified         = 19;
-    strSize             = 20;
-    strPackedSize       = 21;
+    cPluginName = 'FarHints';
+    cPluginDescr = 'FarHints FAR plugin';
+    cPluginAuthor = 'Max Rusov';
 
+   {$ifdef Far3}
+    cPluginID   :TGUID = '{CDF48DA0-0334-4169-8453-69048DD3B51C}';
+    cMenuID     :TGUID = '{56B7CFB2-3450-4B4C-BF2C-93917033CBD8}';
+    cConfigID   :TGUID = '{C54F0F2E-87AD-453C-A962-4E95CB2EEE73}';
+   {$else}
+    cPluginID   = $544e4948;
+   {$endif Far3}
 
   const
     HMargin = 3;
     VMargin = 2;
     HSplit1 = 4;  { Щель между картинкой и надписью }
     HSplit2 = 4;  { Щель между prompt'ом и строкой }
-
-    cPluginGUID       = $544e4948;
 
     RegFolder         = 'FarHints';
     RegPluginsFolder  = 'Plugins';
@@ -59,8 +75,10 @@ interface
 
     ShowHintFirstDelay1 :Integer = 1000;  {ms}    { Задержка появления клавиатурного хинта }
 
-    HideHintDelay       :Cardinal = 100; {ms}    { Чтобы успела отработать макрокоманда хинта }  {???}
-    HideHindAgeLock     :Cardinal = 100; {ms}    { "Молодой" хинт не закрывается от нажатий }
+    HideHintDelay       :Integer = 100;   {ms}    { Чтобы успела отработать макрокоманда хинта }  {???}
+    HideHindAgeLock     :Integer = 100;   {ms}    { "Молодой" хинт не закрывается от нажатий }
+
+    InfoHintPeriod      :Integer  = 3000; {ms}    { Время показа информационного хинта }
 
   var
     FarHintColor        :TColor = $FFFFFF; {clInfoBk;} { $80FFFF }
@@ -94,7 +112,7 @@ interface
 
     FarHintsDateFormat  :TString = 'c';
 
-    FarHintsShowPeriod  :Integer = 100;    { Желаемое время плавного прявления (исчезания) хинта }
+    FarHintsShowPeriod  :Integer = 150;    { Желаемое время плавного прявления (исчезания) хинта }
     FarHintSmothSteps   :Integer = 0;
     FarHintTransp       :Integer = 255;
 
@@ -112,7 +130,8 @@ interface
     THintCallMode = (
       hcmNone,
       hcmMouse,
-      hcmCurrent
+      hcmCurrent,
+      hcmInfo
     );
 
     { Контекст вызова хинта: панель, диалог... }
@@ -123,12 +142,34 @@ interface
       hccViewer,
       hccDialog
     );
-    
-  var
-    FRegRoot    :TString;
+
+  const
+    scmInitSubPlugins = Pointer(1);
+    scmSaveSettings   = Pointer(2);
+    scmHideHint       = Pointer(3);
+
+  const
+    cmhResize      = 1;
+    cmhColor       = 2;
+    cmhFontColor   = 3;
+    cmhFontSize    = 4;
+    cmhTransparent = 5;
+
+  function GetMsg(AMess :TMessages) :PFarChar;
+  function GetMsgStr(AMess :TMessages) :TString;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
+
+  function GetMsg(AMess :TMessages) :PFarChar;
+  begin
+    Result := FarCtrl.GetMsg(Integer(AMess));
+  end;
+
+  function GetMsgStr(AMess :TMessages) :TString;
+  begin
+    Result := FarCtrl.GetMsgStr(Integer(AMess));
+  end;
 
 end.

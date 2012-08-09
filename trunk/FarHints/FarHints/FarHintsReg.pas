@@ -14,16 +14,21 @@ interface
     Windows,
     MixTypes,
     MixWinUtils,
-    FarHintsConst;
+    FarHintsConst,
+    FarConfig;
 
 
-  procedure ReadSetup(const APath :TString);
+  var
+    GNeedWriteSizeSettings :Boolean = False;
+
+
+  procedure ReadSetup;
     { Основные настройки, считываются один раз, при загрузке плагина }
-  procedure ReadSettings(const APath :TString);
+  procedure ReadSettings;
     { Дополнительные настройки. Считываются перед каждым появлением хинта }
     
-  procedure WriteSizeSettings(const APath :TString);
-  procedure WriteSomeSettings(const APath :TString);
+  procedure WriteSizeSettings;
+  procedure WriteSomeSettings;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -33,109 +38,110 @@ interface
   uses
     MixDebug;
 
- 
-  procedure ReadSetup(const APath :TString);
+
+  type
+    TConfigMode = (
+      cmReadOne,
+      cmReadMore,
+      cmWriteSize,
+      cmWriteMore
+    );
+
+
+  procedure PluginConfig(AStore :Boolean; AMode :TConfigMode);
   var
-    vKey :HKEY;
+    vConfig :TFarConfig;
   begin
-    if not RegOpenRead(HKCU, APath + '\' + RegFolder, vKey) then
-      Exit;
+   {$ifdef bTrace1}
+//  TraceF('PluginConfig %d-%d...', [byte(AStore), byte(AMode)]);
+   {$endif bTrace1}
+
+    vConfig := TFarConfig.CreateEx(AStore, cPluginName);
     try
-      FarHintsEnabled := RegQueryLog(vKey, 'Enabled', FarHintsEnabled);
-      FarHintsAutoKey := RegQueryLog(vKey, 'AutoKey', FarHintsAutoKey);
-      FarHintsAutoMouse := RegQueryLog(vKey, 'AutoMouse', FarHintsAutoMouse);
-      FarHintsInPanel := RegQueryLog(vKey, 'HintInPanel', FarHintsInPanel);
-      FarHintsInDialog := RegQueryLog(vKey, 'HintInDialog', FarHintsInDialog);
+      with vConfig do begin
+        if not Exists then
+          Exit;
 
-      ShowHintFirstDelay := RegQueryInt(vKey, 'FirstDelay', ShowHintFirstDelay);
-      ShowHintNextDelay := RegQueryInt(vKey, 'NextDelay', ShowHintNextDelay);
+        if AMode = cmReadOne then begin
+          LogValue('Enabled', FarHintsEnabled);
+          IntValue('FirstDelay', ShowHintFirstDelay);
+          IntValue('NextDelay', ShowHintNextDelay);
+          FarHintForceKey := ReadInt('ForceKey', FarHintForceKey);
 
-      FarHintForceKey := RegQueryInt(vKey, 'ForceKey', FarHintForceKey);
+         {$ifdef bSynchroCall}
+         {$else}
+          FarHintsKey := ReadInt('CallKey', FarHintsKey);
+          FarHintsShift := ReadInt('CallShift', FarHintsShift);
+         {$endif bSynchroCall}
+        end;
 
-     {$ifdef bSynchroCall}
-     {$else}
-      FarHintsKey := RegQueryInt(vKey, 'CallKey', FarHintsKey);
-      FarHintsShift := RegQueryInt(vKey, 'CallShift', FarHintsShift);
-     {$endif bSynchroCall}
+        if AMode in [cmReadOne, cmWriteMore] then begin
+          LogValue('AutoKey', FarHintsAutoKey);
+          LogValue('AutoMouse', FarHintsAutoMouse);
+          LogValue('HintInPanel', FarHintsInPanel);
+          LogValue('FarHintsInDialog', FarHintsInDialog);
+        end;
+
+        if AMode in [cmReadMore, cmWriteMore] then begin
+          LogValue('ShowIcon', FarHintShowIcon);
+          LogValue('UseThumbnail', FarHintUseThumbnail);
+          LogValue('IconOnThumbnail', FarHintIconOnThumb);
+        end;
+
+        if AMode in [cmReadMore, cmWriteSize] then begin
+          IntValue('MaxThumbnailSize', FarHintThumbSize1);
+          IntValue('MaxFolderThumbnailSize', FarHintThumbSize2);
+        end;
+
+        if AMode in [cmReadMore] then begin
+          LogValue('ShowPrompt', FarHintShowPrompt);
+
+          IntValue('ShowPeriod', FarHintsShowPeriod);
+          IntValue('SmoothStep', FarHintSmothSteps);
+
+          IntValue('Color', FarHintColor);
+          IntValue('Color2', FarHintColor2);
+          IntValue('ColorFade', FarHintColorFade);
+          IntValue('Transparency', FarHintTransp);
+
+          StrValue('FontName', FarHintFontName);
+          IntValue('FontSize', FarHintFontSize);
+          IntValue('FontColor', FarHintFontColor);
+          byte(FarHintFontStyle) := ReadInt('FontStyle', byte(FarHintFontStyle));
+
+          StrValue('FontName2', FarHintFontName2);
+          IntValue('FontSize2', FarHintFontSize2);
+          IntValue('FontColor2', FarHintFontColor2);
+          byte(FarHintFontStyle) := ReadInt('FontStyle2', byte(FarHintFontStyle2));
+
+          StrValue('DateFormat', FarHintsDateFormat);
+        end
+      end;
 
     finally
-      RegCloseKey(vKey);
+      vConfig.Destroy;
     end;
   end;
 
 
-  procedure ReadSettings(const APath :TString);
-  var
-    vKey :HKEY;
+  procedure ReadSetup;
   begin
-    if not RegOpenRead(HKCU, APath + '\' + RegFolder, vKey) then
-      Exit;
-    try
-      FarHintShowIcon := RegQueryLog(vKey, 'ShowIcon', FarHintShowIcon);
-      FarHintShowPrompt := RegQueryLog(vKey, 'ShowPrompt', FarHintShowPrompt);
-
-      FarHintUseThumbnail := RegQueryLog(vKey, 'UseThumbnail', FarHintUseThumbnail);
-      FarHintIconOnThumb := RegQueryLog(vKey, 'IconOnThumbnail', FarHintIconOnThumb);
-
-      FarHintThumbSize1 := RegQueryInt(vKey, 'MaxThumbnailSize', FarHintThumbSize1);
-      FarHintThumbSize2 := RegQueryInt(vKey, 'MaxFolderThumbnailSize', FarHintThumbSize2);
-
-      FarHintsShowPeriod := RegQueryInt(vKey, 'ShowPeriod', FarHintsShowPeriod);
-      FarHintSmothSteps := RegQueryInt(vKey, 'SmoothStep', FarHintSmothSteps);
-
-      FarHintColor := RegQueryInt(vKey, 'Color', FarHintColor);
-      FarHintColor2 := RegQueryInt(vKey, 'Color2', FarHintColor2);
-      FarHintColorFade := RegQueryInt(vKey, 'ColorFade', FarHintColorFade);
-      FarHintTransp := RegQueryInt(vKey, 'Transparency', FarHintTransp);
-
-      FarHintFontName := RegQueryStr(vKey, 'FontName', FarHintFontName);
-      FarHintFontSize := RegQueryInt(vKey, 'FontSize', FarHintFontSize);
-      FarHintFontColor := RegQueryInt(vKey, 'FontColor', FarHintFontColor);
-      Byte(FarHintFontStyle) := RegQueryInt(vKey, 'FontStyle', Byte(FarHintFontStyle));
-
-      FarHintFontName2 := RegQueryStr(vKey, 'FontName2', FarHintFontName2);
-      FarHintFontSize2 := RegQueryInt(vKey, 'FontSize2', FarHintFontSize2);
-      FarHintFontColor2 := RegQueryInt(vKey, 'FontColor2', FarHintFontColor2);
-      Byte(FarHintFontStyle2) := RegQueryInt(vKey, 'FontStyle2', Byte(FarHintFontStyle2));
-
-      FarHintsDateFormat := RegQueryStr(vKey, 'DateFormat', FarHintsDateFormat);
-
-    finally
-      RegCloseKey(vKey);
-    end;
+    PluginConfig(False, cmReadOne);
   end;
 
-
-  procedure WriteSizeSettings(const APath :TString);
-  var
-    vKey :HKEY;
+  procedure ReadSettings;
   begin
-    RegOpenWrite(HKCU, APath + '\' + RegFolder, vKey);
-    try
-      RegWriteInt(vKey, 'MaxThumbnailSize', FarHintThumbSize1);
-      RegWriteInt(vKey, 'MaxFolderThumbnailSize', FarHintThumbSize2);
-    finally
-      RegCloseKey(vKey);
-    end;
+    PluginConfig(False, cmReadMore);
   end;
 
-
-  procedure WriteSomeSettings(const APath :TString);
-  var
-    vKey :HKEY;
+  procedure WriteSizeSettings;
   begin
-    RegOpenWrite(HKCU, APath + '\' + RegFolder, vKey);
-    try
-      RegWriteLog(vKey, 'AutoKey', FarHintsAutoKey);
-      RegWriteLog(vKey, 'AutoMouse', FarHintsAutoMouse);
-      RegWriteLog(vKey, 'HintInPanel', FarHintsInPanel);
-      RegWriteLog(vKey, 'HintInDialog', FarHintsInDialog);
+    PluginConfig(True, cmWriteSize);
+  end;
 
-      RegWriteLog(vKey, 'UseThumbnail', FarHintUseThumbnail);
-      RegWriteLog(vKey, 'IconOnThumbnail', FarHintIconOnThumb);
-    finally
-      RegCloseKey(vKey);
-    end;
+  procedure WriteSomeSettings;
+  begin
+    PluginConfig(True, cmWriteMore);
   end;
 
 

@@ -16,6 +16,7 @@ interface
 
     MixTypes,
     MixUtils,
+    MixWinUtils,
     MixStrings,
     MixClasses,
 
@@ -254,24 +255,22 @@ interface
         end;
       end;
 
-      function LocEnumLangFile(const AFileName :TString; const ARec :TFarFindData) :Integer;
+      function LocEnumLangFile(const APath :TString; const ARec :TWin32FindData) :Boolean;
       var
         I :Integer;
         vStr :TString;
       begin
 //      Trace(AFileName);
-        ReadStrings(AFileName, vMessages);
+        ReadStrings(AddFileName(APath, ARec.cFileName), vMessages);
         if (ALang = '') or CheckLang(ALang) then begin
-
           for I := 0 to vMessages.Count - 1 do begin
             vStr := vMessages[I];
             if (vStr <> '') and (vStr[1] <> '.') and (vStr[1] <> '/') and (vStr[1] <> ';') then
               FMessages.Add( StrUnquote(vStr, '"') );
           end;
-
-          Result := 0;
+          Result := False;
         end else
-          Result := 1;
+          Result := True;
       end;
 
     var
@@ -280,7 +279,7 @@ interface
       vMessages := TStringList.Create;
       try
         vFolderName := RemoveBackSlash(ExtractFilePath(FName));
-        EnumFilesEx(vFolderName, cLangFileMask, LocalAddr(@LocEnumLangFile));
+        WinEnumFiles(vFolderName, cLangFileMask, faEnumFiles, LocalAddr(@LocEnumLangFile));
         Result := FMessages.Count > 0;
       finally
         FreeObj(vMessages);
@@ -321,10 +320,10 @@ interface
 
   procedure TPlugins.ScanPlugins(const APath :TString);
 
-    function LocEnumPlugin(const AFileName :TString; const ARec :TFarFindData) :Integer;
+    function LocEnumPlugin(const APath :TString; const ARec :TWin32FindData) :Boolean;
     begin
-      AddSorted( TPlugin.CreateEx(AFileName), 0, dupAccept );
-      Result := 1;
+      AddSorted( TPlugin.CreateEx(AddFileName(APath, ARec.cFileName)), 0, dupAccept );
+      Result := True;
     end;
 
   var
@@ -335,7 +334,7 @@ interface
       vFolderName := AddFileName(ExtractFilePath(ParamStr(0)), cPluginsFolder);
     if not FolderExists(vFolderName) then
       Exit;
-    EnumFilesEx(vFolderName, cPluginsMask,  LocalAddr(@LocEnumPlugin));
+    WinEnumFilesEx(vFolderName, cPluginsMask, faEnumFiles, [efoRecursive],  LocalAddr(@LocEnumPlugin));
   end;
 
 

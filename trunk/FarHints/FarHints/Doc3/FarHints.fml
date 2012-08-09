@@ -1,0 +1,31 @@
+
+const FarHints  = "CDF48DA0-0334-4169-8453-69048DD3B51C"
+
+macro Descr="Far Hints: Close hint or toggle panels" Area="Shell" Key="Esc"
+{{
+  $if (!CallPlugin(#%FarHints, "Hide")) 
+    $if (CmdLine.Empty) 
+      CtrlO 
+    $else
+      Esc
+    $end
+  $end
+}}
+
+
+macro Descr="Far Hints: Keyboard Hint" Area="Shell TreePanel" //Key="..."
+{{
+  $if (!CallPlugin(#%FarHints, "Hide")) 
+    CallPlugin(#%FarHints, "Show", 2)
+  $end
+}}
+
+
+macro Descr="Far Hints: Mouse Increase/Decrease" Area="Shell Dialog" Key="MsWheelUp MsWheelDown"
+{{
+  %n = iif(AKey(2) == "MsWheelUp", 1, -1);
+  $if (!CallPlugin(#%FarHints, "Size", %n)) 
+    $AKey
+  $end                                               
+}}
+

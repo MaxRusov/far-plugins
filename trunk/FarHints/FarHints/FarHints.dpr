@@ -10,24 +10,27 @@ uses
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
+  FarPlug,
   FarHintsMain;
 
 exports
- {$ifdef bUnicodeFar}
+ {$ifdef Far3}
+  GetGlobalInfoW,
+ {$else}
   GetMinFarVersionW,
+ {$endif Far3}
   SetStartupInfoW,
   GetPluginInfoW,
-  OpenPluginW,    
+ {$ifdef Far3}
+  OpenW,
+ {$else}
+  OpenPluginW,
+ {$endif Far3}
  {$ifdef bSynchroCall}
   ProcessSynchroEventW,
  {$endif bSynchroCall}
+  ConfigureW,
   ExitFARW,
- {$else}
-  SetStartupInfo,
-  GetPluginInfo,
-  OpenPlugin,
-  ExitFAR,
- {$endif bUnicodeFar}
 
   GetFarHinstAPI;
   
@@ -38,5 +41,6 @@ exports
   {$R FarHintsA.res}
  {$endif Unicode}
 
-
+begin
+  Plug := TFarHinstPlug.Create;
 end.

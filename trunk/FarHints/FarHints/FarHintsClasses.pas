@@ -22,6 +22,7 @@ interface
 
     Far_API,
     FarCtrl,
+    FarConfig,
 
     MSForms,
     FarConMan,
@@ -85,6 +86,7 @@ interface
     public
       constructor CreateEx(APlugin, APrimary :Boolean; const ATitle, AFolder :TString; AItem :PPluginPanelItem);
       constructor CreateFolder(const AFolder :TString);
+      constructor CreateInfo(const AMessage :TString);
       destructor Destroy; override;
 
     public
@@ -162,14 +164,15 @@ interface
 
       function ShowHint(AContext :THintCallContext; ACallMode :THintCallMode; APlugin, APrimary :Boolean; const ATitle :TString;
         MouseX, MouseY, ShowX, ShowY :Integer; AItemRect :PRect; const AFolder :TString; AItem :PPluginPanelItem) :Boolean;
-      procedure HideHint;
+      function ShowInfo(const AMessage :TString; X, Y :Integer; APeriod :Integer) :Boolean;
+      function HideHint :Boolean;
 
-      procedure HintCommand(ACommand :Integer);
+      function HintCommand(ACommand :Integer; AParam :TIntPtr) :Boolean;
 
       function HintVisible :Boolean;
       function CurrentHintContext :THintCallContext;
       function CurrentHintMode :THintCallMode;
-      function CurrentHintAge :Cardinal;
+      function CurrentHintAge :Integer;
       function IsHintWindow(AHandle :THandle) :Boolean;
       function InItemRect(const APos :TPoint) :Boolean;
 
@@ -205,14 +208,16 @@ interface
       FPlugins     :TPlugins;
       FStdPlugin   :IHintPlugin;
       FWinThread   :TWinThread;
+      FOldThread   :TWinThread;
       FWindow      :THintWindow;
       FItemRect    :TRect;
       FCreateLock  :TCriticalSection;
 
       procedure DeinitHint;
+      procedure LowCreateWinThread;
 
       procedure SetItemToWindow(const APlugin :IHintPlugin; const AItem :IFarItem;
-        AContext :THintCallContext; ACallMode :THintCallMode; X, Y :Integer);
+        AContext :THintCallContext; ACallMode :THintCallMode; X, Y :Integer; APeriod :Integer);
       procedure InvalidateWindow(AFlags :Integer);
 
     public
@@ -417,7 +422,6 @@ interface
  { TFarItem                                                                    }
  {-----------------------------------------------------------------------------}
 
- {$ifdef bUnicodeFar}
   constructor TFarItem.CreateEx(APlugin, APrimary :Boolean; const ATitle, AFolder :TString; AItem :PPluginPanelItem);
   begin
     inherited Create;
@@ -428,7 +432,11 @@ interface
 
     FFolder := AFolder;
     FFarItem := AItem;
+   {$ifdef Far3}
+    FName := AItem.FileName;
+   {$else}
     FName := AItem.FindData.cFileName;
+   {$endif Far3}
 
     if (FFolder = '') or IsFullFilePath(FName) then begin
       { Временная панель. Имя содержит полный путь. }
@@ -436,48 +444,18 @@ interface
       FName := ExtractFileName(FName);
     end;
 
+   {$ifdef Far3}
+    FAttr := AItem.FileAttributes;
+    FSize := AItem.FileSize;
+    FModified := FileTimeToDateTime(AItem.LastWriteTime);
+   {$else}
     FAttr := AItem.FindData.dwFileAttributes;
     FSize := AItem.FindData.nFileSize;
     FModified := FileTimeToDateTime(AItem.FindData.ftLastWriteTime);
+   {$endif Far3}
 
     FAttrs := TExList.Create;
   end;
-
- {$else}
-
-  constructor TFarItem.CreateEx(APlugin, APrimary  :Boolean; const ATitle, AFolder :TString; AItem :PPluginPanelItem);
-  var
-    vAltName :TString;
-  begin
-    inherited Create;
-
-    FPlugin := APlugin;
-    FPrimaryPanel := APrimary;
-    FPluginTitle := ATitle;
-
-    FFolder := StrOemToAnsi(AFolder);
-    FFarItem := AItem;
-    FName := StrOemToAnsi(AItem.FindData.cFileName);
-    vAltName := StrOemToAnsi(AItem.FindData.cAlternateFileName);
-
-    if FFolder = '' then begin
-      { Временная панель. Имя содержит полный путь. }
-      FFolder := ExtractFilePath(FName);
-      FName := ExtractFileName(FName);
-      vAltName := '';
-    end;
-   {$ifdef bUnicode}
-    if vAltName <> '' then
-      FName := NameByShortName(FFolder, vAltName);
-   {$endif bUnicode}
-
-    FAttr := AItem.FindData.dwFileAttributes;
-    FSize := MakeInt64(AItem.FindData.nFileSizeLow, AItem.FindData.nFileSizeHigh);
-    FModified := FileTimeToDateTime(AItem.FindData.ftLastWriteTime);
-
-    FAttrs := TExList.Create;
-  end;
- {$endif bUnicodeFar}
 
 
   constructor TFarItem.CreateFolder(const AFolder :TString);
@@ -510,6 +488,16 @@ interface
       FName := vFolder;
 
     FAttrs := TExList.Create;
+  end;
+
+
+  constructor TFarItem.CreateInfo(const AMessage :TString);
+  begin
+    inherited Create;
+    FPlugin := True;  // Чтобы не пыталось обновить иконку...
+    FName := AMessage;
+    FAttrs := TExList.Create;
+    AddStringInfo('', AMessage);
   end;
 
 
@@ -693,7 +681,7 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- { TFarHintsMain                                                                }
+ { TFarHintsMain                                                               }
  {-----------------------------------------------------------------------------}
 
   constructor TFarHintsMain.Create; {override;}
@@ -708,6 +696,7 @@ interface
   destructor TFarHintsMain.Destroy; {override;}
   begin
     HideHint;
+    FreeObj(FOldThread);
     FPlugins.UnloadNotify;
     FreeObj(FCreateLock);
     FreeIntf(FStdPlugin);
@@ -748,12 +737,12 @@ interface
     vEqual :Boolean;
   begin
     Result := False;
-    if (AItem <> nil) and (AItem.FindData.cFileName = '..') then
+    if (AItem <> nil) and ({$ifdef Far3}AItem.FileName{$else}AItem.FindData.cFileName{$endif} = '..') then
       Exit;
 
    {$ifdef bTrace1}
     if AItem <> nil then
-      TraceF('ShowHint, Folder=%s, File=%s', [AFolder, AItem.FindData.cFileName])
+      TraceF('ShowHint, Folder=%s, File=%s', [AFolder, {$ifdef Far3}AItem.FileName{$else}AItem.FindData.cFileName{$endif}])
     else
       TraceF('ShowHint, Folder=%s', [AFolder]);
    {$endif bTrace1}
@@ -797,7 +786,7 @@ interface
     end;
 
     if not HintVisible then
-      ReadSettings(FRegRoot);
+      ReadSettings;
 
    {$ifdef bThumbnail}
     if FarHintUseThumbnail and CanUseThumbnail then
@@ -807,9 +796,12 @@ interface
       DoneThumbnailThread;
    {$endif bThumbnail}
 
-    { Этот гарантирует, что у суб-плагина будет вызван DoneItem перед Process, }
-    { т.е. что суб-плагин работает только с одним экземпляром Item... }
-    DeinitHint;
+    if CurrentHintMode <> ACallMode then
+      HideHint
+    else
+      { Этот гарантирует, что у суб-плагина будет вызван DoneItem перед Process, }
+      { т.е. что суб-плагин работает только с одним экземпляром Item... }
+      DeinitHint;
 
     vPlugin := nil;
     for i := 0 to FPlugins.Count - 1 do
@@ -830,17 +822,8 @@ interface
 
     FCreateLock.Enter;
     try
-      if FWinThread = nil then begin
-        FWinThread := TWinThread.Create;
-        while FWinThread.Window = nil do
-          Sleep(0);
-        FWindow := FWinThread.Window;
-
-        { Устанавливаем Hint, для использования в макросах }
-        SetEnvironmentVariable('FarHint', '1');
-      end;
-
-      SetItemToWindow(vPlugin, vItem, AContext, ACallMode, ShowX, ShowY);
+      LowCreateWinThread;
+      SetItemToWindow(vPlugin, vItem, AContext, ACallMode, ShowX, ShowY, 0);
 
       vPlugin.PostProcess(vItem);
       FItemRect := vObj.FItemRect;
@@ -854,18 +837,65 @@ interface
   end;
 
 
-  procedure TFarHintsMain.HideHint;
+  function TFarHintsMain.ShowInfo(const AMessage :TString; X, Y :Integer; APeriod :Integer) :Boolean;
+  var
+    vItem :IFarItem;
   begin
+    vItem := TFarItem.CreateInfo(AMessage);
+
+    if not HintVisible then
+      ReadSettings;
+
+    if CurrentHintMode <> hcmInfo then
+      HideHint
+    else
+      DeinitHint;
+
     FCreateLock.Enter;
     try
+      LowCreateWinThread;
+      SetItemToWindow(FStdPlugin, vItem, hccNone, hcmInfo, X, Y, APeriod);
+    finally
+      FCreateLock.Leave;
+    end;
+
+    Result := True;
+  end;
+
+
+  procedure TFarHintsMain.LowCreateWinThread;
+  begin
+    if FWinThread = nil then begin
+      FWinThread := TWinThread.Create;
+      while FWinThread.Window = nil do
+        Sleep(0);
+      FWindow := FWinThread.Window;
+
+      { Устанавливаем Hint, для использования в макросах }
+      SetEnvironmentVariable('FarHint', '1');
+    end;
+  end;
+
+
+  function TFarHintsMain.HideHint :Boolean;
+  begin
+    Result := False;
+    FCreateLock.Enter;
+    try
+      FreeObj(FOldThread);
       if FWinThread <> nil then begin
         SetEnvironmentVariable('FarHint', nil);
 
         FWinThread.Terminate;
-        FWinThread.WaitFor;
-        FreeObj(FWinThread);
+        { Не ждем, чтобы не тормозить поток на время угасания хинта... }
+//      FWinThread.WaitFor;
+//      FreeObj(FWinThread);
+
+        FOldThread := FWinThread;
+        FWinThread := nil;
 
         FWindow := nil;
+        Result := True;
       end;
     finally
       FCreateLock.Leave;
@@ -873,12 +903,15 @@ interface
   end;
 
 
-  procedure TFarHintsMain.HintCommand(ACommand :Integer);
+  function TFarHintsMain.HintCommand(ACommand :Integer; AParam :TIntPtr) :Boolean;
   begin
+    Result := False;
     FCreateLock.Enter;
     try
-      if FWindow <> nil then
-        SendMessage(FWindow.Handle, CM_RunCommand, ACommand, 0);
+      if FWindow <> nil then begin
+        SendMessage(FWindow.Handle, CM_RunCommand, ACommand, AParam);
+        Result := True;
+      end;
     finally
       FCreateLock.Leave;
     end;
@@ -890,7 +923,7 @@ interface
     FCreateLock.Enter;
     try
       if FWindow <> nil then
-        SetItemToWindow(nil, nil, hccNone, hcmNone, 0, 0);
+        SetItemToWindow(nil, nil, hccNone, hcmNone, 0, 0, 0);
     finally
       FCreateLock.Leave;
     end;
@@ -934,7 +967,7 @@ interface
   end;
 
 
-  function TFarHintsMain.CurrentHintAge :Cardinal;
+  function TFarHintsMain.CurrentHintAge :Integer;
   begin
     FCreateLock.Enter;
     try
@@ -991,7 +1024,7 @@ interface
 
 
   procedure TFarHintsMain.SetItemToWindow(const APlugin :IHintPlugin; const AItem :IFarItem;
-    AContext :THintCallContext; ACallMode :THintCallMode; X, Y :Integer);
+    AContext :THintCallContext; ACallMode :THintCallMode; X, Y :Integer; APeriod :Integer);
   var
     vRec :TSetItemRec;
   begin
@@ -1002,6 +1035,7 @@ interface
     vRec.Mode    := ACallMode;
     vRec.PosX    := X;
     vRec.PosY    := Y;
+    vRec.Period  := APeriod;
     SendMessage(FWindow.Handle, CM_SetItem, 0, LPARAM(@vRec));
   end;
 
@@ -1011,7 +1045,7 @@ interface
 
   function TFarHintsMain.GetRevision :Integer;
   begin
-    Result := 3;
+    Result := 7;
   end;
 
   procedure TFarHintsMain.RaiseError(const AMessage :WideString);
@@ -1028,28 +1062,44 @@ interface
 
   function TFarHintsMain.GetRegRoot :WideString;
   begin
-    Result :=  FRegRoot + '\' + RegFolder + '\' + RegPluginsFolder;
+   {$ifdef Far3}
+    Result :=  '';
+   {$else}
+    Result :=  TString(FARAPI.RootKey) + '\' + RegFolder + '\' + RegPluginsFolder;
+   {$endif Far3}
   end;
 
   function TFarHintsMain.GetRegValueStr(ARoot :HKEY; const APath, AName, ADefault :WideString) :WideString;
   begin
-    Result := RegGetStrValue(ARoot, APath, AName, ADefault);
+    if ARoot = INVALID_HANDLE_VALUE then
+      Result := FarConfigGetStrValue(cPluginName, RegPluginsFolder + '\' + APath, AName, ADefault)
+    else
+      Result := RegGetStrValue(ARoot, APath, AName, ADefault);
   end;
 
   function TFarHintsMain.GetRegValueInt(ARoot :HKEY; const APath, AName :WideString; ADefault :Integer) :Integer;
   begin
-    Result := RegGetIntValue(ARoot, APath, AName, ADefault);
+    if ARoot = INVALID_HANDLE_VALUE then
+      Result := FarConfigGetIntValue(cPluginName, RegPluginsFolder + '\' + APath, AName, ADefault)
+    else
+      Result := RegGetIntValue(ARoot, APath, AName, ADefault);
   end;
 
 
   procedure TFarHintsMain.SetRegValueStr(ARoot :HKEY; const APath, AName, AValue :WideString);
   begin
-    RegSetStrValue(ARoot, APath, AName, AValue);
+    if ARoot = INVALID_HANDLE_VALUE then
+      FarConfigSetStrValue(cPluginName, RegPluginsFolder + '\' + APath, AName, AValue)
+    else
+      RegSetStrValue(ARoot, APath, AName, AValue);
   end;
 
   procedure TFarHintsMain.SetRegValueInt(ARoot :HKEY; const APath, AName :WideString; AValue :Integer);
   begin
-    RegSetIntValue(ARoot, APath, AName, AValue);
+    if ARoot = INVALID_HANDLE_VALUE then
+      FarConfigSetIntValue(cPluginName, RegPluginsFolder + '\' + APath, AName, AValue)
+    else
+      RegSetIntValue(ARoot, APath, AName, AValue);
   end;
 
 

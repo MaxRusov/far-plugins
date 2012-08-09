@@ -22,9 +22,18 @@ interface
     MixClasses,
 
     MSWinAPI,
+    FarConMan,
     FarHintsAPI,
     FarHintsConst;
 
+
+  var
+    hFarWindow  :THandle = THandle(-1);
+    hConEmuWnd  :THandle = THandle(-1);
+    hStdin      :THandle;
+    hStdOut     :THandle;
+
+  function hConsoleWnd :THandle;
 
   function CheckWin32Version(AMajor: Integer; AMinor: Integer): Boolean;
   function FileOrFolderExists(const aFileName :TString) :Boolean;
@@ -55,7 +64,7 @@ interface
 
 
   var
-    Win32Platform: Integer = 0;
+//  Win32Platform: Integer = 0;
     Win32MajorVersion: Integer = 0;
     Win32MinorVersion: Integer = 0;
 //  Win32BuildNumber: Integer = 0;
@@ -69,7 +78,7 @@ interface
     OSVersionInfo.dwOSVersionInfoSize := SizeOf(OSVersionInfo);
     if GetVersionEx(OSVersionInfo) then
       with OSVersionInfo do begin
-        Win32Platform := dwPlatformId;
+//      Win32Platform := dwPlatformId;
         Win32MajorVersion := dwMajorVersion;
         Win32MinorVersion := dwMinorVersion;
 //      Win32BuildNumber := dwBuildNumber;
@@ -81,6 +90,29 @@ interface
   function CheckWin32Version(AMajor: Integer; AMinor: Integer): Boolean;
   begin
     Result := (Win32MajorVersion > AMajor) or ((Win32MajorVersion = AMajor) and (Win32MinorVersion >= AMinor));
+  end;
+
+
+  function hConsoleWnd :THandle;
+  var
+    hWnd :THandle;
+  begin
+    Result := hFarWindow;
+
+    if not IsWindowVisible(hFarWindow) then begin
+      { Запущено из-под ConEmu?... }
+      hWnd := GetAncestor(hFarWindow, GA_PARENT);
+
+      if (hWnd = 0) or (hWnd = GetDesktopWindow) then begin
+        { Новая версия ConEmu не делает SetParent... }
+        if hConEmuWnd = THandle(-1) then
+          hConEmuWnd := CheckConEmuWnd;
+        hWnd := hConEmuWnd;
+      end;
+
+      if hWnd <> 0 then
+        Result := hWnd;
+    end;
   end;
 
 

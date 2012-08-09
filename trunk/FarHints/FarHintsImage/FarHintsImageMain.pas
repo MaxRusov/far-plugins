@@ -276,7 +276,8 @@ interface
 
     private
       FAPI         :IFarHintsApi;
-      FRegPath     :TString;
+      FInited      :Boolean;
+      FNeedWrite   :Boolean;
       FImgSize     :TSize;        { Оригинальный размер картинки }
       FViewSize    :TSize;        { Размер отображаемой области }
       FThumbSize   :TSize;        { Размер Preview'шки }
@@ -311,6 +312,9 @@ interface
       FTaskState    :TTaskState;
       FResThumb     :TMemDC;
 
+      procedure ReadSettings;
+      procedure WriteSettings;
+
       procedure UpdateThumbnail(const AItem :IFarItem; AFromProcess, AFirstAppear :Boolean);
 
       procedure SetAsyncTask(ASize :TSize);
@@ -329,17 +333,29 @@ interface
     FAPI := API;
     AInfo.Flags := AInfo.Flags or PF_CanChangeSize;
 
-    FRegPath := FAPI.GetRegRoot + '\Image';
-    MaxViewSize := FAPI.GetRegValueInt(HKEY_CURRENT_USER, FRegPath, 'MaxSize', MaxViewSize);
-    UseThumbnail := FAPI.GetRegValueInt(HKEY_CURRENT_USER, FRegPath, 'UseThumbnail', Byte(UseThumbnail)) <> 0;
-    ShowAnimation := FAPI.GetRegValueInt(HKEY_CURRENT_USER, FRegPath, 'ShowAnimation', Byte(ShowAnimation) ) <> 0;
-
     InitializeCriticalSection(FCSection);
+  end;
+
+
+  procedure TPluginObject.ReadSettings;
+  begin
+    MaxViewSize := FAPI.GetRegValueInt(INVALID_HANDLE_VALUE, 'Image', 'MaxSize', MaxViewSize);
+    UseThumbnail := FAPI.GetRegValueInt(INVALID_HANDLE_VALUE, 'Image', 'UseThumbnail', Byte(UseThumbnail)) <> 0;
+    ShowAnimation := FAPI.GetRegValueInt(INVALID_HANDLE_VALUE, 'Image', 'ShowAnimation', Byte(ShowAnimation) ) <> 0;
+    FInited := True;
+  end;
+
+
+  procedure TPluginObject.WriteSettings;
+  begin
+    FAPI.SetRegValueInt(INVALID_HANDLE_VALUE, 'Image', 'MaxSize', MaxViewSize);
   end;
 
 
   procedure TPluginObject.DonePlugin; {stdcall;}
   begin
+    if FNeedWrite then
+      WriteSettings;
     StopPluginThread;
     DeleteCriticalSection(FCSection);
   end;
@@ -417,6 +433,8 @@ interface
 
     if FSrcImage.GetLastStatus = Ok then begin
 //    TraceF('Image: %s', [AItem.Name]);
+      if not FInited then
+        ReadSettings;
 
       FImgSize.cx := FSrcImage.GetWidth;
       FImgSize.cy := FSrcImage.GetHeight;
@@ -569,7 +587,7 @@ interface
       end;
       UpdateThumbnail(AItem, False, False);
       AItem.UpdateHintWindow(uhwResize + uhwInvalidateItems + uhwInvalidateImage);
-      FAPI.SetRegValueInt(HKEY_CURRENT_USER, FRegPath, 'MaxSize', MaxViewSize);
+      FNeedWrite := True;
     end;
   end;
 
