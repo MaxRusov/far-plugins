@@ -76,6 +76,12 @@ interface
       strMAutoSync,
       strMShowHints,
 
+      strSortBy,
+      strLineNumber,
+      strWholeRow,
+      strFoundMatch,
+      strFoundMatchNum,
+
       strMFoundColor,
       strMMatchColor,
       strMSearchResult,
@@ -163,6 +169,7 @@ interface
     optGrepAutoSync   :Boolean = True;
     optGrepShowHints  :Boolean = True;
     optGrepMaximized  :Boolean = False;
+    optGrepSortMode   :Integer = 1;
 
     optXLatMask       :Boolean = True;   { јвтоматическое XLAT преобразование при поиске }
 
