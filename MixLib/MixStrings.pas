@@ -50,7 +50,7 @@ interface
   procedure RectMove(var AR :TRect; ADX, ADY :Integer);
 
   function Chr2StrL(Str :PTChar; ALen :Integer) :TString;
-  function ChrInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
+  function CharInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
   function ChrPos(Ch :TChar; const Str :TString) :Integer;
   function ChrLastPos(Ch :TChar; const Str :TString) :Integer;
   function ChrsPos(const Chars :TAnsiCharSet; const Str :TString) :Integer;
@@ -89,7 +89,10 @@ interface
   function TryHex2Uns(const AHexStr :TString; var Num :Cardinal) :Boolean;
   function TryHex2Int64(const AHexStr :TString; var Num :TInt64) :Boolean;
   function Hex2Int64(const AHexStr :TString) :TInt64;
-  function Str2FloatDef(const Str :TString; const Def :TFloat) :TFloat;
+
+  function TryPCharToFloat(Str :PTChar; var Value :TFloat) :Boolean;
+  function TryStrToFloat(const Str :TString; var Value :TFloat) :Boolean;
+  function StrToFloatDef(const Str :TString; const Def :TFloat) :TFloat;
 
   function AppendStrCh(const AStr, AAdd, ADel :TString) :TString;
   function StrRightAjust(const AStr :TString; ALen :Integer) :TString;
@@ -424,7 +427,7 @@ interface
   end;
 
 
-  function ChrInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
+  function CharInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
   begin
    {$ifdef bUnicode}
     Result := (Word(ACh) <= $FF) and (AnsiChar(ACh) in AChars);
@@ -473,7 +476,7 @@ interface
     if L > 0 then
       for I := 1 to L do
        {$ifdef bUnicode}
-        if ChrInSet(Str[I], Chars) then begin
+        if CharInSet(Str[I], Chars) then begin
        {$else}
         if Str[I] in Chars then begin
        {$endif bUnicode}
@@ -492,7 +495,7 @@ interface
     if L > 0 then
       for I := L downto 1 do
        {$ifdef bUnicode}
-        if ChrInSet(Str[I], Chars) then begin
+        if CharInSet(Str[I], Chars) then begin
        {$else}
         if Str[I] in Chars then begin
        {$endif bUnicode}
@@ -863,13 +866,253 @@ interface
   end;
 
 
-  function Str2FloatDef(const Str :TString; const Def :TFloat) :TFloat;
+(*
+  function InternalTextToFloat(AStr :PTChar; var AValue :TFloat) :Boolean;
+  const
+   {$IFDEF b64}
+    CMaxExponent = 1024;
+   {$ELSE}
+    CMaxExponent = 4999;
+   {$ENDIF b64}
+    CWNear: Word = $133F;
+    CDecimalSeparator = '.';
+    CExponent = 'E';
+    CPlus = '+';
+    CMinus = '-';
   var
-    Err :Integer;
+    LPower :Integer;
+    LSign :SmallInt;
+    LResult :Extended;
+    LCurrChar :TChar;
+
+    procedure NextChar;
+    begin
+      LCurrChar := AStr^;
+      Inc(AStr);
+    end;
+
+    procedure SkipWhitespace();
+    begin
+      while LCurrChar = ' ' do
+        NextChar;
+    end;
+
+    function ReadSign() :SmallInt;
+    begin
+      Result := 1;
+      if LCurrChar = CPlus then
+        NextChar()
+      else
+      if LCurrChar = CMinus then begin
+        NextChar();
+        Result := -1;
+      end;
+    end;
+
+    function ReadNumber(var AOut: Extended): Integer;
+    begin
+      Result := 0;
+      while CharInSet(LCurrChar, ['0'..'9']) do begin
+        AOut := AOut * 10;
+        AOut := AOut + Ord(LCurrChar) - Ord('0');
+        NextChar();
+        Inc(Result);
+      end;
+    end;
+
+    function ReadExponent: SmallInt;
+    var
+      LSign: SmallInt;
+    begin
+      LSign := ReadSign();
+      Result := 0;
+      while CharInSet(LCurrChar, ['0'..'9']) do begin
+        Result := Result * 10;
+        Result := Result + Ord(LCurrChar) - Ord('0');
+        NextChar();
+      end;
+      if Result > CMaxExponent then
+        Result := CMaxExponent;
+      Result := Result * LSign;
+    end;
+
+  var
+   {$ifdef b64}
+    LSavedMXCSR :TUns32;
+   {$else}
+    LSavedCtrlWord :Word;
+   {$endif b64}
   begin
-    {???}
-    Val(Str, Result, Err);
-    if Err <> 0 then
+    { Prepare }
+    Result := False;
+
+    { Prepare the FPU }
+   {$ifdef b64}
+//  LSavedMXCSR := GetMXCSR;
+    TestAndClearSSEExceptions(0);
+    SetMXCSR(MXCSRNear);
+   {$else}
+//  LSavedCtrlWord := Get8087CW();
+//  TestAndClearFPUExceptions(0);
+    Set8087CW(CWNear);
+   {$endif CPUX86}
+
+    NextChar();
+    SkipWhitespace();
+
+    if LCurrChar <> #0 then begin
+      LSign := ReadSign();
+      if LCurrChar <> #0 then begin
+        LResult := 0;
+
+        { Read the integer and fractionary parts }
+        ReadNumber(LResult);
+        if LCurrChar = CDecimalSeparator then begin
+          NextChar();
+          LPower := -ReadNumber(LResult);
+        end else
+          LPower := 0;
+
+        { Read the exponent and adjust the power }
+        if Char(Word(LCurrChar) and $FFDF) = CExponent then begin
+          NextChar();
+          Inc(LPower, ReadExponent());
+        end;
+
+        SkipWhitespace();
+
+        { Continue only if the buffer is depleted }
+        if LCurrChar = #0 then  begin
+          { Calculate the final number }
+//        LResult := Power10(LResult, LPower) * LSign;
+
+          AValue := LResult;
+
+          { Final check that everything went OK }
+         {$ifdef b64}
+//        Result := TestAndClearSSEExceptions(mIE + mOE);
+         {$else}
+//        Result := TestAndClearFPUExceptions(mIE + mOE);
+         {$endif b64}
+        end;
+      end;
+    end;
+
+   {$ifdef b64}
+//  SetMXCSR(LSavedMXCSR);
+   {$else}
+    Set8087CW(LSavedCtrlWord);
+   {$endif b64}
+  end;
+*)
+
+
+(*
+  function InternalTextToFloat(AStr :PTChar; var AValue :TFloat) :Boolean;
+  const
+
+   {$IFDEF b64}
+    CMaxExponent = 1024;
+   {$ELSE}
+    CMaxExponent = 4999;
+   {$ENDIF b64}
+    CWNear: Word = $133F;
+
+    CDecimalSeparator = '.';
+    CPlus = '+';
+    CMinus = '-';
+
+    function ReadNumber(var AOut :Extended) :Integer;
+    begin
+      Result := 0;
+      while (AStr^ >= '0') and (AStr^ <= '9') do begin
+        AOut := AOut * 10;
+        AOut := AOut + Ord(AStr^) - Ord('0');
+        Inc(AStr);
+        Inc(Result);
+      end;
+    end;
+
+    function ReadExponent: SmallInt;
+    var
+      LSign: SmallInt;
+    begin
+      LSign := ReadSign();
+      Result := 0;
+      while CharInSet(LCurrChar, ['0'..'9']) do begin
+        Result := Result * 10;
+        Result := Result + Ord(LCurrChar) - Ord('0');
+        NextChar();
+      end;
+      if Result > CMaxExponent then
+        Result := CMaxExponent;
+      Result := Result * LSign;
+    end;
+
+  var
+    vResult :Extended;
+    vPower :Integer;
+    vNegative :Boolean;
+  begin
+    { Prepare }
+    Result := False;
+
+    while AStr^ = ' ' do
+      Inc(AStr);
+
+    if AStr^ <> #0 then begin
+      vNegative := AStr^ = '-';
+      if (AStr^ = '-') or (AStr^ = '+') then
+        Inc(AStr);
+
+      if AStr^ <> #0 then begin
+        vResult := 0;
+        vPower := 0;
+
+        ReadNumber(vResult);
+        if AStr^ = CDecimalSeparator then begin
+          Inc(AStr);
+          vPower := -ReadNumber(vResult);
+        end;
+
+        while AStr^ = ' ' do
+          Inc(AStr);
+
+        if AStr^ = #0 then  begin
+          { Calculate the final number }
+          vResult := FPower10(vResult, vPower);
+          if vNegative then
+            vResult := -vResult;
+          AValue := vResult;
+          Result := True;
+        end;
+      end;
+    end;
+  end;
+*)
+
+
+  function TryPCharToFloat(Str :PTChar; var Value :TFloat) :Boolean;
+  var
+    vErr :Integer;
+  begin
+    Val(Str, Value, vErr);
+    Result := vErr = 0;
+  end;
+
+
+  function TryStrToFloat(const Str :TString; var Value :TFloat) :Boolean;
+  var
+    vErr :Integer;
+  begin
+    Val(Str, Value, vErr);
+    Result := vErr = 0;
+  end;
+
+
+  function StrToFloatDef(const Str :TString; const Def :TFloat) :TFloat;
+  begin
+    if not TryStrToFloat(Str, Result) then
       Result := Def;
   end;
 
@@ -922,13 +1165,13 @@ interface
     I := 1;
     while I <= L do begin
       J := I;
-      while (I <= L) and not ChrInSet(Str[I], Chars) do
+      while (I <= L) and not CharInSet(Str[I], Chars) do
         Inc(I);
 
       if I > J then
         Result := Result + Copy(Str, J, I - J);
 
-      while (I <= L) and ChrInSet(Str[I], Chars) do
+      while (I <= L) and CharInSet(Str[I], Chars) do
         Inc(I);
     end;
   end;
@@ -940,7 +1183,7 @@ interface
   begin
     Result := Str;
     for I := 1 to Length(Str) do
-      if ChrInSet(Result[I], Chars) then
+      if CharInSet(Result[I], Chars) then
         Result[I] := Chr;
   end;
 
@@ -1037,11 +1280,11 @@ interface
       L := length(S);
       I := 1;
       while I <= L do begin
-        while (I <= L) and {$ifdef bUnicode} ChrInSet(S[I], Del) {$else} (S[I] in Del) {$endif} do
+        while (I <= L) and {$ifdef bUnicode} CharInSet(S[I], Del) {$else} (S[I] in Del) {$endif} do
           Inc(I);
         if I <= L then
           Inc(Result);
-        while (I <= L) and not {$ifdef bUnicode} ChrInSet(S[I], Del) {$else} (S[I] in Del) {$endif} do
+        while (I <= L) and not {$ifdef bUnicode} CharInSet(S[I], Del) {$else} (S[I] in Del) {$endif} do
           Inc(I);
       end;
     end;
@@ -1069,19 +1312,19 @@ interface
       L := length(S);
 
       I := 1;
-      while (I <= L) and {$ifdef bUnicode} ChrInSet(S[I], Del) {$else} (S[I] in Del) {$endif} do
+      while (I <= L) and {$ifdef bUnicode} CharInSet(S[I], Del) {$else} (S[I] in Del) {$endif} do
         Inc(I);
 
       W := 1;
       while I <= L do begin
         if W = Number then
           B := I;
-        while (I <= L) and not {$ifdef bUnicode} ChrInSet(S[I], Del) {$else} (S[I] in Del) {$endif} do
+        while (I <= L) and not {$ifdef bUnicode} CharInSet(S[I], Del) {$else} (S[I] in Del) {$endif} do
           Inc(I);
 
         if W < N2 then begin
           Inc(W);
-          while (I <= L) and {$ifdef bUnicode} ChrInSet(S[I], Del) {$else} (S[I] in Del) {$endif} do
+          while (I <= L) and {$ifdef bUnicode} CharInSet(S[I], Del) {$else} (S[I] in Del) {$endif} do
             Inc(I);
         end else
           Break;
@@ -1119,14 +1362,14 @@ interface
   begin
     P := Str;
     if ASkipFirst then begin
-      while (P^ <> #0) and ChrInSet(P^, Del) do
+      while (P^ <> #0) and CharInSet(P^, Del) do
         Inc(P);
       Str := P;
     end;
-    while (P^ <> #0) and not ChrInSet(P^, Del) do
+    while (P^ <> #0) and not CharInSet(P^, Del) do
       Inc(P);
     Result := Chr2StrL(Str, P - Str);
-    while (P^ <> #0) and ChrInSet(P^, Del) do
+    while (P^ <> #0) and CharInSet(P^, Del) do
       Inc(P);
     Str := P;
   end;
@@ -1137,7 +1380,7 @@ interface
     P :PTChar;
   begin
     P := Str;
-    while (P^ <> #0) and not ChrInSet(P^, Del) do
+    while (P^ <> #0) and not CharInSet(P^, Del) do
       Inc(P);
     Result := Chr2StrL(Str, P - Str);
     if P^ <> #0 then
