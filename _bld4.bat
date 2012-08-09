@@ -12,10 +12,10 @@ if "%1" neq "" (
   set ArcName=%PrjName%
 )
 
-if not exist "%PrjName%.dpr" (
-  Echo Project not found: %PrjName%.dpr
-  Exit
-)
+rem if not exist "%PrjName%.dpr" (
+rem   Echo Project not found: %PrjName%.dpr
+rem   Exit
+rem )
 
 if not exist "build.h" (
   Echo Version not found: build.h
