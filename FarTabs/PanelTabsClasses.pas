@@ -254,6 +254,16 @@ interface
     MixDebug;
 
 
+  function FarSettingShowKeyBar :Boolean;
+  begin
+   {$ifdef Far3}
+    Result := FarGetSetting(FSSF_SCREEN, 'KeyBar') <> 0;
+   {$else}
+    Result := FarAdvControl(ACTL_GETINTERFACESETTINGS, nil) and FIS_SHOWKEYBAR <> 0;
+   {$endif Far3}
+  end;
+
+
  {-----------------------------------------------------------------------------}
 
   function ShellOpen(const AName, AParam :TString) :Boolean;
@@ -1581,12 +1591,10 @@ interface
 
     procedure DetectPanelSettings;
     var
-      vRes :Integer;
       vSize :TSize;
     begin
-      vRes := FarAdvControl(ACTL_GETINTERFACESETTINGS, nil);
       vSize := FarGetWindowSize;
-      vCmdLineY := vSize.CY - 1 - IntIf(FIS_SHOWKEYBAR and vRes <> 0, 1, 0);
+      vCmdLineY := vSize.CY - 1 - IntIf(FarSettingShowKeyBar, 1, 0);
       vWinWidth := vSize.CX;
     end;
 

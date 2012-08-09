@@ -545,6 +545,7 @@ interface
     FName := cPluginName;
     FDescr := cPluginDescr;
     FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison; 
 
    {$ifdef Far3}
     FGUID := cPluginID;
@@ -554,7 +555,8 @@ interface
 
    {$ifdef Far3}
 //  FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
-    FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
+//  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
+    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1005);   { ProcessSynchroEvent }
 //  FMinFarVer := MakeVersion(2, 0, 1148);   { ConvertPath }
