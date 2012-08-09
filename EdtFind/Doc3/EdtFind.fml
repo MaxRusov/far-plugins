@@ -55,7 +55,7 @@ macro Descr = "Edt Find: find prev" Area = "Editor" Key = "AltF7"
 
 macro Descr = "Edt Find: Pick word" Area = "Editor" Key = "CtrlP"
 {{
-  history.enable(8); // „тобы текущее слово попало в историю...
+//history.disable(8); // „тобы текущее слово не попало в историю...
   CallPlugin(#%EdtFind, #%PickWord)
 }}
 
@@ -69,14 +69,14 @@ macro Descr = "Edt Find: Remove Hilight" Area = "Editor" Key = "AltP"
 
 macro Descr = "Edt Find: Find word forward" Area = "Editor" Key = "CtrlAltDown"
 {{
-  history.enable(8); // „тобы текущее слово попало в историю...
+//history.disable(8); // „тобы текущее слово не попало в историю...
   CallPlugin(#%EdtFind, #%PickWord)
   CallPlugin(#%EdtFind, #%Repeat)
 }}
 
 macro Descr = "Edt Find: Find word backward" Area = "Editor" Key = "CtrlAltUp"
 {{
-  history.enable(8); // „тобы текущее слово попало в историю...
+//history.disable(8); // „тобы текущее слово не попало в историю...
   CallPlugin(#%EdtFind, #%PickWord)
   CallPlugin(#%EdtFind, #%RepeatBack)
 }}

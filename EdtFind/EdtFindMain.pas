@@ -427,6 +427,16 @@ interface
       end;
     end else
     begin
+
+      if AStr <> nil then
+        Result := HandleIf(ParseCommand(AStr), INVALID_HANDLE_VALUE, 0)
+      else begin
+        if AInt <= 4 then
+          FarAdvControl(ACTL_SYNCHRO, Pointer(AInt))
+        else
+          RunCommand(AInt);
+      end;
+(*
       case vArea of
         MACROAREA_EDITOR:
           if AStr <> nil then
@@ -444,6 +454,7 @@ interface
       else
         Beep;
       end;
+*)
     end;
   end;
 

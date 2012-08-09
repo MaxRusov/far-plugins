@@ -1,5 +1,10 @@
 {$I Defines.inc}
 
+{$ifdef Far3}
+{$else}
+ {$Define bPreciseMatch}
+{$endif Far3}
+
 unit EdtFindEditor;
 
 {******************************************************************************}
@@ -72,16 +77,21 @@ interface
     TEdtHelper = class(TBasis)
     public
       constructor CreateEx(AId :Integer);
+      destructor Destroy; override;
 
       procedure Reset;
-      procedure AddRow(ARow :Integer);
+      procedure AddFound(const ASel :TEdtSelection);
 
       function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
 
     private
       FID   :Integer;
+     {$ifdef bPreciseMatch}
+      FAll  :TExList;
+     {$else}
       FRow1 :Integer;
       FRow2 :Integer;
+     {$endif bPreciseMatch}
     end;
 
 
@@ -89,23 +99,44 @@ interface
   begin
     Create;
     FId := AId;
+   {$ifdef bPreciseMatch}
+    FAll := TExList.CreateSize(SizeOf(TEdtSelection));
+   {$else}
     Reset;
+   {$endif bPreciseMatch}
+  end;
+
+
+  destructor TEdtHelper.Destroy; {override;}
+  begin
+   {$ifdef bPreciseMatch}
+    FreeObj(FAll);
+   {$endif bPreciseMatch}
+    inherited Destroy;
   end;
 
 
   procedure TEdtHelper.Reset;
   begin
+   {$ifdef bPreciseMatch}
+    FAll.Clear;
+   {$else}
     FRow2 := -1;
     FRow1 := MaxInt;
+   {$endif bPreciseMatch}
   end;
 
 
-  procedure TEdtHelper.AddRow(ARow :Integer);
+  procedure TEdtHelper.AddFound(const ASel :TEdtSelection);
   begin
-    if ARow < FRow1 then
-      FRow1 := ARow;
-    if ARow > FRow2 then
-      FRow2 := ARow;
+   {$ifdef bPreciseMatch}
+    FAll.AddData(ASel);
+   {$else}
+    if ASel.FRow < FRow1 then
+      FRow1 := ASel.FRow;
+    if ASel.FRow > FRow2 then
+      FRow2 := ASel.FRow;
+   {$endif bPreciseMatch}
   end;
 
 
@@ -957,6 +988,15 @@ interface
 
 
     procedure ClearAllColors(const AInfo :TEditorInfo);
+   {$ifdef bPreciseMatch}
+    var
+      i :Integer;
+    begin
+      for i := 0 to vHelper.FAll.Count - 1 do
+        with PEdtSelection(vHelper.FAll.PItems[I])^ do
+          FarEditorDelColor(FRow, FCol, FLen);
+      vHelper.Reset;
+   {$else}
     var
       i, vRow1, vRow2 :Integer;
     begin
@@ -964,7 +1004,7 @@ interface
       vRow2 := AInfo.TopScreenLine + AInfo.WindowSizeY - 1;
 
       with vHelper do
-        if FRow1 <= FRow2 then
+        if FRow1 <= FRow2 then begin
           if ((FRow1 >= vRow1) and (FRow1 <= vRow2)) or ((vRow1 >= FRow1) and (vRow1 <= FRow2)) then begin
             { Диапазоны пересекаются }
             vRow1 := IntMin(vRow1, FRow1);
@@ -976,12 +1016,16 @@ interface
             for i := FRow1 to FRow2 do
               FarEditorDelColor(i, -1, 0);
           end;
+        end;
 
+      { Диапазон, видимый на экране очищается всегда, потому что мы не можем }
+      { отследить, какие элементы вышли за пределы экрана при модификациях... }
 //    TraceF('Clear2: %d-%d', [vRow1, vRow2]);
       for i := vRow1 to vRow2 do
         FarEditorDelColor(i, -1, 0);
 
       vHelper.Reset;
+   {$endif bPreciseMatch}
     end;
 
 
@@ -991,9 +1035,8 @@ interface
         Exit;
 //    TraceF('SetColor: %d:%d, %d', [ASel.FRow, ASel.FCol, ASel.FLen]);
       FarEditorSetColor(ASel.FRow, ASel.FCol, ASel.FLen, AColor, optMarkWholeTab);
-      vHelper.AddRow(ASel.FRow);
+      vHelper.AddFound(ASel);
     end;
-
 
 {
     procedure EdtShowMessage;
@@ -1035,6 +1078,10 @@ interface
     if (gMatchStr <> '') and (vInfo.EditorID = gEdtID) then begin
       try
         vNeedUpdate := UpdateMatches(vInfo);
+       {$ifdef Far3}
+       {$else}
+        vNeedUpdate := True;
+       {$endif Far3}
       except
         FreeObj(gMatches);
         gMatchStr := '';

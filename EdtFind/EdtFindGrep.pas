@@ -33,6 +33,8 @@ interface
 
 
   type
+(*  TValidStates = set of (vsRowCache, vsFilter, vsSort); *) 
+
     TGrepDlg = class(TFilteredListDlg)
     public
       constructor Create; override;
@@ -43,6 +45,7 @@ interface
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
+      function ItemCompare(AIndex1, AIndex2 :Integer; Context :TIntPtr) :Integer; override;
 
       procedure SelectItem(ACode :Integer); override;
       procedure UpdateHeader; override;
@@ -61,6 +64,9 @@ interface
       FDrawBuf    :TDrawBuf;
       FMatches    :TExList;
       FNeedSync   :Boolean;
+      FRowsCache  :TExList;
+(*    FLensCache  :TIntList;
+      FValid      :TValidStates; *)
 
       procedure SyncEditor;
       function RowToIdx(ARow :Integer) :Integer;
@@ -70,6 +76,8 @@ interface
       procedure ToggleOption(var AOption :Boolean);
       procedure SetWindowSize(AMaximized :Boolean);
       procedure OptionsMenu;
+      procedure SetOrder(AOrder :Integer);
+      procedure SortByDlg;
 
     public
       property Grid :TFarGrid read FGrid;
@@ -86,7 +94,232 @@ interface
     EdtFindEditor,
     MixDebug;
 
+(*
+type
+  TFloatValue = (fvExtended, fvCurrency);
 
+//var
+//  DecimalSeparator: Char;
+
+const
+// 8087 status word masks
+  mIE = $0001;
+  mDE = $0002;
+  mZE = $0004;
+  mOE = $0008;
+  mUE = $0010;
+  mPE = $0020;
+  mC0 = $0100;
+  mC1 = $0200;
+  mC2 = $0400;
+  mC3 = $4000;
+
+const
+  // 1E18 as a 64-bit integer
+  Const1E18Lo = $0A7640000;
+  Const1E18Hi = $00DE0B6B3;
+  FCon1E18: Extended = 1E18;
+  DCon10: Integer = 10;
+
+
+function TextToFloat(Buffer: PChar; var Value; ValueType: TFloatValue): Boolean;
+const
+// 8087 control word
+// Infinity control  = 1 Affine
+// Rounding Control  = 0 Round to nearest or even
+// Precision Control = 3 64 bits
+// All interrupts masked
+  CWNear: Word = $133F;
+var
+  Temp: Integer;
+  CtrlWord: Word;
+  DecimalSep: Char;
+  SaveGOT: Integer;
+asm
+        PUSH    EDI
+        PUSH    ESI
+        PUSH    EBX
+        MOV     ESI,EAX
+        MOV     EDI,EDX
+
+        MOV     SaveGOT,0
+        MOV     AL,'.' // DecimalSeparator
+        MOV     DecimalSep,AL
+        MOV     EBX,ECX
+
+        FSTCW   CtrlWord
+        FCLEX
+        FLDCW   CWNear
+
+        FLDZ
+        CALL    @@SkipBlanks
+        MOV     BH, byte ptr [ESI]
+        CMP     BH,'+'
+        JE      @@1
+        CMP     BH,'-'
+        JNE     @@2
+@@1:    INC     ESI
+@@2:    MOV     ECX,ESI
+        CALL    @@GetDigitStr
+        XOR     EDX,EDX
+        MOV     AL,[ESI]
+        CMP     AL,DecimalSep
+        JNE     @@3
+        INC     ESI
+        CALL    @@GetDigitStr
+        NEG     EDX
+@@3:    CMP     ECX,ESI
+        JE      @@9
+        MOV     AL, byte ptr [ESI]
+        AND     AL,0DFH
+        CMP     AL,'E'
+        JNE     @@4
+        INC     ESI
+        PUSH    EDX
+        CALL    @@GetExponent
+        POP     EAX
+        ADD     EDX,EAX
+@@4:    CALL    @@SkipBlanks
+        CMP     BYTE PTR [ESI],0
+        JNE     @@9
+        MOV     EAX,EDX
+        CMP     BL,fvCurrency
+        JNE     @@5
+        ADD     EAX,4
+@@5:    PUSH    EBX
+        MOV     EBX,SaveGOT
+        CALL    FPower10
+        POP     EBX
+        CMP     BH,'-'
+        JNE     @@6
+        FCHS
+@@6:    CMP     BL,fvExtended
+        JE      @@7
+        FISTP   QWORD PTR [EDI]
+        JMP     @@8
+@@7:    FSTP    TBYTE PTR [EDI]
+@@8:    FSTSW   AX
+        TEST    AX,mIE+mOE
+        JNE     @@10
+        MOV     AL,1
+        JMP     @@11
+@@9:    FSTP    ST(0)
+@@10:   XOR     EAX,EAX
+@@11:   FCLEX
+        FLDCW   CtrlWord
+        FWAIT
+        JMP     @@Exit
+
+@@SkipBlanks:
+
+@@21:   LODSB
+        OR      AL,AL
+        JE      @@22
+        CMP     AL,' '
+        JE      @@21
+@@22:   DEC     ESI
+        RET
+
+// Process string of digits
+// Out EDX = Digit count
+
+@@GetDigitStr:
+
+        XOR     EAX,EAX
+        XOR     EDX,EDX
+@@31:   LODSB
+        SUB     AL,'0'+10
+        ADD     AL,10
+        JNC     @@32
+
+        FIMUL   DCon10
+        MOV     Temp,EAX
+        FIADD   Temp
+        INC     EDX
+        JMP     @@31
+@@32:   DEC     ESI
+        RET
+
+// Get exponent
+// Out EDX = Exponent (-4999..4999)
+
+@@GetExponent:
+
+        XOR     EAX,EAX
+        XOR     EDX,EDX
+        MOV     CL, byte ptr [ESI]
+        CMP     CL,'+'
+        JE      @@41
+        CMP     CL,'-'
+        JNE     @@42
+@@41:   INC     ESI
+@@42:   MOV     AL, byte ptr [ESI]
+        SUB     AL,'0'+10
+        ADD     AL,10
+        JNC     @@43
+        INC     ESI
+        IMUL    EDX,10
+        ADD     EDX,EAX
+        CMP     EDX,500
+        JB      @@42
+@@43:   CMP     CL,'-'
+        JNE     @@44
+        NEG     EDX
+@@44:   RET
+
+@@Exit:
+        POP     EBX
+        POP     ESI
+        POP     EDI
+end;
+
+  function Str2Float(AStr :PTChar; ALen :Integer) :TFloat;
+  const
+    cMaxLen = 64;
+  var
+    vLen :Integer;
+    vStr :array[0..cMaxLen] of AnsiChar;
+  begin
+    vLen := 0;
+    while (vLen < cMaxLen) and (ALen > 0) do begin
+      if (AStr^ < #$FF) and (AnsiChar(AStr^) in ['0'..'9', '.', '-']) then begin
+        vStr[vLen] := AnsiChar(AStr^);
+        Inc(vLen);
+      end;
+      Inc(AStr);
+      Dec(ALen);
+    end;
+    vStr[vLen] := #0;
+
+    if not TextToFloat(vStr, Result, fvExtended) then
+      Result := -1e99;
+  end;
+*)
+
+
+  function Str2Float(AStr :PTChar; ALen :Integer) :TFloat;
+  const
+    cMaxLen = 64;
+  var
+    vLen :Integer;
+    vStr :array[0..cMaxLen] of TChar;
+  begin
+    vLen := 0;
+    while (vLen < cMaxLen) and (ALen > 0) do begin
+      if (AStr^ < #$FF) and (AnsiChar(AStr^) in ['0'..'9', '.', '-']) then begin
+        vStr[vLen] := AStr^;
+        Inc(vLen);
+      end;
+      Inc(AStr);
+      Dec(ALen);
+    end;
+    vStr[vLen] := #0;
+    if not TryPCharToFloat(vStr, Result) then
+      Result := -1e99;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
 
   function StrTrimFirst(var AStr :PTChar; var ALen :Integer) :Integer;
   begin
@@ -108,11 +341,15 @@ interface
     inherited Create;
     RegisterHints(Self);
     FDrawBuf := TDrawBuf.Create;
+    FRowsCache := TExList.Create;
+(*  FLensCache := TIntList.Create; *)
   end;
 
 
   destructor TGrepDlg.Destroy; {override;}
   begin
+(*  FreeObj(FLensCache);  *)
+    FreeObj(FRowsCache);
     FreeObj(FDrawBuf);
     UnregisterHints;
     inherited Destroy;
@@ -173,19 +410,28 @@ interface
 
     vCount := 0;
     FreeObj(FFilter);
-    if vMask <> '' then begin
+    if (vMask <> '') or ((optGrepSortMode <> 0) and (optGrepSortMode <> 1)) then begin
       FFilter := TListFilter.CreateSize(SizeOf(TFilterRec));
+      FFilter.Owner := Self;
       if optXLatMask then
         vXMask := FarXLatStr(vMask);
     end;
 
+   {$ifdef bTrace}
+    TraceBeg('Filter...');
+   {$endif bTrace}
+
+    FRowsCache.Clear;
+    FRowsCache.Capacity := FMatches.Count;
     for I := 0 to FMatches.Count - 1 do begin
       vStr := GetEdtStr(I, vStrLen);
+      FRowsCache.Add(vStr);
 
       vPos := 0; vFndLen := 0;
-      if vMask <> '' then begin
-        if not ChrCheckXMask(vMask, vXMask, vStr, vHasMask, vPos, vFndLen) then
-          Continue;
+      if FFilter <> nil then begin
+        if vMask <> '' then
+          if not ChrCheckXMask(vMask, vXMask, vStr, vHasMask, vPos, vFndLen) then
+            Continue;
         FFilter.Add(I, vPos, vFndLen);
       end;
 
@@ -195,6 +441,10 @@ interface
       vMaxLen := IntMax(vMaxLen, vStrLen);
       Inc(vCount);
     end;
+
+   {$ifdef bTrace}
+    TraceEnd('  done');
+   {$endif bTrace}
 
     FMenuMaxWidth := vMaxLen + 4;
 
@@ -213,11 +463,139 @@ interface
       FGrid.Columns.Add( TColumnFormat.CreateEx('', '', vMaxRowLen+2, taRightJustify, [coColMargin{coNoVertLine}], 1) );
     FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coColMargin, coOwnerDraw], 2) );
 
+    if (optGrepSortMode <> 0) and (optGrepSortMode <> 1) then begin
+     {$ifdef bTrace}
+      TraceBeg('Sort...');
+     {$endif bTrace}
+
+      FFilter.SortList(True, 0);
+
+     {$ifdef bTrace}
+      TraceEnd('  done');
+     {$endif bTrace}
+    end;
+
     FGrid.RowCount := vCount;
 
     UpdateHeader;
     ResizeDialog;
   end;
+
+
+(*
+  procedure TGrepDlg.ReinitGrid; {override;}
+  var
+    I, vPos, vLen, vFndLen, vMaxRow, vMaxRowLen, vMaxLen :Integer;
+    vSel :PEdtSelection;
+    vStr :PTChar;
+    vMask, vXMask :TString;
+    vHasMask :Boolean;
+  begin
+    FTotalCount := FMatches.Count;
+
+    if not (vsRowCache in FValid) then begin
+      FRowsCache.Clear;
+      FLensCache.Clear;
+      FRowsCache.Capacity := FMatches.Count;
+      FLensCache.Capacity := FMatches.Count;
+      for I := 0 to FMatches.Count - 1 do begin
+        vStr := GetEdtStr(I, vLen);
+        FRowsCache.Add(vStr);
+        FLensCache.Add(vLen);
+      end;
+      FValid := FValid + [vsRowCache] - [vsFilter, vsSort];
+    end;
+
+    if not (vsFilter in FValid) then begin
+     {$ifdef bTrace}
+      TraceBeg('Filter...');
+     {$endif bTrace}
+
+      vHasMask := False;
+      vMask := FFilterMask;
+      if vMask <> '' then begin
+        vHasMask := (ChrPos('*', vMask) <> 0) or (ChrPos('?', vMask) <> 0);
+        if vHasMask and (vMask[Length(vMask)] <> '*') {and (vMask[Length(FMask)] <> '?')} then
+          vMask := vMask + '*';
+      end;
+
+      FreeObj(FFilter);
+      if (vMask <> '') or ((optGrepSortMode <> 0) and (optGrepSortMode <> 1)) then begin
+        FFilter := TListFilter.CreateSize(SizeOf(TFilterRec));
+        FFilter.Owner := Self;
+        if optXLatMask then
+          vXMask := FarXLatStr(vMask);
+      end;
+
+      vMaxLen := 0;
+      for I := 0 to FMatches.Count - 1 do begin
+        vSel := FMatches.PItems[I];
+        vStr := FRowsCache[I];
+        vLen := FLensCache[I];
+
+        vPos := 0; vFndLen := 0;
+        if FFilter <> nil then begin
+          if vMask <> '' then
+            if not ChrCheckXMask(vMask, vXMask, vStr, vHasMask, vPos, vFndLen) then
+              Continue;
+          FFilter.Add(I, vPos, vFndLen);
+        end;
+
+        if optGrepTrimSpaces then
+          StrTrimFirst(vStr, vLen);
+        vLen := ChrExpandTabsLen(vStr, vLen);
+        vMaxLen := IntMax(vMaxLen, vLen);
+      end;
+
+      FMenuMaxWidth := vMaxLen + 4;
+
+      vMaxRowLen := 0;
+      if optGrepShowLines then begin
+( *
+        vMaxRow := 0;
+        if vCount > 0 then
+          vMaxRow := GetSelItem(vCount - 1).FRow + 1;
+        vMaxRowLen := Length(Int2Str(vMaxRow));
+        Inc(FMenuMaxWidth, vMaxRowLen + 1);
+* )
+      end;
+
+      FValid := FValid + [vsFilter] - [vsSort];
+     {$ifdef bTrace}
+      TraceEnd('  done');
+     {$endif bTrace}
+    end;
+
+    if not (vsSort in FValid) then begin
+      if (optGrepSortMode <> 0) and (optGrepSortMode <> 1) then begin
+       {$ifdef bTrace}
+        TraceBeg('Sort...');
+       {$endif bTrace}
+
+        FFilter.SortList(True, 0);
+
+       {$ifdef bTrace}
+        TraceEnd('  done');
+       {$endif bTrace}
+      end;
+      FValid := FValid + [vsSort];
+    end;
+
+    FGrid.ResetSize;
+    FGrid.Columns.FreeAll;
+    if optGrepShowLines then
+      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', vMaxRowLen+2, taRightJustify, [coColMargin{coNoVertLine}], 1) );
+    FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coColMargin, coOwnerDraw], 2) );
+
+    if FFilter <> nil then
+      FGrid.RowCount := FFilter.Count
+    else
+      FGrid.RowCount := FMatches.Count;
+
+    UpdateHeader;
+    ResizeDialog;
+  end;
+*)
 
 
   procedure TGrepDlg.ReinitAndSaveCurrent; {override;}
@@ -295,7 +673,11 @@ interface
     vFoundColor :TFarColor;
   begin
     vIdx := RowToIdx(ARow);
-    vStr := GetEdtStr(vIdx, vLen);
+//  vStr := GetEdtStr(vIdx, vLen);
+
+    vStr := FRowsCache[vIdx];
+    vLen := StrLen(vStr);
+
     if vStr <> nil then begin
       FDrawBuf.Clear;
 
@@ -465,6 +847,105 @@ interface
   end;
 
 
+ {-----------------------------------------------------------------------------}
+ { Поддержка сортировки                                                        }
+
+  function TGrepDlg.ItemCompare(AIndex1, AIndex2 :Integer; Context :TIntPtr) :Integer; {override;}
+  var
+    vSel1, vSel2 :PEdtSelection;
+    vStr1, vStr2 :PTChar;
+    vLen1, vLen2 :Integer;
+    vNum1, vNum2 :TFloat;
+  begin
+    Result := 0;
+
+    vSel1 := FMatches.PItems[AIndex1];
+    vSel2 := FMatches.PItems[AIndex2];
+
+    if Abs(optGrepSortMode) = 1 then
+      Result := IntCompare(vSel1.FRow, vSel2.FRow)
+    else begin
+      vStr1 := FRowsCache[AIndex1];
+      vStr2 := FRowsCache[AIndex2];
+
+      case Abs(optGrepSortMode) of
+        2:
+          begin
+            if optGrepTrimSpaces then begin
+              vLen1 := MaxInt; vLen2 := MaxInt; { Не важно... }
+              StrTrimFirst(vStr1, vLen1);
+              StrTrimFirst(vStr2, vLen2);
+            end;
+            Result := UpComparePChar(vStr1, vStr2);
+          end;
+        3:
+          Result := UpCompareBuf((vStr1 + vSel1.FCol)^, (vStr2 + vSel2.FCol)^, vSel1.FLen, vSel2.FLen);
+        4:
+          begin
+            vNum1 := Str2Float(vStr1 + vSel1.FCol, vSel1.FLen);
+            vNum2 := Str2Float(vStr2 + vSel2.FCol, vSel2.FLen);
+            Result := FloatCompare(vNum1, vNum2);
+          end;
+      end;
+    end;
+
+    if optGrepSortMode < 0 then
+      Result := -Result;
+    if Result = 0 then
+      Result := IntCompare(AIndex1, AIndex2);
+  end;
+
+
+  procedure TGrepDlg.SetOrder(AOrder :Integer);
+  begin
+    if AOrder <> optGrepSortMode then
+      optGrepSortMode := AOrder
+    else
+      optGrepSortMode := -AOrder;
+
+//  LocReinitAndSaveCurrent;
+    ReinitGrid;
+  end;
+
+
+  procedure TGrepDlg.SortByDlg;
+  var
+    vMenu :TFarMenu;
+    vRes :Integer;
+    vChr :TChar;
+  begin
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strSortBy),
+    [
+      GetMsg(strLineNumber),
+      GetMsg(strWholeRow),
+      GetMsg(strFoundMatch),
+      GetMsg(strFoundMatchNum)
+    ]);
+    try
+      vRes := Abs(optGrepSortMode) - 1;
+      if vRes = -1 then
+        vRes := 0;
+      vChr := '+';
+      if optGrepSortMode < 0 then
+        vChr := '-';
+      vMenu.Items[vRes].Flags := SetFlag(0, MIF_CHECKED or Word(vChr), True);
+
+      if not vMenu.Run then
+        Exit;
+
+      vRes := vMenu.ResIdx;
+      if vRes <> -1 then
+        SetOrder(vRes + 1);
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
   function TGrepDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
 
      procedure LocChangeSize;
@@ -500,6 +981,8 @@ interface
 
       KEY_F9:
         OptionsMenu;
+      KEY_CTRLF12:
+        SortByDlg;
     else
       Result := inherited KeyDown(AID, AKey);
     end;
@@ -525,7 +1008,6 @@ interface
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
-
 
   function GrepDlg(AMatches :TExList) :Boolean;
   var

@@ -48,6 +48,12 @@
 "&Trim spaces        Ctrl-3"
 "&Auto sync          Ctrl-4"
 "Show &hints"
+
+"Sort by"
+"Line number"
+"Whole row"
+"Found match (as string)"
+"Found match (as number)"
  
 "&1 Current match..."
 "&2 Other matches..."
