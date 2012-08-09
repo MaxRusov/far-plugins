@@ -202,10 +202,11 @@ interface
     { ACmd = FCTL_GETPANELITEM, FCTL_GETSELECTEDPANELITEM, FCTL_GETCURRENTPANELITEM }
   function FarPanelString(AHandle :THandle; ACmd :Integer) :TFarStr;
     { ACmd = FCTL_GETPANELDIR, FCTL_GETPANELFORMAT, FCTL_GETPANELHOSTFILE, FCTL_GETCMDLINE, FCTL_GETCOLUMNTYPES}
-  function FarPanelGetCurrentDirectory(AHandle :THandle) :TFarStr;
+  function FarPanelGetCurrentDirectory(AHandle :THandle = PANEL_ACTIVE) :TFarStr;
   function FarGetCurrentDirectory :TFarStr;
 
-  function FarGetPanelInfo(AHandle :THandle; var AInfo :TPanelInfo) :Boolean;
+  function FarGetPanelInfo(Active :Boolean; var AInfo :TPanelInfo) :Boolean; overload;
+  function FarGetPanelInfo(AHandle :THandle; var AInfo :TPanelInfo) :Boolean; overload;
   function FarPanelGetSide :Integer;
 
   procedure FarPostMacro(const AStr :TFarStr; AFlags :DWORD =
@@ -707,6 +708,12 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  function FarGetPanelInfo(Active :Boolean; var AInfo :TPanelInfo) :Boolean;
+  begin
+    Result := FarGetPanelInfo(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), AInfo);
+  end;
+
+
   function FarGetPanelInfo(AHandle :THandle; var AInfo :TPanelInfo) :Boolean;
   begin
     FillZero(AInfo, SizeOf(AInfo));
@@ -791,7 +798,7 @@ interface
   end;
 
 
-  function FarPanelGetCurrentDirectory(AHandle :THandle) :TFarStr;
+  function FarPanelGetCurrentDirectory(AHandle :THandle = PANEL_ACTIVE) :TFarStr;
  {$ifdef Far3}
   var
     vSize :Integer;
@@ -1295,6 +1302,7 @@ interface
     vColor :TEditorColor;
   begin
    {$ifdef Far3}
+    FillZero(vColor, SizeOf(vColor));
     vColor.StructSize := SizeOf(vColor);
     vColor.StringNumber := ARow;
     vColor.StartPos := ACol;

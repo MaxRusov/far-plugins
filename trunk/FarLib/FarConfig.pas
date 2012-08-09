@@ -66,8 +66,14 @@ interface
   function FarSetValue(AHandle, AKey :THandle; const AName :TString; AType :Integer; AInt :Int64; AStr :PFarChar) :Boolean;
   function FarGetValueInt(AHandle, AKey :THandle; const AName :TString; ADefault :Int64) :Int64;
   function FarGetValueStr(AHandle, AKey :THandle; const AName :TString; const ADefault :TString) :TString;
+
+  function FarGetSetting(ARoot :Cardinal; const AName :TString) :Int64;
  {$endif Far3}
 
+  function FarConfigGetStrValue(const APlugName, APath, AName, ADefault :TString) :TString;
+  function FarConfigGetIntValue(const APlugName, APath, AName :TString; ADefault :Integer) :Integer;
+  procedure FarConfigSetStrValue(const APlugName, APath, AName, AValue :TString);
+  procedure FarConfigSetIntValue(const APlugName, APath, AName :TString; AValue :Integer);
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -240,6 +246,22 @@ API для хранения настроек:
       Result := vItem.Value.Str
     else
       Result := ADefault;
+  end;
+
+
+  function FarGetSetting(ARoot :Cardinal; const AName :TString) :Int64;
+  var
+    vHandle :THandle;
+  begin
+    Result := 0;
+    vHandle := FarOpenSetings(GUID_NULL);
+    if vHandle = 0 then
+      Exit;
+    try
+      Result := FarGetValueInt(vHandle, ARoot, AName, 0);
+    finally
+      FARAPI.SettingsControl(vHandle, SCTL_FREE, 0, nil);
+    end;
   end;
  {$endif Far3}
 
@@ -429,5 +451,61 @@ API для хранения настроек:
   end;
 
 
+ {-----------------------------------------------------------------------------}
+
+  function FarConfigGetStrValue(const APlugName, APath, AName, ADefault :TString) :TString;
+  begin
+    Result := ADefault;
+    with TFarConfig.CreateEx(False, APlugName) do
+      try
+        if Exists then begin
+          if (APath <> '') and not OpenKey(APath) then
+            Exit;
+          Result := ReadStr(AName, ADefault);
+        end;
+      finally
+        Destroy;
+      end;
+  end;
+
+  function FarConfigGetIntValue(const APlugName, APath, AName :TString; ADefault :Integer) :Integer;
+  begin
+    Result := ADefault;
+    with TFarConfig.CreateEx(False, APlugName) do
+      try
+        if Exists then begin
+          if (APath <> '') and not OpenKey(APath) then
+            Exit;
+          Result := ReadInt(AName, ADefault);
+        end;
+      finally
+        Destroy;
+      end;
+  end;
+
+  procedure FarConfigSetStrValue(const APlugName, APath, AName, AValue :TString);
+  begin
+    with TFarConfig.CreateEx(True, APlugName) do
+      try
+        if (APath <> '') and not OpenKey(APath) then
+          Exit;
+        WriteStr(AName, AValue);
+      finally
+        Destroy;
+      end;
+  end;
+
+
+  procedure FarConfigSetIntValue(const APlugName, APath, AName :TString; AValue :Integer);
+  begin
+    with TFarConfig.CreateEx(True, APlugName) do
+      try
+        if (APath <> '') and not OpenKey(APath) then
+          Exit;
+        WriteInt(AName, AValue);
+      finally
+        Destroy;
+      end;
+  end;
 
 end.
