@@ -993,6 +993,12 @@ interface
   function TEdtHistoryEntry.CompareObj(Another :TBasis; Context :TIntPtr) :Integer; {override;}
   begin
     case Context of
+      1 :
+        if optSeparateName or not optShowFullPath then
+          Result := UpCompareStr(ExtractFileName(FPath), ExtractFileName(THistoryEntry(Another).Path))
+        else
+          Result := UpCompareStr(FPath, THistoryEntry(Another).Path);
+
       3:  Result := IntCompare(FHits, TEdtHistoryEntry(Another).Hits);
       4:  Result := DateTimeCompare(FEdtTime, TEdtHistoryEntry(Another).EdtTime);
       5:  Result := IntCompare(FSaveCount, TEdtHistoryEntry(Another).SaveCount);
