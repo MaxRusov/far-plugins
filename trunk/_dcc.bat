@@ -36,20 +36,27 @@ if "%Platform%" == "x32" (
   set Units=Units64
 )
 
+if exist ..\MixLib (
+  set Root=..
+) else (
+  set Root=..\..
+)
+
+
 if exist %PrjName%.cfg del %PrjName%.cfg
 
-if not exist ..\%Units%\%PrjName% md ..\%Units%\%PrjName%
-if not exist ..\%Bin%\%PrjName% md ..\%Bin%\%PrjName%
+if not exist %Root%\%Units%\%PrjName% md %Root%\%Units%\%PrjName%
+if not exist %Root%\%Bin%\%PrjName% md %Root%\%Bin%\%PrjName%
 
 set ResDef=-dFar%FarVer% -d%Platform%
 if exist %PrjName%.rc brcc32 %ResDef% %PrjName%.rc || exit
 if exist %PrjName%A.rc brcc32 %ResDef% %PrjName%A.rc || exit
 if exist %PrjName%W.rc brcc32 %ResDef% %PrjName%W.rc || exit
 
-%Compiler% -B -E..\%Bin%\%PrjName% %DefVer% %PrjName%.dpr %1 %2 %3 %4 %5 %6 %7 %8 %9 || exit
+%Compiler% -B -E%Root%\%Bin%\%PrjName% %DefVer% %PrjName%.dpr %1 %2 %3 %4 %5 %6 %7 %8 %9 || exit
 
-if exist Doc copy Doc\* ..\%Bin%\%PrjName% >nul
-if exist DocW copy DocW\* ..\%Bin%\%PrjName% >nul
+if exist Doc copy Doc\* %Root%\%Bin%\%PrjName% >nul
+if exist DocW copy DocW\* %Root%\%Bin%\%PrjName% >nul
 
-if exist Doc%FarVer% copy Doc%FarVer%\* ..\%Bin%\%PrjName% >nul
+if exist Doc%FarVer% copy Doc%FarVer%\* %Root%\%Bin%\%PrjName% >nul
 
