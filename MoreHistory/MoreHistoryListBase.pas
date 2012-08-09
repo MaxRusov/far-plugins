@@ -697,6 +697,22 @@ interface
         if Width <> 0 then
           Inc(FMenuMaxWidth, Width + IntIf(coNoVertLine in Options, 0, 1) );
 
+(*
+    FGrid.Column[0].MinWidth := IntMin(vMaxLen2, 15);
+    for I := 1 to FGrid.Columns.Count - 1 do
+      with FGrid.Column[I] do
+        MinWidth := IntMin(Width, 6);
+
+    FGrid.ReduceColumns(FarGetWindowSize.CX - (10 + FGrid.Columns.Count));
+
+    FMenuMaxWidth := 0;
+    for I := 0 to FGrid.Columns.Count - 1 do
+      with FGrid.Column[I] do
+        if Width <> 0 then
+          Inc(FMenuMaxWidth, Width + IntIf(coNoVertLine in Options, 0, 1) );
+    Dec(FMenuMaxWidth);
+*)          
+
     FSelectedCount := 0;
     FGrid.RowCount := FFilter.Count;
 
@@ -1123,11 +1139,14 @@ interface
     procedure PopFilter;
     begin
       if FMaskStack.Count > FFixedCount then begin
+        FFilterMask := FMaskStack[FMaskStack.Count - 1];
         FMaskStack.Delete(FMaskStack.Count - 1);
-        FFilterMask := '';
         ReinitAndSaveCurrent;
         FreeObj(FFilterHist);
       end else
+      if FFilterMask <> '' then
+        LocSetFilter('')
+      else
         Beep;
     end;
 

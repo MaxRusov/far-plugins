@@ -10,7 +10,7 @@ library MoreHistory;
 uses
   MixErrors,
  {$ifdef bTrace}
-  MixCheck,
+  MixCheck,  
  {$endif bTrace}
   FarPlug,
   MoreHistoryMain;
