@@ -15,7 +15,14 @@ const Options       = 7
 
 macro Key = "AltF12" Area = "Shell Editor Viewer Dialog" Descr = "More history: Folders"
 {{
-  $if (!CallPlugin(#%MoreHistory, #%FolderHist))  
+  $if (Search)
+    Esc
+  $end
+
+  $if (Plugin.Exist(#%MoreHistory))  
+    mmode(3,1);
+    Plugin.Call(#%MoreHistory, #%FolderHist)
+  $else
     $AKey
   $end
 }}

@@ -1,0 +1,108 @@
+;;
+;; More History
+;;
+
+const MoreHistory = "0AB780BC-36CA-4FDA-B321-70520D875CDE"
+
+const FolderHist    = 1
+const EditorHist    = 2
+const ModifyHist    = 3
+const CommandHist   = 4
+const PrevCommand   = 5
+const NextCommand   = 6
+const Options       = 7
+
+
+macro Key = "AltF12" Area = "Shell Info QView Editor Viewer Search" Descr = "More history: Folders"
+{{
+  if Area.Search then
+    Keys("Esc")
+  end
+  if Plugin.Exist(#%MoreHistory) then
+    mmode(3, 1)
+    Plugin.Call(#%MoreHistory, #%FolderHist)
+  else
+    Keys(akey(2))
+  end
+}}
+
+
+macro Key = "AltF11" Area = "Shell Info QView Editor Viewer Search" Descr = "More history: Edit/View History"
+{{
+  if Area.Search then
+    Keys("Esc")
+  end
+  if Plugin.Exist(#%MoreHistory) then
+    mmode(3, 1)
+    Plugin.Call(#%MoreHistory, #%EditorHist)
+  else
+    Keys(akey(2))
+  end
+}}
+
+
+/*
+macro Key = "AltF11" Area = "Shell Info QView Editor Viewer Search" Descr = "More history: Modify History"
+{{
+  if Area.Search then
+    Keys("Esc")
+  end
+  if Plugin.Exist(#%MoreHistory) then
+    mmode(3, 1)
+    Plugin.Call(#%MoreHistory, #%ModifyHist)
+  else
+    Keys(akey(2))
+  end
+}}
+*/
+
+macro Key = "AltF8" Area = "Shell Info QView Editor Viewer Search" Descr = "More history: Commands History"
+{{
+  if Area.Search then
+    Keys("Esc")
+  end
+  if Plugin.Exist(#%MoreHistory) then
+    mmode(3, 1) 
+    Plugin.Call(#%MoreHistory, #%CommandHist)
+  else
+    Keys(akey(2))
+  end
+}}
+
+
+macro Key = "CtrlE" Area = "Shell" Descr = "More history: Prev command"
+{{
+  if not Plugin.Call(#%MoreHistory, #%PrevCommand) then
+    Keys(akey(2))
+  end
+}}
+
+
+macro Key = "CtrlShiftE" Area = "Shell" Descr = "More history: Next command"
+{{
+  if not Plugin.Call(#%MoreHistory, #%NextCommand) then
+    Keys(akey(2))
+  end
+}}
+
+
+;;
+;; Стандартные истории
+;;
+
+macro Key = "AltShiftF12" Area = "Shell Search" Descr = "Standart History: Folders"
+{{
+  Keys("AltF12")
+}}
+
+macro Key = "AltShiftF11" Area = "Shell Search Editor Viewer" Descr = "Standart History: Edit/View"
+{{
+  Keys("AltF11")
+}}
+
+macro Key = "AltShiftF8" Area = "Shell Search" Descr = "Standart History: Command"
+{{
+  Keys("AltF8")
+}}
+
+

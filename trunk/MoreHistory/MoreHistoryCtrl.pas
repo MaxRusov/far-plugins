@@ -322,6 +322,9 @@ interface
   function GetHistoryList(const AHistName :TString) :TStrList;
   procedure AddToHistory(const AHist, AStr :TString);
 
+  function KeyMacro(const AKeys :TString) :TString;
+  function StrMacro(const AStr :TString) :TString;
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -374,20 +377,23 @@ interface
   end;
 
 
-  function MaskStr(const AStr :TString) :TString;
-  var
-    I :Integer;
-    C :TChar;
+  function KeyMacro(const AKeys :TString) :TString;
   begin
-    Result := '';
-    for I := 1 to length(AStr) do begin
-      C := AStr[I];
-      if (Ord(C) < $20) or (C = '"') or (C = '\') then
-//      Result := Result + '\' + Int2Str(Ord(c))
-        Result := Result + '\x' + Format('%.4x', [Ord(c)])
-      else
-        Result := Result + C;
-    end;
+   {$ifdef Far3}
+    Result := 'Keys("' + AKeys + '")';
+   {$else}
+    Result := AKeys;
+   {$endif Far3}
+  end;
+
+
+  function StrMacro(const AStr :TString) :TString;
+  begin
+   {$ifdef Far3}
+    Result := '"' + FarMaskStr(AStr) + '"';
+   {$else}
+    Result := '@"' + AStr + '"';
+   {$endif Far3}
   end;
 
 
@@ -395,7 +401,7 @@ interface
   var
     vStr :TString;
   begin
-    vStr := 'print("' + MaskStr(AStr) + '")';
+    vStr := 'print("' + FarMaskStr(AStr) + '")';
     FarPostMacro(vStr);
   end;
 
