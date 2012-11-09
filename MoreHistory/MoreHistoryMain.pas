@@ -42,6 +42,7 @@ interface
       procedure GetInfo; override;
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function OpenCmdLine(AStr :PTChar) :THandle; override;
       function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
       function Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
@@ -305,27 +306,6 @@ interface
     end;
   end;
 
-  
-  procedure OpenCmdLine(const AStr :TString);
-  var
-    vStr :TString;
-  begin
-    vStr := ExtractWords(2, MaxInt, AStr, [':']);
-
-    if UpCompareSubStr(cFldPrefix + ':', AStr) = 0 then
-      RunCommand(pcFolderHistory, vStr)
-    else
-    if UpCompareSubStr(cEdtPrefix + ':', AStr) = 0 then
-      RunCommand(pcEditorHistory, vStr)
-   {$ifdef bCmdHistory}
-    else
-    if UpCompareSubStr(cCmdPrefix + ':', AStr) = 0 then
-      RunCommand(pcCommandHistory, vStr)
-   {$endif bCmdHistory}
-    ;
-  end;
-
-
  {-----------------------------------------------------------------------------}
  { TMoreHistoryPlug                                                            }
  {-----------------------------------------------------------------------------}
@@ -348,7 +328,8 @@ interface
    {$ifdef Far3}
 //  FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
 //  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
-    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+//  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+    FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
    {$else}
     FMinFarVer := MakeVersion(2, 0, 1573);   { ACTL_GETFARRECT }
    {$endif Far3}
@@ -417,10 +398,32 @@ interface
   function TMoreHistoryPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
     Result := INVALID_HANDLE_VALUE;
-    if AFrom = OPEN_COMMANDLINE then
-      OpenCmdLine(PFarChar(AParam))
+    OpenMenu;
+  end;
+
+
+  function TMoreHistoryPlug.OpenCmdLine(AStr :PTChar) :THandle; {override;}
+  var
+    vStr :TString;
+    vCmd :TPluginCmd;
+  begin
+    Result:= INVALID_HANDLE_VALUE;
+    vStr := AStr;
+
+    if UpCompareSubStr(cFldPrefix + ':', vStr) = 0 then
+      vCmd := pcFolderHistory
     else
-      OpenMenu;
+    if UpCompareSubStr(cEdtPrefix + ':', vStr) = 0 then
+      vCmd := pcEditorHistory
+   {$ifdef bCmdHistory}
+    else
+    if UpCompareSubStr(cCmdPrefix + ':', vStr) = 0 then
+      vCmd := pcCommandHistory
+   {$endif bCmdHistory}
+    else
+      Exit;
+
+    RunCommand(vCmd, ExtractWords(2, MaxInt, vStr, [':']));
   end;
 
 
@@ -528,6 +531,9 @@ interface
       vRow := 0; vCol := 0;
       if vAction = eaModify then begin
         FillZero(vInfo, SizeOf(vInfo));
+       {$ifdef Far3}
+        vInfo.StructSize := SizeOf(vInfo);
+       {$endif Far3}
         if FarEditorControl(ECTL_GETINFO, @vInfo) <> 1 then
           Exit;
         vRow := vInfo.CurLine + 1;
@@ -561,7 +567,11 @@ interface
     FillZero(vInfo, SizeOf(vInfo));
     vInfo.StructSize := SizeOf(vInfo);
     FarViewerControl(VCTL_GetInfo, @vInfo);
+   {$ifdef Far3}
+    vName := ViewerControlString(VCTL_GETFILENAME);
+   {$else}
     vName := FarChar2Str(vInfo.FileName);
+   {$endif Far3}
 
     vQuickView := vInfo.WindowSizeX < FarGetWindowSize.cx;
     if vQuickView and optSkipQuickView then
@@ -579,7 +589,8 @@ interface
 
   function TMoreHistoryPlug.Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :THandle; {override;}
   begin
-    FldHistory.AddCurrentToHistory;
+    if (AMode and OPM_FIND = 0) and (GetCurrentThreadID = MainThreadID) then
+      FldHistory.AddCurrentToHistory;
     Result := INVALID_HANDLE_VALUE;
   end;
 

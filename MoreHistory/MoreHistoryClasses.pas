@@ -374,7 +374,6 @@ interface
   var
     vWinInfo :TWindowInfo;
     vPanInfo :TPanelInfo;
-    vVisible, vPlugin :Boolean;
   begin
     Result := '';
     FarGetWindowInfo(-1, vWinInfo);
@@ -382,17 +381,10 @@ interface
       Exit;
 
     FarGetPanelInfo(PANEL_ACTIVE, vPanInfo);
-   {$ifdef Far3}
-    vVisible := PFLAGS_VISIBLE and vPanInfo.Flags <> 0;
-    vPlugin  := PFLAGS_PLUGIN and vPanInfo.Flags <> 0;
-   {$else}
-    vVisible := vPanInfo.Visible <> 0;
-    vPlugin  := vPanInfo.Plugin <> 0;
-   {$endif Far3}
-    if (vPanInfo.PanelType <> PTYPE_FILEPANEL) or not vVisible then
+    if (vPanInfo.PanelType <> PTYPE_FILEPANEL) or not IsVisiblePanel(vPanInfo) then
       Exit;
-
-    if not vPlugin {or (PFLAGS_REALNAMES and vPanInfo.Flags <> 0)} then
+      
+    if not IsPluginPanel(vPanInfo) {or (PFLAGS_REALNAMES and vPanInfo.Flags <> 0)} then
       Result := FarPanelGetCurrentDirectory(PANEL_ACTIVE)
     else
       Result := GetPluginPath(PANEL_ACTIVE);
@@ -444,12 +436,7 @@ interface
 
     FarGetWindowInfo(-1, vWinInfo);
     FarGetPanelInfo(vHandle, vInfo);
-   {$ifdef Far3}
-    vVisible := PFLAGS_VISIBLE and vInfo.Flags <> 0;
-   {$else}
-    vVisible := vInfo.Visible <> 0;
-   {$endif Far3}
-
+    vVisible := IsVisiblePanel(vInfo);
     vRealFolder := IsFullFilePath(APath);
 
     if vRealFolder and vVisible and (vInfo.PanelType = PTYPE_FILEPANEL) then begin
@@ -458,7 +445,7 @@ interface
 
       if vWinInfo.WindowType <> WTYPE_PANELS then
         { Макросом переходим на панель... }
-        FarPostMacro('F12 0');
+        FarPostMacro(KeyMacro('F12 0'));
 
     end else
     begin
@@ -468,35 +455,43 @@ interface
       case vInfo.PanelType of
         PTYPE_FILEPANEL:
           if not vVisible then
-            vMacro := 'CtrlP ';
+            vMacro := KeyMacro('CtrlP');
         PTYPE_TREEPANEL:
-          vMacro := 'CtrlT ';
+          vMacro := KeyMacro('CtrlT');
         PTYPE_QVIEWPANEL:
-          vMacro := 'CtrlQ ';
+          vMacro := KeyMacro('CtrlQ');
         PTYPE_INFOPANEL:
-          vMacro := 'CtrlL ';
+          vMacro := KeyMacro('CtrlL');
       end;
 
       if vRealFolder then begin
-        vMacro := vMacro +
-          'panel.setpath('  + StrIf(ASetPassive, '1', '0') + ', @"' + APath + '"' +
-          StrIf(AFileName <> '', ', @"' + AFileName + '"', '') +
+        vMacro := vMacro + ' ' +
+          'Panel.SetPath(' +
+            StrIf(ASetPassive, '1', '0') + ', ' +
+            StrMacro(APath) +
+            StrIf(AFileName <> '', ', ' + StrMacro(AFileName), '') +
           ')';
       end else
       begin
         vStr := '';
         FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(vStr));
+
         vMacro := vMacro +
-          'print(@"' + APath + '") Enter';
+          'print(' + StrMacro(APath) + ') ' + KeyMacro('Enter');
         if ASetPassive then
-          vMacro := 'Tab ' + vMacro + ' Tab';
+          vMacro := KeyMacro('Tab') + ' ' + vMacro + ' ' + KeyMacro('Tab');
         if AFileName <> '' then
-          vMacro := vMacro +
-            ' panel.setpos(' + StrIf(ASetPassive, '1', '0') + ', @"' + AFileName + '")';
+          vMacro := vMacro + ' ' +
+            'Panel.SetPos(' + StrIf(ASetPassive, '1', '0') + ', ' + StrMacro(AFileName) + ')';
       end;
 
       if vWinInfo.WindowType <> WTYPE_PANELS then
-        vMacro := 'F12 0 $if (Shell) ' + vMacro + ' $end';
+        vMacro := KeyMacro('F12 0') + ' ' +
+         {$ifdef Far3}
+          'if (Area.Shell) then ' + vMacro + ' end';
+         {$else}
+          '$if (Shell) ' + vMacro + ' $end';
+         {$endif Far3}
 
       FarPostMacro(vMacro);
     end;
@@ -530,7 +525,6 @@ interface
     vDateW0, vDateM0, vDateY0 :Integer;
     vYear, vMonth, vDay :Word;
   begin
-//    vDate0 := Trunc(Date);
     vDate0 := Trunc(Now - EncodeTime(optMidnightHour, 0, 0, 0));
     vDateI := Trunc(ADateTime - EncodeTime(optMidnightHour, 0, 0, 0));
 
@@ -1715,6 +1709,7 @@ interface
 
       try
         FillZero(vData, SizeOf(vData));
+        vData.StructSize := SizeOf(vData);
         vData.Root := FSSF_HISTORY_CMD;
         if FARAPI.SettingsControl(vHandle, SCTL_ENUM, 0, @vData) = 0 then
           Exit;

@@ -529,6 +529,9 @@ interface
     vInfo :TEditorInfo;
   begin
     Result := 0;
+   {$ifdef Far3}
+    vInfo.StructSize := SizeOf(vInfo);
+   {$endif Far3}
     if FarEditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
       Result := vInfo.CurLine + 1;
     end;
@@ -543,6 +546,9 @@ interface
   begin
     Dec(ARow); Dec(ACol);
     vNewTop := -1;
+   {$ifdef Far3}
+    vInfo.StructSize := SizeOf(vInfo);
+   {$endif Far3}
     if FarEditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
       if ATopLine = 0 then
         vHeight := vInfo.WindowSizeY
@@ -551,6 +557,9 @@ interface
       if (ARow < vInfo.TopScreenLine) or (ARow >= vInfo.TopScreenLine + vHeight) then
         vNewTop := RangeLimit(ARow - (vHeight div 2), 0, MaxInt{???});
     end;
+   {$ifdef Far3}
+    vPos.StructSize := SizeOf(vPos);
+   {$endif Far3}
     vPos.TopScreenLine := vNewTop;
     vPos.CurLine := ARow;
     vPos.CurPos := ACol;
@@ -593,12 +602,12 @@ interface
     begin
       {!!!Кодировка???}
       if AEdit then begin
-        FARAPI.Editor(PFarChar(AFileName), nil, 0, 0, -1, -1, EF_NONMODAL or EF_IMMEDIATERETURN or EF_ENABLE_F6, ARow, ACol, CP_AUTODETECT);
+        FARAPI.Editor(PFarChar(AFileName), nil, 0, 0, -1, -1, EF_NONMODAL or EF_IMMEDIATERETURN or EF_ENABLE_F6, ARow, ACol, CP_DEFAULT);
         if ATopLine <> 0 then
           GotoPosition(ARow, ACol, ATopLine);
       end else
       begin
-        FARAPI.Viewer(PFarChar(AFileName), '', 0, 0, -1, -1, VF_NONMODAL or VF_IMMEDIATERETURN or VF_ENABLE_F6, CP_AUTODETECT);
+        FARAPI.Viewer(PFarChar(AFileName), '', 0, 0, -1, -1, VF_NONMODAL or VF_IMMEDIATERETURN or VF_ENABLE_F6, CP_DEFAULT);
       end;
     end;
   end;
