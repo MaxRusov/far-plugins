@@ -1,0 +1,78 @@
+;;
+;; EdtFind
+;;
+
+const EdtFind  = "E4ABD267-C2F9-4158-818F-B0E040A2AB9F"  
+
+const Find          = 1
+const FindWord      = 2
+const Replace       = 3
+const ReplaceWord   = 4
+const Repeat        = 5
+const RepeatBack    = 6
+const PickWord      = 7
+const RemoveHilight = 8
+
+
+const FindDlgID    = '{A0562FC4-25FA-48DC-BA5E-48EFA639865F}'    
+const ReplaceDlgID = '{070544C7-E2F6-4E7B-B348-7583685B5647}'    
+const GrepDlgID    = '{39BE672E-9303-4F06-A38A-ECC35ABD98B6}'    
+
+
+//-----------------------------------------------------------------------------
+// Стандартные команды: F7, CtrlF7, ShiftF7, AltF7
+
+macro Descr = "Edt Find: Find" Area = "Editor" Key = "F7"
+{{
+  Plugin.Call(#%EdtFind, #%Find)--  Plugin.Call(#%EdtFind, #%FindWord)}}
+
+
+macro Descr = "Edt Find: Replace" Area = "Editor" Key = "CtrlF7"
+{{
+  Plugin.Call(#%EdtFind, #%Replace)--  Plugin.Call(#%EdtFind, #%ReplaceWord)}}
+
+
+
+macro Descr = "Edt Find: find next" Area = "Editor" Key = "ShiftF7"
+{{
+  Plugin.Call(#%EdtFind, #%Repeat)}}
+
+macro Descr = "Edt Find: find prev" Area = "Editor" Key = "AltF7"
+{{
+  Plugin.Call(#%EdtFind, #%RepeatBack)}}
+
+
+//-----------------------------------------------------------------------------
+// Дополнительные макросы
+
+
+/*
+
+macro Descr = "Edt Find: Pick word" Area = "Editor" Key = "CtrlP"
+{{
+--  Far.DisableHistory(8); -- Чтобы текущее слово не попало в историю...  Plugin.Call(#%EdtFind, #%PickWord)}}
+
+
+macro Descr = "Edt Find: Remove Hilight" Area = "Editor" Key = "AltP"
+{{
+  Plugin.Call(#%EdtFind, #%RemoveHilight)}}
+
+
+macro Descr = "Edt Find: Find word forward" Area = "Editor" Key = "CtrlAltDown"
+{{
+--  Far.DisableHistory(8); -- Чтобы текущее слово не попало в историю...  Plugin.Call(#%EdtFind, #%PickWord)  Plugin.Call(#%EdtFind, #%Repeat)}}
+
+macro Descr = "Edt Find: Find word backward" Area = "Editor" Key = "CtrlAltUp"
+{{
+--  Far.DisableHistory(8); -- Чтобы текущее слово не попало в историю...  Plugin.Call(#%EdtFind, #%PickWord)  Plugin.Call(#%EdtFind, #%RepeatBack)}}
+
+
+macro Descr = "Edt Find: Insert word" Area = "Dialog.FindDlgID, Dialog.ReplaceDlgID" Key = "F7 CtrlF7"
+{{
+  Keys("CtrlP")}}
+
+*/
+
+
+//-----------------------------------------------------------------------------
+

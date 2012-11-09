@@ -193,7 +193,10 @@ interface
   var
     vEdtInfo :TEditorInfo;
   begin
-    FillChar(vEdtInfo, SizeOf(vEdtInfo), 0);
+    FillZero(vEdtInfo, SizeOf(vEdtInfo));
+   {$ifdef Far3}
+    vEdtInfo.StructSize := SizeOf(vEdtInfo);
+   {$endif Far3}
     if FarEditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
       Exit;
     gEdtID := vEdtInfo.EditorID;
@@ -359,6 +362,9 @@ interface
     vInfo :TEditorInfo;
   begin
     vNewTop := -1; vNewLeft := -1;
+   {$ifdef Far3}
+    vInfo.StructSize := SizeOf(vInfo);
+   {$endif Far3}
     if (ACol1 <> -1) and (FarEditorControl(ECTL_GETINFO, @vInfo) = 1) then begin
       if ATopLine = 0 then
         vHeight := vInfo.WindowSizeY
@@ -371,6 +377,9 @@ interface
 //    if (ACol1 < vInfo.LeftPos) or (ACol2 > vInfo.LeftPos + vWidth) then
         vNewLeft := RangeLimit(0 {vInfo.LeftPos}, (ACol2 + 3) - vWidth, IntMax(ACol1 - 3, 0));
     end;
+   {$ifdef Far3}
+    vPos.StructSize := SizeOf(vPos);
+   {$endif Far3}
     vPos.CurLine := ARow;
     vPos.CurPos := ACol;
     vPos.TopScreenLine := vNewTop;
@@ -385,6 +394,9 @@ interface
   var
     vSel :TEditorSelect;
   begin
+   {$ifdef Far3}
+    vSel.StructSize := SizeOf(vSel);
+   {$endif Far3}
     vSel.BlockType := BTYPE_STREAM;
     vSel.BlockStartLine := ARow;
     vSel.BlockStartPos := ACol;
@@ -398,7 +410,10 @@ interface
   var
     vSel :TEditorSelect;
   begin
-    FillChar(vSel, SizeOf(vSel), 0);
+    FillZero(vSel, SizeOf(vSel));
+   {$ifdef Far3}
+    vSel.StructSize := SizeOf(vSel);
+   {$endif Far3}
     vSel.BlockType := BTYPE_NONE;
     FarEditorControl(ECTL_SELECT, @vSel);
   end;
@@ -443,7 +458,10 @@ interface
     if AStr = '' then
       Exit;
 
-    FillChar(vEdtInfo, SizeOf(vEdtInfo), 0);
+    FillZero(vEdtInfo, SizeOf(vEdtInfo));
+   {$ifdef Far3}
+    vEdtInfo.StructSize := SizeOf(vEdtInfo);
+   {$endif Far3}
     if FarEditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
       Exit;
 
@@ -724,6 +742,9 @@ interface
       Exit;
 
     FillChar(vEdtInfo, SizeOf(vEdtInfo), 0);
+   {$ifdef Far3}
+    vEdtInfo.StructSize := SizeOf(vEdtInfo);
+   {$endif Far3}
     if FarEditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
       Exit;
 
@@ -763,6 +784,9 @@ interface
       vErrorMode := AErrorMode;
 
     if optGroupUndo then begin
+     {$ifdef Far3}
+      vUndoRec.StructSize := SizeOf(vUndoRec);
+     {$endif Far3}
       vUndoRec.Command := EUR_BEGIN;
       FarEditorControl(ECTL_UNDOREDO, @vUndoRec);
     end;
@@ -815,6 +839,9 @@ interface
 
           Inc(gFoundCount);
 
+         {$ifdef Far3}
+          vStrInfo.StructSize := SizeOf(vStrInfo);
+         {$endif Far3}
           vStrInfo.StringNumber := vRow;
           if FarEditorControl(ECTL_GETSTRING, @vStrInfo) <> 1 then
             Wrong;
@@ -854,6 +881,9 @@ interface
 
           if vReplace then begin
             { Заменяем... }
+           {$ifdef Far3}
+            vStrSet.StructSize := SizeOf(vStrSet);
+           {$endif Far3}
             vStrSet.StringNumber := -1 {vRow};
             vStrSet.StringText := vFinder.RepBuf;
             vStrSet.StringLength := vFinder.ResStrLen;
@@ -931,6 +961,9 @@ interface
       end;
 
       if optGroupUndo then begin
+       {$ifdef Far3}
+        vUndoRec.StructSize := SizeOf(vUndoRec);
+       {$endif Far3}
         vUndoRec.Command := EUR_END;
         FarEditorControl(ECTL_UNDOREDO, @vUndoRec);
       end;
@@ -1071,6 +1104,9 @@ interface
     vInfo :TEditorInfo;
     vNeedUpdate :Boolean;
   begin
+   {$ifdef Far3}
+    vInfo.StructSize := SizeOf(vInfo);
+   {$endif Far3}
     FarEditorControl(ECTL_GETINFO, @vInfo);
     vHelper := FindEdtHelper(vInfo.EditorID, False);
 
