@@ -98,9 +98,18 @@ interface
  {-----------------------------------------------------------------------------}
 
   const
+    MOUSE_WHEELED = 4;
+    MOUSE_HWHEELED = 8;
+
+  const
     MIF_CHECKED1 = MIF_CHECKED { or Byte(chrCheck)};
 
     DI_DefButton = DI_USERCONTROL - 1;
+
+   {$ifdef Far3}
+   {$else}
+    CP_DEFAULT   = CP_AUTODETECT;
+   {$endif Far3}
 
   type
    {$ifdef Far3}
@@ -205,6 +214,8 @@ interface
   function FarPanelGetCurrentDirectory(AHandle :THandle = PANEL_ACTIVE) :TFarStr;
   function FarGetCurrentDirectory :TFarStr;
 
+  function IsVisiblePanel(const AInfo :TPanelInfo) :Boolean;
+  function IsPluginPanel(const AInfo :TPanelInfo) :Boolean;
   function FarGetPanelInfo(Active :Boolean; var AInfo :TPanelInfo) :Boolean; overload;
   function FarGetPanelInfo(AHandle :THandle; var AInfo :TPanelInfo) :Boolean; overload;
   function FarPanelGetSide :Integer;
@@ -235,6 +246,9 @@ interface
   procedure FarEditorSetColor(ARow, ACol, ALen :Integer; AColor :TFarColor; AWholeTab :Boolean = False);
   procedure FarEditorDelColor(ARow, ACol, ALen :Integer);
   function EditorControlString(ACmd :Integer) :TFarStr;
+ {$ifdef Far3}
+  function ViewerControlString(ACmd :Integer) :TFarStr;
+ {$endif Far3}
   procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = -1; ACol :Integer = -1);
 
   function FarGetWindowType :Integer;
@@ -244,9 +258,11 @@ interface
   function FarGetWindowSize :TSize;
 
   procedure FarCopyToClipboard(const AStr :TString);
+  function FarPasteFromClipboard :TString;
 
   function FarXLat(AChr :TChar) :TChar;
   function FarXLatStr(const AStr :TString) :TString;
+  function FarMaskStr(const AStr :TString) :TString;
 
   { Для совместимости к KEY_ кодами FAR2 }
   function KeyEventToFarKey(const AEvent :TKeyEventRecord) :Integer;
@@ -708,6 +724,17 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  function IsVisiblePanel(const AInfo :TPanelInfo) :Boolean;
+  begin
+    Result := {$ifdef Far3}PFLAGS_VISIBLE and AInfo.Flags <> 0{$else}AInfo.Visible <> 0{$endif};
+  end;
+
+  function IsPluginPanel(const AInfo :TPanelInfo) :Boolean;
+  begin
+    Result := {$ifdef Far3}PFLAGS_PLUGIN and AInfo.Flags <> 0{$else}AInfo.Plugin <> 0{$endif};
+  end;
+
+
   function FarGetPanelInfo(Active :Boolean; var AInfo :TPanelInfo) :Boolean;
   begin
     Result := FarGetPanelInfo(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), AInfo);
@@ -747,6 +774,7 @@ interface
     vSize := FARAPI.Control(AHandle, ACmd, AIndex, nil);
     if vSize > 0 then begin
       Result := MemAlloc( vSize );
+      vRec.StructSize := SizeOf(vRec);
       vRec.Size := vSize;
       vRec.Item := Result;
       FARAPI.Control(AHandle, ACmd, AIndex, @vRec);
@@ -1195,6 +1223,9 @@ interface
     FarGetPanelInfo(vHandle, vInfo);
 
     if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
+     {$ifdef Far3}
+      vRedrawInfo.StructSize := SizeOf(vRedrawInfo);
+     {$endif Far3}
       vRedrawInfo.TopPanelItem := vInfo.TopPanelItem;
       vRedrawInfo.CurrentItem := vInfo.CurrentItem;
 
@@ -1348,7 +1379,6 @@ interface
 
 
   //ECTL_GETFILENAME
-
   function EditorControlString(ACmd :Integer) :TFarStr;
   var
     vLen :Integer;
@@ -1357,10 +1387,28 @@ interface
     vLen := FarEditorControl(ACmd, nil);
     if vLen > 1 then begin
       SetLength(Result, vLen - 1);
+     {$ifdef Far3}
+      FARAPI.EditorControl(-1, ACmd, vLen, PFarChar(Result));
+     {$else}
       FarEditorControl(ACmd, PFarChar(Result));
+     {$endif Far3}
     end;
   end;
 
+ {$ifdef Far3}
+  //VCTL_GETFILENAME
+  function ViewerControlString(ACmd :Integer) :TFarStr;
+  var
+    vLen :Integer;
+  begin
+    Result := '';
+    vLen := FarViewerControl(ACmd, nil);
+    if vLen > 1 then begin
+      SetLength(Result, vLen - 1);
+      FARAPI.ViewerControl(-1, ACmd, vLen, PFarChar(Result));
+    end;
+  end;
+ {$endif Far3}
 
 
   procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = -1; ACol :Integer = -1);
@@ -1369,9 +1417,9 @@ interface
   begin
     vName := AFileName;
     if AEdit then
-      FARAPI.Editor(PFarChar(vName), nil, 0, 0, -1, -1, AFlags, ARow, ACol, CP_AUTODETECT)
+      FARAPI.Editor(PFarChar(vName), nil, 0, 0, -1, -1, AFlags, ARow, ACol, CP_DEFAULT)
     else
-      FARAPI.Viewer(PFarChar(vName), nil, 0, 0, -1, -1, AFlags, CP_AUTODETECT);
+      FARAPI.Viewer(PFarChar(vName), nil, 0, 0, -1, -1, AFlags, CP_DEFAULT);
   end;
 
 
@@ -1462,7 +1510,28 @@ interface
 
   procedure FarCopyToClipboard(const AStr :TString);
   begin
+   {$ifdef Far3}
+    FARSTD.CopyToClipboard(FCT_STREAM, PTChar(AStr));
+   {$else}
     FARSTD.CopyToClipboard(PTChar(AStr));
+   {$endif Far3}
+  end;
+
+  function FarPasteFromClipboard :TString;
+ {$ifdef Far3}
+  var
+    vSize :Integer;
+  begin
+    Result := '';
+    vSize := FARSTD.PasteFromClipboard(FCT_ANY, nil, 0);
+    if vSize > 1 then begin
+      SetLength(Result, vSize - 1);
+      FARSTD.PasteFromClipboard(FCT_ANY, PTChar(Result), vSize);
+    end;
+ {$else}
+  begin
+    Result := FARSTD.PasteFromClipboard;
+ {$endif Far3}
   end;
 
 
@@ -1480,6 +1549,28 @@ interface
   begin
     SetString(Result, PTChar(AStr), Length(AStr));
     FARSTD.XLat(PTChar(Result), 0, Length(AStr), 0);
+  end;
+
+
+  function FarMaskStr(const AStr :TString) :TString;
+    {...Оптимизировать}
+  var
+    I :Integer;
+    C :TChar;
+  begin
+    Result := '';
+    for I := 1 to length(AStr) do begin
+      C := AStr[I];
+      if (Ord(C) < $20) or (C = '"') or (C = '\') then
+       {$ifdef Far3}
+        Result := Result + '\' + C
+       {$else}
+//      Result := Result + '\' + Int2Str(Ord(c))
+        Result := Result + '\x' + Format('%.2x', [Ord(c)])
+       {$endif Far3}
+      else
+        Result := Result + C;
+    end;
   end;
 
 
