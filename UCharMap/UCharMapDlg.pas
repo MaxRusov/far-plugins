@@ -730,7 +730,7 @@ interface
     vStr := GetText(IdEdit);
     if vStr = '' then
       vStr := GetCurChar;
-    FARSTD.CopyToClipboard(PTChar(vStr));
+    FarCopyToClipboard(vStr);
   end;
 
 
@@ -848,7 +848,7 @@ interface
     var
       vStr :TString;
     begin
-      vStr := FARSTD.PasteFromClipboard;
+      vStr := FarPasteFromClipboard;
       if vStr <> '' then
         GotoChar(vStr[1]);
     end;
