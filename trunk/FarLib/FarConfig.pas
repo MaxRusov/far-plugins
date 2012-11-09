@@ -145,6 +145,7 @@ API для хранения настроек:
   var
     vItem :TFarSettingsValue;
   begin
+    vItem.StructSize := SizeOf(vItem);
     vItem.Root := AKey;
     vItem.Value := PFarChar(AName);
     Result := THandle(FARAPI.SettingsControl(AHandle, SCTL_OPENSUBKEY, 0, @vItem));
@@ -155,6 +156,7 @@ API для хранения настроек:
   var
     vItem :TFarSettingsValue;
   begin
+    vItem.StructSize := SizeOf(vItem);
     vItem.Root := AKey;
     vItem.Value := PFarChar(AName);
     Result := THandle(FARAPI.SettingsControl(AHandle, SCTL_CREATESUBKEY, 0, @vItem));
@@ -169,6 +171,7 @@ API для хранения настроек:
     Result := False;
     vKey := FarOpenKey(AHandle, AKey, AName);
     if vKey <> 0 then begin
+      vItem.StructSize := SizeOf(vItem);
       vItem.Root := vKey;
       vItem.Value := nil;
       Result := FARAPI.SettingsControl(AHandle, SCTL_DELETE, 0, @vItem) <> 0;
@@ -202,6 +205,7 @@ API для хранения настроек:
   var
     vItem :TFarSettingsItem;
   begin
+    vItem.StructSize := SizeOf(vItem);
     vItem.Root := AKey;
     vItem.Name := PFarChar(AName);
     vItem.FType := AType;
@@ -223,7 +227,8 @@ API для хранения настроек:
   var
     vItem :TFarSettingsItem;
   begin
-    FillZero(vItem, SIzeOf(vItem));
+    FillZero(vItem, SizeOf(vItem));
+    vItem.StructSize := SizeOf(vItem);
     vItem.Root := AKey;
     vItem.Name := PFarChar(AName);
     vItem.FType := FST_QWORD;
@@ -238,7 +243,8 @@ API для хранения настроек:
   var
     vItem :TFarSettingsItem;
   begin
-    FillZero(vItem, SIzeOf(vItem));
+    FillZero(vItem, SizeOf(vItem));
+    vItem.StructSize := SizeOf(vItem);
     vItem.Root := AKey;
     vItem.Name := PFarChar(AName);
     vItem.FType := FST_STRING;

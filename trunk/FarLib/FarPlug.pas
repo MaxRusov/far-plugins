@@ -18,7 +18,7 @@ interface
     MixStrings,
     MixClasses,
 
-    Far_API,
+    Far_API, {Plugin3.pas}
     FarCtrl;
 
 
@@ -39,6 +39,7 @@ interface
 
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; virtual;
       function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; virtual;
+      function OpenCmdLine(AStr :PTChar) :THandle; virtual;
      {$ifdef Far3}
       function OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; virtual;
      {$endif Far3}
@@ -90,19 +91,19 @@ interface
 
 
  {$ifdef Far3}
-  procedure GetGlobalInfoW(var AInfo :TGlobalInfo); stdcall;
+  procedure GetGlobalInfoW(var AInfo :TGlobalInfo); stdcall;           
   procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
   procedure GetPluginInfoW(var AInfo :TPluginInfo); stdcall;
   function OpenW(var AInfo :TOpenInfo): THandle; stdcall;
   function AnalyseW(const AInfo :TAnalyseInfo) :THandle; stdcall;
   procedure CloseAnalyseW(const AInfo :TCloseAnalyseInfo); stdcall;
-  function ConfigureW(const AInfo :TConfigureInfo) :Integer; stdcall;
-  function ProcessSynchroEventW(const AInfo :TProcessSynchroEventInfo) :Integer; stdcall;
-  function ProcessDialogEventW(const AInfo :TProcessDialogEventInfo) :Integer; stdcall;
-  function ProcessEditorEventW(const AInfo :TProcessEditorEventInfo) :Integer; stdcall;
-  function ProcessEditorInputW(const AInfo :TProcessEditorInputInfo) :Integer; stdcall;
-  function ProcessViewerEventW(const AInfo :TProcessViewerEventInfo) :Integer; stdcall;
-  function ProcessConsoleInputW(const AInfo :TProcessConsoleInputInfo) :Integer; stdcall;
+  function ConfigureW(const AInfo :TConfigureInfo) :TIntPtr; stdcall;
+  function ProcessSynchroEventW(const AInfo :TProcessSynchroEventInfo) :TIntPtr; stdcall;
+  function ProcessDialogEventW(const AInfo :TProcessDialogEventInfo) :TIntPtr; stdcall;
+  function ProcessEditorEventW(const AInfo :TProcessEditorEventInfo) :TIntPtr; stdcall;
+  function ProcessEditorInputW(const AInfo :TProcessEditorInputInfo) :TIntPtr; stdcall;
+  function ProcessViewerEventW(const AInfo :TProcessViewerEventInfo) :TIntPtr; stdcall;
+  function ProcessConsoleInputW(const AInfo :TProcessConsoleInputInfo) :TIntPtr; stdcall;
   procedure ExitFARW(const AInfo :TExitInfo); stdcall;
  {$else}
   function GetMinFarVersionW :Integer; stdcall;
@@ -205,14 +206,13 @@ interface
   end;
 
 
-(*
-  function TFarPlug.OpenMacro(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {virtual;}
+  function TFarPlug.OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; {virtual;}
   begin
     Result := INVALID_HANDLE_VALUE;
   end;
-*)
 
-  function TFarPlug.OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; {virtual;}
+
+  function TFarPlug.OpenCmdLine(AStr :PTChar) :THandle; {virtual;}
   begin
     Result := INVALID_HANDLE_VALUE;
   end;
@@ -232,6 +232,9 @@ interface
         else
         if fType = FMVT_STRING then
           Result := OpenMacro(0, Value.fString)
+        else
+        if fType = FMVT_DOUBLE then
+          Result := OpenMacro(Trunc(Value.fDouble), nil)
       end;
     end;
   end;
@@ -404,6 +407,14 @@ interface
       if AInfo.OpenFrom = OPEN_FROMMACRO_ then begin
         with POpenMacroInfo(AInfo.Data)^ do
           vRes := Plug.OpenMacroEx(Count, Values);
+//      if vRes = INVALID_HANDLE_VALUE then
+//        vRes := 1; { return True }
+      end else
+      if AInfo.OpenFrom = OPEN_COMMANDLINE then begin
+        with POpenCommandLineInfo(AInfo.Data)^ do
+          vRes := Plug.OpenCmdLine(CommandLine);
+        if vRes = INVALID_HANDLE_VALUE then
+          vRes := 0;
       end else
       begin
         vRes := Plug.Open(AInfo.OpenFrom, AInfo.Data);
@@ -412,7 +423,7 @@ interface
       end;
 
       Result := vRes;
-      
+
     except
       on E :Exception do
         Plug.ErrorHandler(E);
@@ -429,6 +440,9 @@ interface
         else
           Result := Plug.OpenMacro(AItem, nil)
       end else
+      if OpenFrom = OPEN_COMMANDLINE then
+        Result := Plug.OpenCmdLine(PFarChar(AItem))
+      else
         Result := Plug.Open(OpenFrom, AItem);
     except
       on E :Exception do
@@ -555,7 +569,7 @@ interface
  {$ifdef Far3}
   function ProcessConsoleInputW;
   begin
-    Result := Plug.ConsoleInput(AInfo.Rec^);
+    Result := Plug.ConsoleInput(AInfo.Rec);
   end;
  {$endif Far3}
 

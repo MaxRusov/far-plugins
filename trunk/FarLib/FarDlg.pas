@@ -194,7 +194,11 @@ interface
 //end;
 
 
+ {$ifdef Far3}
+  function ApiDlgProc(hDlg :THandle; Msg :TIntPtr; Param1 :TIntPtr; Param2 :TIntPtr) :TIntPtr; stdcall;
+ {$else}
   function ApiDlgProc(hDlg :THandle; Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; stdcall;
+ {$endif Far3}
   var
     vDialog :TFarDialog;
   begin
@@ -206,7 +210,7 @@ interface
     end else
       TIntPtr(vDialog) := FarSendDlgMessage(hDlg, DM_GETDLGDATA, 0, 0);
     Assert(vDialog.FHandle = hDlg);
-    Result := vDialog.DlgProc(Msg, Param1, Param2);
+    Result := vDialog.DlgProc(Msg, Param1, TIntPtr(Param2));
   end;
 
 
@@ -528,6 +532,21 @@ interface
 
 
   function TFarDialog.GetText(AItemID :Integer) :TString;
+ {$ifdef Far3}
+  var
+    vLen :Integer;
+    vData :TFarDialogItemData;
+  begin
+    Result := '';
+    vLen := SendMsg(DM_GETTEXT, AItemID, 0);
+    if vLen > 0 then begin
+      SetLength(Result, vLen);
+      vData.StructSize := SizeOf(vData);
+      vData.PtrLength := vLen;
+      vData.PtrData := PFarChar(Result);
+      SendMsg(DM_GETTEXT, AItemID, @vData);
+    end;
+ {$else}
   var
     vLen :Integer;
     vData :TFarDialogItemData;
@@ -536,21 +555,22 @@ interface
     vLen := SendMsg(DM_GETTEXTLENGTH, AItemID, 0);
     if vLen > 0 then begin
       SetLength(Result, vLen);
-     {$ifdef Far3}
-      vData.StructSize := SizeOf(vData);
-     {$endif Far3}
       vData.PtrLength := vLen;
       vData.PtrData := PFarChar(Result);
       SendMsg(DM_GETTEXT, AItemID, @vData);
     end;
+ {$endif Far3}
   end;
 
-
+  
   procedure TFarDialog.SetListItems(AItemID :Integer; const AItems :array of TFarStr);
   var
     I :Integer;
     vList :TFarList;
   begin
+   {$ifdef Far3}
+    vList.StructSize := SizeOf(vList);
+   {$endif Far3}
     vList.ItemsNumber := High(AItems) + 1;
     vList.Items := MemAllocZero(vList.ItemsNumber * SizeOf(TFarListItem));
     try

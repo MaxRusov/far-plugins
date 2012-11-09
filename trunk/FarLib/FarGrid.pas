@@ -507,6 +507,7 @@ interface
     begin
       Result := 0;
       if ARec.fType in [7, 11] then begin
+        ARec.StructSize := SizeOf(ARec);
         ARec.Value.fType := FMVT_INTEGER;
         ARec.Value.Value.fInteger := IntIf(ARec.fType = 7, CurRow + 1, RowCount);
         Result := 1
