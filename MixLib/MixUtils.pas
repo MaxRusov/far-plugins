@@ -85,7 +85,9 @@ interface
       procedure AfterConstruction; override;
     private
      {$ifdef bDebug}
+     {$ifndef bUnicodeRTL}
       FMessage0 :TAnsiStr;  { Чтобы не глючил отладчик }
+     {$endif bUnicodeRTL}
      {$endif bDebug}
       FMessage :TString;
       FHelpContext :Integer;
@@ -368,7 +370,9 @@ interface
   procedure Exception.AfterConstruction; {override;}
   begin
    {$ifdef bDebug}
+   {$ifndef bUnicodeRTL}
     FMessage0 := FMessage;
+   {$endif bUnicodeRTL}
    {$endif bDebug}
   end;
 
@@ -1478,42 +1482,17 @@ interface
 
 
  {$ifdef b64}
-
- {$ifdef bFreePascal}
-
- {$ifdef bFPC23}
-  function LocalAddr({rcx:@Result;} {rdx}Proc :Pointer) :TMethod; assembler; nostackframe;
+  function LocalAddr({rcx:@Result;} {rdx}Proc :Pointer) :TMethod; assembler; {$ifdef bFreePascal}nostackframe;{$endif bFreePascal}
   asm
     mov [rcx + 8], rbp
     mov [rcx], rdx
   end;
  {$else}
-  function LocalAddr({rcx:}Proc :Pointer {rdx:@Result}) :TMethod; assembler; nostackframe;
-  asm
-    mov [rdx + 8], rbp
-    mov [rdx], rcx
-  end;
- {$endif bFPC23}
-
- {$else}
-
-  {!!!}
-  function LocalAddr({rcx:@Result;} {rdx}Proc :Pointer) :TMethod; assembler;
-  asm
-    mov [rcx + 8], rbp
-    mov [rcx], rdx
-  end;
-
- {$endif bFreePascal}
-
- {$else}
-
   function LocalAddr(Proc :Pointer) :TMethod; assembler;
   asm
     mov [edx + 4], EBP
     mov [edx].DWORD, Proc
   end;
-
  {$endif b64}
 
 

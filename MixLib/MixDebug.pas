@@ -9,7 +9,24 @@ interface
     MixTypes,
     MixUtils;
 
-  procedure DebugBreak(AMess :PTChar);
+
+  var
+    cTrue :Boolean = True;
+
+  procedure NOP;
+
+ {$ifdef bStackX64}
+  function CaptureStackBackTrace(FramesToSkip :TUns32{ULONG}; FramesToCapture :TUns32{ULONG}; BackTrace :Pointer; BackTraceHash :PUns32{PULONG}) :Word{USHORT}; stdcall;
+  function ReturnAddr :Pointer; overload;
+  function ReturnAddr2 :Pointer;
+  function ReturnAddr(ASkip :Integer) :Pointer; overload;
+ {$else}
+  function GetStackFrame :Pointer;
+  function GetStackFrame2 :Pointer;
+  function ReturnAddr :Pointer;
+  function ReturnAddr2 :Pointer;
+  function ReturnAddr3 :Pointer;
+ {$endif bStackX64}
 
   function GetAllocAddr :Pointer;
   procedure SetAllocAddr(Addr :Pointer);
@@ -36,7 +53,7 @@ interface
   procedure Trace(const AMsg :TString);
   procedure TraceA(const AMsg :TAnsiStr);
   procedure TraceW(const AMsg :TWideStr);
-  
+
   procedure TraceF(const AMsg :TString; const Args: array of const);
   procedure TraceFA(const AMsg :TAnsiStr; const Args: array of const);
   procedure TraceFW(const AMsg :TWideStr; const Args: array of const);
@@ -46,8 +63,8 @@ interface
   procedure TraceEnd(const AMsg :TString);
  {$endif bTrace}
 
-  var
-    cTrue :Boolean = True;
+  procedure DebugBreak(AMess :PTChar);
+
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -59,18 +76,14 @@ interface
  {$endif bTrace}
 
 
-  function IntMin(L1, L2 :Integer) :Integer;
+  procedure NOP;
   begin
-    if L1 < L2 then
-      Result := L1
-    else
-      Result := L2;
   end;
 
-  
-  function ChrCopyPtrA(Dest :PAnsiChar; APtr :Pointer) :PAnsiChar;
+
+  function ChrCopyPtr(Dest :PTChar; APtr :Pointer) :PTChar;
   const
-    HexChars :array[0..15] of AnsiChar = ('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
+    HexChars :array[0..15] of TChar = ('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
   var
     I :Integer;
     N :TUnsPtr;
@@ -86,46 +99,132 @@ interface
   end;
 
 
-  function ChrCopyShortStr(Dest :PAnsiChar; const Source :ShortString) :PAnsiChar;
+  function ChrCopyShortStr(Dest :PTChar; const Source :ShortString) :PTChar;
   var
     vLen :Integer;
   begin
     vLen := Length(Source);
     if vLen > 0 then
+     {$ifdef bUnicode}
+      MultiByteToWideChar(CP_ACP, 0, @Source[1], vLen, Dest, vLen);
+     {$else}
       Move(Source[1], Dest^, vLen);
+     {$endif bUnicode}
     (Dest + vLen)^ := #0;
     Result := Dest + vLen;
   end;
 
 
-  function ChrCopyAL(Dest, Source :PAnsiChar; Len, BufLen :Integer) :PAnsiChar;
+  function ChrCopyL(Dest, Source :PTChar; Len, BufLen :Integer) :PTChar;
   begin
     if Len > BufLen - 1 then
       Len := BufLen - 1;
     if Len > 0 then
-      Move(Source^, Dest^, Len * SizeOf(AnsiChar));
+      Move(Source^, Dest^, Len * SizeOf(TChar));
     (Dest + Len)^ := #0;
     Result := Dest + Len;
   end;
 
 
-  function ChrCopyA(Dest, Source :PAnsiChar; Len :Integer) :PAnsiChar;
+  function ChrCopy(Dest, Source :PTChar; Len :Integer) :PTChar;
   begin
-    Result := ChrCopyAL(Dest, Source, Len, Len + 1);
+    Result := ChrCopyL(Dest, Source, Len, Len + 1);
   end;
 
-
-  procedure DebugBreak(AMess :PTChar);
-  begin
-    try
-      raise EDebugRaise.Create(AMess)
-       {$ifopt W+} at ReturnAddr {$endif W+};
-    except
-      NOP;
-    end;
-  end;
 
  {-----------------------------------------------------------------------------}
+
+ {$ifdef bStackX64}
+  function CaptureStackBackTrace; external 'kernel32.dll' name 'RtlCaptureStackBackTrace';
+
+
+  function ReturnAddr :Pointer;
+  begin
+    if CaptureStackBackTrace(2, 1, @Result, nil) = 0 then
+      Result := nil;
+  end;
+
+
+  function ReturnAddr2 :Pointer;
+  begin
+    if CaptureStackBackTrace(3, 1, @Result, nil) = 0 then
+      Result := nil;
+  end;
+
+
+  function ReturnAddr(ASkip :Integer) :Pointer;
+  begin
+    if CaptureStackBackTrace(ASkip + 1, 1, @Result, nil) = 0 then
+      Result := nil;
+  end;
+
+ {$else}
+
+ {$ifdef b64}
+  function GetStackFrame :Pointer; assembler; {$ifdef bFreePascal}nostackframe;{$endif}
+  asm
+    MOV  RAX, RBP
+  end;
+
+  function GetStackFrame2 :Pointer; assembler; {$ifdef bFreePascal}nostackframe;{$endif}
+  asm
+    MOV  RAX, RBP
+    MOV  RAX, [RAX]
+  end;
+
+  function ReturnAddr :Pointer; assembler; {$ifdef bFreePascal}nostackframe;{$endif}
+  asm
+    MOV  RAX, RBP
+    MOV  RAX, [RAX + 8]
+  end;
+
+  function ReturnAddr2 :Pointer; assembler; {$ifdef bFreePascal}nostackframe;{$endif}
+  asm
+    MOV  RAX, [RBP]
+    MOV  RAX, [RAX + 8]
+  end;
+
+  function ReturnAddr3 :Pointer; assembler; {$ifdef bFreePascal}nostackframe;{$endif}
+  asm
+    MOV  RAX, [RBP]
+    MOV  RAX, [RAX]
+    MOV  RAX, [RAX + 8]
+  end;
+
+ {$else}
+
+  function GetStackFrame :Pointer;
+  asm
+    MOV  EAX, EBP
+  end;
+
+  function GetStackFrame2 :Pointer;
+  asm
+    MOV  EAX, EBP
+    MOV  EAX, [EAX]
+  end;
+
+  function ReturnAddr :Pointer;
+  asm
+    MOV  EAX, EBP
+    MOV  EAX, [EAX + 4]
+  end;
+
+  function ReturnAddr2 :Pointer;
+  asm
+    MOV  EAX, [EBP]
+    MOV  EAX, [EAX + 4]
+  end;
+
+  function ReturnAddr3 :Pointer;
+  asm
+    MOV  EAX, [EBP]
+    MOV  EAX, [EAX]
+    MOV  EAX, [EAX + 4]
+  end;
+ {$endif b64}
+ {$endif bStackX64}
+
 
  {-----------------------------------------------------------------------------}
 
@@ -180,6 +279,11 @@ interface
 
   procedure SetReturnAddr;
   begin
+   {$ifdef bStackX64}
+    if GetAllocAddr = nil then
+      SetAllocAddr( ReturnAddr(2) );
+   {$else}
+
    {$ifdef bFreePascal}
     if GetAllocFrame = nil then
       SetAllocFrame( GetStackFrame2 );
@@ -187,11 +291,18 @@ interface
     if GetAllocAddr = nil then
       SetAllocAddr( ReturnAddr2 );
    {$endif bFreePascal}
+
+   {$endif bStackX64}
   end;
 
 
   procedure SetReturnAddrNewInstance;
   begin
+   {$ifdef bStackX64}
+    if GetAllocAddr = nil then
+      SetAllocAddr( ReturnAddr(4) );
+   {$else}
+
    {$ifdef bFreePascal}
     if GetAllocFrame = nil then
       SetAllocFrame( GetStackFrame2 );
@@ -199,6 +310,8 @@ interface
     if GetAllocAddr = nil then
       SetAllocAddr( ReturnAddr3 );
    {$endif bFreePascal}
+
+   {$endif bStackX64}
   end;
 
 
@@ -214,53 +327,69 @@ interface
       Result := Address;
   end;
 
- {$ifdef bLinux}
-  function IsBadWritePtr(AAddr :Pointer; ALen :TInteger) :Boolean;
-  begin
-    Result := False;
-  end;
- {$endif bLinux}
 
   procedure TraceCallstack(AAddr :Pointer);
- {$ifdef Win64}
+ {$ifdef bStackX64}
+  const
+    { Windows Server 2003 and Windows XP:  The sum of the FramesToSkip and FramesToCapture parameters must be less than 63. }
+    { http://msdn.microsoft.com/en-us/library/windows/desktop/bb204633%28v=vs.85%29.aspx }
+    MaxStackLen = 60;
+  var
+    I, vCount :Integer;
+    vChr :PTChar;
+    vStack :array[0..MaxStackLen] of Pointer;
+    vStr :array[0..MaxStackLen * (SizeOf(Pointer)*2 + 3)] of TChar;
   begin
-    {!!!Pulsar}
+    try
+     {$ifdef bDebug}
+      FillChar(vStack, SizeOf(vStack), 0);
+     {$endif bDebug}
+      vCount := CaptureStackBackTrace(1, MaxStackLen, @vStack, nil);
+    except
+      vCount := 0;
+    end;
+
+    vChr := @vStr[0];
+    if vCount > 0 then begin
+      for I := 0 to vCount - 1 do begin
+        vChr := ChrCopy(vChr, ' : ', 3);
+        vChr := ChrCopyPtr(vChr, vStack[I]);
+      end;
+    end else
+      vChr := ChrCopy(vChr, ' : !!!', 6);
+
+    vChr^ := #0;
+    TraceStr(@vStr[0]);
  {$else}
   const
-    MaxStackLen = 50;
+    MaxStackLen = 60;
   var
-    I, J :Integer;
+    vCount :Integer;
     vPtr :Pointer;
-    vAdr :Pointer;
-    vStr :array[0..MaxStackLen * (SizeOf(Pointer)*2 + 3)] of AnsiChar;
+    vChr :PTChar;
+    vProcess :THandle;
+    vRead :SIZE_T;
+    vBuf :array[0..1] of Pointer;
+    vStr :array[0..MaxStackLen * (SizeOf(Pointer)*2 + 3)] of TChar;
   begin
-    asm
-     {$ifdef b64}
-      MOV  vPtr, RBP
-     {$else}
-      MOV  vPtr, EBP
-     {$endif b64}
+    vPtr := GetStackFrame;
+    vProcess := GetCurrentProcess;
+
+    vCount := 0;
+    vChr := @vStr[0];
+    while (vCount < MaxStackLen) and (vPtr <> nil) and ReadProcessMemory(vProcess, vPtr, @vBuf, SizeOf(vBuf), vRead) and (vRead = SizeOf(vBuf)) do begin
+      vChr := ChrCopy(vChr, ' : ', 3);
+      vChr := ChrCopyPtr(vChr, vBuf[1]);
+
+      vPtr := vBuf[0];
+      Inc(vCount);
     end;
 
-    I := 0;
-    J := 0;
-    while (vPtr <> nil) and not IsBadReadPtr(vPtr, SizeOf(Pointer)*2) and (J < MaxStackLen) do begin
-      vAdr := ConvertAddr(PPointer(Pointer1(vPtr) + SizeOf(Pointer))^);
-
-      lstrcpya(@vStr[I], ' : ');
-      Inc(I, 3);
-
-      ChrCopyPtrA(@vStr[I], vAdr);
-      Inc(I, SizeOf(Pointer)*2);
-
-      vPtr := PPointer(vPtr)^;
-      Inc(J);
-    end;
-
-    vStr[I] := #0;
-    TraceStrA(@vStr[0]);
- {$endif Win64}
+    vChr^ := #0;
+    TraceStr(@vStr[0]);
+ {$endif bStackX64}
   end;
+
  {$endif bTrace}
 
  {-----------------------------------------------------------------------------}
@@ -283,10 +412,8 @@ interface
     MaxErrorLen = 4096;
   var
     vAddr :Pointer;
-    vStr  :array[0..MaxErrorLen] of AnsiChar;
-//  vName :ShortString;
-    vPtr :PAnsiChar;
-    vLen :Integer;
+    vStr  :array[0..MaxErrorLen] of TChar;
+    vPtr :PTChar;
   begin
 //  if debSkipNextError then begin
 //    debSkipNextError := False;
@@ -301,28 +428,22 @@ interface
     if vAddr = nil then
       vAddr := ReturnAddr2;
 
-//  vName := GetThreadName;
-
     FillChar(vStr, SizeOf(vStr), '.');
     vPtr := @vStr[0];
-    vPtr := ChrCopyA(vPtr, 'Error at ', 9);
-    vPtr := ChrCopyPtrA(vPtr, vAddr);
-    vPtr := ChrCopyA(vPtr, ', ', 2);
-//  vPtr := ChrCopyShortStr(vPtr, vName);
-//  vPtr := ChrCopy(vPtr, ', ', 2);
-    {!Unicode}
-    vPtr := ChrCopyShortStr(vPtr, AClass);
-    vPtr := ChrCopyA(vPtr, ': ', 2);
-   {$ifdef bUnicode}
-    vLen := IntMin(length(AMessage), MaxErrorLen - (vPtr - @vStr[0]));
-    Inc(vPtr, WideCharToMultiByte(CP_ACP, 0, PTChar(AMessage), vLen, vPtr, vLen, nil, nil));
-    vPtr^ := #0;
-   {$else}
-    vLen := MaxErrorLen - (vPtr - @vStr[0]);
-    ChrCopyAL(vPtr, PTChar(AMessage), length(AMessage), vLen);
-   {$endif bUnicode}
+    vPtr := ChrCopy(vPtr, 'Error at ', 9);
+    vPtr := ChrCopyPtr(vPtr, vAddr);
+    vPtr := ChrCopy(vPtr, ', ', 2);
 
-    TraceStrA(@vStr[0]);
+   {$ifdef bUnicodeRTL}
+    vPtr := ChrCopy(vPtr, PTChar(AClass), Length(AClass));
+   {$else}
+    vPtr := ChrCopyShortStr(vPtr, AClass);
+   {$endif bUnicodeRTL}
+
+    vPtr := ChrCopy(vPtr, ': ', 2);
+   {vPtr :=}ChrCopyL(vPtr, PTChar(AMessage), length(AMessage), MaxErrorLen - (vPtr - @vStr[0]));
+
+    TraceStr(@vStr[0]);
 
 //  if not IsDebuggerPresent then
       TraceCallstack(AAddr);
@@ -330,6 +451,7 @@ interface
   begin
  {$endif bTrace}
   end;
+
 
 
  {$ifdef bTrace}
@@ -461,6 +583,19 @@ interface
     TraceF('%s (%d ms)', [AMsg, TickCountDiff(GetTickCount, gStart)]);
   end;
  {$endif bTrace}
+
+
+
+  procedure DebugBreak(AMess :PTChar);
+  begin
+    try
+      raise EDebugRaise.Create(AMess)
+       {$ifopt W+} at ReturnAddr {$endif W+};
+    except
+      NOP;
+    end;
+  end;
+
 
 
 end.

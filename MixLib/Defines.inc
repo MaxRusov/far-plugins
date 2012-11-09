@@ -128,7 +128,7 @@
    !!!
   {$endif}
 
-  {$ifdef Ver230}       // Pulsar
+  {$ifdef Ver230}
    {$Define bDelphi4}
    {$Define bDelphi5}
    {$Define bDelphi6}
@@ -140,7 +140,7 @@
    {$Define bDelphi12}
    {$Define bDelphi13}
    {$Define bDelphi14}  // XE
-   {$Define bDelphi15}  // Pulsar
+   {$Define bDelphi15}  // XE2 - Pulsar - перва€ верси€ с 64-х разр€дным компил€тором
   {$endif}
 
   {$ifdef Win32}
@@ -160,6 +160,7 @@
 
   {$ifdef b64}
    {$Define bDelphi64}
+   {$Define bStackX64}    { Ќова€ модель стека, без использовани€ RBP }
   {$else}
    {$Define bOldLocalCall}
   {$endif b64}
