@@ -1,0 +1,11 @@
+
+const SameFolder = "483AC82A-5FBB-45D9-8330-2BE2FAB568F7"
+
+
+macro Descr="SameFolder: Active -> Passive" Area="Shell" Key="Ctrl="{{  Plugin.Call(#%SameFolder, 0)}}macro Descr="SameFolder: Folder under cursor" Area="Shell" Key="Alt="{{  Plugin.Call(#%SameFolder, 1)}}
+
+/*
+macro Descr="SameFolder: Autofollow mode" Area="Shell" Key="CtrlAlt="
+{{
+  Plugin.Call(#%SameFolder, 3)}}
+*/
