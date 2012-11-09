@@ -37,6 +37,7 @@ interface
       procedure GetInfo; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
       function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
+      function OpenCmdLine(AStr :PFarChar) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
     end;
 
@@ -103,36 +104,6 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- {                                                                             }
- {-----------------------------------------------------------------------------}
-
-  procedure OpenCmdLine(const AStr :TString; AWinType :Integer);
-  var
-    vStr :TString;
-  begin
-    vStr := ExtractWords(2, MaxInt, AStr, [':']);
-    if UpCompareSubStr(cPlugMenuPrefix, AStr) = 0 then begin
-      OpenMenu(AWinType, vStr);
-      Exit;
-    end;
-   {$ifdef bUnicode}
-    if UpCompareSubStr(cPlugLoadPrefix, AStr) = 0 then begin
-      if (vStr <> '') and (vStr[1] = '"') and (vStr[Length(vStr)] = '"') then
-        vStr := Trim(Copy(vStr, 2, length(vStr) - 2));
-      vStr := FarExpandFileName(vStr);
-      LoadNewPlugin(vStr);
-    end else
-    if UpCompareSubStr(cPlugUnloadPrefix, AStr) = 0 then begin
-      if (vStr <> '') and (vStr[1] = '"') and (vStr[Length(vStr)] = '"') then
-        vStr := Trim(Copy(vStr, 2, length(vStr) - 2));
-      vStr := FarExpandFileName(vStr);
-      UnloadPlugin(vStr);
-    end;
-   {$endif bUnicode}
-  end;
-
-
- {-----------------------------------------------------------------------------}
  { TPlugMenuPlug                                                               }
  {-----------------------------------------------------------------------------}
 
@@ -158,7 +129,8 @@ interface
 
    {$ifdef Far3}
 //  FMinFarVer := MakeVersion(3, 0, 2415);   { PCTL_GETPLUGINS/PCTL_FINDPLUGIN }
-    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+//  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+    FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 910);    { Новый формат кэша плагинов. }
 //  FMinFarVer := MakeVersion(2, 0, 995);    { Изменена TWindowInfo }
@@ -223,14 +195,41 @@ interface
     vWinInfo :TWindowInfo;
   begin
     Result := INVALID_HANDLE_VALUE;
+    InitFarPluginsList;
+    FarGetWindowInfo(-1, vWinInfo);
+    OpenMenu(vWinInfo.WindowType);
+  end;
+
+
+  function TPlugMenuPlug.OpenCmdLine(AStr :PFarChar) :THandle; {override;}
+  var
+    vStr :TString;
+    vWinInfo :TWindowInfo;
+  begin
+    Result := INVALID_HANDLE_VALUE;
 
     InitFarPluginsList;
     FarGetWindowInfo(-1, vWinInfo);
-    if AFrom = OPEN_COMMANDLINE then
-      OpenCmdLine(FarChar2Str(PFarChar(AParam)), vWinInfo.WindowType)
-    else
-    if AFrom in [OPEN_PLUGINSMENU, OPEN_EDITOR, OPEN_VIEWER, OPEN_DIALOG] then
-      OpenMenu(vWinInfo.WindowType);
+
+    vStr := ExtractWords(2, MaxInt, AStr, [':']);
+    if UpCompareSubStr(cPlugMenuPrefix, AStr) = 0 then begin
+      OpenMenu(vWinInfo.WindowType, vStr);
+      Exit;
+    end;
+   {$ifdef bUnicode}
+    if UpCompareSubStr(cPlugLoadPrefix, AStr) = 0 then begin
+      if (vStr <> '') and (vStr[1] = '"') and (vStr[Length(vStr)] = '"') then
+        vStr := Trim(Copy(vStr, 2, length(vStr) - 2));
+      vStr := FarExpandFileName(vStr);
+      LoadNewPlugin(vStr);
+    end else
+    if UpCompareSubStr(cPlugUnloadPrefix, AStr) = 0 then begin
+      if (vStr <> '') and (vStr[1] = '"') and (vStr[Length(vStr)] = '"') then
+        vStr := Trim(Copy(vStr, 2, length(vStr) - 2));
+      vStr := FarExpandFileName(vStr);
+      UnloadPlugin(vStr);
+    end;
+   {$endif bUnicode}
   end;
 
 
