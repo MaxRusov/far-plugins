@@ -36,6 +36,7 @@ interface
       procedure Configure; override;
       procedure GetInfo; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function OpenCmdLine(AStr :PTChar) :THandle; override;
       function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
     end;
@@ -509,32 +510,6 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- {                                                                             }
- {-----------------------------------------------------------------------------}
-
-  procedure OpenCmdLine(const AStr :TString);
-  var
-    vStr :PTChar;
-    vCmd :TString;
-  begin
-    if AStr <> '' then begin
-      vStr := PTChar(AStr);
-      while vStr^ <> #0 do begin
-        vCmd := ExtractParamStr(vStr);
-        if vCmd <> '' then begin
-          if (vCmd[1] = '/') or (vCmd[1] = '-') then begin
-            Delete(vCmd, 1, 1);
-            TabsManager.RunCommand(vCmd);
-          end;
-        end;
-      end;
-    end else
-      MainMenu;
-  end;
-
-
-
- {-----------------------------------------------------------------------------}
  { TPanelTabsPlug                                                              }
  {-----------------------------------------------------------------------------}
 
@@ -556,7 +531,8 @@ interface
    {$ifdef Far3}
 //  FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
 //  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
-    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+//  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+    FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1005);   { ProcessSynchroEvent }
 //  FMinFarVer := MakeVersion(2, 0, 1148);   { ConvertPath }
@@ -625,9 +601,26 @@ interface
   function TPanelTabsPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
     Result := INVALID_HANDLE_VALUE;
-    if AFrom = OPEN_COMMANDLINE then
-      OpenCmdLine(FarChar2Str(PFarChar(AParam)))
-    else
+    MainMenu;
+  end;
+
+
+  function TPanelTabsPlug.OpenCmdLine(AStr :PTChar) :THandle; {override;}
+  var
+    vCmd :TString;
+  begin
+    Result := INVALID_HANDLE_VALUE;
+    if AStr <> nil then begin
+      while AStr^ <> #0 do begin
+        vCmd := ExtractParamStr(AStr);
+        if vCmd <> '' then begin
+          if (vCmd[1] = '/') or (vCmd[1] = '-') then begin
+            Delete(vCmd, 1, 1);
+            TabsManager.RunCommand(vCmd);
+          end;
+        end;
+      end;
+    end else
       MainMenu;
   end;
 
