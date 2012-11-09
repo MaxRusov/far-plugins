@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding='Windows-1251'?>
+
+<hrc version="take5">
+
+  <prototype name="far.macrolib" group="scripts.far" description="Far Macro Library">
+    <location link="MacroLib.hrc"/> 
+    <filename weight='9'>/\.fml$/i</filename>
+    <filename weight='9'>/\.fmi$/i</filename>
+  </prototype>
+
+  <prototype name="far.macroliblua" group="scripts.far" description="Far Macro Library for LUA">
+    <location link="MacroLibLua.hrc"/> 
+    <filename weight='9'>/\.fmlua$/i</filename>
+  </prototype>
+
+</hrc>

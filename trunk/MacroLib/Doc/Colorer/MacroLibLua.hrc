@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="windows-1251"?>
+
+<hrc version="take5">
+
+<type name="far.macroliblua">
+
+<import type="def"/>
+
+<region name="mKeyWord" parent="Keyword"/>
+<region name="mParam" parent="FunctionKeyword"/>
+
+<scheme name="far.macroliblua">
+
+  <regexp match="/--.*?$/" region="Comment"/>
+  <regexp match="/;;.*?$/" region="Comment"/>
+  <regexp match="/\/\/.*?$/" region="Comment"/>
+  <block start="/\/\*/" end="/\*\//" scheme="Comment" region="Comment" region00="PairStart" region10="PairEnd"/>
+
+  <keywords region="mKeyWord" ignorecase="yes">
+     <word name="macro"/>
+     <word name="farmacro"/>
+     <word name="const"/>
+     <word name="include"/>
+  </keywords>    
+
+  <keywords region="mParam" ignorecase="yes">
+     <word name="name"/>
+     <word name="descr"/>
+     <word name="description"/>
+     <word name="area"/>
+     <word name="areas"/>
+     <word name="bind"/>
+     <word name="key"/>
+     <word name="keys"/>
+     <word name="hotkey"/>
+     <word name="hotkeys"/>
+     <word name="event"/>
+     <word name="events"/>
+     <word name="cond"/>
+     <word name="condition"/>
+     <word name="Priority"/>
+     <word name="EatOnRun"/>
+     <word name="RunOnRelease"/>
+     <word name="DisableOutput"/>
+     <word name="SendToPlugin"/>
+  </keywords>
+
+  <block start="/(\{\{)/" end="/(\}\})/" scheme="body" 
+    region00="Symbol" region01="PairStart" 
+    region10="Symbol" region11="PairEnd"
+   />
+
+  <regexp match="/\b0x[\dA-Fa-f]+\b/" region="NumberHex"/>
+  <regexp match="/\b\d+\b/" region="NumberDec"/>
+
+  <inherit scheme="far:macro.string"/>
+
+</scheme>
+
+
+<scheme name="body">
+  <inherit scheme="macro.lua"/>
+</scheme>
+
+
+<scheme name="macro.lua">
+  <inherit scheme="lua:lua"/>
+</scheme>
+
+</type>
+</hrc>

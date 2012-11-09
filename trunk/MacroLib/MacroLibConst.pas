@@ -85,12 +85,22 @@ interface
    {$endif Far3}
 
     cDefMacroFolder = 'Macros';
+
+   {$ifdef bLUA}
+    cMacroFileExt   = 'FMLUA';
+   {$else}
     cMacroFileExt   = 'FML';
+   {$endif bLUA}
 
     cMacroPathName  = 'MacroLib.Paths';
 
     cMacroListDlgID :TGUID = '{F002A86D-BB4A-4A8F-A875-30286C06414B}';
 
+   {$ifdef bLUA}
+    cAKeyMacroVar = '_AK_';
+   {$else}
+    cAKeyMacroVar = '%_AK_';
+   {$endif bLUA}
 
   var
     optProcessHotkey :Boolean = True;   { ќбрабатывать нажати€ гор€чих клавиш }
@@ -310,6 +320,9 @@ interface
     Dec(ARow); Dec(ACol);
     vNewTop := -1;
     FillZero(vInfo, SizeOf(vInfo));
+   {$ifdef Far3}
+    vInfo.StructSize := SizeOf(vInfo);
+   {$endif Far3}
     if FarEditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
       if ATopLine = 0 then
         vHeight := vInfo.WindowSizeY
@@ -318,6 +331,9 @@ interface
       if (ARow < vInfo.TopScreenLine) or (ARow >= vInfo.TopScreenLine + vHeight) then
         vNewTop := RangeLimit(ARow - (vHeight div 2), 0, MaxInt{???});
     end;
+   {$ifdef Far3}
+    vPos.StructSize := SizeOf(vPos);
+   {$endif Far3}
     vPos.TopScreenLine := vNewTop;
     vPos.CurLine := ARow;
     vPos.CurPos := ACol;
@@ -359,12 +375,15 @@ interface
       GotoPosition(ARow, ACol, ATopLine)
     else begin
       vFarFileName := AFileName;
-      FARAPI.Editor(PFarChar(vFarFileName), nil, 0, 0, -1, -1, EF_NONMODAL or EF_IMMEDIATERETURN or EF_ENABLE_F6, ARow, ACol, CP_AUTODETECT);
+      FARAPI.Editor(PFarChar(vFarFileName), nil, 0, 0, -1, -1, EF_NONMODAL or EF_IMMEDIATERETURN or EF_ENABLE_F6, ARow, ACol, CP_DEFAULT);
       if ATopLine <> 0 then
         GotoPosition(ARow, ACol, ATopLine);
     end;
 
     if ASelectLine and (ARow > 0) then begin
+     {$ifdef Far3}
+      vSel.StructSize := SizeOf(vSel);
+     {$endif Far3}
       vSel.BlockType := BTYPE_STREAM;
       vSel.BlockStartLine := ARow - 1;
       vSel.BlockStartPos := 0;

@@ -53,6 +53,7 @@ interface
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
       function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
+      function OpenCmdLine(AStr :PTChar) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
       function DialogEvent(AEvent :Integer; AParam :PFarDialogEvent) :Integer; override;
       function EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
@@ -428,29 +429,6 @@ interface
   end;
 
 
-  procedure OpenCmdLine(AChr :PTChar);
-  var
-    vStr :TString;
-    vKey :Integer;
-  begin
-    if (AChr = nil) or (AChr^ = #0) then
-      MacroLibrary.ShowAll
-    else begin
-      InitKeywords;
-      while AChr^ <> #0 do begin
-        vStr := ExtractParamStr(AChr);
-        vKey := CmdWords.GetKeywordStr(vStr);
-        case vKey of
-          kwCall: CmdCall(ExtractParamStr(AChr));
-          kwKey:  CmdKey(ExtractParamStr(AChr));
-        else
-          AppErrorFmt('Unknown command: %s', [vStr]);
-        end;
-      end;
-    end;
-  end;
-
-
  {-----------------------------------------------------------------------------}
  { TMoreHistoryPlug                                                            }
  {-----------------------------------------------------------------------------}
@@ -475,7 +453,8 @@ interface
 //  FMinFarVer := MakeVersion(3, 0, 2379);   { MCTL_GETLASTERROR - исправление ошибки };
 //  FMinFarVer := MakeVersion(3, 0, 2380);   { MacroAddMacro - изменена (fuck!) };
 //  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
-    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+//  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+    FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1765);   { MCMD_GETAREA };
     FMinFarVer := MakeVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING, MCMD_POSTMACROSTRING };
@@ -538,11 +517,7 @@ interface
   function TMacroLibPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
     Result:= INVALID_HANDLE_VALUE;
-
-    if AFrom = OPEN_COMMANDLINE then
-      OpenCmdLine(PTChar(AParam))
-    else
-      MainMenu;
+    MainMenu;
   end;
 
 
@@ -556,6 +531,30 @@ interface
         OpenCmdLine(AStr)
       else
         FarAdvControl(ACTL_SYNCHRO, nil);
+    end;
+  end;
+
+
+  function TMacroLibPlug.OpenCmdLine(AStr :PTChar) :THandle; {override;}
+  var
+    vStr :TString;
+    vKey :Integer;
+  begin
+    Result:= INVALID_HANDLE_VALUE;
+    if (AStr = nil) or (AStr^ = #0) then
+      MacroLibrary.ShowAll
+    else begin
+      InitKeywords;
+      while AStr^ <> #0 do begin
+        vStr := ExtractParamStr(AStr);
+        vKey := CmdWords.GetKeywordStr(vStr);
+        case vKey of
+          kwCall: CmdCall(ExtractParamStr(AStr));
+          kwKey:  CmdKey(ExtractParamStr(AStr));
+        else
+          AppErrorFmt('Unknown command: %s', [vStr]);
+        end;
+      end;
     end;
   end;
 
