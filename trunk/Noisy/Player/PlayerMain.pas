@@ -2459,19 +2459,19 @@ interface
               cmdVolume:
                 if vPar <> '' then begin
                   if (vChr = '+') or (vChr = '-') then
-                    SetVolume(FloatLimit(GetVolume + Str2FloatDef(vPar, 0), 0, 100))
+                    SetVolume(FloatLimit(GetVolume + StrToFloatDef(vPar, 0), 0, 100))
                   else
-                    SetVolume(Str2FloatDef(vPar, -1))
+                    SetVolume(StrToFloatDef(vPar, -1))
                 end;
 
               cmdBalance:
                 if vPar <> '' then begin
                   if (vChr = '+') or (vChr = '-') then
-                    SetBalance(GetBalance + Str2FloatDef(vPar, 0))
+                    SetBalance(GetBalance + StrToFloatDef(vPar, 0))
                   else begin
                     if (vChr = 'L') or (vChr = 'R') then
                       vPar := Copy(vPar, 2, MaxInt);
-                    vNum := Str2FloatDef(vPar, 0);
+                    vNum := StrToFloatDef(vPar, 0);
                     if vChr = 'L' then
                       vNum := -vNum;
                     SetBalance(vNum);
@@ -2479,18 +2479,18 @@ interface
                 end;
 
               cmdMute:
-                Mute(Str2FloatDef(vPar, 0));
+                Mute(StrToFloatDef(vPar, 0));
 
               cmdSeek:
                 if vPar <> '' then begin
                   if (vChr = '+') or (vChr = '-') then
-                    AsyncSeekTo(GetAsyncPosition + Str2FloatDef(vPar, 0))
+                    AsyncSeekTo(GetAsyncPosition + StrToFloatDef(vPar, 0))
                   else
                     SeekTo(Str2IntDef(vPar, -1))
                 end;
 
               cmdSpeed:
-                SetSpeed(Str2FloatDef(vPar, -1));
+                SetSpeed(StrToFloatDef(vPar, -1));
 
               cmdDelete:     DeleteTrack(Str2IntDef(vPar, 0) - 1);
               cmdMoveTrack:  MoveTrack(Str2IntDef(ExtractWord(1, vPar, [';']), 0) - 1, Str2IntDef(ExtractWord(2, vPar, [';']), 0) - 1);
