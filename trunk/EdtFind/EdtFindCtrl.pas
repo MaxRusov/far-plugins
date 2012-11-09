@@ -324,7 +324,7 @@ interface
 
 
  {$ifdef Far3}
-  function HelperDlgProc(hDlg :THandle; Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; stdcall;
+  function HelperDlgProc(hDlg :THandle; Msg :TIntPtr; Param1 :TIntPtr; Param2 :TIntPtr) :TIntPtr; stdcall;
   begin
     if Msg = DN_INITDIALOG then begin
       FARAPI.SendDlgMessage(hDlg, DM_ADDHISTORY, 0, PTChar(Param2));

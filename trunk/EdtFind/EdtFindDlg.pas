@@ -415,7 +415,13 @@ interface
   begin
     Result := '';
     FillZero(vInfo, SizeOf(vInfo));
+   {$ifdef Far3}
+    vInfo.StructSize := SizeOf(vInfo);
+   {$endif Far3}
     if FarEditorControl(ECTL_GETINFO, @vInfo) = 1 then begin
+     {$ifdef Far3}
+      vStrInfo.StructSize := SizeOf(vStrInfo);
+     {$endif Far3}
       vStrInfo.StringNumber := -1;
       if FarEditorControl(ECTL_GETSTRING, @vStrInfo) = 1 then begin
         with vStrInfo do begin

@@ -755,6 +755,9 @@ end;
     Result := nil;
     if (AIdx >= 0) and (AIdx < FMatches.Count) then begin
       vSel := FMatches.PItems[AIdx];
+     {$ifdef Far3}
+      vStrInfo.StructSize := SizeOf(vStrInfo);
+     {$endif Far3}
       vStrInfo.StringNumber := vSel.FRow;
       if FarEditorControl(ECTL_GETSTRING, @vStrInfo) = 1 then begin
         ALen := vStrInfo.StringLength;

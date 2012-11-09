@@ -434,7 +434,10 @@ interface
   begin
     Result := False;
 
-    FillChar(vEdtInfo, SizeOf(vEdtInfo), 0);
+    FillZero(vEdtInfo, SizeOf(vEdtInfo));
+   {$ifdef Far3}
+    vEdtInfo.StructSize := SizeOf(vEdtInfo);
+   {$endif Far3}
     if FarEditorControl(ECTL_GETINFO, @vEdtInfo) <> 1 then
       Exit;
 
@@ -488,6 +491,9 @@ interface
           LocShowMessage(FOrig, (100 * vRow) div vEdtInfo.TotalLines);
 //        LocShowMessage(FOrig, (100 * (vRow - vBegRow)) div (vEndRow - vBegRow));
 
+       {$ifdef Far3}
+        vStrInfo.StructSize := SizeOf(vStrInfo);
+       {$endif Far3}
         vStrInfo.StringNumber := vRow;
         if FarEditorControl(ECTL_GETSTRING, @vStrInfo) = 1 then begin
 //        if soSelectedOnly in Options then begin

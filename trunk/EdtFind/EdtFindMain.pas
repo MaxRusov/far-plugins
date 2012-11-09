@@ -348,7 +348,8 @@ interface
 
    {$ifdef Far3}
 //  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
-    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+//  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+    FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
    {$else}
     FMinFarVer := MakeVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING }
    {$endif Far3}
