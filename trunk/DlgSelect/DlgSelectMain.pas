@@ -60,6 +60,7 @@ interface
     FVersion := GetSelfVerison; 
    {$ifdef Far3}
     FGUID := cPluginID;
+    FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
    {$endif Far3}
   end;
 
@@ -81,7 +82,8 @@ interface
       vData :TFarDialogItemData;
     begin
       Result := 0;
-      vLen := FarSendDlgMessage(ADlg, DM_GETTEXTLENGTH, AItemID, 0);
+      vLen := FarSendDlgMessage(ADlg, DM_GETTEXT, AItemID, 0);
+//    vLen := FarSendDlgMessage(ADlg, DM_GETTEXTLENGTH, AItemID, 0);
       if vLen > 0 then begin
         SetLength(vStr, vLen);
        {$ifdef Far3}
@@ -105,12 +107,16 @@ interface
       FarSendDlgMessage(ADlg,  DM_GETDLGITEMSHORT, AID, @vInfo);
       if (vInfo.ItemType in [DI_EDIT, DI_PSWEDIT, DI_FIXEDIT ]) and (vInfo.Flags and DIF_EDITOR = 0) then begin
 //      TraceF('ProcessDialogEventW: GotFocus, ID=%d...', [vID]);
-        FillChar(vSelect, SizeOf(vSelect), 0);
+        FillZero(vSelect, SizeOf(vSelect));
+       {$ifdef Far3}
+        vSelect.StructSize := SizeOf(vSelect);
+       {$endif Far3}
         if AMsg = DN_GOTFOCUS then begin
           if vInfo.ItemType = DI_FIXEDIT then
             vLen := GetTextLen(AID)
           else
-            vLen := FarSendDlgMessage(ADlg, DM_GETTEXTLENGTH, AID, nil);
+            vLen := FarSendDlgMessage(ADlg, DM_GETTEXT, AID, nil);
+//          vLen := FarSendDlgMessage(ADlg, DM_GETTEXTLENGTH, AID, nil);
 
           vSelect.BlockType := BTYPE_STREAM;
           vSelect.BlockWidth := vLen;
