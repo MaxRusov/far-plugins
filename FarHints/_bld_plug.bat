@@ -11,30 +11,23 @@ shift
 if /i "%Compiler%" == "fpc64" (
   set Platform=x64
 ) else (
-  set Platform=x32
+  set Platform=
 )
 
 if /i "%1" == "Far3" (
-  if "%Platform%" == "x32" (
-    set Bin=Bin3
-  ) else (
-    set Bin=Bin3x64
-  )
-  Shift
+  set FarVer=3
+  shift
 ) else (
-  if "%Platform%" == "x32" (
-    set Bin=Bin
-  ) else (
-    set Bin=Bin_64
-  )
+  set FarVer=2
 )
 
-if "%Platform%" == "x32" (
-  set Units=Units
-) else (
+set Bin=Bin%FarVer%%Platform%
+
+if "%Platform%" == "x64" (
   set Units=Units64
+) else (
+  set Units=Units
 )
-
 
 Echo Compile %Plugin%
 

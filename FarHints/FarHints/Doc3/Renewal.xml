@@ -3,7 +3,7 @@
   <plugin guid="{CDF48DA0-0334-4169-8453-69048DD3B51C}">
     <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=FarHints</url>
     <home arch="any">http://code.google.com/p/far-plugins/wiki/FarHints</home>
-    <regex arch="x86">//far-plugins.googlecode.com/files/FarHints\.far3.(\d+)\.(\d+)\.rar</regex>
-    <regex arch="x64">//far-plugins.googlecode.com/files/FarHints\.far3.x64.(\d+)\.(\d+)\.rar</regex>
+    <regex arch="x86">//far-plugins.googlecode.com/files/FarHints\.far3lua.(\d+)\.(\d+)\.rar</regex>
+    <regex arch="x64">//far-plugins.googlecode.com/files/FarHints\.far3lua.x64.(\d+)\.(\d+)\.rar</regex>
   </plugin>
 </renewal>
