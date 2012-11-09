@@ -1,0 +1,31 @@
+
+const FarHints  = "CDF48DA0-0334-4169-8453-69048DD3B51C"
+
+macro Descr="Far Hints: Close hint or toggle panels" Area="Shell" Key="Esc"
+{{
+  if not Plugin.Call(#%FarHints, "Hide") then
+    if CmdLine.Empty then
+      Keys("CtrlO")
+    else
+      Keys("Esc")
+    end
+  end
+}}
+
+
+macro Descr="Far Hints: Keyboard Hint" Area="Shell TreePanel" Key="AltF3"
+{{
+  if not Plugin.Call(#%FarHints, "Hide") then
+    Plugin.Call(#%FarHints, "Show", 2)
+  end
+}}
+
+
+macro Descr="Far Hints: Mouse Increase/Decrease" Area="Shell Dialog" Key="MsWheelUp MsWheelDown"
+{{
+  n = akey(2) == "MsWheelUp" and 1 or -1
+  if not Plugin.Call(#%FarHints, "Size", n) then
+    Keys(akey(2))
+  end                                               
+}}
+

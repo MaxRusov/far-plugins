@@ -188,16 +188,6 @@ interface
 
 
 
-  function IsVisiblePanel(const AInfo :TPanelInfo) :Boolean;
-  begin
-    Result := {$ifdef Far3}PFLAGS_VISIBLE and AInfo.Flags <> 0{$else}AInfo.Visible <> 0{$endif};
-  end;
-
-  function IsPluginPanel(const AInfo :TPanelInfo) :Boolean;
-  begin
-    Result := {$ifdef Far3}PFLAGS_PLUGIN and AInfo.Flags <> 0{$else}AInfo.Plugin <> 0{$endif};
-  end;
-
   function FarPanelShowColumnTitles :Boolean;
   begin
    {$ifdef Far3}
@@ -1342,7 +1332,9 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
-    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+//  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+//  FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
+    FMinFarVer := MakeVersion(3, 0, 2927);   { Release }
    {$else}
     FMinFarVer := MakeVersion(2, 0, 1573);   { ACTL_GETFARRECT }
    {$endif Far3}
@@ -1460,12 +1452,26 @@ interface
 
 
  {$ifdef Far3}
+
+  function FarValueIsInteger(const AValue :TFarMacroValue; var AInt :Integer) :Boolean;
+  begin
+    Result := True;
+    if AValue.fType = FMVT_INTEGER then
+      AInt := AValue.Value.fInteger
+    else
+    if (AValue.fType = FMVT_DOUBLE) and (Frac(AValue.Value.fDouble) = 0) then
+      AInt := Trunc(AValue.Value.fDouble)
+    else
+      Result := False;
+  end;
+
+
   function MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :Boolean;
 
     procedure LocShowInfo;
     var
       vStr :TString;
-      vDelay :Integer;
+      vInt, vDelay :Integer;
       vConPos, vWinPos :TPoint;
       vInfo :TConsoleScreenBufferInfo;
     begin
@@ -1476,12 +1482,12 @@ interface
 
       if (ACount >= 2) and (AParams[1].fType = FMVT_STRING) then
         vStr := AParams[1].Value.fString;
-      if (ACount >= 3) and (AParams[2].fType = FMVT_INTEGER) then
-        vConPos.X := AParams[2].Value.fInteger;
-      if (ACount >= 4) and (AParams[3].fType = FMVT_INTEGER) then
-        vConPos.Y := AParams[3].Value.fInteger;
-      if (ACount >= 5) and (AParams[4].fType = FMVT_INTEGER) then
-        vDelay := AParams[4].Value.fInteger;
+      if (ACount >= 3) and FarValueIsInteger(AParams[2], vInt) then
+        vConPos.X := vInt;
+      if (ACount >= 4) and FarValueIsInteger(AParams[3], vInt) then
+        vConPos.Y := vInt;
+      if (ACount >= 5) and FarValueIsInteger(AParams[4], vInt) then
+        vDelay := vInt;
 
       if vConPos.y < 0 then begin
 //      vConPos.y := FarGetWindowRect.Bottom + vConPos.y + 1;
@@ -1513,40 +1519,29 @@ interface
     else
     if StrEqual(ACmd, 'Show') then begin
       vMouse := True;
-      if (ACount >= 2) and (AParams[1].fType = FMVT_INTEGER) then
-        vMouse := AParams[1].Value.fInteger = 1;
+      if (ACount >= 2) and FarValueIsInteger(AParams[1], vInt) then
+        vMouse := vInt = 1;
       Result := PluginCommand(IntIf(vMouse, 1, 2));
     end else
     if StrEqual(ACmd, 'Size') then begin
-      vInt := 0;
-      if (ACount >= 2) and (AParams[1].fType = FMVT_INTEGER) then
-        vInt := AParams[1].Value.fInteger;
-      if vInt <> 0 then
+      if (ACount >= 2) and FarValueIsInteger(AParams[1], vInt) and (vInt <> 0) then
         Result := FarHints.HintCommand(cmhResize, vInt);
     end else
     if StrEqual(ACmd, 'Color') then begin
-      vInt := 0;
-      if (ACount >= 2) and (AParams[1].fType = FMVT_INTEGER) then
-        vInt := AParams[1].Value.fInteger;
-      Result := FarHints.HintCommand(cmhColor, vInt);
+      if (ACount >= 2) and FarValueIsInteger(AParams[1], vInt) then
+        Result := FarHints.HintCommand(cmhColor, vInt);
     end else
     if StrEqual(ACmd, 'FontSize') then begin
-      vInt := 0;
-      if (ACount >= 2) and (AParams[1].fType = FMVT_INTEGER) then
-        vInt := AParams[1].Value.fInteger;
-      Result := FarHints.HintCommand(cmhFontSize, vInt);
+      if (ACount >= 2) and FarValueIsInteger(AParams[1], vInt) then
+        Result := FarHints.HintCommand(cmhFontSize, vInt);
     end else
     if StrEqual(ACmd, 'FontColor') then begin
-      vInt := 0;
-      if (ACount >= 2) and (AParams[1].fType = FMVT_INTEGER) then
-        vInt := AParams[1].Value.fInteger;
-      Result := FarHints.HintCommand(cmhFontColor, vInt);
+      if (ACount >= 2) and FarValueIsInteger(AParams[1], vInt) then
+        Result := FarHints.HintCommand(cmhFontColor, vInt);
     end else
     if StrEqual(ACmd, 'Transparency') then begin
-      vInt := 0;
-      if (ACount >= 2) and (AParams[1].fType = FMVT_INTEGER) then
-        vInt := AParams[1].Value.fInteger;
-      Result := FarHints.HintCommand(cmhTransparent, vInt);
+      if (ACount >= 2) and FarValueIsInteger(AParams[1], vInt) then
+        Result := FarHints.HintCommand(cmhTransparent, vInt);
     end;
   end;
 
@@ -1561,7 +1556,7 @@ interface
       InitSubplugins;
       gHintCommand := True;
       if MacroCommand(AParams[0].Value.fString, ACount, AParams) then
-        Result := INVALID_HANDLE_VALUE;
+        Result := 1{INVALID_HANDLE_VALUE};
     end;
   end;
  {$endif Far3}
