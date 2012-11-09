@@ -1,5 +1,5 @@
 {
-  PluginW.pas
+  Plugin3.pas
 
   Plugin API for FAR Manager <%VERSION%>
 }
@@ -35,10 +35,6 @@ EXCEPTION:
 Far Manager plugins that use this header file can be distributed under any
 other possible license with no implications from the above license on them.
 }
-
-{$ifndef Far3}
- Use PluginW!
-{$endif Far3}
 
 {$ifndef FarAPI}
 
