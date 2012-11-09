@@ -443,6 +443,9 @@ interface
 
         FarGetPanelInfo(PANEL_ACTIVE, vPanInfo);
 
+       {$ifdef Far3}
+        vPanPos.StructSize := SizeOf(vPanPos);
+       {$endif Far3}
         vPanPos.CurrentItem := RangeLimit(Integer(vPanInfo.CurrentItem) + vDelta, 0, vPanInfo.ItemsNumber);
         vPanPos.TopPanelItem := RangeLimit(Integer(vPanInfo.TopPanelItem) + vDelta, 0, vPanInfo.ItemsNumber);
         FARAPI.Control(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, @vPanPos);
@@ -451,8 +454,14 @@ interface
       if vWinInfo.WindowType = WTYPE_EDITOR then begin
 
         FillZero(vEdtInfo, SizeOf(vEdtInfo));
+       {$ifdef Far3}
+        vEdtInfo.StructSize := SizeOf(vEdtInfo);
+       {$endif Far3}
         FarEditorControl(ECTL_GETINFO, @vEdtInfo);
 
+       {$ifdef Far3}
+        vEdtPos.StructSize := SizeOf(vEdtPos);
+       {$endif Far3}
         vEdtPos.CurLine := RangeLimit(vEdtInfo.CurLine + vDelta, 0, vEdtInfo.TotalLines);
         vEdtPos.TopScreenLine := RangeLimit(vEdtInfo.TopScreenLine + vDelta, 0, vEdtInfo.TotalLines);
 
