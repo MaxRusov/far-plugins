@@ -40,6 +40,7 @@ interface
 
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function OpenCmdLine(AStr :PTChar) :THandle; override;
       function EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
 
     private
@@ -121,27 +122,6 @@ interface
   end;
 
 
-  procedure OpenCmdLine(const AStr :TString);
-  var
-    vPtr :PTChar;
-    vStr1, vStr2 :TString;
-  begin
-    if AStr <> '' then begin
-      vPtr := PTChar(AStr);
-      vStr1 := FarExpandFileNameEx(ExtractParamStr(vPtr));
-      vStr2 := FarExpandFileNameEx(ExtractParamStr(vPtr));
-
-      if (vStr1 <> '') and WinFileExists(vStr1) and (vStr2 <> '') and WinFileExists(vStr2) then
-        CompareTexts(vStr1, vStr2)
-      else
-        CompareFolders2(vStr1, vStr2);
-
-    end else
-      CompareFolders2('', '');
-  end;
-
-
-
  {-----------------------------------------------------------------------------}
  { TVisCompPlug                                                                }
  {-----------------------------------------------------------------------------}
@@ -163,7 +143,8 @@ interface
 
    {$ifdef Far3}
 //  FMinFarVer := MakeVersion(3, 0, 2343);    { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
-    FMinFarVer := MakeVersion(3, 0, 2572);    { Api changes }
+//  FMinFarVer := MakeVersion(3, 0, 2572);    { Api changes }
+    FMinFarVer := MakeVersion(3, 0, 2851);    { LUA }
    {$else}
     FMinFarVer := MakeVersion(2, 0, 1573);    { ACTL_GETFARRECT }
    {$endif Far3}
@@ -215,9 +196,34 @@ interface
       ReadSetup;
       ReadSetupColors;
 
-      if AFrom = OPEN_COMMANDLINE then
-        OpenCmdLine(FarChar2Str(PFarChar(AParam)))
-      else
+      CompareFolders2('', '');
+
+    finally
+      Dec(FPluginLock);
+    end;
+  end;
+
+
+  function TVisCompPlug.OpenCmdLine(AStr :PTChar) :THandle; {override;}
+  var
+    vStr1, vStr2 :TString;
+  begin
+    Result:= INVALID_HANDLE_VALUE;
+    Inc(FPluginLock);
+    try
+      ReadSetup;
+      ReadSetupColors; 
+
+      if (AStr <> nil) and (AStr^ <> #0) then begin
+        vStr1 := FarExpandFileNameEx(ExtractParamStr(AStr));
+        vStr2 := FarExpandFileNameEx(ExtractParamStr(AStr));
+
+        if (vStr1 <> '') and WinFileExists(vStr1) and (vStr2 <> '') and WinFileExists(vStr2) then
+          CompareTexts(vStr1, vStr2)
+        else
+          CompareFolders2(vStr1, vStr2);
+
+      end else
         CompareFolders2('', '');
 
     finally
@@ -234,6 +240,9 @@ interface
     case AEvent of
       EE_READ:
         if GEditorTopRow <> -1 then begin
+         {$ifdef Far3}
+          vPos.StructSize := SizeOf(vPos);
+         {$endif Far3}
           vPos.TopScreenLine := GEditorTopRow;
           vPos.CurLine := -1; vPos.CurPos := -1; vPos.CurTabPos := -1; vPos.LeftPos := -1; vPos.Overtype := -1;
           FarEditorControl(ECTL_SETPOSITION, @vPos);
