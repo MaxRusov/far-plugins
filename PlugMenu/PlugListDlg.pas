@@ -1305,8 +1305,12 @@ interface
 
     vName := FChoosenCmd.Name;
 
-//  vStr := Format('F11 $if(Menu.Select("%s") > 0) $MMode 1 Enter $else Esc $end', [vName]);
+   {$ifdef bLUA}
+//  vStr := Format('Plugin.Menu("%s", "%s")', [StrDeleteChars(GUIDToString(FChoosenCmd.Plugin.GUID), ['{', '}']), StrDeleteChars(GUIDToString(FChoosenCmd.GUID), ['{', '}'])]);
+    vStr := Format('Keys("F11"); if Menu.Select("%s", 2) then Keys("Enter") else Keys("Esc") end', [vName]);
+   {$else}
     vStr := Format('F11 $if(Menu.Select("%s", 2) > 0) Enter $else Esc $end',  [vName]);
+   {$endif bLUA}
 
     FarPostMacro(vStr);
     Result := True;

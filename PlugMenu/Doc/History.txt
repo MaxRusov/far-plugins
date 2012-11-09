@@ -160,3 +160,7 @@ Ver 1.17
 Ver 1.18
 
  * Far3 build 2572+
+
+Ver 1.19
+
+ * Far3 build 2851+ (LUA)

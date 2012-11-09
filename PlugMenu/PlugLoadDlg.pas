@@ -103,8 +103,13 @@ interface
     begin
       SendMsg(DM_SETFOCUS, IdEdit, 0);
 
+     {$ifdef bLUA}
+      vStr := Format('Keys("F11"); if Menu.Select("%s", 2) > 0 then Keys("Enter") else Keys("Esc"); msgbox("%s", "%s", 1); end',
+        [GetMsgStr(strOpenFileDialog), GetMsgStr(strLoadDlgTitle), GetMsgStr(strDialogToolNotInstalled)]);
+     {$else}
       vStr := Format('F11 $if(Menu.Select("%s", 2) > 0) Enter $else Esc MsgBox("%s", "%s", 1) $end',
         [GetMsgStr(strOpenFileDialog), GetMsgStr(strLoadDlgTitle), GetMsgStr(strDialogToolNotInstalled)]);
+     {$endif bLUA}
 
       FarPostMacro(vStr);
     end;
