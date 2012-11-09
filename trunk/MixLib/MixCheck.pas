@@ -199,7 +199,7 @@ interface
    {$endif Ver220}
 
    {$ifdef Ver230}
-    vStr := vStr + 'Delphi2011 ';
+    vStr := vStr + 'DelphiXE2 ';
    {$endif Ver230}
 
    {$ifopt O+}

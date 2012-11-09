@@ -2950,9 +2950,9 @@ const
 
 function SetErrorMode(uMode: UINT): UINT; stdcall;
 function ReadProcessMemory(hProcess: THandle; const lpBaseAddress: Pointer; lpBuffer: Pointer;
-  nSize: DWORD; var lpNumberOfBytesRead: DWORD): BOOL; stdcall;
+  nSize: SIZE_T; var lpNumberOfBytesRead :SIZE_T): BOOL; stdcall;
 function WriteProcessMemory(hProcess: THandle; const lpBaseAddress: Pointer; lpBuffer: Pointer;
-  nSize: DWORD; var lpNumberOfBytesWritten: DWORD): BOOL; stdcall;
+  nSize: SIZE_T; var lpNumberOfBytesWritten: SIZE_T): BOOL; stdcall;
 function GetThreadContext(hThread: THandle; var lpContext: TContext): BOOL; stdcall;
 function SetThreadContext(hThread: THandle; const lpContext: TContext): BOOL; stdcall;
 function SuspendThread(hThread: THandle): DWORD; stdcall;

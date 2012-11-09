@@ -13,7 +13,13 @@
 
 unit CommDlg;
 
+{$ALIGN ON}
+{$MINENUMSIZE 4}
 {$WEAKPACKAGEUNIT}
+
+{$ifdef bFreePascal}
+ {$PACKRECORDS C}
+{$endif bFreePascal}
 
 interface
 
@@ -249,7 +255,7 @@ type
   PChooseColorW = ^TChooseColorW;
   PChooseColor = {$ifdef bUnicode}PChooseColorW{$else}PChooseColorA{$endif bUnicode};
 
-  tagCHOOSECOLORA = packed record
+  tagCHOOSECOLORA = record
     lStructSize: DWORD;
     hWndOwner: HWND;
     hInstance: HWND;
@@ -260,7 +266,7 @@ type
     lpfnHook: function(Wnd: HWND; Message: UINT; wParam: WPARAM; lParam: LPARAM): UINT stdcall;
     lpTemplateName: PAnsiChar;
   end;
-  tagCHOOSECOLORW = packed record
+  tagCHOOSECOLORW = record
     lStructSize: DWORD;
     hWndOwner: HWND;
     hInstance: HWND;

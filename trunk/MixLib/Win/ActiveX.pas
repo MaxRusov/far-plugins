@@ -1,5 +1,7 @@
 {$I Defines.inc}
 
+{-$Define bUseOleVariant}
+
 {*******************************************************}
 {                                                       }
 {       Borland Delphi Runtime Library                  }
@@ -17,6 +19,14 @@ uses Windows, Messages;
 
 { Do not WEAKPACKAGE this unit.
   This unit requires startup code to initialize constants. }
+
+
+type
+ {$ifdef bUseOleVariant}
+  _OleVariant = OleVariant;
+ {$else}
+  _OleVariant = Pointer;
+ {$endif bUseOleVariant}
 
 const
 
@@ -1042,6 +1052,7 @@ type
   IEnumSTATPROPSTG = interface;
   IEnumSTATPROPSETSTG = interface;
 
+
 { IClassFactory interface }
 
   IClassFactory = interface(IUnknown)
@@ -1050,6 +1061,7 @@ type
       out obj): HResult; stdcall;
     function LockServer(fLock: BOOL): HResult; stdcall;
   end;
+
 
 { IMarshal interface }
 
@@ -1152,7 +1164,6 @@ type
   end;
   TBindOpts = tagBIND_OPTS;
   BIND_OPTS = TBindOpts;
-
 
   IBindCtx = interface(IUnknown)
     ['{0000000E-0000-0000-C000-000000000046}']
@@ -1273,6 +1284,7 @@ type
     function Clone(out enm: IEnumString): HResult; stdcall;
   end;
 
+
 { IStream interface }
 
   PStatStg = ^TStatStg;
@@ -1317,6 +1329,7 @@ type
       stdcall;
     function Clone(out stm: IStream): HResult; stdcall;
   end;
+
 
 { IEnumStatStg interface }
 
@@ -1705,15 +1718,11 @@ type
   TDecimal = tagDEC;
   DECIMAL = TDecimal;
 
-  (* tagBLOB related types cause problem due to two definitions of BLOB in wtypes.h/nspapi.h *)
-  (* Investigating something that will always work even when a BLOB is not a tagBLOB         *)
   PBlob = ^TBlob;
   tagBLOB = record
     cbSize: Longint;
     pBlobData: Pointer;
   end;
-  (* tagBLOB related types cause problem due to two definitions of BLOB in wtypes.h/nspapi.h *)
-  (* Investigating something that will always work even when a BLOB is not a tagBLOB         *)
   TBlob = tagBLOB;
   BLOB = TBlob;
 
@@ -1961,6 +1970,7 @@ type
   STATPROPSTG = tagSTATPROPSTG;
   PStatPropStg = ^TStatPropStg;
   TStatPropStg = tagSTATPROPSTG;
+
 
   tagSTATPROPSETSTG = packed record
     fmtid: TFmtID;
@@ -2356,7 +2366,7 @@ type
 
   IEnumVariant = interface(IUnknown)
     ['{00020404-0000-0000-C000-000000000046}']
-    function Next(celt: LongWord; var rgvar : OleVariant;
+    function Next(celt: LongWord; var rgvar : _OleVariant;
       out pceltFetched: LongWord): HResult; stdcall;
     function Skip(celt: LongWord): HResult; stdcall;
     function Reset: HResult; stdcall;
@@ -2504,10 +2514,11 @@ type
   TCustData = tagCUSTDATA;
   CUSTDATA = TCustData;
 
+
   ITypeLib2 = interface(ITypeLib)
     ['{00020411-0000-0000-C000-000000000046}']
     function GetCustData(guid: TGUID;
-      out pVarVal: OleVariant): HResult; stdcall;
+      out pVarVal: _OleVariant): HResult; stdcall;
     function GetLibStatistics(pcUniqueNames: PLongInt;
       out pcchUniqueNames: LongInt): HResult; stdcall;
     function GetDocumentation2(index: Integer; lcid: TLCID;
@@ -2523,15 +2534,15 @@ type
     function GetFuncIndexOfMemId(memid: TMemberID; invKind: TInvokeKind;
       out pFuncIndex: UINT): HResult; stdcall;
     function GetVarIndexOfMemId(memid: TMemberID; out pVarIndex: UINT): HResult; stdcall;
-    function GetCustData(guid: TGUID; out pVarVal: OleVariant): HResult; stdcall;
+    function GetCustData(guid: TGUID; out pVarVal: _OleVariant): HResult; stdcall;
     function GetFuncCustData(index: UINT; guid: TGUID;
-      out pVarVal: OleVariant): HResult; stdcall;
+      out pVarVal: _OleVariant): HResult; stdcall;
     function GetParamCustData(indexFunc, indexParam: UINT; guid: TGUID;
-      out pVarVal: OleVariant): HResult; stdcall;
+      out pVarVal: _OleVariant): HResult; stdcall;
     function GetVarCustData(index: UINT; guid: TGUID;
-      out pVarVal: OleVariant): HResult; stdcall;
+      out pVarVal: _OleVariant): HResult; stdcall;
     function GetImplTypeCustData(index: UINT; guid: TGUID;
-      out pVarVal: OleVariant): HResult; stdcall;
+      out pVarVal: _OleVariant): HResult; stdcall;
     function GetDocumentation2(memid: TMemberID; lcid: TLCID;
       pbstrHelpString: PWideString; pdwHelpStringContext: PDWORD;
       pbstrHelpStringDll: PWideString): HResult; stdcall;
@@ -3009,9 +3020,9 @@ type
 
   IPropertyBag = interface
     ['{55272A00-42CB-11CE-8135-00AA004BB851}']
-    function Read(pszPropName: POleStr; var pvar: OleVariant;
+    function Read(pszPropName: POleStr; var pvar: _OleVariant;
       const pErrorLog: IErrorLog): HResult; stdcall;
-    function Write(pszPropName: POleStr; const pvar: OleVariant): HResult; stdcall;
+    function Write(pszPropName: POleStr; const pvar: _OleVariant): HResult; stdcall;
   end;
 
 { IPersistPropertyBag interface }
@@ -3219,7 +3230,7 @@ type
     function GetPredefinedStrings(dispid: TDispID; out caStringsOut: TCAPOleStr;
       out caCookiesOut: TCALongint): HResult; stdcall;
     function GetPredefinedValue(dispid: TDispID; dwCookie: Longint;
-      out varOut: OleVariant): HResult; stdcall;
+      out varOut: _OleVariant): HResult; stdcall;
   end;
 
 { IPropertyPageSite interface }
@@ -3568,7 +3579,7 @@ type
     function QueryStatus(CmdGroup: PGUID; cCmds: Cardinal;
       prgCmds: POleCmd; CmdText: POleCmdText): HResult; stdcall;
     function Exec(CmdGroup: PGUID; nCmdID, nCmdexecopt: DWORD;
-      const vaIn: OleVariant; var vaOut: OleVariant): HResult; stdcall;
+      const vaIn: _OleVariant; var vaOut: _OleVariant): HResult; stdcall;
   end;
 
 { from designer.h}
@@ -3759,6 +3770,7 @@ const
 //      IID_IActiveScript       - "Safe for running untrusted scripts"
 //
 //---------------------------------------------------------------------------=
+
 
 const
   // Option bit definitions for IObjectSafety:
@@ -4051,13 +4063,13 @@ function SafeArrayPtrOfIndex(psa: PSafeArray; var rgIndices; out pvData: Pointer
 
 { Variant API }
 
-procedure VariantInit(var varg: OleVariant); stdcall;
-function VariantClear(var varg: OleVariant): HResult; stdcall;
-function VariantCopy(var vargDest: OleVariant; const vargSrc: OleVariant): HResult; stdcall;
-function VariantCopyInd(var varDest: OleVariant; const vargSrc: OleVariant): HResult; stdcall;
-function VariantChangeType(var vargDest: OleVariant; const vargSrc: OleVariant;
+procedure VariantInit(var varg: _OleVariant); stdcall;
+function VariantClear(var varg: _OleVariant): HResult; stdcall;
+function VariantCopy(var vargDest: _OleVariant; const vargSrc: _OleVariant): HResult; stdcall;
+function VariantCopyInd(var varDest: _OleVariant; const vargSrc: _OleVariant): HResult; stdcall;
+function VariantChangeType(var vargDest: _OleVariant; const vargSrc: _OleVariant;
   wFlags: Word; vt: TVarType): HResult; stdcall;
-function VariantChangeTypeEx(var vargDest: OleVariant; const vargSrc: OleVariant;
+function VariantChangeTypeEx(var vargDest: _OleVariant; const vargSrc: _OleVariant;
   lcid: TLCID; wFlags: Word; vt: TVarType): HResult; stdcall;
 
 { Vector <-> Bstr conversion APIs }
@@ -4235,7 +4247,7 @@ function CreateTypeLib2(syskind: TSysKind; szFile: POleStr;
 { IDispatch implementation support }
 
 function DispGetParam(const dispparams: TDispParams; position: Integer;
-  vtTarg: TVarType; var varResult: OleVariant; var puArgErr: Integer): HResult; stdcall;
+  vtTarg: TVarType; var varResult: _OleVariant; var puArgErr: Integer): HResult; stdcall;
 function DispGetIDsOfNames(tinfo: ITypeInfo; rgszNames: POleStrList;
   cNames: Integer; rgdispid: PDispIDList): HResult; stdcall;
 function DispInvoke(This: Pointer; tinfo: ITypeInfo; dispidMember: TDispID;
@@ -4246,8 +4258,8 @@ function CreateDispTypeInfo(var idata: TInterfaceData; lcid: TLCID;
 function CreateStdDispatch(unkOuter: IUnknown; pvThis: Pointer;
   tinfo: ITypeInfo; out unkStdDisp: IUnknown): HResult; stdcall;
 function DispCallFunc(pvInstance: Pointer; oVft: Longint; cc: TCallConv;
-  vtReturn: TVarType; cActuals: Longint; var rgvt: TVarType; var prgpvarg: OleVariant;
-  var vargResult: OleVariant): HResult; stdcall;
+  vtReturn: TVarType; cActuals: Longint; var rgvt: TVarType; var prgpvarg: _OleVariant;
+  var vargResult: _OleVariant): HResult; stdcall;
 
 
 { Active object registration API }
@@ -4471,7 +4483,7 @@ function OleLoadPicture(stream: IStream; lSize: Longint; fRunmode: BOOL;
 function OleLoadPicturePath(szURLorPath: POleStr; unkCaller: IUnknown;
   dwReserved: Longint; clrReserved: TOleColor; const iid: TIID;
   ppvRet: Pointer): HResult; stdcall;
-function OleLoadPictureFile(varFileName: OleVariant;
+function OleLoadPictureFile(varFileName: _OleVariant;
   var lpdispPicture: IDispatch): HResult; stdcall;
 function OleSavePictureFile(dispPicture: IDispatch;
   bstrFileName: TBStr): HResult; stdcall;
@@ -4485,12 +4497,14 @@ function PROPSETHDR_OSVER_MINOR(dwOSVer: DWORD): Byte;
 const
   PROPSETHDR_OSVERSION_UNKNOWN        = $FFFFFFFF;
 
+
 implementation
 
 const
   ole32    = 'ole32.dll';
   oleaut32 = 'oleaut32.dll';
   olepro32 = 'olepro32.dll';
+
 
 { Externals from ole32.dll }
 
@@ -4924,5 +4938,6 @@ function PROPSETHDR_OSVER_MINOR(dwOSVer: DWORD): Byte;
 begin
   Result := HiByte(LoWord(dwOSVer));
 end;
+
 
 end.
