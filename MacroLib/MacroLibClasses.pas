@@ -64,28 +64,33 @@ interface
       function GetSrcLink :TString;
 
     private
-      FName     :TString;          { Имя макрокоманды }
-      FDescr    :TString;          { Описание макрокоманды }
-      FWhere    :TString;          { Условие запуска (пока не используется) }
-      FBind     :TKeyArray;        { Список кнопок для запуска }
+      FName     :TString;            { Имя макрокоманды }
+      FDescr    :TString;            { Описание макрокоманды }
+      FWhere    :TString;            { Условие запуска (пока не используется) }
+      FBind     :TKeyArray;          { Список кнопок для запуска }
      {$ifdef bUseKeyMask}
-      FBind1    :TKeyMaskArray;    { Альтернативная привязка - по регулярным выражениям }
+      FBind1    :TKeyMaskArray;      { Альтернативная привязка - по регулярным выражениям }
      {$endif bUseKeyMask}
-      FEvents   :TMacroEvents;     { Список событий для запуска }
-      FArea     :TMacroAreas;      { Маска макрообластей }
-      FDlgs     :TGUIDArray;       { Список GUID-ов диалогов }
-      FDlgs1    :TStrArray;        { Список Caption-ов диалогов }
-      FEdts     :TStrArray;        { Список масок редактора }
-      FViews    :TStrArray;        { Список масок viewer'а }
-      FCond     :TMacroConditions; { Условия срабатывания }
-      FText     :TString;          { Текст макрокоманды }
-      FPriority :Integer;          { Приоритет макрокоманды }
+      FEvents   :TMacroEvents;       { Список событий для запуска }
+      FArea     :TMacroAreas;        { Маска макрообластей }
+      FDlgs     :TGUIDArray;         { Список GUID-ов диалогов }
+      FDlgs1    :TStrArray;          { Список Caption-ов диалогов }
+      FEdts     :TStrArray;          { Список масок редактора }
+      FViews    :TStrArray;          { Список масок viewer'а }
+      FCond     :TMacroConditions;   { Условия срабатывания }
+     {$ifdef bMacroInclude}
+      FIncludes :TMacroIncludeArray; { Макроподстановки }
+     {$endif bMacroInclude}
+      FText     :TString;            { Текст макрокоманды }
+      FPriority :Integer;            { Приоритет макрокоманды }
       FOptions  :TMacroOptions;
 
       FFileName :TString;
       FRow      :Integer;
       FCol      :Integer;
-      FIndex    :Integer;  
+      FIndex    :Integer;
+
+      FRunCount :Integer;           { Счетчик запусков }
 
       FIDs      :TObjList;          { ID макросов, добавленных в FAR. Для удаления. }
 
@@ -306,6 +311,14 @@ interface
     end;
    {$endif bUseKeyMask}
 
+   {$ifdef bMacroInclude}
+    SetLength(FIncludes, Length(ARec.Includes));
+    if Length(ARec.Includes) > 0 then begin
+      Move(ARec.Includes[0], FIncludes[0], Length(ARec.Includes) * SizeOf(TMacroInclude));
+      FillZero(ARec.Includes[0], Length(ARec.Includes) * SizeOf(TMacroInclude));
+    end;
+   {$endif bMacroInclude}
+
     FFileName := AFileName;
     FRow := ARec.Row;
     FCol := ARec.Col;
@@ -324,6 +337,9 @@ interface
     FDlgs1 := nil;
     FEdts := nil;
     FViews := nil;
+   {$ifdef bMacroInclude}
+    FIncludes := nil;
+   {$endif bMacroInclude}
     FreeObj(FIDs);
     inherited Destroy;
   end;
@@ -338,7 +354,7 @@ interface
     end;
 
 
-  function MacroCallback(AId :Pointer; AFlags :TFARADDKEYMACROFLAGS) :Integer; stdcall;
+  function MacroCallback(AId :Pointer; AFlags :TFarAddKeyMacroFlags) :TIntPtr; stdcall;
   begin
     Result := 0;
     MacroLibrary.InitConditions;  { !!!Неоптимально }
@@ -367,7 +383,7 @@ interface
     if not (moSendToPlugins in AOwner.FOptions) then
       vRec.Flags := vRec.Flags or KMFLAGS_NOSENDKEYSTOPLUGINS;
 
-    vRec.Callback := @MacroCallback;
+    vRec.Callback := MacroCallback;
     vRec.Id := vRef;
 
     if FARAPI.MacroControl(PluginID, MCTL_ADDMACRO, 0, @vRec) = 0 then
@@ -598,6 +614,7 @@ interface
   end;
 
 
+(*
   procedure TMacro.Execute(AKeyCode :Integer);
   var
     vFlags :DWORD;
@@ -620,12 +637,62 @@ interface
     if (moDefineAKey in FOptions) and (AKeyCode <> 0) then begin
 
       vText :=
-        '%_AK_=' + Int2Str(AKeyCode) + ';'#13 +
+        cAKeyMacroVar + '=' + Int2Str(AKeyCode) + ';'#13 +
         FText;
 
       FarPostMacro(vText, vFlags, AKeyCode);
     end else
       FarPostMacro(FText, vFlags, AKeyCode);
+  end;
+*)
+
+  procedure TMacro.Execute(AKeyCode :Integer);
+  var
+   {$ifdef bMacroInclude}
+    I :Integer;
+    vMacro :TMacro;
+   {$endif bMacroInclude}
+    vFlags :DWORD;
+    vText :TString;
+  begin
+    vFlags := 0;
+
+   {$ifdef Far3}
+    if moDisableOutput in FOptions then
+      vFlags := vFlags or KMFLAGS_DISABLEOUTPUT;
+    if not (moSendToPlugins in FOptions) then
+      vFlags := vFlags or KMFLAGS_NOSENDKEYSTOPLUGINS;
+   {$else}
+    if moDisableOutput in FOptions then
+      vFlags := vFlags or KSFLAGS_DISABLEOUTPUT;
+    if not (moSendToPlugins in FOptions) then
+      vFlags := vFlags or KSFLAGS_NOSENDKEYSTOPLUGINS;
+   {$endif Far3}
+
+    vText := FText;
+
+   {$ifdef bMacroInclude}
+    if Length(FIncludes) > 0 then
+      for i := Length(FIncludes) - 1 downto 0 do begin
+        vMacro := MacroLibrary.FindMacroByName(FIncludes[i].Name);
+        if vMacro <> nil then begin
+          if (mifOnce in FIncludes[i].Flags) and (vMacro.FRunCount > 0) then
+            { Уже устанавливался }
+          else begin
+            Insert(vMacro.FText, vText, FIncludes[i].Pos);
+            Inc(vMacro.FRunCount);
+          end;
+        end;
+      end;
+   {$endif bMacroInclude}
+
+    if (moDefineAKey in FOptions) and (AKeyCode <> 0) then
+      vText :=
+        cAKeyMacroVar + '=' + Int2Str(AKeyCode) + ';'#13 +
+        FText;
+
+    FarPostMacro(vText, vFlags, AKeyCode);
+    Inc(FRunCount);
   end;
 
 
@@ -1306,6 +1373,9 @@ interface
       vSelected := False;
       if FWindowType = WTYPE_EDITOR then begin
         FillZero(vEdtInfo, SizeOf(vEdtInfo));
+       {$ifdef Far3}
+        vEdtInfo.StructSize := SizeOf(vEdtInfo);
+       {$endif Far3}
         FarEditorControl(ECTL_GETINFO, @vEdtInfo);
         vSelected := vEdtInfo.BlockType <> BTYPE_NONE;
       end else
@@ -1316,6 +1386,9 @@ interface
         vCtrlID := FarSendDlgMessage(FDialogID, DM_GETFOCUS, 0, 0);
         if vCtrlID >= 0 then begin
           FillZero(vSelect, SizeOf(vSelect));
+         {$ifdef Far3}
+          vSelect.StructSize := SizeOf(vSelect);
+         {$endif Far3}
           if FarSendDlgMessage(FDialogID, DM_GETSELECTION, vCtrlID, @vSelect) = 1 then
             vSelected := vSelect.BlockType <> BTYPE_NONE;
         end;

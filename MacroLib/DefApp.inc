@@ -10,6 +10,9 @@
 
  {$Define bUseKeyMask}
 
+ {$Define bMacroInclude}
+ {$Define bLUA}
+
 {$else}
 
  {$Define bUseInject}

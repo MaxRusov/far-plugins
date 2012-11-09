@@ -181,26 +181,45 @@ interface
    {$endif bUseKeyMask}
 
 
+   {$ifdef bMacroInclude}
+    TMacroIncludeFlags = set of
+    (
+      mifOnce
+    );
+
+    TMacroInclude = record
+      Pos   :Integer;
+      Name  :TString;
+      Flags :TMacroIncludeFlags;
+    end;
+
+    TMacroIncludeArray = array of TMacroInclude;
+   {$endif bMacroInclude}
+
+
     TMacroRec = record
-      Name     :TString;           { Имя макроса (для вызова по имени, необязательное) }
-      Descr    :TString;           { Описание макроса (для показа пользователю) }
-      Bind     :TKeyArray;         { Массив кодов клавиш с модификаторами - array of TKeyRec }
+      Name     :TString;            { Имя макроса (для вызова по имени, необязательное) }
+      Descr    :TString;            { Описание макроса (для показа пользователю) }
+      Bind     :TKeyArray;          { Массив кодов клавиш с модификаторами - array of TKeyRec }
      {$ifdef bUseKeyMask}
-      Bind1    :TKeyMaskArray;     { Альтернативная привязка - по регулярным выражениям }
+      Bind1    :TKeyMaskArray;      { Альтернативная привязка - по регулярным выражениям }
      {$endif bUseKeyMask}
-      Area     :TMacroAreas;       { Битовая маска MacroAreas }
-      Dlgs     :TGUIDArray;        { Массив GUID-ов диалогов - для привязки макроса к диалогу }
-      Dlgs1    :TStrArray;         { Массив Заголовков диалогов - альтернативный вариант привязки }
-      Edts     :TStrArray;         { Массив масок файлов для привязки к редактору }
-      Views    :TStrArray;         { -/-/- к viewer'у }
-      Cond     :TMacroConditions;  { Битовая маска для стандартных условий срабатывания }
-      Events   :TMacroEvents;      { Условия срабатывания по событиям }
-      Where    :TString;           { Условие срабатывания в виде логического выражения - на будущее, пока не используется }
-      Priority :Integer;           { Приоритет макроса, для разрешения конфликтов }
-      Options  :TMacroOptions;     { Опции исполнения макроса: DisableOutput, SendToPlugins, EatOnRun }
-      Text     :TString;           { Текст макропоследовательности }
-      Row, Col :Integer;           { Привязка к исходному тексту }
-      Index    :Integer;           { Порядковый номер макроса }
+      Area     :TMacroAreas;        { Битовая маска MacroAreas }
+      Dlgs     :TGUIDArray;         { Массив GUID-ов диалогов - для привязки макроса к диалогу }
+      Dlgs1    :TStrArray;          { Массив Заголовков диалогов - альтернативный вариант привязки }
+      Edts     :TStrArray;          { Массив масок файлов для привязки к редактору }
+      Views    :TStrArray;          { -/-/- к viewer'у }
+      Cond     :TMacroConditions;   { Битовая маска для стандартных условий срабатывания }
+      Events   :TMacroEvents;       { Условия срабатывания по событиям }
+      Where    :TString;            { Условие срабатывания в виде логического выражения - на будущее, пока не используется }
+      Priority :Integer;            { Приоритет макроса, для разрешения конфликтов }
+      Options  :TMacroOptions;      { Опции исполнения макроса: DisableOutput, SendToPlugins, EatOnRun }
+     {$ifdef bMacroInclude}
+      Includes :TMacroIncludeArray; { Макроподстановки }
+     {$endif bMacroInclude}
+      Text     :TString;            { Текст макропоследовательности }
+      Row, Col :Integer;            { Привязка к исходному тексту }
+      Index    :Integer;            { Порядковый номер макроса }
     end;
 
     PStackRec = ^TStackRec;
@@ -312,6 +331,9 @@ interface
       procedure ParseMacro(var APtr :PTChar; ACompatible :Boolean);
       procedure ParseConst(var APtr :PTChar);
       procedure ParseInclude(var APtr :PTChar);
+     {$ifdef bMacroInclude}
+      procedure ParseMacroInclude(var APtr :PTChar; AFlags :TMacroIncludeFlags);
+     {$endif bMacroInclude}
       procedure ParseMacroSequence(var APtr :PTChar);
       procedure CheckMacroSequence(const AText :TString; ASilence :Boolean);
       function GetLex(var APtr :PTChar; var AParam :PTChar; var ALen :Integer) :TLexType;
@@ -366,6 +388,7 @@ interface
   const
     cLineComment1 = ';;';
     cLineComment2 = '//';
+    cLineComment3 = '--';
 
     cInLineCommentBeg = '/*';
     cInLineCommentEnd = '*/';
@@ -389,9 +412,12 @@ interface
     kwEatOnRun  = 16;
 
   const
-    kwpInclude  = 1;
-    kwpAKey     = 2;
-//  kwpAKeyC    = 3;
+    kwpInclude   = 1;
+    kwpAKey      = 2;
+   {$ifdef bMacroInclude}
+    kwpMInclude  = 3;
+    kwpMInclude1 = 4;
+   {$endif bMacroInclude}
 
 
 
@@ -641,8 +667,12 @@ interface
 
     KeyPrepr := TKeywordsList.Create;
     with KeyPrepr do begin
-      Add('Include',        byte(kwpInclude));
-      Add('AKey',           byte(kwpAKey));
+      Add('Include',            byte(kwpInclude));
+     {$ifdef bMacroInclude}
+      Add('Include_macro',      byte(kwpMInclude));
+      Add('Include_macro_once', byte(kwpMInclude1));
+     {$endif bMacroInclude}
+      Add('AKey',               byte(kwpAKey));
     end;
   end;
 
@@ -965,6 +995,28 @@ interface
   end;
 
 
+ {$ifdef bMacroInclude}
+  procedure TMacroParser.ParseMacroInclude(var APtr :PTChar; AFlags :TMacroIncludeFlags);
+  var
+    N, vLen :Integer;
+    vParam :PTChar;
+    vLex :TLexType;
+    vName :TString;
+  begin
+    vLex := GetLex(APtr, vParam, vLen);
+    if vLex = lexString then begin
+      vName := StrExpandEnvironment(FBuf.GetStrValue);
+      N := Length(FMacro.Includes);
+      SetLength(FMacro.Includes, N + 1);
+      FMacro.Includes[N].Name  := vName;
+      FMacro.Includes[N].Pos   := FSeq.Len;
+      FMacro.Includes[N].Flags := AFlags;
+    end else
+      Error(errExpectValue);
+  end;
+ {$endif bMacroInclude}
+
+
   procedure TMacroParser.PushStack(var AText :TString; var APtr :PTChar);
   begin
     with PStackRec(FStack.NewItem(FStack.Count))^ do begin
@@ -1073,7 +1125,10 @@ interface
   begin
     vIncl := 0;
     FSeq.Clear;
+   {$ifdef bLua}
+   {$else}
     SkipSpacesAndComments(APtr);
+   {$endif bLua}
     FSeqRow := FRow;
     FSeqCol := APtr - FBeg;
     while (APtr^ <> #0) and not MatchStr(APtr, '}}') do begin
@@ -1084,10 +1139,17 @@ interface
           FSeq.Add(' '#13, 2);
         SkipCRLF(APtr);
       end else
+     {$ifdef bLua}
+//    if MatchStr(APtr, cLineComment3) then
+//      { Однострочный комментарий }
+//      SkipLineComment(APtr)
+//    else
+     {$else}
       if MatchStr(APtr, cLineComment1) or MatchStr(APtr, cLineComment2) then
         { Однострочный комментарий }
         SkipLineComment(APtr)
       else
+     {$endif bLua}
       if MatchStr(APtr, cInLineCommentBeg) then begin
         { Многострочный комментарий }
         vRow := FRow;
@@ -1139,8 +1201,8 @@ interface
       end else
       if APtr^ = '#' then begin
         { Препроцессор }
+        vPos := APtr;
         Inc(APtr);
-//      vPos := APtr;
 
         vLex := GetLex(APtr, vParam, vLen);
         if vLex = lexEOF then
@@ -1153,17 +1215,26 @@ interface
             ParseInclude(APtr);
             Inc(vIncl);
           end else
+         {$ifdef bMacroInclude}
+          if vKey = kwpMInclude then begin
+            ParseMacroInclude(APtr, []);
+          end else
+          if vKey = kwpMInclude1 then begin
+            ParseMacroInclude(APtr, [mifOnce]);
+          end else
+         {$endif bMacroInclude}
           if vKey = kwpAKey then begin
             if moCompatible in FMacro.Options then
               begin Warning(errNotSupportedInFarMacro); end;
-            FSeq.Add('%_AK_', 5);
+            FSeq.Add(cAKeyMacroVar, length(cAKeyMacroVar));
             Include(FMacro.Options, moDefineAKey);
           end else
-//        if vKey = kwpAKeyC then begin
-//          FSeq.Add('%_AKeyC', 7);
-//          Include(FMacro.Options, moDefineAKey);
-//        end else
+           {$ifdef bLUA}
+            { В LUA # может являться частью синтаксиса?... }
+            FSeq.Add(vPos, APtr - vPos);
+           {$else}
             Warning(errUnknownKeyword);
+           {$endif bLUA}
         end else
         if (vLex = lexSymbol) and (vParam^ = '%') then begin
           { Константа препроцессора }
@@ -1220,6 +1291,7 @@ interface
   var
     vPos :TCoord;
   begin
+    FillZero(vPos, SizeOf(vPos));
     if not FarCheckMacro(AText, ASilence, @vPos) and ASilence then
       Error(errBadMacroSequence, FSeqRow + vPos.Y, vPos.X + IntIf(vPos.Y = 0, FSeqCol, 0));
   end;
@@ -1319,7 +1391,7 @@ interface
       if (APtr^ = charCR) or (APtr^ = charLF) then
         SkipCRLF(APtr)
       else
-      if MatchStr(APtr, cLineComment1) or MatchStr(APtr, cLineComment2) then
+      if MatchStr(APtr, cLineComment1) or MatchStr(APtr, cLineComment2) or MatchStr(APtr, cLineComment3) then
         SkipLineComment(APtr)
       else
       if MatchStr(APtr, cInLineCommentBeg) then
@@ -1647,6 +1719,9 @@ interface
     FMacro.Where    := '';
     FMacro.Priority := 0;
     FMacro.Options  := [moDisableOutput, moSendToPlugins, moEatOnRun];
+   {$ifdef bMacroInclude}
+    FMacro.Includes := nil;
+   {$endif bMacroInclude}
     FMacro.Text     := '';
     FMacro.Row      := FRow;
     FMacro.Col      := FBeg - FCur;

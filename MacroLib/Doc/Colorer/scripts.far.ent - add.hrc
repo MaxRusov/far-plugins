@@ -1,5 +1,0 @@
-
-  <prototype name="far.macrolib" group="scripts.far" description="Far Macro Library">
-    <location link="macrolib.hrc"/> 
-    <filename>/\.fml$/i</filename>
-  </prototype>
