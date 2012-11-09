@@ -49,14 +49,14 @@ Conditionals=Far3 Debug
 DebugSourceDirs=
 UsePackages=0
 [Parameters]
-RunParams=/p%FarHome%\Plugins\_Std,%FarHome%\Plugins\_Far2x,C:\SrcFAR2\MyPlugins\Bin3
-HostApplication=C:\Far3\Far.exe
+RunParams=/p%FarHome%\Plugins\_Std,C:\SrcFAR2\MyPlugins\Bin3
+HostApplication=C:\Far3\Far_New.exe
 [Version Info]
 IncludeVerInfo=1
 AutoIncBuild=0
 MajorVer=1
 MinorVer=0
-Release=0
+Release=5
 Build=0
 Debug=0
 PreRelease=0
@@ -67,8 +67,8 @@ Locale=1049
 CodePage=1251
 [Version Info Keys]
 CompanyName=Max Rusov
-FileDescription=PathSync Far plugin
-FileVersion=1.0.3
+FileDescription=PathSync Far plugin (Far 3 x32)
+FileVersion=1.0.5
 InternalName=PathSync
 LegalCopyright=(c) 2010, Max Rusov
 LegalTrademarks=

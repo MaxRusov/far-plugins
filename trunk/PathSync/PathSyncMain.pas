@@ -92,6 +92,7 @@ interface
   begin
     FillZero(vInfo, SizeOf(vInfo));
    {$ifdef Far3}
+    vInfo.StructSize := SizeOf(vInfo);
     vInfo.Flags := FSETCLR_REDRAW;
    {$else}
     vInfo.Flags := FCLR_REDRAW;
@@ -239,7 +240,8 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
-    FMinFarVer := MakeVersion(3, 0, 2572);  { Api changes }
+//  FMinFarVer := MakeVersion(3, 0, 2572);  { Api changes }
+    FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
    {$else}
     FMinFarVer := MakeVersion(2, 0, 1180);  {GetCurrentDirectory}
    {$endif Far3}
