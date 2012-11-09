@@ -153,15 +153,43 @@ type
   PFarColorArray = ^TFarColorArray;
   TFarColorArray = packed array[0..MaxInt div SizeOf(TFarColor) - 1] of TFarColor;
 
+(*
+#define INDEXMASK 0x0000000f
+#define COLORMASK 0x00ffffff
+#define ALPHAMASK 0xff000000
+
+#define INDEXVALUE(x) ((x)&INDEXMASK)
+#define COLORVALUE(x) ((x)&COLORMASK)
+#define ALPHAVALUE(x) ((x)&ALPHAMASK)
+
+#define IS_OPAQUE(x) (ALPHAVALUE(x)==ALPHAMASK)
+#define IS_TRANSPARENT(x) (!ALPHAVALUE(x))
+#define MAKE_OPAQUE(x) (x|=ALPHAMASK)
+#define MAKE_TRANSPARENT(x) (x&=COLORMASK)
+*)
+{!!!}
+
+{COLORDIALOGFLAGS}
+
+type
+  TColorDialogFlags = Int64;
+
+const
+  CDF_NONE = 0;
 
 (*
 typedef BOOL (WINAPI *FARAPICOLORDIALOG)(
-    const GUID* PluginId,
-    COLORDIALOGFLAGS Flags,
-    struct FarColor *Color
+  const GUID* PluginId,
+  COLORDIALOGFLAGS Flags,
+  struct FarColor *Color
 );
 *)
-{!!!}
+type
+  TFarApiColorDialog = function(
+    const PluginId :TGUID;
+    Flags :TColorDialogFlags;
+    var Color :TFarColor
+  ) :BOOL; stdcall;
 
 
 { FARMESSAGEFLAGS }
@@ -206,7 +234,7 @@ type
     ButtonsNumber :TIntPtr
   ) :TIntPtr; stdcall;
 
-  
+
 { FARDIALOGITEMTYPES }
 
 const
@@ -3174,6 +3202,8 @@ type
             TFarStdLocalStrICmp = function (S1 :PFarChar; S2 :PFarChar) :Integer; stdcall;
             TFarStdLocalStrNICmp = function (S1 :PFarChar; S2 :PFarChar; N :TIntPtr) :Integer; stdcall;
 
+{!!!}
+
 
 { PROCESSNAME_FLAGS }
 
@@ -3403,7 +3433,7 @@ type
     ShowHelp            : TFarApiShowHelp;
     AdvControl          : TFarApiAdvControl;
     InputBox            : TFarApiInputBox;
-    ColorDialog         : Pointer (* TFarApiColorDialog *);
+    ColorDialog         : TFarApiColorDialog;
     DialogInit          : TFarApiDialogInit;
     DialogRun           : TFarApiDialogRun;
     DialogFree          : TFarApiDialogFree;
@@ -3442,6 +3472,7 @@ struct ArclitePrivateInfo
 	FARAPICREATEDIRECTORY CreateDirectory;
 };
 *)
+{!!!}
 
 (*
 typedef intptr_t (WINAPI *FARAPICALLFAR)(intptr_t CheckCode, struct FarMacroCall* Data);
@@ -3452,6 +3483,7 @@ struct MacroPrivateInfo
 	FARAPICALLFAR CallFar;
 };
 *)
+{!!!}
 
 
 { PLUGIN_FLAGS }
@@ -4036,6 +4068,7 @@ type
                     INPUT_RECORD Rec;
             };
 *)
+{!!!}
 
 (*
 struct ProcessEditorInputInfo
@@ -4242,15 +4275,6 @@ intptr_t WINAPI SetFindListW(const struct SetFindListInfo *Info);
 void     WINAPI SetStartupInfoW(const struct PluginStartupInfo *Info);
 *)
 
-
-(*
-static __inline struct VersionInfo MAKEFARVERSION(DWORD Major, DWORD Minor, DWORD Revision, DWORD Build, enum VERSION_STAGE Stage)
-{
-  struct VersionInfo Info = {Major, Minor, Revision, Build, Stage};
-  return Info;
-}
-#define FARMANAGERVERSION MAKEFARVERSION(FARMANAGERVERSION_MAJOR,FARMANAGERVERSION_MINOR, FARMANAGERVERSION_REVISION, FARMANAGERVERSION_BUILD, FARMANAGERVERSION_STAGE)
-*)
 
 function MakeFarVersion(Major :DWORD; Minor :DWORD; Revision :DWORD; Build :DWORD; Stage :DWORD) :TVersionInfo;
 
