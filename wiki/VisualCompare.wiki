@@ -1,5 +1,5 @@
 #summary Визуальное сравнение файлов и каталогов
-#labels Compare
+#labels Visual,Compare
 
 = Описание =
 
