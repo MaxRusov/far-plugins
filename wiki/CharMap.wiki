@@ -1,5 +1,5 @@
 #summary Юникодная таблица символов
-#labels Charmap
+#labels Unicode,Charmap
 
 = Описание =
 
