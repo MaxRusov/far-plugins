@@ -19,6 +19,11 @@ http://far-plugins.googlecode.com/svn/trunk/FarTabs/Image/Sample.png
 
 = История изменений =
 
+== Ver 1.13 ==
+
+ * Far3 build 2927+ 
+
+
 ==Ver 1.0.11==
 
  * Исправление ошибок
