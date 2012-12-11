@@ -1,0 +1,16 @@
+
+const PlugMenu = "AB9578B3-3107-4E28-BB00-3C13D47382AC"
+
+macro Descr="Advanced Plugin Menu" Key="F11" 
+{{
+  if not Plugin.Call(#%PlugMenu, 0) then 
+    Keys("F11")
+  end
+}}
+
+
+macro Descr="Standart Plugin Menu" Key="ShiftF11" 
+{{
+  Keys("F11")
+}}
+
