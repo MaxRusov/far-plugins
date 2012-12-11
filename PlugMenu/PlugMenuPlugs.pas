@@ -60,11 +60,8 @@ interface
       procedure SetNewName(const ANewName :TString);
       procedure SetHidden(AHidden :Boolean);
 
-     {$ifdef Far3}
-     {$else}
       procedure UpdateLastAccess;
       procedure MarkAccessed;
-     {$endif Far3}
 
     private
       FVisName      :TString;
@@ -166,6 +163,7 @@ interface
 
      {$ifdef Far3}
       function GetPluginKey :TString;
+      function GetPlugVerStr :TString;
      {$else}
       function GetRegDllKey :TString;
       function FindRegCachePath :TString;
@@ -190,6 +188,8 @@ interface
       property PlugTitle :TString read FPlugTitle;
       property PlugDescr :TString read FPlugDescr;
       property PlugAuthor :TString read FPlugAuthor;
+      property PlugVer :TVersionInfo read FPlugVer;
+      property PlugVerStr :TString read GetPlugVerStr;
       property GUID :TGUID read FGUID;
      {$endif Far3}
       property Description :TString read FDescription;
@@ -202,9 +202,7 @@ interface
     FPlugins  :TObjList;
 
   procedure InitFarPluginsList;
-
-  procedure UpdateLoadedPlugins;
-  procedure UpdatePluginHotkeys;
+  procedure UpdatePluginList;
   procedure AssignAutoHotkeys(AWinType :Integer);
 
   function LoadNewPlugin(const AFileName :TString) :TFarPlugin;
@@ -397,6 +395,9 @@ interface
           StrValue('Hotkey', vStr);
           LogValue('Hidden', FHidden);
           StrValue('NewName', FNewName);
+         {$ifdef bAccessTime}
+          WriteInt('LastAccess', DateTimeToFileDate(FAccessDate));
+         {$endif bAccessTime}
         end;
       finally
         Destroy;
@@ -408,7 +409,12 @@ interface
   var
     vPath, vStr :TString;
     vConfig :TFarConfig;
+   {$ifdef bAccessTime}
+    vTime :Integer;
+   {$endif bAccessTime}
   begin
+//  TraceF('RestoreSettings: %d, %s', [Byte(gConfig <> nil), FName]);
+
     FHotkey := #0;
     FHidden := False;
 
@@ -429,6 +435,13 @@ interface
 
           LogValue('Hidden', FHidden);
           StrValue('NewName', FNewName);
+
+         {$ifdef bAccessTime}
+          vTime := ReadInt('LastAccess');
+          FAccessDate := 0;
+          if vTime <> 0 then
+            FAccessDate := FileDateToDateTime(vTime)
+         {$endif bAccessTime}
         end;
       end;
     finally
@@ -457,8 +470,22 @@ interface
  {$endif Far3}
 
 
+
  {$ifdef Far3}
+  procedure TFarPluginCmd.MarkAccessed;
+  begin
+   {$ifdef bAccessTime}
+    FAccessDate := Now;
+    SaveSettings;
+   {$endif bAccessTime}
+  end;
+
+  procedure TFarPluginCmd.UpdateLastAccess;
+  begin
+  end;
+
  {$else}
+
   procedure TFarPluginCmd.MarkAccessed;
   var
     vName :TString;
@@ -469,7 +496,6 @@ interface
       vName := vName + '%' + Int2Str(FIndex);
     RegSetIntValue(HKCU, FRegRoot + '\' + cPlugRegFolder + '\' + cAccessedRegFolder, vName, DateTimeToFileDate(FAccessDate));
   end;
-
 
   procedure TFarPluginCmd.UpdateLastAccess;
   var
@@ -720,7 +746,7 @@ interface
         try
           if FarGetPluginInfo(vHandle, vPlugInfo) then begin
             UpdatePluginInfo(vPlugInfo^);
-//          UpdateSettings;
+            UpdateSettings;  // Без этого пропадают настройки команды после F9.
             FUnregistered := False;
           end;
         finally
@@ -895,7 +921,20 @@ interface
       Result := StrReplaceChars(GetPluginRelativePath, ['\'], '/');
   end;
 
+  function TFarPlugin.GetPlugVerStr :TString;
+  begin
+    Result := '';
+    if (FPlugVer.Major <> 0) or (FPlugVer.Minor <> 0) or (FPlugVer.Revision <> 0) or (FPlugVer.Build <> 0) then begin
+      Result := Format('%d.%d', [FPlugVer.Major, FPlugVer.Minor]);
+      if (FPlugVer.Revision <> 0) or (FPlugVer.Build <> 0) then
+        Result := Result + '.' + Int2Str(FPlugVer.Revision);
+      if (FPlugVer.Build <> 0) then
+        Result := Result + '.' + Int2Str(FPlugVer.Build);
+    end;
+  end;
+
  {$else}
+
   function TFarPlugin.GetRegDllKey :TString;
   begin
     Result := StrReplaceChars(GetPluginRelativePath, ['\'], '/');
@@ -929,7 +968,6 @@ interface
     if vHandle = 0 then begin
       FarPluginControl(PCTL_FORCEDLOADPLUGIN, PLT_PATH, PFarChar(FFileName));
       UpdateLoaded;
-      UpdateSettings;
     end;
     FUnregistered := False;
  {$else}
@@ -1122,7 +1160,7 @@ interface
     Result := not APlugin.Unregistered and APlugin.AccessibleInContext(AWinType);
   end;
 
-  
+
   procedure AssignAutoHotkeys(AWinType :Integer);
   var
     I, J, K :Integer;
@@ -1176,43 +1214,26 @@ interface
   end;
 
 
-  procedure UpdateLoadedPlugins;
+  procedure UpdatePluginList;
   var
     I :Integer;
   begin
-    for I := 0 to FPlugins.Count - 1 do begin
-//    try
-        TFarPlugin(FPlugins[I]).UpdateLoaded;
-//    except
-//    end;
-    end;
-  end;
-
-
- {$ifdef Far3}
-  procedure UpdatePluginHotkeys;
-  var
-    I :Integer;
-  begin
+   {$ifdef Far3}
     gConfig := TFarConfig.CreateEx(False, cPluginName);
     try
+   {$endif Far3}
       for I := 0 to FPlugins.Count - 1 do
-        TFarPlugin(FPlugins[I]).UpdateSettings;
+        with TFarPlugin(FPlugins[I]) do begin
+          UpdateLoaded;
+          if not Loaded then
+            UpdateSettings;
+        end;
+   {$ifdef Far3}
     finally
       FreeObj(gConfig);
-    end; 
+    end;
+   {$endif Far3}
   end;
-
- {$else}
-
-  procedure UpdatePluginHotkeys;
-  var
-    I :Integer;
-  begin
-    for I := 0 to FPlugins.Count - 1 do
-      TFarPlugin(FPlugins[I]).UpdateSettings;
-  end;
- {$endif Far3}
 
 
   function FindPlugin(const AFileName :TString) :TFarPlugin;
@@ -1469,7 +1490,7 @@ interface
     end else
     if vLang <> gLang then begin
       { Обновление списка плагинов, после смены языка }
-      UpdateLoadedPlugins;
+      UpdatePluginList;
       FPlugins.SortList(True, 0);
       gLang := vLang;
     end;
