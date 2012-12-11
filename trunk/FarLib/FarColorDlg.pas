@@ -14,7 +14,7 @@ interface
   uses
     Windows,
     Messages,
-    CommDlg,
+    CommDlg,  
     MixTypes,
     MixUtils,
     MixStrings,

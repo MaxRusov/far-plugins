@@ -38,6 +38,7 @@ interface
    );
 
    TGridOptions = set of (
+     goShowTitle,
      goRowSelect,
      goWrapMode,
      goFollowMouse,
@@ -60,10 +61,10 @@ interface
      FRealWidth    :Integer;
      FAlignment    :TAlignment;
      FOptions      :TColOptions;
-//   FSortMark     :TColSortMark;
      FTag          :Integer;
 
    public
+     property Header :TString read FHeader write FHeader;
      property Width :Integer read FWidth write FWidth;
      property MinWidth :Integer read FMinWidth write FMinWidth;
      property RealWidth :Integer read FRealWidth;
@@ -84,7 +85,8 @@ interface
 //   ghsColumnSize,
 //   ghsColumnHead,
 //   ghsColumnFooter,
-     ghsRowSelect
+     ghsRowSelect,
+     ghsTitle
    );
 
    TGridDragWhat = (
@@ -111,6 +113,8 @@ interface
      constructor Create; override;
      destructor Destroy; override;
 
+     function ClientHeight :Integer;
+     function ClientWidth :Integer;
      function HitTest(X, Y :Integer; var ACol, ARow :Integer) :TGridHotSpot;
      procedure CoordFromPoint(X, Y :Integer; var ACol, ARow :Integer);
      function CalcColByDelta(ADelta :Integer) :Integer;
@@ -132,7 +136,10 @@ interface
    protected
      procedure PosChange; virtual;
      procedure DeltaChange; virtual;
+     procedure ColumnClick(ACol :Integer; AButton :Integer; ADouble :Boolean); virtual;
 
+     procedure PaintTitles(X, Y :Integer);
+     procedure PaintTitle(X, Y, AWidth :Integer; ACol :Integer; const AColor :TFarColor); virtual;
      procedure PaintRow(X, Y, AWidth :Integer; ARow :Integer); virtual;
      procedure PaintCell(X, Y, AWidth :Integer; ACol, ARow :Integer; const AColor :TFarColor); virtual;
      procedure Paint(const AItem :TFarDialogItem); override;
@@ -148,6 +155,7 @@ interface
    protected
      FNormColor      :TFarColor;
      FSelColor       :TFarColor;
+     FTitleColor     :TFarColor;
 
      FOptions        :TGridOptions;
      FWheelDY        :Integer;
@@ -160,6 +168,7 @@ interface
      FTop            :Integer;
      FWidth          :Integer;
      FHeight         :Integer;
+     FMargins        :TRect;
      FDeltaX         :Integer;
      FDeltaY         :Integer;
      FRowCount       :Integer;
@@ -182,6 +191,7 @@ interface
      FOnPaintRow     :TPaintRow;
      FOnPaintCell    :TPaintCell;
      FOnCellClick    :TCellClick;
+     FOnTitleClick   :TCellClick;
      FOnPosChange    :TPosChange;
      FOnDeltaChange  :TPosChange;
 
@@ -189,6 +199,7 @@ interface
      procedure DrawBuf(X, Y :Integer; const AColor :TFarColor);
 
      procedure RecalcSize;
+     procedure SetOptions(AOptions :TGridOptions);
      procedure SetRowCount(ACount :Integer);
      function GetColumn(AIndex :Integer) :TColumnFormat;
 
@@ -200,10 +211,12 @@ interface
      property Top :Integer read FTop;
      property Width :Integer read FWidth;
      property Height :Integer read FHeight;
+     property Margins :TRect read FMargins;
 
      property NormColor :TFarColor read FNormColor write FNormColor;
      property SelColor :TFarColor read FSelColor write FSelColor;
-     property Options :TGridOptions read FOptions write FOptions;
+     property TitleColor :TFarColor read FTitleColor write FTitleColor;
+     property Options :TGridOptions read FOptions write SetOptions;
      property WheelDY :Integer read FWheelDY write FWheelDY;
      property ShowCurrent :Boolean read FShowCurrent write FShowCurrent;
 
@@ -222,6 +235,7 @@ interface
      property OnPaintRow :TPaintRow read FOnPaintRow write FOnPaintRow;
      property OnPaintCell :TPaintCell read FOnPaintCell write FOnPaintCell;
      property OnCellClick :TCellClick read FOnCellClick write FOnCellClick;
+     property OnTitleClick :TCellClick read FOnTitleClick write FOnTitleClick;
      property OnPosChange :TPosChange read FOnPosChange write FOnPosChange;
      property OnDeltaChange :TPosChange read FOnDeltaChange write FOnDeltaChange;
    end;
@@ -269,6 +283,7 @@ interface
     FColumns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [], 0) );
     FNormColor := FarGetColor(COL_MENUTEXT);
     FSelColor := FarGetColor(COL_MENUSELECTEDTEXT);
+    FTitleColor := FarGetColor(COL_MENUHIGHLIGHT {COL_MENUTITLE});
 
     FWheelDY := 3;
     FMousePos.X := -1;
@@ -286,14 +301,15 @@ interface
 
   procedure TFarGrid.PaintVScroller(X, Y  :Integer);
   var
-    I, vThumbY :Integer;
+    I, vThumbY, vHeight :Integer;
   begin
     FARAPI.Text(X, Y, FNormColor, chrUpArrow);
     Inc(Y);
 
-    vThumbY := MulDiv(FDeltaY, FHeight - 3, FRowCount - FHeight);
+    vHeight := ClientHeight;
+    vThumbY := MulDiv(FDeltaY, vHeight - 3, FRowCount - vHeight);
 
-    for I := 0 to FHeight - 3 do begin
+    for I := 0 to vHeight - 3 do begin
       if I = vThumbY then
         FARAPI.Text(X, Y, FNormColor, chrDkHatch)
       else
@@ -356,7 +372,7 @@ interface
   end;
 
 
-  procedure TFarGrid.PaintCell(X, Y, AWidth :Integer; ACol, ARow :Integer; const AColor :TFarColor);
+  procedure TFarGrid.PaintCell(X, Y, AWidth :Integer; ACol, ARow :Integer; const AColor :TFarColor); {virtual;}
   var
     vLen :Integer;
     vStr :TString;
@@ -443,10 +459,74 @@ interface
         Break;
 
       if (I < FColumns.Count - 1) and not (coNoVertLine in vColumn.Options) then begin
-//      StrLCopy(FRowBuf, chrVertLine, 1);
-        FRowBuf[0] := chrVertLine;
-        FRowBuf[1] := #0;
-        DrawBuf(X, Y, vRowColor);
+        DrawChr(X, Y, chrVertLine, 1, vRowColor);
+        Inc(X);
+      end;
+    end;
+  end;
+
+
+  procedure TFarGrid.PaintTitle(X, Y, AWidth :Integer; ACol :Integer; const AColor :TFarColor); {virtual;}
+  var
+    vLen :Integer;
+    vStr :TString;
+    vColumn :TColumnFormat;
+  begin
+    vColumn := FColumns[ACol];
+    vStr := vColumn.FHeader;
+
+    vLen := IntMin(AWidth, FRowLen - 1);
+    SetFarStr(FRowBuf, vStr, vLen);
+
+//  case vColumn.FAlignment of
+//    taRightJustify : Inc(X, IntMax(0, AWidth - length(vStr)));
+//    taCenter       : Inc(X, IntMax(0, (AWidth - length(vStr)) div 2));
+//  end;
+    Inc(X, IntMax(0, (AWidth - length(vStr)) div 2));
+
+    DrawBuf(X, Y, AColor);
+  end;
+
+
+  procedure TFarGrid.PaintTitles(X, Y :Integer);
+  var
+    I, vWidth, vLen :Integer;
+    vColumn :TColumnFormat;
+  begin
+    for I := 0 to FColumns.Count - 1 do begin
+      vColumn := FColumns[I];
+      vWidth := vColumn.FRealWidth;
+      if vWidth = 0 then
+//      vWidth := AWidth;  !!! - ???
+        Continue;
+
+      vLen := IntMin(vWidth, FRowLen - 1);
+      FillFarChar(FRowBuf, vLen, ' ');
+      FRowBuf[vLen] := #0;
+      DrawBuf(X, Y, FNormColor);
+
+      if coColMargin in vColumn.FOptions then begin
+        Inc(X);
+        Dec(vWidth, 2);
+      end;
+
+      if vWidth > 0 then begin
+        try
+          PaintTitle(X, Y, vWidth, I, FTitleColor);
+        except
+          {Nothing}
+        end;
+      end;
+
+      Inc(X, vWidth);
+      if coColMargin in vColumn.FOptions then
+        Inc(X);
+
+      if X >= FClipX2 then
+        Break;
+
+      if (I < FColumns.Count - 1) and not (coNoVertLine in vColumn.Options) then begin
+        DrawChr(X, Y, chrVertLine, 1, FNormColor);
         Inc(X);
       end;
     end;
@@ -459,11 +539,10 @@ interface
     vRect :TSmallRect;
   begin
 //  TraceF('%p Paint', [Pointer(Self)]);
+    UpdateSize(AItem.X1, AItem.Y1, AItem.X2 - AItem.X1 + 1, AItem.Y2 - AItem.Y1 + 1);
 
-    vWidth := AItem.X2 - AItem.X1 + 1;
-    vHeight := AItem.Y2 - AItem.Y1 + 1;
-
-    UpdateSize(AItem.X1, AItem.Y1, vWidth, vHeight);
+    vWidth := ClientWidth;
+    vHeight := ClientHeight;
 
     if FRowLen < vWidth + 1  then begin
       ReallocMem(FRowBuf, (vWidth + 1) * SizeOf(TFarChar));
@@ -471,11 +550,14 @@ interface
     end;
 
     vRect := FOwner.GetDlgRect;
-    X := vRect.Left + AItem.X1;
-    Y := vRect.Top + AItem.Y1;
+    X := vRect.Left + AItem.X1 + FMargins.Left;
+    Y := vRect.Top + AItem.Y1 + FMargins.Top;
 
     FClipX1 := X;
     FClipX2 := X + vWidth;
+
+    if goShowTitle in FOptions then
+      PaintTitles(X, Y - 1);
 
     vRow := FDeltaY;
     vLimit := IntMin(FRowCount, FDeltaY + vHeight);
@@ -495,8 +577,8 @@ interface
       end;
     end;
 
-    if (FRowCount > FHeight) and not (goNoVScroller in FOptions) then
-      PaintVScroller(vRect.Left + AItem.X2, vRect.Top + AItem.Y1);
+    if (FRowCount > vHeight) and not (goNoVScroller in FOptions) then
+      PaintVScroller(vRect.Left + AItem.X2 - FMargins.Right, vRect.Top + AItem.Y1 + FMargins.Top);
   end;
 
 
@@ -547,8 +629,8 @@ interface
 
       KEY_LEFT, KEY_NUMPAD4  : GotoLocation(FCurCol - 1, FCurRow, lmScroll);
       KEY_RIGHT, KEY_NUMPAD6 : GotoLocation(FCurCol + 1, FCurRow, lmScroll);
-      KEY_PGUP, KEY_NUMPAD9  : GotoLocation(FCurCol, FCurRow - FHeight, lmScroll);
-      KEY_PGDN, KEY_NUMPAD3  : GotoLocation(FCurCol, FCurRow + FHeight, lmScroll);
+      KEY_PGUP, KEY_NUMPAD9  : GotoLocation(FCurCol, FCurRow - ClientHeight, lmScroll);
+      KEY_PGDN, KEY_NUMPAD3  : GotoLocation(FCurCol, FCurRow + ClientHeight, lmScroll);
       KEY_HOME, KEY_NUMPAD7  : GotoLocation(FCurCol, 0, lmScroll);
       KEY_END, KEY_NUMPAD1   : GotoLocation(FCurCol, FRowCount - 1, lmScroll);
 
@@ -558,6 +640,13 @@ interface
         else
           ScrollTo(FDeltaX, FDeltaY + IntIf(AKey = KEY_MSWHEEL_UP, -FWheelDY, +FWheelDY));
     end;
+  end;
+
+
+  procedure TFarGrid.ColumnClick(ACol :Integer; AButton :Integer; ADouble :Boolean); {virtual;}
+  begin
+    if Assigned(FOnTitleClick) then
+      FOnTitleClick(Self, ACol, 0, AButton, ADouble);
   end;
 
 
@@ -604,14 +693,17 @@ interface
 
       ghsScrollUp:   LocScrollUntilRelease(-1);
       ghsScrollDn:   LocScrollUntilRelease(+1);
-      ghsScrollPgUp: LocScrollUntilRelease(-FHeight);
-      ghsScrollPgDn: LocScrollUntilRelease(+FHeight);
+      ghsScrollPgUp: LocScrollUntilRelease(-ClientHeight);
+      ghsScrollPgDn: LocScrollUntilRelease(+ClientHeight);
 
       ghsScrollThumb:
         begin
           ScrollTo(FDeltaX, vRow);
           FDragWhat := dwScrollThumb;
         end;
+
+      ghsTitle:
+        ColumnClick(vCol, AButton, ADouble);
     end;
   end;
 
@@ -628,7 +720,7 @@ interface
       GotoLocation(vCol, vRow, lmSimple);
     end else
     if FDragWhat = dwScrollThumb then begin
-      vRow := MulDiv(APos.Y - 1, FRowCount - FHeight, FHeight - 3 );
+      vRow := MulDiv(APos.Y - FMargins.Top - 1, FRowCount - ClientHeight, ClientHeight - 3 );
       ScrollTo(FDeltaX, vRow);
     end else
     if goFollowMouse in FOptions then begin
@@ -706,19 +798,21 @@ interface
 
   function TFarGrid.HitTest(X, Y :Integer; var ACol, ARow :Integer) :TGridHotSpot;
   var
-    vThumbY :Integer;
+    vHeight, vThumbY :Integer;
   begin
     Result := ghsNone;
-    if (X >= 0) and (X < FWidth) and (Y >= 0) and (Y < FHeight) then begin
-      if (FRowCount > FHeight) and (X = FWidth - 1) and not (goNoVScroller in FOptions) then begin
+    Dec(X, FMargins.Left); Dec(Y, FMargins.Top);
+    if (X >= 0) and (X < CLientWidth) and (Y >= 0) and (Y < ClientHeight) then begin
+      vHeight := ClientHeight;
+      if (FRowCount > vHeight) and (X = ClientWidth - 1) and not (goNoVScroller in FOptions) then begin
         { Скроллер... }
         if Y = 0 then
           Result := ghsScrollUp
         else
-        if Y = FHeight - 1 then
+        if Y = vHeight - 1 then
           Result := ghsScrollDn
         else begin
-          vThumbY := MulDiv(FDeltaY, FHeight - 3, FRowCount - FHeight) + 1;
+          vThumbY := MulDiv(FDeltaY, vHeight - 3, FRowCount - vHeight) + 1;
           if vThumbY = Y then begin
             Result := ghsScrollThumb;
             ARow := FDeltaY;
@@ -731,16 +825,21 @@ interface
       end else
       if Y < FRowCount - FDeltaY then begin
         ARow := FDeltaY + Y;
-        ACol := CalcColByDelta(FDeltaX + X); {!!!-???}
+        ACol := CalcColByDelta(FDeltaX + X);
         Result := ghsCell;
       end;
+    end else
+    if (X >= 0) and (X < CLientWidth) and (Y = -1) and (goShowTitle in FOptions) then begin
+      ACol := CalcColByDelta(FDeltaX + X);
+      Result := ghsTitle;
     end;
   end;
 
 
   procedure TFarGrid.CoordFromPoint(X, Y :Integer; var ACol, ARow :Integer);
   begin
-    ARow := FDeltaY + RangeLimit(Y, 0, FHeight - 1);
+    Dec(Y, FMargins.Top); Dec(X, FMargins.Left);
+    ARow := FDeltaY + RangeLimit(Y, 0, ClientHeight - 1);
     ACol := CalcColByDelta(FDeltaX + X);
   end;
 
@@ -794,7 +893,7 @@ interface
 //  if (gloRangeSelect in FOptions) and (glocClearSelection in AOpt) then
 //    ClearSelection;
 
-    if (AMode <> lmSimple) and (FHeight > 0) then
+    if (AMode <> lmSimple) and (ClientHeight > 0) then
       EnsureOnScreen(ACol, ARow, ARow, AMode);
 
     if vPosChanged then
@@ -823,20 +922,20 @@ interface
     vDeltaY := FDeltaY;
     vDeltaX := FDeltaX;
 
-    vMinDeltaY := ARow2 - FHeight + 1;
+    vMinDeltaY := ARow2 - CLientHeight + 1;
     if (vDeltaY < vMinDeltaY) or (vDeltaY > ARow1) or (AMode = lmCenter) then begin
       if AMode in [lmSafe, lmCenter] then
-        vDeltaY := IntMax(ARow1 - (FHeight div 2), 0);
+        vDeltaY := IntMax(ARow1 - (ClientHeight div 2), 0);
       vDeltaY := IntMin(RangeLimit(vDeltaY, vMinDeltaY, ARow1), ARow1);
     end;
-(*
-   if not Can([gcwRowList]) and (FColumns.Count > 0) and (Col < FColumns.Count) then begin
-      Ofs1 := CalcColOffset(Col);
-      Ofs2 := CalcColOffset(Col + 1);
-      vDeltaX := IntMax(vDeltaX, Ofs2 - FClientRect.Right);
-      vDeltaX := IntMin(vDeltaX, Ofs1 - FreezeWidth);
-    end;
-*)
+
+// if not Can([gcwRowList]) and (FColumns.Count > 0) and (Col < FColumns.Count) then begin
+//    Ofs1 := CalcColOffset(Col);
+//    Ofs2 := CalcColOffset(Col + 1);
+//    vDeltaX := IntMax(vDeltaX, Ofs2 - FClientRect.Right);
+//    vDeltaX := IntMin(vDeltaX, Ofs1 - FreezeWidth);
+//  end;
+
 //  if (vDeltaY <> FDeltaY) or (vDeltaX <> FDeltaX) then
       ScrollTo(vDeltaX, vDeltaY);
   end;
@@ -844,8 +943,8 @@ interface
 
   procedure TFarGrid.ScrollTo(ADeltaX, ADeltaY :Integer);
   begin
-    ADeltaX := RangeLimit(ADeltaX, 0, 0 (*FAllWidth - FClientRect.Right!!!*));
-    ADeltaY := RangeLimit(ADeltaY, 0, RowCount - FHeight);
+    ADeltaX := RangeLimit(ADeltaX, 0, 0 {FAllWidth - FClientRect.Right} );
+    ADeltaY := RangeLimit(ADeltaY, 0, RowCount - ClientHeight);
     if (ADeltaX = FDeltaX) and (ADeltaY = FDeltaY) then
       Exit;
 
@@ -872,7 +971,6 @@ interface
     FAllWidth := 0;
     M := FColumns.Count;
     if M > 0 then begin
-
       K := 0;
       for I := 0 to M - 1 do begin
         vColumn := Column[I];
@@ -886,8 +984,8 @@ interface
       end;
 
       if K > 0 then begin
-        W := FWidth - FAllWidth;
-        if (FRowCount > FHeight) and not (goNoVScroller in FOptions) then
+        W := ClientWidth - FAllWidth;
+        if (FRowCount > ClientHeight) and not (goNoVScroller in FOptions) then
           Dec(W); { Есть скроллер }
 
         for I := 0 to M - 1 do begin
@@ -937,6 +1035,18 @@ interface
   end;
 
 
+  procedure TFarGrid.SetOptions(AOptions :TGridOptions);
+  begin
+    if FOptions <> AOptions then begin
+      FOptions := AOptions;
+      FMargins := Bounds(0, 0, 0, 0);
+      if goShowTitle in FOptions then
+        Inc(FMargins.Top, 1);
+      ResetSize;
+    end;
+  end;
+
+
   procedure TFarGrid.SetRowCount(ACount :Integer);
   begin
     if FRowCount <> ACount then begin
@@ -949,6 +1059,18 @@ interface
   function TFarGrid.GetColumn(AIndex :Integer) :TColumnFormat;
   begin
     Result := FColumns[AIndex];
+  end;
+
+
+  function TFarGrid.ClientHeight;
+  begin
+    Result := FHeight - FMargins.Top - FMargins.Bottom;
+  end;
+
+
+  function TFarGrid.ClientWidth;
+  begin
+    Result := FWidth - FMargins.Left - FMargins.Right;
   end;
 
 
@@ -1056,8 +1178,6 @@ interface
       FreeObj(vDeltas);
     end;
   end;
-
-
 
 end.
 

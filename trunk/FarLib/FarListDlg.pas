@@ -169,7 +169,7 @@ interface
       vWidth := vSize.CX - 4;
     vWidth := IntMax(vWidth, cDlgMinWidth);
 
-    vHeight := FGrid.RowCount + 4;
+    vHeight := FGrid.RowCount + FGrid.Margins.Top + FGrid.Margins.Bottom + 4;
     if vHeight > vSize.CY - 2 then
       vHeight := vSize.CY - 2;
 
@@ -195,6 +195,7 @@ interface
     SRectGrow(vRect, -1, -1);
     if vRect.Bottom - vRect.Top + 2 <= FGrid.RowCount then
       Inc(vRect.Right);
+
     SendMsg(DM_SETITEMPOSITION, IdList, @vRect);
     FGrid.UpdateSize(vRect.Left, vRect.Top, vRect.Right - vRect.Left + 1, vRect.Bottom - vRect.Top + 1);
 

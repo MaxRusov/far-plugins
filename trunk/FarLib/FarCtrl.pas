@@ -19,7 +19,8 @@ interface
     MixStrings,
     MixClasses,
 
-    Far_API;
+    Far_API,
+    FarConMan;
 
   type
     TFarStr  = TWideStr;
@@ -278,6 +279,10 @@ interface
  {$endif Far3}
 
   function CheckForEsc :Boolean;
+
+  function GetConsoleWnd :THandle;
+  function GetConsoleMousePos(AWnd :THandle = 0) :TPoint;
+    { Вычисляем позицию мыши в консольных координатах }
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -1033,86 +1038,6 @@ interface
   end;
 
  {$ifdef Far3}
-(*
-  function FarGetPluginInfo(AIndex :Integer; var AInfo :PFarGetPluginInformation; APreallocate :Integer = 1024) :Boolean;
-  var
-    vSize :Integer;
-  begin
-    Result := False;
-    if (AInfo = nil) and (APreallocate > 0)  then begin
-      vSize := SizeOf(TFarPluginInfo) + APreallocate;
-      AInfo := MemAllocZero(vSize);
-      AInfo.Size := vSize;
-    end;
-
-    vSize := FarPluginControl(PCTL_GETPLUGININFO, AIndex, AInfo);
-    if vSize > 0 then begin
-      if (AInfo = nil) or (Cardinal(vSize) > AInfo.Size) then begin
-        { Зарезервированного места не хватило. Надо увеличить... }
-        ReallocMem(AInfo, vSize);
-        AInfo.Size := vSize;
-        Result := FarPluginControl(PCTL_GETPLUGININFO, AIndex, AInfo) > 0;
-      end else
-        Result := True;
-    end;
-  end;
-*)
-
-(*
-  function FarGetPluginInfo(AHandle :THandle; var AInfo :PFarGetPluginInformation; APreallocate :Integer = 1024) :Boolean;
-  var
-    vSize0, vSize :Integer;
-  begin
-    Result := False;
-    if (AInfo = nil) and (APreallocate > 0)  then begin
-      vSize0 := SizeOf(TFarGetPluginInformation) + APreallocate;
-      AInfo := MemAllocZero(vSize0);
-      AInfo.StructSize := SizeOf(TFarGetPluginInformation);
-    end;
-
-//  vSize := FarPluginControl(PCTL_GETPLUGININFORMATION, AIndex, AInfo);
-    vSize := FARAPI.PluginsControl(AHandle, PCTL_GETPLUGININFORMATION, vSize0, AInfo);
-    if vSize > 0 then begin
-      if (AInfo = nil) or (vSize > vSize0) then begin
-        { Зарезервированного места не хватило. Надо увеличить... }
-        ReallocMem(AInfo, vSize);
-//      Result := FarPluginControl(PCTL_GETPLUGININFO, AIndex, AInfo) > 0;
-        Result := FARAPI.PluginsControl(AHandle, PCTL_GETPLUGININFORMATION, vSize, AInfo) > 0;
-      end else
-        Result := True;
-    end;
-  end;
-*)
-
-(*
-  function FarGetPluginInfo(AHandle :THandle; var AInfo :PFarGetPluginInformation; var ASize :Integer) :Boolean;
-  const
-    cPreallocate = 1024;
-  var
-    vSize :Integer;
-  begin
-    Result := False;
-    if AInfo = nil then begin
-      ASize := SizeOf(TFarGetPluginInformation) + cPreallocate;
-      AInfo := MemAllocZero(ASize);
-      AInfo.StructSize := SizeOf(TFarGetPluginInformation);
-    end;
-
-//  vSize := FarPluginControl(PCTL_GETPLUGININFORMATION, AIndex, AInfo);
-    vSize := FARAPI.PluginsControl(AHandle, PCTL_GETPLUGININFORMATION, ASize, AInfo);
-    if vSize > 0 then begin
-      if vSize > ASize then begin
-        { Зарезервированного места не хватило. Надо увеличить... }
-        ReallocMem(AInfo, vSize);
-        ASize := vSize;
-//      Result := FarPluginControl(PCTL_GETPLUGININFO, AIndex, AInfo) > 0;
-        Result := FARAPI.PluginsControl(AHandle, PCTL_GETPLUGININFORMATION, ASize, AInfo) > 0;
-      end else
-        Result := True;
-    end;
-  end;
-*)
-
   function FarGetPluginInfo(AHandle :THandle; var AInfo :PFarGetPluginInformation; ASize :PInteger = nil) :Boolean;
   const
     cPreallocate = 1024;
@@ -1800,6 +1725,14 @@ interface
   end;
 
 
+  function MulDivTrunc(ANum, AMul, ADiv :Integer) :Integer;
+  begin
+    if ADiv = 0 then
+      Result := 0
+    else
+      Result := ANum * AMul div ADiv;
+  end;
+
 
  {-----------------------------------------------------------------------------}
 
@@ -1878,6 +1811,65 @@ interface
   end;
 
 
+  var
+    hConEmuWnd  :THandle = THandle(-1);
+
+
+  function GetConsoleWnd :THandle;
+  var
+    hWnd :THandle;
+  begin
+    if hFarWindow = 0 then
+      hFarWindow := FarAdvControl(ACTL_GETFARHWND, nil);
+
+    Result := hFarWindow;
+
+    if not IsWindowVisible(hFarWindow) then begin
+      { Запущено из-под ConEmu?... }
+      hWnd := GetAncestor(hFarWindow, GA_PARENT);
+
+      if (hWnd = 0) or (hWnd = GetDesktopWindow) then begin
+        { Новая версия ConEmu не делает SetParent... }
+        if hConEmuWnd = THandle(-1) then
+          hConEmuWnd := CheckConEmuWnd;
+        hWnd := hConEmuWnd;
+      end;
+
+      if hWnd <> 0 then
+        Result := hWnd;
+    end;
+  end;
+
+
+  function GetConsoleMousePos(AWnd :THandle) :TPoint;
+    { Вычисляем позицию мыши в консольных координатах }
+  var
+    vPos  :TPoint;
+    vRect :TRect;
+    vInfo :TConsoleScreenBufferInfo;
+  begin
+    if AWnd = 0 then
+      AWnd := GetConsoleWnd;
+
+    GetCursorPos(vPos);
+
+    ScreenToClient(AWnd, vPos);
+    GetClientRect(AWnd, vRect);
+    GetConsoleScreenBufferInfo(hStdOut, vInfo);
+
+    with vInfo.srWindow do begin
+//    TraceF('%d, %d - %d, %d', [Left, Top, Right, Bottom]);
+      Result.Y := Top + MulDivTrunc(vPos.Y, Bottom - Top + 1, vRect.Bottom - vRect.Top);
+      Result.X := Left + MulDivTrunc(vPos.X, Right - Left + 1, vRect.Right - vRect.Left);
+    end;
+
+    { Коррекция для режима "большого буфера" (/w) }
+    with FarGetWindowRect do begin
+//    TraceF('FWR: %d-%d, %d-%d', [Top, Bottom, Left, Right]);
+      Dec(Result.Y, Top);
+      Dec(Result.X, Left);
+    end;
+  end;
+
+
 end.
-
-
