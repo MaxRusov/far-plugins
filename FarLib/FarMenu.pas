@@ -62,6 +62,8 @@ interface
       property Footer :TString read FFooter write FFooter;
       property Help :TString read FHelp write FHelp;
       property Flags :DWORD read FFlags write FFlags;
+      property X :Integer read FX write FX;
+      property Y :Integer read FY write FY;
      {$ifdef Far3}
       property MenuID :TGUID read FMenuID write FMenuID;
      {$endif Far3}
