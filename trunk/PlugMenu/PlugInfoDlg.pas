@@ -28,7 +28,7 @@ interface
     PlugMenuPlugs;
 
 
-  procedure ViewPluginInfo(APlugin :TFarPlugin);
+  procedure ViewPluginInfo(APlugin :TFarPlugin; ACommand :TFarPluginCmd);
 
 
 {******************************************************************************}
@@ -59,31 +59,35 @@ interface
 
   type
     TPlugProps = (
-      ppFileName,
-      ppFolder,
-      ppModified,
      {$ifdef Far3}
       ppTitle,
       ppDescr,
       ppAuthor,
       ppGUID,
+      ppMenuGUID,
      {$endif Far3}
+
       ppVerinfo,
       ppCopyright,
       ppVersion,
+
+      ppFileName,
+      ppFolder,
+      ppModified,
+
       ppEncoding,
       ppFlags,
       ppPrefixes
     );
 
   const
-    IdFileName  = 12{$ifdef Far3} + 5 {$endif};
+    IdFirstEdt  = 13{$ifdef Far3} + 5 {$endif};
 
   type
     FInfoDlg = class(TFarDialog)
     public
-      constructor CreateEx(APlugin :TFarPlugin);
-      
+      constructor CreateEx(APlugin :TFarPlugin; ACommand :TFarPluginCmd);
+
     protected
       procedure Prepare; override;
       procedure InitDialog; override;
@@ -91,23 +95,25 @@ interface
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
     private
-      FPlugin :TFarPlugin;
+      FPlugin  :TFarPlugin;
+      FCommand :TFarPluginCmd;
 
       FPrompts :Array[TPlugProps] of TString;
       FDatas   :Array[TPlugProps] of TString;
     end;
 
 
-  constructor FInfoDlg.CreateEx(APlugin :TFarPlugin);
+  constructor FInfoDlg.CreateEx(APlugin :TFarPlugin; ACommand :TFarPluginCmd);
   begin
     FPlugin := APlugin;
+    FCommand := ACommand;
     Create;
   end;
 
 
   procedure FInfoDlg.Prepare; {override;}
   const
-    DY = 17 {$ifdef Far3} + 5 {$endif};
+    DY = 18 {$ifdef Far3} + 5 {$endif};
     cInfoType = DI_EDIT;
     cInfoFlags = DIF_READONLY;
   var
@@ -119,34 +125,45 @@ interface
     vSize := FarGetWindowSize;
     vMaxWidth := vSize.CX - 4;
 
-    FPrompts[ppFileName]  := GetMsg(strInfoFileName);
-    FPrompts[ppFolder]    := GetMsg(strInfoFolder);
-    FPrompts[ppModified]  := GetMsg(strInfoModified);
    {$ifdef Far3}
-    FPrompts[ppTitle]     := 'Title';  {!!!Localize}
-    FPrompts[ppDescr]     := 'Description';
-    FPrompts[ppAuthor]    := 'Author';
-    FPrompts[ppGUID]      := 'GUID';
+    FPrompts[ppTitle]     := GetMsg(strInfoTitle);
+    FPrompts[ppDescr]     := GetMsg(strInfoDescription);
+    FPrompts[ppAuthor]    := GetMsg(strInfoAuthor);
+    FPrompts[ppGUID]      := GetMsg(strInfoGUID);
+    FPrompts[ppMenuGUID]  := GetMsg(strInfoMenuGUID);
    {$endif Far3}
+
     FPrompts[ppVerinfo]   := GetMsg(strInfoDescr);
     FPrompts[ppCopyright] := GetMsg(strInfoCopyright);
     FPrompts[ppVersion]   := GetMsg(strInfoVersion);
+
+    FPrompts[ppFileName]  := GetMsg(strInfoFileName);
+    FPrompts[ppFolder]    := GetMsg(strInfoFolder);
+    FPrompts[ppModified]  := GetMsg(strInfoModified);
+
     FPrompts[ppEncoding]  := GetMsg(strInfoEncoding);
     FPrompts[ppFlags]     := GetMsg(strInfoFlags);
     FPrompts[ppPrefixes]  := GetMsg(strInfoPrefixes);
 
-    FDatas[ppFileName]  := ExtractFileName(FPlugin.FileName);
-    FDatas[ppFolder]    := RemoveBackSlash(ExtractFilePath(FPlugin.FileName));
-    FDatas[ppModified]  := DateTimeToStr(FPlugin.FileDate);
    {$ifdef Far3}
     FDatas[ppTitle]     := FPlugin.PlugTitle;
+    if FPlugin.PlugVerStr <> '' then
+      FDatas[ppTitle] := FDatas[ppTitle] + ', ' + GetMsg(strVer) + ' ' + FPlugin.PlugVerStr;
+
     FDatas[ppDescr]     := FPlugin.PlugDescr;
     FDatas[ppAuthor]    := FPlugin.PlugAuthor;
-    FDatas[ppGUID]      := GUIDToString(FPlugin.GUID);
+    FDatas[ppGUID]      := GUIDToString (FPlugin.GUID);
+    FDatas[ppMenuGUID]  := GUIDToString(FCommand.GUID);
    {$endif Far3}
+
     FDatas[ppVerinfo]   := FPlugin.Description;
     FDatas[ppCopyright] := FPlugin.Copyright;
     FDatas[ppVersion]   := FPlugin.Version;
+
+    FDatas[ppFileName]  := ExtractFileName(FPlugin.FileName);
+    FDatas[ppFolder]    := RemoveBackSlash(ExtractFilePath(FPlugin.FileName));
+    FDatas[ppModified]  := DateTimeToStr(FPlugin.FileDate);
+
     FDatas[ppEncoding]  := StrIf(FPlugin.Unicode, 'Unicode', 'Ansi');
     FDatas[ppFlags]     := FPlugin.GetFlagsStrEx;
     FDatas[ppPrefixes]  := StrReplace(FPlugin.Prefixes, ':', ', ', [rfReplaceAll]);
@@ -170,47 +187,53 @@ interface
       vDX2 := FWidth - vDX1 - 11;
     end;
 
-    vDY1 := 5 {$ifdef Far3} + 5 {$endif};
+    vDY1 := {$ifdef Far3} 6 {$else} 1 {$endif};
     FDialog := CreateDialog(
       [
         NewItemApi(DI_DoubleBox, 3,  1, FWidth-6, DY-2, 0, GetMsg(strPlugInfoTitle)),
-        NewItemApi(DI_Text,      5,  2, 5+vDX1, -1,  0,  PTChar(FPrompts[ppFileName]) ),
-        NewItemApi(DI_Text,      5,  3, 5+vDX1, -1,  0,  PTChar(FPrompts[ppFolder]  ) ),
-        NewItemApi(DI_Text,      5,  4, 5+vDX1, -1,  0,  PTChar(FPrompts[ppModified]) ),
-       {$ifdef Far3}
-        NewItemApi(DI_Text,      0,  5, -1,     -1,  DIF_SEPARATOR, ' FAR3 Info '),   {!!!Localize}
-        NewItemApi(DI_Text,      5,  6, 5+vDX1, -1,  0,  PTChar(FPrompts[ppTitle] ) ),
-        NewItemApi(DI_Text,      5,  7, 5+vDX1, -1,  0,  PTChar(FPrompts[ppDescr] ) ),
-        NewItemApi(DI_Text,      5,  8, 5+vDX1, -1,  0,  PTChar(FPrompts[ppAuthor]) ),
-        NewItemApi(DI_Text,      5,  9, 5+vDX1, -1,  0,  PTChar(FPrompts[ppGUID]) ),
-       {$endif Far3}
-        NewItemApi(DI_Text,      0,  vDY1+0, -1,     -1,  DIF_SEPARATOR, ' Version Info '), {!!!Localize}
-        NewItemApi(DI_Text,      5,  vDY1+1, 5+vDX1, -1,  0,  PTChar(FPrompts[ppVerinfo]  ) ),
-        NewItemApi(DI_Text,      5,  vDY1+2, 5+vDX1, -1,  0,  PTChar(FPrompts[ppCopyright]) ),
-        NewItemApi(DI_Text,      5,  vDY1+3, 5+vDX1, -1,  0,  PTChar(FPrompts[ppVersion]  ) ),
-        NewItemApi(DI_Text,      0,  vDY1+4, -1,     -1,  DIF_SEPARATOR, ''),
-        NewItemApi(DI_Text,      5,  vDY1+5, 5+vDX1, -1,  0,  PTChar(FPrompts[ppEncoding]) ),
-        NewItemApi(DI_Text,      5,  vDY1+6, 5+vDX1, -1,  0,  PTChar(FPrompts[ppFlags]   ) ),
-        NewItemApi(DI_Text,      5,  vDY1+7, 5+vDX1, -1,  0,  PTChar(FPrompts[ppPrefixes]) ),
 
+       {$ifdef Far3}
+        NewItemApi(DI_Text,      5,  2, 5+vDX1, -1,  0,  PTChar(FPrompts[ppTitle] ) ),
+        NewItemApi(DI_Text,      5,  3, 5+vDX1, -1,  0,  PTChar(FPrompts[ppDescr] ) ),
+        NewItemApi(DI_Text,      5,  4, 5+vDX1, -1,  0,  PTChar(FPrompts[ppAuthor]) ),
+        NewItemApi(DI_Text,      5,  5, 5+vDX1, -1,  0,  PTChar(FPrompts[ppGUID]) ),
+        NewItemApi(DI_Text,      5,  6, 5+vDX1, -1,  0,  PTChar(FPrompts[ppMenuGUID]) ),
+       {$endif Far3}
+
+        NewItemApi(DI_Text,      0,  vDY1+1, -1,     -1,  DIF_SEPARATOR, GetMsg(strVersionInfo) ),
+        NewItemApi(DI_Text,      5,  vDY1+2, 5+vDX1, -1,  0,  PTChar(FPrompts[ppVerinfo]  ) ),
+        NewItemApi(DI_Text,      5,  vDY1+3, 5+vDX1, -1,  0,  PTChar(FPrompts[ppCopyright]) ),
+        NewItemApi(DI_Text,      5,  vDY1+4, 5+vDX1, -1,  0,  PTChar(FPrompts[ppVersion]  ) ),
+
+        NewItemApi(DI_Text,      0,  vDY1+5, -1,     -1,  DIF_SEPARATOR, GetMsg(strFileInfo) ),
+        NewItemApi(DI_Text,      5,  vDY1+6, 5+vDX1, -1,  0,  PTChar(FPrompts[ppFileName]) ),
+        NewItemApi(DI_Text,      5,  vDY1+7, 5+vDX1, -1,  0,  PTChar(FPrompts[ppFolder]  ) ),
+        NewItemApi(DI_Text,      5,  vDY1+8, 5+vDX1, -1,  0,  PTChar(FPrompts[ppModified]) ),
+
+        NewItemApi(DI_Text,      0,  vDY1+9, -1,     -1,  DIF_SEPARATOR, ''),
+        NewItemApi(DI_Text,      5,  vDY1+10, 5+vDX1, -1,  0,  PTChar(FPrompts[ppEncoding]) ),
+        NewItemApi(DI_Text,      5,  vDY1+11, 5+vDX1, -1,  0,  PTChar(FPrompts[ppFlags]   ) ),
+        NewItemApi(DI_Text,      5,  vDY1+12, 5+vDX1, -1,  0,  PTChar(FPrompts[ppPrefixes]) ),
+
+       {$ifdef Far3}
         NewItemApi(cInfoType, 6+vDX1,  2, vDX2, -1,  cInfoFlags,  '' ),
         NewItemApi(cInfoType, 6+vDX1,  3, vDX2, -1,  cInfoFlags,  '' ),
         NewItemApi(cInfoType, 6+vDX1,  4, vDX2, -1,  cInfoFlags,  '' ),
-
-       {$ifdef Far3}
+        NewItemApi(cInfoType, 6+vDX1,  5, vDX2, -1,  cInfoFlags,  '' ),
         NewItemApi(cInfoType, 6+vDX1,  6, vDX2, -1,  cInfoFlags,  '' ),
-        NewItemApi(cInfoType, 6+vDX1,  7, vDX2, -1,  cInfoFlags,  '' ),
-        NewItemApi(cInfoType, 6+vDX1,  8, vDX2, -1,  cInfoFlags,  '' ),
-        NewItemApi(cInfoType, 6+vDX1,  9, vDX2, -1,  cInfoFlags,  '' ),
        {$endif Far3}
 
-        NewItemApi(cInfoType, 6+vDX1,  vDY1+1, vDX2, -1,  cInfoFlags,  '' ),
         NewItemApi(cInfoType, 6+vDX1,  vDY1+2, vDX2, -1,  cInfoFlags,  '' ),
         NewItemApi(cInfoType, 6+vDX1,  vDY1+3, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  vDY1+4, vDX2, -1,  cInfoFlags,  '' ),
 
-        NewItemApi(cInfoType, 6+vDX1,  vDY1+5, vDX2, -1,  cInfoFlags,  '' ),
         NewItemApi(cInfoType, 6+vDX1,  vDY1+6, vDX2, -1,  cInfoFlags,  '' ),
         NewItemApi(cInfoType, 6+vDX1,  vDY1+7, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  vDY1+8, vDX2, -1,  cInfoFlags,  '' ),
+
+        NewItemApi(cInfoType, 6+vDX1,  vDY1+10, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  vDY1+11, vDX2, -1,  cInfoFlags,  '' ),
+        NewItemApi(cInfoType, 6+vDX1,  vDY1+12, vDX2, -1,  cInfoFlags,  '' ),
 
         NewItemApi(DI_Text,      0, DY-4, -1, -1, DIF_SEPARATOR, ''),
         NewItemApi(DI_DefButton, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strButClose)),
@@ -229,7 +252,7 @@ interface
   begin
     SendMsg(DM_SetFocus, FItemCount - 2, 0);
     for I := Low(TPlugProps) to High(TPlugProps) do
-      SetText(IdFileName + byte(I), FDatas[I]);
+      SetText(IdFirstEdt + byte(I), FDatas[I]);
   end;
 
 
@@ -258,11 +281,11 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  procedure ViewPluginInfo(APlugin :TFarPlugin);
+  procedure ViewPluginInfo(APlugin :TFarPlugin; ACommand :TFarPluginCmd);
   var
     vDlg :FInfoDlg;
   begin
-    vDlg := FInfoDlg.CreateEx(APlugin);
+    vDlg := FInfoDlg.CreateEx(APlugin, ACommand);
     try
       if vDlg.Run = -1 then
         Exit;

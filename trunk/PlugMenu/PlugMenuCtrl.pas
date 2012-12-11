@@ -16,13 +16,12 @@ interface
     MixTypes,
     MixUtils,
     MixWinUtils,
+    MixClasses,
     Far_API,
     FarCtrl,
     FarConfig,
     FarMenu,
     FarColorDlg;
-
-
 
   type
     TMessages = (
@@ -46,6 +45,17 @@ interface
       strPluginLoadError,
       strPluginUnloadError,
 
+      strCommandsTitle,
+      strRunCommand,
+      strPluginHelp,
+      strPluginInfo,
+      strSetupCommand,
+      strPluginConfig,
+      strLoadPlugin,
+      strUnloadPlugin,
+      strColumnSetup,
+      strSortBy,
+
       strOptionsTitle,
       strShowHidden,
       strLoadedMark,
@@ -54,7 +64,8 @@ interface
       strModificationTime,
       strAccessTime,
       strPluginFlags,
-      strSortBy,
+      strAuthor,
+      strVersion,
 
       strSortByTitle,
       strSortByName,
@@ -62,11 +73,14 @@ interface
       strSortByModificationTime,
       strSortByAccessTime,
       strSortByPluginFlags,
+      strSortByAuthor,
+      strSortByVersion,
       strSortByUnsorted,
       strSortHiddenLast,
 
       strOptionsTitle2,
       strAutoHotkey,
+      strShowTitles,
       strShowHints,
       strFollowMouse,
       strWrapMode,
@@ -76,18 +90,35 @@ interface
       strColorsTitle,
       strMHiddenColor,
       strMQuickFilter,
+      strMColumnTitle,
       strMRestoreDefaults,
 
+      strColumnCommand,
+      strColumnFileName,
+      strColumnModify,
+      strColumnAccess,
+      strColumnFlags,
+      strColumnAuthor,
+      strColumnVersion,
+
       strPlugInfoTitle,
+      strInfoTitle,
+      strInfoDescription,
+      strInfoAuthor,
+      strInfoGUID,
+      strInfoMenuGUID,
+      strFileInfo,
       strInfoFileName,
       strInfoFolder,
       strInfoModified,
+      strVersionInfo,
       strInfoDescr,
       strInfoCopyright,
       strInfoVersion,
       strInfoEncoding,
       strInfoFlags,
       strInfoPrefixes,
+      strVer,
 
       strButClose,
       strButProps,
@@ -153,8 +184,8 @@ interface
    {$ifdef bUnicode}
     chrHiddenMark       :TChar = #$2022;
     chrUnaccessibleMark :TChar = #9632 { $25AC };
-    chrUpMark           :TChar = #$18; { $1E }
-    chrDnMark           :TChar = #$19; { $1F }
+    chrUpMark           :TChar = #$18;  {#$1E;}
+    chrDnMark           :TChar = #$19;  {#$1F;}
    {$else}
     chrHiddenMark       :TChar = #$07;
     chrUnaccessibleMark :TChar = #$16;
@@ -193,6 +224,10 @@ interface
     PluginShowFlags    :Boolean = False;
     PluginShowDate     :Integer = 0;
     PluginShowUseDate  :Integer = 0;
+   {$ifdef Far3}
+    PluginShowAuthor   :Boolean = False;
+    PluginShowVer      :Boolean = False;
+   {$endif Far3}
 
     PluginShowHidden   :Integer = 0;
 
@@ -203,14 +238,17 @@ interface
     optAutoShortcut    :Boolean = True;   { Автоматическое назначение HotKey'ев }
     optXLatMask        :Boolean = True;   { Автоматическое XLAT преобразование при поиске }
     optShowHints       :Boolean = True;   { Показывать подсказки (через FarHints) }
+    optShowTitles      :Boolean = True;   { Показывать заголовки колонок }
     optFollowMouse     :Boolean = True;
     optWrapMode        :Boolean = True;
     optShowOrigName    :Boolean = False;  { Показывать оригинальные имена (игнорировать переименования) }
+    optShowGrid        :Boolean = True;   { Показывать вертикальные линии }
 
     optHiddenColor     :TFarColor;
     optFoundColor      :TFarColor;
 //  optGroupColor      :TFarColor;
 //  optSelectedColor   :TFarColor;
+    optTitleColor      :TFarColor;
 
 
   function GetMsg(AMess :TMessages) :PFarChar;
@@ -271,6 +309,7 @@ interface
     [
       GetMsg(strMHiddenColor),
       GetMsg(strMQuickFilter),
+      GetMsg(strMColumnTitle),
       '',
       GetMsg(strMRestoreDefaults)
     ]);
@@ -286,6 +325,7 @@ interface
         case vMenu.ResIdx of
           0: vOk := ColorDlg('', optHiddenColor, vBkColor);
           1: vOk := ColorDlg('', optFoundColor, vBkColor);
+          2: vOk := ColorDlg('', optTitleColor);
         else
           RestoreDefColor;
           vOk := True;
@@ -315,6 +355,7 @@ interface
       GetMsg(strOptionsTitle),
     [
       GetMsg(strAutoHotkey),
+      GetMsg(strShowTitles),
       GetMsg(strShowHints),
       GetMsg(strFollowMouse),
       GetMsg(strWrapMode),
@@ -328,10 +369,11 @@ interface
 
       while True do begin
         vMenu.Checked[0] := optAutoShortcut;
-        vMenu.Checked[1] := optShowHints;
-        vMenu.Checked[2] := optFollowMouse;
-        vMenu.Checked[3] := optWrapMode;
-        vMenu.Checked[4] := optShowOrigName;
+        vMenu.Checked[1] := optShowTitles;
+        vMenu.Checked[2] := optShowHints;
+        vMenu.Checked[3] := optFollowMouse;
+        vMenu.Checked[4] := optWrapMode;
+        vMenu.Checked[5] := optShowOrigName;
 
         vMenu.SetSelected(vMenu.ResIdx);
 
@@ -340,14 +382,16 @@ interface
 
         case vMenu.ResIdx of
           0: optAutoShortcut := not optAutoShortcut;
-          1: optShowHints := not optShowHints;
-          2: optFollowMouse := not optFollowMouse;
-          3: optWrapMode := not optWrapMode;
-          4: optShowOrigName := not optShowOrigName;
+          1: optShowTitles := not optShowTitles;
+          2: optShowHints := not optShowHints;
+          3: optFollowMouse := not optFollowMouse;
+          4: optWrapMode := not optWrapMode;
+          5: optShowOrigName := not optShowOrigName;
 
-          6: ColorMenu;
+          7: ColorMenu;
         end;
 
+        FarAdvControl(ACTL_REDRAWALL, nil);
         vChanged := True;
       end;
 
@@ -382,6 +426,7 @@ interface
     optHiddenColor  := MakeColor(clGray, 0);
     optFoundColor   := MakeColor(clLime, 0);
 //  optGroupColor   := MakeColor(clBlue, 0);
+    optTitleColor   := UndefColor;
   end;
 
 
@@ -392,16 +437,16 @@ interface
         if not Exists then
           Exit;
 
-//      LogValue('ShowGrid', optShowGrid);
-
         IntValue('ShowHidden',  PluginShowHidden);
 
         LogValue('AutoHotkey',   optAutoShortcut);
         LogValue('XLatMask',     optXLatMask);
         LogValue('ShowHints',    optShowHints);
+        LogValue('ShowTitles',   optShowTitles);
         LogValue('FollowMouse',  optFollowMouse);
         LogValue('WrapMode',     optWrapMode);
         LogValue('ShowOrigName', optShowOrigName);
+        LogValue('ShowGrid',     optShowGrid);
 
         LogValue('ShowLoadedMark', PluginShowLoaded);
         LogValue('ShowAnsiMark', PluginShowAnsi);
@@ -410,6 +455,10 @@ interface
         LogValue('ShowFlags', PluginShowFlags);
         IntValue('ShowModifyTime', PluginShowDate);
         IntValue('ShowAccessTime', PluginShowUseDate);
+       {$ifdef Far3}
+        LogValue('ShowAuthor', PluginShowAuthor);
+        LogValue('ShowVersion', PluginShowVer);
+       {$endif Far3}
 
         IntValue('SortMode', PluginSortMode);
         LogValue('SortHiddenLast', SortHiddenLast);
@@ -417,6 +466,7 @@ interface
         ColorValue('HiddenColor', optHiddenColor);
         ColorValue('FoundColor', optFoundColor);
 //      ColorValue('SelectedColor', optSelectedColor);
+        ColorValue('TitleColor', optTitleColor);
 
       finally
         Destroy;

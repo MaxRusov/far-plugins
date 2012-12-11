@@ -97,13 +97,14 @@ interface
       FFilterMask     :TString;
       FFilterColumn   :Integer;
       FTotalCount     :Integer;
-      
+
       FSetChanged     :Boolean;
 
       FChoosenCmd     :TFarPluginCmd;
       FChoosenCommand :Integer;
 
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
+      procedure GridTitleClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
       procedure GridPosChange(ASender :TFarGrid);
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
       procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
@@ -123,7 +124,14 @@ interface
       procedure SetOrder(AOrder :Integer);
       procedure SortByDlg;
       procedure OptionsDlg;
+      procedure CommandMenu(X :Integer = -1; Y :Integer = -1);
+
       procedure PlugInfoDlg;
+      procedure PlugEditDlg;
+      procedure PlugHelpOpen;
+      procedure PlugConfigOpen;
+      procedure PlugLoad;
+      procedure PlugUnLoad;
 
       procedure SelectItem(ACode :Integer);
       procedure ToggleOption(var AOption :Boolean; ASaveCurrent :Boolean);
@@ -151,6 +159,26 @@ interface
     PlugMenuHints,
     MixDebug;
 
+
+  const
+    colTitle  = 1;
+    colFile   = 2;
+    colModify = 3;
+    colAccess = 4;
+    colFlags  = 5;
+   {$ifdef Far3}
+    colAuthor = 6;
+    colVer    = 7;
+   {$endif Far3}
+
+   {$ifdef Far3}
+    colLast   = colVer;
+   {$else}
+    colLast   = colFlags;
+   {$endif Far3}
+
+  const
+    cDescSort = [colModify, colAccess, colFlags {$ifdef Far3}, colVer {$endif Far3}];
 
  {-----------------------------------------------------------------------------}
 
@@ -198,6 +226,22 @@ interface
   end;
 
 
+ {$ifdef Far3}
+  function VersionCompare(const AVer1, AVer2 :TVersionInfo) :Integer;
+  begin
+    Result := IntCompare(AVer1.Major, AVer2.Major);
+    if Result = 0 then
+      Result := IntCompare(AVer1.Minor, AVer2.Minor);
+    if Result = 0 then
+      Result := IntCompare(AVer1.Revision, AVer2.Revision);
+    if Result = 0 then
+      Result := IntCompare(AVer1.Build, AVer2.Build);
+    if Result = 0 then
+      Result := IntCompare(AVer1.Stage, AVer2.Stage);
+  end;
+ {$endif Far3}
+
+
   function TMyFilter.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
   var
     vCmd1, vCmd2 :TFarPluginCmd;
@@ -212,11 +256,15 @@ interface
 
     if Result = 0 then begin
       case Abs(PluginSortMode) of
-        1 : Result := UpCompareStr(vCmd1.GetMenuTitle, vCmd2.GetMenuTitle);
-        2 : Result := UpCompareStr(vCmd1.Plugin.GetFileName(PluginShowFileName), vCmd2.Plugin.GetFileName(PluginShowFileName));
-        3 : Result := DateTimeCompare(vCmd1.Plugin.FileDate, vCmd2.Plugin.FileDate);
-        4 : Result := DateTimeCompare(vCmd1.AccessDate, vCmd2.AccessDate);
-        5 : Result := UpCompareStr(vCmd1.Plugin.GetFlagsStr, vCmd2.Plugin.GetFlagsStr);
+        colTitle  : Result := UpCompareStr(vCmd1.GetMenuTitle, vCmd2.GetMenuTitle);
+        colFile   : Result := UpCompareStr(vCmd1.Plugin.GetFileName(PluginShowFileName), vCmd2.Plugin.GetFileName(PluginShowFileName));
+        colModify : Result := DateTimeCompare(vCmd1.Plugin.FileDate, vCmd2.Plugin.FileDate);
+        colAccess : Result := DateTimeCompare(vCmd1.AccessDate, vCmd2.AccessDate);
+        colFlags  : Result := UpCompareStr(vCmd1.Plugin.GetFlagsStr, vCmd2.Plugin.GetFlagsStr);
+       {$ifdef Far3}
+        colAuthor : Result := UpCompareStr(vCmd1.Plugin.PlugAuthor, vCmd2.Plugin.PlugAuthor);
+        colVer    : Result := VersionCompare(vCmd1.Plugin.PlugVer, vCmd2.Plugin.PlugVer);
+       {$endif Far3}
       end;
 
       if PluginSortMode < 0 then
@@ -225,7 +273,6 @@ interface
         Result := IntCompare(PInteger(PItem)^, PInteger(PAnother)^);
     end;
   end;
-
 
  {-----------------------------------------------------------------------------}
  { TMenuDlg                                                                    }
@@ -236,7 +283,6 @@ interface
     inherited Create;
     RegisterHints(Self);
     FFilter := TMyFilter.CreateSize(SizeOf(TFilterRec));
-
     FHotkeyColor1 := FarGetColor(COL_MENUHIGHLIGHT);
     FHotkeyColor2 := FarGetColor(COL_MENUSELECTEDHIGHLIGHT);
   end;
@@ -259,6 +305,7 @@ interface
     FHelpTopic := 'PluginCommands';
 
     FGrid.OnCellClick := GridCellClick;
+    FGrid.OnTitleClick := GridTitleClick;
     FGrid.OnPosChange := GridPosChange;
     FGrid.OnGetCellText := GridGetDlgText;
     FGrid.OnGetCellColor := GridGetCellColor;
@@ -356,7 +403,26 @@ interface
   begin
 //  TraceF('GridCellClick: Pos=%d x %d, Button=%d, Double=%d', [ACol, ARow, AButton, Byte(ADouble)]);
     if (AButton = 1) {and ADouble} then
-      SelectItem(1);
+      SelectItem(1)
+    else
+    if AButton = 2 then begin
+      with GetConsoleMousePos do
+        CommandMenu(X, Y);
+    end;
+  end;
+
+
+  procedure TMenuDlg.GridTitleClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
+  var
+    vTag :Integer;
+  begin
+    if AButton = 1 then begin
+      vTag := FGrid.Column[ACol].Tag;
+      if vTag in cDescSort then
+        vTag := -vTag;
+      SetOrder(vTag);
+    end else
+      SortByDlg;
   end;
 
 
@@ -372,11 +438,15 @@ interface
     if ARow < FFilter.Count then begin
       with GetCommand(ARow) do
         case FGrid.Column[ACol].Tag of
-          1 : Result := GetMenuTitle;
-          2 : Result := Plugin.GetFileName(PluginShowFileName);
-          3 : Result := Date2StrMode(Plugin.FileDate, PluginShowDate);
-          4 : Result := Date2StrMode(AccessDate, PluginShowUseDate);
-          5 : Result := Plugin.GetFlagsStr;
+          colTitle  : Result := GetMenuTitle;
+          colFile   : Result := Plugin.GetFileName(PluginShowFileName);
+          colModify : Result := Date2StrMode(Plugin.FileDate, PluginShowDate);
+          colAccess : Result := Date2StrMode(AccessDate, PluginShowUseDate);
+          colFlags  : Result := Plugin.GetFlagsStr;
+         {$ifdef Far3}
+          colAuthor : Result := Plugin.PlugAuthor;
+          colVer    : Result := Plugin.PlugVerStr;
+         {$endif Far3}
         end;
     end else
       Result := '';
@@ -493,19 +563,23 @@ interface
   end;
 
 
-(*
   procedure TMenuDlg.ReinitGrid;
   var
-    I, J, K, vLen, vPos, vMaxLen1, vMaxLen2 :Integer;
+    I, J, K, vLen, vPos, vMaxLen1, vMaxLen2 {$ifdef Far3}, vMaxLen3, vMaxLen4 {$endif Far3} :Integer;
     vTitle, vDllName, vMask, vXMask, vStr :TString;
     vPlugin :TFarPlugin;
     vCommand :TFarPluginCmd;
     vHasMask :Boolean;
+    vOpt :TColOptions;
   begin
 //  Trace('ReinitGrid...');
     FFilter.Clear;
-    vMaxLen1 := 0;
-    vMaxLen2 := 0;
+    vMaxLen1 := Length(GetMsgStr(strColumnCommand));
+    vMaxLen2 := Length(GetMsgStr(strColumnFileName));
+   {$ifdef Far3}
+    vMaxLen3 := Length(GetMsgStr(strColumnAuthor));
+    vMaxLen4 := Length(GetMsgStr(strColumnVersion));
+   {$endif Far3}
     FTotalCount := 0;
 
     vHasMask := False;
@@ -545,11 +619,15 @@ interface
         vPos := 0; vLen := 0;
         if vMask <> '' then begin
           case FFilterColumn of
-            1: vStr := vTitle;
-            2: vStr := vDllName;
-            3: vStr := Date2StrMode(vPlugin.FileDate, PluginShowDate);
-            4: vStr := Date2StrMode(vCommand.AccessDate, PluginShowUseDate);
-            5: vStr := vPlugin.GetFlagsStr;
+            colTitle  : vStr := vTitle;
+            colFile   : vStr := vDllName;
+            colModify : vStr := Date2StrMode(vPlugin.FileDate, PluginShowDate);
+            colAccess : vStr := Date2StrMode(vCommand.AccessDate, PluginShowUseDate);
+            colFlags  : vStr := vPlugin.GetFlagsStr;
+           {$ifdef Far3}
+            colAuthor : vStr := vCommand.Plugin.PlugAuthor;
+            colVer    : vStr := vCommand.Plugin.PlugVerStr;
+           {$endif Far3}
           end;
           if not ChrCheckXMask(vMask, vXMask, PTChar(vStr), vHasMask, vPos, vLen) then
             Continue;
@@ -561,128 +639,12 @@ interface
         vMaxLen1 := IntMax(vMaxLen1, Length(vTitle));
         if PluginShowFileName > 0 then
           vMaxLen2 := IntMax(vMaxLen2, Length(vDllName));
-      end;
-    end;
-
-//  if PluginSortMode <> 0 then
-      FFilter.SortList(True, PluginSortMode);
-
-    if True then
-      Inc(vMaxLen1, 2); { Hotkey }
-    if PluginShowHidden > 0 then
-      Inc(vMaxLen1, 1); { Hidden mark }
-    if PluginShowLoaded then
-      Inc(vMaxLen1, 2);
-    if PluginShowAnsi then
-      Inc(vMaxLen1, 1 + IntIf(PluginShowLoaded, 0, 1));
-
-    FGrid.ResetSize;
-    FGrid.Columns.FreeAll;
-    FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 0, taLeftJustify, [coColMargin, coOwnerDraw], 1) );
-    FGrid.Column[0].MinWidth := vMaxLen1 + 2;
-    if PluginShowFileName > 0 then
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', vMaxLen2 + 2, taLeftJustify, [coColMargin, coOwnerDraw], 2) );
-    if PluginShowDate > 0 then
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', Length(Date2StrMode(Now, PluginShowDate)) + 2, taLeftJustify, [coColMargin, coOwnerDraw], 3) );
-    if PluginShowUseDate > 0 then
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', Length(Date2StrMode(Now, PluginShowUseDate)) + 2, taLeftJustify, [coColMargin, coOwnerDraw], 4) );
-    if PluginShowFlags then
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 5 + 2, taLeftJustify, [coColMargin, coOwnerDraw], 5) );
-
-    FMenuMaxWidth := vMaxLen1 + 2;
-    for I := 1 to FGrid.Columns.Count - 1 do
-      Inc(FMenuMaxWidth, FGrid.Column[I].Width + 1);
-
-    FGrid.RowCount := FFilter.Count;
-
-    if optFollowMouse then
-      FGrid.Options := FGrid.Options + [goFollowMouse]
-    else
-      FGrid.Options := FGrid.Options - [goFollowMouse];
-
-    if optWrapMode then
-      FGrid.Options := FGrid.Options + [goWrapMode]
-    else
-      FGrid.Options := FGrid.Options - [goWrapMode];
-
-    SendMsg(DM_ENABLEREDRAW, 0, 0);
-    try
-      UpdateHeader;
-      ResizeDialog;
-      UpdateFooter;
-    finally
-      SendMsg(DM_ENABLEREDRAW, 1, 0);
-    end;
-  end;
-*)
-
-  procedure TMenuDlg.ReinitGrid;
-  var
-    I, J, K, vLen, vPos, vMaxLen1, vMaxLen2 :Integer;
-    vTitle, vDllName, vMask, vXMask, vStr :TString;
-    vPlugin :TFarPlugin;
-    vCommand :TFarPluginCmd;
-    vHasMask :Boolean;
-  begin
-//  Trace('ReinitGrid...');
-    FFilter.Clear;
-    vMaxLen1 := 0;
-    vMaxLen2 := 0;
-    FTotalCount := 0;
-
-    vHasMask := False;
-    vMask := FFilterMask;
-    if vMask <> '' then begin
-      if (FFilterColumn = 5) and (vMask[1] <> '*') then
-        { Фильтрация по флагам - всегда по вхождению }
-        vMask := '*' + vMask;
-
-      vHasMask := (ChrPos('*', vMask) <> 0) or (ChrPos('?', vMask) <> 0);
-      if vHasMask and (vMask[Length(vMask)] <> '*') {and (vMask[Length(vMask)] <> '?')} then
-        vMask := vMask + '*';
-
-      if optXLatMask then
-        vXMask := FarXLatStr(vMask);
-    end;
-
-    vDllName := '';
-    for I := 0 to FPlugins.Count - 1 do begin
-      vPlugin := FPlugins[I];
-
-      if PluginShowHidden < 2 then
-        if not CheckWinType(FWindowType, vPlugin) then
-          Continue;
-
-      for J := 0 to vPlugin.Commands.Count - 1 do begin
-        vCommand := vPlugin.Command[J];
-        if PluginShowHidden < 1 then
-          if vCommand.Hidden then
-            Continue;
-
-        vTitle := vCommand.GetMenuTitle;
-        if (PluginShowFileName > 0) or (FFilterColumn = 2) then
-          vDllName := vPlugin.GetFileName(PluginShowFileName);
-
-        Inc(FTotalCount);
-        vPos := 0; vLen := 0;
-        if vMask <> '' then begin
-          case FFilterColumn of
-            1: vStr := vTitle;
-            2: vStr := vDllName;
-            3: vStr := Date2StrMode(vPlugin.FileDate, PluginShowDate);
-            4: vStr := Date2StrMode(vCommand.AccessDate, PluginShowUseDate);
-            5: vStr := vPlugin.GetFlagsStr;
-          end;
-          if not ChrCheckXMask(vMask, vXMask, PTChar(vStr), vHasMask, vPos, vLen) then
-            Continue;
-        end;
-
-        K := (I shl 16) + J;
-        FFilter.Add(K, vPos, vLen);
-
-        vMaxLen1 := IntMax(vMaxLen1, Length(vTitle));
-        if PluginShowFileName > 0 then
-          vMaxLen2 := IntMax(vMaxLen2, Length(vDllName));
+       {$ifdef Far3}
+        if PluginShowAuthor then
+          vMaxLen3 := IntMax(vMaxLen3, Length(vCommand.Plugin.PlugAuthor));
+        if PluginShowVer then
+          vMaxLen4 := IntMax(vMaxLen4, Length(vCommand.Plugin.PlugVerStr));
+       {$endif Far3}
       end;
     end;
 
@@ -698,29 +660,34 @@ interface
     if PluginShowAnsi then
       Inc(vMaxLen1, 1 + IntIf(PluginShowLoaded, 0, 1));
 
+    vOpt := [coColMargin, coOwnerDraw];
+    if not optShowGrid then
+      vOpt := vOpt + [coNoVertLine];
+
     FGrid.ResetSize;
     FGrid.Columns.FreeAll;
-    FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', vMaxLen1 + 2, 15, taLeftJustify, [coColMargin, coOwnerDraw], 1) );
+    FGrid.Columns.Add( TColumnFormat.CreateEx2('', GetMsgStr(strColumnCommand), vMaxLen1 + 2, 15, taLeftJustify, vOpt, colTitle) );
     if PluginShowFileName > 0 then
-      FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', vMaxLen2 + 2, 15, taLeftJustify, [coColMargin, coOwnerDraw], 2) );
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', GetMsgStr(strColumnFileName), vMaxLen2 + 2, 15, taLeftJustify, vOpt, colFile) );
     if PluginShowDate > 0 then
-      FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', Length(Date2StrMode(Now, PluginShowDate)) + 2, 8+2, taLeftJustify, [coColMargin, coOwnerDraw], 3) );
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', GetMsgStr(strColumnModify), Length(Date2StrMode(Now, PluginShowDate)) + 2, 8+2, taLeftJustify, vOpt, colModify) );
     if PluginShowUseDate > 0 then
-      FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', Length(Date2StrMode(Now, PluginShowUseDate)) + 2, 8+2, taLeftJustify, [coColMargin, coOwnerDraw], 4) );
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', GetMsgStr(strColumnAccess), Length(Date2StrMode(Now, PluginShowUseDate)) + 2, 8+2, taLeftJustify, vOpt, colAccess) );
     if PluginShowFlags then
-      FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', 5+2, 5+2, taLeftJustify, [coColMargin, coOwnerDraw], 5) );
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', GetMsgStr(strColumnFlags), 5+2, 5+2, taLeftJustify, vOpt, colFlags) );
+   {$ifdef Far3}
+    if PluginShowAuthor then
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', GetMsgStr(strColumnAuthor), vMaxLen3 + 2, 5+2, taLeftJustify, vOpt, colAuthor) );
+    if PluginShowVer then
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', GetMsgStr(strColumnVersion), vMaxLen4 + 2, 5+2, taLeftJustify, vOpt, colVer) );
+   {$endif Far3}
 
-    FGrid.ReduceColumns(FarGetWindowSize.CX - (10 + FGrid.Columns.Count));
+    FGrid.ReduceColumns(FarGetWindowSize.CX - (10 + IntIf(optShowGrid, FGrid.Columns.Count, 1) + FGrid.Margins.Left + FGrid.Margins.Right));
 
-    FMenuMaxWidth := 0;
-    for I := 0 to FGrid.Columns.Count - 1 do
-      with FGrid.Column[I] do
-        if Width <> 0 then
-          Inc(FMenuMaxWidth, Width + IntIf(coNoVertLine in Options, 0, 1) );
-    Dec(FMenuMaxWidth);
-
-
-    FGrid.RowCount := FFilter.Count;
+    if optShowTitles then
+      FGrid.Options := FGrid.Options + [goShowTitle]
+    else
+      FGrid.Options := FGrid.Options - [goShowTitle];
 
     if optFollowMouse then
       FGrid.Options := FGrid.Options + [goFollowMouse]
@@ -731,6 +698,22 @@ interface
       FGrid.Options := FGrid.Options + [goWrapMode]
     else
       FGrid.Options := FGrid.Options - [goWrapMode];
+
+    FGrid.TitleColor  := GetOptColor(optTitleColor, COL_MENUHIGHLIGHT);
+
+    FMenuMaxWidth := 0;
+    for I := 0 to FGrid.Columns.Count - 1 do
+      with FGrid.Column[I] do
+        if Width <> 0 then begin
+          if optShowTitles and (Abs(PluginSortMode) = Tag) then
+            Header := StrIf(PluginSortMode > 0, chrUpMark, chrDnMark) + Header;
+          Inc(FMenuMaxWidth, Width + IntIf(coNoVertLine in Options, 0, 1) );
+        end;
+    if optShowGrid then
+      Dec(FMenuMaxWidth);
+    Inc(FMenuMaxWidth, FGrid.Margins.Left + FGrid.Margins.Right);
+
+    FGrid.RowCount := FFilter.Count;
 
     SendMsg(DM_ENABLEREDRAW, 0, 0);
     try
@@ -865,7 +848,6 @@ interface
       Result := vCmd.Plugin;
   end;
 
-
  {-----------------------------------------------------------------------------}
 
   procedure TMenuDlg.SetOrder(AOrder :Integer);
@@ -895,6 +877,10 @@ interface
       GetMsg(StrSortByModificationTime),
       GetMsg(StrSortByAccessTime),
       GetMsg(StrSortByPluginFlags),
+     {$ifdef Far3}
+      GetMsg(StrSortByAuthor),
+      GetMsg(StrSortByVersion),
+     {$endif Far3}
       GetMsg(StrSortByUnsorted),
       '',
       GetMsg(strSortHiddenLast)
@@ -902,12 +888,12 @@ interface
     try
       vRes := Abs(PluginSortMode) - 1;
       if vRes = -1 then
-        vRes := 5;
+        vRes := vMenu.Count - 3;
       vChr := '+';
       if PluginSortMode < 0 then
         vChr := '-';
       vMenu.Items[vRes].Flags := SetFlag(0, MIF_CHECKED or Word(vChr), True);
-      vMenu.Checked[7] := SortHiddenLast;
+      vMenu.Checked[vMenu.Count - 1] := SortHiddenLast;
 
       if not vMenu.Run then
         Exit;
@@ -915,13 +901,13 @@ interface
       vRes := vMenu.ResIdx;
 
       if vRes <> -1 then begin
-        if vRes = 7 then
+        if vRes = vMenu.Count - 1 then
           ToggleOption(SortHiddenLast, False)
         else begin
           Inc(vRes);
-          if vRes = 6 then
+          if vRes = colLast + 1 then
             vRes := 0;
-          if vRes >= 3 then
+          if vRes in cDescSort then
             vRes := -vRes;
           SetOrder(vRes);
         end;
@@ -933,8 +919,6 @@ interface
   end;
 
 
- {-----------------------------------------------------------------------------}
-
   procedure TMenuDlg.OptionsDlg;
   var
     vMenu :TFarMenu;
@@ -942,16 +926,18 @@ interface
     vMenu := TFarMenu.CreateEx(
       GetMsg(strOptionsTitle),
     [
-      GetMsg(strShowHidden),
-      '',
-      GetMsg(strLoadedMark),
-      GetMsg(strAnsiMark),
-      GetMsg(strFileName),
-      GetMsg(strModificationTime),
-      GetMsg(strAccessTime),
-      GetMsg(strPluginFlags),
-      '',
-      GetMsg(strSortBy)
+      GetMsg(strShowHidden)
+     ,''
+     ,GetMsg(strLoadedMark)
+     ,GetMsg(strAnsiMark)
+     ,GetMsg(strFileName)
+     ,GetMsg(strModificationTime)
+     ,GetMsg(strAccessTime)
+     ,GetMsg(strPluginFlags)
+     {$ifdef Far3}
+     ,GetMsg(strAuthor)
+     ,GetMsg(strVersion)
+     {$endif Far3}
     ]);
     try
       while True do begin
@@ -963,6 +949,10 @@ interface
         vMenu.Checked[5] := PluginShowDate > 0;
         vMenu.Checked[6] := PluginShowUseDate > 0;
         vMenu.Checked[7] := PluginShowFlags;
+       {$ifdef Far3}
+        vMenu.Checked[8] := PluginShowAuthor;
+        vMenu.Checked[9] := PluginShowVer;
+       {$endif Far3}
 
         vMenu.SetSelected(vMenu.ResIdx);
 
@@ -978,9 +968,71 @@ interface
           5 : ToggleOptionInt(PluginShowDate, IntIf(PluginShowDate < 2, PluginShowDate + 1, 0), False);
           6 : ToggleOptionInt(PluginShowUseDate, IntIf(PluginShowUseDate < 2, PluginShowUseDate + 1, 0), False);
           7 : ToggleOption(PluginShowFlags, False);
-
-          9 : SortByDlg;
+         {$ifdef Far3}
+          8 : ToggleOption(PluginShowAuthor, False);
+          9 : ToggleOption(PluginShowVer, False);
+         {$endif Far3}
         end;
+      end;
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
+
+
+  procedure TMenuDlg.CommandMenu(X :Integer = -1; Y :Integer = -1);
+  var
+    vMenu :TFarMenu;
+    vCmd  :TFarPluginCmd;
+  begin
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strCommandsTitle),
+    [
+      GetMsg(strRunCommand),
+      '',
+      GetMsg(strPluginHelp),
+      GetMsg(strPluginInfo),
+      GetMsg(strSetupCommand),
+      GetMsg(strPluginConfig),
+      '',
+      GetMsg(strLoadPlugin),
+      GetMsg(strUnloadPlugin),
+      '',
+      GetMsg(strColumnSetup),
+      GetMsg(strSortBy)
+    ]);
+    try
+      vCmd := CurrentCommand;
+
+      vMenu.Enabled[0] := (vCmd <> nil) and CheckWinType(FWindowType, vCmd.Plugin);
+      vMenu.Enabled[2] := (vCmd <> nil);
+      vMenu.Enabled[3] := (vCmd <> nil);
+      vMenu.Enabled[4] := (vCmd <> nil);
+      vMenu.Enabled[5] := (vCmd <> nil) and (vCmd.Plugin.ConfigString <> '');
+
+      vMenu.Enabled[7] := (vCmd <> nil) and not vCmd.Plugin.Loaded;
+      vMenu.Enabled[8] := (vCmd <> nil) and not vCmd.Plugin.Unregistered;
+
+      vMenu.X := X;
+      vMenu.Y := Y;
+
+      if not vMenu.Run then
+        Exit;
+
+      case vMenu.ResIdx of
+        0 : SelectItem(1);
+
+        2 : PlugHelpOpen;
+        3 : PlugInfoDlg;
+        4 : PlugEditDlg;
+        5 : PlugConfigOpen;
+
+        7 : PlugLoad;
+        8 : PlugUnload;
+
+        10 : OptionsDlg;
+        11 : SortByDlg;
       end;
 
     finally
@@ -992,15 +1044,82 @@ interface
 
   procedure TMenuDlg.PlugInfoDlg;
   var
+    vCommand :TFarPluginCmd;
+  begin
+    vCommand := CurrentCommand;
+    if vCommand = nil then
+      Exit;
+
+    vCommand.Plugin.UpdateVerInfo;
+    ViewPluginInfo(vCommand.Plugin, vCommand);
+  end;
+
+
+  procedure TMenuDlg.PlugEditDlg;
+  begin
+    FChoosenCmd := CurrentCommand;
+    if FChoosenCmd <> nil then
+      if EditPlugin(FChoosenCmd) then begin
+        AssignAutoHotkeys(FWindowType);
+        ReinitGrid;
+      end;
+  end;
+
+
+  procedure TMenuDlg.PlugHelpOpen;
+  begin
+    FChoosenCmd := CurrentCommand;
+    if FChoosenCmd <> nil then begin
+      FChoosenCommand := 2;
+      SendMsg(DM_CLOSE, -1, 0);
+    end else
+      Beep;
+  end;
+
+
+  procedure TMenuDlg.PlugConfigOpen;
+  begin
+    FChoosenCmd := CurrentCommand;
+    if (FChoosenCmd <> nil) and (FChoosenCmd.Plugin.ConfigString <> '') then begin
+      FChoosenCommand := 3; //IntIf(AKey = KEY_F9, 3, 4);
+      SendMsg(DM_CLOSE, -1, 0);
+    end else
+      Beep;
+  end;
+
+
+  procedure TMenuDlg.PlugLoad;
+  var
     vPlugin :TFarPlugin;
   begin
     vPlugin := CurrentPlugin;
     if vPlugin = nil then
       Exit;
-
-    vPlugin.UpdateVerInfo;
-    ViewPluginInfo(vPlugin);
+    vPlugin.PluginLoad;
+    AssignAutoHotkeys(FWindowType);
+    ReinitGrid;
   end;
+
+
+  procedure TMenuDlg.PlugUnLoad;
+  var
+    vPlugin :TFarPlugin;
+    vRes :Integer;
+  begin
+    vPlugin := CurrentPlugin;
+    if vPlugin = nil then
+      Exit;
+
+    vRes := ShowMessage(GetMsgStr(strUnloadTitle), GetMsgStr(strUnloadPropmt) + #10 + vPlugin.Command[0].GetMenuTitle, FMSG_MB_YESNO);
+    if vRes <> 0 then
+      Exit;
+
+    {!!!}
+    vPlugin.PluginUnload(False);
+    AssignAutoHotkeys(FWindowType);
+    ReinitGrid;
+  end;
+
 
  {-----------------------------------------------------------------------------}
 
@@ -1068,39 +1187,6 @@ interface
       end;
     end;
 
-
-    procedure LocLoadPlugin;
-    var
-      vPlugin :TFarPlugin;
-    begin
-      vPlugin := CurrentPlugin;
-      if vPlugin = nil then
-        Exit;
-      vPlugin.PluginLoad;
-      AssignAutoHotkeys(FWindowType);
-      ReinitGrid;
-    end;
-
-
-    procedure LocUnloadPlugin;
-    var
-      vPlugin :TFarPlugin;
-      vRes :Integer;
-    begin
-      vPlugin := CurrentPlugin;
-      if vPlugin = nil then
-        Exit;
-
-      vRes := ShowMessage(GetMsgStr(strUnloadTitle), GetMsgStr(strUnloadPropmt) + #10 + vPlugin.Command[0].GetMenuTitle, FMSG_MB_YESNO);
-      if vRes <> 0 then
-        Exit;
-
-      {!!!}
-      vPlugin.PluginUnload(False);
-      AssignAutoHotkeys(FWindowType);
-      ReinitGrid;
-    end;
-
   var
     vChr :TChar;
     vKey, vIndex :Integer;
@@ -1111,36 +1197,15 @@ interface
       KEY_ENTER, KEY_SHIFTENTER:
         SelectItem(1);
       KEY_SHIFTF1:
-        begin
-          FChoosenCmd := CurrentCommand;
-          if FChoosenCmd <> nil then begin
-            FChoosenCommand := 2;
-            SendMsg(DM_CLOSE, -1, 0);
-          end else
-            Beep;
-        end;
+        PlugHelpOpen;
       KEY_F2:
-        OptionsDlg;
+        CommandMenu;
       KEY_F3:
         PlugInfoDlg;
       KEY_F4:
-        begin
-          FChoosenCmd := CurrentCommand;
-          if FChoosenCmd <> nil then
-            if EditPlugin(FChoosenCmd) then begin
-              AssignAutoHotkeys(FWindowType);
-              ReinitGrid;
-            end;
-        end;
+        PlugEditDlg;
       KEY_F9:
-        begin
-          FChoosenCmd := CurrentCommand;
-          if (FChoosenCmd <> nil) and (FChoosenCmd.Plugin.ConfigString <> '') then begin
-            FChoosenCommand := IntIf(AKey = KEY_F9, 3, 4);
-            SendMsg(DM_CLOSE, -1, 0);
-          end else
-            Beep;
-        end;
+        PlugConfigOpen;
       KEY_SHIFTF9:
         begin
           ConfigDlg;
@@ -1150,9 +1215,9 @@ interface
       KEY_CTRLL:
         PromptAndLoadPlugin;
       KEY_INS:
-        LocLoadPlugin;
+        PlugLoad;
       KEY_DEL:
-        LocUnloadPlugin;
+        PlugUnload;
 
       KEY_CTRLPGDN:
         begin
@@ -1184,6 +1249,8 @@ interface
       KEY_CTRLN:
         ToggleOption(optShowOrigName, False);
 
+      KEY_CTRL0:
+        ToggleOption(optShowGrid, False);
       KEY_CTRL1:
         ToggleOption(PluginShowLoaded, False);
       KEY_CTRLSHIFT1:
@@ -1196,26 +1263,37 @@ interface
         ToggleOptionInt(PluginShowUseDate, IntIf(PluginShowUseDate < 2, PluginShowUseDate + 1, 0), False);
       KEY_CTRL5:
         ToggleOption(PluginShowFlags, False);
+     {$ifdef Far3}
+      KEY_CTRL6:
+        ToggleOption(PluginShowAuthor, False);
+      KEY_CTRL7:
+        ToggleOption(PluginShowVer, False);
+     {$endif Far3}
 
-      KEY_CTRLF1, KEY_CTRLSHIFTF1:
-        SetOrder(1);
-      KEY_CTRLF2, KEY_CTRLSHIFTF2:
-        SetOrder(2);
-      KEY_CTRLF3, KEY_CTRLSHIFTF3:
-        SetOrder(-3);
-      KEY_CTRLF4, KEY_CTRLSHIFTF4:
-        SetOrder(-4);
-      KEY_CTRLF5, KEY_CTRLSHIFTF5:
-        SetOrder(-5);
+      KEY_CTRLF1..KEY_CTRLF7, KEY_CTRLSHIFTF1..KEY_CTRLSHIFTF7:
+        begin
+          if AKey and KEY_SHIFT = 0 then
+            vIndex := AKey - KEY_CTRLF1 + 1
+          else
+            vIndex := AKey - KEY_CTRLSHIFTF1 + 1;
+          if vIndex in cDescSort then
+            vIndex := - vIndex;
+          SetOrder(vIndex);
+        end;
+
       KEY_SHIFTF11:
         ToggleOption(SortHiddenLast, False);
       KEY_CTRLF11:
         SetOrder(0);
       KEY_ALTF12:
-        SetOrder(FGrid.Column[FGrid.CurCol].Tag);
+        begin
+          vIndex := FGrid.Column[FGrid.CurCol].Tag;
+          if vIndex in cDescSort then
+            vIndex := - vIndex;
+          SetOrder(vIndex);
+        end;
       KEY_CTRLF12:
         SortByDlg;
-
 
       KEY_ALT, KEY_RALT:
         begin
@@ -1299,17 +1377,15 @@ interface
   function TMenuDlg.RunCurrentCommand :Boolean;
  {$ifdef Far3}
   var
-    vStr, vName :TString;
+    vStr :TString;
   begin
-//  FChoosenCmd.MarkAccessed;
-
-    vName := FChoosenCmd.Name;
+    FChoosenCmd.MarkAccessed;
 
    {$ifdef bLUA}
-//  vStr := Format('Plugin.Menu("%s", "%s")', [StrDeleteChars(GUIDToString(FChoosenCmd.Plugin.GUID), ['{', '}']), StrDeleteChars(GUIDToString(FChoosenCmd.GUID), ['{', '}'])]);
-    vStr := Format('Keys("F11"); if Menu.Select("%s", 2) then Keys("Enter") else Keys("Esc") end', [vName]);
+//  vStr := Format('Keys("F11"); if Menu.Select("%s", 2) then Keys("Enter") else Keys("Esc") end', [FChoosenCmd.Name]);
+    vStr := Format('Plugin.Menu("%s", "%s")', [StrDeleteChars(GUIDToString(FChoosenCmd.Plugin.GUID), ['{', '}']), StrDeleteChars(GUIDToString(FChoosenCmd.GUID), ['{', '}'])]);
    {$else}
-    vStr := Format('F11 $if(Menu.Select("%s", 2) > 0) Enter $else Esc $end',  [vName]);
+    vStr := Format('F11 $if(Menu.Select("%s", 2) > 0) Enter $else Esc $end',  [FChoosenCmd.Name]);
    {$endif bLUA}
 
     FarPostMacro(vStr);
@@ -1369,7 +1445,7 @@ interface
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
- 
+
   var
     vMenuLock :Integer;
 
@@ -1391,8 +1467,7 @@ interface
     Inc(vMenuLock);
     vDlg := TMenuDlg.Create;
     try
-      UpdateLoadedPlugins;
-      UpdatePluginHotkeys;
+      UpdatePluginList;
       AssignAutoHotkeys(AWinType);
 
       vDlg.FWindowType := AWinType;
