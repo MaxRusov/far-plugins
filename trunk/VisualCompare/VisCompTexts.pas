@@ -58,7 +58,7 @@ interface
     TText = class(TStrList)
     public
       constructor CreateEx(const AName :TString);
-      constructor CreateStr(const AStr :TString);
+      constructor CreateStr(const AStr :TString; ADummy :Integer);
       procedure LoadFile(AForceFormat :TStrFileFormat);
 
     private
@@ -267,7 +267,7 @@ interface
   end;
 
 
-  constructor TText.CreateStr(const AStr :TString);
+  constructor TText.CreateStr(const AStr :TString; ADummy :Integer);
   begin
     Create;
     StrToText(AStr);
