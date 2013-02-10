@@ -315,7 +315,7 @@ interface
   begin
     if FSetChanged then
       WriteSetup(FModeName);
-
+      
     vStr := GetFilter;
     if vStr <> '' then
       AddToHistory(cHilterHistName, vStr);
@@ -647,7 +647,7 @@ interface
             for J := 0 to vGroup.Count - 1 do
               with PFilterRec(vGroup.PItems[J])^ do begin
                 vHist := FHistory[FIdx];
-                if (optHierarchyMode = hmDomain) and False (*StrEqual(vGroup.Domain, vHist.Path)*) then
+                if (optHierarchyMode = hmDomain) and False {StrEqual(vGroup.Domain, vHist.Path)} then
                   Continue;
                 AcceptItem(vHist, vGroup);
                 FFilter.Add(FIdx, FPos, FLen);
@@ -696,22 +696,6 @@ interface
       with FGrid.Column[I] do
         if Width <> 0 then
           Inc(FMenuMaxWidth, Width + IntIf(coNoVertLine in Options, 0, 1) );
-
-(*
-    FGrid.Column[0].MinWidth := IntMin(vMaxLen2, 15);
-    for I := 1 to FGrid.Columns.Count - 1 do
-      with FGrid.Column[I] do
-        MinWidth := IntMin(Width, 6);
-
-    FGrid.ReduceColumns(FarGetWindowSize.CX - (10 + FGrid.Columns.Count));
-
-    FMenuMaxWidth := 0;
-    for I := 0 to FGrid.Columns.Count - 1 do
-      with FGrid.Column[I] do
-        if Width <> 0 then
-          Inc(FMenuMaxWidth, Width + IntIf(coNoVertLine in Options, 0, 1) );
-    Dec(FMenuMaxWidth);
-*)          
 
     FSelectedCount := 0;
     FGrid.RowCount := FFilter.Count;

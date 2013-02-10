@@ -1452,20 +1452,6 @@ interface
 
 
  {$ifdef Far3}
-
-  function FarValueIsInteger(const AValue :TFarMacroValue; var AInt :Integer) :Boolean;
-  begin
-    Result := True;
-    if AValue.fType = FMVT_INTEGER then
-      AInt := AValue.Value.fInteger
-    else
-    if (AValue.fType = FMVT_DOUBLE) and (Frac(AValue.Value.fDouble) = 0) then
-      AInt := Trunc(AValue.Value.fDouble)
-    else
-      Result := False;
-  end;
-
-
   function MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :Boolean;
 
     procedure LocShowInfo;

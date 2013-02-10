@@ -46,7 +46,7 @@ interface
 
       procedure SelectItem(ACode :Integer); override;
       procedure UpdateHeader; override;
-      procedure ReInitGrid; override;
+      procedure ReinitGrid; override;
       procedure ReinitAndSaveCurrent; override;
 
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; override;

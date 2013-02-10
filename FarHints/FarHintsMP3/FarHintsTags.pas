@@ -225,7 +225,7 @@ interface
     case AEncoding of
       0:
         { ISO-8859-1 }
-        Result := StrFromChrA(APtr, ASize);
+        Result := TString(StrFromChrA(APtr, ASize));
       1: begin
         { UTF-16 [UTF-16] encoded Unicode [UNICODE] with BOM }
         { ÿþ - UTF16LE (1200) - Norm }
@@ -462,11 +462,11 @@ interface
     ReadFile(AFile, vTag, SizeOf(vTag), vRes, nil);
     if (vRes = SizeOf(vTag)) and (vTag.cID = 'TAG') then begin
 
-      ATags.FTitle := StrFromChrA(vTag.cTitle, SizeOf(vTag.cTitle));
-      ATags.FArtist := StrFromChrA(vTag.cArtist, SizeOf(vTag.cArtist));
-      ATags.FAlbum := StrFromChrA(vTag.cAlbum, SizeOf(vTag.cAlbum));
-      ATags.FYear := StrFromChrA(vTag.cYear, SizeOf(vTag.cYear));
-      ATags.FComment := StrFromChrA(vTag.cComment, SizeOf(vTag.cComment));
+      ATags.FTitle := TString(StrFromChrA(vTag.cTitle, SizeOf(vTag.cTitle)));
+      ATags.FArtist := TString(StrFromChrA(vTag.cArtist, SizeOf(vTag.cArtist)));
+      ATags.FAlbum := TString(StrFromChrA(vTag.cAlbum, SizeOf(vTag.cAlbum)));
+      ATags.FYear := TString(StrFromChrA(vTag.cYear, SizeOf(vTag.cYear)));
+      ATags.FComment := TString(StrFromChrA(vTag.cComment, SizeOf(vTag.cComment)));
 
       Result := True;
     end;

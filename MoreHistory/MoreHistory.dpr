@@ -7,6 +7,8 @@
 
 library MoreHistory;
 
+{$I Defines1.inc}
+
 uses
   MixErrors,
  {$ifdef bTrace}

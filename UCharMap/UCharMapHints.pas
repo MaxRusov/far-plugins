@@ -125,6 +125,8 @@ interface
     vStr :TString;
   begin
     Result := False;
+    if not optShowHints then
+      Exit;
 
     FarGetWindowInfo(-1, vWinInfo, @vStr, nil);
     if not (vWinInfo.WindowType in [WTYPE_DIALOG]) or (vStr <> TopDlg.GetText(0)) then

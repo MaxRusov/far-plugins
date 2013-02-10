@@ -4,6 +4,23 @@
 {* Unicode CharMap                                                            *}
 {******************************************************************************}
 
+{
+ToDo:
+  + ReinitAndSaveCurrent - сохранение позиции на группе
+  + Expand/Collapse мышкой
+    - На [+]/[-]
+    
+  - [+]/[-] на группах
+  - Код на закрытых группах
+
+  - Позиционирование на ближайший символ в списке, если искомый отсутствует
+  - Сокрытие пустых групп
+  - Изменение шорткатов
+  - Настройка цветов
+  - Локализация
+}
+
+
 {$I Defines.inc}
 
 unit UCharMapMain;
@@ -19,23 +36,22 @@ interface
 
     Far_API,
     FarCtrl,
+    FarPlug,
+
     UCharMapCtrl,
     UCharMapDlg;
 
 
- {$ifdef Far3}
-  procedure GetGlobalInfoW(var AInfo :TGlobalInfo); stdcall;
- {$else}
-  function GetMinFarVersionW :Integer; stdcall;
- {$endif Far3}
+  type
+    TCharMapPlug = class(TFarPlug)
+    public
+      procedure Init; override;
+      procedure Startup; override;
+      procedure GetInfo; override;
+      function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      procedure Configure; override;
+    end;
 
-  procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
- {$ifdef Far3}
-  function OpenW(var AInfo :TOpenInfo): THandle; stdcall;
- {$else}
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
- {$endif Far3}
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -45,86 +61,65 @@ interface
     MixDebug;
 
 
+
  {-----------------------------------------------------------------------------}
- { Экспортируемые процедуры                                                    }
+ { TCharMapPlug                                                                }
  {-----------------------------------------------------------------------------}
 
- {$ifdef Far3}
-  procedure GetGlobalInfoW(var AInfo :TGlobalInfo); stdcall;
+  procedure TCharMapPlug.Init; {override;}
   begin
-    AInfo.StructSize := SizeOf(AInfo);
-  //AInfo.MinFarVersion := FARMANAGERVERSION;
-  //AInfo.Info := PLUGIN_VERSION;
-    AInfo.GUID := cPluginID;
-    AInfo.Title := cPluginName;
-    AInfo.Description := cPluginDescr;
-    AInfo.Author := cPluginAuthor;
-  end;
- {$else}
-  function GetMinFarVersionW :Integer; stdcall;
-  begin
-    Result := MakeFarVersion(2, 0, 1573);   { ACTL_GETFARRECT }
-  end;
- {$endif Far3}
+    inherited Init;
 
-
-  procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
-  begin
-    FARAPI := AInfo;
-    FARSTD := AInfo.fsf^;
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison; 
 
    {$ifdef Far3}
-    PluginID := cPluginID;
+    FGUID := cPluginID;
    {$else}
-    hModule := AInfo.ModuleNumber;
    {$endif Far3}
 
+   {$ifdef Far3}
+    FMinFarVer := MakeVersion(3, 0, 3000);
+   {$else}
+    FMinFarVer := MakeVersion(2, 0, 1573);   { ACTL_GETFARRECT }
+   {$endif Far3}
+  end;
+
+
+  procedure TCharMapPlug.Startup; {override;}
+  begin
     RestoreDefColor;
 //  ReadSettings;
   end;
 
 
-  var
-    PluginMenuStr :TString;
-   {$ifdef Far3}
-    PluginMenuGUID :TGUID;
-   {$endif Far3}
-
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
+  procedure TCharMapPlug.GetInfo; {override;}
   begin
-//  TraceF('GetPluginInfo: %s', ['']);
-    pi.StructSize:= SizeOf(pi);
-    pi.Flags:= {PF_PRELOAD or} PF_EDITOR or PF_VIEWER or PF_DIALOG;
+    FFlags := PF_EDITOR or PF_VIEWER or PF_DIALOG;
 
-    PluginMenuStr := GetMsg(strTitle);
+    FMenuStr := GetMsg(strTitle);;
+    FConfigStr := FName;
    {$ifdef Far3}
-    PluginMenuGUID := cMenuID;
-    pi.PluginMenu.Count := 1;
-    pi.PluginMenu.Strings := Pointer(@PluginMenuStr);
-    pi.PluginMenu.Guids := Pointer(@PluginMenuGUID);
-   {$else}
-    pi.PluginMenuStringsNumber := 1;
-    pi.PluginMenuStrings := Pointer(@PluginMenuStr);
+    FMenuID  := cMenuID;
+    FConfigID := cConfigID;
    {$endif Far3}
 
-    pi.CommandPrefix := PFarChar(CmdPrefix);
+    FPrefix := PFarChar(CmdPrefix);
   end;
 
 
- {$ifdef Far3}
-  function OpenW(var AInfo :TOpenInfo): THandle; stdcall;
- {$else}
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
- {$endif Far3}
+  function TCharMapPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
-    Result:= INVALID_HANDLE_VALUE;
-    try
-//    TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
-      OpenDlg;
-    except
-      on E :Exception do
-        HandleError(E);
-    end;
+    OpenDlg;
+    Result := INVALID_HANDLE_VALUE;
+  end;
+
+
+  procedure TCharMapPlug.Configure; {override;}
+  begin
+    ConfigMenu;
   end;
 
 

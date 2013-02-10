@@ -148,7 +148,7 @@ interface
 
     end else
     begin
-      vName := StrOemToAnsi(AItem.FarItem.Description);
+      vName := AItem.FarItem.Description;
       if vName <> '' then
         AItem.AddStringInfo(GetMsgStr(strDescription), vName);
 

@@ -47,13 +47,13 @@ interface
 
   procedure GradientFillRect(AHandle :THandle; const ARect :TRect; AColor1, AColor2 :DWORD; AVert :Boolean);
 
-  function GDIPlusErrorMessage(AStatus :TStatus) :AnsiString;
+  function GDIPlusErrorMessage(AStatus :TStatus) :TString;
   procedure GDICheck(ARes :TStatus);
 
   function GetEncoderClsid(const AFormat :WideString; out pClsid: TGUID) :Integer;
 
-  function GetImgFmtName(AGUID :TGUID) :AnsiString;
-  function GetImagePropName(id :ULONG) :AnsiString;
+  function GetImgFmtName(AGUID :TGUID) :TString;
+  function GetImagePropName(id :ULONG) :TString;
 
   function GetExifTagValueAsInt(AImage :TGPImage; AID :ULONG; var AValue :Integer) :Boolean;
   procedure SetExifTagValueInt(AImage :TGPImage; AID :ULONG; AValue :Word);
@@ -304,7 +304,7 @@ interface
 
     GR.UpperLeft := 0;
     GR.LowerRight := 1;
-    GradientFill(AHandle, VA[0], 2, @GR, 1, FillFlag[AVert]);
+    GradientFill(AHandle, @VA[0], 2, @GR, 1, FillFlag[AVert]);
   end;
 
 
@@ -313,7 +313,7 @@ interface
  {-----------------------------------------------------------------------------}
 
 
-  function GDIPlusErrorMessage(AStatus :TStatus) :AnsiString;
+  function GDIPlusErrorMessage(AStatus :TStatus) :TString;
   begin
     case AStatus of
       Ok                        : result := 'Ok';
@@ -388,7 +388,7 @@ interface
   end;
 
 
-  function GetImgFmtName(AGUID :TGUID) :AnsiString;
+  function GetImgFmtName(AGUID :TGUID) :TString;
   begin
     Result := '';
     if IsEqualGUID(AGUID, ImageFormatBMP) then
@@ -427,7 +427,7 @@ interface
 
 
 
-  function GetImagePropName(id :ULONG) :AnsiString;
+  function GetImagePropName(id :ULONG) :TString;
   begin
     case id of
       PropertyTagExifIFD                        : result := 'ExifIFD';

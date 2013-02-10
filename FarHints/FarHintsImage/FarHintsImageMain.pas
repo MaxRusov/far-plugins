@@ -300,7 +300,7 @@ interface
       { Для поддержки фоновой декомпрессии картинок}
       FCSection     :TRTLCriticalSection;
       FHandle       :THandle;
-      FThreadID     :THandle;
+      FThreadID     :TThreadID;
       FTerminated   :Boolean;
       FThreadGoDown :Boolean;
       FThumbWait    :Boolean;     { Извлечение продолжается }
@@ -439,7 +439,7 @@ interface
       FImgSize.cx := FSrcImage.GetWidth;
       FImgSize.cy := FSrcImage.GetHeight;
       vPixels     := GetPixelFormatSize(FSrcImage.GetPixelFormat);
-      vHahAlpha   := ImageFlagsHasAlpha and FSrcImage.GetFlags <> 0;
+      vHahAlpha   := UINT(ImageFlagsHasAlpha) and FSrcImage.GetFlags <> 0;
 
       FFrame := 0;
       FFrames := GetFrameCount(FSrcImage, FDimID, FDelays, FDelCount);
@@ -744,7 +744,7 @@ interface
  {-----------------------------------------------------------------------------}
  { Поток для фоновой декомпрессии картинок                                     }
 
-  function ThreadProc(Thread :Pointer) :TIntPtr;
+  function ThreadProc(Thread :Pointer) :{$ifdef bFreePascal}TIntPtr{$else}Integer{$endif};
   begin
     Result := 0;
     try

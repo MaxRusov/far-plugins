@@ -95,7 +95,7 @@ interface
       FFileSize     :TInt64;
 
       FHandle       :THandle;
-      FThreadID     :THandle;
+      FThreadID     :TThreadID;
       FTerminated   :Boolean;
       FThreadGoDown :Boolean;
 
@@ -259,7 +259,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function ThreadProc(Thread :Pointer) :TIntPtr;
+  function ThreadProc(Thread :Pointer) :{$ifdef bFreePascal}TIntPtr{$else}Integer{$endif};
   begin
     Result := 0;
     try

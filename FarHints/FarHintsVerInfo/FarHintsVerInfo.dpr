@@ -8,6 +8,8 @@
 
 library FarHintsVerInfo;
 
+{$I Defines1.inc}
+
 uses
  {$ifdef bTrace}
   MixCheck,

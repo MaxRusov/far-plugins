@@ -185,7 +185,7 @@ interface
     ) :Integer;
 
   function GetProgressStr(ALen, APerc :Integer) :TString;
-  function ShowMessage(const ATitle, AMessage :TString; AFlags :Integer; AButtons :Integer = 0) :Integer;
+  function ShowMessage(const ATitle, AMessage :TString; AFlags :Integer = FMSG_MB_OK; AButtons :Integer = 0) :Integer;
   function FarInputBox(ATitle, APrompt :PTChar; var AStr :TString; AFlags :DWORD = FIB_BUTTONS or FIB_ENABLEEMPTY;
     AHistory :PTChar = nil; AHelp :PTChar = nil; AMaxLen :Integer = 1024) :Boolean;
 
@@ -221,6 +221,8 @@ interface
   function FarGetPanelInfo(AHandle :THandle; var AInfo :TPanelInfo) :Boolean; overload;
   function FarPanelGetSide :Integer;
 
+  function FarKeyToMacro(const AKeys :TString) :TString;
+  function FarStrToMacro(const AStr :TString) :TString;
   procedure FarPostMacro(const AStr :TFarStr; AFlags :DWORD =
     {$ifdef Far3}
      KMFLAGS_DISABLEOUTPUT or KMFLAGS_NOSENDKEYSTOPLUGINS;
@@ -231,6 +233,11 @@ interface
   function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean; ACoord :PCoord = nil) :Boolean;
   function FarGetMacroArea :Integer;
   function FarGetMacroState :Integer;
+ {$ifdef Far3}
+  function FarValueToStr(const Value :TFarMacroValue) :TString;
+  function FarValueIsInteger(const AValue :TFarMacroValue; var AInt :Integer) :Boolean;
+  function FarReturnValues(const Args :array of const) :TIntPtr;
+ {$endif Far3}
 
   function FarPluginControl(ACommand :Integer; AParam1 :Integer; AParam2 :Pointer) :INT_PTR;
  {$ifdef Far3}
@@ -445,7 +452,7 @@ interface
   end;
 
 
-  function ShowMessage(const ATitle, AMessage :TString; AFlags :Integer; AButtons :Integer = 0) :Integer;
+  function ShowMessage(const ATitle, AMessage :TString; AFlags :Integer = FMSG_MB_OK; AButtons :Integer = 0) :Integer;
   var
     vStr :TFarStr;
    {$ifdef Far3}
@@ -907,6 +914,27 @@ interface
          Return=FARMACROAREA
 *)
 
+
+  function FarKeyToMacro(const AKeys :TString) :TString;
+  begin
+   {$ifdef Far3}
+    Result := 'Keys("' + AKeys + '")';
+   {$else}
+    Result := AKeys;
+   {$endif Far3}
+  end;
+
+
+  function FarStrToMacro(const AStr :TString) :TString;
+  begin
+   {$ifdef Far3}
+    Result := '"' + FarMaskStr(AStr) + '"';
+   {$else}
+    Result := '@"' + AStr + '"';
+   {$endif Far3}
+  end;
+
+
   procedure FarPostMacro(const AStr :TFarStr; AFlags :DWORD =
    {$ifdef Far3}
     KMFLAGS_DISABLEOUTPUT or KMFLAGS_NOSENDKEYSTOPLUGINS;
@@ -1030,6 +1058,85 @@ interface
  {$endif Far3}
   end;
 
+
+ {$ifdef Far3}
+  function FarValueToStr(const Value :TFarMacroValue) :TString;
+  begin
+    Result := '';
+    case Value.fType of
+      FMVT_INTEGER : Result := Int2Str(Value.Value.fInteger);
+      FMVT_STRING  : Result := Value.Value.fString;
+      FMVT_DOUBLE  : Result := Float2Str(Value.Value.fDouble);
+      FMVT_BOOLEAN : Result := Int2Str(Value.Value.fInteger);
+      FMVT_BINARY  : Result := '(' + Int2Str(Value.Value.fBinary.Size) + ')';
+    end;
+  end;
+
+
+  function FarValueIsInteger(const AValue :TFarMacroValue; var AInt :Integer) :Boolean;
+  begin
+    Result := True;
+    if AValue.fType = FMVT_INTEGER then
+      AInt := AValue.Value.fInteger
+    else
+    if (AValue.fType = FMVT_DOUBLE) and (Frac(AValue.Value.fDouble) = 0) then
+      AInt := Trunc(AValue.Value.fDouble)
+    else
+      Result := False;
+  end;
+
+
+  procedure FarReturnValuesCallback(CallbackData :Pointer; Values :PFarMacroValueArray; Count :size_t); stdcall;
+  var
+    I :Integer;
+  begin
+//  TraceF('FarReturnValuesCallback: %s, %d', [FarValueToStr(Values[0]), Count]);
+    for I := 0 to Count - 1 do
+      if Values[I].fType = FMVT_STRING then
+        StrDisposeW(Values[I].Value.fString);
+    MemFree(CallbackData);
+  end;
+
+
+  function FarReturnValues(const Args :array of const) :TIntPtr;
+  var
+    vRes :PFarMacroCall;
+    I, vCount :Integer;
+  begin
+    vCount := High(Args) + 1;
+    vRes := MemAllocZero(SizeOf(TFarMacroCall) + SizeOf(TFarMacroValue) * vCount);
+    vRes.StructSize := SizeOf(TFarMacroCall);
+    vRes.Count := vCount;
+    vRes.Values := Pointer(Pointer1(vRes) + SizeOf(TFarMacroCall));
+    vRes.Callback := FarReturnValuesCallback;
+    vRes.CallbackData := vRes;
+    for I := 0 to vCount - 1 do
+      with vRes.Values[I] do begin
+        case Args[I].VType of
+          vtInteger: begin
+            fType := FMVT_INTEGER;
+            Value.fInteger := Args[I].VInteger;
+          end;
+          vtExtended: begin
+            fType := FMVT_DOUBLE;
+            Value.fDouble := Args[I].VExtended^;
+          end;
+          vtAnsiString: begin
+            fType := FMVT_STRING;
+            Value.fString := StrNew(AnsiString(Args[I].VAnsiString));
+          end;
+          vtWideString: begin
+            fType := FMVT_STRING;
+            Value.fString := StrNew(WideString(Args[I].VWideString));
+          end;
+        end;
+      end;
+    Result := TIntPtr(vRes);
+  end;
+
+ {$endif Far3}
+
+
  {-----------------------------------------------------------------------------}
 
   function FarPluginControl(ACommand :Integer; AParam1 :Integer; AParam2 :Pointer) :INT_PTR;
@@ -1106,7 +1213,7 @@ interface
         vStr := 'Enter'
       else
         vStr := 'Tab Enter Tab';
-      FarPostMacro(vStr);
+      FarPostMacro(FarKeyToMacro(vStr));
     end else
       Beep;
   end;
@@ -1819,7 +1926,7 @@ interface
   var
     hWnd :THandle;
   begin
-    if hFarWindow = 0 then
+    if (hFarWindow = 0) or not IsWindow(hFarWindow) then
       hFarWindow := FarAdvControl(ACTL_GETFARHWND, nil);
 
     Result := hFarWindow;
@@ -1850,6 +1957,8 @@ interface
   begin
     if AWnd = 0 then
       AWnd := GetConsoleWnd;
+    if hStdOut = 0 then
+      hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
 
     GetCursorPos(vPos);
 

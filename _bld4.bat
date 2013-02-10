@@ -53,7 +53,7 @@ echo.
 
 call dcc.bat
 
-pushd ..\Bin\%PrjName% || exit
+pushd ..\Bin2\%PrjName% || exit
 rar a -r -s -x*.map %ArcName%.far2.%VerMax%.%VerMin%.rar *.* > nul || exit
 move *.rar %Arc% || exit
 popd
@@ -65,7 +65,7 @@ echo.
 
 call fpc64.bat
 
-pushd ..\Bin_64\%PrjName% || exit
+pushd ..\Bin2x64\%PrjName% || exit
 rar a -r -s -x*.map %ArcName%.far2.x64.%VerMax%.%VerMin%.rar *.* > nul || exit
 move *.rar %Arc% || exit
 popd

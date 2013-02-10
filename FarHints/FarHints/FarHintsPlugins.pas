@@ -51,7 +51,7 @@ interface
       FInited :Boolean;
       FEmbedded :Boolean;
 
-      FLang :AnsiString;
+      FLang :TString;
       FMessages :TStringList;
 
       procedure InitPlugin;

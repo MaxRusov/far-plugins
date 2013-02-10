@@ -494,7 +494,7 @@ interface
   end;
 
 
-  function ImageAbort(AData :Pointer) :BOOL; stdcall;
+  function ImageAbortProc(AData :Pointer) :BOOL; stdcall;
   begin
 //  TraceF('ImageAbort. State: %d', [Byte(TTask(AData).FState)]);
     Result := TTask(AData).FState = tsCancelled;
@@ -512,6 +512,7 @@ interface
     vThumb    :TMemDC;
     vGraphics :TGPGraphics;
     vDimID    :TGUID;
+    vCallback :Pointer;
   begin
     try
       EnterCriticalSection(GDIPlusCS);
@@ -565,7 +566,8 @@ interface
             end;
            {$endif bOwnRotate}
 
-            vGraphics.DrawImage(vImage, MakeRect(0, 0, vSize.CX, vSize.CY), 0, 0, vImage.GetWidth, vImage.GetHeight, UnitPixel, nil, ImageAbort, ATask);
+            vCallback := @ImageAbortProc;
+            vGraphics.DrawImage(vImage, MakeRect(0, 0, vSize.CX, vSize.CY), 0, 0, vImage.GetWidth, vImage.GetHeight, UnitPixel, nil, ImageAbort(vCallback), ATask);
             GDICheck(vGraphics.GetLastStatus);
 
            {$ifdef bTrace}
@@ -1021,7 +1023,7 @@ interface
     FFmtName := GetImgFmtName(FFmtID);
 
     { Изображение полупрозрачное }
-    FHasAlpha := ImageFlagsHasAlpha and FSrcImage.GetFlags <> 0;
+    FHasAlpha := UINT(ImageFlagsHasAlpha) and FSrcImage.GetFlags <> 0;
 
     { Подсчитываем количество фреймов в анимированном/многостраничном изображении }
     FFrames := GetFrameCount(FSrcImage, @FDimID, @Pointer(FDelays), @FDelCount);
@@ -1624,7 +1626,7 @@ interface
       GetClientRect(FWnd, vRect);
       FillBack(vRect, AColor);
       with vRect do
-        GWinSize := Size(Right - Left, Bottom - Top);
+        GWinSize := MixStrings.Size(Right - Left, Bottom - Top);
     finally
       RestoreDC(FDC, vSaveDC);
     end;
