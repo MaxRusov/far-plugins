@@ -83,13 +83,21 @@ interface
 
   type
    {$ifdef bFreePascal}
+
    {$ifdef bFPC23}
     TMInteger = TUnsPtr;
    {$else}
     TMInteger = TIntPtr;
    {$endif bFPC23}
+
    {$else}
-    TMInteger = TIntPtr;
+
+   {$ifdef bDelphi15}
+    TMInteger = NativeInt;
+   {$else}
+    TMInteger = TInt32;
+   {$endif bDelphi15}
+
    {$endif bFreePascal}
 
 

@@ -148,7 +148,7 @@ type
     function IsVisible(const rect: TGPRect; g: TGPGraphics = nil): BOOL; overload;
     function IsVisible(x, y, width, height: Single; g: TGPGraphics = nil): BOOL; overload;
     function IsVisible(const rect: TGPRectF; g: TGPGraphics = nil): BOOL; overload;
-    function Equals(region: TGPRegion; g: TGPGraphics): BOOL;
+    function Equals1(region: TGPRegion; g: TGPGraphics): BOOL;
     function GetRegionScansCount(matrix: TGPMatrix): UINT;
     function GetRegionScans(matrix: TGPMatrix ;rects: PGPRectF; out count: Integer): TStatus; overload;
     function GetRegionScans(matrix: TGPMatrix; rects: PGPRect; out count: Integer): TStatus; overload;
@@ -210,7 +210,7 @@ type
   TGPPrivateFontCollection = class(TGPFontCollection)
   public
     constructor Create; reintroduce;
-    destructor destroy; override;
+    destructor Destroy; override;
     function AddFontFile(filename: WideString): TStatus;
     function AddMemoryFont(memory: Pointer; length: Integer): TStatus;
   end;
@@ -268,7 +268,7 @@ type
     constructor Create(stream: IStream; useEmbeddedColorManagement: BOOL  = FALSE); reintroduce; overload;
     function FromFile(filename: WideString; useEmbeddedColorManagement: BOOL = FALSE): TGPImage;
     function FromStream(stream: IStream; useEmbeddedColorManagement: BOOL = FALSE): TGPImage;
-    destructor destroy; override;
+    destructor Destroy; override;
     function Clone: TGPImage;
     function Save(filename: WideString; const clsidEncoder: TGUID;
       encoderParams: PEncoderParameters = nil): TStatus; overload;
@@ -494,7 +494,7 @@ type
 
     function IsInvertible: BOOL;
     function IsIdentity: BOOL;
-    function Equals(matrix: TGPMatrix): BOOL;
+    function Equals1(matrix: TGPMatrix): BOOL;
     function GetLastStatus: TStatus;
   end;
 
@@ -749,7 +749,7 @@ type
       fillMode: TFillMode = FillModeAlternate); reintroduce; overload;
     constructor Create(points: PGPPoint; types: PBYTE; count: Integer;
       fillMode: TFillMode = FillModeAlternate); reintroduce; overload;
-    destructor destroy; override;
+    destructor Destroy; override;
     function Clone: TGPGraphicsPath;
     // Reset the path object to empty (and fill mode to FillModeAlternate)
     function Reset: TStatus;
@@ -964,7 +964,7 @@ type
     constructor Create(hdc: HDC; hdevice: THANDLE); reintroduce; overload;
     constructor Create(hwnd: HWND; icm: BOOL{ = FALSE}); reintroduce; overload;
     constructor Create(image: TGPImage); reintroduce; overload;
-    destructor destroy; override;
+    destructor Destroy; override;
     procedure Flush(intention: TFlushIntention = FlushIntentionFlush);
     //------------------------------------------------------------------------
     // GDI Interop methods
@@ -1814,7 +1814,7 @@ implementation
     SetStatus(GdipIsMatrixIdentity(nativeMatrix, result));
   end;
 
-  function TGPMatrix.Equals(matrix: TGPMatrix): BOOL;
+  function TGPMatrix.Equals1(matrix: TGPMatrix): BOOL;
   begin
     result := FALSE;
     SetStatus(GdipIsMatrixEqual(nativeMatrix, matrix.nativeMatrix, result));
@@ -2755,7 +2755,7 @@ implementation
     result := booln;
   end;
 
-  function TGPRegion.Equals(region: TGPRegion; g: TGPGraphics): BOOL;
+  function TGPRegion.Equals1(region: TGPRegion; g: TGPGraphics): BOOL;
   var
     booln: BOOL;
   begin

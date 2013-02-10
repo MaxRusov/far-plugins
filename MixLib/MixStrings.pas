@@ -36,18 +36,21 @@ interface
   function FloatCompare(const E1, E2 :TFloat) :Integer;
   function DateTimeCompare(const aD1, aD2 :TDateTime) :Integer;
 
-  function Point(AX, AY: Integer): TPoint;
-  function SmallPoint(AX, AY: SmallInt): TSmallPoint;
-  function Size(ACX, ACY :Integer) :TSize;
-  function Rect(ALeft, ATop, ARight, ABottom: Integer): TRect;
-  function Bounds(ALeft, ATop, AWidth, AHeight: Integer): TRect;
+  function Point(X, Y: Integer) :TPoint;
+  function SmallPoint(X, Y :SmallInt) :TSmallPoint;
+  function Size(CX, CY :Integer) :TSize;
+  function MakeCoord(X, Y :Integer) :TCoord;
+  function Rect(X, Y, X2, Y2 :Integer) :TRect;
+  function Bounds(X, Y, W, H :Integer) :TRect;
   function SRect(X, Y, X2, Y2 :Integer) :TSmallRect;
   function SBounds(X, Y, W, H :Integer) :TSmallRect;
-  procedure SRectGrow(var AR :TSmallRect; ADX, ADY :Integer);
-  procedure SRectMove(var AR :TSmallRect; ADX, ADY :Integer);
+
+  procedure RectGrow(var AR :TSmallRect; ADX, ADY :Integer);
+  procedure RectMove(var AR :TRect; ADX, ADY :Integer); overload;
+  procedure RectMove(var AR :TSmallRect; ADX, ADY :Integer); overload;
   function RectEmpty(const AR :TRect) :Boolean;
-  function RectContainsXY(const AR :TRect; X, Y :Integer) :Boolean;
-  procedure RectMove(var AR :TRect; ADX, ADY :Integer);
+  function RectContainsXY(const AR :TRect; X, Y :Integer) :Boolean; overload;
+  function RectContainsXY(const AR :TSmallRect; X, Y :Integer) :Boolean; overload;
 
   function Chr2StrL(Str :PTChar; ALen :Integer) :TString;
   function CharInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
@@ -90,6 +93,7 @@ interface
   function TryHex2Int64(const AHexStr :TString; var Num :TInt64) :Boolean;
   function Hex2Int64(const AHexStr :TString) :TInt64;
 
+  function Float2Str(Value :TFloat) :TString;
   function TryPCharToFloat(Str :PTChar; var Value :TFloat) :Boolean;
   function TryStrToFloat(const Str :TString; var Value :TFloat) :Boolean;
   function StrToFloatDef(const Str :TString; const Def :TFloat) :TFloat;
@@ -317,49 +321,48 @@ interface
   end;
 
 
-  function Point(AX, AY: Integer): TPoint;
+  function Point(X, Y: Integer) :TPoint;
+  begin
+    Result.X := X;
+    Result.Y := Y;
+  end;
+
+  function SmallPoint(X, Y :SmallInt) :TSmallPoint;
+  begin
+    Result.X := X;
+    Result.Y := Y;
+  end;
+
+  function Size(CX, CY :Integer) :TSize;
+  begin
+    Result.CX := CX;
+    Result.CY := CY;
+  end;
+
+  function MakeCoord(X, Y :Integer) :TCoord;
+  begin
+    Result.X := X;
+    Result.Y := Y;
+  end;
+
+
+  function Rect(X, Y, X2, Y2 :Integer) :TRect;
   begin
     with Result do begin
-      X := AX;
-      Y := AY;
+      Left := X;
+      Top := Y;
+      Right := X2;
+      Bottom := Y2;
     end;
   end;
 
-  function SmallPoint(AX, AY: SmallInt): TSmallPoint;
+  function Bounds(X, Y, W, H :Integer) :TRect;
   begin
     with Result do begin
-      X := AX;
-      Y := AY;
-    end;
-  end;
-
-
-  function Size(ACX, ACY :Integer) :TSize;
-  begin
-    with Result do begin
-      CX := ACX;
-      CY := ACY;
-    end;
-  end;
-
-
-  function Rect(ALeft, ATop, ARight, ABottom: Integer): TRect;
-  begin
-    with Result do begin
-      Left := ALeft;
-      Top := ATop;
-      Right := ARight;
-      Bottom := ABottom;
-    end;
-  end;
-
-  function Bounds(ALeft, ATop, AWidth, AHeight: Integer): TRect;
-  begin
-    with Result do begin
-      Left := ALeft;
-      Top := ATop;
-      Right := ALeft + AWidth;
-      Bottom :=  ATop + AHeight;
+      Left := X;
+      Top := Y;
+      Right := X + W;
+      Bottom := Y + H;
     end;
   end;
 
@@ -386,7 +389,7 @@ interface
   end;
 
 
-  procedure SRectGrow(var AR :TSmallRect; ADX, ADY :Integer);
+  procedure RectGrow(var AR :TSmallRect; ADX, ADY :Integer);
   begin
     Dec(AR.Left,   ADX);
     Inc(AR.Right,  ADX);
@@ -395,7 +398,16 @@ interface
   end;
 
 
-  procedure SRectMove(var AR :TSmallRect; ADX, ADY :Integer);
+  procedure RectMove(var AR :TRect; ADX, ADY :Integer);
+  begin
+    Inc(AR.Left,   ADX);
+    Inc(AR.Right,  ADX);
+    Inc(AR.Top,    ADY);
+    Inc(AR.Bottom, ADY);
+  end;
+
+
+  procedure RectMove(var AR :TSmallRect; ADX, ADY :Integer);
   begin
     Inc(AR.Left,   ADX);
     Inc(AR.Right,  ADX);
@@ -417,14 +429,13 @@ interface
       (Y >= AR.Top)  and (Y < AR.Bottom);
   end;
 
-
-  procedure RectMove(var AR :TRect; ADX, ADY :Integer);
+  function RectContainsXY(const AR :TSmallRect; X, Y :Integer) :Boolean;
   begin
-    Inc(AR.Left,   ADX);
-    Inc(AR.Right,  ADX);
-    Inc(AR.Top,    ADY);
-    Inc(AR.Bottom, ADY);
+    Result :=
+      (X >= AR.Left) and (X < AR.Right) and
+      (Y >= AR.Top)  and (Y < AR.Bottom);
   end;
+
 
 
   function CharInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
@@ -863,6 +874,16 @@ interface
   begin
     if not TryHex2Int64(AHexStr, Result) then
       AppErrorResFmt(@SInvalidInteger, [AHexStr]);
+  end;
+
+ {-----------------------------------------------------------------------------}
+
+  function Float2Str(Value :TFloat) :TString;
+  var
+    vStr :Shortstring;
+  begin
+    Str(Value, vStr);
+    Result := TString(vStr);
   end;
 
 
