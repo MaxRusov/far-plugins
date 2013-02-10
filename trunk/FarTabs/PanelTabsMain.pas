@@ -1,5 +1,5 @@
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2009-2013 Max Rusov                                                    *}
 {*                                                                            *}
 {* PanelTabs Far plugin                                                       *}
 {******************************************************************************}
@@ -23,7 +23,8 @@ interface
     FarPlug,
 
     PanelTabsCtrl,
-    PanelTabsClasses;
+    PanelTabsClasses,
+    PanelTabsOptions;
 
 
   type
@@ -39,6 +40,9 @@ interface
       function OpenCmdLine(AStr :PTChar) :THandle; override;
       function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
+     {$ifdef bUseProcessConsoleInput}
+      function ConsoleInput(const ARec :TInputRecord) :Integer; override;
+     {$endif bUseProcessConsoleInput}
     end;
 
 
@@ -216,91 +220,15 @@ interface
   end;
 
 
-(*
-  function ReadScreenChar(X, Y :Integer) :TChar;
-  var
-    vInfo :TConsoleScreenBufferInfo;
-//  vTst1 :Integer;
-    vBuf :array[0..128, 0..2] of TCharInfo;
-//  vTst2 :Integer;
-
-    vSize, vCoord :TCoord;
-    vReadRect :TSmallRect;
-  begin
-    Result := #0;
-
-//  vTst1 := $12345678;
-//  vTst2 := $12345678;
-
-//  Trace('GetConsoleScreenBufferInfo...');
-    if not GetConsoleScreenBufferInfo(hStdOut, vInfo) then begin
-      NOP;
-      Exit;
-    end;
-//  Trace('Done');
-
-    if (X < vInfo.dwSize.X) and (Y < vInfo.dwSize.Y) then begin
-
-      if (X < 0) or (Y < 0) then
-        NOP;
-
-      vSize.X := 1; vSize.Y := 1; vCoord.X := 0; vCoord.Y := 0;
-      vReadRect := SBounds(X, Y, 1, 1);
-      FillChar(vBuf, SizeOf(vBuf), 0);
-
-//    TraceF('ReadConsoleOutput: %d, %d, %d, %d', [X, Y, vInfo.dwSize.X, vInfo.dwSize.Y]);
-      if ReadConsoleOutput(hStdOut, @vBuf, vSize, vCoord, vReadRect) then begin
-       {$ifdef bUnicode}
-        Result := vBuf[0, 0].UnicodeChar;
-       {$else}
-        Result := vBuf[0, 0].AsciiChar;
-       {$endif bUnicode}
-      end else
-        RaiseLastWin32Error;
-//    Trace('Done');
-
-    end;
-
-//  Assert(vTst1 = $12345678);
-//  Assert(vTst2 = $12345678);
-  end;
-*)
-
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
+ {$ifdef bUseThread}
+
   function IsActiveConsole :boolean;
   begin
-    Result := WindowIsChildOf(hConsoleWnd, GetForegroundWindow) and ConManIsActiveConsole;
-  end;
-
-
-  function AlertableSleep(APeriod :Cardinal) :Boolean;
-  begin
-//  Trace('Sleep...');
-    Result := WaitForSingleObject(hStdin, APeriod) <> WAIT_TIMEOUT;
-//  TraceF('...Awake (%d)', [byte(Result)]);
-  end;
-
-
-  procedure SendKeys(AKey, ACtrl :Word);
-  var
-    vRec :array[0..1] of INPUT_RECORD;
-    vRes :DWORD;
-  begin
-    FillChar(vRec, SizeOf(vRec), 0);
-    with vRec[0], Event.KeyEvent do begin
-      EventType := KEY_EVENT;
-      bKeyDown := True;
-      wVirtualKeyCode := AKey;
-      dwControlKeyState := ACtrl;
-    end;
-    with vRec[1], Event.KeyEvent do begin
-      EventType := KEY_EVENT;
-      bKeyDown := False;
-    end;
-    WriteConsoleInput(hStdin, vRec[0], 2, vRes);
+    Result := WindowIsChildOf(GetConsoleWnd, GetForegroundWindow) and ConManIsActiveConsole;
   end;
 
 
@@ -323,7 +251,11 @@ interface
     vBuf :array[0..16] of Windows.TInputRecord;
   begin
     Result := [];
+    vCount := 0;
+//  TraceF('PeekConsoleInput %d (%d)...', [hStdin, High(vBuf)]);
     if PeekConsoleInput(hStdin, vBuf[0], High(vBuf), DWORD(vCount)) then begin
+//    TraceF('Events %d', [vCount]);
+
       for I := 0 to vCount - 1 do begin
         with vBuf[I] do begin
           case EventType of
@@ -348,7 +280,8 @@ interface
         end;
         Result := Result + [vEventType];
       end;
-    end;
+    end else
+      {TraceF('Error %d', [GetLastError])};
   end;
 
 
@@ -359,9 +292,30 @@ interface
   type
     TTabsThread = class(TThread)
     public
+      constructor Create;
+      destructor Destroy; override;
       procedure Execute; override;
+
+    private
+      FEvent :THandle;
+
+      function AlertableSleep(APeriod :Cardinal) :Boolean;
       function CallPlugin(ACmd :Integer) :Boolean;
     end;
+
+
+  constructor TTabsThread.Create; {override;}
+  begin
+    inherited Create(False);
+    FEvent := CreateEvent(nil, {ManualReset=}False, {InitialState=}False, nil);
+  end;
+
+
+  destructor TTabsThread.Destroy; {override;}
+  begin
+    CloseHandle(FEvent);
+    inherited Destroy;
+  end;
 
 
   procedure TTabsThread.Execute; {override;}
@@ -369,14 +323,17 @@ interface
     cRetryPeriod = 0;
   var
     X, Y :Integer;
+    vTick :DWORD;
     vInput :TEventTypes;
     vTitle, vLastTitle :TString;
     vSize, vLastSize :TSize;
     vWasInput :Boolean;
+   {$ifdef bUseProcessConsoleInput}
+   {$else}
     vPoint :TPoint;
     vIndex :Integer;
     vKind :TTabKind;
-    vTick :DWORD;
+   {$endif bUseProcessConsoleInput}
    {$ifdef bUseInjecting}
    {$else}
     vCh :TChar;
@@ -388,6 +345,8 @@ interface
 
     while not Terminated do begin
 
+     {$ifdef bUseProcessConsoleInput}
+     {$else}
       if ((GetKeyState(VK_LBUTTON) < 0) or (GetKeyState(VK_RBUTTON) < 0)) and IsActiveConsole then begin
         vPoint := GetConsoleMousePos;
 //      TraceF('Mouse down: %d x %d...', [vPoint.X, vPoint.Y]);
@@ -397,6 +356,7 @@ interface
           Sleep(10);
 //      Trace('Mouse Up.');
       end else
+     {$endif bUseProcessConsoleInput}
       begin
         vInput := CheckInput;
 //      TraceF('Input=%d, WasInput=%d', [Byte(vInput), Byte(vWasInput)]);
@@ -425,7 +385,7 @@ interface
               if TabsManager.NeedCheck(X, Y) then begin
                 if NeedRedrawTabs then begin
                   NeedRedrawTabs := False;
-                  Trace('Screen need repaint...');
+//                Trace('Screen need repaint...');
                   CallPlugin(1);
                 end;
                 vWasInput := False;
@@ -465,21 +425,36 @@ interface
           vWasInput := vWasInput or ([cetKeyDown{, cetKeyUp}] * vInput <> []);
 
         if (vInput <> []) or vWasInput then begin
+//        Trace('sleep(10)');
           Sleep(10)
         end else
-        if AlertableSleep(1000) then begin
+        if AlertableSleep(1000{!!!}) then begin
 //        Trace('Alert!');
         end;
       end;
-
     end;
+//  Trace('Finish...');
   end;
 
+
+  function TTabsThread.AlertableSleep(APeriod :Cardinal) :Boolean;
+  var
+    vHandles :array[0..1] of THandle;
+    vRes :DWORD;
+  begin
+//  Trace('Sleep...');
+    vHandles[0] := FEvent;
+    vHandles[1] := hStdIn;
+    vRes := WaitForMultipleObjects( 2, Pointer(@vHandles), {WaitAll=}False, APeriod);
+    Result := vRes <> WAIT_TIMEOUT;
+//  TraceF('...Awake (%d)', [byte(Result)]);
+  end;
 
 
   function TTabsThread.CallPlugin(ACmd :Integer) :Boolean;
   begin
     Result := False;
+
 //  Trace('Can call?');
     if not TabsManager.CanPaintTabs(True) then begin
 //    Trace('Can not paint...');
@@ -499,14 +474,16 @@ interface
   procedure SetTabsThread(AOn :Boolean);
   begin
     if AOn <> (TabsThread <> nil) then begin
-      if AOn then begin
-        TabsThread := TTabsThread.Create(False);
-      end else
-      begin
+      if AOn then
+        TabsThread := TTabsThread.Create
+      else begin
+        SetEvent(TabsThread.FEvent);
         FreeObj(TabsThread);
       end;
     end;
   end;
+
+ {$endif bUseThread}
 
 
  {-----------------------------------------------------------------------------}
@@ -520,7 +497,7 @@ interface
     FName := cPluginName;
     FDescr := cPluginDescr;
     FAuthor := cPluginAuthor;
-    FVersion := GetSelfVerison; 
+    FVersion := GetSelfVerison;
 
    {$ifdef Far3}
     FGUID := cPluginID;
@@ -532,7 +509,8 @@ interface
 //  FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
 //  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
 //  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
-    FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
+//  FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
+    FMinFarVer := MakeVersion(3, 0, 2927);   { Release }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1005);   { ProcessSynchroEvent }
 //  FMinFarVer := MakeVersion(2, 0, 1148);   { ConvertPath }
@@ -546,18 +524,20 @@ interface
     hStdin := GetStdHandle(STD_INPUT_HANDLE);
     hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
 
-    { Получаем Handle консоли Far'а }
-    hFarWindow := FarAdvControl(ACTL_GETFARHWND, nil);
-
     RestoreDefColor;
     ReadSetup;
 
     TabsManager := TTabsManager.Create;
-    SetTabsThread(True);
 
    {$ifdef bUseInjecting}
     InjectHandlers;
    {$endif bUseInjecting}
+
+   {$ifdef bUseThread}
+    SetTabsThread(True);
+   {$else}
+    FarAdvControl(ACTL_SYNCHRO, Pointer(1));
+   {$endif bUseThread}
   end;
 
 
@@ -578,11 +558,15 @@ interface
 
   procedure TPanelTabsPlug.ExitFar; {override;}
   begin
+//  Trace('Exit far...');
+
    {$ifdef bUseInjecting}
     RemoveHandlers;
    {$endif bUseInjecting}
 
+   {$ifdef bUseThread}
     SetTabsThread(False);
+   {$endif bUseThread}
     try
       {???}
       TabsManager.StoreTabs;
@@ -601,6 +585,7 @@ interface
   function TPanelTabsPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
     Result := INVALID_HANDLE_VALUE;
+    hFarWindow := 0;
     MainMenu;
   end;
 
@@ -642,12 +627,59 @@ interface
   end;
 
 
+ {$ifdef bUseProcessConsoleInput}
+  function TPanelTabsPlug.ConsoleInput(const ARec :TInputRecord) :Integer; {override;}
+  var
+    vButton :Integer;
+  begin
+    Result := 0;
+    try
+
+      if (ARec.EventType = _MOUSE_EVENT) {and opt_MouseSupport} then begin
+        with ARec.Event.MouseEvent do begin
+//        TraceF('ConsoleInput: Flags: %d, Button: %d, Control: %x', [dwEventFlags, dwButtonState, dwControlKeyState]);
+          if (dwEventFlags = 0) or (DOUBLE_CLICK and dwEventFlags <> 0) then begin
+            if dwButtonState <> 0 then begin
+              vButton := 1;
+              if dwButtonState and RIGHTMOST_BUTTON_PRESSED <> 0 then
+                vButton := 2;
+              if dwButtonState and FROM_LEFT_2ND_BUTTON_PRESSED <> 0 then
+                vButton := 3;
+              if TabsManager.TrackMouseStart(vButton, dwMousePosition.X, dwMousePosition.Y, DOUBLE_CLICK and dwEventFlags <> 0, dwControlKeyState) then
+                Result := 1;
+            end else
+            if TabsManager.TrackMouseEnd(dwMousePosition.X, dwMousePosition.Y) then
+              Result := 1;
+          end else
+          if MOUSE_MOVED and dwEventFlags <> 0 then begin
+            if TabsManager.TrackMouseContinue(dwMousePosition.X, dwMousePosition.Y) then
+              Result := 1;
+          end;
+        end;
+      end else
+      if ARec.EventType = WINDOW_BUFFER_SIZE_EVENT then
+        TabsManager.PaintTabs;
+
+    except
+      on E :Exception do
+        Plug.ErrorHandler(E);
+    end;
+  end;
+ {$endif bUseProcessConsoleInput}
+
+
   procedure TPanelTabsPlug.SynchroEvent(AParam :Pointer); {override;}
   begin
+//  TraceF('SynchroEvent %d', [TUnsPtr(AParam)]);
     try
+      hFarWindow := 0;
+
       case TUnsPtr(AParam) of
         1: TabsManager.PaintTabs(True);
+       {$ifdef bUseProcessConsoleInput}
+       {$else}
         2: TabsManager.MouseClick;
+       {$endif bUseProcessConsoleInput}
       end;
 
     except

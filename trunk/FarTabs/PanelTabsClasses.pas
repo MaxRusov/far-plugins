@@ -1,5 +1,5 @@
 {******************************************************************************}
-{* (c) 2009 Max Rusov                                                         *}
+{* (c) 2009-2013 Max Rusov                                                    *}
 {*                                                                            *}
 {* PanelTabs Far plugin                                                       *}
 {******************************************************************************}
@@ -25,21 +25,14 @@ interface
     FarCtrl,
     FarMenu,
     FarConMan,
-    FarColorDlg,
 
     PanelTabsCtrl;
 
   const
     cMinTabWidth = 3;
 
-   {$ifdef bUnicodeFar}
     cSide1 = #$2590;
     cSide2 = #$258C;
-   {$else}
-    cSide1 = #$DE;
-    cSide2 = #$DD;
-   {$endif bUnicodeFar}
-
 
 
   type
@@ -126,6 +119,7 @@ interface
       constructor CreateEx(const ACaption, AFolder :TString);
       destructor Destroy; override;
 
+      procedure FormatCaption(AHotkey :TChar);
       function GetTabCaption :TString;
       function IsFixed :Boolean;
       procedure Fix(AValue :Boolean);
@@ -141,9 +135,12 @@ interface
       FCurrent  :TString;     { Текущий Item на данном Tab'е }
       FSelected :TStringList; { Список выделенных элементов }
 
+      FFmtCaption :TString;
+
     public
       property Caption :TString read FCaption write FCaption;
       property Folder :TString read FFolder write FFolder;
+      property FmtCaption :TString read FFmtCaption;
     end;
 
 
@@ -177,10 +174,10 @@ interface
 
       function NeedCheck(var X, Y :Integer) :Boolean;
       function CanPaintTabs(ACheckCursor :Boolean = False) :Boolean;
+      procedure NeedRealign;
       procedure PaintTabs(ACheckCursor :Boolean = False);
 //    procedure RefreshTabs;
 
-      procedure MouseClick;
       procedure ClickAction(Action :TTabAction; AKind :TTabKind; AIndex :Integer);
       procedure AddTab(Active :Boolean);
       procedure DeleteTab(Active :Boolean);
@@ -192,6 +189,14 @@ interface
       procedure ToggleOption(var AOption :Boolean);
       procedure RunCommand(const ACmd :TString);
 
+     {$ifdef bUseProcessConsoleInput}
+      function TrackMouseStart(AButton, X, Y :Integer; ADouble :Boolean; AShifts :DWORD) :Boolean;
+      function TrackMouseContinue(X, Y :Integer) :Boolean;
+      function TrackMouseEnd(X, Y :Integer) :Boolean;
+     {$else}
+      procedure MouseClick;
+     {$endif bUseProcessConsoleInput}
+
       procedure StoreTabs;
       procedure RestoreTabs;
 
@@ -202,9 +207,19 @@ interface
       FPressedKind  :TTabKind;
       FPressedIndex :Integer;
 
+     {$ifdef bUseProcessConsoleInput}
+      FTrackClick    :TClickType;
+      FTrackShifts   :TKeyShifts;
+      FTrackKind     :TTabKind;
+      FTrackIndex    :Integer;
+      FTrackWhat     :THotSpot;
+      FTrackPressed  :Boolean;
+      FTracked       :Boolean;
+     {$else}
       FLastClickTime :DWORD;        { Для отслеживания DblClick }
-      FLastClickPos :TPoint;
+      FLastClickPos  :TPoint;
       FLastClickType :TClickType;
+     {$endif bUseProcessConsoleInput}
 
       FActions :TClickActions;
 
@@ -229,6 +244,7 @@ interface
      {$ifdef bUseInjecting}
       property DrawLock :Integer read FDrawLock;
      {$endif bUseInjecting}
+      property Actions :TClickActions read FActions;
     end;
 
   function HotSpot2Str(AHotSpot :THotSpot) :TString;
@@ -240,7 +256,6 @@ interface
     TabsManager :TTabsManager;
 
   procedure MainMenu;
-  procedure OptionsMenu;
   procedure ProcessSelectMode;
 
 {******************************************************************************}
@@ -250,7 +265,7 @@ interface
   uses
     EditTabDlg,
     TabListDlg,
-    TabActionsList,
+    PanelTabsOptions,
     MixDebug;
 
 
@@ -387,99 +402,10 @@ interface
  {-----------------------------------------------------------------------------}
  { Копипаста с MoreHistory....                                                 }
 
-(*
-  procedure FarPanelSetPath(AHandle :THandle; const APath, AItem :TString);
-  var
-    vOldPath :TFarStr;
-  begin
-    vOldPath := FarPanelGetCurrentDirectory(AHandle);
-    if not StrEqual(vOldPath, APath) then begin
-      FarPanelSetDir(AHandle, APath);
-      if AItem = '' then
-        FARAPI.Control(AHandle, FCTL_REDRAWPANEL, 0, nil);
-    end;
-
-    if AItem <> '' then
-      FarPanelSetCurrentItem(AHandle = PANEL_ACTIVE, AItem)
-  end;
-
-  procedure JumpToPath(const APath, AFileName :TString; ASetPassive :Boolean);
-  var
-    vHandle :THandle;
-    vWinInfo :TWindowInfo;
-    vInfo :TPanelInfo;
-    vMacro, vStr :TString;
-    vVisible, vRealFolder :Boolean;
-  begin
-//  FldHistory.AddHistoryStr( RemoveBackSlash(APath), True);
-
-    vHandle := HandleIf(ASetPassive, PANEL_PASSIVE, PANEL_ACTIVE);
-
-    FarGetWindowInfo(-1, vWinInfo);
-    FarGetPanelInfo(vHandle, vInfo);
-   {$ifdef Far3}
-    vVisible := PFLAGS_VISIBLE and vInfo.Flags <> 0;
-   {$else}
-    vVisible := vInfo.Visible <> 0;
-   {$endif Far3}
-
-    vRealFolder := IsFullFilePath(APath);
-
-    if vRealFolder and vVisible and (vInfo.PanelType = PTYPE_FILEPANEL) then begin
-      { Установка каталога и файла через API }
-      FarPanelSetPath(vHandle, APath, AFileName);
-
-      if vWinInfo.WindowType <> WTYPE_PANELS then
-        { Макросом переходим на панель... }
-        FarPostMacro('F12 0');
-
-    end else
-    begin
-      { ...или через макрос }
-      vMacro := '';
-
-      case vInfo.PanelType of
-        PTYPE_FILEPANEL:
-          if not vVisible then
-            vMacro := 'CtrlP ';
-        PTYPE_TREEPANEL:
-          vMacro := 'CtrlT ';
-        PTYPE_QVIEWPANEL:
-          vMacro := 'CtrlQ ';
-        PTYPE_INFOPANEL:
-          vMacro := 'CtrlL ';
-      end;
-
-      if vRealFolder then begin
-        vMacro := vMacro +
-          'panel.setpath('  + StrIf(ASetPassive, '1', '0') + ', @"' + APath + '"' +
-          StrIf(AFileName <> '', ', @"' + AFileName + '"', '') +
-          ')';
-      end else
-      begin
-        vStr := '';
-        FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(vStr));
-        vMacro := vMacro +
-          'print(@"' + APath + '") Enter';
-        if ASetPassive then
-          vMacro := 'Tab ' + vMacro + ' Tab';
-        if AFileName <> '' then
-          vMacro := vMacro +
-            ' panel.setpos(' + StrIf(ASetPassive, '1', '0') + ', @"' + AFileName + '")';
-      end;
-
-      if vWinInfo.WindowType <> WTYPE_PANELS then
-        vMacro := 'F12 0 $if (Shell) ' + vMacro + ' $end';
-
-      FarPostMacro(vMacro);
-    end;
-  end;
-*)
-
-
   function GetNearestExistFolder(const APath :TString) :TString;
   var
     vDrive, vPath :TString;
+    vLen :Integer;
   begin
     Result := '';
     if FileNameIsLocal(APath) then begin
@@ -491,7 +417,10 @@ interface
             Result := vPath;
             Exit;
           end;
+          vLen := Length(vPath);
           vPath := RemoveBackSlash(ExtractFilePath(vPath));
+          if Length(vPath) >= vLen then
+            Exit;
         end;
         Result := vDrive;
       end;
@@ -583,6 +512,9 @@ interface
   function JumpToPath(Active :Boolean; {const} APath :TString) :Boolean;
   begin
     Result := False;
+
+    APath := StrExpandEnvironment(APath);
+
     if IsFullFilePath(APath) then
       if not CheckFolderExists(APath) then
         Exit;
@@ -753,94 +685,6 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  procedure ColorsMenu;
-  var
-    vMenu :TFarMenu;
-  begin
-    vMenu := TFarMenu.CreateEx(
-      GetMsg(strColorsTitle),
-    [
-      GetMsg(strColBackground),
-      GetMsg(strColInactiveTab),
-      GetMsg(strColActiveTab),
-      GetMsg(strColAddButton),
-      GetMsg(strColShortcut),
-      '',
-      GetMsg(strRestoreDefaults)
-    ]);
-    try
-      while True do begin
-        vMenu.SetSelected(vMenu.ResIdx);
-
-        if not vMenu.Run then
-          Exit;
-
-        case vMenu.ResIdx of
-          0: ColorDlg('', optBkColor);
-          1: ColorDlg('', optPassiveTabColor);
-          2: ColorDlg('', optActiveTabColor);
-          3: ColorDlg('', optButtonColor);
-          4: ColorDlg('', optNumberColor);
-//        5:
-          6: RestoreDefColor;
-        end;
-
-        WriteSetup;
-        TabsManager.PaintTabs;
-      end;
-
-    finally
-      FreeObj(vMenu);
-    end;
-  end;
-
-
-  procedure OptionsMenu;
-  var
-    vMenu :TFarMenu;
-  begin
-    vMenu := TFarMenu.CreateEx(
-      GetMsg(strOptions),
-    [
-      GetMsg(strMShowTabs),
-      GetMsg(strMShowNumbers),
-//    GetMsg(strMShowButton),
-      GetMsg(strMSeparateTabs),
-      '',
-      GetMsg(strMMouseActions),
-      '',
-      GetMsg(strColors)
-    ]);
-    try
-      while True do begin
-        vMenu.Checked[0] := optShowTabs;
-        vMenu.Checked[1] := optShowNumbers;
-//      vMenu.Checked[2] := optShowButton;
-        vMenu.Checked[2] := optSeparateTabs;
-
-        vMenu.SetSelected(vMenu.ResIdx);
-
-        if not vMenu.Run then
-          Exit;
-
-        case vMenu.ResIdx of
-          0: TabsManager.ToggleOption(optShowTabs);
-          1: TabsManager.ToggleOption(optShowNumbers);
-//        2: TabsManager.ToggleOption(optShowButton);
-          2: TabsManager.ToggleOption(optSeparateTabs);
-//        3:
-          4: ActionsList(TabsManager.FActions);
-//        5:
-          6: ColorsMenu;
-        end;
-      end;
-
-    finally
-      FreeObj(vMenu);
-    end;
-  end;
-
-
   procedure ProcessSelectMode;
   var
     vKey :Integer;
@@ -876,15 +720,8 @@ interface
           end;
       else
 //      TabsManager.SelectTab(True, VKeyToIndex(vKey));
-       {$ifdef bUnicodeFar}
-        if (vKey > 32) and (vKey < $FFFF) then begin
-       {$else}
-        if (vKey > 32) and (vKey <= $FF) then begin
-       {$endif bUnicodeFar}
+        if (vKey > 32) and (vKey <= $FFFF) then begin
           vChr := TChar(vKey);
-         {$ifndef bUnicodeFar}
-          ChrOemToAnsi(vChr, 1);
-         {$endif bUnicodeFar}
           TabsManager.SelectTabByKey(vActive, vOnPassive, vChr);
         end;
       end;
@@ -896,8 +733,6 @@ interface
   var
     vMenu :TFarMenu;
   begin
-    TabsManager.PaintTabs;
-
     vMenu := TFarMenu.CreateEx(
       GetMsg(strTitle),
     [
@@ -910,6 +745,7 @@ interface
     try
       vMenu.Help := 'Contents';
 
+      TabsManager.PaintTabs;
       if not vMenu.Run then
         Exit;
 
@@ -1065,20 +901,62 @@ interface
   end;
 
 
+  function TPanelTab.GetTabCaption :TString;
+  begin
+    if IsFixed then
+      Result := FCaption
+    else
+      Result := PathToCaption(FFolder);
+  end;
+
+
   function TPanelTab.IsFixed :Boolean;
   begin
     Result := (FCaption <> '') and (FCaption <> '*');
   end;
 
 
-  function TPanelTab.GetTabCaption :TString;
+  procedure TPanelTab.FormatCaption(AHotkey :TChar);
+
+    function LocFormat(const ACaption, AHotkey :TString) :TString;
+    begin
+      Result := StrIf(IsFixed, optFixedTabFmt, optNormTabFmt);
+      if Result <> '' then begin
+        Result := StrReplace(Result, '%s', ACaption, []);
+        Result := StrReplace(Result, '%n', AHotkey, []);
+      end else
+        Result := AHotkey + ACaption;
+    end;
+
+  var
+    vStr, vStr1 :TString;
+    vPos :Integer;
   begin
-    if IsFixed then
-      Result := optFixedMark + FCaption
-    else begin
-      Result := PathToCaption(FFolder);
-      if optNotFixedMark <> '' then
-        Result := optNotFixedMark + Result;
+    vStr := GetTabCaption;
+
+    FHotkey := #0;
+    FHotPos := -1;
+    FFmtCaption := '';
+
+    if AHotkey = #0 then begin
+      vPos := ChrPos('&', vStr);
+      if (vPos > 0) and (vPos < length(vStr)) then begin
+        FHotkey := CharUpcase(vStr[vPos + 1]);
+        FFmtCaption := LocFormat(vStr, '');
+      end;
+    end else
+    begin
+      FHotkey := AHotkey;
+      vStr1 := '';
+      if optShowNumbers then
+        vStr1 := '&' + TString(AHotkey);
+      FFmtCaption := LocFormat(vStr, vStr1);
+    end;
+
+    if FFmtCaption <> '' then begin
+      FHotPos := ChrPos('&', FFmtCaption);
+      if FHotPos <> 0 then
+        Delete(FFmtCaption, FHotPos, 1);
     end;
   end;
 
@@ -1149,17 +1027,13 @@ interface
   var
     I, J :Integer;
     vTab :TPanelTab;
-    vStr :TString;
     vChr :TChar;
   begin
+//  TraceF('UpdateHotkeys %s', [FName]);
+
     for I := 0 to FCount - 1 do begin
       vTab := Items[I];
-      vStr := vTab.GetTabCaption;
-      vTab.FHotPos := ChrPos('&', vStr);
-      if (vTab.FHotPos > 0) and (vTab.FHotPos < length(vStr)) then
-        vTab.FHotkey := CharUpcase(vStr[vTab.FHotPos + 1])
-      else
-        vTab.FHotkey := #0;
+      vTab.FormatCaption(#0)
     end;
 
     J := 0;
@@ -1170,7 +1044,7 @@ interface
           vChr := IndexToChar(J);
           Inc(J);
         until FindTabByKey(vChr) = -1;
-        vTab.FHotkey := vChr;
+        vTab.FormatCaption(vChr)
       end;
     end;
   end;
@@ -1205,18 +1079,14 @@ interface
     I, X, L :Integer;
     vTab :TPanelTab;
   begin
+//  TraceF('RealignTabs %s', [FName]);
+    UpdateHotkeys;
+
     FAllWidth := ANewWidth;
     X := 1;
     for I := 0 to FCount - 1 do begin
       vTab := Items[I];
-
-      L := Length(vTab.GetTabCaption) + 1;
-      if vTab.FHotPos > 0 then
-        Dec(L)
-      else
-      if optShowNumbers then
-        Inc(L);
-
+      L := Length(vTab.FmtCaption) + length(optTabDelimiter);
       vTab.FDelta := X;
       vTab.FWidth := L;
       Inc(X, L);
@@ -1326,7 +1196,7 @@ interface
         while LocReadTab(I) do
           Inc(I);
 
-        UpdateHotkeys;
+//      UpdateHotkeys;
       end;
     finally
       FreeObj(vConfig);
@@ -1376,7 +1246,7 @@ interface
         Add(TPanelTab.CreateEx(vCaption, vFolder));
       end;
     end;
-    UpdateHotkeys;
+//  UpdateHotkeys;
   end;
 
 
@@ -1430,10 +1300,16 @@ interface
   begin
     AOption := not AOption;
     WriteSetup;
+    NeedRealign;
+    PaintTabs;
+  end;
+
+
+  procedure TTabsManager.NeedRealign;
+  begin
     FTabs[tkLeft].FAllWidth := -1;
     FTabs[tkRight].FAllWidth := -1;
     FTabs[tkCommon].FAllWidth := -1;
-    PaintTabs;
   end;
 
 
@@ -1542,14 +1418,6 @@ interface
     if not optShowTabs then
       Exit;
 
-// {$ifdef bUnicodeFar}
-//  if FARAPI.Control(hModule, FCTL_CHECKPANELSEXIST, 0, nil) = 0 then
-// {$else}
-//  if FARAPI.Control(hModule, FCTL_CHECKPANELSEXIST, nil) = 0 then
-// {$endif bUnicodeFar}
-//    { Нет панелей... }
-//    Exit;
-
     vWinType := FarGetWindowType;
 //  TraceF('WindowType=%d', [vWinType]);
 
@@ -1644,7 +1512,7 @@ interface
           end;
       end;
 
-      
+
     begin
       vMaximized := False;
       FillChar(FRects, SizeOf(FRects), 0);
@@ -1666,6 +1534,7 @@ interface
       end;
     end;
 
+    
 
     procedure PaintTabsForPanel(AKind :TTabKind);
 
@@ -1675,11 +1544,13 @@ interface
         vPath1, vPath2 :TString;
       begin
         vPos := ChrPos(';', ATabStr);
-        if vPos = 0 then
-          Result := StrEqual(ATabStr, vFolders[AKind])
-        else begin
-          vPath1 := Copy(ATabStr, 1, vPos - 1);
-          vPath2 := Copy(ATabStr, vPos + 1, MaxInt);
+        if vPos = 0 then begin
+          vPath1 := RemoveBackSlash(StrExpandEnvironment(ATabStr));
+          Result := StrEqual(vPath1, vFolders[AKind])
+        end else
+        begin
+          vPath1 := RemoveBackSlash(StrExpandEnvironment(Copy(ATabStr, 1, vPos - 1)));
+          vPath2 := RemoveBackSlash(StrExpandEnvironment(Copy(ATabStr, vPos + 1, MaxInt)));
           Result :=
             (StrEqual(vPath1, vFolders[tkLeft]) and StrEqual(vPath2, vFolders[tkRight])) or
             (StrEqual(vPath1, vFolders[tkRight]) and StrEqual(vPath2, vFolders[tkLeft]));
@@ -1691,7 +1562,7 @@ interface
       vRect :TRect;
       vTabs :TPanelTabs;
       vTab :TPanelTab;
-      vStr, vStr1 :TString;
+      vStr :TString;
       vHotColor :TFarColor;
       vCurrentIndex :Integer;
     begin
@@ -1727,66 +1598,66 @@ interface
       if vTabs.FAllWidth <> vWidth then
         vTabs.RealignTabs(vWidth);
 
-//    TraceF('PaintTabs: Y=%d', [vRect.Top]);
-
       vStr := StringOfChar(' ', vRect.Right - vRect.Left);
       FARAPI.Text(vRect.Left, vRect.Top, optBkColor, PTChar(vStr));
 
+      if vCurrentIndex = -1 then
+        for I := 0 to vTabs.Count - 1 do begin
+          vTab := vTabs[I];
+          if vTab.IsFixed and IsTabSelected(vTab.FFolder) then begin
+            vCurrentIndex := I;
+            Break;
+          end;
+        end;
+
       for I := 0 to vTabs.Count - 1 do begin
         vTab := vTabs[I];
-        vStr := vTab.GetTabCaption;
+        vStr := vTab.FmtCaption;
+        vWidth := vTab.FWidth - length(optTabDelimiter);
+
         X := vRect.Left + vTab.FDelta;
-
-        vStr1 := '';
-        vWidth := vTab.FWidth - 1;
-        if vTab.FHotPos > 0 then begin
-          Delete(vStr, vTab.FHotPos, 1);
-        end else
-        if optShowNumbers then
-          vStr1 := vTab.FHotkey;
-
-        if (vCurrentIndex = -1) and vTab.IsFixed and IsTabSelected(vTab.FFolder) then
-          vCurrentIndex := I;
-
         if vCurrentIndex = I then begin
-//        DrawTextChr(cSide2, X-1, vRect.Top, vColorSide1);
-          DrawTextChr(cSide1, X-1, vRect.Top, SwapFgBgColors(vColorSide1));
+          if optTabDelimiter <> '' then
+            DrawTextChr(cSide1, X-1, vRect.Top, SwapFgBgColors(vColorSide1));
 
           vHotColor := MakeColor(GetColorFG(optNumberColor), GetColorBG(optActiveTabColor));
-          if vStr1 <> '' then begin
-            FARAPI.Text(X, vRect.Top, vHotColor, PTChar(vStr1));
-            Dec(vWidth);
-            Inc(X);
-          end;
           DrawTextEx(vStr, X, vRect.Top, vWidth, vTab.FHotPos, 1, optActiveTabColor, vHotColor);
           Inc(X, vWidth);
 
-          DrawTextChr(cSide1, X, vRect.Top, vColorSide1);
+          if optTabDelimiter <> '' then begin
+            DrawTextChr(cSide1, X, vRect.Top, vColorSide1);
+            Inc(X);
+          end;
         end else
         begin
           vHotColor := MakeColor(GetColorFG(optNumberColor), GetColorBG(optPassiveTabColor));
-          if vStr1 <> '' then begin
-            FARAPI.Text(X, vRect.Top, vHotColor, PTChar(vStr1));
-            Dec(vWidth);
-            Inc(X);
-          end;
           DrawTextEx(vStr, X, vRect.Top, vWidth, vTab.FHotPos, 1, optPassiveTabColor, vHotColor);
+          Inc(X, vWidth);
+        end;
+
+        if (optTabDelimiter <> '') and (I < vTabs.Count - 1) {and (I <> vCurrentIndex - 1)} then begin
+          vStr := optTabDelimiter;
+          if I = vCurrentIndex then
+            Delete(vStr, 1, 1);
+          if I = vCurrentIndex - 1 then
+            Delete(vStr, length(vStr), 1);
+          if vStr <> '' then
+            DrawTextEx(vStr, X, vRect.Top, length(vStr), 0, 0, optDelimiterColor, UndefColor);
         end;
       end;
 
       if optShowButton then begin
-
 //      DrawTextChr(cSide2, vRect.Right - 3, vRect.Top, vColorSide2);
         DrawTextChr(cSide1, vRect.Right - 3, vRect.Top, SwapFgBgColors(vColorSide2));
         DrawTextChr('+', vRect.Right - 2, vRect.Top, optButtonColor);
         DrawTextChr(cSide1, vRect.Right - 1, vRect.Top, vColorSide2);
-
       end else
       begin
 //      vTmp[0] := cSide1;
 //      FARAPI.Text(vRect.Right - 1, vRect.Top, vColorSide2, @vTmp[0]);
       end
     end;
+
 
   begin
     if not CanPaintTabs(ACheckCursor) then
@@ -1956,7 +1827,6 @@ interface
         vTabs.FCurrent := vTabs.Count - 1;
       vTabs.StoreReg('');
       vTabs.FAllWidth := -1;
-      vTabs.UpdateHotkeys;
       PaintTabs;
     end else
       Beep;
@@ -1980,7 +1850,6 @@ interface
       vTabs.FCurrent := -1; {!!!-???}
       vTabs.StoreReg('');
       vTabs.FAllWidth := -1;
-      vTabs.UpdateHotkeys;
       PaintTabs;
     end else
       Beep;
@@ -2005,7 +1874,6 @@ interface
       vTab.Fix(not vTab.IsFixed);
       vTabs.StoreReg('');
       vTabs.FAllWidth := -1;
-      vTabs.UpdateHotkeys;
       PaintTabs;
     end else
       Beep;
@@ -2027,7 +1895,6 @@ interface
     if ListTabDlg(vTabs, vIndex) then
       DoSelectTab( Active, AKind, False, vIndex );
     vTabs.FAllWidth := -1;
-    vTabs.UpdateHotkeys;
     PaintTabs;
   end;
 
@@ -2084,7 +1951,6 @@ interface
       if EditTab(vTabs, AIndex) then begin
         vTabs.StoreReg('');
         vTabs.FAllWidth := -1;
-        vTabs.UpdateHotkeys;
         PaintTabs;
       end;
     end;
@@ -2123,6 +1989,132 @@ interface
     end;
   end;
 
+
+ {$ifdef bUseProcessConsoleInput}
+
+  function TTabsManager.TrackMouseStart(AButton, X, Y :Integer; ADouble :Boolean; AShifts :DWORD) :Boolean;
+  var
+    vHotSpot :THotSpot;
+    vKind :TTabKind;
+    vIndex :Integer;
+  begin
+    Result := False;
+
+    vHotSpot := HitTest(X, Y, vKind, vIndex);
+    if vHotSpot = hsNone then
+      Exit;
+//  TraceF('TrackMouseStart: %d, %d x %d', [AButton, X, Y]);
+
+    if not ADouble then begin
+      case AButton of
+        1: FTrackClick := mcLeft;
+        2: FTrackClick := mcRight;
+        3: FTrackClick := mcMiddle;
+      end;
+    end else begin
+      case AButton of
+        1: FTrackClick := mcDblLeft;
+        2: FTrackClick := mcDblRight;
+        3: FTrackClick := mcDblMiddle;
+      end;
+    end;
+
+    FTrackShifts := [];
+    if SHIFT_PRESSED and AShifts <> 0 then
+      Include(FTrackShifts, ksShift);
+    if (LEFT_CTRL_PRESSED + RIGHT_CTRL_PRESSED) and AShifts <> 0 then
+      Include(FTrackShifts, ksControl);
+    if (LEFT_ALT_PRESSED + RIGHT_ALT_PRESSED) and AShifts <> 0 then
+      Include(FTrackShifts, ksAlt);
+
+    if {not vRButton and} (vHotSpot = hsTab) then
+      SetPressed(vKind, vIndex);
+
+    FTrackPressed := True;
+    FTrackIndex := vIndex;
+    FTrackKind := vKind;
+    FTrackWhat := vHotSpot;
+    FTracked := True;
+    Result := True;
+  end;
+
+
+  function TTabsManager.TrackMouseContinue(X, Y :Integer) :Boolean;
+  var
+    vHotSpot :THotSpot;
+    vKind :TTabKind;
+    vIndex :Integer;
+  begin
+    Result := False;
+    if not FTracked then
+      Exit;
+//  TraceF('TrackMouseContinue: %d x %d', [X, Y]);
+
+    vHotSpot := HitTest(X, Y, vKind, vIndex);
+
+    FTrackPressed := (vHotSpot = FTrackWhat) and (vKind = FTrackKind) and (vIndex = FTrackIndex);
+    if FTrackPressed then begin
+      if {not vRButton and} (vHotSpot = hsTab) then
+        SetPressed(vKind, vIndex);
+    end else
+      SetPressed(tkCommon, -1);
+
+    Result := True;
+  end;
+
+
+  function TTabsManager.TrackMouseEnd(X, Y :Integer) :Boolean;
+  var
+    vAction :TClickAction;
+  begin
+    Result := False;
+    if not FTracked then
+      Exit;
+//  TraceF('TrackMouseEnd: %d x %d', [X, Y]);
+
+    FTracked := False;
+    if FTrackPressed then begin
+      try
+        vAction := FindActions(FTrackWhat, FTrackClick, FTrackShifts);
+
+        if vAction <> nil then
+          ClickAction(vAction.FAction, FTrackKind, FTrackIndex)
+        else begin
+          case FTrackWhat of
+            hsTab:
+              if FTrackClick in [mcLeft, mcDblLeft] then begin
+                if GetKeyState(VK_Shift) < 0 then
+                  ClickAction(taPSelect, FTrackKind, FTrackIndex)
+                else
+                  ClickAction(taSelect, FTrackKind, FTrackIndex)
+              end else
+              if FTrackClick = mcRight then
+                ClickAction(taEdit, FTrackKind, FTrackIndex)
+              else
+              if FTrackClick = mcMiddle then
+                ClickAction(taDelete, FTrackKind, FTrackIndex);
+            hsButtom:
+              if FTrackClick = mcLeft then begin
+                if GetKeyState(VK_Shift) < 0 then
+                  ClickAction(taPAdd, FTrackKind, -1)
+                else
+                  ClickAction(taAdd, FTrackKind, -1)
+              end else
+              if FTrackClick = mcRight then
+                ClickAction(taList, FTrackKind, -1);
+            hsPanel:
+              if FTrackClick = mcRight then
+                ClickAction(taMainMenu, FTrackKind, -1);
+          end;
+        end;
+      finally
+        SetPressed(tkCommon, -1);
+      end;
+    end;
+    Result := True;
+  end;
+
+ {$else}
 
   procedure TTabsManager.MouseClick;
   var
@@ -2229,6 +2221,8 @@ interface
       SetPressed(tkCommon, -1);
     end;
   end;
+
+ {$endif bUseProcessConsoleInput}
 
 
   procedure TTabsManager.RunCommand(const ACmd :TString);

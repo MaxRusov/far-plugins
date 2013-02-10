@@ -7,6 +7,8 @@
 
 library PanelTabs;  
 
+{$I Defines1.inc}
+
 uses
   MixErrors,
  {$ifdef bTrace}
@@ -32,8 +34,12 @@ exports
   OpenPluginW,
  {$endif Far3}
 
-  ConfigureW,
   ProcessSynchroEventW,
+ {$ifdef bUseProcessConsoleInput}
+  ProcessConsoleInputW,
+ {$endif bUseProcessConsoleInput}
+
+  ConfigureW,
   ExitFARW;
 
  {$ifdef bUnicode}

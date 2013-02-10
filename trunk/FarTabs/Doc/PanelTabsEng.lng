@@ -13,13 +13,20 @@
 "&Select tab"
 "&Options..."
 
-"Options"
+"Panel Tabs Options"
+"&General options..."
+"&Mouse actions..."
+"&Colors..."
+
+"General options"
 "Show &tabs"
 "Show &numbers"
 "Show &button"
 "&Separate Tabs"
-"&Mouse actions"
-"&Colors"
+"Store s&election"
+"Tab format"
+"Fixed tab format"
+"Tab delimiter"
 
 "Colors"
 "&1 Background"
@@ -27,6 +34,7 @@
 "&3 Active tab"
 "&4 Add button"
 "&5 Shortcut"
+"&6 Delimiter"
 "&Restore defaults"
 
 "Edit Tab"
