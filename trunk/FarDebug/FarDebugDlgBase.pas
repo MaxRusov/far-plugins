@@ -104,7 +104,7 @@ interface
     SendMsg(DM_SETITEMPOSITION, IdFrame, @vRect);
     SendMsg(DM_SHOWITEM, IdFrame, 1);
 
-    SRectGrow(vRect, -1, -1);
+    RectGrow(vRect, -1, -1);
 
     vRect1 := vRect;
     if vRect1.Bottom - vRect1.Top + 2 <= FGrid.RowCount then

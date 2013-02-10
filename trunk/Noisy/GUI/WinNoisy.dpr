@@ -4,6 +4,8 @@
 
 program Noisy;
 
+{$I Defines1.inc}
+
 uses
   Windows,
   MixTypes,

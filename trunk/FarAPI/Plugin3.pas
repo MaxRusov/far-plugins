@@ -57,7 +57,7 @@ const
   FARMANAGERVERSION_MAJOR = 3;
   FARMANAGERVERSION_MINOR = 0;
   FARMANAGERVERSION_REVISION = 0;
-  FARMANAGERVERSION_BUILD = 2903;
+  FARMANAGERVERSION_BUILD = 3000;
 
 type
 //TFarChar = AnsiChar;
@@ -1744,7 +1744,7 @@ struct FarMacroValue
     struct
     {
       void *Data;
-      size_t Length;
+      size_t Size;
     } Binary;
   } Value;
 };
@@ -1753,7 +1753,7 @@ type
   PFarBinaryValue = ^TFarBinaryValue;
   TFarBinaryValue = record
     Data :Pointer;
-    Length :SIZE_T;
+    Size :SIZE_T;
   end;
 
   PFarMacroValue = ^TFarMacroValue;
@@ -1783,6 +1783,8 @@ const
   MPRT_PLUGINMENU    = 6;
   MPRT_PLUGINCONFIG  = 7;
   MPRT_PLUGINCOMMAND = 8;
+  MPRT_COMMONCASE    = 9;
+
 
 (*
 struct MacroPluginReturn
@@ -1806,17 +1808,19 @@ struct FarMacroCall
   size_t StructSize;
   size_t Count;
   struct FarMacroValue *Values;
-  void (WINAPI *Callback)(void *CallbackData, struct FarMacroValue *Values);
+  void (WINAPI *Callback)(void *CallbackData, struct FarMacroValue *Values, size_t Count);
   void *CallbackData;
 };
 *)
 type
+  TFarMacroCallCallback = procedure(CallbackData :Pointer; Values :PFarMacroValueArray; Count :size_t); stdcall;
+
   PFarMacroCall = ^TFarMacroCall;
   TFarMacroCall = record
     StructSize :size_t;
     Count :size_t;
     Values :PFarMacroValueArray;
-    Callback :Pointer;
+    Callback :TFarMacroCallCallback;
     CallbackData :Pointer;
   end;
 
@@ -1987,7 +1991,7 @@ const
 {VIEWER_SETMODE_TYPES}
 
 const
-  VSMT_HEX       = 0;
+  VSMT_VIEWMODE  = 0;
   VSMT_WRAP      = 1;
   VSMT_WORDWRAP  = 2;
 
@@ -2095,7 +2099,7 @@ struct ViewerMode
 {
   uintptr_t CodePage;
   VIEWER_MODE_FLAGS Flags;
-  enum VIEWER_MODE_TYPE Type;
+  enum VIEWER_MODE_TYPE ViewMode;
 };
 *)
 type
@@ -2103,7 +2107,7 @@ type
   TViewerMode = record
     CodePage :TUIntPtr;
     Flags :TViewerModeFlags;
-    _Type :DWORD {VIEWER_MODE_TYPE};
+    ViewMode :DWORD {VIEWER_MODE_TYPE};
   end;
 
 (*
@@ -3864,11 +3868,28 @@ type
   end;
 
 (*
+typedef unsigned __int64 FAROPENSHORTCUTFLAGS;
+static const FAROPENSHORTCUTFLAGS
+	FOSF_ACTIVE = 0x0000000000000001ULL,
+	FOSF_NONE   = 0;
+*)
+
+{ FAROPENSHORTCUTFLAGS }
+
+type
+  TFarOpenShortcutFlags = int64;
+
+const
+  FOSF_ACTIVE = $0000000000000001;
+  FOSF_NONE   = 0;
+
+(*
 struct OpenShortcutInfo
 {
   size_t StructSize;
   const wchar_t *HostFile;
   const wchar_t *ShortcutData;
+  FAROPENSHORTCUTFLAGS Flags;
 };
 *)
 type
@@ -3877,6 +3898,7 @@ type
     StructSize :size_t;
     HostFile :PFarChar;
     ShortcutData :PFarChar;
+    Flags :TFarOpenShortcutFlags;
   end;
 
 (*
@@ -3896,8 +3918,6 @@ type
 { OPENFROM }
 
 const
-  OPEN_FROM_MASK       = $FF;
-
   OPEN_DISKMENU        = 0;
   OPEN_PLUGINSMENU     = 1;
   OPEN_FINDLIST        = 2;
@@ -3920,6 +3940,9 @@ const
   MCT_MACROSTEP     = 1;
   MCT_MACROFINAL    = 2;
   MCT_MACROPARSE    = 3;
+  MCT_LOADMACROS    = 4;
+  MCT_ENUMMACROS    = 5;
+  MCT_WRITEMACRO    = 6;
 
 (*
 struct OpenMacroPluginInfo
@@ -3930,7 +3953,15 @@ struct OpenMacroPluginInfo
   struct FarMacroCall *Data;
 };
 *)
-{!!!}
+type
+  POpenMacroPluginInfo = ^TOpenMacroPluginInfo;
+  TOpenMacroPluginInfo = record
+    StructSize :size_t;
+    CallType :DWORD;
+    Handle :THandle;
+    Data :PFarMacroCall;
+  end;
+
 
 { FAR_EVENTS }
 
@@ -3941,10 +3972,9 @@ const
   FE_CLOSE          = 3;
   FE_BREAK          = 4;
   FE_COMMAND        = 5;
-  
+
   FE_GOTFOCUS       = 6;
   FE_KILLFOCUS      = 7;
-
 
 (*
 struct OpenInfo

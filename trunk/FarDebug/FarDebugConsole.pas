@@ -236,7 +236,7 @@ interface
       SendMsg(DM_SETITEMPOSITION, IdIcon, @vRect1);
       SetText(IdIcon, cNormalIcon);
 
-      SRectGrow(vRect, -1, -1);
+      RectGrow(vRect, -1, -1);
     end;
 
     vRect1 := vRect;

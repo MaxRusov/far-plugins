@@ -7,12 +7,15 @@
 
 library UCharMap;
 
+{$I Defines1.inc}
+
 uses
   MixErrors,
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}
   MixFormat,
+  FarPlug,
   UCharMapMain;
 
 exports
@@ -24,12 +27,14 @@ exports
   SetStartupInfoW,
   GetPluginInfoW,
  {$ifdef Far3}
-  OpenW;
+  OpenW,
  {$else}
-  OpenPluginW;
+  OpenPluginW,
  {$endif Far3}
+  ConfigureW;
 
 {$R UCharMapW.res}
 
 begin
+  Plug := TCharMapPlug.Create;
 end.

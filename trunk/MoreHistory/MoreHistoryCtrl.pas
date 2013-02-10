@@ -670,3 +670,4 @@ initialization
   ColorDlgResBase := Byte(strColorDialog);
 end.
 
+

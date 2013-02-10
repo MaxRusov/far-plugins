@@ -1,17 +1,29 @@
 @Echo Off
 
-set Compiler=%1
+set CompilerType=%1
 shift
 set Plugin=%1
 shift
 set FileName=%1
 shift
 
-
-if /i "%Compiler%" == "fpc64" (
+if /i "%1" == "64" (
   set Platform=x64
+  set Platform1=x64
+  if /i "%CompilerType%"=="dcc" (
+    set Compiler=dcc64.exe
+  ) else (
+    set Compiler=ppcrossx64.exe
+  )
+  shift
 ) else (
-  set Platform=
+  set Platform=x32
+  set Platform1=
+  if /i "%CompilerType%"=="dcc" (
+    set Compiler=dcc32.exe
+  ) else (
+    set Compiler=fpc.exe
+  )
 )
 
 if /i "%1" == "Far3" (
@@ -21,39 +33,24 @@ if /i "%1" == "Far3" (
   set FarVer=2
 )
 
-set Bin=Bin%FarVer%%Platform%
+Set BinPath=..\..\Bin%FarVer%%Platform1%\FarHints\Plugins\%Plugin%
+set DcuPath=..\..\xUnits\%CompilerType%%Platform%\FarHints\%Plugin%
 
-if "%Platform%" == "x64" (
-  set Units=Units64
-) else (
-  set Units=Units
-)
-
-Echo Compile %Plugin%
+Echo Compile %Plugin% %1 %2 %3
 
 cd %FileName% || Exit
-
-Set BinPath=..\..\%Bin%\FarHints\Plugins\%Plugin%
-Set DcuPath=..\..\%Units%\FarHints\%Plugin%
 
 if not exist "%BinPath%" md %BinPath%
 if not exist "%DcuPath%" md %DcuPath%
 
-if /i "%Compiler%"=="dcc" (
+if /i "%CompilerType%"=="dcc" (
   if exist FarHints*.cfg del FarHints*.cfg
   if exist "%DcuPath%\*.dcu" del %DcuPath%\*.dcu
   brcc32 %FileName%.rc || exit
-  dcc32.exe -B -E%BinPath% %FileName%.dpr %1 %2 %3 || exit
-) 
-
-if /i "%Compiler%"=="fpc" (
+  %compiler% -B -N%DcuPath% -E%BinPath% %FileName%.dpr %1 %2 %3 || exit
+) else (
   windres -i %FileName%.rc -o %FileName%.RES || exit
-  fpc.exe -B -FE%BinPath% %FileName%.dpr %1 %2 %3 || exit
-)
-
-if /i "%Compiler%"=="fpc64" (
-  windres -i %FileName%.rc -o %FileName%.RES || exit
-  ppcrossx64.exe -B -FE%BinPath% %FileName%.dpr %1 %2 %3 || exit
+  %compiler% -B -FU%DcuPath% -FE%BinPath% %FileName%.dpr %1 %2 %3 || exit
 )
 
 if exist "Doc\*" copy Doc\* %BinPath%

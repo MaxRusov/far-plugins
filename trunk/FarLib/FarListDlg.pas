@@ -192,7 +192,7 @@ interface
     vRect.Right := vWidth - 3;
     vRect.Bottom := vHeight - 2;
     SendMsg(DM_SETITEMPOSITION, IdFrame, @vRect);
-    SRectGrow(vRect, -1, -1);
+    RectGrow(vRect, -1, -1);
     if vRect.Bottom - vRect.Top + 2 <= FGrid.RowCount then
       Inc(vRect.Right);
 

@@ -431,11 +431,11 @@ interface
   begin
     Result := INVALID_HANDLE_VALUE;
     if (AInt >= 1) and (AInt <= Byte(High(TPluginCmd))) then begin
-     {$ifdef Far3}
-      RunCommand(TPluginCmd(AInt - 1));
-     {$else}
+//   {$ifdef Far3}
+//    RunCommand(TPluginCmd(AInt - 1));
+//   {$else}
       FarAdvControl(ACTL_SYNCHRO, Pointer(AInt));
-     {$endif Far3}
+//   {$endif Far3}
       Exit;
     end;
     OpenMenu;

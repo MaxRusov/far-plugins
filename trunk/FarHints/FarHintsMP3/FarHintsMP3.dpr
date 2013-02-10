@@ -8,6 +8,8 @@
 
 library FarHintsMP3;
 
+{$I Defines1.inc}
+
 uses
  {$ifdef bTrace}
   MixCheck,

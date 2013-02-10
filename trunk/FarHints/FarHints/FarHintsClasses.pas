@@ -86,7 +86,7 @@ interface
     public
       constructor CreateEx(APlugin, APrimary :Boolean; const ATitle, AFolder :TString; AItem :PPluginPanelItem);
       constructor CreateFolder(const AFolder :TString);
-      constructor CreateInfo(const AMessage :TString);
+      constructor CreateInfo(const AMessage :TString; ADummy :Integer);
       destructor Destroy; override;
 
     public
@@ -260,8 +260,8 @@ interface
   begin
     Result := 0;
     if (AFileTime.dwLowDateTime <> 0) or (AFileTime.dwHighDateTime <> 0) then begin
-      FileTimeToLocalFileTime(AFileTime, vLocalFileTime);
-      FileTimeToDosDateTime(vLocalFileTime, LongRec(vDosTime).Hi, LongRec(vDosTime).Lo);
+      FileTimeToLocalFileTime(@AFileTime, vLocalFileTime);
+      FileTimeToDosDateTime(@vLocalFileTime, LongRec(vDosTime).Hi, LongRec(vDosTime).Lo);
       if vDosTime <> 0 then
         try
           Result := FileDateToDateTime(vDosTime);
@@ -460,7 +460,6 @@ interface
 
   constructor TFarItem.CreateFolder(const AFolder :TString);
   var
-    vFolder :TString;
     vHandle :THandle;
     vRec :TWin32FindData;
   begin
@@ -469,11 +468,10 @@ interface
     FPrimaryPanel := True;
 
     FAttr := faDirectory;
-    vFolder := StrOemToAnsi(AFolder);
 
-    FName := ExtractFileName(vFolder);
+    FName := ExtractFileName(AFolder);
     if FName <> '' then begin
-      FFolder := RemoveBackSlash(ExtractFilePath(vFolder));
+      FFolder := RemoveBackSlash(ExtractFilePath(AFolder));
       vHandle := FindFirstFile(PTChar(FFolder), vRec);
       try
         if vHandle <> INVALID_HANDLE_VALUE then begin
@@ -485,13 +483,13 @@ interface
       end;
     end else
       { Корневой диск }
-      FName := vFolder;
+      FName := AFolder;
 
     FAttrs := TExList.Create;
   end;
 
 
-  constructor TFarItem.CreateInfo(const AMessage :TString);
+  constructor TFarItem.CreateInfo(const AMessage :TString; ADummy :Integer);
   begin
     inherited Create;
     FPlugin := True;  // Чтобы не пыталось обновить иконку...
@@ -841,7 +839,7 @@ interface
   var
     vItem :IFarItem;
   begin
-    vItem := TFarItem.CreateInfo(AMessage);
+    vItem := TFarItem.CreateInfo(AMessage, 0);
 
     if not HintVisible then
       ReadSettings;

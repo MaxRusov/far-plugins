@@ -22,6 +22,7 @@ interface
     FarCtrl,
     FarDlg,
     FarGrid,
+    FarMenu,
 
    {$ifdef bUseHint}
     UCharMapHints,
@@ -85,16 +86,17 @@ interface
       procedure ReinitAndSaveCurrent;
 
       function RowToCode(ARow :Integer) :Integer;
-      function CodeToRow(ACode :Integer) :Integer;
-
       procedure GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
       procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor);
       function GridPaintRow(ASender :TFarGrid; X, Y, AWidth :Integer; ARow :Integer; AColor :TFarColor) :Boolean;
       procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor);
       procedure GridPosChange(ASender :TFarGrid);
-      function GetCurChar :TChar;
+      function GetCurChar(AUseGroup :Boolean = False) :TChar;
+      function GetGroupAt(ARow :Integer) :TUnicodeGroup;
+      function GetCurGroup :TUnicodeGroup;
 
+      procedure CommandMenu(X :Integer = -1; Y :Integer = -1);
       procedure AppendCurrent;
       procedure CopyToClipboard;
       procedure GotoChar(AChar :TChar);
@@ -106,6 +108,8 @@ interface
 
       procedure CollapseGroup;
       procedure ExpandGroup;
+      procedure ExpandAllGroup(AExpand :Boolean);
+      procedure ExpandCollapseGroup(ARow :Integer; AGroup :TUnicodeGroup; AExpand :Boolean);
 
     public
       property Grid :TFarGrid read FGrid;
@@ -282,189 +286,6 @@ interface
     end;
   end;
 
-(*
-  procedure TCharMapDlg.ReinitFilter;
-  var
-    I :Integer;
-    vPtr :Pointer;
-  begin
-    if not optShowHidden and (FontRange <> nil) then begin
-      if FFilter = nil then
-        FFilter := TIntList.Create;
-      FFilter.Clear;
-
-      vPtr := FontRange.BitsPtr;
-      for I := 0 to $FFF do begin
-        if Word(vPtr^) <> 0 then
-          FFilter.Add(I);
-        Inc(Pointer1(vPtr), 2);
-      end;
-
-    end else
-      FreeObj(FFilter);
-
-    FGrid.ResetSize;
-    if FFilter <> nil then
-      FGrid.RowCount := FFilter.Count
-    else
-      FGrid.RowCount := $1000;
-  end;
-*)
-
-(*
-  procedure TCharMapDlg.ReinitFilter;
-  var
-    I, vGroup, vNext :Integer;
-    vPtr :Pointer;
-  begin
-    vPtr := nil;
-    if not optShowHidden and (FontRange <> nil) then
-      vPtr := FontRange.BitsPtr;
-
-    if optGroupBy and (GroupNames <> nil) then begin
-      if FFilter = nil then
-        FFilter := TIntList.Create;
-      FFilter.Clear;
-
-      vGroup := 0;
-      vNext := TUnicodeGroup(GroupNames[vGroup]).Code1;
-
-      for I := 0 to $FFF do begin
-
-        if I * 16 >= vNext then begin
-          Inc(vGroup);
-          if vGroup < GroupNames.Count then
-            vNext := TUnicodeGroup(GroupNames[vGroup]).Code1
-          else
-            vNext := $10000;
-
-          if (FFilter.Count > 0) and (FFilter[FFilter.Count - 1] < 0) then
-            FFilter.Delete(FFilter.Count - 1);
-
-          FFilter.Add(-vGroup);
-        end;
-
-        if (vPtr = nil) or (Word(vPtr^) <> 0) then
-          FFilter.Add(I);
-        if vPtr <> nil then
-          Inc(Pointer1(vPtr), 2);
-      end;
-
-      if (FFilter.Count > 0) and (FFilter[FFilter.Count - 1] < 0) then
-        FFilter.Delete(FFilter.Count - 1);
-
-    end else
-    begin
-      if vPtr <> nil then begin
-        if FFilter = nil then
-          FFilter := TIntList.Create;
-        FFilter.Clear;
-
-        for I := 0 to $FFF do begin
-          if Word(vPtr^) <> 0 then
-            FFilter.Add(I);
-          Inc(Pointer1(vPtr), 2);
-        end;
-
-      end else
-        FreeObj(FFilter);
-    end;
-
-    FGrid.Columns.FreeAll;
-    if optShowNumbers then
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 4, taRightJustify, [], 0) );
-    for I := 0 to 15 do
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 2, taLeftJustify, [{coColMargin,} coNoVertLine, coOwnerDraw], 0) );
-
-    FGrid.FixedCol := IntIf(optShowNumbers, 1, 0);
-
-    FGrid.ResetSize;
-    if FFilter <> nil then
-      FGrid.RowCount := FFilter.Count
-    else
-      FGrid.RowCount := $1000;
-  end;
-*)
-
-(*
-  procedure TCharMapDlg.ReinitFilter;
-  var
-    I, vGIndex, vNext :Integer;
-    vGroup :TUnicodeGroup;
-    vPtr :Pointer;
-  begin
-    vPtr := nil;
-    if not optShowHidden and (FontRange <> nil) then
-      vPtr := FontRange.BitsPtr;
-
-    if optGroupBy and (GroupNames <> nil) then begin
-      if FFilter = nil then
-        FFilter := TIntList.Create;
-      FFilter.Clear;
-
-      vGIndex := 0;
-      vGroup := nil;
-      vNext := TUnicodeGroup(GroupNames[vGIndex]).Code1;
-
-      for I := 0 to $FFF do begin
-
-        if I * 16 >= vNext then begin
-          vGroup := TUnicodeGroup(GroupNames[vGIndex]);
-
-          Inc(vGIndex);
-          if vGIndex < GroupNames.Count then
-            vNext := TUnicodeGroup(GroupNames[vGIndex]).Code1
-          else
-            vNext := $10000;
-
-          if (FFilter.Count > 0) and (FFilter[FFilter.Count - 1] < 0) then
-            FFilter.Delete(FFilter.Count - 1);
-
-          FFilter.Add(-vGIndex);
-        end;
-
-        if (vGroup <> nil) and not vGroup.Closed then
-          if (vPtr = nil) or (Word(vPtr^) <> 0) then
-            FFilter.Add(I);
-        if vPtr <> nil then
-          Inc(Pointer1(vPtr), 2);
-      end;
-
-      if (FFilter.Count > 0) and (FFilter[FFilter.Count - 1] < 0) then
-        FFilter.Delete(FFilter.Count - 1);
-
-    end else
-    begin
-      if vPtr <> nil then begin
-        if FFilter = nil then
-          FFilter := TIntList.Create;
-        FFilter.Clear;
-
-        for I := 0 to $FFF do begin
-          if Word(vPtr^) <> 0 then
-            FFilter.Add(I);
-          Inc(Pointer1(vPtr), 2);
-        end;
-
-      end else
-        FreeObj(FFilter);
-    end;
-
-    FGrid.Columns.FreeAll;
-    if optShowNumbers then
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 4, taRightJustify, [], 0) );
-    for I := 0 to 15 do
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', 2, taLeftJustify, [{coColMargin,} coNoVertLine, coOwnerDraw], 0) );
-
-    FGrid.FixedCol := IntIf(optShowNumbers, 1, 0);
-
-    FGrid.ResetSize;
-    if FFilter <> nil then
-      FGrid.RowCount := FFilter.Count
-    else
-      FGrid.RowCount := $1000;
-  end;
-*)
 
   procedure TCharMapDlg.ReinitFilter;
   var
@@ -543,35 +364,10 @@ interface
   var
     vChar :TChar;
   begin
-    vChar := GetCurChar;
+    vChar := GetCurChar(True);
     ReinitFilter;
     ResizeDialog(False);
     GotoChar(vChar);
-  end;
-
-
-  function TCharMapDlg.RowToCode(ARow :Integer) :Integer;
-  begin
-    if FFilter = nil then
-      Result := ARow * 16
-    else begin
-      Result := -1;
-      if ARow < FFilter.Count then
-        Result := FFilter[ARow] * 16;
-    end;
-  end;
-
-
-  function TCharMapDlg.CodeToRow(ACode :Integer) :Integer;
-  begin
-    if FFilter = nil then
-      Result := ACode div 16
-    else begin
-      ACode := ACode div 16;
-      Result := 0;
-      while (Result < FFilter.Count) and (FFilter[Result] < ACode) do
-        Inc(Result);
-    end;
   end;
 
 
@@ -583,12 +379,21 @@ interface
 
 
   procedure TCharMapDlg.GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
+  var
+    vGroup :TUnicodeGroup;
   begin
-    if AButton = 2 then
-      AppendCurrent
-    else
-    if ADouble then
-      ReturnChar;
+    if AButton = 2 then begin
+//    with GetConsoleMousePos do
+//      CommandMenu(X, Y);
+      AppendCurrent;
+    end else
+    if ADouble then begin
+      vGroup := GetGroupAt(ARow);
+      if vGroup <> nil then
+        ExpandCollapseGroup(ARow, vGroup, {Expand:}vGroup.Closed)
+      else
+        ReturnChar;
+    end;
   end;
 
 
@@ -610,19 +415,21 @@ interface
 
   function TCharMapDlg.GridPaintRow(ASender :TFarGrid; X, Y, AWidth :Integer; ARow :Integer; AColor :TFarColor) :Boolean;
   var
-    vCode :Integer;
-    vGroupName :TString;
+    vGroup :TUnicodeGroup;
   begin
-    vCode := RowToCode(ARow);
-    if vCode < 0 then begin
-
-      vGroupName := TUnicodeGroup(GroupNames[(-vCode div 16) - 1]).Name;
+    vGroup := GetGroupAt(ARow);
+    if vGroup <> nil then begin
 
       Inc(X, 1);
       if optShowNumbers then
         Inc(X, 5);
 
-      FGrid.DrawChr(X, Y, PTChar(vGroupName), length(vGroupName), ChangeFG(AColor, optDelimColor));
+      if ARow = FGrid.CurRow then
+        AColor := FGrid.SelColor
+      else
+        AColor := ChangeFG(AColor, optDelimColor);
+
+      FGrid.DrawChr(X, Y, PTChar(vGroup.Name), length(vGroup.Name), AColor);
 
       Result := True;
     end else
@@ -681,6 +488,44 @@ interface
   end;
 
 
+
+  function TCharMapDlg.GetGroupAt(ARow :Integer) :TUnicodeGroup;
+  var
+    vIdx :Integer;
+  begin
+    Result := nil;
+    if (FFilter <> nil) and (ARow < FFilter.Count) then begin
+      vIdx := FFilter[ARow];
+      if vIdx < 0 then
+        Result := GroupNames[-vIdx - 1]
+    end;
+  end;
+
+  function TCharMapDlg.GetCurGroup :TUnicodeGroup;
+  begin
+    Result := GetGroupAt(FGrid.CurRow);
+    if Result = nil then
+      Result := GroupByCode( RowToCode(FGrid.CurRow) )
+  end;
+
+
+  function TCharMapDlg.RowToCode(ARow :Integer) :Integer;
+  var
+    vCode :Integer;
+  begin
+    if FFilter = nil then
+      Result := ARow * 16
+    else begin
+      Result := -1;
+      if ARow < FFilter.Count then begin
+        vCode := FFilter[ARow];
+        if vCode >= 0 then
+          Result := vCode * 16;
+      end;
+    end;
+  end;
+
+
   function TCharMapDlg.GetCharAt(ACol, ARow :Integer) :TChar;
   var
     vCode :Integer;
@@ -692,23 +537,55 @@ interface
   end;
 
 
-  function TCharMapDlg.GetCurChar :TChar;
+  function TCharMapDlg.GetCurChar(AUseGroup :Boolean = False) :TChar;
+  var
+    vGroup :TUnicodeGroup;
   begin
-    Result := GetCharAt(FGrid.CurCol, FGrid.CurRow);
+    vGroup := GetGroupAt(FGrid.CurRow);
+    if vGroup = nil then
+      Result := GetCharAt(FGrid.CurCol, FGrid.CurRow)
+    else
+    if AUseGroup then
+      Result := TChar(vGroup.Code1)
+    else
+      Result := #0;
   end;
 
 
   procedure TCharMapDlg.GotoChar(AChar :TChar);
   var
-    vRow, vCol, vCod, vCod0 :Integer;
+    I, vIdx, vCod, vCod0, vCol, vRow :Integer;
+    vGroup :TUnicodeGroup;
   begin
     vCod := Word(AChar);
-    vRow := CodeToRow(vCod);
-    vCol := 0;
-    vCod0 := RowToCode(vRow);
-    if (vCod >= vCod0) and (vCod <= vCod0 + 15) then
-      vCol := (vCod mod 16) + FGrid.FixedCol;
-    FGrid.GotoLocation(vCol, vRow, lmSafe);
+    vRow := -1; vCol := 0;
+    if FFilter = nil then begin
+      vRow := vCod div 16;
+      vCol := vCod mod 16;
+    end else
+    begin
+      for I := 0 to FFilter.Count - 1 do begin
+        vIdx := FFilter[I];
+        if vIdx < 0 then begin
+          vGroup := GroupNames[-vIdx - 1];
+          if vGroup.Closed and (vCod >= vGroup.Code1) and (vCod < vGroup.Code2) then begin
+            vRow := I;
+            Break;
+          end;
+        end else
+        begin
+          vCod0 := vIdx * 16;
+          if (vCod >= vCod0) and (vCod < vCod0 + 16) then begin
+            vRow := I;
+            if vCod >= vCod0 then
+              vCol := vCod mod 16;
+            Break;
+          end;
+        end;
+      end;
+    end;
+    if vRow <> -1 then
+      FGrid.GotoLocation(vCol + FGrid.FixedCol, vRow, lmSafe);
   end;
 
 
@@ -720,7 +597,6 @@ interface
     if vCh <> #0 then
       SetText(IdEdit, GetText(IdEdit) + vCh);
   end;
-
 
 
   procedure TCharMapDlg.CopyToClipboard;
@@ -756,7 +632,7 @@ interface
     vChr :TChar;
   begin
     if GroupNames <> nil then begin
-      vChr := GetCurChar;
+      vChr := GetCurChar(True);
       if OpenGroupsDlg(vChr) then
         GotoChar(vChr);
     end else
@@ -769,7 +645,7 @@ interface
     vChr :TChar;
   begin
     if CharNames <> nil then begin
-      vChr := GetCurChar;
+      vChr := GetCurChar(True);
       if OpenCharsDlg(vChr) then
         GotoChar(vChr);
     end else
@@ -787,50 +663,140 @@ interface
 
 
   procedure TCharMapDlg.ReturnChar;
+  var
+    vChr :TChar;
   begin
     FRes := GetText(IdEdit);
-    if FRes = '' then
-      FRes := GetCurChar;
+    if FRes = '' then begin
+      vChr := GetCurChar;
+      if vChr <> #0 then
+        FRes := GetCurChar;
+    end;
     SendMsg(DM_CLOSE, -1, 0);
   end;
 
 
   procedure TCharMapDlg.CollapseGroup;
+  var
+    vGroup :TUnicodeGroup;
   begin
-    if optGroupBy and (GroupNames <> nil) then begin
-
+    vGroup := GetCurGroup;
+    if optGroupBy and (vGroup <> nil) then begin
+      if not vGroup.Closed then
+        ExpandCollapseGroup(-1, vGroup, False)
     end else
       Beep;
   end;
 
 
   procedure TCharMapDlg.ExpandGroup;
+  var
+    vGroup :TUnicodeGroup;
   begin
-    if optGroupBy and (GroupNames <> nil) then begin
-
+    vGroup := GetCurGroup;
+    if optGroupBy and (vGroup <> nil) then begin
+      if vGroup.Closed then
+        ExpandCollapseGroup(FGrid.CurRow, vGroup, True)
     end else
       Beep;
+  end;
+
+
+  procedure TCharMapDlg.ExpandCollapseGroup(ARow :Integer; AGroup :TUnicodeGroup; AExpand :Boolean);
+  begin
+    AGroup.Closed := not AExpand;
+    if ARow = -1 then
+      ReinitAndSaveCurrent
+    else begin
+      ReinitFilter;
+      ResizeDialog(False);
+      FGrid.GotoLocation(FGrid.FixedCol, ARow, lmScroll);
+      if AExpand then
+        FGrid.EnsureOnScreen(FGrid.CurCol, ARow, ARow + (AGroup.Code2 - AGroup.Code1) div 16 + 1, lmScroll);
+    end;
+  end;
+
+
+  procedure TCharMapDlg.ExpandAllGroup(AExpand :Boolean);
+  var
+    I :Integer;
+  begin
+    if optGroupBy and (GroupNames <> nil) then begin
+      for I := 0 to GroupNames.Count - 1 do
+        TUnicodeGroup(GroupNames[I]).Closed := not AExpand;
+      ReinitAndSaveCurrent;
+    end else
+      Beep;
+  end;
+
+
+  procedure TCharMapDlg.CommandMenu(X :Integer = -1; Y :Integer = -1);
+  var
+    vMenu :TFarMenu;
+  begin
+    {!!!Localize}
+    vMenu := TFarMenu.CreateEx(
+      'Commands', //GetMsg(strCommandsTitle),
+    [
+      'Select &Font    Ctrl-F',
+      'Select &Group   Ctrl-R',
+      'Select &Char    Ctrl-S',
+      '',
+      '&Options        F9'
+    ]);
+    try
+      vMenu.X := X;
+      vMenu.Y := Y;
+
+      if not vMenu.Run then
+        Exit;
+
+      case vMenu.ResIdx of
+        0: SelectFont;
+        1: SelectGroup;
+        2: SelectChar;
+
+        4: ConfigMenu;
+      end;
+
+    finally
+      FreeObj(vMenu);
+    end;
   end;
 
 
   function TCharMapDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
 
     procedure LocGotoNext;
+    var
+      vRow :Integer;
     begin
       if FGrid.CurCol < FGrid.Columns.Count - 1 then
         FGrid.GotoLocation(FGrid.CurCol + 1, FGrid.CurRow, lmScroll)
       else
-      if FGrid.CurRow < FGrid.RowCount - 1 then
-        FGrid.GotoLocation(FGrid.FixedCol, FGrid.CurRow + 1, lmScroll);
+      if FGrid.CurRow < FGrid.RowCount - 1 then begin
+        vRow := FGrid.CurRow + 1;
+        while (vRow < FGrid.RowCount) and (GetGroupAt(vRow) <> nil) do
+          Inc(vRow);
+        if vRow < FGrid.RowCount then
+          FGrid.GotoLocation(FGrid.FixedCol, vRow, lmScroll);
+      end;
     end;
 
     procedure LocGotoPrev;
+    var
+      vRow :Integer;
     begin
       if FGrid.CurCol > FGrid.FixedCol then
         FGrid.GotoLocation(FGrid.CurCol - 1, FGrid.CurRow, lmScroll)
       else
-      if FGrid.CurRow > 0 then
-        FGrid.GotoLocation(FGrid.Columns.Count - 1, FGrid.CurRow - 1, lmScroll);
+      if FGrid.CurRow > 0 then begin
+        vRow := FGrid.CurRow - 1;
+        while (vRow > 0) and (GetGroupAt(vRow) <> nil) do
+          Dec(vRow);
+        if vRow > 0 then
+          FGrid.GotoLocation(FGrid.Columns.Count - 1, vRow, lmScroll);
+      end;
     end;
 
     procedure LocBackLast;
@@ -885,10 +851,11 @@ interface
             FGrid.GotoLocation(MaxInt, FGrid.CurRow, lmScroll);
 
           KEY_INS:
-            begin
+            if GetGroupAt(FGrid.CurRow) = nil then begin
               AppendCurrent;
               LocGotoNext;
-            end;
+            end else
+              Beep;
           KEY_BS:
             LocBackLast;
           KEY_DEL:
@@ -898,6 +865,11 @@ interface
             LocGotoFromClipboard;
           KEY_CTRLINS, KEY_CTRLC:
             CopyToClipboard;
+
+          KEY_F2:
+            CommandMenu;
+          KEY_F9:
+            ConfigMenu;
 
           KEY_CTRLF:
             SelectFont;
@@ -912,6 +884,10 @@ interface
             ExpandGroup;
           KEY_SUBTRACT:
             CollapseGroup;
+          KEY_CTRLADD:
+            ExpandAllGroup(True);
+          KEY_CTRLSUBTRACT:
+            ExpandAllGroup(False);
 
           KEY_CTRLH:
             LocToggleOption(optSHowHidden);
@@ -960,8 +936,7 @@ interface
     case Msg of
       DN_RESIZECONSOLE:
         begin
-          ResizeDialog(False);
-          FGrid.GotoLocation(FGrid.CurCol, FGrid.CurRow, lmScroll);
+          ReinitAndSaveCurrent;
         end;
     else
       Result := inherited DialogHandler(Msg, Param1, Param2);
@@ -973,28 +948,11 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  function MaskStr(const AStr :TString) :TString;
-  var
-    I :Integer;
-    C :TChar;
-  begin
-    Result := '';
-    for I := 1 to length(AStr) do begin
-      C := AStr[I];
-      if (Ord(C) < $20) or (C = '"') or (C = '\') then
-//      Result := Result + '\' + Int2Str(Ord(c))
-        Result := Result + '\x' + Format('%.2x', [Ord(c)])
-      else
-        Result := Result + C;
-    end;
-  end;
-
-
   procedure InsertText(const AStr :TString);
   var
     vStr :TString;
   begin
-    vStr := 'print("' + MaskStr(AStr) + '")';
+    vStr := 'print("' + FarMaskStr(AStr) + '")';
     FarPostMacro(vStr);
   end;
 

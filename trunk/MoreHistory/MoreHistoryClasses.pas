@@ -332,7 +332,83 @@ interface
 *)
 
 
+(*
+  function FarPanelGetCurrentDirectory(AHandle :THandle = PANEL_ACTIVE) :TFarStr;
+ {$ifdef Far3}
+  var
+    vSize :Integer;
+    vInfo :PFarPanelDirectory;
+  begin
+    Result := '';
+    vSize := FARAPI.Control(AHandle, FCTL_GETPANELDIRECTORY, 0, nil);
+    if vSize > 0 then begin
+      vInfo := MemAllocZero(vSize);
+      try
+        vInfo.StructSize := SizeOf(TFarPanelDirectory);
+        FARAPI.Control(AHandle, FCTL_GETPANELDIRECTORY, vSize, vInfo);
+        Result := vInfo.Name;
+      finally
+        FreeMem(vInfo);
+      end;
+    end;
+ {$else}
+  begin
+    Result := FarPanelString(AHandle, FCTL_GETPANELDIR);
+ {$endif Far3}
+  end;
+*)
+
+
+(*
   function GetPluginPath(AHandle :THandle) :TString;
+ {$ifdef Far3}
+
+    function ValidHandle(AHandle :THandle) :Boolean;
+    begin
+      Result := (AHandle <> 0) and (AHandle <> INVALID_HANDLE_VALUE);
+    end;
+
+    function GetPluginInfo(const ID :TGUID) :TString;
+    var
+      vHandle :THandle;
+      vPlugInfo :PFarGetPluginInformation;
+    begin
+      Result := '';
+      vHandle := THandle(FarPluginControl(PCTL_FINDPLUGIN, PFM_GUID, @ID));
+      if ValidHandle(vHandle) then begin
+        vPlugInfo := nil;
+        try
+          if FarGetPluginInfo(vHandle, vPlugInfo) then begin
+            Result := vPlugInfo.GInfo.Title;
+          end;
+        finally
+          MemFree(vPlugInfo);
+        end;
+      end;
+    end;
+
+  var
+    vSize :Integer;
+    vInfo :PFarPanelDirectory;
+    vName :TString;
+  begin
+    Result := '';
+    vSize := FARAPI.Control(AHandle, FCTL_GETPANELDIRECTORY, 0, nil);
+    if vSize > 0 then begin
+      vInfo := MemAllocZero(vSize);
+      try
+        vInfo.StructSize := SizeOf(TFarPanelDirectory);
+        FARAPI.Control(AHandle, FCTL_GETPANELDIRECTORY, vSize, vInfo);
+
+        vName := GetPluginInfo(vInfo.PluginId);
+
+        Result := '';
+
+      finally
+        FreeMem(vInfo);
+      end;
+    end;
+ {$else}
   var
     vFrmt, vPath, vHost :TString;
   begin
@@ -367,6 +443,131 @@ interface
     then
       { "Правильные" плагины }
       Result := vFrmt + ':' + vPath;
+ {$endif Far3}
+  end;
+*)
+
+(*
+ {$ifdef Far3}
+  function Far3GetPluginPath(AHandle :THandle) :TString;
+
+    function ValidHandle(AHandle :THandle) :Boolean;
+    begin
+      Result := (AHandle <> 0) and (AHandle <> INVALID_HANDLE_VALUE);
+    end;
+
+    function GetPluginInfo(const ID :TGUID) :TString;
+    var
+      vHandle :THandle;
+      vPlugInfo :PFarGetPluginInformation;
+    begin
+      Result := '';
+      vHandle := THandle(FarPluginControl(PCTL_FINDPLUGIN, PFM_GUID, @ID));
+      if ValidHandle(vHandle) then begin
+        vPlugInfo := nil;
+        try
+          if FarGetPluginInfo(vHandle, vPlugInfo) then
+            Result := vPlugInfo.GInfo.Title;
+        finally
+          MemFree(vPlugInfo);
+        end;
+      end;
+    end;
+
+  var
+    vSize :Integer;
+    vInfo :PFarPanelDirectory;
+    vName :TString;
+  begin
+    Result := '';
+    vSize := FARAPI.Control(AHandle, FCTL_GETPANELDIRECTORY, 0, nil);
+    if vSize > 0 then begin
+      vInfo := MemAllocZero(vSize);
+      try
+        vInfo.StructSize := SizeOf(TFarPanelDirectory);
+        FARAPI.Control(AHandle, FCTL_GETPANELDIRECTORY, vSize, vInfo);
+
+        vName := GetPluginInfo(vInfo.PluginId);
+//      TraceF('PlugPath: PlugName=%s, Name=%s, Param=%s, File=%s', [vName, vInfo.Name, vInfo.Param, vInfo.fFile]);
+
+        if StrEqual(vName, 'NetBox') then
+          Result := vName + ':' + StrDeleteChars(vInfo.Param, [#1]);
+( *
+       else
+        if StrEqual(vName, 'ArcLite') then
+          Result := 'Arc:' + vInfo.fFile {+ vInfo.Name}
+        else
+        if StrEqual(vName, 'Observer') then
+          Result := 'Arc:' + vInfo.fFile {+ vInfo.Name}
+* )
+
+( *
+        Result := vName + ':';
+        if (vInfo.fFile <> nil) and (vInfo.fFile^ <> #0) then
+          Result := Result + vInfo.fFile + ':';
+
+        if (vInfo.Param <> nil) and (vInfo.Param^ <> #0) then begin
+          vStr := vInfo.Param;
+          if vInfo.Name <> nil then begin
+            vLen := (vInfo.Name - vInfo.Param) div SizeOf(TChar);
+            if vLen > length(vStr) then
+              vStr := copy(vStr, 1, vLen);
+          end;
+          Result := Result + vStr + '/';
+        end;
+
+        if (vInfo.Name <> nil) and (vInfo.Name^ <> #0) then
+          Result := Result + vInfo.Name;
+* )
+
+      finally
+        FreeMem(vInfo);
+      end;
+    end;
+  end;
+ {$endif Far3}
+*)
+
+
+  function GetPluginPath(AHandle :THandle; AFar3HistoryEnable :Boolean) :TString;
+  var
+    vFrmt, vPrefix, vPath, vHost :TString;
+  begin
+    Result := '';
+
+    vFrmt := FarPanelString(AHandle, FCTL_GETPANELFORMAT);
+    vPrefix := FarPanelString(AHandle, FCTL_GETPANELPREFIX);
+    vHost := FarPanelString(AHandle, FCTL_GETPANELHOSTFILE);
+    vPath := FarPanelGetCurrentDirectory(AHandle);
+   {$ifdef bTrace}
+    TraceF('Format=%s, Prefix=%s, Path=%s, Host=%s', [vFrmt, vPrefix, vPath, vHost]);
+   {$endif bTrace}
+
+    if StrEqual(vPrefix, 'FTP') then begin
+      if UpCompareSubStr('//Hosts', vFrmt) = 0 then
+        Exit;
+      Result := 'FTP:' + vFrmt;
+      if Result[length(Result)] <> '/' then
+        Result := Result + '/';
+    end else
+    if UpCompareSubStr('NetBox', vPrefix) = 0 then begin
+      if StrEqual('NetBox', vFrmt) then
+        Exit;
+      Result := 'Netbox:' + vFrmt + vPath;
+    end else
+    if StrEqual(vFrmt, 'Network') then begin
+      if (vPath = '') or (vPath[1] <> '\') then
+        Exit;
+      Result := 'NET:' + vPath;
+    end else
+    if (vPrefix <> '') and ((vHost <> '') or (vPath <> '')) then begin
+      {Reg: Arc: Observe: SQLite:}
+      Result := vPrefix;
+      if vHost <> '' then
+        Result := Result + ':' + vHost;
+      if vPath <> '' then
+        Result := Result + ':' + vPath;
+    end;
   end;
 
 
@@ -383,11 +584,11 @@ interface
     FarGetPanelInfo(PANEL_ACTIVE, vPanInfo);
     if (vPanInfo.PanelType <> PTYPE_FILEPANEL) or not IsVisiblePanel(vPanInfo) then
       Exit;
-      
+
     if not IsPluginPanel(vPanInfo) {or (PFLAGS_REALNAMES and vPanInfo.Flags <> 0)} then
       Result := FarPanelGetCurrentDirectory(PANEL_ACTIVE)
     else
-      Result := GetPluginPath(PANEL_ACTIVE);
+      Result := GetPluginPath(PANEL_ACTIVE, {$ifdef Far3} PFLAGS_SHORTCUT and vPanInfo.Flags <> 0 {$else} False {$endif Far3} );
   end;
 
 
@@ -1303,7 +1504,7 @@ interface
     I, vSize, vAddHeaderSize :Integer;
     vFolder, vFileName, vBackupFileName, vTmpFileName :TString;
     vMemory :Pointer;
-    vPtr :PAnsiChar;
+    vPtr :Pointer1;
     vFile :Integer;
   begin
     Result := False;
@@ -1349,7 +1550,7 @@ interface
         for I := 0 to FHistory.Count - 1 do 
           Items[I].WriteTo(vPtr);
 
-        Assert(vPtr = PAnsiChar(vMemory) + vSize);
+        Assert(vPtr = Pointer1(vMemory) + vSize);
 
       finally
         UnlockHistory;
@@ -1400,7 +1601,7 @@ interface
   var
     I, vSize, vAddHeaderSize, vCount, vVersion :Integer;
     vFolder, vFileName :TString;
-    vPtr :PAnsiChar;
+    vPtr :Pointer1;
     vFile :Integer;
     vMemory :Pointer;
     vEntry :THistoryEntry;

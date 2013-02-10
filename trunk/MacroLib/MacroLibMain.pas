@@ -120,7 +120,7 @@ interface
 
   function InjectHandler(AHandle :THandle; AImport :PIMAGE_IMPORT_DESCRIPTOR; AFuncName :PAnsiChar; var AFuncPtr :PPointer; var AOldFunc :Pointer; ANewFunc :Pointer) :Boolean;
   var
-    vThunk, vThunk2 :PIMAGE_THUNK_DATA;
+    vThunk, vThunk2 :{$ifdef b64}PIMAGE_THUNK_DATA64{$else}PIMAGE_THUNK_DATA32{$endif b64};
     vName :PAnsiChar;
   begin
     Result := False;

@@ -5,6 +5,11 @@ if /i "%1" == "Far3" (
   goto :EOF
 )
 
+if /i "%2" == "Far3" (
+  echo Not supported
+  goto :EOF
+)
+
 set BinFolder=Noisy
 
 cd Player

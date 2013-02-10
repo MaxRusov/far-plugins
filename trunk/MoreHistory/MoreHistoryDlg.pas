@@ -224,7 +224,7 @@ interface
   procedure TFldMenuDlg.ReinitGrid; {override;}
   begin
     FMaxHits := 0;
-    inherited ReinitGrid;
+    inherited ReinitGrid; 
   end;
 
 

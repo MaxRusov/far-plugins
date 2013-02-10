@@ -255,7 +255,7 @@ interface
 
     GR.UpperLeft := 0;
     GR.LowerRight := 1;
-    GradientFill(AHandle, VA[0], 2, @GR, 1, FillFlag[AVert]);
+    GradientFill(AHandle, @VA[0], 2, @GR, 1, FillFlag[AVert]);
   end;
 
 

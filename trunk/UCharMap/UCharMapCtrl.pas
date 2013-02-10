@@ -19,6 +19,7 @@ interface
     MixWinUtils,
     Far_API,
     FarCtrl,
+    FarMenu,
     FarConfig;
 
 
@@ -43,6 +44,7 @@ interface
    {$ifdef Far3}
     cPluginID   :TGUID = '{59223378-9DCD-45FC-97C9-AD0251A3C53F}';
     cMenuID     :TGUID = '{5D95C31A-A452-4EA4-ACC6-8C371F4F1E8F}';
+    cConfigID   :TGUID = '{7B185608-8205-4FD9-8D4B-ADB82F7930A5}';
    {$endif Far3}
 
     cMainDlgId  :TGUID = '{E1158E5F-8408-4832-8CCD-71DA1DD43BC3}';
@@ -100,6 +102,7 @@ interface
     FontRange  :TBits;
 
   function NameOfChar(ACode :Integer) :TString;
+  function GroupByCode(ACode :Integer) :TUnicodeGroup;
   function NameOfRange(ACode :Integer) :TString;
 
   procedure SRectGrow(var AR :TSmallRect; ADX, ADY :Integer);
@@ -114,6 +117,8 @@ interface
   procedure UpdateFontRange;
   function CharMapped(AChar :TChar) :Boolean;
   function ChooseFontFor(AChar :TChar) :TString;
+
+  procedure ConfigMenu;
 
   procedure RestoreDefColor;
   procedure PluginConfig(AStore :Boolean);
@@ -331,18 +336,28 @@ interface
   end;
 
 
-  function NameOfRange(ACode :Integer) :TString;
+  function GroupByCode(ACode :Integer) :TUnicodeGroup;
   var
     I :Integer;
   begin
     if GroupNames <> nil then
-      for I := 0 to GroupNames.Count - 1 do 
-        with TUnicodeGroup(GroupNames[I]) do
-          if (ACode >= Code1) and (ACode <= Code2) then begin
-            Result := Name;
-            Exit;
-          end;
+      for I := 0 to GroupNames.Count - 1 do begin
+        Result := TUnicodeGroup(GroupNames[I]);
+        if (ACode >= Result.Code1) and (ACode <= Result.Code2) then
+          Exit;
+      end;
+    Result := nil;
+  end;
+
+
+  function NameOfRange(ACode :Integer) :TString;
+  var
+    vGroup  :TUnicodeGroup;
+  begin
     Result := '';
+    vGroup := GroupByCode(ACode);
+    if vGroup <> nil then
+      Result := vGroup.Name;
   end;
 
 
@@ -541,6 +556,89 @@ interface
     end;
   end;
 
+
+ {-----------------------------------------------------------------------------}
+
+(*
+          KEY_CTRLH:
+            LocToggleOption(optSHowHidden);
+          KEY_CTRLG:
+            LocToggleOption(optGroupBy);
+          KEY_CTRL1:
+            LocToggleOption(optShowNumbers);
+          KEY_CTRL2:
+            LocToggleOption(optShowCharName);
+          KEY_CTRL3:
+            LocToggleOption(optShowGroupName);
+*)
+
+  procedure ConfigMenu;
+  var
+    vMenu :TFarMenu;
+    vChanged :Boolean;
+  begin
+    {!!!Localize}
+    vMenu := TFarMenu.CreateEx(
+      'Unicode CharMap', //GetMsg(strOptionsTitle),
+    [
+      'Show Hidden',
+      'Shog Groups',
+      '',
+      'Show Numbers      Ctrl-1',
+      'Show Char Name    Ctrl-2',
+      'Show Group Name   Ctrl-3',
+      '',
+      'Show Hints',        //GetMsg(strShowHints),
+      'Auto choose font',  //GetMsg(strShowHints),
+      '',
+      'Colors'             //GetMsg(strColors)
+    ]);
+    try
+      vChanged := False;
+//    vMenu.Help := 'Options';
+
+      while True do begin
+        vMenu.Checked[0] := optShowHidden;
+        vMenu.Checked[1] := optGroupBy;
+
+        vMenu.Checked[3] := optShowNumbers;
+        vMenu.Checked[4] := optShowCharName;
+        vMenu.Checked[5] := optShowGroupName;
+
+        vMenu.Checked[7] := optShowHints;
+        vMenu.Checked[8] := optAutoChooseFont and optShowHints;
+        vMenu.Enabled[8] := optShowHints;
+
+        vMenu.SetSelected(vMenu.ResIdx);
+
+        if not vMenu.Run then
+          Break;
+
+        case vMenu.ResIdx of
+          0: optShowHidden := not optShowHidden;
+          1: optGroupBy := not optGroupBy;
+
+          3: optShowNumbers := not optShowNumbers;
+          4: optShowCharName := not optShowCharName;
+          5: optShowGroupName := not optShowGroupName;
+
+          7: optShowHints := not optShowHints;
+          8: optAutoChooseFont := not optAutoChooseFont;
+
+//        x: ColorMenu;
+        end;
+
+        FarAdvControl(ACTL_REDRAWALL, nil);
+        vChanged := True;
+      end;
+
+      if vChanged then
+        PluginConfig(True);
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
 
 
  {-----------------------------------------------------------------------------}

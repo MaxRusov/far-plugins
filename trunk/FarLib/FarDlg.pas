@@ -489,7 +489,7 @@ interface
   begin
     SendMsg(DM_GETITEMPOSITION, AItemID, @Result);
     with GetDlgRect do
-      SRectMove(Result, Left, Top);
+      RectMove(Result, Left, Top);
   end;
 
 
