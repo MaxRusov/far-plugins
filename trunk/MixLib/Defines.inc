@@ -124,8 +124,18 @@
    {$Define bDelphi13}  { D2010 }
   {$endif}
 
-  {$ifdef Ver220}       // XE
-   !!!
+  {$ifdef Ver220}       
+   {$Define bDelphi4}
+   {$Define bDelphi5}
+   {$Define bDelphi6}
+   {$Define bDelphi7}
+   {$Define bDelphi8}
+   {$Define bDelphi9}
+   {$Define bDelphi10}
+   {$Define bDelphi11}
+   {$Define bDelphi12}
+   {$Define bDelphi13}
+   {$Define bDelphi14}  { Delphi XE }
   {$endif}
 
   {$ifdef Ver230}
@@ -139,8 +149,24 @@
    {$Define bDelphi11}
    {$Define bDelphi12}
    {$Define bDelphi13}
-   {$Define bDelphi14}  // XE
-   {$Define bDelphi15}  // XE2 - Pulsar - первая версия с 64-х разрядным компилятором
+   {$Define bDelphi14} 
+   {$Define bDelphi15}  { Delphi XE2 (Pulsar) - первая версия с 64-х разрядным компилятором }
+  {$endif}
+
+  {$ifdef Ver240}
+   {$Define bDelphi4}
+   {$Define bDelphi5}
+   {$Define bDelphi6}
+   {$Define bDelphi7}
+   {$Define bDelphi8}
+   {$Define bDelphi9}
+   {$Define bDelphi10}
+   {$Define bDelphi11}
+   {$Define bDelphi12}
+   {$Define bDelphi13}
+   {$Define bDelphi14}  
+   {$Define bDelphi15}  
+   {$Define bDelphi16}  { Delphi XE3 }
   {$endif}
 
   {$ifdef Win32}
@@ -180,7 +206,6 @@
 {------------------------------------------------------------------------------}
 
 { Опции кодогенерации... }
-{$Align On}
 {$BoolEval Off}
 {$IOChecks Off}
 {$LongStrings On}
@@ -199,12 +224,22 @@
  {$StringChecks Off}
 {$endif bDelphi12}
 
+{$ifdef bDelphi16}
+ {$StrongLinkTypes Off} 
+{$endif bDelphi16}
+
 {$ifdef bFreePascal}
   {Free Pascal}
+  {$Align On}
   {$SmartLink On}
   {$AsmMode Intel}
   {$packset 1}
 {$else}
+//{$ifdef bDelphiXE2}
+// {$Align 8}
+//{$else}
+   {$Align On}
+//{$endif bDelphiXE2}
   {$SafeDivide Off}
 {$endif bFreePascal}
 
@@ -253,6 +288,10 @@
    {$WARN SYMBOL_PLATFORM OFF}
    {$WARN SYMBOL_DEPRECATED OFF}
   {$endif bDelphi6}
+
+  {$ifdef bDelphi15}
+// {$RTTI EXPLICIT METHODS([]) PROPERTIES([]) FIELDS([])}
+  {$endif bDelphi15}
 
 {$endif bFreePascal}
 

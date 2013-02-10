@@ -72,6 +72,11 @@ type
 
   THandle = TUnsPtr;
   PHandle = ^THandle;
+ {$ifndef bFreePascal}
+ {$ifndef bDelphi15}
+  TThreadID = THandle;       
+ {$endif bDelphi15}
+ {$endif bFreePascal}
 
   // From BaseTsd.h
   INT_PTR = TIntPtr;
@@ -3140,13 +3145,24 @@ function SetTimeZoneInformation(const lpTimeZoneInformation: TTimeZoneInformatio
 { Routines to convert back and forth between system time and file time }
 
 function SystemTimeToFileTime(const lpSystemTime: TSystemTime; var lpFileTime: TFileTime): BOOL; stdcall;
-function FileTimeToLocalFileTime(const lpFileTime: TFileTime; var lpLocalFileTime: TFileTime): BOOL; stdcall;
-function LocalFileTimeToFileTime(const lpLocalFileTime: TFileTime; var lpFileTime: TFileTime): BOOL; stdcall;
-function FileTimeToSystemTime(const lpFileTime: TFileTime; var lpSystemTime: TSystemTime): BOOL; stdcall;
-function CompareFileTime(const lpFileTime1, lpFileTime2: TFileTime): Longint; stdcall;
-function FileTimeToDosDateTime(const lpFileTime: TFileTime;
-  var lpFatDate, lpFatTime: Word): BOOL; stdcall;
+
+//function FileTimeToLocalFileTime(const lpFileTime: TFileTime; var lpLocalFileTime: TFileTime): BOOL; stdcall;
+function FileTimeToLocalFileTime(lpFileTime :PFileTime; var lpLocalFileTime: TFileTime): BOOL; stdcall;
+
+//function LocalFileTimeToFileTime(const lpLocalFileTime: TFileTime; var lpFileTime: TFileTime): BOOL; stdcall;
+function LocalFileTimeToFileTime(lpLocalFileTime :PFileTime; var lpFileTime: TFileTime): BOOL; stdcall;
+
+//function FileTimeToSystemTime(const lpFileTime: TFileTime; var lpSystemTime: TSystemTime): BOOL; stdcall;
+function FileTimeToSystemTime(lpFileTime :PFileTime; var lpSystemTime: TSystemTime): BOOL; stdcall;
+
+//function CompareFileTime(const lpFileTime1, lpFileTime2: TFileTime): Longint; stdcall;
+function CompareFileTime(lpFileTime1, lpFileTime2 :PFileTime): Longint; stdcall;
+
+//function FileTimeToDosDateTime(const lpFileTime: TFileTime; var lpFatDate, lpFatTime: Word): BOOL; stdcall;
+function FileTimeToDosDateTime(lpFileTime :PFileTime; var lpFatDate, lpFatTime: Word): BOOL; stdcall;
+
 function DosDateTimeToFileTime(wFatDate, wFatTime: Word; var lpFileTime: TFileTime): BOOL; stdcall;
+
 function GetTickCount: DWORD; stdcall;
 function SetSystemTimeAdjustment(dwTimeAdjustment: DWORD; bTimeAdjustmentDisabled: BOOL): BOOL; stdcall;
 function GetSystemTimeAdjustment(var lpTimeAdjustment, lpTimeIncrement: DWORD;
@@ -11029,10 +11045,11 @@ const
   { gradient drawing modes }
   GRADIENT_FILL_RECT_H = $00000000;
   GRADIENT_FILL_RECT_V = $00000001;
-   GRADIENT_FILL_TRIANGLE = $00000002;
+  GRADIENT_FILL_TRIANGLE = $00000002;
   GRADIENT_FILL_OP_FLAG = $000000ff;
 
-function GradientFill(DC: HDC; var p2: TTriVertex; p3: ULONG; p4: Pointer; p5, p6: ULONG): BOOL; stdcall;
+//function GradientFill(DC: HDC; var p2: TTriVertex; p3: ULONG; p4: Pointer; p5, p6: ULONG): BOOL; stdcall;
+function GradientFill(DC: HDC; Vertex: PTriVertex; NumVertex: ULONG; Mesh: Pointer; NumMesh, Mode: ULONG): BOOL; stdcall;
 
 function PlayMetaFileRecord(DC: HDC; const p2: THandleTable; const p3: TMetaRecord; p4: UINT): BOOL; stdcall;
 

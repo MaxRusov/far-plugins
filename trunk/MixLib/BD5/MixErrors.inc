@@ -1,25 +1,3 @@
-{$I Defines.inc}
-
-{$ifndef bTrace} {$undef bTraceError} {$endif}
-
-unit MixErrors;
-
-interface
-
-uses
-  Windows,
-  MixTypes,
-  MixUtils;
-
-
-{******************************************************************************}
-{******************************} implementation {******************************}
-{******************************************************************************}
-
-uses
-  MixConsts,
-  MixDebug;
-
 
 function GetExceptionClass(P: PExceptionRecord): ExceptClass;
 begin
@@ -109,11 +87,3 @@ begin
   AssertErrorProc := nil;
   AbstractErrorProc := nil;
 end;
-
-
-initialization
-  InitExceptions;
-finalization
-  DoneExceptions;
-end.
-

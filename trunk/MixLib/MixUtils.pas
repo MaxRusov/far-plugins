@@ -113,6 +113,18 @@ interface
 
     EAbort = class(Exception);
 
+    EOleError = class(Exception);
+
+    EOleSysError = class(EOleError)
+    public
+      constructor Create(const msg :TString; ErrorCode: HRESULT; HelpContext: Integer);
+    private
+      FErrorCode :HRESULT;
+    public
+      property ErrorCode: HRESULT read FErrorCode write FErrorCode;
+    end;
+
+
   procedure Abort;
 
   var
@@ -172,9 +184,10 @@ interface
   function StrAllocA(Size: Cardinal) :PAnsiChar;
   function StrAllocW(Size: Cardinal): PWideChar;
 
-  function StrNew(const Str :PTChar) :PTChar;
-  function StrNewA(const Str :PAnsiChar) :PAnsiChar;
-  function StrNewW(const Str :PWideChar) :PWideChar;
+  function StrNew(const Str :TString) :PTChar; overload;
+  function StrNew(Str :PTChar) :PTChar; overload;
+  function StrNewA(Str :PAnsiChar) :PAnsiChar;
+  function StrNewW(Str :PWideChar) :PWideChar;
 
   procedure StrDispose(Str :PTChar);
   procedure StrDisposeA(Str :PAnsiChar);
@@ -377,6 +390,21 @@ interface
   end;
 
 
+  constructor EOleSysError.Create(const msg :TString; ErrorCode: HRESULT; HelpContext: Integer);
+  var
+    S :TString;
+  begin
+    S := msg;
+    if S = '' then begin
+      S := SysErrorMessage(ErrorCode);
+      if S = '' then
+        {S := Format(SOleError, [ErrorCode])};
+    end;
+    inherited CreateHelp(S, HelpContext);
+    FErrorCode := ErrorCode;
+  end;
+
+
   procedure Abort;
   begin
    {$ifdef bTraceError}
@@ -384,6 +412,9 @@ interface
    {$endif bTraceError}
     raise EAbort.CreateRes(@SAbortError) at ReturnAddr;
   end;
+
+
+
 
 
  {-----------------------------------------------------------------------------}
@@ -772,7 +803,13 @@ interface
   end;
 
 
-  function StrNew(const Str :PTChar) :PTChar;
+  function StrNew(const Str :TString) :PTChar;
+  begin
+    Result := StrNew(PTChar(Str));
+  end;
+
+
+  function StrNew(Str :PTChar) :PTChar;
   begin
    {$ifdef bUnicode}
     Result := StrNewW(Str);
@@ -781,7 +818,8 @@ interface
    {$endif bUnicode}
   end;
 
-  function StrNewA(const Str :PAnsiChar) :PAnsiChar;
+
+  function StrNewA(Str :PAnsiChar) :PAnsiChar;
   var
     Size :Cardinal;
   begin
@@ -793,7 +831,7 @@ interface
     end;
   end;
 
-  function StrNewW(const Str :PWideChar) :PWideChar;
+  function StrNewW(Str :PWideChar) :PWideChar;
   var
     Size :Cardinal;
   begin
@@ -1165,8 +1203,8 @@ interface
   var
     vLocalTime :TFileTime;
   begin
-    FileTimeToLocalFileTime(AFileTime, vLocalTime);
-    if not FileTimeToDosDateTime(vLocalTime, LongRec(Result).Hi, LongRec(Result).Lo) then
+    FileTimeToLocalFileTime(@AFileTime, vLocalTime);
+    if not FileTimeToDosDateTime(@vLocalTime, LongRec(Result).Hi, LongRec(Result).Lo) then
       Result := -1;
   end;
 
@@ -1292,7 +1330,6 @@ interface
     if (Result = nil) and ARaise then
       RaiseLastWin32Error;
   end;
-
 
 {------------------------------------------------------------------------------}
 

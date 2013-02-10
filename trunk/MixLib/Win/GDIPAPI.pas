@@ -1845,7 +1845,7 @@ type
     Points : PGPPointF;
     Types  : PBYTE;
     constructor Create;
-    destructor destroy; override;
+    destructor Destroy; override;
   end;
 
   PCharacterRange = ^TCharacterRange;

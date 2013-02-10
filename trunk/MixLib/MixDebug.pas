@@ -65,6 +65,8 @@ interface
 
   procedure DebugBreak(AMess :PTChar);
 
+  function B2S(const Data {:Pointer}; Size :Integer) :AnsiString;
+  function P2S(Data :Pointer; Size :Integer) :AnsiString;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -597,5 +599,24 @@ interface
   end;
 
 
+  function B2S(const Data {:Pointer}; Size :Integer) :AnsiString;
+  var
+    I :Integer;
+  begin
+    SetString(Result, PAnsiChar(@Data), Size);
+    for I := 1 to Size do
+      if Result[I] < ' ' then
+        Result[I] := '.';
+  end;
 
+  function P2S(Data :Pointer; Size :Integer) :AnsiString;
+  begin
+    Result := B2S(Data^, Size);
+  end;
+
+
+{$ifdef bDebug}
+initialization
+  Assert( @P2S <> nil );
+{$endif bDebug}
 end.
