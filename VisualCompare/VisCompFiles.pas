@@ -1145,10 +1145,10 @@ interface
         Exit;
       end;
 
-      vFile1 := TText.CreateStr(vStr1);
+      vFile1 := TText.CreateStr(vStr1, 0);
       vStr1 := '';
 
-      vFile2 := TText.CreateStr(vStr2);
+      vFile2 := TText.CreateStr(vStr2, 0);
       vStr2 := '';
 
       Result := LocCompare(vFile1, vFile2);
