@@ -1,5 +1,5 @@
 {******************************************************************************}
-{* (c) 2010 Max Rusov                                                         *}
+{* (c) 2009-2013 Max Rusov                                                    *}
 {*                                                                            *}
 {* PanelTabs Far plugin                                                       *}
 {******************************************************************************}
@@ -115,12 +115,14 @@ interface
     ]);
 
     SetListItems(IdEdtClick, [
-      ClickType2Str(mcLeft),
-      ClickType2Str(mcDblLeft),
-      ClickType2Str(mcRight),
-      ClickType2Str(mcDblRight)
-//    ClickType2Str(mcMiddle)
-//    ClickType2Str(mcDblMiddle)
+      ClickType2Str(mcLeft)
+     ,ClickType2Str(mcDblLeft)
+     ,ClickType2Str(mcRight)
+     ,ClickType2Str(mcDblRight)
+     {$ifdef bUseProcessConsoleInput}
+     ,ClickType2Str(mcMiddle)
+     ,ClickType2Str(mcDblMiddle)
+     {$endif bUseProcessConsoleInput}
     ]);
 
     N := Byte(High(TTabAction)) + 1;
