@@ -294,28 +294,11 @@ interface
   end;
 
 
-  function MaskStr(const AStr :TString) :TString;
-  var
-    I :Integer;
-    C :TChar;
-  begin
-    Result := '';
-    for I := 1 to length(AStr) do begin
-      C := AStr[I];
-      if (Ord(C) < $20) or (C = '"') or (C = '\') then
-//      Result := Result + '\' + Int2Str(Ord(c))
-        Result := Result + '\x' + Format('%.4x', [Ord(c)])
-      else
-        Result := Result + C;
-    end;
-  end;
-
-
   procedure InsertText(const AStr :TString);
   var
     vStr :TString;
   begin
-    vStr := 'print("' + MaskStr(AStr) + '")';
+    vStr := 'print("' + FarMaskStr(AStr) + '")';
     FarPostMacro(vStr);
   end;
 
