@@ -1,0 +1,65 @@
+.Language=English,English
+
+"English"
+
+"FarFM"
+
+"Error"
+
+"&Yes"
+"&No"
+"&Ok"
+"&Cancel"
+
+"Copy"
+"Move"
+"&Copy"
+"&Move"
+"Absolute path must be specified"
+
+"Find artist"
+"Find user"
+"&Search for:"
+"&Where:"
+"&Find"
+"&Add"
+"Artist"
+"Album"
+"Track"
+"Listeners"
+
+"Copy file to:"
+"Move file to:"
+"Copy selected files to:"
+"Move selected files to:"
+"Copying"
+"Moving"
+
+"Delete"
+"Do you wish to delete the item:"
+"Do you wish to delete\n%d items"
+"&Delete"
+"Deleting"
+
+"Warning"
+"File already exists:"
+"&Overwrite"
+"&All"
+"&Skip"
+"S&kip all"
+
+"Interrupt"
+"Interrupt current operation?"
+
+"To continue, you need login on VK.com.\n\nAutomatic login - using Internet Explorer.\nManually login - allows any browser.\n\nContinue?"
+"&Automatic"
+"&Manually"
+"Awaiting authorization (%d sec)"
+
+"Authorization"
+"Request, run brouser and goto this url"
+"Response, after login copy url from browser"
+"Invalid response"
+
+"Authorization failed"
+"XML parse error"
