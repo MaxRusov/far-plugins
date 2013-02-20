@@ -22,9 +22,11 @@ http://code.google.com/p/far-plugins/downloads/list?q=Noisy
 
  * [http://code.google.com/p/far-plugins/downloads/list?q=FarFM&can=1 Все версии]
 
-== Пример ==
+== Примеры ==
 
+http://far-plugins.googlecode.com/svn/trunk/FarFM/Image/Sample1.png
 
+http://far-plugins.googlecode.com/svn/trunk/FarFM/Image/Sample2.png
 
 ----
 
