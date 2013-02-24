@@ -792,14 +792,14 @@ interface
   begin
     GetMem(Result, Size + SizeOf(Cardinal));
     Cardinal(Pointer(Result)^) := Size;
-    Inc(TUnsPtr(Result), SizeOf(Cardinal));
+    Inc(Pointer1(Result), SizeOf(Cardinal));
   end;
 
   function StrAllocW(Size :Cardinal) :PWideChar;
   begin
     GetMem(Result, Size * 2 + SizeOf(Cardinal));
     Cardinal(Pointer(Result)^) := Size;
-    Inc(TUnsPtr(Result), SizeOf(Cardinal));
+    Inc(Pointer1(Result), SizeOf(Cardinal));
   end;
 
 
@@ -856,7 +856,7 @@ interface
   procedure StrDisposeA(Str :PAnsiChar);
   begin
     if Str <> nil then begin
-      Dec(TUnsPtr(Str), SizeOf(Cardinal));
+      Dec(Pointer1(Str), SizeOf(Cardinal));
       FreeMem(Str);
     end;
   end;
@@ -864,7 +864,7 @@ interface
   procedure StrDisposeW(Str :PWideChar);
   begin
     if Str <> nil then begin
-      Dec(TUnsPtr(Str), SizeOf(Cardinal));
+      Dec(Pointer1(Str), SizeOf(Cardinal));
       FreeMem(Str);
     end;
   end;
@@ -1105,7 +1105,7 @@ interface
     Len: Integer;
     Buffer: array[0..cMaxLen] of TChar;
   begin
-    Len := FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM or FORMAT_MESSAGE_ARGUMENT_ARRAY, nil, ErrorCode, 0, Buffer, cMaxLen, nil);
+    Len := FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM or FORMAT_MESSAGE_ARGUMENT_ARRAY, nil, DWORD(ErrorCode), 0, Buffer, cMaxLen, nil);
     while (Len > 0) and ((Buffer[Len - 1] <= #32) or (Buffer[Len - 1] = '.')) do
       Dec(Len);
     if Len > 0 then
