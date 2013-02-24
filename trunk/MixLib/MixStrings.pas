@@ -23,6 +23,7 @@ interface
 
   function IntIf(Cond :Boolean; L1, L2 :Integer) :Integer;
   function StrIf(Cond :Boolean; const S1, S2 :TString) :TString;
+  function PCharIf(Cond :Boolean; S1, S2 :PTChar) :PTChar;
   function HandleIf(Cond :Boolean; H1, H2 :THandle) :THandle;
   function IntMin(L1, L2 :Integer) :Integer;
   function IntMax(L1, L2 :Integer) :Integer;
@@ -112,6 +113,7 @@ interface
   function ExtractWordsPos(Number, Count :Integer; const S :TString; const Del :TAnsiCharSet; var B :Integer) :TString;
   function ExtractWords(Number, Count :Integer; const S :TString; const Del :TAnsiCharSet) :TString;
   function ExtractWord(Number :Integer; const S :TString; const Del :TAnsiCharSet) :TString;
+  function ExtractLastWord(const AStr, ADelimiters :TString) :TString;
 
   function ExtractNextWord(var Str :PTChar; const Del :TAnsiCharSet; ASkipFirst :Boolean = False) :TString;
   function ExtractNextValue(var Str :PTChar; const Del :TAnsiCharSet) :TString;
@@ -183,6 +185,15 @@ interface
 
 
   function StrIf(Cond :Boolean; const S1, S2 :TString) :TString;
+  begin
+    if Cond then
+      Result := S1
+    else
+      Result := S2;
+  end;
+
+
+  function PCharIf(Cond :Boolean; S1, S2 :PTChar) :PTChar;
   begin
     if Cond then
       Result := S1
@@ -541,6 +552,15 @@ interface
         Exit;
       Dec(Result);
     end;
+  end;
+
+
+  function ExtractLastWord(const AStr, ADelimiters :TString) :TString;
+  var
+    I: Integer;
+  begin
+    I := LastDelimiter(ADelimiters, AStr);
+    Result := Copy(AStr, I + 1, MaxInt);
   end;
 
 

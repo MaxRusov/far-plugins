@@ -23,7 +23,7 @@ uses Windows, Messages;
 
 type
  {$ifdef bUseOleVariant}
-  _OleVariant = OleVariant;
+  _OleVariant = OleVariant;   
  {$else}
   _OleVariant = Pointer;
  {$endif bUseOleVariant}
