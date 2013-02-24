@@ -21,7 +21,9 @@ interface
     FarFmCalls;
 
 
-  function FindDlg(const APrompt :TString; var AName :TString) :Boolean;
+  function FindDlg(AMode :Integer; const APrompt :TString; var AName :TString) :Boolean;
+    { AMode = 1 - поиск исполнителей }
+    { AMode = 2 - поиск пользователей }
 
 
 {******************************************************************************}
@@ -125,10 +127,10 @@ interface
     X1 := FWidth-5-cTypeWidth;
     FDialog := CreateDialog(
       [
-        NewItemApi(DI_DoubleBox,   3,  1, FWidth-6, FHeight-2, 0, GetMsg(strFindArtist)),
+        NewItemApi(DI_DoubleBox,   3,  1, FWidth-6, FHeight-2, 0, GetMsg(TMessages(IntIf(FMode = 1, byte(strFindArtist), byte(strFindUser))))),
 
         NewItemApi(DI_Text,        5,  2, X1-7, -1, 0, GetMsg(strFindTextPrompt) ),
-        NewItemApi(DI_Edit,        5,  3, X1-7, -1, DIF_HISTORY, '', 'FarFM.Find' ),
+        NewItemApi(DI_Edit,        5,  3, X1-7, -1, DIF_HISTORY, '', PCharIf(FMode = 1, 'FarFM.Find', 'FarFM.FindUser') ),
 
         NewItemApi(DI_Text,        X1,  2, cTypeWidth, -1, 0, GetMsg(strFindWherePrompt) ),
         NewItemApi(DI_ComboBox,    X1,  3, cTypeWidth, -1, DIF_DROPDOWNLIST, ''),
@@ -143,6 +145,12 @@ interface
 
     FGrid := TFarGrid.CreateEx(Self, IdGrid);
     FGrid.Options := [goRowSelect {, goFollowMouse} {,goWheelMovePos} ];
+    FGrid.NormColor := FarGetColor(COL_DIALOGLISTTEXT);
+    FGrid.SelColor := FarGetColor(COL_DIALOGLISTSELECTEDTEXT);
+    FGrid.TitleColor := FarGetColor(COL_DIALOGLISTHIGHLIGHT);
+
+//  FGrid.NormColor := FarGetColor(COL_DIALOGEDIT);
+//  FGrid.SelColor := FarGetColor(COL_DIALOGEDITSELECTED);
 
 //  FGrid.OnCellClick := GridCellClick;
     FGrid.OnGetCellText := GridGetDlgText;
@@ -301,19 +309,27 @@ interface
 
     FListMode := SendMsg(DM_LISTGETCURPOS, IdEdit2, 0);
 
-    if FListMode = 0 then begin
-      vDoc := LastFMCall('artist.search', ['artist', vStr]);
-      FList := XMLParseArray(vDoc, 'lfm/results/artistmatches/artist', ['name', 'listeners']);
+    if FMode = 1 then begin
+
+      if FListMode = 0 then begin
+        vDoc := LastFMCall('artist.search', ['artist', vStr]);
+        FList := XMLParseArray(vDoc, 'lfm/results/artistmatches/artist', ['name', 'listeners']);
+      end else
+      if FListMode = 1 then begin
+        vDoc := LastFMCall('album.search', ['album', vStr]);
+        FList := XMLParseArray(vDoc, 'lfm/results/albummatches/album', ['artist', 'name']);
+      end else
+      if FListMode = 2 then begin
+        vDoc := LastFMCall('track.search', ['track', vStr]);
+        FList := XMLParseArray(vDoc, 'lfm/results/trackmatches/track', ['artist', 'name']);
+      end else
+        Sorry;
+
     end else
-    if FListMode = 1 then begin
-      vDoc := LastFMCall('album.search', ['album', vStr]);
-      FList := XMLParseArray(vDoc, 'lfm/results/albummatches/album', ['artist', 'name']);
-    end else
-    if FListMode = 2 then begin
-      vDoc := LastFMCall('track.search', ['track', vStr]);
-      FList := XMLParseArray(vDoc, 'lfm/results/trackmatches/track', ['artist', 'name']);
-    end else
-      Sorry;
+    begin
+      {???}
+      vDoc := LastFMCall('user.search', ['user', vStr]);
+    end;
 
     FChanged := False;
     FGrid.GotoLocation(0, 0, lmScroll);
@@ -377,13 +393,13 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  function FindDlg(const APrompt :TString; var AName :TString) :Boolean;
+  function FindDlg(AMode :Integer; const APrompt :TString; var AName :TString) :Boolean;
   var
     vDlg :TFindDlg;
     vRes :Integer;
   begin
     Result := False;
-    vDlg := TFindDlg.CreateEx(0);
+    vDlg := TFindDlg.CreateEx(AMode);
     try
       vDlg.FPrompt := APrompt;
 
