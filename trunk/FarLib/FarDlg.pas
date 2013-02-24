@@ -42,6 +42,7 @@ interface
       function GetDlgRect :TSmallrect;
       procedure SetDlgPos(ALeft, ATop, AWidth, AHeight :Integer);
       function GetScreenItemRect(AItemID :Integer) :TSmallRect;
+      procedure SetEnabled(AItemID :Integer; AEnabled :Boolean);
       function GetChecked(AItemID :Integer) :Boolean;
       procedure SetChecked(AItemID :Integer; AChecked :Boolean);
       function GetRadioIndex(AItemID, ACount :Integer) :Integer;
@@ -137,36 +138,6 @@ interface
   uses
     MixDebug;
 
-(*
-  function KeyEventToFarKey1(const AEvent :TKeyEventRecord) :Integer;
-  begin
-    if (word(AEvent.UnicodeChar) >= 32) and ((LEFT_CTRL_PRESSED + RIGHT_CTRL_PRESSED + LEFT_ALT_PRESSED + RIGHT_ALT_PRESSED) and AEvent.dwControlKeyState = 0) then
-      Result := Word(AEvent.UnicodeChar)
-    else
-      Result := KeyEventToFarKey(AEvent);
-  end;
-*)
-
-  function KeyEventToFarKey1(const AEvent :TKeyEventRecord) :Integer;
-  var
-    vEvent :TKeyEventRecord;
-  begin
-    if (word(AEvent.UnicodeChar) >= 32) and ((LEFT_CTRL_PRESSED + RIGHT_CTRL_PRESSED + LEFT_ALT_PRESSED + RIGHT_ALT_PRESSED) and AEvent.dwControlKeyState = 0) then
-      Result := Word(AEvent.UnicodeChar)
-    else begin
-      vEvent := AEvent;
-      if not (vEvent.wVirtualKeyCode in [VK_SHIFT, VK_CONTROL, VK_MENU]) then begin
-        { Игнорируем различия между правыми и левыми шифтами }
-        if vEvent.dwControlKeyState and RIGHT_CTRL_PRESSED <> 0 then
-          vEvent.dwControlKeyState := (vEvent.dwControlKeyState or LEFT_CTRL_PRESSED) and not RIGHT_CTRL_PRESSED;
-        if vEvent.dwControlKeyState and RIGHT_ALT_PRESSED <> 0 then
-          vEvent.dwControlKeyState := (vEvent.dwControlKeyState or LEFT_ALT_PRESSED) and not RIGHT_ALT_PRESSED;
-      end;
-      Result := KeyEventToFarKey(vEvent);
-    end;
-//  TraceF('KeyEventToFarKey1: %x', [Result]);
-  end;
-
 
  {-----------------------------------------------------------------------------}
  { TFarDialog                                                                  }
@@ -247,7 +218,7 @@ interface
  {$ifdef Far3}
   function TFarDialog.KeyDownEx(AID :Integer; const AEvent :TKeyEventRecord) :Boolean; {virtual;}
   begin
-    Result := KeyDown(AID, KeyEventToFarKey1(AEvent));
+    Result := KeyDown(AID, KeyEventToFarKeyDlg(AEvent));
   end;
  {$endif Far3}
 
@@ -493,6 +464,12 @@ interface
   end;
 
 
+  procedure TFarDialog.SetEnabled(AItemID :Integer; AEnabled :Boolean);
+  begin
+    SendMsg(DM_ENABLE, AItemID, byte(AEnabled));
+  end;
+
+
   function TFarDialog.GetChecked(AItemID :Integer) :Boolean;
   begin
     Result := SendMsg(DM_GetCheck, AItemID, 0) = BSTATE_CHECKED;
@@ -664,7 +641,7 @@ interface
  {$ifdef Far3}
   function TFarCustomControl.KeyDownEx(const AEvent :TKeyEventRecord) :Boolean; {virtual;}
   begin
-    Result := KeyDown(KeyEventToFarKey1(AEvent));
+    Result := KeyDown(KeyEventToFarKeyDlg(AEvent));
   end;
 
 

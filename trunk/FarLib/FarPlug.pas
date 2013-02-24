@@ -23,6 +23,11 @@ interface
 
 
   type
+   {$ifdef Far3}
+   {$else}
+    TOpenPanelInfo = TOpenPluginInfo;  { Синоним, как в Far3 }
+   {$endif Far3}
+
     TVersion = record
       Major :Integer;
       Minor :Integer;
@@ -43,6 +48,19 @@ interface
      {$ifdef Far3}
       function OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; virtual;
      {$endif Far3}
+      procedure ClosePanel(AHandle :THandle); virtual;
+      procedure GetPanelInfo(AHandle :THandle; var AInfo :TOpenPanelInfo); virtual;
+      function GetPanelItems(AHandle :THandle; AMode :Integer; var AItems :PPluginPanelItemArray; var ACount :Integer) :boolean; virtual;
+      procedure FreePanelItems(AHandle :THandle; AItems :PPluginPanelItemArray; ACount :Integer); virtual;
+      function PanelSetDirectory(AHandle :THandle; AMode :Integer; ADir :PFarChar) :Boolean; virtual;
+      function PanelMakeDirectory(AHandle :THandle; AMode :Integer; var ADir :TString) :Boolean; virtual;
+      function PanelGetFiles(AHandle :THandle; AMode :Integer; AItems :PPluginPanelItem; ACount :Integer; AMove :boolean; var ADestPath :TString) :Boolean; virtual;
+      function PanelDeleteFiles(AHandle :THandle; AMode :Integer; AItems :PPluginPanelItem; ACount :Integer) :Boolean; virtual;
+      function PanelInput(AHandle :THandle; AKey :Integer) :Boolean; virtual;
+     {$ifdef Far3}
+      function PanelInputEx(AHandle :THandle; const ARec :TInputRecord) :Boolean; virtual;
+     {$endif Far3}
+
       function Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :THandle; virtual;
       procedure CloseAnalyse(AHandle :THandle); virtual;
       procedure Configure; virtual;
@@ -81,6 +99,9 @@ interface
       FDiskID    :TGUID;
       FConfigID  :TGUID;
      {$endif Far3}
+
+    private
+      FTmpStr    :TString;
     end;
 
   var
@@ -95,9 +116,18 @@ interface
   procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
   procedure GetPluginInfoW(var AInfo :TPluginInfo); stdcall;
   function OpenW(var AInfo :TOpenInfo): THandle; stdcall;
+  procedure ClosePanelW(const AInfo :TClosePanelInfo); stdcall;
+  procedure GetOpenPanelInfoW(var AInfo :TOpenPanelInfo); stdcall;
+  function GetFindDataW(var AInfo :TGetFindDataInfo) :TIntPtr; stdcall;
+  procedure FreeFindDataW(const AInfo :TFreeFindDataInfo); stdcall;
+  function SetDirectoryW(const AInfo :TSetDirectoryInfo) :TIntPtr; stdcall;
+  function GetFilesW(var AInfo :TGetFilesInfo) :TIntPtr; stdcall;
+  function DeleteFilesW(var AInfo :TDeleteFilesInfo) :TIntPtr; stdcall;
+  function MakeDirectoryW(var AInfo :TMakeDirectoryInfo) :TIntPtr; stdcall;
   function AnalyseW(const AInfo :TAnalyseInfo) :THandle; stdcall;
   procedure CloseAnalyseW(const AInfo :TCloseAnalyseInfo); stdcall;
   function ConfigureW(const AInfo :TConfigureInfo) :TIntPtr; stdcall;
+  function ProcessPanelInputW(const AInfo :TProcessPanelInputInfo) :TIntPtr; stdcall;
   function ProcessSynchroEventW(const AInfo :TProcessSynchroEventInfo) :TIntPtr; stdcall;
   function ProcessDialogEventW(const AInfo :TProcessDialogEventInfo) :TIntPtr; stdcall;
   function ProcessEditorEventW(const AInfo :TProcessEditorEventInfo) :TIntPtr; stdcall;
@@ -110,8 +140,17 @@ interface
   procedure SetStartupInfoW(var AInfo :TPluginStartupInfo); stdcall;
   procedure GetPluginInfoW(var AInfo :TPluginInfo); stdcall;
   function OpenPluginW(OpenFrom :Integer; AItem :INT_PTR): THandle; stdcall;
+  procedure ClosePluginW(AHandle :THandle); stdcall;
+  procedure GetOpenPluginInfoW(AHandle :THandle; var AInfo :TOpenPluginInfo); stdcall;
+  function GetFindDataW(AHandle :THandle; var AItems :PPluginPanelItemArray; var ACount :Integer; AMode :Integer) :boolean; stdcall;
+  procedure FreeFindDataW(AHandle :THandle; AItems :PPluginPanelItemArray; ACount :Integer); stdcall;
+  function SetDirectoryW(AHandle :THandle; ADir :PFarChar; AMode :Integer) :Boolean; stdcall;
+  function GetFilesW(AHandle :THandle; AItems :PPluginPanelItem; ACount :Integer; AMove :Integer; var ADestPath :PFarChar; AMode :Integer) :Integer; stdcall;
+  function DeleteFilesW(AHandle :THandle; AItems :PPluginPanelItem; ACount :Integer; AMode :Integer) :Integer; stdcall;
+  function MakeDirectoryW(AHandle :THandle; var AName :PFarChar; AMode :Integer) :Integer; stdcall;
   function OpenFilePluginW(const AName :PTChar; AData :Pointer; ADataSize :Integer; AMode :Integer) :THandle; stdcall;
   function ConfigureW(AItem: integer) :Integer; stdcall;
+  function ProcessKeyW(AHandle :THandle; AKey, AShiftState :Integer) :Integer; stdcall;
   function ProcessSynchroEventW(Event :integer; AParam :Pointer) :Integer; stdcall;
   function ProcessDialogEventW(AEvent :Integer; AParam :PFarDialogEvent) :Integer; stdcall;
   function ProcessEditorEventW(AEvent :Integer; AParam :Pointer) :Integer; stdcall;
@@ -237,6 +276,68 @@ interface
           Result := OpenMacro(Trunc(Value.fDouble), nil)
       end;
     end;
+  end;
+ {$endif Far3}
+
+
+  procedure TFarPlug.ClosePanel(AHandle :THandle); {virtual;}
+  begin
+  end;
+
+
+  procedure TFarPlug.GetPanelInfo(AHandle :THandle; var AInfo :TOpenPanelInfo); {virtual;}
+  begin
+  end;
+
+
+  function TFarPlug.GetPanelItems(AHandle :THandle; AMode :Integer; var AItems :PPluginPanelItemArray; var ACount :Integer) :boolean;  {virtual;}
+  begin
+    Result := False;
+  end;
+
+
+  procedure TFarPlug.FreePanelItems(AHandle :THandle; AItems :PPluginPanelItemArray; ACount :Integer); {virtual;}
+  begin
+  end;
+
+
+  function TFarPlug.PanelSetDirectory(AHandle :THandle; AMode :Integer; ADir :PFarChar) :Boolean; {virtual;}
+  begin
+    Result := False;
+  end;
+
+
+  function TFarPlug.PanelMakeDirectory(AHandle :THandle; AMode :Integer; var ADir :TString) :Boolean; {virtual;}
+  begin
+    Result := False;
+  end;
+
+
+  function TFarPlug.PanelGetFiles(AHandle :THandle; AMode :Integer; AItems :PPluginPanelItem; ACount :Integer; AMove :boolean; var ADestPath :TString) :Boolean; {virtual;}
+  begin
+    Result := False;
+  end;
+
+
+  function TFarPlug.PanelDeleteFiles(AHandle :THandle; AMode :Integer; AItems :PPluginPanelItem; ACount :Integer) :Boolean; {virtual;}
+  begin
+    Result := False;
+  end;
+
+
+  function TFarPlug.PanelInput(AHandle :THandle; AKey :Integer) :Boolean; {virtual;}
+  begin
+    Result := False;
+  end;
+
+
+ {$ifdef Far3}
+  function TFarPlug.PanelInputEx(AHandle :THandle; const ARec :TInputRecord) :Boolean; {virtual;}
+  begin
+    if ARec.EventType = KEY_EVENT then
+      Result := PanelInput(AHandle, KeyEventToFarKeyDlg(ARec.Event.KeyEvent))
+    else
+      Result := False;
   end;
  {$endif Far3}
 
@@ -429,7 +530,21 @@ interface
         Plug.ErrorHandler(E);
     end;
   end;
+
+  procedure ClosePanelW;
+  begin
+    with AInfo do
+      Plug.ClosePanel(hPanel);
+  end;
+
+  procedure GetOpenPanelInfoW;
+  begin
+    with AInfo do
+      Plug.GetPanelInfo(hPanel, AInfo);
+  end;
+
  {$else}
+
   function OpenPluginW;
   begin
     Result := INVALID_HANDLE_VALUE;
@@ -449,7 +564,153 @@ interface
         Plug.ErrorHandler(E);
     end;
   end;
+
+  procedure ClosePluginW;
+  begin
+    Plug.ClosePanel(AHandle);
+  end;
+
+  procedure GetOpenPluginInfoW;
+  begin
+    Plug.GetPanelInfo(AHandle, AInfo);
+  end;
  {$endif Far3}
+
+
+  function GetFindDataW;
+ {$ifdef Far3}
+  var
+    vCount :Integer;
+  begin
+    with AInfo do begin
+      vCount := 0;
+      Result := Byte(Plug.GetPanelItems(hPanel, OpMode, PanelItem, vCount));
+      ItemsNumber := vCount;
+    end;
+ {$else}
+  begin
+    Result := Plug.GetPanelItems(AHandle, AMode, AItems, ACount);
+ {$endif Far3}
+  end;
+
+
+  procedure FreeFindDataW;
+  begin
+   {$ifdef Far3}
+    with AInfo do
+      Plug.FreePanelItems(hPanel, PanelItem, ItemsNumber);
+   {$else}
+    Plug.FreePanelItems(AHandle, AItems, ACount);
+   {$endif Far3}
+  end;
+
+
+ {$ifdef Far3}
+  function SetDirectoryW;
+  begin
+    Result := 0;
+    try
+      with AInfo do
+        Result := Byte(Plug.PanelSetDirectory(hPanel, OpMode, Dir));
+    except
+      on E :Exception do
+        if OPM_FIND and AInfo.OpMode = 0 then
+          Plug.ErrorHandler(E);
+    end;
+  end;
+ {$else}
+  function SetDirectoryW;
+  begin
+    Result := False;
+    try
+      Result := Plug.PanelSetDirectory(AHandle, AMode, ADir);
+    except
+      on E :Exception do
+        if OPM_FIND and AMode = 0 then
+          Plug.ErrorHandler(E);
+    end;
+  end;
+ {$endif Far3}
+
+ 
+  function MakeDirectoryW;
+  begin
+    Result := 0;
+    try
+     {$ifdef Far3}
+      with AInfo do begin
+        Plug.FTmpStr := Name;
+        if Plug.PanelMakeDirectory(hPanel, OpMode, Plug.FTmpStr) then begin
+          Name := PTChar(Plug.FTmpStr);
+          Result := 1;
+        end else
+          Result := -1;
+      end;
+     {$else}
+      Plug.FTmpStr := AName;
+      if Plug.PanelMakeDirectory(AHandle, AMode, Plug.FTmpStr) then begin
+        AName := PTChar(Plug.FTmpStr);
+        Result := 1;
+      end else
+        Result := -1;
+     {$endif Far3}
+    except
+      on E :Exception do
+        Plug.ErrorHandler(E);
+    end;
+  end;
+
+
+  function GetFilesW;
+  begin
+    Result := 0;
+    try
+     {$ifdef Far3}
+      with AInfo do begin
+        Plug.FTmpStr := DestPath;
+        if Plug.PanelGetFiles(hPanel, OpMode, PanelItem, ItemsNumber, Move, Plug.FTmpStr) then begin
+          DestPath := PTChar(Plug.FTmpStr);
+          Result := 1;
+        end else
+          Result := -1;
+      end;
+     {$else}
+      Plug.FTmpStr := ADestPath;
+      if Plug.PanelGetFiles(AHandle, AMode, AItems, ACount, AMove <> 0, Plug.FTmpStr) then begin
+        ADestPath := PTChar(Plug.FTmpStr);
+        Result := 1;
+      end else
+        Result := -1;
+     {$endif Far3}
+    except
+      on E :Exception do
+        if OPM_FIND and {$ifdef Far3}AInfo.OpMode{$else}AMode{$endif Far3} = 0 then
+          Plug.ErrorHandler(E);
+    end;
+  end;
+
+
+  function DeleteFilesW;
+  begin
+    Result := 0;
+    try
+     {$ifdef Far3}
+      with AInfo do
+        if Plug.PanelDeleteFiles(hPanel, OpMode, PanelItem, ItemsNumber) then
+          Result := 1
+        else
+          Result := -1;
+     {$else}
+      if Plug.PanelDeleteFiles(AHandle, AMode, AItems, ACount) then
+        Result := 1
+      else
+        Result := -1;
+     {$endif Far3}
+    except
+      on E :Exception do
+        Plug.ErrorHandler(E);
+    end;
+  end;
 
 
  {$ifdef Far3}
@@ -490,6 +751,46 @@ interface
         Plug.ErrorHandler(E);
     end;
   end;
+
+
+ {$ifdef Far3}
+  function ProcessPanelInputW;
+  begin
+    Result := 0;
+    try
+      with AInfo do
+        Result := byte(Plug.PanelInputEx(hPanel, Rec));
+    except
+      on E :Exception do
+        Plug.ErrorHandler(E);
+    end;
+  end;
+ {$else}
+  function ProcessKeyW;
+  var
+    vRec :TKeyEventRecord;
+  begin
+    Result := 0;
+    try
+      if AKey and not KEY_MASKF = 0 then begin
+        FillZero(vRec, SizeOf(vRec));
+
+        vRec.wVirtualKeyCode := AKey;
+        if PKF_SHIFT and AShiftState <> 0 then
+          vRec.dwControlKeyState := vRec.dwControlKeyState or SHIFT_PRESSED;
+        if PKF_CONTROL and AShiftState <> 0 then
+          vRec.dwControlKeyState := vRec.dwControlKeyState or LEFT_CTRL_PRESSED;
+        if PKF_ALT and AShiftState <> 0 then
+          vRec.dwControlKeyState := vRec.dwControlKeyState or LEFT_ALT_PRESSED;
+
+        Result := byte(Plug.PanelInput(AHandle, KeyEventToFarKey(vRec)));
+      end;
+    except
+      on E :Exception do
+        Plug.ErrorHandler(E);
+    end;
+  end;
+ {$endif Far3}
 
 
   function ProcessSynchroEventW;
