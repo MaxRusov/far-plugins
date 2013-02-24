@@ -3,6 +3,43 @@
 unit FarFMMain;
 
 {TODO:
+
+  - Поиск альтернативных треков на VK
+
+  Настройки:
+    - формат Playlist'ов
+    - формат имен треков
+    - Язык информации
+
+  - Интеграция с FarHints
+
+  - "Удаление" альбомов/треков
+  - Показ года альбома
+  - Показ лирики
+  - Списки Изображений
+
+  - Работа с моим аккаунтом
+
+------------------------------------------
+
+  + Обновление кэша URL
+
+  + Поиск артистов по имени, альбому, треку
+    + Подбор цветов...
+    - Постраничный вывод
+
+  Скачивание
+    + Прерываемое скачивание картинок
+    + Удаление недоскаченных файлов
+    - Улучшенная обработка ошибок
+
+  Группа Пользователей
+    x Поиск пользователей
+    + Локализация информации
+    + Артисты, Альбомы, треки пользователей
+    - плейлисты пользователей ???
+
+------------------------------------------
   + Сортировка списка артистов
   + Поддержка команд (Add, Next)
   + Дозагрузка треков
@@ -11,25 +48,17 @@ unit FarFMMain;
     + Копирование альбомов
   + Визуализация найденых треков
 
-  + Поиск артистов по имени, альбому, треку
-    - Постраничный вывод
-
   + Обработка timeout'ов VK
   + Кэширование треков VK
   + Прозрачная авторизация на VK
-  - Прерываемая загрузка (в отдельном потоке?)
+  + Прерываемая загрузка (в отдельном потоке?)
+    + Для скачивания изображений
 
-  - Настройка: формат Playlist'ов
-  - Настройка: формат имен треков
-  - Показ года альбома
-  - Показ лирики
-  - Показ информации об артисте, альбоме
-  - Интеграция с FarHints
+  + Показ информации об артисте, альбоме
+  + Списки Similar
 
-  - Поиск альтернативных треков на VK
-  - Поиск пользователей
-  - Альбомы, плейлисты пользователей
-  - Работа с моим аккаунтом
+  + Поддержка префикса
+  + Поддержка истории Far и MoreHistory
 }
 
 interface
@@ -71,16 +100,14 @@ interface
       function PanelMakeDirectory(AHandle :THandle; AMode :Integer; var ADir :TString) :Boolean; override;
       function PanelGetFiles(AHandle :THandle; AMode :Integer; AItems :PPluginPanelItem; ACount :Integer; AMove :boolean; var ADestPath :TString) :Boolean; override;
       function PanelDeleteFiles(AHandle :THandle; AMode :Integer; AItems :PPluginPanelItem; ACount :Integer) :Boolean; override;
+      function PanelInput(AHandle :THandle; AKey :Integer) :Boolean; override;
      {$ifdef Far3}
-      function OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
+//    function OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
      {$endif Far3}
       procedure Configure; override;
       procedure SynchroEvent(AParam :Pointer); override;
 
       procedure ErrorHandler(E :Exception); override;
-
-    private
-      procedure MainMenu;
     end;
 
 
@@ -141,7 +168,7 @@ interface
     FConfigID := cConfigID;
    {$endif Far3}
 
-//  FPrefix := cPrefix;
+    FPrefix := cPrefix;
   end;
 
 
@@ -190,29 +217,18 @@ interface
     Result := TFarFmPanel(AHandle).DeleteFiles(AMode, AItems, ACount);
   end;
 
+  function TFarFMPlug.PanelInput(AHandle :THandle; AKey :Integer) :Boolean; {override;}
+  begin
+    Result := TFarFmPanel(AHandle).ProcessInput(AKey);
+  end;
+
+
   function TFarFMPlug.OpenCmdLine(AStr :PTChar) :THandle; {override;}
   begin
-    Result := INVALID_HANDLE_VALUE;
-    if (AStr <> nil) and (AStr^ <> #0) then begin
-      {}
-    end else
-      MainMenu;
+    Pointer(Result) := TFarFmPanel.Create;
+    if (AStr <> nil) and (AStr^ <> #0) then
+      TFarFmPanel(Result).Navigate(0, AStr);
   end;
-
-
- {$ifdef Far3}
-  function TFarFMPlug.OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
-  begin
-    Result := 0;
-(*
-    if (ACount = 0) or ((ACount = 1) and (AParams[0].fType = FMVT_INTEGER)) then
-      Result := inherited OpenMacroEx(ACount, AParams)
-    else
-    if AParams[0].fType = FMVT_STRING then
-      Result := MacroCommand(AParams[0].Value.fString, ACount, AParams);
-*)
-  end;
- {$endif Far3}
 
 
   procedure TFarFMPlug.Configure; {override;}
@@ -242,6 +258,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+(*
   procedure TFarFMPlug.MainMenu;
   var
     vMenu :TFarMenu;
@@ -267,7 +284,7 @@ interface
       FreeObj(vMenu);
     end;
   end;
-
+*)
 
 
 end.

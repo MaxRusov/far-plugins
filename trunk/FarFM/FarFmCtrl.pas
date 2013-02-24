@@ -28,15 +28,16 @@ interface
     cPluginDescr = 'Last FM FAR plugin';
     cPluginAuthor = 'Max Rusov';
 
+    cPrefix = 'FarFM';
+
    {$ifdef Far3}
     cPluginID   :TGUID = '{fda904ec-5ae7-497e-891b-e6efeee508e8}';
     cMenuID     :TGUID = '{0f36e348-68ad-4af2-8d07-a7d475f44570}';
     cConfigID   :TGUID = '{86f0fe36-fb21-4ab5-9186-2524b3d09eaf}';
-
+   {$endif Far3}
     cCopyDlgID  :TGUID = '{F2A9CE51-990C-40C8-AC70-495ABDB2464B}';
     cLoginDlgID :TGUID = '{28A7C32C-54EC-4633-9800-EC057B669689}';
     cFindDlgID  :TGUID = '{22DBEAD9-40DF-46C9-9CD5-1371723A978D}';
-   {$endif Far3}
 
 
   const
@@ -45,6 +46,8 @@ interface
     cUsers = 'Users';
     cTracks = 'Tracks';
     cPlaylists = 'Playlists';
+    cSimilar = 'Similar';
+    cInformation = 'Information';
     cAccount = 'My Account';
 
     cPlaylistExt = 'm3u';
@@ -53,14 +56,19 @@ interface
 
     cMP3Ext = 'mp3';
     cHTMLExt = 'htm';
+    cTXTExt = 'txt';
 
     cConfigExt = 'cfg';
+   {$ifdef Far3}
     cLocalConfigPath = '%FarProfile%\FarFM';
+   {$else}
+    cLocalConfigPath = '%AppData%\FarFM';
+   {$endif Far3}
     cUrlCacheFileName = 'UrlCache.dat';
 
     cRedirectHTML =
       '<!DOCTYPE HTML>'#13#10'<html>'#13#10'<head>'#13#10 +
-      '<meta http-equiv="refresh" content="0;url=%0:s">'#13#10+
+      '<meta http-equiv="refresh" content="0;url=%0:s"/>'#13#10+
       '</head>'#13#10'<body>'#13#10+
       '<a href="%0:s">%1:s</a>'#13#10+
       '</body>'#13#10'</html>';
@@ -77,6 +85,17 @@ interface
       strOk,
       strCancel,
 
+      strName,
+      strArtist,
+      strAlbum,
+      strTrack,
+      strLength,
+      strN,
+
+      strCmdAdd,
+      strCmdDelete,
+      strCmdCopy,
+
       strCopyTitle,
       strMoveTitle,
       strCopyBut,
@@ -85,6 +104,7 @@ interface
 
       strFindArtist,
       strFindUser,
+      strAddUser,
       strFindTextPrompt,
       strFindWherePrompt,
       strFindBut,
@@ -107,12 +127,24 @@ interface
       strDeleteBut,
       strDeleting,
 
+      strClear,
+      strClearPrompt,
+      strClearPromptN,
+      strClearBut,
+
       strWarning,
       strFileExists,
       strOverwriteBut,
       strAllBut,
       strSkipBut,
       strSkipAllBut,
+
+      strInfoName,
+      strInfoGender,
+      strInfoAge,
+      strInfoCountry,
+      strInfoPlaycount,
+      strInfoRegistered,
 
       strInterrupt,
       strInterruptPrompt,
@@ -135,11 +167,14 @@ interface
     opt_ShowResolvedFile :Boolean = True;
     opt_CacheTrackURL    :Boolean = True;
 
+    opt_InfoLang         :TString = 'ru';
+
 
   type
     TStringArray2 = array of array of TString;
 
   function NewStrs(const AStrs :array of TString) :PPCharArray;
+  function NewStrsI(const AStrs :array of TMessages) :PPCharArray;
   procedure DisposeStrs(APtr :PPCharArray);
 
   procedure AppendArray2(var ADest, ASrc :TStringArray2);
@@ -169,6 +204,17 @@ interface
       Result[I] := StrNew(AStrs[I]);
   end;
 
+  function NewStrsI(const AStrs :array of TMessages) :PPCharArray;
+  var
+    I, vCount :Integer;
+  begin
+    vCount := High(AStrs) + 1;
+    Result := MemAlloc((vCount + 1) * SizeOf(Pointer));
+    PIntPtr(Result)^ := vCount;
+    Inc(Pointer1(Result), SizeOf(Pointer));
+    for I := 0 to vCount - 1 do
+      Result[I] := StrNew(GetMsg(AStrs[I]));
+  end;
 
   procedure DisposeStrs(APtr :PPCharArray);
   var

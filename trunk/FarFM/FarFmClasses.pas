@@ -2,7 +2,7 @@
 
 unit FarFMClasses;
 
-interface
+interface                    
 
   uses
     Windows,
@@ -50,7 +50,7 @@ interface
   type
     TFarPanelMode = class(TBasis)
     public
-      constructor CreateEx(AFlags :Integer; const ATitles :array of TString; const ATypes, AWidths, AStTypes, AStWidths :TString);
+      constructor CreateEx(AFlags :Integer; const ATitles :array of TMessages; const ATypes, AWidths, AStTypes, AStWidths :TString);
       destructor Destroy; override;
 
     private
@@ -86,10 +86,9 @@ interface
     public
       destructor Destroy; override;
       procedure SetLabels(const ALabels :array of TFarPanelLabel);
-      function AllocateTitles :{$ifdef Far3}PKeyBarTitles{$else}PKeyBarTitlesArray{$endif Far3};
-
+      function AllocateTitles :PKeyBarTitles;
     private
-      FTitles :{$ifdef Far3}TKeyBarTitles{$else}PKeyBarTitlesArray{$endif Far3};
+      FTitles :TKeyBarTitles;
     end;
 
 
@@ -104,6 +103,7 @@ interface
       fflArtist,
       fflArtistTracks,
       fflArtistAlbums,
+      fflArtistSimilar,
       fflAlbum,
 
       fflAlbums,
@@ -112,8 +112,9 @@ interface
       fflUser,
       fflUserPlaylists,
       fflUserPlaylist,
+      fflUserArtists,
       fflUserAlbums,
-      fflUserALbum,
+      fflUserTracks,
 
       fflAccounts
     );
@@ -134,7 +135,7 @@ interface
     public
       property Panel :TFarFmPanel read FPanel;
       property Cmd :Integer read FCmd;
-      property Param :Integer read FParam;
+      property Param :TIntPtr read FParam;
     end;
 
     TFarFmPanel = class(TBasis)
@@ -149,34 +150,44 @@ interface
       function MakeDirectory(AMode :Integer; var ADir :TString) :Boolean;
       function GetFiles(AMode :Integer; AItems :PPluginPanelItem; ACount :Integer; AMove :boolean; var ADestPath :TString) :Boolean;
       function DeleteFiles(AMode :Integer; AItems :PPluginPanelItem; ACount :Integer) :Boolean;
+      function ProcessInput(AKey :Integer) :Boolean;
 
-      procedure Navigate(const AFolder :TString);
+      procedure Navigate(AMode :Integer; const AFolder :TString);
       function RunCommand(ACmd :Integer; AParam :TIntPtr) :Boolean;
 
     private
       FLevel   :TFarFmLevel;
       FCurrent :TString;
+      FCurInfo :TString;
 
-      FStack  :TStringList;
-      FItems  :TObjList;
+      FStack   :TStringList;
+      FItems   :TObjList;
 
-      FTitle  :TString;
-      FPath   :TString;
+      FTitle   :TString;
+      FPath    :TString;
 
-      FKeyBar :TFarPanelLabels;
-      FModes  :TFarPanelModes;
-      FSort   :Integer;
+      FKeyBar  :TFarPanelLabels;
+      FModes   :TFarPanelModes;
+      FDefMode :Integer;
+      FDefSort :Integer;
 
-//    FProgressTick :DWORD;
+      FProgressTick :DWORD;
+      FProgressTitle :TString;
       FProgressMess :TString;
       FProgressPercent :Integer;
 
+      procedure UpdatePanel(ARefill :Boolean = False);
       procedure FillLevel;
       procedure TrackLoad(APage :Integer);
       procedure AlbumLoad(AList :TObjList; const AArtist, AAlbum :TString);
 //    procedure AddImageItem(const AInfo :IXMLDOMDocument; const ANodes, AName :TString; AList :TObjList);
 //    procedure AddURLItem(const AInfo :IXMLDOMDocument; const ANode, AName, ALabel :TString; AList :TObjList);
 
+      procedure UserArtistsLoad(APage :Integer);
+      procedure UserAlbumsLoad(APage :Integer);
+      procedure UserTrackLoad(APage :Integer);
+
+      function DropURLCache :Boolean;
       function AddArtistPrompt(var AName :TString) :Boolean;
       function AddUserPrompt(var AName :TString) :Boolean;
       procedure CopyDownloadCallback(const AURL :TString; ASize :TIntPtr);
@@ -195,6 +206,7 @@ interface
       procedure VKCallsEnd;
       procedure VkCallsProgress(const ATitle, AMess :TString; APercent :Integer);
       function FindTrackURL(const Artist, Track :TString; AForce :Boolean = True) :TString;
+      function DropTrackURL(const Artist, Track :TString) :Boolean;
 
     private
       FArtists  :TStringList;
@@ -298,18 +310,51 @@ interface
   end;
 
 
+  function ClearTags(const AStr :TString) :TString;
+  var
+    I, L, B :Integer;
+  begin
+    Result := AStr;
+    I := 1;
+    L := length(Result);
+    while I < L do begin
+      if Result[I] = '<' then begin
+        B := I;
+        Inc(I);
+        while I < L do begin
+          if Result[I] = '>' then begin
+            Inc(I);
+            Delete(Result, B, I - B);
+            L := length(Result);
+            I := B;
+            Break;
+          end else
+           Inc(I);
+        end;
+      end else
+      if Result[I] = #10 then begin
+        Insert(#13, Result, I);
+        Inc(L);
+        Inc(I, 2);
+      end else
+        Inc(I);
+    end;
+    Result := StrReplace(Result, '&quot;', '"', [rfReplaceAll, rfIgnoreCase]);
+  end;
+
+  
  {-----------------------------------------------------------------------------}
  { TFarPanelMode                                                               }
  {-----------------------------------------------------------------------------}
 
-  function NewPanelMode(AFlags :Integer; const ATitles :array of TString; const ATypes, AWidths :TString;
+  function NewPanelMode(AFlags :Integer; const ATitles :array of TMessages; const ATypes, AWidths :TString;
     const AStTypes :TString = ''; const AStWidths :TString = '') :TFarPanelMode;
   begin
     Result := TFarPanelMode.CreateEx(AFlags, ATitles, ATypes, AWidths, AStTypes, AStWidths)
   end;
 
 
-  constructor TFarPanelMode.CreateEx(AFlags :Integer; const ATitles :array of TString; const ATypes, AWidths, AStTypes, AStWidths :TString);
+  constructor TFarPanelMode.CreateEx(AFlags :Integer; const ATitles :array of TMessages; const ATypes, AWidths, AStTypes, AStWidths :TString);
   begin
     inherited Create;
     FFlags := AFlags;
@@ -317,7 +362,7 @@ interface
     FWidths := AWidths;
     FStTypes := AStTypes;
     FStWidths := AStWidths;
-    FTitles := NewStrs(ATitles);
+    FTitles := NewStrsI(ATitles);
   end;
 
 
@@ -363,7 +408,10 @@ interface
            {$ifdef Far3}
             Flags := FFlags;
            {$else}
-            {!Far2}
+            FullScreen := byte(FFlags and PMFLAGS_FULLSCREEN <> 0);
+            DetailedStatus := byte(FFlags and PMFLAGS_DETAILEDSTATUS <> 0);
+            AlignExtensions := byte(FFlags and PMFLAGS_ALIGNEXTENSIONS <> 0);
+            CaseConversion := byte(FFlags and PMFLAGS_CASECONVERSION <> 0);
            {$endif Far3}
           end;
     end;
@@ -375,7 +423,7 @@ interface
  { TFarPanelLabel                                                              }
  {-----------------------------------------------------------------------------}
 
-  function NewFarLabel(AKey :Integer; const AText :TString; const ALongText :TString = '') :TFarPanelLabel;
+  function NewFarLabel(AKey :Integer; const AText :TString = ''; const ALongText :TString = '') :TFarPanelLabel;
   begin
     Result := TFarPanelLabel.Create;
     Result.FKey := AKey;
@@ -389,7 +437,6 @@ interface
    {$ifdef Far3}
     MemFree(FTitles.Labels);
    {$else}
-    MemFree(FTitles);
    {$endif Far3}
     inherited Destroy;
   end;
@@ -418,11 +465,11 @@ interface
  {$endif Far3}
 
 
-  function TFarPanelLabels.AllocateTitles :{$ifdef Far3}PKeyBarTitles{$else}PKeyBarTitlesArray{$endif};
+  function TFarPanelLabels.AllocateTitles :PKeyBarTitles;
+ {$ifdef Far3}
   var
     I :Integer;
   begin
-   {$ifdef Far3}
     MemFree(FTitles.Labels);
     FTitles.CountLabels := Count;
     if Count > 0 then begin
@@ -435,10 +482,29 @@ interface
         end;
     end;
     Result := @FTitles;
-   {$else}
-    {!Far2}
-    Result := FTitles;
-   {$endif Far3}
+ {$else}
+  var
+    I, J :Integer;
+  begin
+    Result := nil;
+    if Count > 0 then begin
+      for I := 0 to Count - 1 do
+        with TFarPanelLabel(Items[I]) do begin
+          J := (FKey and not (KEY_CTRL + KEY_ALT + KEY_SHIFT)) - KEY_F1;
+          if (J >= 0) and (J <= 11) then begin
+            if FKey and (KEY_CTRL + KEY_ALT + KEY_SHIFT) = 0 then
+              FTitles.Titles[J] := PTChar(FText);
+            if FKey and (KEY_CTRL + KEY_ALT + KEY_SHIFT) = KEY_CTRL then
+              FTitles.CtrlTitles[J] := PTChar(FText);
+            if FKey and (KEY_CTRL + KEY_ALT + KEY_SHIFT) = KEY_ALT then
+              FTitles.AltTitles[J] := PTChar(FText);
+            if FKey and (KEY_CTRL + KEY_ALT + KEY_SHIFT) = KEY_SHIFT then
+              FTitles.ShiftTitles[J] := PTChar(FText);
+          end;
+        end;
+      Result := @FTitles;
+    end;
+ {$endif Far3}
   end;
 
 
@@ -462,50 +528,27 @@ interface
   type
     TFarFmItem = class(TNamedObject)
     public
-      constructor CreateEx(const AName :TString; ALevel :TFarFmLevel; AIsFolder :Boolean = True);
       procedure MakePanelItem(var AItem :TPluginPanelItem); virtual;
       procedure GetFileView(AMode :Integer; var APath :TString); virtual;
       function CanCopy :Boolean; virtual;
       procedure CopyFileTo(const AFileName :TString); virtual;
       function GetFileName :TString; virtual;
-    private
-      FIsFolder :Boolean;
-      FLevel    :TFarFmLevel;
     public
-      property IsFolder :Boolean read FIsFolder;
-      property Level :TFarFmLevel read FLevel;
       property FileName :TString read GetFileName;
     end;
 
-  constructor TFarFmItem.CreateEx(const AName :TString; ALevel :TFarFmLevel; AIsFolder :Boolean = True);
-  begin
-    CreateName(AName);
-    FLevel := ALevel;
-    FIsFolder := AIsFolder;
-  end;
 
   procedure TFarFmItem.MakePanelItem(var AItem :TPluginPanelItem); {virtual;}
   begin
-   {$ifdef Far3}
-    AItem.FileName := StrNew(FName);
-    if IsFolder then
-      AItem.FileAttributes := FILE_ATTRIBUTE_DIRECTORY;
-   {$else}
-    AItem.FindData.cFileName := StrNew(FName);
-    if IsFolder then
-      AItem.FindData.dwFileAttributes := FILE_ATTRIBUTE_DIRECTORY;
-   {$endif Far3}
+    AItem.{$ifdef Far3}FileName{$else}FindData.cFileName{$endif Far3}
+      := StrNew(FName);
     Pointer(AItem.UserData) := Self;
   end;
 
 
   procedure FreePanelItem(var AItem :TPluginPanelItem);
   begin
-   {$ifdef Far3}
-    StrDispose(AItem.FileName);
-   {$else}
-    StrDispose(AItem.FindData.cFileName);
-   {$endif Far3}
+    StrDispose(AItem.{$ifdef Far3}FileName{$else}FindData.cFileName{$endif Far3});
     if AItem.CustomColumnData <> nil then
       DisposeStrs(AItem.CustomColumnData);
   end;
@@ -531,6 +574,37 @@ interface
   function TFarFmItem.GetFileName :TString; {virtual;}
   begin
     Result := CleanFileName(Name);
+  end;
+
+ {---------------------------------------}
+
+  type
+    TFarFmFolder = class(TFarFmItem)
+    public
+      constructor CreateEx(const AName, AInfo :TString; ALevel :TFarFmLevel);
+      procedure MakePanelItem(var AItem :TPluginPanelItem); override;
+    private
+      FInfo  :TString;
+      FLevel :TFarFmLevel;
+    public
+      property Info :TString read FInfo;
+      property Level :TFarFmLevel read FLevel;
+    end;
+
+
+  constructor TFarFmFolder.CreateEx(const AName, AInfo :TString; ALevel :TFarFmLevel);
+  begin
+    CreateName(AName);
+    FLevel := ALevel;
+    FInfo := AInfo;
+  end;
+
+
+  procedure TFarFmFolder.MakePanelItem(var AItem :TPluginPanelItem); {override;}
+  begin
+    inherited MakePanelItem(AItem);
+    AItem.{$ifdef Far3}FileAttributes{$else}FindData.dwFileAttributes{$endif Far3}
+     := FILE_ATTRIBUTE_DIRECTORY;
   end;
 
 
@@ -596,6 +670,44 @@ interface
     StrToFile(AFileName, vHTML);
   end;
 
+ {---------------------------------------}
+
+  type
+    TFarInfoItem = class(TFarFmItem)
+    public
+      constructor CreateEx(const AName, AText :TString);
+      procedure GetFileView(AMode :Integer; var APath :TString); override;
+      function CanCopy :Boolean; override;
+      procedure CopyFileTo(const AFileName :TString); override;
+    public
+      FText  :TString;
+    end;
+
+
+  constructor TFarInfoItem.CreateEx(const AName, AText :TString);
+  begin
+    CreateName(AddFileExtension(AName, cTXTExt));
+    FText := AText;
+  end;
+
+  procedure TFarInfoItem.GetFileView(AMode :Integer; var APath :TString); {override;}
+  var
+    vName :TString;
+  begin
+    vName := AddFileName(APath, FileName);
+    CopyFileTo(vName);
+  end;
+
+  function TFarInfoItem.CanCopy :Boolean; {override;}
+  begin
+    Result := True;
+  end;
+
+  procedure TFarInfoItem.CopyFileTo(const AFileName :TString); {override;}
+  begin
+    StrToFile(AFileName, FText);
+  end;
+
 
  {---------------------------------------}
 
@@ -647,25 +759,48 @@ interface
  {---------------------------------------}
 
   type
+    TFarFmAlbum = class(TFarFmFolder)
+    public
+      constructor CreateEx(const AName, AArtist :TString);
+      procedure MakePanelItem(var AItem :TPluginPanelItem); override;
+    end;
+
+
+  constructor TFarFmAlbum.CreateEx(const AName, AArtist :TString);
+  begin
+    inherited CreateEx(AName, AArtist, fflAlbum);
+  end;
+
+
+  procedure TFarFmAlbum.MakePanelItem(var AItem :TPluginPanelItem); {override;}
+  begin
+    inherited MakePanelItem(AItem);
+    AItem.CustomColumnNumber := 1;
+    AItem.CustomColumnData := NewStrs([FInfo]);
+  end;
+
+
+ {---------------------------------------}
+
+  type
     TFarFmPlaylistItem = class(TFarFmItem)
     public
-      constructor CreateEx(const AArtist, AAlbum :TString; const ATracks :TStringArray2);
+      constructor CreateEx(const AName :TString; const ATracks :TStringArray2);
       procedure GetFileView(AMode :Integer; var APath :TString); override;
       function CanCopy :Boolean; override;
       procedure CopyFileTo(const AFileName :TString); override;
+
     public
-      FArtist :TString;
-      FAlbum  :TString;
-      FTracks :TStringArray2;
+      FTracks  :TStringArray2;
+
       procedure ResolveTracks;
       procedure SavePlaylistTo(const AFileName :TString; ALocal :Boolean);
     end;
 
-  constructor TFarFmPlaylistItem.CreateEx(const AArtist, AAlbum :TString; const ATracks :TStringArray2);
+
+  constructor TFarFmPlaylistItem.CreateEx(const AName :TString; const ATracks :TStringArray2);
   begin
-    CreateName(AddFileExtension(AAlbum, cPlaylistExt));
-    FArtist := AArtist;
-    FAlbum  := AAlbum;
+    CreateName(AddFileExtension(AName, cPlaylistExt));
     FTracks := ATracks;
   end;
 
@@ -703,46 +838,31 @@ interface
 
   procedure TFarFmPlaylistItem.SavePlaylistTo(const AFileName :TString; ALocal :Boolean);
   var
-    I, N :Integer;
+    I, N, vLen :Integer;
     vList, vURL, vExt :TString;
   begin
     {!!!Unicode}
     vList := cM3UHeader;
     N := length(FTracks);
     for I := 0 to N - 1 do begin
-      vURL := FarFm.FindTrackURL(FArtist, FTracks[I, 0], False);
+      vURL := FarFm.FindTrackURL(FTracks[I, 1], FTracks[I, 0], False);
       if ALocal then begin
         vExt := ExtractURLFileExtension(vURL);
         if vExt = '' then
           vExt := cMP3Ext;
-        vURL := FormatTrackFileName(FTracks[I, 0], FArtist, '', vExt, I + 1);
+        vURL := FormatTrackFileName(FTracks[I, 0], FTracks[I, 1], '', vExt, I + 1);
       end;
-      vList := AppendStrCh(vList, Format(cM3UExtInfo, [Str2IntDef(FTracks[I, 1], 0), FARtist, FTracks[I, 0]]), CRLF);
+
+      vLen := 0;
+      if length(FTracks[I]) > 2 then
+        vLen := Str2IntDef(FTracks[I, 2], 0);
+
+      vList := AppendStrCh(vList, Format(cM3UExtInfo, [vLen, FTracks[I, 1], FTracks[I, 0]]), CRLF);
       vList := AppendStrCh(vList, vURL, CRLF);
     end;
     StrToFile(AFileName, vList, sffAnsi);
   end;
 
-
-(*
-  procedure TFarFmPlaylistItem.ResolveTracks;
-  var
-    I, N :Integer;
-  begin
-    FarFm.VKCallsBegin;
-    try
-      N := length(FTracks);
-      for I := 0 to N - 1 do begin
-        FarFm.VkCallsProgress('Find tracks', FTracks[I, 0], MulDiv(I, 100, N));
-        if FarFm.CheckInterrupt then
-          CtrlBreakException;
-        FarFm.FindTrackURL(FArtist, FTracks[I, 0], True);
-      end;
-    finally
-      FarFm.VKCallsEnd;
-    end;
-  end;
-*)
 
   procedure TFarFmPlaylistItem.ResolveTracks;
   var
@@ -755,7 +875,7 @@ interface
       vLight := True;
       for I := 0 to N - 1 do begin
         if vLight then
-          if FarFm.FindTrackURL(FArtist, FTracks[I, 0], False) = '' then begin
+          if FarFm.FindTrackURL(FTracks[I, 1], FTracks[I, 0], False) = '' then begin
             FarFm.VKAuthorize;
             vLight := False;
           end;
@@ -765,7 +885,7 @@ interface
           FarFm.VkCallsProgress('Find tracks', FTracks[I, 0], MulDiv(I, 100, N));
           if FarFm.CheckInterrupt then
             CtrlBreakException;
-          FarFm.FindTrackURL(FArtist, FTracks[I, 0], True);
+          FarFm.FindTrackURL(FTracks[I, 1], FTracks[I, 0], True);
         end;
       end;
     finally
@@ -779,12 +899,14 @@ interface
   type
     TFarFmTrackItem = class(TFarFmItem)
     public
-      constructor CreateEx(const AName, AArtist :TString; AIndex :Integer; ALength :Integer);
+      constructor CreateEx(const AName, AArtist :TString; ALength :Integer; AIndex :Integer);
       procedure MakePanelItem(var AItem :TPluginPanelItem); override;
       procedure GetFileView(AMode :Integer; var APath :TString); override;
       function GetFileName :TString; override;
       function CanCopy :Boolean; override;
       procedure CopyFileTo(const AFileName :TString); override;
+
+      procedure UnResolveTrack;
 
     private
       FArtist :TString;
@@ -796,7 +918,7 @@ interface
     end;
 
 
-  constructor TFarFmTrackItem.CreateEx(const AName, AArtist :TString; AIndex :Integer; ALength :Integer);
+  constructor TFarFmTrackItem.CreateEx(const AName, AArtist :TString; ALength :Integer; AIndex :Integer);
   begin
     CreateName(AName);
     FArtist := AArtist;
@@ -813,20 +935,19 @@ interface
 //  inherited MakePanelItem(AItem);
 
     if not opt_ShowResolvedFile or (FURL = '') then
-      AItem.FileName := StrNew(FName)
+      AItem.{$ifdef Far3}FileName{$else}FindData.cFileName{$endif Far3}
+        := StrNew(FName)
     else begin
       vName := AddFileExtension(FName, ExtractFileExtension(FURL));
-      AItem.FileName := StrNew(vName);
+      AItem.{$ifdef Far3}FileName{$else}FindData.cFileName{$endif Far3}
+        := StrNew(vName);
     end;
     Pointer(AItem.UserData) := Self;
 
-   {$ifdef Far3}
-    AItem.FileSize := FLength;
-   {$else}
-    AItem.FindData.nFileSize := FLength;
-   {$endif Far3}
-    AItem.CustomColumnNumber := 2;
-    AItem.CustomColumnData := NewStrs([Int2Str(FIndex), FormatLength(FLength)]);
+    AItem.{$ifdef Far3}FileSize{$else}FindData.nFileSize{$endif Far3}
+      := FLength;
+    AItem.CustomColumnNumber := 3;
+    AItem.CustomColumnData := NewStrs([Int2Str(FIndex), FArtist, FormatLength(FLength)]);
   end;
 
 
@@ -874,6 +995,13 @@ interface
   end;
 
 
+  procedure TFarFmTrackItem.UnResolveTrack;
+  begin
+    FarFm.DropTrackURL(FArtist, FName);
+  end;
+
+
+
  {-----------------------------------------------------------------------------}
  { TFarFmPanel                                                                 }
  {-----------------------------------------------------------------------------}
@@ -886,7 +1014,7 @@ interface
     FKeyBar := TFarPanelLabels.Create;
     FModes := TFarPanelModes.Create;
     FLevel := fflRoot;
-    Navigate('\');
+    Navigate(0, '\');
   end;
 
   destructor TFarFmPanel.Destroy; {override;}
@@ -902,7 +1030,7 @@ interface
   procedure TFarFmPanel.GetInfo(var AInfo :TOpenPanelInfo);
   begin
    {$ifdef Far3}
-    AInfo.Flags := OPIF_ADDDOTS {or OPIF_SHORTCUT};
+    AInfo.Flags := OPIF_ADDDOTS or OPIF_SHORTCUT;
    {$else}
     AInfo.Flags := OPIF_ADDDOTS or OPIF_USEFILTER or OPIF_USEHIGHLIGHTING {OPIF_USEATTRHIGHLIGHTING};
    {$endif Far3}
@@ -917,9 +1045,9 @@ interface
     AInfo.PanelModesNumber := FModes.Count;
     if FModes.Count > 0 then begin
       AInfo.PanelModesArray := FModes.AllocateModes;
-      AInfo.StartPanelMode := byte('0') + 3;
+      AInfo.StartPanelMode := byte('0') + FDefMode;
     end;
-    AInfo.StartSortMode := FSort;
+    AInfo.StartSortMode := FDefSort;
   end;
 
 
@@ -951,7 +1079,7 @@ interface
   begin
     vInitOk := Succeeded(CoInitialize(nil));
     try
-      Navigate(ADir);
+      Navigate(AMode, ADir);
       Result := True;
     finally
       if vInitOk then
@@ -981,7 +1109,7 @@ interface
       I, J :Integer;
     begin
       for I := 0 to ACount - 1 do begin
-        J := AList.IndexOf(AItems.FileName);
+        J := AList.IndexOf(AItems.{$ifdef Far3}FileName{$else}FindData.cFileName{$endif Far3});
         if J <> -1 then
           AList.Delete(J);
         Inc(Pointer1(AItems), SizeOf(TPluginPanelItem));
@@ -999,7 +1127,7 @@ interface
       if OPM_SILENT and AMode = 0 then begin
 
         if ACount = 1 then
-          vPrompt := GetMsgStr(strDeletePrompt) + #10 + AItems.FileName
+          vPrompt := GetMsgStr(strDeletePrompt) + #10 + AItems.{$ifdef Far3}FileName{$else}FindData.cFileName{$endif Far3}
         else
           vPrompt := Format(GetMsgStr(strDeletePromptN), [ACount]);
         if ShowMessage(GetMsgStr(strDelete), vPrompt + #10 + GetMsgStr(strDeleteBut) + #10 + GetMsgStr(strCancel), 0, 2) <> 0 then
@@ -1033,13 +1161,22 @@ interface
           Result := False;
         end else
         begin
-          vItem.GetFileView(AMode, ADestPath);
+          DownloadCallback := CopyDownloadCallback;
+          try
+            FProgressTick := 0;
+            FProgressTitle := 'Loading';
+            FProgressMess := vItem.Name;
+            FProgressPercent := -1;
+            vItem.GetFileView(AMode, ADestPath);
+          finally
+            DownloadCallback := nil;
+          end;
           Result := True;
         end;
       end else
       begin
         Assert(OPM_SILENT and AMode = 0, 'Silent mode???');
-        if FLevel in [fflArtistTracks, fflArtistAlbums, fflAlbum] then
+        if FLevel in [fflAlbum, fflArtistTracks, fflArtistAlbums, fflUserTracks, fflUserAlbums] then
           Result := CopyFilesTo(AItems, ACount, ADestPath);
       end;
     finally
@@ -1050,8 +1187,14 @@ interface
 
 
   procedure TFarFmPanel.CopyDownloadCallback(const AURL :TString; ASize :TIntPtr);
+  var
+    vTime :DWORD;
   begin
-    FarFM.VkCallsProgress(GetMsgStr(strCopying), FProgressMess + ' (' + Int2Str(ASize div 1024) + ' K)', FProgressPercent);
+    vTime := GetTickCount;
+    if (FProgressTick = 0) or (TickCountDiff(vTime, FProgressTick) > 100) then begin
+      FarFM.VkCallsProgress(FProgressTitle, FProgressMess + ' (' + Int2Str(ASize div 1024) + ' K)', FProgressPercent);
+      FProgressTick := vTime;
+    end;
     if FarFM.CheckInterrupt then
       CtrlBreakException;
   end;
@@ -1074,6 +1217,7 @@ interface
       end;
 
       if AItem.CanCopy then begin
+        FProgressTick := 0;
         FProgressMess := AItem.FileName;
         FarFM.VkCallsProgress(GetMsgStr(strCopying), FProgressMess, FProgressPercent);
 
@@ -1109,7 +1253,10 @@ interface
       vAlbumList :TObjList;
     begin
       Result := False;
+      if not (AItem is TFarFmAlbum) then
+        Sorry;
 
+      FProgressTick := 0;
       FProgressMess := AItem.FileName;
       FarFM.VkCallsProgress(GetMsgStr(strCopying), FProgressMess, FProgressPercent);
 
@@ -1120,7 +1267,7 @@ interface
 
       vAlbumList := TObjList.Create;
       try
-        AlbumLoad(vAlbumList, {Artist:}FStack[2], AItem.Name);
+        AlbumLoad(vAlbumList, {Artist:}TFarFmAlbum(AItem).FInfo, AItem.Name);
         vPercent0 := FProgressPercent;
 //      Inc(vTotal, vAlbumList.Count);
         for I := 0 to vAlbumList.Count - 1 do begin
@@ -1149,14 +1296,16 @@ interface
     DownloadCallback := CopyDownloadCallback;
     FarFm.VKCallsBegin;
     try
+      FProgressTitle := GetMsgStr(strCopying);
       vMode := 0;
       for I := 0 to ACount - 1 do begin
+        FProgressTick := 0;
         FProgressPercent := MulDiv(I, 100, ACount);
         vPercent2 := MulDiv(I + 1, 100, ACount);
-        J := FItems.IndexOf(AItems.UserData);
+        J := FItems.IndexOf(Pointer(AItems.UserData));
         if J <> -1 then begin
           vItem := FItems[J];
-          if vItem.IsFolder then begin
+          if vItem is TFarFmFolder then begin
             if LocCopyGroupTo(vItem, vDest) then
               AItems.Flags := AItems.Flags and not PPIF_SELECTED;
           end else
@@ -1177,6 +1326,18 @@ interface
   end;
 
 
+  function TFarFmPanel.ProcessInput(AKey :Integer) :Boolean;
+  begin
+    Result := True;
+    case AKey of
+      KEY_SHIFTF1: Sorry;
+      KEY_SHIFTF8: DropURLCache;
+    else
+      Result := False;
+    end;
+  end;
+
+
   function TFarFmPanel.RunCommand(ACmd :Integer; AParam :TIntPtr) :Boolean;
   var
     I :Integer;
@@ -1187,25 +1348,27 @@ interface
     case ACmd of
       cmAddArtist:
         if AddArtistPrompt(vName) then begin
-          FillLevel;
-          FARAPI.Control(PANEL_ACTIVE, FCTL_UPDATEPANEL, 0, nil);
-          FARAPI.Control(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, nil);
+          UpdatePanel(True);
           FarPanelSetCurrentItem(True, vName);
           Result := True;
         end;
       cmAddUser:
         if AddUserPrompt(vName) then begin
-          FillLevel;
-          FARAPI.Control(PANEL_ACTIVE, FCTL_UPDATEPANEL, 0, nil);
-          FARAPI.Control(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, nil);
+          UpdatePanel(True);
           FarPanelSetCurrentItem(True, vName);
           Result := True;
         end;
       cmNextPage:
-        if FLevel in [fflArtistTracks] then begin
-          TrackLoad(AParam);
-          FARAPI.Control(PANEL_ACTIVE, FCTL_UPDATEPANEL, 0, nil);
-          FARAPI.Control(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, nil);
+        begin
+          case FLevel of
+            fflArtistTracks : TrackLoad(AParam);
+            fflUserArtists  : UserArtistsLoad(AParam);
+            fflUserAlbums   : UserAlbumsLoad(AParam);
+            fflUserTracks   : UserTrackLoad(AParam);
+          else
+            Exit;
+          end;
+          UpdatePanel;
           Result := True;
         end;
       cmUpdate:
@@ -1215,43 +1378,30 @@ interface
             if vItem is TFarFmTrackItem then
               TFarFmTrackItem(vItem).ResolveTrack(False);
           end;
-          FARAPI.Control(PANEL_ACTIVE, FCTL_UPDATEPANEL, 0, nil);
-          FARAPI.Control(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, nil);
+          UpdatePanel;
         end;
     else
       Sorry;
     end;
   end;
 
-(*
+
   function TFarFmPanel.AddArtistPrompt(var AName :TString) :Boolean;
   begin
     Result := False;
-    {!!!Мастер}
-    if FarInputBox('Add artist', 'Name', AName) then begin
+    if FindDlg(1, '', AName) then begin
       FarFM.Artists.Add( AName );
       FarFM.SaveLocalList(cArtists, FarFM.Artists);
       Result := True;
     end;
   end;
-*)
-  function TFarFmPanel.AddArtistPrompt(var AName :TString) :Boolean;
-  begin
-    Result := False;
-    {!!!Localize}
-    if FindDlg('Add artist', AName) then begin
-      FarFM.Artists.Add( AName );
-      FarFM.SaveLocalList(cArtists, FarFM.Artists);
-      Result := True;
-    end;
-  end;
-  
+
 
   function TFarFmPanel.AddUserPrompt(var AName :TString) :Boolean;
   begin
     Result := False;
-    {!!!Мастер}
-    if FarInputBox('Add user', 'Name', AName) then begin
+//  if FindDlg(2, '', AName) then begin
+    if FarInputBox(GetMsg(strAddUser), GetMsg(strName), AName) then begin
       FarFM.Users.Add( AName );
       FarFM.SaveLocalList(cUsers, FarFM.Users);
       Result := True;
@@ -1259,7 +1409,92 @@ interface
   end;
 
 
-  procedure TFarFmPanel.Navigate(const AFolder :TString);
+  function TFarFmPanel.DropURLCache :Boolean;
+
+    function LogGetSelected(AIndex :Integer) :TFarFmItem;
+    var
+      vPanelItem :PPluginPanelItem;
+    begin
+      Result := nil;
+      vPanelItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETSELECTEDPANELITEM, AIndex);
+      if vPanelItem <> nil then
+        try
+          if FItems.IndexOf(Pointer(vPanelItem.UserData)) <> -1 then
+            Result := Pointer(vPanelItem.UserData);
+        finally
+          MemFree(vPanelItem);
+        end;
+    end;
+
+    procedure LocClearGroup(AItem :TFarFmFolder);
+    var
+      I :Integer;
+      vAlbumList :TObjList;
+    begin
+      Result := False;
+      if not (AItem is TFarFmAlbum) then
+        Sorry;
+      vAlbumList := TObjList.Create;
+      try
+        AlbumLoad(vAlbumList, {Artist:}AItem.Info, {Album:}AItem.Name);
+        for I := 0 to vAlbumList.Count - 1 do
+          if TObject(vAlbumList[I]) is TFarFmTrackItem then
+            TFarFmTrackItem(vAlbumList[I]).UnResolveTrack;
+      finally
+        FreeObj(vAlbumList);
+      end;
+    end;
+
+  var
+    I :Integer;
+    vInfo :TPanelInfo;
+    vItem :TFarFmItem;
+    vStr, vPrompt :TString;
+  begin
+    Result := False;
+    if FLevel in [fflAlbum, fflArtistTracks, fflArtistAlbums, fflUserTracks, fflUserAlbums] then begin
+
+      FarGetPanelInfo(PANEL_ACTIVE, vInfo);
+      if vInfo.SelectedItemsNumber <= 1 then begin
+        vItem := LogGetSelected(0);
+        if not ((vItem is TFarFmFolder) or ((vItem is TFarFmTrackItem) and (TFarFmTrackItem(vItem).FURL <> ''))) then
+          Exit;
+        vStr := vItem.Name;
+      end;
+
+      if vInfo.SelectedItemsNumber <= 1 then
+        vPrompt := GetMsgStr(strClearPrompt) + #10 + vStr
+      else
+        vPrompt := Format(GetMsgStr(strClearPromptN), [vInfo.SelectedItemsNumber]);
+      if ShowMessage(GetMsgStr(strClear), vPrompt + #10 + GetMsgStr(strClearBut) + #10 + GetMsgStr(strCancel), 0, 2) <> 0 then
+        Exit;
+
+      for I := 0 to vInfo.SelectedItemsNumber - 1 do begin
+        vItem := LogGetSelected(I);
+        if vItem is TFarFmFolder then
+          LocClearGroup(TFarFmFolder(vItem))
+        else
+        if vItem is TFarFmTrackItem then
+          TFarFmTrackItem(vItem).UnResolveTrack;
+      end;
+
+      UpdatePanel(True);
+
+      Result := True;
+    end;
+  end;
+
+
+  procedure TFarFmPanel.UpdatePanel(ARefill :Boolean = False);
+  begin
+    if ARefill then
+      FillLevel;
+    FARAPI.Control(PANEL_ACTIVE, FCTL_UPDATEPANEL, 0, nil);
+    FARAPI.Control(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, nil);
+  end;
+
+
+  procedure TFarFmPanel.Navigate(AMode :Integer; const AFolder :TString);
 
     procedure PushStack;
     begin
@@ -1288,12 +1523,17 @@ interface
       FillLevel;
     end;
 
-    procedure LocGoInto(ALevel :TFarFmLevel; const AName :TString);
+    procedure LocGoInto(ALevel :TFarFmLevel; const AName, AInfo :TString);
     begin
+      if (ALevel = fflArtistSimilar) and (AMode and OPM_FIND <> 0) then
+        { Во избежании зацикливания поиска... }
+        Abort;
+
       PushStack;
       try
         FLevel := ALevel;
         FCurrent := AName;
+        FCurInfo := AInfo;
         FillLevel;
       except
         PopStack;
@@ -1318,20 +1558,27 @@ interface
       if ChrPos('\', AFolder) = 0 then begin
         if not FItems.FindKey(Pointer(AFolder), 0, [], vIndex) then
           Wrong;
+
         vItem := FItems[vIndex];
-        LocGoInto(vItem.Level, AFolder);
+        if not (vItem is TFarFmFolder) then
+          Abort;
+
+        with TFarFmFolder(vItem) do
+          LocGoInto(Level, AFolder, Info);
       end else
       begin
-        Navigate('\');
+        Navigate(0, '\');
         vPtr := PTChar(AFolder);
         while vPtr^ <> #0 do begin
           vStr := ExtractNextWord(vPtr, ['\']);
-          Navigate(vStr);
+          Navigate(0, vStr);
         end;
       end;
 
     finally
-      FPath := AppendStrCh(FStack.GetTextStrEx('\'), FCurrent, '\');
+      FPath := FStack.GetTextStrEx('\');
+      if FCurrent <> '' then
+        FPath := FPath + '\' + FCurrent;
       FTitle := cPluginName + ':' + FPath;
     end;
   end;
@@ -1392,13 +1639,22 @@ interface
     procedure LocFillArtist;
     var
       vDoc :IXMLDOMDocument;
+      vInfo :TString;
     begin
-      vDoc := LastFMCall('artist.getInfo', ['artist', FCurrent]);
+      vDoc := LastFMCall('artist.getInfo', ['artist', FCurrent, 'lang', opt_InfoLang]);
+
+      vInfo := XMLParseNode(vDoc, '/lfm/artist/bio/summary');
+//    vInfo := XMLParseNode(vDoc, '/lfm/artist/bio/content');
+      vInfo := ClearTags(vInfo);
+
       FItems.FreeAll;
       AddImageItem(FItems, vDoc, '/lfm/artist/image', FCurrent {'Artist'});
       AddURLItem(FItems, vDoc, '/lfm/artist/url', FCurrent {'ArtistPage'}, FCurrent);
-      FItems.Add( TFarFmItem.CreateEx(cTracks, fflArtistTracks) );
-      FItems.Add( TFarFmItem.CreateEx(cAlbums, fflArtistAlbums) );
+      if vInfo <> '' then
+        FItems.Add( TFarInfoItem.CreateEx(cInformation, vInfo) );
+      FItems.Add( TFarFmFolder.CreateEx(cTracks, '', fflArtistTracks) );
+      FItems.Add( TFarFmFolder.CreateEx(cAlbums, '', fflArtistAlbums) );
+      FItems.Add( TFarFmFolder.CreateEx(cSimilar, '', fflArtistSimilar) );
     end;
 
 
@@ -1408,29 +1664,68 @@ interface
       vArtist :TString;
       vAlbums :TStringArray2;
     begin
-      vArtist := FStack[2];
+      vArtist := FStack[FStack.Count - 1];
       vAlbums := LastFMCall1('artist.getTopAlbums', ['artist', vArtist], '/lfm/topalbums/album', ['name', 'url']);
 
       FItems.FreeAll;
       for I := 0 to length(vAlbums) - 1 do
-        FItems.Add( TFarFmItem.CreateEx(vAlbums[I, 0], fflAlbum ));
+        FItems.Add( TFarFmAlbum.CreateEx(vAlbums[I, 0], vArtist) );
+    end;
+
+
+    procedure LocFillArtistSimilar;
+    var
+      I :Integer;
+      vArtist :TString;
+      vArtists :TStringArray2;
+    begin
+      vArtist := FStack[FStack.Count - 1];
+      vArtists := LastFMCall1('artist.getSimilar', ['artist', vArtist], '/lfm/similarartists/artist', ['name', 'url']);
+      FItems.FreeAll;
+      for I := 0 to length(vArtists) - 1 do
+        FItems.Add( TFarFmFolder.CreateEx(vArtists[I, 0], '', fflArtist ));
     end;
 
 
     procedure LocFillUser;
     var
       vDoc :IXMLDOMDocument;
+      vStr, vInfo :TString;
     begin
       vDoc := LastFMCall('user.getInfo', ['user', FCurrent]);
+
+      vInfo := '';
+      vStr := Trim(XMLParseNode(vDoc, '/lfm/user/realname'));
+      if vStr <> '' then
+        vInfo := vInfo + GetMsgStr(strInfoName) + ' ' + vStr + #13#10;
+      vStr := Trim(XMLParseNode(vDoc, '/lfm/user/gender'));
+      if (vStr <> '') and (vStr <> 'n') then
+        vInfo := vInfo + GetMsgStr(strInfoGender) + ' ' + vStr + #13#10;
+      vStr := Trim(XMLParseNode(vDoc, '/lfm/user/age'));
+      if vStr <> '' then
+        vInfo := vInfo + GetMsgStr(strInfoAge) + ' ' + vStr + #13#10;
+      vStr := Trim(XMLParseNode(vDoc, '/lfm/user/country'));
+      if vStr <> '' then
+        vInfo := vInfo + GetMsgStr(strInfoCountry) + ' ' + vStr + #13#10;
+      vStr := Trim(XMLParseNode(vDoc, '/lfm/user/playcount'));
+      if vStr <> '' then
+        vInfo := vInfo + GetMsgStr(strInfoPlaycount) + ' ' + vStr + #13#10;
+      vStr := Trim(XMLParseNode(vDoc, '/lfm/user/registered'));
+      if vStr <> '' then
+        vInfo := vInfo + GetMsgStr(strInfoRegistered) + ' ' + vStr + #13#10;
 
       FItems.FreeAll;
       AddImageItem(FItems, vDoc, '/lfm/user/image', FCurrent {'UserImage'});
       AddURLItem(FItems, vDoc, '/lfm/user/url', FCurrent {'UserPage'}, FCurrent);
-      FItems.Add( TFarFmItem.CreateEx(cPlaylists, fflUserPlaylists) );
-      FItems.Add( TFarFmItem.CreateEx(cAlbums, fflUserAlbums) );
+      if vInfo <> '' then
+        FItems.Add( TFarInfoItem.CreateEx(cInformation, vInfo) );
+      FItems.Add( TFarFmFolder.CreateEx(cArtists, '', fflUserArtists) );
+      FItems.Add( TFarFmFolder.CreateEx(cAlbums, '', fflUserAlbums) );
+      FItems.Add( TFarFmFolder.CreateEx(cTracks, '', fflUserTracks) );
+//    FItems.Add( TFarFmFolder.CreateEx(cPlaylists, '', fflUserPlaylists) );
     end;
 
-
+(*
     procedure LocFillUserPlaylists;
     var
       I :Integer;
@@ -1445,79 +1740,71 @@ interface
 
       FItems.FreeAll;
       for I := 0 to length(vLists) - 1 do
-        FItems.Add( TFarFmItem.CreateEx(vLists[I, 0], fflUserPlaylist) );
+        FItems.Add( TFarFmFolder.CreateEx(vLists[I, 0], '', fflUserPlaylist) );
     end;
+*)
 
     procedure LocFillUserPlaylist;
     begin
       FItems.FreeAll;
     end;
 
-
-    procedure LocFillUserAlbums;
-    var
-      I :Integer;
-      vUser :TString;
-      vDoc :IXMLDOMDocument;
-      vLists :TStringArray2;
-    begin
-      vUser := ExtractWord(2, FPath, ['\']);
-      vDoc := LastFMCall('library.getAlbums', ['user', vUser]);
-
-      vLists := XMLParseArray(vDoc, '/lfm/albums/album', ['name']);
-
-      FItems.FreeAll;
-      for I := 0 to length(vLists) - 1 do
-        FItems.Add( TFarFmItem.CreateEx(vLists[I, 0], fflUserAlbum) );
-    end;
-
   var
     I, L :Integer;
   begin
-    FSort := SM_UNSORTED;
+    FDefSort := SM_UNSORTED;
 
     case FLevel of
       fflRoot: begin
         FItems.FreeAll;
-        FItems.Add( TFarFmItem.CreateEx(cArtists, fflArtists) );
-//      FItems.Add( TFarFmItem.CreateEx(cAlbums, fflAlbums) );
-        FItems.Add( TFarFmItem.CreateEx(cUsers, fflUsers) );
-        FItems.Add( TFarFmItem.CreateEx(cAccount, fflAccounts) );
+        FItems.Add( TFarFmFolder.CreateEx(cArtists, '', fflArtists) );
+//      FItems.Add( TFarFmFolder.CreateEx(cAlbums, '', fflAlbums) );
+        FItems.Add( TFarFmFolder.CreateEx(cUsers, '', fflUsers) );
+        FItems.Add( TFarFmFolder.CreateEx(cAccount, '', fflAccounts) );
       end;
 
       fflArtists: begin
         FItems.FreeAll;
         for I := 0 to FarFM.Artists.Count - 1 do
-          FItems.Add( TFarFmItem.CreateEx(FarFM.Artists[I], fflArtist) );
+          FItems.Add( TFarFmFolder.CreateEx(FarFM.Artists[I], '', fflArtist) );
         FItems.Add( TFarFmCommand.CreateEx('Add', cmAddArtist, 0) );
       end;
-(*
+
       fflUsers: begin
         FItems.FreeAll;
         for I := 0 to FarFM.Users.Count - 1 do
-          FItems.Add( TFarFmItem.CreateEx(FarFM.Users[I], fflUser) );
+          FItems.Add( TFarFmFolder.CreateEx(FarFM.Users[I], '', fflUser) );
         FItems.Add( TFarFmCommand.CreateEx('Add', cmAddUser, 0) );
       end;
-*)
+
       fflArtist:
         LocFillArtist;
-      fflALbum:
-        AlbumLoad(FItems, {Artist:}FStack[2], FCurrent);
+      fflAlbum:
+        AlbumLoad(FItems, {Artist:}FCurInfo, {Album:}FCurrent);
+//      AlbumLoad(FItems, {Artist:}FStack[FStack.Count - 2], FCurrent);
+//      with FStack.Objects[FStack.Count - 1] as TFarFmAlbumItem do
+//        AlbumLoad(FItems, FArtist, FCurrent);
       fflArtistTracks:
         TrackLoad(1);
-      fflArtistALbums:
+      fflArtistAlbums:
         LocFillArtistAlbums;
+      fflArtistSimilar:
+        LocFillArtistSimilar;
 
-(*
       fflUser:
         LocFillUser;
+      fflUserArtists:
+        UserArtistsLoad(1);
+      fflUserAlbums:
+        UserAlbumsLoad(1);
+      fflUserTracks:
+        UserTrackLoad(1);
+(*
       fflUserPlaylists:
         LocFillUserPlaylists;
       fflUserPlaylist:
         LocFillUserPlaylist;
-      fflUserAlbums:
-        LocFillUserAlbums;
-*)        
+*)
 (*
       fflAccounts:
         {};
@@ -1530,38 +1817,63 @@ interface
 
     FModes.FreeAll;
     case FLevel of
-      fflALbum, fflArtistTracks:
+      fflAlbum, fflArtistTracks, fflUserTracks:
       begin
         L := length(Int2Str(FItems.Count));
-        if FLevel = fflArtistTracks then
+        if FLevel in [fflArtistTracks, fflUserTracks] then
           L := IntMax(L, 3);
         FModes.SetModes([
-          NewPanelMode(PMFLAGS_FULLSCREEN, ['N', 'Name', 'Length'], 'C0,N,C1', Int2Str(L) + ',0,5'),
-          nil,
-          nil,
-          NewPanelMode(PMFLAGS_ALIGNEXTENSIONS, ['N', 'Name', 'Length'], 'C0,N,C1', Int2Str(L) + ',0,5')
+          NewPanelMode(PMFLAGS_FULLSCREEN, [strN, strTrack, strArtist, strLength], 'C0,N,C1,C2', Int2Str(L) + ',0,0,5'),
+          nil, nil, nil,
+          NewPanelMode(0, [strN, strName, strLength], 'C0,N,C2', Int2Str(L) + ',0,5'),
+          NewPanelMode(0, [strN, strTrack, strArtist, strLength], 'C0,N,C1,C2', Int2Str(L) + ',0,0,5')
         ]);
+        if FLevel = fflUserTracks then
+          FModes[3] := NewPanelMode(0, [strN, strTrack, strArtist, strLength], 'C0,N,C1,C2', Int2Str(L) + ',0,0,5')
+        else
+          FModes[3] := NewPanelMode(0, [strN, strName, strLength], 'C0,N,C2', Int2Str(L) + ',0,5');
       end;
+
+      fflArtistAlbums, fflUserAlbums:
+      begin
+        FModes.SetModes([
+          NewPanelMode(PMFLAGS_FULLSCREEN, [strAlbum, strArtist], 'N,C0', '0,0'),
+          nil, nil, nil,
+          NewPanelMode(0, [strName], 'N', '0'),
+          NewPanelMode(0, [strAlbum, strArtist], 'N,C0', '0,0')
+        ]);
+        if FLevel = fflArtistAlbums then
+          FModes[3] := NewPanelMode(0, [strName], 'N', '0')
+        else
+          FModes[3] := NewPanelMode(0, [strAlbum, strArtist], 'N,C0', '0,0');
+      end;
+
     else
       if FModes.Count = 0 then
         FModes.SetModes([
-          NewPanelMode(PMFLAGS_FULLSCREEN, ['Name'], 'N', '0'),
-          nil,
-          nil,
-          NewPanelMode(PMFLAGS_ALIGNEXTENSIONS, ['Name'], 'N', '0')
+          NewPanelMode(PMFLAGS_FULLSCREEN, [strName], 'N', '0'),
+          nil, nil,
+          NewPanelMode(0, [strName], 'N', '0'),
+          NewPanelMode(0, [strName], 'N', '0'),
+          NewPanelMode(0, [strName], 'N', '0')
         ]);
     end;
+    FDefMode := 3;
 
+
+    FKeyBar.SetLabels([
+      NewFarLabel(KEY_F3), NewFarLabel(KEY_F4), NewFarLabel(KEY_F5), NewFarLabel(KEY_F6), NewFarLabel(KEY_F7), NewFarLabel(KEY_F8),
+      NewFarLabel(KEY_ShiftF3), NewFarLabel(KEY_ShiftF4), NewFarLabel(KEY_ShiftF5), NewFarLabel(KEY_ShiftF6), NewFarLabel(KEY_ShiftF7), NewFarLabel(KEY_ShiftF8)
+    ]);
     case FLevel of
-      fflArtists, fflUsers:
-      begin
-        FKeyBar.SetLabels([NewFarLabel(KEY_F3, ''), NewFarLabel(KEY_F4, ''),NewFarLabel(KEY_F5, ''), NewFarLabel(KEY_F6, ''),
-          NewFarLabel(KEY_F7, 'Add'),
-          NewFarLabel(KEY_F8, 'Delete')
-        ]);
+      fflAlbum, fflArtistTracks, fflArtistAlbums, fflUserTracks, fflUserAlbums: begin
+        TFarPanelLabel(FKeyBar[2]).FText := GetMsgStr(strCmdCopy);
+        TFarPanelLabel(FKeyBar[11]).FText := 'Clear';
       end;
-    else
-      FKeyBar.SetLabels([NewFarLabel(KEY_F3, ''), NewFarLabel(KEY_F4, ''),NewFarLabel(KEY_F5, ''), NewFarLabel(KEY_F6, ''), NewFarLabel(KEY_F7, ''), NewFarLabel(KEY_F8, '')]);
+      fflArtists, fflUsers: begin
+        TFarPanelLabel(FKeyBar[4]).FText := GetMsgStr(strCmdAdd);
+        TFarPanelLabel(FKeyBar[5]).FText := GetMsgStr(strCmdDelete);
+      end;
     end;
   end;
 
@@ -1573,22 +1885,22 @@ interface
     vArtist :TString;
     vTracks :TStringArray2;
   begin
-    vArtist := FStack[2];
+    vArtist := FStack[FStack.Count - 1];
     vDoc := LastFMCall('artist.getTopTracks', ['artist', vArtist, 'page', Int2Str(APage)]);
     vTotal := Str2IntDef(XMLParseNode(vDoc, '/lfm/toptracks', 'totalPages'), 1);
-    vTracks := XMLParseArray(vDoc, '/lfm/toptracks/track', ['name', 'duration', '%rank']);
-    if length(vTracks) = 0 then
-      Exit;
+    vTracks := XMLParseArray(vDoc, '/lfm/toptracks/track', ['name', 'artist/name', 'duration', '%rank']);
 
     if APage = 1 then
       FItems.FreeAll
     else
     if TObject(FItems[FItems.Count - 1]) is TFarFmCommand then
       FItems.FreeAt(FItems.Count - 1);
+    if length(vTracks) = 0 then
+      Exit;
 
-    FItems.Add(TFarFmPlaylistItem.CreateEx( vArtist, vArtist + ' ' + Int2Str(APage), vTracks ));
+    FItems.Add(TFarFmPlaylistItem.CreateEx( vArtist + ' ' + Int2Str(APage), vTracks ));
     for I := 0 to length(vTracks) - 1 do
-      FItems.Add( TFarFmTrackItem.CreateEx(vTracks[I, 0], vArtist, Str2IntDef(vTracks[I, 2], 0), Str2IntDef(vTracks[I, 1], 0) ));
+      FItems.Add( TFarFmTrackItem.CreateEx(vTracks[I, 0], vTracks[I, 1], Str2IntDef(vTracks[I, 2], 0), Str2IntDef(vTracks[I, 3], 0)) );
     if APage < vTotal then
       FItems.Add(TFarFmCommand.CreateEx(Format('Page %d/%d', [APage + 1, vTotal]), cmNextPage, APage + 1));
   end;
@@ -1602,17 +1914,100 @@ interface
   begin
     vDoc := LastFMCall('album.getInfo', ['artist', AArtist, 'album', AAlbum]);
 
-    vTracks := XMLParseArray(vDoc, '/lfm/album/tracks/track', ['name', 'duration']);
+    vTracks := XMLParseArray(vDoc, '/lfm/album/tracks/track', ['name', 'artist/name', 'duration']);
 
     AList.FreeAll;
     AddImageItem(AList, vDoc, '/lfm/album/image', 'Album');
     AddURLItem(AList, vDoc, '/lfm/album/url', AAlbum, AAlbum);
     if length(vTracks) > 0 then begin
-      AList.Add(TFarFmPlaylistItem.CreateEx( AArtist, AAlbum, vTracks ));
+      AList.Add(TFarFmPlaylistItem.CreateEx( AAlbum, vTracks ));
       for I := 0 to length(vTracks) - 1 do
-        AList.Add( TFarFmTrackItem.CreateEx(vTracks[I, 0], AArtist, I + 1, Str2IntDef(vTracks[I, 1], 0) ));
+        AList.Add( TFarFmTrackItem.CreateEx(vTracks[I, 0], vTracks[I, 1], Str2IntDef(vTracks[I, 2], 0), I + 1) );
     end;
   end;
+
+
+  procedure TFarFmPanel.UserArtistsLoad(APage :Integer);
+  var
+    I, vTotal :Integer;
+    vDoc :IXMLDOMDocument;
+    vUser :TString;
+    vArtists :TStringArray2;
+  begin
+    vUser := FStack[FStack.Count - 1];
+    vDoc := LastFMCall('user.getTopArtists', ['user', vUser, 'page', Int2Str(APage)]);
+    vTotal := Str2IntDef(XMLParseNode(vDoc, '/lfm/topartists', 'totalPages'), 1);
+    vArtists := XMLParseArray(vDoc, '/lfm/topartists/artist', ['name', '%rank']);
+
+    if APage = 1 then
+      FItems.FreeAll
+    else
+    if TObject(FItems[FItems.Count - 1]) is TFarFmCommand then
+      FItems.FreeAt(FItems.Count - 1);
+    if length(vArtists) = 0 then
+      Exit;
+
+    for I := 0 to length(vArtists) - 1 do
+      FItems.Add( TFarFmFolder.CreateEx(vArtists[I, 0], '', fflArtist) );
+    if APage < vTotal then
+      FItems.Add(TFarFmCommand.CreateEx(Format('Page %d/%d', [APage + 1, vTotal]), cmNextPage, APage + 1));
+  end;
+
+
+  procedure TFarFmPanel.UserAlbumsLoad(APage :Integer);
+  var
+    I, vTotal :Integer;
+    vDoc :IXMLDOMDocument;
+    vUser :TString;
+    vAlbums :TStringArray2;
+  begin
+    vUser := FStack[FStack.Count - 1];
+    vDoc := LastFMCall('user.getTopAlbums', ['user', vUser, 'page', Int2Str(APage)]);
+    vTotal := Str2IntDef(XMLParseNode(vDoc, '/lfm/topalbums', 'totalPages'), 1);
+    vAlbums := XMLParseArray(vDoc, '/lfm/topalbums/album', ['name', 'artist/name', '%rank']);
+
+    if APage = 1 then
+      FItems.FreeAll
+    else
+    if TObject(FItems[FItems.Count - 1]) is TFarFmCommand then
+      FItems.FreeAt(FItems.Count - 1);
+    if length(vAlbums) = 0 then
+      Exit;
+
+    for I := 0 to length(vAlbums) - 1 do
+      FItems.Add( TFarFmAlbum.CreateEx(vAlbums[I, 0], vAlbums[I, 1]) );
+    if APage < vTotal then
+      FItems.Add(TFarFmCommand.CreateEx(Format('Page %d/%d', [APage + 1, vTotal]), cmNextPage, APage + 1));
+  end;
+
+
+  procedure TFarFmPanel.UserTrackLoad(APage :Integer);
+  var
+    I, vTotal :Integer;
+    vDoc :IXMLDOMDocument;
+    vUser :TString;
+    vTracks :TStringArray2;
+  begin
+    vUser := FStack[FStack.Count - 1];
+    vDoc := LastFMCall('user.getTopTracks', ['user', vUser, 'page', Int2Str(APage)]);
+    vTotal := Str2IntDef(XMLParseNode(vDoc, '/lfm/toptracks', 'totalPages'), 1);
+    vTracks := XMLParseArray(vDoc, '/lfm/toptracks/track', ['name', 'artist/name', 'duration', '%rank']);
+
+    if APage = 1 then
+      FItems.FreeAll
+    else
+    if TObject(FItems[FItems.Count - 1]) is TFarFmCommand then
+      FItems.FreeAt(FItems.Count - 1);
+    if length(vTracks) = 0 then
+      Exit;
+
+    FItems.Add(TFarFmPlaylistItem.CreateEx( vUser + ' ' + Int2Str(APage), vTracks ));
+    for I := 0 to length(vTracks) - 1 do
+      FItems.Add( TFarFmTrackItem.CreateEx(vTracks[I, 0], vTracks[I, 1], Str2IntDef(vTracks[I, 2], 0), Str2IntDef(vTracks[I, 3], 0)) );
+    if APage < vTotal then
+      FItems.Add(TFarFmCommand.CreateEx(Format('Page %d/%d', [APage + 1, vTotal]), cmNextPage, APage + 1));
+  end;
+
 
 
 (*
@@ -1651,7 +2046,7 @@ interface
         FItems.FreeAll;
         FItems.Add(TFarFmPlaylistItem.CreateEx( vArtist, vArtist, vTracks ));
         for I := 0 to length(vTracks) - 1 do
-          FItems.Add( TFarFmTrackItem.CreateEx(vTracks[I, 0], vArtist, I + 1, Str2IntDef(vTracks[I, 1], 0) ));
+          FItems.Add( TFarFmTrackItem.CreateEx(vTracks[I, 0], vArtist, Str2IntDef(vTracks[I, 1], 0), I + 1 ));
 
       finally
         FARAPI.RestoreScreen(vSave);
@@ -1793,6 +2188,10 @@ interface
     end;
 
     procedure LocAuthorizeAutomatic;
+   {$ifdef b64}
+    begin
+      Sorry;
+   {$else}
     var
       vBrowser :InternetExplorer;
       vRequest, vResponse :TString;
@@ -1833,6 +2232,7 @@ interface
         on E :Exception do
           AppErrorID(strAuthError);
       end;
+   {$endif b64}
     end;
 
 
@@ -1973,6 +2373,21 @@ interface
         FTrackCache.Insert( vIndex, TDescrObject.CreateEx(vKey, Result) );
         Inc(FResolved);
       end;
+    end;
+  end;
+
+
+  function TFarFm.DropTrackURL(const Artist, Track :TString) :Boolean;
+  var
+    vIndex :Integer;
+    vKey :TString;
+  begin
+    Result := False;
+    vKey := Artist + #9 + Track;
+    if FTrackCache.FindKey(Pointer(vKey), 0, [foBinary], vIndex) then begin
+      FTrackCache.FreeAt(vIndex);
+      Inc(FResolved);
+      Result := True;
     end;
   end;
 

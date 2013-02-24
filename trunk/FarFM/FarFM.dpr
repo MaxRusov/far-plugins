@@ -40,12 +40,16 @@ exports
   SetDirectoryW,
   MakeDirectoryW,
   GetFilesW,
+//PutFilesW,
   DeleteFilesW,
-(*
-  PutFilesW,
+
+ {$ifdef Far3}
+  ProcessPanelInputW,
+ {$else}
   ProcessKeyW,
-  ProcessEventW,
-*)
+ {$endif Far3}
+//ProcessEventW,
+
   ProcessSynchroEventW,
 
   ConfigureW,

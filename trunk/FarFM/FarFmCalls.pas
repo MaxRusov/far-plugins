@@ -166,7 +166,6 @@ interface
   end;
 
 
-
   function HTTPGet(const AURL :TString) :TString;
   var
     vRequest :IXMLHttpRequest;
@@ -434,25 +433,29 @@ interface
         vFile := FileCreate(AFileName);
         Win32Check(vFile <> INVALID_HANDLE_VALUE);
         try
+          try
+            vSize := 0;
+            while True do begin
+              if Assigned(DownloadCallback) then
+                DownloadCallback(AURL, vSize);
 
-          vSize := 0;
-          while True do begin
-            if Assigned(DownloadCallback) then
-              DownloadCallback(AURL, vSize);
+              if not InternetReadFile(vHandle, @vBuffer, SizeOf(vBuffer), vRead) then
+                RaiseLastWin32Error;
+              if vRead = 0 then
+                Break;
 
-            if not InternetReadFile(vHandle, @vBuffer, SizeOf(vBuffer), vRead) then
-              RaiseLastWin32Error;
-            if vRead = 0 then
-              Break;
+              if FileWrite(vFile, vBuffer, vRead) <> Integer(vRead) then
+                RaiseLastWin32Error;
 
-            if FileWrite(vFile, vBuffer, vRead) <> Integer(vRead) then
-              RaiseLastWin32Error;
+              Inc(vSize, vRead);
+            end;
 
-            Inc(vSize, vRead);
+          finally
+            FileClose(vFile);
           end;
-
-        finally
-          FileClose(vFile);
+        except
+          DeleteFile(AFileName);
+          raise;
         end;
 
       finally

@@ -11,6 +11,17 @@
 "&Ok"
 "&Cancel"
 
+"Name"
+"Artist"
+"Album"
+"Track"
+"Length"
+"N"
+
+"Add"
+"Delete"
+"Copy"
+
 "Copy"
 "Move"
 "&Copy"
@@ -19,13 +30,14 @@
 
 "Find artist"
 "Find user"
+"Add user"
 "&Search for:"
 "&Where:"
 "&Find"
 "&Add"
-"Artist"
-"Album"
-"Track"
+"Artists"
+"Albums"
+"Tracks"
 "Listeners"
 
 "Copy file to:"
@@ -41,12 +53,24 @@
 "&Delete"
 "Deleting"
 
+"Clear URL"
+"Do you wish to clear URL cache for the item:"
+"Do you wish to clear URL cache for\n%d items"
+"&Clear"
+
 "Warning"
 "File already exists:"
 "&Overwrite"
 "&All"
 "&Skip"
 "S&kip all"
+
+"Name      "
+"Gender    "
+"Age       "
+"Country   "
+"Playcount "
+"Registered"
 
 "Interrupt"
 "Interrupt current operation?"

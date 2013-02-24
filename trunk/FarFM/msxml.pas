@@ -1,3 +1,4 @@
+{$I Defines.inc}
 
 {*******************************************************}
 {                                                       }
@@ -10,7 +11,7 @@
 {                                                       }
 {*******************************************************}
 
-unit msxml;
+unit MSXml;
 
 // ************************************************************************ //
 // WARNING
@@ -1413,6 +1414,7 @@ type
 // Flags:     (4416) Dual OleAutomation Dispatchable
 // GUID:      {ED8C108D-4349-11D2-91A4-00C04F7969E8}
 // *********************************************************************//
+
   IXMLHttpRequest = interface(IDispatch)
     ['{ED8C108D-4349-11D2-91A4-00C04F7969E8}']
     procedure open(const bstrMethod: WideString; const bstrUrl: WideString; varAsync: OleVariant;
@@ -1439,6 +1441,7 @@ type
     property readyState: Integer read Get_readyState;
     property onreadystatechange: IDispatch write Set_onreadystatechange;
   end;
+
   { EXTERNALSYM IXMLHttpRequest}
 
 // *********************************************************************//
