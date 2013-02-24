@@ -3721,6 +3721,10 @@ type
     LongText :PFarChar;
   end;
 
+  PKeyBarLabelArray = ^TKeyBarLabelArray;
+  TKeyBarLabelArray = packed array [0..MaxInt div SizeOf(TKeyBarLabel) - 1] of TKeyBarLabel;
+
+
 (*
 struct KeyBarTitles
 {
@@ -3732,7 +3736,7 @@ type
   PKeyBarTitles = ^TKeyBarTitles;
   TKeyBarTitles = record
     CountLabels :size_t;
-    Labels :PKeyBarLabel;
+    Labels :PKeyBarLabelArray;
   end;
 
 (*
@@ -3994,16 +3998,27 @@ type
     Data :TIntPtr;
   end;
 
-          (*
-            struct SetDirectoryInfo
-            {
-                    size_t StructSize;
-                    HANDLE hPanel;
-                    const wchar_t *Dir;
-                    intptr_t UserData;
-                    OPERATION_MODES OpMode;
-            };
+(*
+  struct SetDirectoryInfo
+  {
+    size_t StructSize;
+    HANDLE hPanel;
+    const wchar_t *Dir;
+    intptr_t UserData;
+    OPERATION_MODES OpMode;
+  };
+*)
+type
+  PSetDirectoryInfo = ^TSetDirectoryInfo;
+  TSetDirectoryInfo = record
+    StructSize :size_t;
+    hPanel :THandle;
+    Dir :PFarChar;
+    UserData :Pointer;
+    OpMode :TOperationModes;
+  end;
 
+(*
             struct SetFindListInfo
             {
                     size_t StructSize;
@@ -4031,15 +4046,27 @@ type
                     size_t ItemsNumber;
                     OPERATION_MODES OpMode;
             };
+*)
 
-            struct MakeDirectoryInfo
-            {
-                    size_t StructSize;
-                    HANDLE hPanel;
-                    const wchar_t *Name;
-                    OPERATION_MODES OpMode;
-            };
+(*
+struct MakeDirectoryInfo
+{
+  size_t StructSize;
+  HANDLE hPanel;
+  const wchar_t *Name;
+  OPERATION_MODES OpMode;
+};
+*)
+type
+  PMakeDirectoryInfo = ^TMakeDirectoryInfo;
+  TMakeDirectoryInfo = record
+    StructSize :size_t;
+    hPanel :THandle;
+    Name :PFarChar;
+    OpMode :TOperationModes;
+  end;
 
+(*
             struct CompareInfo
             {
                     size_t StructSize;
@@ -4048,53 +4075,107 @@ type
                     const struct PluginPanelItem *Item2;
                     enum OPENPANELINFO_SORTMODES Mode;
             };
-
-            struct GetFindDataInfo
-            {
-                    size_t StructSize;
-                    HANDLE hPanel;
-                    struct PluginPanelItem *PanelItem;
-                    size_t ItemsNumber;
-                    OPERATION_MODES OpMode;
-            };
-
-
-            struct FreeFindDataInfo
-            {
-                    size_t StructSize;
-                    HANDLE hPanel;
-                    struct PluginPanelItem *PanelItem;
-                    size_t ItemsNumber;
-            };
-
-            struct GetFilesInfo
-            {
-                    size_t StructSize;
-                    HANDLE hPanel;
-                    struct PluginPanelItem *PanelItem;
-                    size_t ItemsNumber;
-                    BOOL Move;
-                    const wchar_t *DestPath;
-                    OPERATION_MODES OpMode;
-            };
-
-            struct DeleteFilesInfo
-            {
-                    size_t StructSize;
-                    HANDLE hPanel;
-                    struct PluginPanelItem *PanelItem;
-                    size_t ItemsNumber;
-                    OPERATION_MODES OpMode;
-            };
-
-            struct ProcessPanelInputInfo
-            {
-                    size_t StructSize;
-                    HANDLE hPanel;
-                    INPUT_RECORD Rec;
-            };
 *)
-{!!!}
+
+(*
+struct GetFindDataInfo
+{
+  size_t StructSize;
+  HANDLE hPanel;
+  struct PluginPanelItem *PanelItem;
+  size_t ItemsNumber;
+  OPERATION_MODES OpMode;
+};
+*)
+type
+  PGetFindDataInfo = ^TGetFindDataInfo;
+  TGetFindDataInfo = record
+    StructSize :size_t;
+    hPanel :THandle;
+    PanelItem :PPluginPanelItemArray;
+    ItemsNumber :size_t;
+    OpMode :TOperationModes;
+  end;
+
+(*
+struct FreeFindDataInfo
+{
+  size_t StructSize;
+  HANDLE hPanel;
+  struct PluginPanelItem *PanelItem;
+  size_t ItemsNumber;
+};
+*)
+type
+  PFreeFindDataInfo = ^TFreeFindDataInfo;
+  TFreeFindDataInfo = record
+    StructSize :size_t;
+    hPanel :THandle;
+    PanelItem :PPluginPanelItemArray;
+    ItemsNumber :size_t;
+  end;
+
+(*
+struct GetFilesInfo
+{
+  size_t StructSize;
+  HANDLE hPanel;
+  struct PluginPanelItem *PanelItem;
+  size_t ItemsNumber;
+  BOOL Move;
+  const wchar_t *DestPath;
+  OPERATION_MODES OpMode;
+};
+*)
+type
+  PGetFilesInfo = ^TGetFilesInfo;
+  TGetFilesInfo = record
+    StructSize :size_t;
+    hPanel :THandle;
+    PanelItem :PPluginPanelItem;
+    ItemsNumber :size_t;
+    Move :Boolean;
+    DestPath :PFarChar;
+    OpMode :TOperationModes;
+  end;
+
+(*
+struct DeleteFilesInfo
+{
+  size_t StructSize;
+  HANDLE hPanel;
+  struct PluginPanelItem *PanelItem;
+  size_t ItemsNumber;
+  OPERATION_MODES OpMode;
+};
+*)
+type
+  PDeleteFilesInfo = ^TDeleteFilesInfo;
+  TDeleteFilesInfo = record
+    StructSize :size_t;
+    hPanel :THandle;
+    PanelItem :PPluginPanelItem;
+    ItemsNumber :size_t;
+    OpMode :TOperationModes;
+  end;
+
+
+(*
+struct ProcessPanelInputInfo
+{
+  size_t StructSize;
+  HANDLE hPanel;
+  INPUT_RECORD Rec;
+};
+*)
+type
+  PProcessPanelInputInfo = ^TProcessPanelInputInfo;
+  TProcessPanelInputInfo = record
+    StructSize :size_t;
+    hPanel :THandle;
+    Rec :TInputRecord;
+  end;
+
 
 (*
 struct ProcessEditorInputInfo

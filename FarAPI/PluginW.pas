@@ -2942,8 +2942,8 @@ type
     CtrlAltTitles : array [0..11] of PFarChar;
   end;
 
-  PKeyBarTitlesArray = ^TKeyBarTitlesArray;
-  TKeyBarTitlesArray = packed array [0..MaxInt div SizeOf(TKeyBarTitles) - 1] of TKeyBarTitles;
+//PKeyBarTitlesArray = ^TKeyBarTitlesArray;
+//TKeyBarTitlesArray = packed array [0..MaxInt div SizeOf(TKeyBarTitles) - 1] of TKeyBarTitles;
 
 
 { OPERATION_MODES }
@@ -2999,7 +2999,8 @@ type
     StartPanelMode : Integer;
     StartSortMode : Integer;
     StartSortOrder : Integer;
-    KeyBar : PKeyBarTitlesArray;
+//  KeyBar : PKeyBarTitlesArray;
+    KeyBar : PKeyBarTitles;
     ShortcutData : PFarChar;
     Reserved : Integer;
   end;
