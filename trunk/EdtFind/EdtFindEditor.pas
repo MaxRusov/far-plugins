@@ -686,7 +686,7 @@ interface
       gStrFind := vStr;
       gLastOpt := gLastOpt + [foWholeWords] - [foRegexp];
       gLastIsReplace := False;
-      AddToHistory(cFindHistory, gStrFind);
+      FarAddToHistory(cFindHistory, gStrFind);
       GotoPosition(-1, -1, -1, vCol, False);
       FindStr(gStrFind, gLastOpt, False, False, True);
     end else
@@ -790,6 +790,10 @@ interface
       vUndoRec.Command := EUR_BEGIN;
       FarEditorControl(ECTL_UNDOREDO, @vUndoRec);
     end;
+
+   {$ifdef Far3}
+    FarEditorSubscribeChangeEvent(-1{AID}, False);
+   {$endif Far3}
 
     vPrompt := foPromptOnReplace in AOpt;
 
@@ -953,6 +957,10 @@ interface
       end {while};
 
     finally
+     {$ifdef Far3}
+      FarEditorSubscribeChangeEvent(-1{AID}, True);
+     {$endif Far3}
+
       if gFoundCount > 0 then begin
         if not vPrompt then
           GotoPosition(vRow, vCol, vCol + vFindLen,
