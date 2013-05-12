@@ -1,0 +1,87 @@
+
+const MacroLib  = "84884660-5B2F-4581-9282-96E00AE109A2"
+const FarHints  = "CDF48DA0-0334-4169-8453-69048DD3B51C" 
+const MacroList = "{F002A86D-BB4A-4A8F-A875-30286C06414B}"
+
+
+macro Descr="MacroLib: Update macros" Area="Editor.'*.fmlua' Editor.'*.fmi' Viewer.'*.fmlua' Viewer.'*.fmi'" Key="F9" Priority=9 DisableOutput=0
+{{
+  Keys("F2")
+  local CanHints = Plugin.Exist(#%FarHints)
+  local Count, Error = Plugin.Call(#%MacroLib, "Update", CanHints and 2 or 0)
+  if Count and (Count >= 0) then
+    mf.beep(0x40)
+    Plugin.Call(#%FarHints, "Info", "MacroLib: " .. Count .. " macros ")
+  else
+    if Error and (Error ~= "") then
+      mf.beep(0x10)
+      local vInfo = editor.GetInfo(nil)
+      Plugin.Call(#%FarHints, "Info")
+      Plugin.Call(#%FarHints, "Color", 0x0000FF)
+      Plugin.Call(#%FarHints, "FontColor", 0x00FFFF);
+      Plugin.Call(#%FarHints, "Info", Error, vInfo.CurPos - vInfo.LeftPos, vInfo.CurLine - vInfo.TopScreenLine + 2, 2000)
+    end
+  end
+}}
+
+
+macro Descr="MacroLib: Update LUA macros" Area="Editor.'*.lua'" Key="F9" Priority=9
+{{
+  #include_macro "MacroLibFunc"
+  Keys("F2")
+  if far.MacroLoadAll() then
+    mf.beep(0x40)
+    AddLuaMacros()
+  end
+}}
+
+
+macro Descr="MacroLib: List of macros" Key="CtrlAltF11"
+{{
+  Plugin.Call(#%MacroLib, "List")
+}}
+
+
+macro Descr="MacroLib: All macros" Bind="CtrlShiftF11 F11:Hold" 
+{{
+  #include_macro "MacroLibFunc"
+  mmode(3,1) 
+  AddLuaMacros()
+  Plugin.Call(#%MacroLib, "ListAll") 
+}}
+
+
+macro Name="MacroLibFunc" Descr=".MacroLib: Common functions"
+{{
+  local function AddLuaMacros()
+    Plugin.Call(#%MacroLib, "AddLua", 0) 
+    for i = 1, math.huge do
+      local m = mf.GetMacroCopy(i)
+      if not m then break end
+      if m.FileName then
+        local vRow = debug.getinfo(m.action).linedefined
+        if m.area then
+          if not m.disabled then 
+            Plugin.Call(#%MacroLib, "AddLua", 1, m.description, m.key, m.area, m.FileName, vRow) 
+          end
+        else
+          Plugin.Call(#%MacroLib, "AddLua", 2, "." .. m.group .. ": " .. (m.description or "") , "", "", m.FileName, vRow) 
+        end
+      end
+    end
+  end
+}}
+
+
+--macro Descr="MacroLib: Edit current macros" Key="F4:Release" Area="Dialog.MacroList"
+--{{
+--  Keys("AltF4")
+--}}
+--
+--
+--macro Descr="MacroLib: Edit current macros" Key="F4:Hold AltF4" Area="Dialog.MacroList"
+--{{
+--  mf.beep(0x40)
+--  Keys("F4")
+--}}
+
