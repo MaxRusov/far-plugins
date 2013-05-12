@@ -19,8 +19,22 @@
 "N"
 
 "Add"
-"Delete"
 "Copy"
+"ToLib"
+"Delete"
+"Hide"
+"Clear"
+
+"&Add              F7"
+"&Delete/Hide      F8"
+"&Copy             F5"
+"Add to &Library   Shift-F5"
+"&Find Track URL   Ctrl-A"
+"Clear &URL Cache  Shift-F8"
+"Last.FM - "
+"VK.com  - "
+"Login"
+"Logout"
 
 "Copy"
 "Move"
@@ -30,6 +44,7 @@
 
 "Find artist"
 "Find user"
+"Find track URL"
 "Add user"
 "&Search for:"
 "&Where:"
@@ -46,17 +61,32 @@
 "Move selected files to:"
 "Copying"
 "Moving"
+"Find tracks"
 
 "Delete"
 "Do you wish to delete the item:"
 "Do you wish to delete\n%d items"
 "&Delete"
-"Deleting"
+"Refresh panel..."
+
+"Hide"
+"Unhide"
+"Do you wish to hide the item:"
+"Do you wish to unhide the item:"
+"Do you wish to hide\n%d items"
+"Do you wish to unhide\n%d items"
+"&Hide"
+"&Unhide"
 
 "Clear URL"
 "Do you wish to clear URL cache for the item:"
 "Do you wish to clear URL cache for\n%d items"
 "&Clear"
+
+"Add to Library"
+"Do you wish to add to library:"
+"Do you wish to add to library\n%d items"
+"&Add"
 
 "Warning"
 "File already exists:"
@@ -76,6 +106,7 @@
 "Interrupt current operation?"
 
 "To continue, you need login on VK.com.\n\nAutomatic login - using Internet Explorer.\nManually login - allows any browser.\n\nContinue?"
+"To continue, you need login on Last.FM.\n\nAutomatic login - using Internet Explorer.\nManually login - allows any browser.\n\nContinue?"
 "&Automatic"
 "&Manually"
 "Awaiting authorization (%d sec)"

@@ -2,7 +2,7 @@
 
 unit FarFMClasses;
 
-interface                    
+interface
 
   uses
     Windows,
@@ -30,7 +30,6 @@ interface
     FarFMLoginDlg;
 
 
-
  {$ifdef Far3}
  {$else}
   const
@@ -42,10 +41,11 @@ interface
 
 
   const
-    cmAddArtist = 1;
-    cmAddUser   = 2;
-    cmNextPage  = 3;
-    cmUpdate    = 4;
+    cmAddArtist      = 1;
+    cmAddUser        = 2;
+    cmNextPage       = 3;
+    cmUpdate         = 4;
+    cmAddArtistToLib = 5;
 
   type
     TFarPanelMode = class(TBasis)
@@ -116,8 +116,26 @@ interface
       fflUserAlbums,
       fflUserTracks,
 
-      fflAccounts
+      fflMyAccount,
+      fflMyArtists,
+      fflMyAlbums,
+      fflMyTracks,
+
+      fflMyArtist,
+      fflMyFrends,
+      fflMyFavorites
     );
+
+    TCommand = (
+      cmCopy,        { F5 }
+      cmAdd,         { F7 }
+      cmDelete,      { F8 }
+      cmHide,        { F8 }
+      cmDropCache,   { ShiftF8 }
+      cmFindURL,     { Ctrl-A }
+      cmAddFavorite
+    );
+    TCommands = set of TCommand;
 
   type
     TFarFmPanel = class;
@@ -138,6 +156,19 @@ interface
       property Param :TIntPtr read FParam;
     end;
 
+
+    TFarFmItem = class(TNamedObject)
+    public
+      procedure MakePanelItem(var AItem :TPluginPanelItem); virtual;
+      procedure GetFileView(AMode :Integer; var APath :TString); virtual;
+      function CanCopy :Boolean; virtual;
+      procedure CopyFileTo(const AFileName :TString); virtual;
+      function GetFileName :TString; virtual;
+    public
+      property FileName :TString read GetFileName;
+    end;
+
+
     TFarFmPanel = class(TBasis)
     public
       constructor Create; override;
@@ -156,40 +187,56 @@ interface
       function RunCommand(ACmd :Integer; AParam :TIntPtr) :Boolean;
 
     private
-      FLevel   :TFarFmLevel;
-      FCurrent :TString;
-      FCurInfo :TString;
+      FLevel    :TFarFmLevel;
+      FCurrent  :TString;
+      FCurInfo  :TString;
+      FCommands :TCommands;
 
-      FStack   :TStringList;
-      FItems   :TObjList;
+      FStack    :TStringList;
+      FItems    :TObjList;
 
-      FTitle   :TString;
-      FPath    :TString;
+      FTitle    :TString;
+      FPath     :TString;
 
-      FKeyBar  :TFarPanelLabels;
-      FModes   :TFarPanelModes;
-      FDefMode :Integer;
-      FDefSort :Integer;
+      FKeyBar   :TFarPanelLabels;
+      FModes    :TFarPanelModes;
+      FDefMode  :Integer;
+      FDefSort  :Integer;
 
       FProgressTick :DWORD;
       FProgressTitle :TString;
       FProgressMess :TString;
       FProgressPercent :Integer;
 
-      procedure UpdatePanel(ARefill :Boolean = False);
+      function GetPassivePanel :TFarFmPanel;
+      function GetPanelItem(AIndex :Integer; ASelected :Boolean = True) :TFarFmItem;
+//    function GetSelectedList(AIndex :Integer) :TExList;
+      procedure DeselectList(AList :TExList);
+      procedure UpdatePanel(ARefill :Boolean = False; AHandle :THandle = PANEL_ACTIVE);
+
       procedure FillLevel;
       procedure TrackLoad(APage :Integer);
       procedure AlbumLoad(AList :TObjList; const AArtist, AAlbum :TString);
 //    procedure AddImageItem(const AInfo :IXMLDOMDocument; const ANodes, AName :TString; AList :TObjList);
 //    procedure AddURLItem(const AInfo :IXMLDOMDocument; const ANode, AName, ALabel :TString; AList :TObjList);
 
+      procedure ContextMenu;
       procedure UserArtistsLoad(APage :Integer);
       procedure UserAlbumsLoad(APage :Integer);
       procedure UserTrackLoad(APage :Integer);
 
+      procedure LibAlbumsLoad(const AUser, Artist :TString);
+      procedure LibTracksLoad(const AUser, Artist :TString; AClear :Boolean = True);
+
+      function DeleteItems(AItems :PPluginPanelItem; ACount :Integer) :Boolean;
+      function HideItems(AItems :PPluginPanelItem; ACount :Integer) :Boolean;
+
+      function AddToLibrary :Boolean;
+      function FindURLPrompt :Boolean;
       function DropURLCache :Boolean;
       function AddArtistPrompt(var AName :TString) :Boolean;
       function AddUserPrompt(var AName :TString) :Boolean;
+      function AddArtistToLibPrompt(var AName :TString) :Boolean;
       procedure CopyDownloadCallback(const AURL :TString; ASize :TIntPtr);
       function CopyFilesTo(AItems :PPluginPanelItem; ACount :Integer; const AFolder :TString) :Boolean;
     end;
@@ -201,30 +248,42 @@ interface
       constructor Create; override;
       destructor Destroy; override;
 
+      procedure LastFMAuthorize;
+      procedure LastFMLogout;
+
       procedure VKAuthorize;
+      procedure VkLogout;
+
       function VKCallsBegin :Boolean;
       procedure VKCallsEnd;
       procedure VkCallsProgress(const ATitle, AMess :TString; APercent :Integer);
+
       function FindTrackURL(const Artist, Track :TString; AForce :Boolean = True) :TString;
+      function SetTrackURL(const Artist, Track, AURL :TString) :Boolean;
       function DropTrackURL(const Artist, Track :TString) :Boolean;
+      function FindTrackLirics(const Artist, Track :TString) :TString;
 
     private
-      FArtists  :TStringList;
-      FUsers    :TStringList;
+      FArtists    :TStringList;
+      FUsers      :TStringList;
+      FHideAlbums :TStringList;
+      FHideTracks :TStringList;
 
-      FVKAuth   :Boolean;
-      FVKLock   :Integer;
-      FScreen   :THandle;
+      FLFMAuth    :Boolean;
+      FVKAuth     :Boolean;
+      FVKLock     :Integer;
+      FScreen     :THandle;
 
       FTrackCache :TObjList;
 
-      FResolved :Integer;
+      FResolved   :Integer;
 
       procedure SaveLocalList(const AName :TString; AList :TStringList);
       procedure RestoreLocalList(const AName :TString; AList :TStringList);
       procedure SaveTrackCache;
       procedure RestoreTrackCache;
-      procedure StoreVkToken(AStore :Boolean);
+      procedure StoreTokens(AStore :Boolean; AWhat :Integer = 3);
+      function VkFindTrackURL(const Artist, Track :TString; ALiric :Boolean) :TString;
 
       procedure ShowProgress(const ATitle, AName :TString; APercent :Integer);
       function CheckInterrupt :Boolean;
@@ -246,23 +305,6 @@ interface
   uses
     MixDebug;
 
-
-(*
-  function ShellOpen(const AName :TString) :Boolean;
-  var
-    vInfo :TShellExecuteInfo;
-  begin
-    FillChar(vInfo, SizeOf(vInfo), 0);
-    vInfo.cbSize        := SizeOf(vInfo);
-    vInfo.fMask         := 0;
-    vInfo.Wnd           := 0;
-    vInfo.lpFile        := PTChar(AName);
-    vInfo.lpParameters  := nil;
-    vInfo.lpDirectory   := nil;
-    vInfo.nShow         := SW_Show;
-    Result := ShellExecuteEx(@vInfo);
-  end;
-*)
 
   function ExtractURLFileExtension(const AURL :TString) :TString;
   begin
@@ -305,7 +347,7 @@ interface
   function FormatTrackFileName(const ATrack, AArtist, AAlbum, AExt :TString; AIndex :Integer) :TString;
   begin
     {!!! Настройка}
-    Result := Format('%d - %s', [AIndex, ATrack]);
+    Result := Format('%d) %s', [AIndex, ATrack]);
     Result := AddFileExtension(CleanFileName(Result), AExt);
   end;
 
@@ -340,9 +382,9 @@ interface
         Inc(I);
     end;
     Result := StrReplace(Result, '&quot;', '"', [rfReplaceAll, rfIgnoreCase]);
+    Result := StrReplace(Result, '&amp;', '&', [rfReplaceAll, rfIgnoreCase]);
   end;
 
-  
  {-----------------------------------------------------------------------------}
  { TFarPanelMode                                                               }
  {-----------------------------------------------------------------------------}
@@ -507,6 +549,35 @@ interface
  {$endif Far3}
   end;
 
+ {-----------------------------------------------------------------------------}
+ { TTmpItem                                                                    }
+ {-----------------------------------------------------------------------------}
+
+  type
+    TTmpItem = class(TBasis)
+    public
+      constructor CreateEx(const aArtist, aName :TString; aLength :Integer);
+      function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; override;
+    private
+      FArtist :TString;
+      FName   :TString;
+      FLength :Integer;
+    end;
+
+  constructor TTmpItem.CreateEx(const aArtist, aName :TString; aLength :Integer);
+  begin
+    FArtist := aArtist;
+    FName   := aName;
+    FLength := aLength;
+  end;
+
+  function TTmpItem.CompareObj(Another :TBasis; Context :TIntPtr) :Integer; {override;}
+  begin
+    Result := UpCompareStr(FArtist, TTmpItem(Another).FArtist);
+    if Result = 0 then
+      Result := UpCompareStr(FName, TTmpItem(Another).FName);
+  end;
+
 
  {-----------------------------------------------------------------------------}
  { TAsyncCommand                                                               }
@@ -525,30 +596,16 @@ interface
  { TFarFmItem                                                                  }
  {-----------------------------------------------------------------------------}
 
-  type
-    TFarFmItem = class(TNamedObject)
-    public
-      procedure MakePanelItem(var AItem :TPluginPanelItem); virtual;
-      procedure GetFileView(AMode :Integer; var APath :TString); virtual;
-      function CanCopy :Boolean; virtual;
-      procedure CopyFileTo(const AFileName :TString); virtual;
-      function GetFileName :TString; virtual;
-    public
-      property FileName :TString read GetFileName;
-    end;
-
-
   procedure TFarFmItem.MakePanelItem(var AItem :TPluginPanelItem); {virtual;}
   begin
-    AItem.{$ifdef Far3}FileName{$else}FindData.cFileName{$endif Far3}
-      := StrNew(FName);
+    AItem.FileName := StrNew(FName);
     Pointer(AItem.UserData) := Self;
   end;
 
 
   procedure FreePanelItem(var AItem :TPluginPanelItem);
   begin
-    StrDispose(AItem.{$ifdef Far3}FileName{$else}FindData.cFileName{$endif Far3});
+    StrDispose(AItem.FileName);
     if AItem.CustomColumnData <> nil then
       DisposeStrs(AItem.CustomColumnData);
   end;
@@ -603,8 +660,7 @@ interface
   procedure TFarFmFolder.MakePanelItem(var AItem :TPluginPanelItem); {override;}
   begin
     inherited MakePanelItem(AItem);
-    AItem.{$ifdef Far3}FileAttributes{$else}FindData.dwFileAttributes{$endif Far3}
-     := FILE_ATTRIBUTE_DIRECTORY;
+    AItem.FileAttributes := FILE_ATTRIBUTE_DIRECTORY;
   end;
 
 
@@ -761,24 +817,37 @@ interface
   type
     TFarFmAlbum = class(TFarFmFolder)
     public
-      constructor CreateEx(const AName, AArtist :TString);
+      constructor CreateEx(const ATitle, AArtist, AAlbum :TString);
       procedure MakePanelItem(var AItem :TPluginPanelItem); override;
+
+    private
+      FArtist :TString;
+      FAlbum  :TString;
+
+    public
+      property Artist :TString read FArtist;
+      property Album :TString read FAlbum;
     end;
 
 
-  constructor TFarFmAlbum.CreateEx(const AName, AArtist :TString);
+  constructor TFarFmAlbum.CreateEx(const ATitle, AArtist, AAlbum :TString);
   begin
-    inherited CreateEx(AName, AArtist, fflAlbum);
+    inherited CreateEx(ATitle, AArtist + #9 + AAlbum, fflAlbum);
+    FArtist := AArtist;
+    FAlbum := AAlbum;
   end;
 
 
   procedure TFarFmAlbum.MakePanelItem(var AItem :TPluginPanelItem); {override;}
   begin
     inherited MakePanelItem(AItem);
-    AItem.CustomColumnNumber := 1;
-    AItem.CustomColumnData := NewStrs([FInfo]);
-  end;
 
+    if FarFm.FHideAlbums.IndexOf(FInfo) <> -1 then
+      AItem.FileAttributes := AItem.FileAttributes or FILE_ATTRIBUTE_HIDDEN;
+
+    AItem.CustomColumnNumber := 2;
+    AItem.CustomColumnData := NewStrs([FArtist, FAlbum]);
+  end;
 
  {---------------------------------------}
 
@@ -786,6 +855,7 @@ interface
     TFarFmPlaylistItem = class(TFarFmItem)
     public
       constructor CreateEx(const AName :TString; const ATracks :TStringArray2);
+      constructor CreateEx2(const AName :TString; ATracks :TExList);
       procedure GetFileView(AMode :Integer; var APath :TString); override;
       function CanCopy :Boolean; override;
       procedure CopyFileTo(const AFileName :TString); override;
@@ -802,6 +872,21 @@ interface
   begin
     CreateName(AddFileExtension(AName, cPlaylistExt));
     FTracks := ATracks;
+  end;
+
+
+  constructor TFarFmPlaylistItem.CreateEx2(const AName :TString; ATracks :TExList);
+  var
+    i :Integer;
+  begin
+    CreateName(AddFileExtension(AName, cPlaylistExt));
+    SetLength(FTracks, ATracks.Count, 3);
+    for i := 0 to ATracks.Count - 1 do
+      with TTmpItem(ATracks[i]) do begin
+        FTracks[i, 0] := FName;
+        FTracks[i, 1] := FArtist;
+        FTracks[i, 2] := Int2Str(FLength);
+      end;
   end;
 
 
@@ -845,6 +930,9 @@ interface
     vList := cM3UHeader;
     N := length(FTracks);
     for I := 0 to N - 1 do begin
+      if FarFm.FHideTracks.IndexOf(FTracks[I, 1] + #9 + FTracks[I, 0]) <> -1 then
+        Continue;
+
       vURL := FarFm.FindTrackURL(FTracks[I, 1], FTracks[I, 0], False);
       if ALocal then begin
         vExt := ExtractURLFileExtension(vURL);
@@ -874,6 +962,9 @@ interface
       N := length(FTracks);
       vLight := True;
       for I := 0 to N - 1 do begin
+        if FarFm.FHideTracks.IndexOf(FTracks[I, 1] + #9 + FTracks[I, 0]) <> -1 then
+          Continue;
+
         if vLight then
           if FarFm.FindTrackURL(FTracks[I, 1], FTracks[I, 0], False) = '' then begin
             FarFm.VKAuthorize;
@@ -881,8 +972,7 @@ interface
           end;
 
         if not vLight then begin
-          {!!!Localize}
-          FarFm.VkCallsProgress('Find tracks', FTracks[I, 0], MulDiv(I, 100, N));
+          FarFm.VkCallsProgress(GetMsgStr(strFindTracks), FTracks[I, 0], MulDiv(I, 100, N));
           if FarFm.CheckInterrupt then
             CtrlBreakException;
           FarFm.FindTrackURL(FTracks[I, 1], FTracks[I, 0], True);
@@ -899,7 +989,7 @@ interface
   type
     TFarFmTrackItem = class(TFarFmItem)
     public
-      constructor CreateEx(const AName, AArtist :TString; ALength :Integer; AIndex :Integer);
+      constructor CreateEx(const ATitle, AArtist, ATrack :TString; ALength :Integer; AIndex :Integer);
       procedure MakePanelItem(var AItem :TPluginPanelItem); override;
       procedure GetFileView(AMode :Integer; var APath :TString); override;
       function GetFileName :TString; override;
@@ -910,18 +1000,24 @@ interface
 
     private
       FArtist :TString;
+      FTrack  :TString;
       FIndex  :Integer;
       FLength :Integer;
       FURL    :TString;
 
       procedure ResolveTrack(AForce :Boolean);
+
+    public
+      property Artist :TString read FArtist;
+      property Track :TString read FTrack;
     end;
 
 
-  constructor TFarFmTrackItem.CreateEx(const AName, AArtist :TString; ALength :Integer; AIndex :Integer);
+  constructor TFarFmTrackItem.CreateEx(const ATitle, AArtist, ATrack :TString; ALength :Integer; AIndex :Integer);
   begin
-    CreateName(AName);
+    CreateName(ATitle);
     FArtist := AArtist;
+    FTrack := ATrack;
     FIndex := AIndex;
     FLength := ALength;
     ResolveTrack(False);
@@ -935,19 +1031,19 @@ interface
 //  inherited MakePanelItem(AItem);
 
     if not opt_ShowResolvedFile or (FURL = '') then
-      AItem.{$ifdef Far3}FileName{$else}FindData.cFileName{$endif Far3}
-        := StrNew(FName)
+      AItem.FileName := StrNew(FName)
     else begin
       vName := AddFileExtension(FName, ExtractFileExtension(FURL));
-      AItem.{$ifdef Far3}FileName{$else}FindData.cFileName{$endif Far3}
-        := StrNew(vName);
+      AItem.FileName := StrNew(vName);
     end;
     Pointer(AItem.UserData) := Self;
 
-    AItem.{$ifdef Far3}FileSize{$else}FindData.nFileSize{$endif Far3}
-      := FLength;
-    AItem.CustomColumnNumber := 3;
-    AItem.CustomColumnData := NewStrs([Int2Str(FIndex), FArtist, FormatLength(FLength)]);
+    if FarFm.FHideTracks.IndexOf(FArtist + #9 + FTrack) <> -1 then
+      AItem.FileAttributes := AItem.FileAttributes or FILE_ATTRIBUTE_HIDDEN;
+
+    AItem.FileSize := FLength;
+    AItem.CustomColumnNumber := 4;
+    AItem.CustomColumnData := NewStrs([Int2Str(FIndex), FArtist, FTrack, FormatLength(FLength)]);
   end;
 
 
@@ -955,17 +1051,24 @@ interface
   var
     vName, vList :TString;
   begin
-    if FURL = '' then
-      ResolveTrack(True);
+    if OPM_EDIT and AMode <> 0 then begin
+      vList := FarFM.FindTrackLirics(FArtist, FTrack);
+      vName := AddFileName(APath, CleanFileName(FName)) + '.' + cTXTExt;
+      StrToFile(vName, vList);
+    end else
+    begin
+      if FURL = '' then
+        ResolveTrack(True);
 
-    vName := AddFileName(APath, CleanFileName(Name)) + '.' + cPlaylistExt;
+      vName := AddFileName(APath, CleanFileName(FName)) + '.' + cPlaylistExt;
 
-    vList := cM3UHeader;
-    vList := AppendStrCh(vList, Format(cM3UExtInfo, [FLength, FArtist, FName]), CRLF);
-    vList := AppendStrCh(vList, FURL, CRLF);
+      vList := cM3UHeader;
+      vList := AppendStrCh(vList, Format(cM3UExtInfo, [FLength, FArtist, FTrack]), CRLF);
+      vList := AppendStrCh(vList, FURL, CRLF);
 
-    {!!!Unicode}
-    StrToFile(vName, vList, sffAnsi);
+      {!!!Unicode}
+      StrToFile(vName, vList, sffAnsi);
+    end;
   end;
 
 
@@ -979,7 +1082,8 @@ interface
 
   function TFarFmTrackItem.GetFileName :TString; {override;}
   begin
-    Result := FormatTrackFileName(Name, FArtist, '', ExtractFileExtension(FURL), FIndex);
+//  Result := FormatTrackFileName(FTrack, FArtist, '', ExtractFileExtension(FURL), FIndex);
+    Result := FormatTrackFileName(FName, '', '', ExtractFileExtension(FURL), FIndex);
   end;
 
 
@@ -991,13 +1095,13 @@ interface
 
   procedure TFarFmTrackItem.ResolveTrack(AForce :Boolean);
   begin
-    FURL := FarFm.FindTrackURL(FArtist, FName, AForce);
+    FURL := FarFm.FindTrackURL(FArtist, FTrack, AForce);
   end;
 
 
   procedure TFarFmTrackItem.UnResolveTrack;
   begin
-    FarFm.DropTrackURL(FArtist, FName);
+    FarFm.DropTrackURL(FArtist, FTrack);
   end;
 
 
@@ -1091,11 +1195,15 @@ interface
   function TFarFmPanel.MakeDirectory(AMode :Integer; var ADir :TString) :Boolean;
   begin
     Result := False;
+    if not (cmAdd in FCommands) then
+      Exit;
     case FLevel of
       fflArtists:
         Result := AddArtistPrompt(ADir);
       fflUsers:
         Result := AddUserPrompt(ADir);
+      fflMyArtists:
+        Result := AddArtistToLibPrompt(ADir);
     end;
     if Result then
       FillLevel;
@@ -1103,42 +1211,14 @@ interface
 
 
   function TFarFmPanel.DeleteFiles(AMode :Integer; AItems :PPluginPanelItem; ACount :Integer) :Boolean;
-
-    procedure LocDelete(const AName :TString; AList :TStringList);
-    var
-      I, J :Integer;
-    begin
-      for I := 0 to ACount - 1 do begin
-        J := AList.IndexOf(AItems.{$ifdef Far3}FileName{$else}FindData.cFileName{$endif Far3});
-        if J <> -1 then
-          AList.Delete(J);
-        Inc(Pointer1(AItems), SizeOf(TPluginPanelItem));
-      end;
-      FarFM.SaveLocalList(AName, AList);
-      FillLevel;
-    end;
-
-  var
-    vPrompt :TString;
   begin
     Result := False;
-    if FLevel in [fflArtists, fflUsers] then begin
-
-      if OPM_SILENT and AMode = 0 then begin
-
-        if ACount = 1 then
-          vPrompt := GetMsgStr(strDeletePrompt) + #10 + AItems.{$ifdef Far3}FileName{$else}FindData.cFileName{$endif Far3}
-        else
-          vPrompt := Format(GetMsgStr(strDeletePromptN), [ACount]);
-        if ShowMessage(GetMsgStr(strDelete), vPrompt + #10 + GetMsgStr(strDeleteBut) + #10 + GetMsgStr(strCancel), 0, 2) <> 0 then
-          Exit;
-      end;
-
-      case FLevel of
-        fflArtists : LocDelete(cArtists, FarFM.Artists);
-        fflUsers   : LocDelete(cUsers, FarFM.Users);
-      end;
-    end;
+    Assert(OPM_SILENT and AMode = 0, 'Silent mode???');
+    if cmDelete in FCommands then
+      Result := DeleteItems(AItems, ACount)
+    else
+    if cmHide in FCommands then
+      Result := HideItems(AItems, ACount)
   end;
 
 
@@ -1176,7 +1256,7 @@ interface
       end else
       begin
         Assert(OPM_SILENT and AMode = 0, 'Silent mode???');
-        if FLevel in [fflAlbum, fflArtistTracks, fflArtistAlbums, fflUserTracks, fflUserAlbums] then
+        if cmCopy in FCommands then
           Result := CopyFilesTo(AItems, ACount, ADestPath);
       end;
     finally
@@ -1185,6 +1265,550 @@ interface
     end;
   end;
 
+
+  function TFarFmPanel.ProcessInput(AKey :Integer) :Boolean;
+  begin
+    Result := True;
+    case AKey of
+      KEY_F5:
+        if (cmAddFavorite in FCommands) and (GetPassivePanel <> nil) then
+          AddToLibrary
+        else
+          Result := False;
+    
+      KEY_SHIFTF1 : ContextMenu;
+      KEY_SHIFTF5 : AddToLibrary;
+      KEY_SHIFTF8 : DropURLCache;
+      KEY_CTRLA   : FindURLPrompt;
+    else
+      Result := False;
+    end;
+  end;
+
+  procedure TFarFmPanel.ContextMenu;
+
+    procedure LocLFMLogin;
+    begin
+      if FLFM_SK = '' then
+        FarFM.LastFMAuthorize
+      else
+        FarFM.LastFMLogout
+    end;
+
+    procedure LocVKLogin;
+    begin
+      if FVKToken = '' then
+        FarFM.VKAuthorize
+      else
+        FarFM.VkLogout
+    end;
+
+  var
+    vMenu :TFarMenu;
+    vStr1, vStr2 :TString;
+  begin
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strTitle),
+    [
+      GetMsg(strMAdd),
+      GetMsg(strMDelete),
+      '',
+      GetMsg(strMCopy),
+      GetMsg(strMAddToLib),
+      '',
+      GetMsg(strMFindURL),
+      GetMsg(strMClearCache),
+      '',
+      GetMsg(strMAuthLFM),
+      GetMsg(strMAuthVK)
+    ]);
+    try
+      vStr1 := vMenu.Items[9].TextPtr + StrIf(FLFM_SK  = '', 'Login', 'Logout ' + FLFMUser);
+      vStr2 := vMenu.Items[10].TextPtr + StrIf(FVKToken = '', 'Login', 'Logout ' + FVKUser);
+
+      vMenu.Enabled[0] := cmAdd in FCommands;
+      vMenu.Enabled[1] := (cmDelete in FCommands) or (cmHide in FCommands);
+      vMenu.Enabled[3] := cmCopy in FCommands;
+      vMenu.Enabled[4] := cmAddFavorite in FCommands;
+      vMenu.Enabled[6] := cmFindURL in FCommands;
+      vMenu.Enabled[7] := cmDropCache in FCommands;
+
+      vMenu.Items[9].TextPtr := PTChar(vStr1);
+      vMenu.Items[10].TextPtr := PTChar(vStr2);
+
+      if not vMenu.Run then
+        Exit;
+
+      case vMenu.ResIdx of
+        0: FarPostMacro(FarKeyToMacro('F7'));
+        1: FarPostMacro(FarKeyToMacro('F8'));
+
+        3: FarPostMacro(FarKeyToMacro('F5'));
+        4: AddToLibrary;
+
+        6: FindURLPrompt;
+        7: DropURLCache;
+
+        9: LocLFMLogin;
+       10: LocVKLogin;
+      end;
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
+
+
+  function TFarFmPanel.RunCommand(ACmd :Integer; AParam :TIntPtr) :Boolean;
+  var
+    I :Integer;
+    vName :TString;
+    vItem :TFarFmItem;
+  begin
+    Result := False;
+    case ACmd of
+      cmAddArtist:
+        if AddArtistPrompt(vName) then begin
+          UpdatePanel(True);
+          FarPanelSetCurrentItem(True, vName);
+          Result := True;
+        end;
+      cmAddUser:
+        if AddUserPrompt(vName) then begin
+          UpdatePanel(True);
+          FarPanelSetCurrentItem(True, vName);
+          Result := True;
+        end;
+      cmAddArtistToLib:
+        if AddArtistToLibPrompt(vName) then begin
+          UpdatePanel(True);
+          FarPanelSetCurrentItem(True, vName);
+          Result := True;
+        end;
+      cmNextPage:
+        begin
+          case FLevel of
+            fflArtistTracks : TrackLoad(AParam);
+            fflUserArtists  : UserArtistsLoad(AParam);
+            fflUserAlbums   : UserAlbumsLoad(AParam);
+            fflUserTracks   : UserTrackLoad(AParam);
+          else
+            Exit;
+          end;
+          UpdatePanel;
+          Result := True;
+        end;
+      cmUpdate:
+        begin
+          for I := 0 to FItems.Count - 1 do begin
+            vItem := FItems[I];
+            if vItem is TFarFmTrackItem then
+              TFarFmTrackItem(vItem).ResolveTrack(False);
+          end;
+          UpdatePanel;
+        end;
+    else
+      Sorry;
+    end;
+  end;
+
+
+  function TFarFmPanel.AddArtistPrompt(var AName :TString) :Boolean;
+  begin
+    Result := False;
+    if FindDlg('', AName) then begin
+      FarFM.Artists.Add( AName );
+      FarFM.SaveLocalList(cArtists, FarFM.Artists);
+      Result := True;
+    end;
+  end;
+
+
+  function TFarFmPanel.AddUserPrompt(var AName :TString) :Boolean;
+  begin
+    Result := False;
+//  if FindDlg(2, '', AName) then begin
+    if FarInputBox(GetMsg(strAddUser), GetMsg(strName), AName) then begin
+      FarFM.Users.Add( AName );
+      FarFM.SaveLocalList(cUsers, FarFM.Users);
+      Result := True;
+    end;
+  end;
+
+
+  function TFarFmPanel.AddArtistToLibPrompt(var AName :TString) :Boolean;
+  begin
+    Result := False;
+    if FindDlg('', AName) then begin
+      LastFmPost('library.addArtist', ['artist', AName]);
+      Result := True;
+    end;
+  end;
+
+
+  function TFarFmPanel.DeleteItems(AItems :PPluginPanelItem; ACount :Integer) :Boolean;
+
+    procedure LocDelete(AList :TStringList; AItem :TFarFmItem);
+    var
+      J :Integer;
+    begin
+      J := AList.IndexOf(AItem.Name);
+      if J <> -1 then
+        AList.Delete(J);
+    end;
+
+    procedure LocDeleteArtistFromLib(AItem :TFarFmItem);
+    begin
+      LastFmPost('library.removeArtist', ['artist', AItems.FileName]);
+    end;
+
+    procedure LocDeleteAlbumFromLib(AItem :TFarFmItem);
+    begin
+      if AItem is TFarFmAlbum then
+        LastFmPost('library.removeAlbum', ['artist', TFarFmAlbum(AItem).Artist, 'album', TFarFmAlbum(AItem).Album]);
+    end;
+
+    procedure LocDeleteTracksFromLib(AItem :TFarFmItem);
+    begin
+      if AItem is TFarFmTrackItem then
+        LastFmPost('library.removeTrack', ['artist', TFarFmTrackItem(AItem).Artist, 'track', TFarFmTrackItem(AItem).Track]);
+    end;
+
+  var
+    i, j :Integer;
+    vPrompt :TString;
+    vItem :TFarFmItem;
+  begin
+    Result := False;
+
+    if ACount = 1 then begin
+      vItem := Pointer(AItems.UserData);
+      if (vItem = nil) or (vItem is TFarFmCommand) then
+        Exit;
+    end;
+
+    if ACount = 1 then
+      vPrompt := GetMsgStr(strDeletePrompt) + #10 + AItems.FileName
+    else
+      vPrompt := Format(GetMsgStr(strDeletePromptN), [ACount]);
+    if ShowMessageBut(GetMsgStr(strDelete), vPrompt, [GetMsgStr(strDeleteBut), GetMsgStr(strCancel)]) <> 0 then
+      Exit;
+
+    FarFm.VKCallsBegin;
+    try
+      try
+        for i := 0 to ACount - 1 do begin
+          j := FItems.IndexOf(Pointer(AItems.UserData));
+          if J <> -1 then begin
+            vItem := FItems[j];
+
+            FarFm.VkCallsProgress(GetMsgStr(strDelete), vItem.Name, MulDiv(i, 100, ACount));
+            if FarFm.CheckInterrupt then
+              CtrlBreakException;
+
+            case FLevel of
+              fflArtists     : LocDelete(FarFM.Artists, vItem);
+              fflUsers       : LocDelete(FarFM.Users, vItem);
+              fflMyArtists   : LocDeleteArtistFromLib(vItem);
+              fflMyAlbums    : LocDeleteAlbumFromLib(vItem);
+              fflMyTracks    : LocDeleteTracksFromLib(vItem);
+              fflMyFavorites :
+                if vItem is TFarFmAlbum then
+                  LocDeleteAlbumFromLib(vItem)
+                else
+                  LocDeleteTracksFromLib(vItem);
+            end;
+          end;
+          Inc(Pointer1(AItems), SizeOf(TPluginPanelItem));
+        end;
+
+      finally
+        case FLevel of
+          fflArtists : FarFM.SaveLocalList(cArtists, FarFM.Artists);
+          fflUsers   : FarFM.SaveLocalList(cUsers, FarFM.Users);
+        end;
+
+        FarFm.VkCallsProgress(GetMsgStr(strDelete), GetMsgStr(strRefreshPanel), -1);
+        FillLevel;
+      end;
+
+    finally
+      FarFm.VKCallsEnd;
+    end;
+  end;
+
+
+  function TFarFmPanel.HideItems(AItems :PPluginPanelItem; ACount :Integer) :Boolean;
+  var
+    vHide :Boolean;
+
+    function LocMsg(AMess :TMessages) :TString;
+    begin
+      if not vHide then
+        Inc(AMess);
+      Result := GetMsgStr(AMess);
+    end;
+
+    procedure LocHide(const AName :TString; AList :TStringList);
+    var
+      I, J :Integer;
+      vItem :TFarFmItem;
+      vKey :TString;
+    begin
+      for I := 0 to ACount - 1 do begin
+        if FItems.IndexOf(Pointer(AItems.UserData)) <> -1 then begin
+          vItem := Pointer(AItems.UserData);
+          vKey := '';
+          if vItem is TFarFmAlbum then
+            vKey := TFarFmAlbum(vItem).Artist + #9 + TFarFmAlbum(vItem).Album
+          else
+          if vItem is TFarFmTrackItem then
+            vKey := TFarFmTrackItem(vItem).Artist + #9 + TFarFmTrackItem(vItem).Track;
+          if vKey <> '' then begin
+            J := AList.IndexOf(vKey);
+            if vHide and (J = -1) then
+              AList.Add(vKey)
+            else
+            if not vHide and (J <> -1) then
+              AList.Delete(J);
+          end;
+        end;
+        Inc(Pointer1(AItems), SizeOf(TPluginPanelItem));
+      end;
+      FarFM.SaveLocalList(AName, AList);
+//    FillLevel;
+      UpdatePanel(True);
+    end;
+
+  var
+    vPrompt :TString;
+    vItem :TFarFmItem;
+  begin
+    Result := False;
+
+    if (ACount = 1) then begin
+      vItem := Pointer(AItems.UserData);
+      if not ((vItem is TFarFmAlbum) or (vItem is TFarFmTrackItem)) then
+        Exit;
+    end;
+
+    vHide := AItems.FileAttributes and FILE_ATTRIBUTE_HIDDEN = 0;
+
+    if ACount = 1 then
+      vPrompt := LocMsg(strHidePrompt) + #10 + AItems.FileName
+    else
+      vPrompt := Format(LocMsg(strHidePromptN), [ACount]);
+    if ShowMessageBut(LocMsg(strHide), vPrompt, [LocMsg(strHideBut), GetMsgStr(strCancel)]) <> 0 then
+      Exit;
+
+    case FLevel of
+      fflArtistAlbums, fflUserAlbums:
+        LocHide(cHiddenAlbums, FarFM.FHideAlbums);
+      fflAlbum, fflArtistTracks, fflUserTracks:
+        LocHide(cHiddenTracks, FarFM.FHideTracks);
+    end;
+
+    Result := True;
+  end;
+
+
+  function TFarFmPanel.DropURLCache :Boolean;
+
+    procedure LocClearGroup(AItem :TFarFmFolder);
+    var
+      I :Integer;
+      vAlbumList :TObjList;
+    begin
+      Result := False;
+      if not (AItem is TFarFmAlbum) then
+        Sorry;
+      vAlbumList := TObjList.Create;
+      try
+        AlbumLoad(vAlbumList, {Artist:}TFarFmAlbum(AItem).Artist, {Album:}TFarFmAlbum(AItem).Album);
+        for I := 0 to vAlbumList.Count - 1 do
+          if TObject(vAlbumList[I]) is TFarFmTrackItem then
+            TFarFmTrackItem(vAlbumList[I]).UnResolveTrack;
+      finally
+        FreeObj(vAlbumList);
+      end;
+    end;
+
+  var
+    I :Integer;
+    vInfo :TPanelInfo;
+    vItem :TFarFmItem;
+    vStr, vPrompt :TString;
+  begin
+    Result := False;
+    if not (cmDropCache in FCommands) then
+      Exit;
+
+    FarGetPanelInfo(PANEL_ACTIVE, vInfo);
+    if vInfo.SelectedItemsNumber <= 1 then begin
+      vItem := GetPanelItem(0);
+      if not ((vItem is TFarFmFolder) or ((vItem is TFarFmTrackItem) and (TFarFmTrackItem(vItem).FURL <> ''))) then
+        Exit;
+      vStr := vItem.Name;
+    end;
+
+    if vInfo.SelectedItemsNumber <= 1 then
+      vPrompt := GetMsgStr(strClearPrompt) + #10 + vStr
+    else
+      vPrompt := Format(GetMsgStr(strClearPromptN), [vInfo.SelectedItemsNumber]);
+    if ShowMessageBut(GetMsgStr(strClear), vPrompt, [GetMsgStr(strClearBut), GetMsgStr(strCancel)]) <> 0 then
+      Exit;
+
+    for I := 0 to vInfo.SelectedItemsNumber - 1 do begin
+      vItem := GetPanelItem(I);
+      if vItem is TFarFmFolder then
+        LocClearGroup(TFarFmFolder(vItem))
+      else
+      if vItem is TFarFmTrackItem then
+        TFarFmTrackItem(vItem).UnResolveTrack;
+    end;
+
+    UpdatePanel(True);
+    Result := True;
+  end;
+
+
+  function TFarFmPanel.FindURLPrompt :Boolean;
+  var
+    vInfo :TPanelInfo;
+    vItem :TFarFmItem;
+    vKey, vNewURL :TString;
+  begin
+    Result := False;
+    try
+      if not (cmFindURL in FCommands) then
+        Exit;
+
+      if not FarGetPanelInfo(PANEL_ACTIVE, vInfo) then
+        Abort;
+      if vInfo.SelectedItemsNumber > 1 then
+        Abort;
+      vItem := GetPanelItem(0);
+      if not (vItem is TFarFmTrackItem) then
+        Abort;
+
+      FarFm.VKAuthorize;
+      with TFarFmTrackItem(vItem) do begin
+        vKey := Artist + ' ' + Track;
+        if FindUrlDlg(vKey, FURL, vNewURL) then begin
+          FarFM.SetTrackURL(Artist, Name, vNewURL);
+          FURL := vNewURL;
+          UpdatePanel(False);
+        end;
+      end;
+
+    except
+      on E :Exception do begin
+        if E is EAbort then
+          Beep;
+        raise;
+      end;
+    end;
+  end;
+
+
+  function TFarFmPanel.AddToLibrary :Boolean;
+
+    procedure LocAddArtist(AItem :TFarFmItem);
+    begin
+      if (AItem is TFarFmFolder) and (TFarFmFolder(AItem).Level = fflArtist) then begin
+        LastFmPost('library.addArtist', ['artist', AItem.Name]);
+      end;
+    end;
+
+    procedure LocAddAlbum(AItem :TFarFmItem);
+    begin
+      if AItem is TFarFmAlbum then begin
+        LastFmPost('library.addAlbum', ['artist', TFarFmAlbum(AItem).Artist, 'album', TFarFmAlbum(AItem).Album]);
+      end;
+    end;
+
+    procedure LocAddTrack(AItem :TFarFmItem);
+    begin
+      if AItem is TFarFmTrackItem then begin
+        LastFmPost('library.addTrack', ['artist', TFarFmTrackItem(AItem).Artist, 'track', TFarFmTrackItem(AItem).Track]);
+      end;
+    end;
+
+  var
+    I, vCount :Integer;
+    vInfo :TPanelInfo;
+    vItem :TFarFmItem;
+    vStr, vPrompt :TString;
+    vPanel :TFarFmPanel;
+    vList :TExList;
+  begin
+    Result := False;
+    if not (cmAddFavorite in FCommands) then
+      Exit;
+
+    FarGetPanelInfo(PANEL_ACTIVE, vInfo);
+    vCount := vInfo.SelectedItemsNumber;
+    if vCount <= 1 then begin
+      vItem := GetPanelItem(0);
+      if not ((vItem is TFarFmFolder) or (vItem is TFarFmTrackItem)) then
+        Exit;
+      vStr := vItem.Name;
+    end;
+
+    if vCount <= 1 then
+      vPrompt := GetMsgStr(strAddToLibPrompt) + #10 + vStr
+    else
+      vPrompt := Format(GetMsgStr(strAddToLibPromptN), [vCount]);
+    if ShowMessageBut(GetMsgStr(strAddToLib), vPrompt, [GetMsgStr(strAddToLibBut), GetMsgStr(strCancel)]) <> 0 then
+      Exit;
+
+    { Обновляем пассивную панель, если на ней FarFM }
+    vPanel := GetPassivePanel;
+    vList := TExList.Create;
+    try
+      FarFm.VKCallsBegin;
+      try
+        try
+          for I := 0 to vCount - 1 do begin
+            vItem := GetPanelItem(I);
+
+            FarFm.VkCallsProgress(GetMsgStr(strAddToLib), vItem.Name, MulDiv(i, 100, vCount));
+            if FarFm.CheckInterrupt then
+              CtrlBreakException;
+
+            case FLevel of
+              fflArtists, fflUserArtists, fflArtistSimilar:
+                LocAddArtist(vItem);
+              fflArtistAlbums, fflUserAlbums:
+                LocAddAlbum(vItem);
+              fflAlbum, fflArtistTracks, fflUserTracks:
+                LocAddTrack(vItem);
+            end;
+
+            vList.Add( vItem );
+          end;
+
+        finally
+          if vPanel <> nil then begin
+            FarFm.VkCallsProgress(GetMsgStr(strAddToLib), GetMsgStr(strRefreshPanel), -1);
+            vPanel.FillLevel; //UpdatePanel(True, PANEL_PASSIVE);
+          end;
+        end;
+
+      finally
+        FarFm.VKCallsEnd;
+      end;
+
+    finally
+      DeselectList(vList);
+      FreeObj(vList);
+      if vPanel <> nil then
+        vPanel.UpdatePanel(False, PANEL_PASSIVE);
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
 
   procedure TFarFmPanel.CopyDownloadCallback(const AURL :TString; ASize :TIntPtr);
   var
@@ -1224,9 +1848,9 @@ interface
         vFileName := AddFileName(ADest, AItem.FileName);
         if WinFileExists(vFileName) then begin
           if vMode = 0 then begin
-            vRes := ShowMessage(GetMsgStr(strWarning), GetMsgStr(strFileExists) + #10 + vFileName + #10#10 +
-              GetMsgStr(strOverwriteBut) + #10 + GetMsgStr(strAllBut) + #10 + GetMsgStr(strSkipBut) + #10 + GetMsgStr(strSkipAllBut) + #10 + GetMsgStr(strCancel),
-              FMSG_WARNING, 5);
+            vRes := ShowMessageBut(GetMsgStr(strWarning), GetMsgStr(strFileExists) + #10 + vFileName,
+              [GetMsgStr(strOverwriteBut), GetMsgStr(strAllBut), GetMsgStr(strSkipBut), GetMsgStr(strSkipAllBut), GetMsgStr(strCancel)],
+              FMSG_WARNING);
             case vRes of
               0: {Overwrite};
               1: vMode := 1; {OverwriteAll}
@@ -1267,7 +1891,7 @@ interface
 
       vAlbumList := TObjList.Create;
       try
-        AlbumLoad(vAlbumList, {Artist:}TFarFmAlbum(AItem).FInfo, AItem.Name);
+        AlbumLoad(vAlbumList, TFarFmAlbum(AItem).Artist, TFarFmAlbum(AItem).Album);
         vPercent0 := FProgressPercent;
 //      Inc(vTotal, vAlbumList.Count);
         for I := 0 to vAlbumList.Count - 1 do begin
@@ -1326,171 +1950,107 @@ interface
   end;
 
 
-  function TFarFmPanel.ProcessInput(AKey :Integer) :Boolean;
-  begin
-    Result := True;
-    case AKey of
-      KEY_SHIFTF1: Sorry;
-      KEY_SHIFTF8: DropURLCache;
-    else
-      Result := False;
-    end;
-  end;
+ {-----------------------------------------------------------------------------}
 
-
-  function TFarFmPanel.RunCommand(ACmd :Integer; AParam :TIntPtr) :Boolean;
+  function TFarFmPanel.GetPassivePanel :TFarFmPanel;
+ {$ifdef Far3}
   var
-    I :Integer;
-    vName :TString;
-    vItem :TFarFmItem;
+    vInfo :TPanelInfo;
   begin
-    Result := False;
-    case ACmd of
-      cmAddArtist:
-        if AddArtistPrompt(vName) then begin
-          UpdatePanel(True);
-          FarPanelSetCurrentItem(True, vName);
-          Result := True;
-        end;
-      cmAddUser:
-        if AddUserPrompt(vName) then begin
-          UpdatePanel(True);
-          FarPanelSetCurrentItem(True, vName);
-          Result := True;
-        end;
-      cmNextPage:
-        begin
-          case FLevel of
-            fflArtistTracks : TrackLoad(AParam);
-            fflUserArtists  : UserArtistsLoad(AParam);
-            fflUserAlbums   : UserAlbumsLoad(AParam);
-            fflUserTracks   : UserTrackLoad(AParam);
-          else
-            Exit;
-          end;
-          UpdatePanel;
-          Result := True;
-        end;
-      cmUpdate:
-        begin
-          for I := 0 to FItems.Count - 1 do begin
-            vItem := FItems[I];
-            if vItem is TFarFmTrackItem then
-              TFarFmTrackItem(vItem).ResolveTrack(False);
-          end;
-          UpdatePanel;
-        end;
-    else
-      Sorry;
-    end;
-  end;
-
-
-  function TFarFmPanel.AddArtistPrompt(var AName :TString) :Boolean;
-  begin
-    Result := False;
-    if FindDlg(1, '', AName) then begin
-      FarFM.Artists.Add( AName );
-      FarFM.SaveLocalList(cArtists, FarFM.Artists);
-      Result := True;
-    end;
-  end;
-
-
-  function TFarFmPanel.AddUserPrompt(var AName :TString) :Boolean;
-  begin
-    Result := False;
-//  if FindDlg(2, '', AName) then begin
-    if FarInputBox(GetMsg(strAddUser), GetMsg(strName), AName) then begin
-      FarFM.Users.Add( AName );
-      FarFM.SaveLocalList(cUsers, FarFM.Users);
-      Result := True;
-    end;
-  end;
-
-
-  function TFarFmPanel.DropURLCache :Boolean;
-
-    function LogGetSelected(AIndex :Integer) :TFarFmItem;
-    var
-      vPanelItem :PPluginPanelItem;
-    begin
-      Result := nil;
-      vPanelItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETSELECTEDPANELITEM, AIndex);
-      if vPanelItem <> nil then
-        try
-          if FItems.IndexOf(Pointer(vPanelItem.UserData)) <> -1 then
-            Result := Pointer(vPanelItem.UserData);
-        finally
-          MemFree(vPanelItem);
-        end;
-    end;
-
-    procedure LocClearGroup(AItem :TFarFmFolder);
-    var
-      I :Integer;
-      vAlbumList :TObjList;
-    begin
-      Result := False;
-      if not (AItem is TFarFmAlbum) then
-        Sorry;
-      vAlbumList := TObjList.Create;
-      try
-        AlbumLoad(vAlbumList, {Artist:}AItem.Info, {Album:}AItem.Name);
-        for I := 0 to vAlbumList.Count - 1 do
-          if TObject(vAlbumList[I]) is TFarFmTrackItem then
-            TFarFmTrackItem(vAlbumList[I]).UnResolveTrack;
-      finally
-        FreeObj(vAlbumList);
+    Result := nil;
+    if FarGetPanelInfo(PANEL_PASSIVE, vInfo) then
+      if IsEqualGUID(vInfo.OwnerGuid, cPluginID) then begin
+        Assert( TObject(vInfo.PluginHandle) is TFarFmPanel );
+        Result := TFarFmPanel(vInfo.PluginHandle);
       end;
-    end;
+ {$else}
+  begin
+    Result := nil;
+ {$endif Far3}
+  end;
 
+
+  function TFarFmPanel.GetPanelItem(AIndex :Integer; ASelected :Boolean = True) :TFarFmItem;
+  var
+    vPanelItem :PPluginPanelItem;
+  begin
+    Result := nil;
+    vPanelItem := FarPanelItem(PANEL_ACTIVE, IntIf(ASelected, FCTL_GETSELECTEDPANELITEM, FCTL_GETPANELITEM), AIndex);
+    if vPanelItem <> nil then
+      try
+        if FItems.IndexOf(Pointer(vPanelItem.UserData)) <> -1 then
+          Result := Pointer(vPanelItem.UserData);
+      finally
+        MemFree(vPanelItem);
+      end;
+  end;
+
+
+  procedure TFarFmPanel.DeselectList(AList :TExList);
+  var
+    i :Integer;
+    vInfo :TPanelInfo;
+    vHandle :THandle;
+  begin
+    vHandle := PANEL_ACTIVE;
+    FARAPI.Control(vHandle, FCTL_BEGINSELECTION, 0, nil);
+    try
+      if FarGetPanelInfo(vHandle, vInfo) then begin
+        for i := 0 to vInfo.ItemsNumber - 1 do
+          if AList.IndexOf( GetPanelItem(i, False) ) <> -1 then
+            FARAPI.Control(vHandle, FCTL_SETSELECTION, i, nil )
+      end;
+    finally
+      FARAPI.Control(vHandle, FCTL_ENDSELECTION, 0, nil);
+      FARAPI.Control(vHandle, FCTL_REDRAWPANEL, 0, nil);
+    end;
+  end;
+
+(*
+  procedure TFarFmPanel.DeselectList(AList :TIntList);
+  var
+    i :Integer;
+  begin
+    FARAPI.Control(PANEL_ACTIVE, FCTL_BEGINSELECTION, 0, nil);
+    try
+      for i := 0 to AList.Count - 1 do
+        if AList[i] <> -1 then
+          FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, AList[i], nil)
+    finally
+      FARAPI.Control(PANEL_ACTIVE, FCTL_ENDSELECTION, 0, nil);
+      FARAPI.Control(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, nil);
+    end;
+  end;
+*)
+
+(*
+  function TFarFmPanel.GetSelectedList(AIndex :Integer) :TExList;
   var
     I :Integer;
     vInfo :TPanelInfo;
     vItem :TFarFmItem;
-    vStr, vPrompt :TString;
   begin
-    Result := False;
-    if FLevel in [fflAlbum, fflArtistTracks, fflArtistAlbums, fflUserTracks, fflUserAlbums] then begin
-
+    Result := TExList.Create;
+    try
       FarGetPanelInfo(PANEL_ACTIVE, vInfo);
-      if vInfo.SelectedItemsNumber <= 1 then begin
-        vItem := LogGetSelected(0);
-        if not ((vItem is TFarFmFolder) or ((vItem is TFarFmTrackItem) and (TFarFmTrackItem(vItem).FURL <> ''))) then
-          Exit;
-        vStr := vItem.Name;
-      end;
-
-      if vInfo.SelectedItemsNumber <= 1 then
-        vPrompt := GetMsgStr(strClearPrompt) + #10 + vStr
-      else
-        vPrompt := Format(GetMsgStr(strClearPromptN), [vInfo.SelectedItemsNumber]);
-      if ShowMessage(GetMsgStr(strClear), vPrompt + #10 + GetMsgStr(strClearBut) + #10 + GetMsgStr(strCancel), 0, 2) <> 0 then
-        Exit;
-
       for I := 0 to vInfo.SelectedItemsNumber - 1 do begin
-        vItem := LogGetSelected(I);
-        if vItem is TFarFmFolder then
-          LocClearGroup(TFarFmFolder(vItem))
-        else
-        if vItem is TFarFmTrackItem then
-          TFarFmTrackItem(vItem).UnResolveTrack;
+        vItem := GetPanelItem(I);
+        if vItem <> nil then
+          Result.Add(vItem);
       end;
-
-      UpdatePanel(True);
-
-      Result := True;
+    except
+      FreeObj(Result);
+      raise;
     end;
   end;
+*)
 
-
-  procedure TFarFmPanel.UpdatePanel(ARefill :Boolean = False);
+  procedure TFarFmPanel.UpdatePanel(ARefill :Boolean = False; AHandle :THandle = PANEL_ACTIVE);
   begin
     if ARefill then
       FillLevel;
-    FARAPI.Control(PANEL_ACTIVE, FCTL_UPDATEPANEL, 0, nil);
-    FARAPI.Control(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, nil);
+    FARAPI.Control(AHandle, FCTL_UPDATEPANEL, 0, nil);
+    FARAPI.Control(AHandle, FCTL_REDRAWPANEL, 0, nil);
   end;
 
 
@@ -1557,7 +2117,7 @@ interface
       else
       if ChrPos('\', AFolder) = 0 then begin
         if not FItems.FindKey(Pointer(AFolder), 0, [], vIndex) then
-          Wrong;
+          AppErrorFmt('Unknown folder name:'#10'%s', [AFolder]);
 
         vItem := FItems[vIndex];
         if not (vItem is TFarFmFolder) then
@@ -1580,6 +2140,7 @@ interface
       if FCurrent <> '' then
         FPath := FPath + '\' + FCurrent;
       FTitle := cPluginName + ':' + FPath;
+      FTitle := StrReplace(FTitle, '\' + cAccount, '\' + FLFMUser, []);  
     end;
   end;
 
@@ -1617,41 +2178,23 @@ interface
 
   procedure TFarFmPanel.FillLevel;
 
-(*
-    procedure LocFillArtist;
-    var
-      I :Integer;
-      vDoc :IXMLDOMDocument;
-      vAlbums :TStringArray2;
-    begin
-      vDoc := LastFMCall('artist.getInfo', ['artist', FCurrent]);
-      vAlbums := LastFMCall1('artist.getTopAlbums', ['artist', FCurrent], '/lfm/topalbums/album', ['name', 'url']);
-
-      FItems.FreeAll;
-      LocAddImageItem(vDoc, '/lfm/artist/image', FCurrent {'Artist'});
-      LocAddURLItem(vDoc, '/lfm/artist/url', FCurrent {'ArtistPage'}, FCurrent);
-      FItems.Add( TFarFmItem.CreateEx(cTracks, fflArtistTracks) );
-      for I := 0 to length(vAlbums) - 1 do
-        FItems.Add( TFarFmItem.CreateEx(vAlbums[I, 0], fflAlbum ));
-    end;
-*)
-
-    procedure LocFillArtist;
+    procedure LocFillArtist(AddFavorites :Boolean);
     var
       vDoc :IXMLDOMDocument;
       vInfo :TString;
     begin
       vDoc := LastFMCall('artist.getInfo', ['artist', FCurrent, 'lang', opt_InfoLang]);
 
-      vInfo := XMLParseNode(vDoc, '/lfm/artist/bio/summary');
-//    vInfo := XMLParseNode(vDoc, '/lfm/artist/bio/content');
-      vInfo := ClearTags(vInfo);
+      vInfo := ClearTags(XMLParseNode(vDoc, '/lfm/artist/bio/summary'));
+//    vInfo := ClearTags(XMLParseNode(vDoc, '/lfm/artist/bio/content'));
 
       FItems.FreeAll;
       AddImageItem(FItems, vDoc, '/lfm/artist/image', FCurrent {'Artist'});
       AddURLItem(FItems, vDoc, '/lfm/artist/url', FCurrent {'ArtistPage'}, FCurrent);
       if vInfo <> '' then
         FItems.Add( TFarInfoItem.CreateEx(cInformation, vInfo) );
+      if AddFavorites then
+        FItems.Add( TFarFmFolder.CreateEx(cFavorites, '', fflMyFavorites) );
       FItems.Add( TFarFmFolder.CreateEx(cTracks, '', fflArtistTracks) );
       FItems.Add( TFarFmFolder.CreateEx(cAlbums, '', fflArtistAlbums) );
       FItems.Add( TFarFmFolder.CreateEx(cSimilar, '', fflArtistSimilar) );
@@ -1669,7 +2212,7 @@ interface
 
       FItems.FreeAll;
       for I := 0 to length(vAlbums) - 1 do
-        FItems.Add( TFarFmAlbum.CreateEx(vAlbums[I, 0], vArtist) );
+        FItems.Add( TFarFmAlbum.CreateEx(vAlbums[I, 0], vArtist, vAlbums[I, 0]) );
     end;
 
 
@@ -1687,12 +2230,12 @@ interface
     end;
 
 
-    procedure LocFillUser;
+    procedure LocFillUserInfo(const AName :TString);
     var
       vDoc :IXMLDOMDocument;
       vStr, vInfo :TString;
     begin
-      vDoc := LastFMCall('user.getInfo', ['user', FCurrent]);
+      vDoc := LastFMCall('user.getInfo', ['user', AName]);
 
       vInfo := '';
       vStr := Trim(XMLParseNode(vDoc, '/lfm/user/realname'));
@@ -1715,38 +2258,55 @@ interface
         vInfo := vInfo + GetMsgStr(strInfoRegistered) + ' ' + vStr + #13#10;
 
       FItems.FreeAll;
-      AddImageItem(FItems, vDoc, '/lfm/user/image', FCurrent {'UserImage'});
-      AddURLItem(FItems, vDoc, '/lfm/user/url', FCurrent {'UserPage'}, FCurrent);
+      AddImageItem(FItems, vDoc, '/lfm/user/image', AName {'UserImage'});
+      AddURLItem(FItems, vDoc, '/lfm/user/url', AName {'UserPage'}, FCurrent);
       if vInfo <> '' then
         FItems.Add( TFarInfoItem.CreateEx(cInformation, vInfo) );
+    end;
+
+
+    procedure LocFillUser;
+    begin
+      LocFillUserInfo(FCurrent);
       FItems.Add( TFarFmFolder.CreateEx(cArtists, '', fflUserArtists) );
       FItems.Add( TFarFmFolder.CreateEx(cAlbums, '', fflUserAlbums) );
       FItems.Add( TFarFmFolder.CreateEx(cTracks, '', fflUserTracks) );
 //    FItems.Add( TFarFmFolder.CreateEx(cPlaylists, '', fflUserPlaylists) );
     end;
 
-(*
-    procedure LocFillUserPlaylists;
+
+    procedure LocFillMyArtists;
     var
       I :Integer;
-      vUser :TString;
-      vDoc :IXMLDOMDocument;
-      vLists :TStringArray2;
+      vArtists :TStringArray2;
+      vList :TStringList;
     begin
-      vUser := ExtractWord(2, FPath, ['\']);
-      vDoc := LastFMCall('user.getPlaylists', ['user', vUser]);
+      vArtists := LastFMCall1('library.getArtists', ['user', FLFMUser, 'limit', '1000'], '/lfm/artists/artist', ['name', 'playcount']);
 
-      vLists := XMLParseArray(vDoc, '/lfm/playlists/playlist', ['title', 'description', 'size', 'duration']);
+      vList := TStringList.Create;
+      try
+        vList.Sorted := True;
+        for I := 0 to length(vArtists) - 1 do
+          vList.Add( vArtists[I, 0] );
 
-      FItems.FreeAll;
-      for I := 0 to length(vLists) - 1 do
-        FItems.Add( TFarFmFolder.CreateEx(vLists[I, 0], '', fflUserPlaylist) );
+        FItems.FreeAll;
+        for I := 0 to vList.Count - 1 do
+          FItems.Add( TFarFmFolder.CreateEx(vList[I], '', fflMyArtist) );
+
+        FItems.Add( TFarFmCommand.CreateEx('Add', cmAddArtistToLib, 0) );
+      finally
+        FreeObj(vList);
+      end;
     end;
-*)
 
-    procedure LocFillUserPlaylist;
+
+    procedure LocFillArtistFavorites;
+    var
+      vArtist :TString;
     begin
-      FItems.FreeAll;
+      vArtist := FStack[FStack.Count - 1];
+      LibAlbumsLoad(FLFMUser, vArtist);
+      LibTracksLoad(FLFMUser, vArtist, False);
     end;
 
   var
@@ -1760,7 +2320,7 @@ interface
         FItems.Add( TFarFmFolder.CreateEx(cArtists, '', fflArtists) );
 //      FItems.Add( TFarFmFolder.CreateEx(cAlbums, '', fflAlbums) );
         FItems.Add( TFarFmFolder.CreateEx(cUsers, '', fflUsers) );
-        FItems.Add( TFarFmFolder.CreateEx(cAccount, '', fflAccounts) );
+        FItems.Add( TFarFmFolder.CreateEx(cAccount, '', fflMyAccount) );
       end;
 
       fflArtists: begin
@@ -1778,18 +2338,15 @@ interface
       end;
 
       fflArtist:
-        LocFillArtist;
-      fflAlbum:
-        AlbumLoad(FItems, {Artist:}FCurInfo, {Album:}FCurrent);
-//      AlbumLoad(FItems, {Artist:}FStack[FStack.Count - 2], FCurrent);
-//      with FStack.Objects[FStack.Count - 1] as TFarFmAlbumItem do
-//        AlbumLoad(FItems, FArtist, FCurrent);
+        LocFillArtist(False);
       fflArtistTracks:
         TrackLoad(1);
       fflArtistAlbums:
         LocFillArtistAlbums;
       fflArtistSimilar:
         LocFillArtistSimilar;
+      fflAlbum:
+        AlbumLoad(FItems, {Artist:}ExtractWord(1, FCurInfo, [#9]), {Album:}ExtractWord(2, FCurInfo, [#9]));
 
       fflUser:
         LocFillUser;
@@ -1799,53 +2356,77 @@ interface
         UserAlbumsLoad(1);
       fflUserTracks:
         UserTrackLoad(1);
-(*
-      fflUserPlaylists:
-        LocFillUserPlaylists;
-      fflUserPlaylist:
-        LocFillUserPlaylist;
-*)
-(*
-      fflAccounts:
-        {};
-      fflAlbums:
-        {};
-*)
+//      LibTracksLoad(FStack[FStack.Count - 1], '');
+
+      fflMyAccount:
+        begin
+          FarFM.LastFMAuthorize;
+          LocFillUserInfo(FLFMUser);
+          FItems.Add( TFarFmFolder.CreateEx(cArtists, '', fflMyArtists) );
+          FItems.Add( TFarFmFolder.CreateEx(cAlbums, '', fflMyAlbums) );
+          FItems.Add( TFarFmFolder.CreateEx(cTracks, '', fflMyTracks) );
+        end;
+      fflMyArtists:
+        LocFillMyArtists;
+      fflMyAlbums:
+        LibAlbumsLoad(FLFMUser, '');
+      fflMyTracks:
+        LibTracksLoad(FLFMUser, '');
+      fflMyArtist:
+        LocFillArtist(True);
+
+      fflMyFavorites:
+        LocFillArtistFavorites;
     else
       Sorry;
     end;
 
+    FCommands := [];
+    case FLevel of
+      fflArtists        : FCommands := [cmAdd, cmDelete, cmAddFavorite];
+      fflUsers          : FCommands := [cmAdd, cmDelete];
+      fflArtistAlbums   : FCommands := [cmCopy, cmHide, cmDropCache, cmAddFavorite];
+      fflArtistTracks   : FCommands := [cmCopy, cmHide, cmDropCache, cmFindURL, cmAddFavorite ];
+      fflArtistSimilar  : FCommands := [cmAddFavorite];
+      fflAlbum          : FCommands := [cmCopy, cmHide, cmDropCache, cmFindURL, cmAddFavorite ];
+      fflUserArtists    : FCommands := [cmAddFavorite];
+      fflUserAlbums     : FCommands := [cmCopy, cmHide, cmDropCache, cmAddFavorite];
+      fflUserTracks     : FCommands := [cmCopy, cmHide, cmDropCache, cmFindURL, cmAddFavorite ];
+
+      fflMyArtists      : FCommands := [cmAdd, cmDelete];
+      fflMyAlbums       : FCommands := [{cmAdd,} cmDelete, cmCopy, cmDropCache];
+      fflMyTracks       : FCommands := [{cmAdd,} cmDelete, cmCopy, cmDropCache, cmFindURL];
+
+      fflMyFavorites    : FCommands := [{cmAdd,} cmDelete, cmCopy, cmDropCache{, cmFindURL}];
+
+//    fflRoot, fflArtist, fflMyArtist, fflUser, fflAccounts
+    end;
+
     FModes.FreeAll;
     case FLevel of
-      fflAlbum, fflArtistTracks, fflUserTracks:
+      fflAlbum, fflArtistTracks, fflUserTracks, fflMyTracks:
       begin
         L := length(Int2Str(FItems.Count));
-        if FLevel in [fflArtistTracks, fflUserTracks] then
+        if FLevel <> fflAlbum then
           L := IntMax(L, 3);
         FModes.SetModes([
-          NewPanelMode(PMFLAGS_FULLSCREEN, [strN, strTrack, strArtist, strLength], 'C0,N,C1,C2', Int2Str(L) + ',0,0,5'),
-          nil, nil, nil,
-          NewPanelMode(0, [strN, strName, strLength], 'C0,N,C2', Int2Str(L) + ',0,5'),
-          NewPanelMode(0, [strN, strTrack, strArtist, strLength], 'C0,N,C1,C2', Int2Str(L) + ',0,0,5')
+          NewPanelMode(PMFLAGS_FULLSCREEN, [strN, strArtist, strTrack, strLength], 'C0,C1,C2,C3', Int2Str(L) + ',0,0,5'),
+          nil, nil,
+          NewPanelMode(0, [strN, strName, strLength], 'C0,N,C3', Int2Str(L) + ',0,5'),
+          NewPanelMode(0, [strN, strTrack, strArtist, strLength], 'C0,C2,C1,C3', Int2Str(L) + ',0,0,5'),
+          NewPanelMode(0, [strN, strArtist, strTrack, strLength], 'C0,C1,C2,C3', Int2Str(L) + ',0,0,5')
         ]);
-        if FLevel = fflUserTracks then
-          FModes[3] := NewPanelMode(0, [strN, strTrack, strArtist, strLength], 'C0,N,C1,C2', Int2Str(L) + ',0,0,5')
-        else
-          FModes[3] := NewPanelMode(0, [strN, strName, strLength], 'C0,N,C2', Int2Str(L) + ',0,5');
       end;
 
-      fflArtistAlbums, fflUserAlbums:
+      fflArtistAlbums, fflUserAlbums, fflMyAlbums:
       begin
         FModes.SetModes([
-          NewPanelMode(PMFLAGS_FULLSCREEN, [strAlbum, strArtist], 'N,C0', '0,0'),
-          nil, nil, nil,
+          NewPanelMode(PMFLAGS_FULLSCREEN, [strArtist, strAlbum], 'C0,C1', '0,0'),
+          nil, nil,
           NewPanelMode(0, [strName], 'N', '0'),
-          NewPanelMode(0, [strAlbum, strArtist], 'N,C0', '0,0')
+          NewPanelMode(0, [strAlbum, strArtist], 'C1,C0', '0,0'),
+          NewPanelMode(0, [strArtist, strAlbum], 'C0,C1', '0,0')
         ]);
-        if FLevel = fflArtistAlbums then
-          FModes[3] := NewPanelMode(0, [strName], 'N', '0')
-        else
-          FModes[3] := NewPanelMode(0, [strAlbum, strArtist], 'N,C0', '0,0');
       end;
 
     else
@@ -1860,49 +2441,78 @@ interface
     end;
     FDefMode := 3;
 
-
     FKeyBar.SetLabels([
       NewFarLabel(KEY_F3), NewFarLabel(KEY_F4), NewFarLabel(KEY_F5), NewFarLabel(KEY_F6), NewFarLabel(KEY_F7), NewFarLabel(KEY_F8),
-      NewFarLabel(KEY_ShiftF3), NewFarLabel(KEY_ShiftF4), NewFarLabel(KEY_ShiftF5), NewFarLabel(KEY_ShiftF6), NewFarLabel(KEY_ShiftF7), NewFarLabel(KEY_ShiftF8)
+      NewFarLabel(KEY_ShiftF3), NewFarLabel(KEY_ShiftF4), NewFarLabel(KEY_ShiftF5), NewFarLabel(KEY_ShiftF6), NewFarLabel(KEY_ShiftF7), NewFarLabel(KEY_ShiftF8),
+      NewFarLabel(KEY_AltF3), NewFarLabel(KEY_AltF4), NewFarLabel(KEY_AltF5), NewFarLabel(KEY_AltF6)
     ]);
-    case FLevel of
-      fflAlbum, fflArtistTracks, fflArtistAlbums, fflUserTracks, fflUserAlbums: begin
-        TFarPanelLabel(FKeyBar[2]).FText := GetMsgStr(strCmdCopy);
-        TFarPanelLabel(FKeyBar[11]).FText := 'Clear';
-      end;
-      fflArtists, fflUsers: begin
-        TFarPanelLabel(FKeyBar[4]).FText := GetMsgStr(strCmdAdd);
-        TFarPanelLabel(FKeyBar[5]).FText := GetMsgStr(strCmdDelete);
-      end;
-    end;
+    if cmCopy in FCommands then
+      TFarPanelLabel(FKeyBar[2]).FText := GetMsgStr(strCmdCopy);
+    if cmAdd in FCommands then
+      TFarPanelLabel(FKeyBar[4]).FText := GetMsgStr(strCmdAdd);
+    if cmDelete in FCommands then
+      TFarPanelLabel(FKeyBar[5]).FText := GetMsgStr(strCmdDelete);
+    if cmHide in FCommands then
+      TFarPanelLabel(FKeyBar[5]).FText := GetMsgStr(strCmdHide);
+    if cmAddFavorite in FCommands then
+      TFarPanelLabel(FKeyBar[8]).FText := GetMsgStr(strCmdToLib);
+    if cmDropCache in FCommands then
+      TFarPanelLabel(FKeyBar[11]).FText := GetMsgStr(strCmdClear);
   end;
 
 
   procedure TFarFmPanel.TrackLoad(APage :Integer);
   var
-    I, vTotal :Integer;
+    I, J, vTotal :Integer;
     vDoc :IXMLDOMDocument;
-    vArtist :TString;
+    vTitle, vArtist :TString;
     vTracks :TStringArray2;
+    vList :TObjList;
+    vItem :TFarFmItem;
   begin
-    vArtist := FStack[FStack.Count - 1];
-    vDoc := LastFMCall('artist.getTopTracks', ['artist', vArtist, 'page', Int2Str(APage)]);
-    vTotal := Str2IntDef(XMLParseNode(vDoc, '/lfm/toptracks', 'totalPages'), 1);
-    vTracks := XMLParseArray(vDoc, '/lfm/toptracks/track', ['name', 'artist/name', 'duration', '%rank']);
+    vList := nil;
+    if opt_CheckDuplicate then
+      vList := TObjList.Create;
+    try
+      vArtist := FStack[FStack.Count - 1];
+      vDoc := LastFMCall('artist.getTopTracks', ['artist', vArtist, 'page', Int2Str(APage)]);
+      vTotal := Str2IntDef(XMLParseNode(vDoc, '/lfm/toptracks', 'totalPages'), 1);
+      vTracks := XMLParseArray(vDoc, '/lfm/toptracks/track', ['name', 'artist/name', 'duration', '%rank']);
 
-    if APage = 1 then
-      FItems.FreeAll
-    else
-    if TObject(FItems[FItems.Count - 1]) is TFarFmCommand then
-      FItems.FreeAt(FItems.Count - 1);
-    if length(vTracks) = 0 then
-      Exit;
+      if APage = 1 then
+        FItems.FreeAll
+      else
+      if TObject(FItems[FItems.Count - 1]) is TFarFmCommand then
+        FItems.FreeAt(FItems.Count - 1);
+      if length(vTracks) = 0 then
+        Exit;
 
-    FItems.Add(TFarFmPlaylistItem.CreateEx( vArtist + ' ' + Int2Str(APage), vTracks ));
-    for I := 0 to length(vTracks) - 1 do
-      FItems.Add( TFarFmTrackItem.CreateEx(vTracks[I, 0], vTracks[I, 1], Str2IntDef(vTracks[I, 2], 0), Str2IntDef(vTracks[I, 3], 0)) );
-    if APage < vTotal then
-      FItems.Add(TFarFmCommand.CreateEx(Format('Page %d/%d', [APage + 1, vTotal]), cmNextPage, APage + 1));
+      if vList <> nil then begin
+        vList.Options := [];
+        for I := 0 to FItems.Count - 1 do begin
+          vItem := FItems[I];
+          if vItem is TFarFmTrackItem then
+            vList.AddSorted(vItem, 0, dupIgnore);
+        end;
+      end;
+
+      FItems.Add(TFarFmPlaylistItem.CreateEx( vArtist + ' ' + Int2Str(APage), vTracks ));
+      for I := 0 to length(vTracks) - 1 do begin
+        vTitle := vTracks[I, 0];
+        if (vList = nil) or not vList.FindKey( Pointer(vTracks[I, 0]), 0, [foBinary], J) then begin
+          vItem := TFarFmTrackItem.CreateEx(vTitle, vTracks[I, 1], vTitle, Str2IntDef(vTracks[I, 2], 0), Str2IntDef(vTracks[I, 3], 0));
+          if vList <> nil then
+            vList.AddSorted(vItem, 0, dupIgnore);  
+          FItems.Add( vItem );
+        end;
+      end;
+
+      if APage < vTotal then
+        FItems.Add(TFarFmCommand.CreateEx(Format('Page %d/%d', [APage + 1, vTotal]), cmNextPage, APage + 1));
+
+    finally
+      FreeObj(vList);
+    end;
   end;
 
 
@@ -1911,18 +2521,22 @@ interface
     I :Integer;
     vDoc :IXMLDOMDocument;
     vTracks :TStringArray2;
+    vInfo :TString;
   begin
-    vDoc := LastFMCall('album.getInfo', ['artist', AArtist, 'album', AAlbum]);
+    vDoc := LastFMCall('album.getInfo', ['artist', AArtist, 'album', AAlbum, 'lang', opt_InfoLang]);
 
     vTracks := XMLParseArray(vDoc, '/lfm/album/tracks/track', ['name', 'artist/name', 'duration']);
+    vInfo := ClearTags(XMLParseNode(vDoc, '/lfm/album/wiki/summary'));
 
     AList.FreeAll;
     AddImageItem(AList, vDoc, '/lfm/album/image', 'Album');
     AddURLItem(AList, vDoc, '/lfm/album/url', AAlbum, AAlbum);
+    if vInfo <> '' then
+      FItems.Add( TFarInfoItem.CreateEx(cInformation, vInfo) );
     if length(vTracks) > 0 then begin
       AList.Add(TFarFmPlaylistItem.CreateEx( AAlbum, vTracks ));
       for I := 0 to length(vTracks) - 1 do
-        AList.Add( TFarFmTrackItem.CreateEx(vTracks[I, 0], vTracks[I, 1], Str2IntDef(vTracks[I, 2], 0), I + 1) );
+        AList.Add( TFarFmTrackItem.CreateEx(vTracks[I, 0], vTracks[I, 1], vTracks[I, 0], Str2IntDef(vTracks[I, 2], 0), I + 1) );
     end;
   end;
 
@@ -1975,7 +2589,7 @@ interface
       Exit;
 
     for I := 0 to length(vAlbums) - 1 do
-      FItems.Add( TFarFmAlbum.CreateEx(vAlbums[I, 0], vAlbums[I, 1]) );
+      FItems.Add( TFarFmAlbum.CreateEx(vAlbums[I, 1] + ' - ' + vAlbums[I, 0], vAlbums[I, 1], vAlbums[I, 0]) );
     if APage < vTotal then
       FItems.Add(TFarFmCommand.CreateEx(Format('Page %d/%d', [APage + 1, vTotal]), cmNextPage, APage + 1));
   end;
@@ -2003,56 +2617,147 @@ interface
 
     FItems.Add(TFarFmPlaylistItem.CreateEx( vUser + ' ' + Int2Str(APage), vTracks ));
     for I := 0 to length(vTracks) - 1 do
-      FItems.Add( TFarFmTrackItem.CreateEx(vTracks[I, 0], vTracks[I, 1], Str2IntDef(vTracks[I, 2], 0), Str2IntDef(vTracks[I, 3], 0)) );
+      FItems.Add( TFarFmTrackItem.CreateEx(vTracks[I, 1] + ' - '+ vTracks[I, 0], vTracks[I, 1], vTracks[I, 0], Str2IntDef(vTracks[I, 2], 0), Str2IntDef(vTracks[I, 3], 0)) );
     if APage < vTotal then
       FItems.Add(TFarFmCommand.CreateEx(Format('Page %d/%d', [APage + 1, vTotal]), cmNextPage, APage + 1));
   end;
 
 
+  procedure TFarFmPanel.LibAlbumsLoad(const aUser, Artist :TString);
+  const
+    cPartSize = 250;
+  var
+    I, vPage, vPages :Integer;
+    vDoc :IXMLDOMDocument;
+    vAlbums :TStringArray2;
+    vList :TExList;
+    vItem :TTmpItem;
+    vTitle :TString;
+    vSave :THandle;
+  begin
+    vAlbums := nil;
+    vSave := FARAPI.SaveScreen(0, 0, -1, -1);
+    try
+      FarFM.ShowProgress('FarFM', 'Read albums', 0);
 
-(*
-    procedure LocFillArtistTracks;
-    var
-      I, vPages :Integer;
-      vDoc :IXMLDOMDocument;
-      vArtist :TString;
-      vTracks, vTracks1 :TStringArray2;
-      vSave :THandle;
-    begin
-      vSave := FARAPI.SaveScreen(0, 0, -1, -1);
+      vList := TObjList.Create;
       try
-        ShowProgress('FarFM', 'Read tracks', 0);
+        if Artist = '' then
+          vDoc := LastFMCall('library.getAlbums', ['user', aUser, 'limit', Int2Str(cPartSize)])
+        else
+          vDoc := LastFMCall('library.getAlbums', ['user', aUser, 'artist', Artist, 'limit', Int2Str(cPartSize)]);
 
-        vArtist := FStack[2];
-        vDoc := LastFMCall('artist.getTopTracks', ['artist', vArtist]);
-        vPages := Str2IntDef(XMLParseNode(vDoc, '/lfm/toptracks', 'totalPages'), 1);
-        vTracks := XMLParseArray(vDoc, '/lfm/toptracks/track', ['name', 'duration']);
-        if length(vTracks) = 0 then
-          Exit;
+        vPages := Str2IntDef(XMLParseNode(vDoc, '/lfm/albums', 'totalPages'), 1);
 
-        for I := 2 to vPages do begin
-          ShowProgress('FarFM', 'Read tracks ' + Int2Str(length(vTracks)), MulDiv(I - 1, 100, vPages));
-          if CheckInterrupt then
+        vPage := 1;
+        while True do begin
+          vAlbums := XMLParseArray(vDoc, '/lfm/albums/album', ['name', 'artist/name', 'playcount']);
+//        vTracks := XMLParseArray(vDoc, '/lfm/tracks/track', ['name', 'artist/name', 'duration', 'playcount']);
+          for i := 0 to length(vAlbums) - 1 do
+            vList.AddSorted( TTmpItem.CreateEx(vAlbums[i, 1], vAlbums[i, 0], 0), 0, dupIgnoreAndFree );
+
+          FarFM.ShowProgress('FarFM', 'Read tracks ' + Int2Str(vList.Count), MulDiv(vPage, 100, vPages));
+          if (vPage >= vPages) or (length(vAlbums) = 0) or FarFM.CheckInterrupt then
             Break;
 
-          vDoc := LastFMCall('artist.getTopTracks', ['artist', vArtist, 'page', Int2Str(I)]);
-          vTracks1 := XMLParseArray(vDoc, '/lfm/toptracks/track', ['name', 'duration']);
-          if length(vTracks1) = 0 then
-            Break;
-          AppendArray2(vTracks, vTracks1);
+          Inc(vPage);
+          if Artist = '' then
+            vDoc := LastFMCall('library.getAlbums', ['user', AUser, 'page', Int2Str(vPage), 'limit', Int2Str(cPartSize)])
+          else
+            vDoc := LastFMCall('library.getAlbums', ['user', AUser, 'artist', Artist, 'page', Int2Str(vPage), 'limit', Int2Str(cPartSize)]);
         end;
-        ShowProgress('FarFM', 'Read tracks ' + Int2Str(length(vTracks)), 100);
 
-        FItems.FreeAll;
-        FItems.Add(TFarFmPlaylistItem.CreateEx( vArtist, vArtist, vTracks ));
-        for I := 0 to length(vTracks) - 1 do
-          FItems.Add( TFarFmTrackItem.CreateEx(vTracks[I, 0], vArtist, Str2IntDef(vTracks[I, 1], 0), I + 1 ));
+        if True {AClear} then
+          FItems.FreeAll;
+        for i := 0 to vList.Count - 1 do begin
+          vItem := vList[i];
+          if Artist <> '' then
+            vTitle := vItem.FName
+          else
+            vTitle := vItem.FArtist + ' - ' + vItem.FName;
+          FItems.Add( TFarFmAlbum.CreateEx( vTitle, vItem.FArtist, vItem.FName) );
+        end;
+
+//      FItems.Add( TFarFmCommand.CreateEx('Add', cmAddArtistToLib, 0) );
 
       finally
-        FARAPI.RestoreScreen(vSave);
+        FreeObj(vList);
       end;
+
+    finally
+      FARAPI.RestoreScreen(vSave);
     end;
-*)
+  end;
+
+
+  procedure TFarFmPanel.LibTracksLoad(const AUser, Artist :TString; AClear :Boolean = True);
+  const
+    cPartSize = 250;
+  var
+    I, vPage, vPages :Integer;
+    vDoc :IXMLDOMDocument;
+    vTracks :TStringArray2;
+    vList :TExList;
+    vItem :TTmpItem;
+    vTitle :TString;
+    vSave :THandle;
+  begin
+    vTracks := nil;
+    vSave := FARAPI.SaveScreen(0, 0, -1, -1);
+    try
+      FarFM.ShowProgress('FarFM', 'Read tracks', 0);
+
+      vList := TObjList.Create;
+      try
+        if Artist = '' then
+          vDoc := LastFMCall('library.getTracks', ['user', AUser, 'limit', Int2Str(cPartSize)])
+        else
+          vDoc := LastFMCall('library.getTracks', ['user', AUser, 'artist', Artist, 'limit', Int2Str(cPartSize)]);
+
+        vPages := Str2IntDef(XMLParseNode(vDoc, '/lfm/tracks', 'totalPages'), 1);
+
+        vPage := 1;
+        while True do begin
+          vTracks := XMLParseArray(vDoc, '/lfm/tracks/track', ['name', 'artist/name', 'duration', 'playcount']);
+          for i := 0 to length(vTracks) - 1 do
+            vList.AddSorted( TTmpItem.CreateEx(vTracks[i, 1], vTracks[i, 0], Str2IntDef(vTracks[i, 2], 0) div 1000), 0, dupIgnoreAndFree );
+
+          FarFM.ShowProgress('FarFM', 'Read tracks ' + Int2Str(vList.Count), MulDiv(vPage, 100, vPages));
+          if (vPage >= vPages) or (length(vTracks) = 0) or FarFM.CheckInterrupt then
+            Break;
+
+          Inc(vPage);
+          if Artist = '' then
+            vDoc := LastFMCall('library.getTracks', ['user', AUser, 'page', Int2Str(vPage), 'limit', Int2Str(cPartSize)])
+          else
+            vDoc := LastFMCall('library.getTracks', ['user', AUser, 'artist', Artist, 'page', Int2Str(vPage), 'limit', Int2Str(cPartSize)]);
+        end;
+
+        if AClear then
+          FItems.FreeAll;
+
+        if Artist <> '' then
+          FItems.Add(TFarFmPlaylistItem.CreateEx2( Artist, vList ));
+
+        for i := 0 to vList.Count - 1 do begin
+          vItem := vList[i];
+          if Artist <> '' then
+            vTitle := vItem.FName
+          else
+            vTitle := vItem.FArtist + ' - ' + vItem.FName;
+          FItems.Add( TFarFmTrackItem.CreateEx( vTitle, vItem.FArtist, vItem.FName, vItem.FLength, I + 1) );
+        end;
+        
+//      FItems.Add( TFarFmCommand.CreateEx('Add', cmAddArtistToLib, 0) );
+
+      finally
+        FreeObj(vList);
+      end;
+
+    finally
+      FARAPI.RestoreScreen(vSave);
+    end;
+  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -2066,10 +2771,16 @@ interface
     FArtists.Sorted := True;
     FUsers := TStringList.Create;
     FUsers.Sorted := True;
+    FHideAlbums := TStringList.Create;
+    FHideAlbums.Sorted := True;
+    FHideTracks := TStringList.Create;
+    FHideTracks.Sorted := True;
     FTrackCache := TObjList.Create;
-    StoreVkToken(False);
+    StoreTokens(False);
     RestoreLocalList(cArtists, FArtists);
     RestoreLocalList(cUsers, FUsers);
+    RestoreLocalList(cHiddenAlbums, FHideAlbums);
+    RestoreLocalList(cHiddenTracks, FHideTracks);
     if opt_CacheTrackURL then
       RestoreTrackCache;
   end;
@@ -2080,6 +2791,8 @@ interface
     if opt_CacheTrackURL and (FResolved > 0) then
       SaveTrackCache;
     FreeObj(FTrackCache);
+    FreeObj(FHideTracks);
+    FreeObj(FHideAlbums);
     FreeObj(FArtists);
     FreeObj(FUsers);
     inherited Destroy;
@@ -2163,7 +2876,9 @@ interface
   end;
 
 
-  procedure TFarFm.StoreVkToken(AStore :Boolean);
+ {-----------------------------------------------------------------------------}
+
+  procedure TFarFm.StoreTokens(AStore :Boolean; AWhat :Integer = 3);
   var
     vConfig :TFarConfig;
   begin
@@ -2172,7 +2887,14 @@ interface
       with vConfig do begin
         if not Exists then
           Exit;
-        StrValue('VkToken', FVKToken);
+        if AWhat and 1 <> 0 then begin
+          StrValue('LFMToken', FLFM_SK);
+          StrValue('LFMUser', FLFMUser);
+        end;
+        if AWhat and 2 <> 0 then begin
+          StrValue('VkToken', FVKToken);
+          StrValue('VkUser', FVKUser);
+        end;
       end;
     finally
       vConfig.Destroy;
@@ -2180,12 +2902,139 @@ interface
   end;
 
 
-  procedure TFarFm.VKAuthorize;
-
-    function LocGetToken(const AResponse :TString) :TString;
-    begin
-      Result := Copy(AResponse, Length(cVkAuthRes) + 1, ChrPos('&', AResponse) - Length(cVkAuthRes) - 1);
+  function BrowserWait(const ABrowser :InternetExplorer; const AResURL :TString) :TString;
+  var
+    vSave :THandle;
+    vStart :DWORD;
+  begin
+    Result := '';
+    vSave := FARAPI.SaveScreen(0, 0, -1, -1);
+    try
+      vStart := GetTickCount;
+      while True do begin
+        ShowMessage(cPluginName, Format(GetMsgStr(strWaitAuth), [TickCountDiff(GetTickCount, vStart) div 1000]), 0);
+        if FarFm.CheckInterrupt then
+          Abort;
+        Result := ABrowser.LocationURL;
+        if UpCompareSubStr(AResURL, Result) = 0 then
+          Break;
+        Sleep(250);
+      end;
+    finally
+      FARAPI.RestoreScreen(vSave);
     end;
+  end;
+
+
+  procedure TFarFm.LastFMAuthorize;
+  var
+    vLFMToken :TString;  
+
+    function LocGetToken :TString;
+    var
+      vDoc :IXMLDOMDocument;
+    begin
+      vDoc := LastFmCall('auth.getToken', []);
+      Result := XMLParseNode(vDoc, '/lfm/token');
+    end;
+
+
+    procedure LocGetSessionKey(var AKey, AUser :TString);
+    var
+      vDoc :IXMLDOMDocument;
+    begin
+      vDoc := LastFmCall('auth.getSession', ['token', vLFMToken], True);
+      AKey := XMLParseNode(vDoc, '/lfm/session/key');
+      AUser := XMLParseNode(vDoc, '/lfm/session/name');
+    end;
+
+
+    procedure LocAuthorizeAutomatic;
+    var
+      vBrowser :InternetExplorer;
+      vRequest, vToken :TString;
+    begin
+      vToken := LocGetToken;
+
+      vRequest := Format(cLFMAuthStr, [cFarFmAPIKey, vToken]);
+      vBrowser := CreateComObject(CLASS_InternetExplorer) as InternetExplorer;
+      vBrowser.Navigate(vRequest, EmptyParam, EmptyParam, EmptyParam, EmptyParam);
+      vBrowser.Visible := True;
+      try
+        BrowserWait(vBrowser, cLFMAuthRes);
+        vLFMToken := vToken;
+      except
+        on E :EAbort do
+          raise;
+        on E :Exception do
+          AppError('Ошибка авторизации на Last.FM');
+      end;
+    end;
+
+
+    procedure LocAuthorizeManual;
+    var
+      vRequest, vResponse, vToken :TString;
+    begin
+      vToken := LocGetToken;
+      vRequest := Format(cLFMAuthStr, [cFarFmAPIKey, vToken]);
+
+      if not LoginDlg(vRequest, vResponse, '') then
+        Abort;
+
+      vLFMToken := vToken;
+    end;
+
+  var
+    vRes :Integer;
+  begin
+    if FLFMAuth then
+      Exit;
+
+    if (FLFM_SK <> '') and (FLFMUser <> '') then begin
+      { Check sessin key... }
+      try
+        {...}
+        FLFMAuth := True;
+        Exit;
+      except
+        FLFM_SK := '';
+        FLFMUser := '';
+      end;
+    end;
+
+    vRes := ShowMessageBut(GetMsgStr(strWarning), GetMsgStr(strNeedAuthLFM),
+      [GetMsgStr(strAutoAuthBut), GetMsgStr(strManualAuthBut), GetMsgStr(strCancel)],
+      FMSG_WARNING or FMSG_LEFTALIGN);
+
+    case vRes of
+      0: LocAuthorizeAutomatic;
+      1: LocAuthorizeManual;
+    else
+      Abort;
+    end;
+
+    LocGetSessionKey(FLFM_SK, FLFMUser);
+
+    StoreTokens(True, 1);
+    FLFMAuth := True;
+  end;
+
+
+  procedure TFarFm.LastFMLogout;
+  begin
+    FLFM_SK := '';
+    FLFMUser := '';
+    StoreTokens(True, 1);
+    FLFMAuth := False;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  procedure TFarFm.VKAuthorize;
+  var
+    vResponse :TString;
 
     procedure LocAuthorizeAutomatic;
    {$ifdef b64}
@@ -2194,38 +3043,16 @@ interface
    {$else}
     var
       vBrowser :InternetExplorer;
-      vRequest, vResponse :TString;
-      vSave :THandle;
-      vStart :DWORD;
+      vRequest :TString;
     begin
       vRequest := Format(cVkAuthStr, [cVKApiID]);
-
       vBrowser := CreateComObject(CLASS_InternetExplorer) as InternetExplorer;
       vBrowser.Navigate(vRequest, EmptyParam, EmptyParam, EmptyParam, EmptyParam);
       vBrowser.Visible := True;
-
       try
-        vSave := FARAPI.SaveScreen(0, 0, -1, -1);
-        try
-          vStart := GetTickCount;
-          while True do begin
-            ShowMessage(cPluginName, Format(GetMsgStr(strWaitAuth), [TickCountDiff(GetTickCount, vStart) div 1000]), 0);
-            if FarFm.CheckInterrupt then
-              Abort;
-            vResponse := vBrowser.LocationURL;
-            if UpCompareSubStr(cVkAuthRes, vResponse) = 0 then
-              Break;
-            Sleep(250);
-          end;
-
-          FVKToken := LocGetToken(vResponse);
-
-//        vBrowser.Visible := False;
-          vBrowser.Quit;
-        finally
-          FARAPI.RestoreScreen(vSave);
-        end;
-
+        vResponse := BrowserWait(vBrowser, cVkAuthRes);
+//      vBrowser.Visible := False;
+        vBrowser.Quit;
       except
         on E :EAbort do
           raise;
@@ -2238,15 +3065,34 @@ interface
 
     procedure LocAuthorizeManual;
     var
-      vRequest, vResponse :TString;
+      vRequest :TString;
     begin
       vRequest := Format(cVkAuthStr, [cVKApiID]);
-
-//    ShellOpen(vRequest);
-      if not LoginDlg(vRequest, vResponse) then
+      if not LoginDlg(vRequest, vResponse, cVkAuthRes) then
         Abort;
+    end;
 
-      FVKToken := LocGetToken(vResponse);
+
+    function LocGetUser(const AResponse :TString) :TString;
+    const
+      cUserID = 'user_id=';
+    var
+      vPos :Integer;
+      vID :TString;
+      vDoc :IXMLDOMDocument;
+    begin
+      Result := '';
+      vPos := Pos(cUserID, AResponse);
+      if vPos <> 0 then begin
+        vID := ExtractWord(1, Copy(AResponse, vPos + Length(cUserID), MaxInt), ['&']);
+        vDoc := VkCall('users.get', ['uids', vID, 'fields', 'nickname']);
+        Result := AppendStrCh(XMLParseNode(vDoc, '/response/user/first_name'), XMLParseNode(vDoc, '/response/user/last_name'), ' ');
+      end;
+    end;
+
+    function LocGetToken(const AResponse :TString) :TString;
+    begin
+      Result := ExtractWord(1, Copy(AResponse, Length(cVkAuthRes) + 1, MaxInt), ['&']);
     end;
 
   var
@@ -2263,12 +3109,13 @@ interface
         Exit;
       except
         FVKToken := '';
+        FVKUser := '';
       end;
     end;
 
-    vRes := ShowMessage(GetMsgStr(strWarning), GetMsgStr(strNeedAuthVK) + #10 +
-      GetMsgStr(strAutoAuthBut) + #10 + GetMsgStr(strManualAuthBut) + #10 + GetMsgStr(strCancel),
-      FMSG_WARNING or FMSG_LEFTALIGN, 3);
+    vRes := ShowMessageBut(GetMsgStr(strWarning), GetMsgStr(strNeedAuthVK),
+      [GetMsgStr(strAutoAuthBut), GetMsgStr(strManualAuthBut), GetMsgStr(strCancel)],
+      FMSG_WARNING or FMSG_LEFTALIGN);
 
     case vRes of
       0: LocAuthorizeAutomatic;
@@ -2277,10 +3124,22 @@ interface
       Abort;
     end;
 
-    StoreVkToken(True);
+    FVKToken := LocGetToken(vResponse);
+    FVKUser := LocGetUser(vResponse);
+
+    StoreTokens(True, 2);
     FVKAuth := True;
   end;
 
+
+  procedure TFarFm.VkLogout;
+  begin
+    FVKToken := '';
+    StoreTokens(True, 2);
+    FVKAuth := False;
+  end;
+
+ {-----------------------------------------------------------------------------}
 
   procedure TFarFm.ShowProgress(const ATitle, AName :TString; APercent :Integer);
   const
@@ -2301,7 +3160,7 @@ interface
   begin
     Result := False;
     if CheckForEsc then
-      if ShowMessage(GetMsgStr(strInterrupt), GetMsgStr(strInterruptPrompt) + #10#10 + GetMsgStr(strYes) + #10 + GetMsgStr(strNo), FMSG_WARNING, 2) = 0 then
+      if ShowMessage(GetMsgStr(strInterrupt), GetMsgStr(strInterruptPrompt), FMSG_WARNING or FMSG_MB_YESNO) = 0 then
         Result := True;
   end;
 
@@ -2335,16 +3194,11 @@ interface
 
 
   function TFarFm.FindTrackURL(const Artist, Track :TString; AForce :Boolean = True) :TString;
-  const
-    cTryVariants = 3;
   var
-    I, vIndex, vScore, vBestScore :Integer;
+    vIndex :Integer;
     vKey :TString;
-    vDoc :IXMLDOMDocument;
-    vStreams :TStringArray2;
   begin
     Result := '';
-    vStreams := nil;
 
     vKey := Artist + #9 + Track;
     if FTrackCache.FindKey(Pointer(vKey), 0, [foBinary], vIndex) then
@@ -2353,26 +3207,33 @@ interface
       if not AForce then
         Exit;
 
-      VKAuthorize;
-
-      vDoc := VkCall('audio.search', ['q', Artist + ' ' + Track, 'count', Int2Str(cTryVariants)]);
-      vStreams := XMLParseArray(vDoc, '/response/audio', ['url', 'artist', 'title']);
-
-      vBestScore := -1;
-      for I := 0 to length(vStreams) - 1 do begin
-        vScore := byte(UpCompareSubStr(Artist, vStreams[I, 1]) = 0) + byte(UpCompareSubStr(Track, vStreams[I, 2]) = 0);
-        if vScore > vBestScore then begin
-          Result := vStreams[I, 0];
-          vBestScore := vScore;
-        end;
-        if vScore = 2 then
-          Break;
-      end;
+      Result := VkFindTrackURL(Artist, Track, False);
 
       if Result <> '' then begin
         FTrackCache.Insert( vIndex, TDescrObject.CreateEx(vKey, Result) );
         Inc(FResolved);
       end;
+    end;
+  end;
+
+
+  function TFarFm.SetTrackURL(const Artist, Track, AURL :TString) :Boolean;
+  var
+    vIndex :Integer;
+    vKey :TString;
+  begin
+    Result := False;
+    vKey := Artist + #9 + Track;
+    if FTrackCache.FindKey(Pointer(vKey), 0, [foBinary], vIndex) then begin
+      with TDescrObject(FTrackCache[vIndex]) do
+        if Descr <> AURL then begin
+          Descr := AURL;
+          Inc(FResolved);
+        end;
+    end else
+    begin
+      FTrackCache.Insert( vIndex, TDescrObject.CreateEx(vKey, AURL) );
+      Inc(FResolved);
     end;
   end;
 
@@ -2392,5 +3253,55 @@ interface
   end;
 
 
+  function TFarFm.FindTrackLirics(const Artist, Track :TString) :TString;
+  const
+    cTryVariants = 3;
+  var
+    vID :TString;
+    vDoc :IXMLDOMDocument;
+  begin
+    Result := '';
+    vID := VkFindTrackURL(Artist, Track, True);
+    if vID <> '' then begin
+      vDoc := VkCall('audio.getLyrics', ['lyrics_id', vID]);
+      Result := XMLParseNode(vDoc, '/response/lyrics/text');
+//    Result := ClearTags(Result);
+    end;
+  end;
+
+
+  function TFarFm.VkFindTrackURL(const Artist, Track :TString; ALiric :Boolean) :TString;
+  const
+    cTryVariants = 3;
+  var
+    I, vScore, vBestScore :Integer;
+    vDoc :IXMLDOMDocument;
+    vStreams :TStringArray2;
+  begin
+    Result := '';
+    VKAuthorize;
+
+    if not ALiric then
+      vDoc := VkCall('audio.search', ['q', Artist + ' ' + Track, 'count', Int2Str(cTryVariants)])
+    else
+      vDoc := VkCall('audio.search', ['q', Artist + ' ' + Track, 'count', Int2Str(cTryVariants), 'lirics', '1']);
+    vStreams := XMLParseArray(vDoc, '/response/audio', [StrIf(ALiric, 'lyrics_id', 'url'), 'artist', 'title']);
+
+    vBestScore := -1;
+    for I := 0 to length(vStreams) - 1 do begin
+      vScore := byte(UpCompareSubStr(Artist, vStreams[I, 1]) = 0) + byte(UpCompareSubStr(Track, vStreams[I, 2]) = 0);
+      if vScore > vBestScore then begin
+        Result := vStreams[I, 0];
+        vBestScore := vScore;
+      end;
+      if vScore = 2 then
+        Break;
+    end;
+  end;
+
+
+
+initialization
+//  TraceF('= %d, %d', [Sizeof(TFarFindData), Sizeof(TPluginPanelItem) ]);
 end.
 

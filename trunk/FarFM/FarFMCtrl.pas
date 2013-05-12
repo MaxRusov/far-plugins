@@ -47,8 +47,12 @@ interface
     cTracks = 'Tracks';
     cPlaylists = 'Playlists';
     cSimilar = 'Similar';
+    cFavorites = 'Favorites';
     cInformation = 'Information';
     cAccount = 'My Account';
+    
+    cHiddenAlbums = 'HiddenAlbums';
+    cHiddenTracks = 'HiddenTracks';
 
     cPlaylistExt = 'm3u';
     cM3UHeader = '#EXTM3U';
@@ -93,8 +97,22 @@ interface
       strN,
 
       strCmdAdd,
-      strCmdDelete,
       strCmdCopy,
+      strCmdToLib,
+      strCmdDelete,
+      strCmdHide,
+      strCmdClear,
+
+      strMAdd,
+      strMDelete,
+      strMCopy,
+      strMAddToLib,
+      strMFindURL,
+      strMClearCache,
+      strMAuthLFM,
+      strMAuthVK,
+      strMLogin,
+      strMLogout,
 
       strCopyTitle,
       strMoveTitle,
@@ -104,6 +122,7 @@ interface
 
       strFindArtist,
       strFindUser,
+      strFindTrackURL,
       strAddUser,
       strFindTextPrompt,
       strFindWherePrompt,
@@ -120,18 +139,33 @@ interface
       strMovePromptN,
       strCopying,
       strMoving,
+      strFindTracks,
 
       strDelete,
       strDeletePrompt,
       strDeletePromptN,
       strDeleteBut,
-      strDeleting,
+      strRefreshPanel,
+
+      strHide,
+      strUnhide,
+      strHidePrompt,
+      strUnHidePrompt,
+      strHidePromptN,
+      strUnHidePromptN,
+      strHideBut,
+      strUnhideBut,
 
       strClear,
       strClearPrompt,
       strClearPromptN,
       strClearBut,
 
+      strAddToLib,
+      strAddToLibPrompt,
+      strAddToLibPromptN,
+      strAddToLibBut,
+      
       strWarning,
       strFileExists,
       strOverwriteBut,
@@ -150,6 +184,7 @@ interface
       strInterruptPrompt,
 
       strNeedAuthVK,
+      strNeedAuthLFM,
       strAutoAuthBut,
       strManualAuthBut,
       strWaitAuth,
@@ -166,6 +201,9 @@ interface
   var
     opt_ShowResolvedFile :Boolean = True;
     opt_CacheTrackURL    :Boolean = True;
+    opt_CheckDuplicate   :Boolean = True;
+
+    opt_ShowURL          :Boolean = False;
 
     opt_InfoLang         :TString = 'ru';
 

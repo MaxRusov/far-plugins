@@ -14,6 +14,8 @@ interface
     MixTypes,
     MixUtils,
     MixStrings,
+    MixClasses,
+    MixCRC,
     Far_API,  //Plugin3.pas
     FarCtrl,
 
@@ -24,6 +26,10 @@ interface
     {LastFM}
     cLastFmAPI = 'http://ws.audioscrobbler.com/2.0/?method=';
     cFarFmAPIKey = '14a56443d61d426fb3728192526028e6';
+    cFarFmSecret = '928a6eb331ca98c54510aeca28a1f227';
+
+    cLFMAuthStr = 'http://www.last.fm/api/auth/?api_key=%s&token=%s';
+    cLFMAuthRes = 'http://www.lastfm.ru/api/grantaccess';
 
   const
     {VK.com}
@@ -36,7 +42,11 @@ interface
 
 
   var
-    FVKToken  :TString;
+    FVKToken  :TString;   { Ключ VK.com }
+    FVKUser   :TString;   
+
+    FLFM_SK   :TString;   { Ключ Last.FM }
+    FLFMUser  :TString;
 
   function CreateComObject(const ClassID :TGUID) :IUnknown;
 
@@ -49,8 +59,9 @@ interface
   function XMLParseNode(const ADoc :IXMLDOMDocument; const ANode :TString; const AAttr :TString = '') :TString;
   function XMLParseArray(const ADoc :IXMLDOMDocument; const ANodes :TString; const ASubNodes :array of TString) :TStringArray2;
 
-  function LastFMCall(const AMethod :TString; const Args :array of TString) :IXMLDOMDocument;
+  function LastFMCall(const AMethod :TString; const Args :array of TString; ASign :Boolean = False; APost :Boolean = False) :IXMLDOMDocument;
   function LastFmCall1(const AMethod :TString; const Args :array of TString; const ANode :TString; const ASubNodes :array of TString) :TStringArray2;
+  procedure LastFMPost(const AMethod :TString; const Args :array of TString);
 
   function VkCall(const AMethod :TString; const Args :array of TString; RecallOnTimeout :Boolean = True) :IXMLDOMDocument;
 
@@ -148,7 +159,7 @@ interface
     vMess :TString;
   begin
     vMess := '';
-    if (ACode = 400) or (ACode = 403) then
+    if (ACode = 400) or (ACode = 403) or (ACode = 503) then
       vMess := TryParseLastFMError(AResponse);
 
     if vMess = '' then begin
@@ -166,7 +177,7 @@ interface
   end;
 
 
-  function HTTPGet(const AURL :TString) :TString;
+  function HTTPGet(const AURL :TString; APost :Boolean = False) :TString;
   var
     vRequest :IXMLHttpRequest;
   begin
@@ -174,7 +185,10 @@ interface
    {$ifdef bDebug}
     Trace(AURL);
    {$endif bDebug}
-    vRequest.open('GET', AURL, False, '', '');
+    if APost then
+      vRequest.open('POST', AURL, False, '', '')
+    else
+      vRequest.open('GET', AURL, False, '', '');
     vRequest.send('');
     if vRequest.status <> 200 then
       HTTPError(vRequest.status, vRequest.responseText);
@@ -277,16 +291,48 @@ interface
   end;
 
 
-  function LastFMCall(const AMethod :TString; const Args :array of TString) :IXMLDOMDocument;
+  function LastFMCall(const AMethod :TString; const Args :array of TString; ASign :Boolean = False; APost :Boolean = False) :IXMLDOMDocument;
+
+    function LocMakeSign :TString;
+    var
+      I :Integer;
+      vList :TStringList;
+      vStr :TAnsiStr;
+    begin
+      vList := TStringList.Create;
+      try
+        vList.Sorted := True;
+        vList.Add('method' + AMethod);
+        vList.Add('api_key' + cFarFmAPIKey);
+        if APost then
+          vList.Add('sk' + FLFM_SK);
+        for I := 0 to ((High(Args) + 1) div 2) - 1 do
+//        vList.Add(Args[I * 2] + StrMaskURL(Args[I * 2 + 1]));
+          vList.Add(Args[I * 2] + WideToUTF8(Args[I * 2 + 1]));
+
+        vStr := vList.GetTextStrEx('');
+        vStr := vStr + cFarFmSecret;
+
+        Result := GetMD5(PAnsiChar(vStr), Length(vStr));
+
+      finally
+        FreeObj(vList);
+      end;
+    end;
+
   var
     I :Integer;
     vRequest, vResponse, vStatus :TString;
   begin
     vRequest := cLastFmAPI + AMethod + '&api_key=' + cFarFmAPIKey;
+    if APost then
+      vRequest := vRequest + '&sk=' + FLFM_SK;
     for I := 0 to ((High(Args) + 1) div 2) - 1 do
       vRequest := vRequest + '&' + Args[I * 2] + '=' + StrMaskURL(Args[I * 2 + 1]);
+    if ASign then
+      vRequest := vRequest + '&' + 'api_sig=' + LocMakeSign;
 
-    vResponse := HTTPGet(vRequest);
+    vResponse := HTTPGet(vRequest, APost);
    {$ifdef bDebug}
     Trace(vResponse);
    {$endif bDebug}
@@ -298,6 +344,12 @@ interface
     vStatus := XMLParseNode(Result, 'lfm', 'status');
     if not StrEqual(vStatus, 'ok') then
       LastFMCallError(Result, vResponse);
+  end;
+
+
+  procedure LastFMPost(const AMethod :TString; const Args :array of TString);
+  begin
+    LastFMCall(AMethod, Args, True, True);
   end;
 
 
@@ -470,7 +522,6 @@ interface
         AppError('Download error'#10 + AURL + #10#10 + E.Message);
     end;
   end;
-
 
 
   procedure HTTPDownload1(const AURL :TString; const AFileName :TString);
