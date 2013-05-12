@@ -135,7 +135,10 @@ interface
   function MakeInt64(ALo, AHi :DWORD) :TInt64;
   function IntToStr(AInt :Integer) :TString;
   function Int64ToStr(AInt :Int64) :TString;
+
   function HexStr(AVal :Int64; ACount :Integer) :TString;
+  procedure BinToHex(ASrc :Pointer; ACount :Integer; ADst :PTChar);
+  function BinToHexStr(ASrc :Pointer; ACount :Integer) :TString;
 
   function LoadStr(Ident: Integer) :TString;
   function FmtLoadStr(Ident: Integer; const Args: array of const) :TString;
@@ -477,6 +480,29 @@ interface
       Result[i] := HexChars[AVal and $f];
       AVal := AVal shr 4;
     end;
+  end;
+
+
+  procedure BinToHex(ASrc :Pointer; ACount :Integer; ADst :PTChar);
+  var
+    i :Integer;
+    vSrc :PByte;
+  begin
+    vSrc := ASrc;
+    for I := 0 to ACount - 1 do begin
+      ADst^ := HexChars[(vSrc^ and $F0) shr 4];
+      Inc(ADst);
+      ADst^ := HexChars[vSrc^ and $0F];
+      Inc(ADst);
+      Inc(vSrc);
+    end;
+  end;
+
+
+  function BinToHexStr(ASrc :Pointer; ACount :Integer) :TString;
+  begin
+    SetString(Result, nil, 2 * ACount);
+    BinToHex(ASrc, ACount, PTChar(Result));
   end;
 
 

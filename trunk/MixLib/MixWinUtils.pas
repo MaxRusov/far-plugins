@@ -6,6 +6,7 @@ interface
 
   uses
     Windows,
+    ShellAPI,
     MixTypes,
     MixUtils,
     MixStrings;
@@ -75,6 +76,7 @@ interface
   function WinEnumFiles(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; const aProc :TMethod) :Boolean;
   function WinEnumFilesEx(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; aOptions :TEnumFileOptions; const aProc :TMethod) :Boolean;
 
+  function ShellOpen(const AName :TString; const AParam :TString = '') :Boolean;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -452,6 +454,26 @@ interface
       if not WinEnumFiles(aFolderName, aMasks, aAttrs, aProc) then
         Exit;
     Result := True;
+  end;
+
+
+  function ShellOpen(const AName :TString; const AParam :TString = '') :Boolean;
+  var
+    vInfo :TShellExecuteInfo;
+  begin
+   {$ifdef bTrace}
+    TraceF('%s %s', [AName, AParam]);
+   {$endif bTrace}
+    FillZero(vInfo, SizeOf(vInfo));
+    vInfo.cbSize := SizeOf(vInfo);
+    vInfo.fMask  := 0;
+    vInfo.Wnd    := 0;
+    vInfo.lpFile := PTChar(AName);
+    if AParam <> '' then
+      vInfo.lpParameters := PTChar(AParam);
+//  vInfo.lpDirectory := nil;
+    vInfo.nShow := SW_Show;
+    Result := ShellExecuteEx(@vInfo);
   end;
 
 

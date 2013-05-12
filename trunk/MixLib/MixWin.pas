@@ -167,8 +167,13 @@ interface
     LWA_COLORKEY = $00000001;
     LWA_ALPHA = $00000002;
 
+  type
+    PCOLORREF = ^COLORREF;
+
   var
-    SetLayeredWindowAttributes :function(Hwnd: THandle; crKey: COLORREF; bAlpha: Byte; dwFlags: DWORD): Boolean; stdcall = nil;
+    SetLayeredWindowAttributes :function(Hwnd: THandle; crKey :COLORREF; bAlpha :Byte; dwFlags :DWORD) :Boolean; stdcall = nil;
+    GetLayeredWindowAttributes :function(Hwnd: THandle; crKey :PCOLORREF; bAlpha :PByte; dwFlags :PDWORD) :Boolean; stdcall = nil;
+
 
   procedure InitLayeredWindow;
 
@@ -589,8 +594,10 @@ interface
   begin
     if not LayeredWindowInited then begin
       ModH := GetModuleHandle(user32);
-      if ModH <> 0 then
+      if ModH <> 0 then begin
         @SetLayeredWindowAttributes := GetProcAddress(ModH, 'SetLayeredWindowAttributes');
+        @GetLayeredWindowAttributes := GetProcAddress(ModH, 'GetLayeredWindowAttributes');
+      end;
       LayeredWindowInited := True;
     end;
   end;

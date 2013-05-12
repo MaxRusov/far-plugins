@@ -75,7 +75,8 @@ interface
     TDuplicates = (
       dupIgnore,
       dupAccept,
-      dupError
+      dupError,
+      dupIgnoreAndFree
     );
 
     TFindOptions = set of (
@@ -736,7 +737,11 @@ interface
   begin
     if FindKey(Item, Context, [foCompareObj, foBinary], Result) then begin
       case Duplicates of
-        dupIgnore : Exit;
+        dupIgnore, dupIgnoreAndFree : begin
+          if Duplicates = dupIgnoreAndFree then
+            ItemFree(@Item);
+          Exit;
+        end;
         dupError  : AppErrorRes(@SDuplicateError);
       end;
     end;
