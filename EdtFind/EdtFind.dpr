@@ -16,7 +16,7 @@ library EdtFind;
 {******************************************************************************}
 
 uses
-  MixErrors,
+//  MixErrors,
  {$ifdef bTrace}
   MixCheck,
  {$endif bTrace}

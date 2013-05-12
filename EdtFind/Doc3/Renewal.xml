@@ -3,7 +3,7 @@
   <plugin guid="{E4ABD267-C2F9-4158-818F-B0E040A2AB9F}">
     <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=EdtFind</url>
     <home arch="any">http://code.google.com/p/far-plugins/wiki/EdtFind</home>
-    <regex arch="x86">//far-plugins.googlecode.com/files/EdtFind\.far3lua.(\d+)\.(\d+)\.rar</regex>
-    <regex arch="x64">//far-plugins.googlecode.com/files/EdtFind\.far3lua.x64.(\d+)\.(\d+)\.rar</regex>
+    <regex arch="x86">//far-plugins.googlecode.com/files/EdtFind\.far3\.(\d+)\.(\d+)\.rar</regex>
+    <regex arch="x64">//far-plugins.googlecode.com/files/EdtFind\.far3\.x64\.(\d+)\.(\d+)\.rar</regex>
   </plugin>
 </renewal>

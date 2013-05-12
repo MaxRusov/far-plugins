@@ -215,10 +215,6 @@ interface
   function CheckRegexp(const AStr :TString) :Boolean;
   procedure InsertText(const AStr :TString);
 
-  procedure AddToHistory(const AHist, AStr :TString);
-//function GetLastHistory(const AHist :TString) :TString;
-//procedure SyncFindStr;
-
   procedure RestoreDefColor;
   procedure ColorMenu;
 
@@ -302,85 +298,6 @@ interface
     FarPostMacro(vStr);
   end;
 
-
- {-----------------------------------------------------------------------------}
-
-
- {$ifdef Far3}
-  function HelperDlgProc(hDlg :THandle; Msg :TIntPtr; Param1 :TIntPtr; Param2 :TIntPtr) :TIntPtr; stdcall;
-  begin
-    if Msg = DN_INITDIALOG then begin
-      FARAPI.SendDlgMessage(hDlg, DM_ADDHISTORY, 0, PTChar(Param2));
-      FarSendDlgMessage(hDlg, DM_CLOSE, 0, 0);
-    end;
-    Result := FARAPI.DefDlgProc(hDlg, Msg, Param1, Param2);
-  end;
- {$endif Far3}
-
-
-  procedure AddToHistory(const AHist, AStr :TString);
- {$ifdef Far3}
-  var
-    hDlg :THandle;
-    vItems :array[0..0] of TFarDialogItem;
-  begin
-    vItems[0] := NewItemApi(DI_Edit, 0, 0, 5, -1, DIF_HISTORY, '', PTChar(AHist) );
-    hDlg := FARAPI.DialogInit(cPluginID, GUID_NULL, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, HelperDlgProc, TIntPtr(AStr));
-    try
-      FARAPI.DialogRun(hDlg);
-    finally
-      FARAPI.DialogFree(hDlg);
-    end;
- {$else}
-  var
-    hDlg :THandle;
-    vItems :array[0..0] of TFarDialogItem;
-  begin
-    vItems[0] := NewItemApi(DI_Edit, 0, 0, 5, -1, DIF_HISTORY, '', PTChar(AHist) );
-    hDlg := FARAPI.DialogInit(hModule, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, nil, 0);
-    try
-      FARAPI.SendDlgMessage(hDlg, DM_ADDHISTORY, 0, TIntPtr(PTChar(AStr)));
-    finally
-      FARAPI.DialogFree(hDlg);
-    end;
- {$endif Far3}
-  end;
-
-
-
-(*
-  function GetLastHistory(const AHist :TString) :TString;
- {$ifdef Far3}
-  begin
-    Result := '';
- {$else}
-  var
-    vPath, vStr :TString;
-    vKey :HKEY;
-  begin
-    vPath := ExtractFilePath(FRegRoot) + 'SavedDialogHistory\' + AHist;
-    if RegOpenRead(HKCU, vPath, vKey) then begin
-      try
-        vStr := RegQueryStr(vKey, 'Lines', '');
-        Result := PTChar(vStr);
-      finally
-        RegCloseKey(vKey);
-      end;
-    end;
- {$endif Far3}
-  end;
-
-
-  procedure SyncFindStr;
-  begin
- {$ifdef Far3}
-    {!!!}
- {$else}
-    if gStrFind = '' then
-      gStrFind := GetLastHistory(cFindHistory);
- {$endif Far3}
-  end;
-*)
 
  {-----------------------------------------------------------------------------}
 

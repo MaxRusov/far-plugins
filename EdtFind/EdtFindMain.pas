@@ -503,12 +503,17 @@ interface
     Result := 0;
   end;
 
-
+  
   function TEdtFindPlug.EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {override;}
   begin
     Result := 0;
 
     case AEvent of
+     {$ifdef Far3}
+      EE_READ:
+        FarEditorSubscribeChangeEvent(-1{AID}, True);
+     {$endif Far3}
+
       EE_CLOSE: begin
         EdtClearMark(True, False);
         DeleteEdtHelper(AID);
