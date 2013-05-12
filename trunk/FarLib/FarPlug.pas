@@ -122,6 +122,7 @@ interface
   procedure FreeFindDataW(const AInfo :TFreeFindDataInfo); stdcall;
   function SetDirectoryW(const AInfo :TSetDirectoryInfo) :TIntPtr; stdcall;
   function GetFilesW(var AInfo :TGetFilesInfo) :TIntPtr; stdcall;
+  function PutFilesW(const AInfo :TPutFilesInfo) :TIntPtr; stdcall;
   function DeleteFilesW(var AInfo :TDeleteFilesInfo) :TIntPtr; stdcall;
   function MakeDirectoryW(var AInfo :TMakeDirectoryInfo) :TIntPtr; stdcall;
   function AnalyseW(const AInfo :TAnalyseInfo) :THandle; stdcall;
@@ -146,6 +147,7 @@ interface
   procedure FreeFindDataW(AHandle :THandle; AItems :PPluginPanelItemArray; ACount :Integer); stdcall;
   function SetDirectoryW(AHandle :THandle; ADir :PFarChar; AMode :Integer) :Boolean; stdcall;
   function GetFilesW(AHandle :THandle; AItems :PPluginPanelItem; ACount :Integer; AMove :Integer; var ADestPath :PFarChar; AMode :Integer) :Integer; stdcall;
+  function PutFilesW(AHandle :THandle; AItems :PPluginPanelItem; ACount :Integer; AMove :Integer; ASrcPath :PFarChar; AOpMode :Integer) :Integer; stdcall;
   function DeleteFilesW(AHandle :THandle; AItems :PPluginPanelItem; ACount :Integer; AMode :Integer) :Integer; stdcall;
   function MakeDirectoryW(AHandle :THandle; var AName :PFarChar; AMode :Integer) :Integer; stdcall;
   function OpenFilePluginW(const AName :PTChar; AData :Pointer; ADataSize :Integer; AMode :Integer) :THandle; stdcall;
@@ -690,6 +692,12 @@ interface
   end;
 
 
+  function PutFilesW;
+  begin
+    Result := 0;
+  end;
+
+
   function DeleteFilesW;
   begin
     Result := 0;
@@ -756,13 +764,14 @@ interface
  {$ifdef Far3}
   function ProcessPanelInputW;
   begin
-    Result := 0;
     try
       with AInfo do
         Result := byte(Plug.PanelInputEx(hPanel, Rec));
     except
-      on E :Exception do
+      on E :Exception do begin
         Plug.ErrorHandler(E);
+        Result := 1;
+      end;
     end;
   end;
  {$else}
@@ -786,8 +795,10 @@ interface
         Result := byte(Plug.PanelInput(AHandle, KeyEventToFarKey(vRec)));
       end;
     except
-      on E :Exception do
+      on E :Exception do begin
         Plug.ErrorHandler(E);
+        Result := 1;
+      end;
     end;
   end;
  {$endif Far3}

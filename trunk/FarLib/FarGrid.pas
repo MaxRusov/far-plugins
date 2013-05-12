@@ -129,6 +129,7 @@ interface
      procedure DrawStr(X, Y :Integer; const AStr :TString; AMaxLen :Integer; const AColor :TFarColor);
      procedure DrawChrEx(X, Y :Integer; AChr :PTChar; AMaxLen, ASelPos, ASelLen :Integer; const AColor1, AColor2 :TFarColor);
 
+     function CalcGridColumnsWidth :Integer;
      procedure ReduceColumns(AMaxWidth :Integer);
 
      function KeyDown(AKey :Integer) :Boolean; override;
@@ -1178,6 +1179,22 @@ interface
       FreeObj(vDeltas);
     end;
   end;
+
+
+  function TFarGrid.CalcGridColumnsWidth :Integer;
+  var
+    I :Integer;
+  begin
+    Result := 0;
+    for I := 0 to FColumns.Count - 1 do
+      with Column[I] do
+        if Width <> 0 then begin
+          Inc(Result, Width);
+          if (I < FColumns.Count - 1) and not (coNoVertLine in Options) then
+            Inc(Result);
+        end;
+  end;
+
 
 end.
 

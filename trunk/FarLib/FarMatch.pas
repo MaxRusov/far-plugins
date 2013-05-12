@@ -56,7 +56,8 @@ interface
 
     function IsBegWord(AStrI :PTChar) :Boolean;
     begin
-      Result := (AStrI = AStr) or (not IsCharAlphaNumeric((AStrI - 1)^) and IsCharAlphaNumeric(AStrI^));
+//    Result := (AStrI = AStr) or (not IsCharAlphaNumeric((AStrI - 1)^) and IsCharAlphaNumeric(AStrI^));
+      Result := (AStrI = AStr) or (not IsCharAlphaNumeric((AStrI - 1)^) or not IsCharAlphaNumeric(AStrI^));
     end;
 
   var
