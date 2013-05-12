@@ -68,6 +68,7 @@ interface
   function FarGetValueStr(AHandle, AKey :THandle; const AName :TString; const ADefault :TString) :TString;
 
   function FarGetSetting(ARoot :Cardinal; const AName :TString) :Int64;
+    { Ñì. Plugin3.pas - FSSF_xxx }
  {$endif Far3}
 
   function FarConfigGetStrValue(const APlugName, APath, AName, ADefault :TString) :TString;

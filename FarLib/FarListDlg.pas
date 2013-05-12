@@ -38,6 +38,8 @@ interface
     public
       destructor Destroy; override;
 
+      procedure SetFooter(const AStr :TString);
+
     protected
       procedure Prepare; override;
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
@@ -153,6 +155,23 @@ interface
       @FItemCount
     );
     FGrid := TFarGrid.CreateEx(Self, IdList);
+  end;
+
+
+  procedure TFarListDlg.SetFooter(const AStr :TString);
+  var
+    vRect :TSmallRect;
+  begin
+    if AStr <> '' then begin
+      SetText(IdStatus, AStr);
+      SendMsg(DM_GETITEMPOSITION, IdStatus, @vRect);
+      with GetDlgRect do
+        vRect.Left := ((Right - Left) - (length(AStr)+1)) div 2;
+      vRect.Right := vRect.Left + length(AStr)+1;
+      SendMsg(DM_SETITEMPOSITION, IdStatus, @vRect);
+      SendMsg(DM_ShowItem, IdStatus, 1);
+    end else
+      SendMsg(DM_ShowItem, IdStatus, 0);
   end;
 
 

@@ -185,7 +185,8 @@ interface
     ) :Integer;
 
   function GetProgressStr(ALen, APerc :Integer) :TString;
-  function ShowMessage(const ATitle, AMessage :TString; AFlags :Integer = FMSG_MB_OK; AButtons :Integer = 0) :Integer;
+  function ShowMessage(const ATitle, AMessage :TString; AFlags :Integer = FMSG_MB_OK; AButtons :Integer = 0) :Integer; 
+  function ShowMessageBut(const ATitle, AMessage :TString; const AButtons :array of TString; AFlags :Integer = 0) :Integer;
   function FarInputBox(ATitle, APrompt :PTChar; var AStr :TString; AFlags :DWORD = FIB_BUTTONS or FIB_ENABLEEMPTY;
     AHistory :PTChar = nil; AHelp :PTChar = nil; AMaxLen :Integer = 1024) :Boolean;
 
@@ -230,12 +231,14 @@ interface
      KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
     {$endif Far3}
      AKey :DWORD = 0);
-  function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean; ACoord :PCoord = nil) :Boolean;
+  function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean; ACoord :PCoord = nil; AMess :PTString = nil) :Boolean;
   function FarGetMacroArea :Integer;
   function FarGetMacroState :Integer;
  {$ifdef Far3}
   function FarValueToStr(const Value :TFarMacroValue) :TString;
   function FarValueIsInteger(const AValue :TFarMacroValue; var AInt :Integer) :Boolean;
+  function FarValuesToInt(AValues :PFarMacroValueArray; ACount, AIndex :Integer; ADef :Integer = 0) :Integer;
+  function FarValuesToStr(AValues :PFarMacroValueArray; ACount, AIndex :Integer; const ADef :TString = '') :TString;
   function FarReturnValues(const Args :array of const) :TIntPtr;
  {$endif Far3}
 
@@ -244,7 +247,8 @@ interface
   function FarGetPluginInfo(AHandle :THandle; var AInfo :PFarGetPluginInformation; ASize :PInteger = nil) :Boolean;
  {$endif Far3}
 
-  procedure FarPanelSetDir(AHandle :THandle; const APath :TString);
+  procedure FarPanelSetDir(AHandle :THandle; const APath :TString); overload;
+  procedure FarPanelSetDir(Active :Boolean; const APath :TString); overload;
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   function FarPanelGetCurrentItem(Active :Boolean) :TString;
   function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
@@ -258,6 +262,9 @@ interface
   function ViewerControlString(ACmd :Integer) :TFarStr;
  {$endif Far3}
   procedure FarEditOrView(const AFileName :TString; AEdit :Boolean; AFlags :Integer = 0; ARow :Integer = -1; ACol :Integer = -1);
+ {$ifdef Far3}
+  procedure FarEditorSubscribeChangeEvent(AEditorID :TIntPtr; ASubscribe :Boolean);
+ {$endif Far3}
 
   function FarGetWindowType :Integer;
   function FarGetWindowInfo(APos :Integer; var AInfo :TWindowInfo; AName :PTString = nil; ATypeName :PTString = nil) :boolean;
@@ -291,6 +298,8 @@ interface
   function GetConsoleWnd :THandle;
   function GetConsoleMousePos(AWnd :THandle = 0) :TPoint;
     { Вычисляем позицию мыши в консольных координатах }
+
+  procedure FarAddToHistory(const AHist, AStr :TString);
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -473,6 +482,19 @@ interface
      {$endif Far3}
       AFlags or FMSG_ALLINONE, nil, PPCharArray(PFarChar(vStr)), 0, AButtons);
   end;
+
+
+  function ShowMessageBut(const ATitle, AMessage :TString; const AButtons :array of TString; AFlags :Integer = 0) :Integer;
+  var
+    I :Integer;
+    vMess :TString;
+  begin
+    vMess := AMessage;
+    for I := 0 to High(AButtons) do
+      vMess := vMess + #10 + AButtons[I];
+    Result := ShowMessage(ATitle, vMess, AFlags, High(AButtons) + 1);
+  end;
+
 
 
   function FarInputBox(ATitle, APrompt :PTChar; var AStr :TString; AFlags :DWORD = FIB_BUTTONS or FIB_ENABLEEMPTY;
@@ -899,7 +921,7 @@ interface
            MSSC_POST
              Param2=MacroSendMacroText*
              Return=0|1
-           MSSC_EXEC (пока заглужка, не используется)
+           MSSC_EXEC (пока заглушка, не используется)
              Param2=MacroSendMacroText*
              Return=0|1
            MSSC_CHECK
@@ -946,6 +968,7 @@ interface
  {$ifdef Far3}
   var
     vMacro :TMacroSendMacroText;
+    vRes :TIntPtr;
   begin
    {$ifdef bTrace}
     TraceF('PostMacro: %s', [AStr]);
@@ -953,9 +976,11 @@ interface
     FillZero(vMacro, SizeOf(vMacro));
     vMacro.StructSize := SizeOf(vMacro);
     vMacro.Flags := AFlags;
-    FarKeyToInputRecord(AKey, vMacro.AKey); 
+    FarKeyToInputRecord(AKey, vMacro.AKey);
     vMacro.SequenceText := PFarChar(AStr);
-    FARAPI.MacroControl(PluginID, MCTL_SENDSTRING, MSSC_POST, @vMacro);
+    vRes := FARAPI.MacroControl(PluginID, MCTL_SENDSTRING, MSSC_POST, @vMacro);
+    if vRes = 0 then
+      NOP{Error};
  {$else}
   var
     vMacro :TActlKeyMacro;
@@ -972,7 +997,7 @@ interface
   end;
 
 
-  function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean; ACoord :PCoord = nil) :Boolean;
+  function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean; ACoord :PCoord = nil; AMess :PTString = nil) :Boolean;
  {$ifdef Far3}
 (*
   var
@@ -1012,6 +1037,8 @@ interface
           FARAPI.MacroControl(PluginID, MCTL_GETLASTERROR, vSize, vParseRes);
           if ACoord <> nil then
             ACoord^ := vParseRes.ErrPos;
+          if AMess <> nil then
+            AMess^ := vParseRes.ErrSrc;
         finally
           MemFree(vParseRes);
         end;
@@ -1087,6 +1114,24 @@ interface
   end;
 
 
+  function FarValuesToInt(AValues :PFarMacroValueArray; ACount, AIndex :Integer; ADef :Integer = 0) :Integer;
+  begin
+    if (AIndex < ACount) and FarValueIsInteger(AValues[AIndex], Result) then
+      {Ok}
+    else
+      Result := ADef;
+  end;
+
+
+  function FarValuesToStr(AValues :PFarMacroValueArray; ACount, AIndex :Integer; const ADef :TString = '') :TString;
+  begin
+    if (AIndex < ACount) and (AValues[AIndex].fType = FMVT_STRING) then
+      Result := AValues[AIndex].Value.fString
+    else
+      Result := ADef;
+  end;
+
+
   procedure FarReturnValuesCallback(CallbackData :Pointer; Values :PFarMacroValueArray; Count :size_t); stdcall;
   var
     I :Integer;
@@ -1114,6 +1159,10 @@ interface
     for I := 0 to vCount - 1 do
       with vRes.Values[I] do begin
         case Args[I].VType of
+          vtBoolean: begin
+            fType := FMVT_INTEGER;
+            Value.fInteger := IntIf(Args[I].VBoolean, 1, 0);
+          end;
           vtInteger: begin
             fType := FMVT_INTEGER;
             Value.fInteger := Args[I].VInteger;
@@ -1182,7 +1231,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure FarPanelSetDir(AHandle :THandle; const APath :TString);
+  procedure FarPanelSetDir(AHandle :THandle; const APath :TString); {overload;}
  {$ifdef Far3}
   var
     vInfo :TFarPanelDirectory;
@@ -1195,6 +1244,12 @@ interface
   begin
     FARAPI.Control(AHandle, FCTL_SETPANELDIR, 0, PFarChar(APath));
  {$endif Far3}
+  end;
+
+
+  procedure FarPanelSetDir(Active :Boolean; const APath :TString); {overload;}
+  begin
+    FarPanelSetDir(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), APath);
   end;
 
 
@@ -1229,7 +1284,8 @@ interface
     Result := '';
 
     vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
-    FarGetPanelInfo(vHandle, vInfo);
+    if not FarGetPanelInfo(vHandle, vInfo) then
+      Exit;
 
     if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
 
@@ -1253,7 +1309,8 @@ interface
     Result := False;
 
     vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
-    FarGetPanelInfo(vHandle, vInfo);
+    if not FarGetPanelInfo(vHandle, vInfo) then
+      Exit;
 
     if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
      {$ifdef Far3}
@@ -1291,7 +1348,8 @@ interface
    {$endif bDebug}
 
     vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
-    FarGetPanelInfo(vHandle, vInfo);
+    if not FarGetPanelInfo(vHandle, vInfo) then
+      Exit;
 
     if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
       for I := 0 to vInfo.SelectedItemsNumber - 1 do begin
@@ -1333,7 +1391,8 @@ interface
    {$endif bDebug}
 
     vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
-    FarGetPanelInfo(vHandle, vInfo);
+    if not FarGetPanelInfo(vHandle, vInfo) then
+      Exit;
 
     if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
       FARAPI.Control(vHandle, FCTL_BEGINSELECTION, 0, nil);
@@ -1455,6 +1514,17 @@ interface
       FARAPI.Viewer(PFarChar(vName), nil, 0, 0, -1, -1, AFlags, CP_DEFAULT);
   end;
 
+ {$ifdef Far3}
+  procedure FarEditorSubscribeChangeEvent(AEditorID :TIntPtr; ASubscribe :Boolean);
+  var
+    vRec :TEditorSubscribeChangeEvent;
+  begin
+    vRec.StructSize := SizeOf(vRec);
+    vRec.PluginId := PluginID;
+//  FarEditorControl(IntIf(ASubscribe, ECTL_SUBSCRIBECHANGEEVENT, ECTL_UNSUBSCRIBECHANGEEVENT), @vRec);
+    FARAPI.EditorControl(AEditorID, IntIf(ASubscribe, ECTL_SUBSCRIBECHANGEEVENT, ECTL_UNSUBSCRIBECHANGEEVENT), 0, @vRec);
+  end;
+ {$endif Far3}
 
 
  {-----------------------------------------------------------------------------}
@@ -1757,7 +1827,13 @@ interface
         AEvent.dwControlKeyState := vShift;
 //      AEvent.wRepeatCount := 1;
         AEvent.bKeyDown := True;
-      end  
+      end else
+      if (AKey >= 32) and (AKey < $FFFF) then begin
+        AEvent.UnicodeChar := WChar(AKey);
+        AEvent.dwControlKeyState := vShift;
+//      AEvent.wRepeatCount := 1;
+        AEvent.bKeyDown := True;
+      end;
     end else
     if AKey < INTERNAL_KEY_BASE then begin
       AEvent.wVirtualKeyCode := AKey - EXTENDED_KEY_BASE;
@@ -1863,15 +1939,6 @@ interface
     Result := True;
   end;
 
-
-
-  function MulDivTrunc(ANum, AMul, ADiv :Integer) :Integer;
-  begin
-    if ADiv = 0 then
-      Result := 0
-    else
-      Result := ANum * AMul div ADiv;
-  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -1981,6 +2048,15 @@ interface
   end;
 
 
+  function MulDivTrunc(ANum, AMul, ADiv :Integer) :Integer;
+  begin
+    if ADiv = 0 then
+      Result := 0
+    else
+      Result := ANum * AMul div ADiv;
+  end;
+
+
   function GetConsoleMousePos(AWnd :THandle) :TPoint;
     { Вычисляем позицию мыши в консольных координатах }
   var
@@ -2011,6 +2087,50 @@ interface
       Dec(Result.Y, Top);
       Dec(Result.X, Left);
     end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+
+ {$ifdef Far3}
+  function HelperDlgProc(hDlg :THandle; Msg :TIntPtr; Param1 :TIntPtr; Param2 :TIntPtr) :TIntPtr; stdcall;
+  begin
+    if Msg = DN_INITDIALOG then begin
+      FARAPI.SendDlgMessage(hDlg, DM_ADDHISTORY, 0, PTChar(Param2));
+      FarSendDlgMessage(hDlg, DM_CLOSE, 0, 0);
+    end;
+    Result := FARAPI.DefDlgProc(hDlg, Msg, Param1, Param2);
+  end;
+ {$endif Far3}
+
+
+  procedure FarAddToHistory(const AHist, AStr :TString);
+ {$ifdef Far3}
+  var
+    hDlg :THandle;
+    vItems :array[0..0] of TFarDialogItem;
+  begin
+    vItems[0] := NewItemApi(DI_Edit, 0, 0, 5, -1, DIF_HISTORY, '', PTChar(AHist) );
+    hDlg := FARAPI.DialogInit(PluginID, GUID_NULL, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, HelperDlgProc, TIntPtr(AStr));
+    try
+      FARAPI.DialogRun(hDlg);
+    finally
+      FARAPI.DialogFree(hDlg);
+    end;
+ {$else}
+  var
+    hDlg :THandle;
+    vItems :array[0..0] of TFarDialogItem;
+  begin
+    vItems[0] := NewItemApi(DI_Edit, 0, 0, 5, -1, DIF_HISTORY, '', PTChar(AHist) );
+    hDlg := FARAPI.DialogInit(hModule, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, nil, 0);
+    try
+      FARAPI.SendDlgMessage(hDlg, DM_ADDHISTORY, 0, TIntPtr(PTChar(AStr)));
+    finally
+      FARAPI.DialogFree(hDlg);
+    end;
+ {$endif Far3}
   end;
 
 
