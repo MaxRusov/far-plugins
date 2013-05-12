@@ -65,7 +65,7 @@ uses
   procedure MD5Transform(var Buf: array of TInt32; const Data: array of TInt32);
   procedure MD5UpdateBuffer(var MD5Context: TMD5Context; Buffer: Pointer; ACount :Integer);
   procedure MD5Final(var Digest: TMD5Digest; var MD5Context: TMD5Context);
-  function MD5MakeDidgest(var MD5Context :TMD5Context) :TString;
+  function MD5MakeDidgest(var MD5Context :TMD5Context) :TMD5Digest;
 
   function GetMD5(Buffer :Pointer; BufSize :Integer): TString;
   function StrMD5(const AStr :TString) :TString;
@@ -517,7 +517,7 @@ uses
   end;
 
 
-  procedure MD5UpdateBuffer( var MD5Context: TMD5Context; Buffer: Pointer; ACount :Integer);
+  procedure MD5UpdateBuffer(var MD5Context: TMD5Context; Buffer: Pointer; ACount :Integer);
   var
     vPtr :Pointer1;
     vPart :Integer;
@@ -534,30 +534,26 @@ uses
   end;
 
 
-  function MD5MakeDidgest(var MD5Context :TMD5Context) :TString;
+  function MD5MakeDidgest(var MD5Context :TMD5Context) :TMD5Digest;
   var
     I :Integer;
-    MD5Digest :TMD5Digest;
   begin
     for I := 0 to 15 do
-      Byte(MD5Digest[I]) := I + 1;
-    MD5Final(MD5Digest, MD5Context);
-
-(*  !!!
-    Bin2Hex(MD5Digest, Result, SizeOf(MD5Digest));
-*)
-    Result := '';
+      Byte(Result[I]) := I + 1;
+    MD5Final(Result, MD5Context);
   end;
 
 
-
-  function GetMD5(Buffer: Pointer; BufSize :Integer): TString;
+  function GetMD5(Buffer: Pointer; BufSize :Integer) :TString;
   var
     MD5Context :TMD5Context;
+    MD5Digest :TMD5Digest;
   begin
     MD5Init(MD5Context);
     MD5UpdateBuffer(MD5Context, Buffer, BufSize);
-    Result := MD5MakeDidgest(MD5Context);
+    MD5Digest := MD5MakeDidgest(MD5Context);
+
+    Result := BinToHexStr(@MD5Digest, SizeOf(MD5Digest));
   end;
 
 
