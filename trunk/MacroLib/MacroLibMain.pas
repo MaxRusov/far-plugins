@@ -53,6 +53,9 @@ interface
       procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
       function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
+     {$ifdef Far3}
+      function OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
+     {$endif Far3}
       function OpenCmdLine(AStr :PTChar) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
       function DialogEvent(AEvent :Integer; AParam :PFarDialogEvent) :Integer; override;
@@ -261,55 +264,6 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  procedure OptionsMenu;
-  var
-    vMenu :TFarMenu;
-  begin
-    vMenu := TFarMenu.CreateEx(
-      GetMsg(strTitle),
-    [
-      GetMsg(strMProcessHotkeys),
-      GetMsg(strMProcessMouse),
-      GetMsg(strMMacroPaths)
-     {$ifdef bUseInject}
-      ,GetMsg(strMUseInjecting)
-     {$endif bUseInject}
-    ]);
-    try
-      vMenu.Help := 'Options';
-
-      while True do begin
-        vMenu.Checked[0] := optProcessHotkey;
-        vMenu.Checked[1] := optProcessMouse;
-       {$ifdef bUseInject}
-        vMenu.Checked[3] := optUseInject;
-       {$endif bUseInject}
-
-        vMenu.SetSelected(vMenu.ResIdx);
-
-        if not vMenu.Run then
-          Exit;
-
-        case vMenu.ResIdx of
-          0 : ToggleOption(optProcessHotkey);
-          1 : ToggleOption(optProcessMouse);
-          2 :
-            if FarInputBox(GetMsg(strMacroPathsTitle), GetMsg(strMacroPathsPrompt), optMacroPaths, FIB_BUTTONS or FIB_NOUSELASTHISTORY or FIB_ENABLEEMPTY, cMacroPathName) then begin
-              PluginConfig(True);
-              MacroLibrary.RescanMacroses(True);
-            end;
-         {$ifdef bUseInject}
-          3 : ToggleOption(optUseInject);
-         {$endif bUseInject}
-        end;
-      end;
-
-    finally
-      FreeObj(vMenu);
-    end;
-  end;
-
-
   procedure MainMenu;
   var
     vMenu :TFarMenu;
@@ -327,8 +281,9 @@ interface
     try
       vMenu.Help := 'MainMenu';
 
-      if MacroLock > 0 then
-        vMenu.Items[3].Flags := vMenu.Items[3].Flags or MIF_DISABLE;
+      vMenu.Enabled[0] := MacroLock = 0;
+      vMenu.Enabled[2] := MacroLock = 0;
+      vMenu.Enabled[3] := MacroLock = 0;
 
       if not vMenu.Run then
         Exit;
@@ -351,21 +306,26 @@ interface
  {-----------------------------------------------------------------------------}
 
   const
-    kwCall  = 1;
-    kwKey   = 2;
+    kwCall     = 1;
+    kwKey      = 2;
+    kwList     = 3;
+    kwListAll  = 4;
+    kwUpdate   = 5;
+    kwAddLua   = 6;
 
   var
     CmdWords :TKeywordsList;
 
   procedure InitKeywords;
   begin
-    if CmdWords <> nil then
-      Exit;
-
     CmdWords := TKeywordsList.Create;
     with CmdWords do begin
       Add('Call', kwCall);
       Add('Key', kwKey);
+      Add('List', kwList);
+      Add('ListAll', kwListAll);
+      Add('Update', kwUpdate);
+      Add('AddLua', kwAddLua);
     end;
   end;
 
@@ -440,7 +400,7 @@ interface
     FName := cPluginName;
     FDescr := cPluginDescr;
     FAuthor := cPluginAuthor;
-    FVersion := GetSelfVerison; 
+    FVersion := GetSelfVerison;
 
    {$ifdef Far3}
     FGUID := cPluginID;
@@ -468,6 +428,8 @@ interface
 
     RestoreDefColor;
     PluginConfig(False);
+
+    InitKeywords;
 
     MacroLibrary := TMacroLibrary.Create;
 
@@ -529,8 +491,13 @@ interface
     else begin
       if AStr <> nil then
         OpenCmdLine(AStr)
-      else
-        FarAdvControl(ACTL_SYNCHRO, nil);
+      else begin
+        case AInt of
+          1: FarAdvControl(ACTL_SYNCHRO, nil);
+          2: MacroLibrary.ShowAll;
+          3: MacroLibrary.RescanMacroses(False);
+        end;
+      end;
     end;
   end;
 
@@ -544,7 +511,6 @@ interface
     if (AStr = nil) or (AStr^ = #0) then
       MacroLibrary.ShowAll
     else begin
-      InitKeywords;
       while AStr^ <> #0 do begin
         vStr := ExtractParamStr(AStr);
         vKey := CmdWords.GetKeywordStr(vStr);
@@ -557,6 +523,64 @@ interface
       end;
     end;
   end;
+
+
+ {$ifdef Far3}
+  function TMacroLibPlug.OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+
+    procedure LocUpdate;
+    var
+      vOpt :Integer;
+    begin
+      if MacroLock > 0 then
+//      AppError('Unavailable now');
+        begin Beep; Exit; end;
+      vOpt := FarValuesToInt(AParams, ACount, 1);
+      if MacroLibrary.RescanMacroses(vOpt and 1 <> 0, vOpt and 2 <> 0) then
+        Result := FarReturnValues([MacroLibrary.Macroses.Count, ''])
+      else
+        Result := FarReturnValues([-1, MacroLibrary.LastError])
+    end;
+
+   {$ifdef bLua}
+    procedure LocAddLua;
+    var
+      vWhat, vRow :Integer;
+      vDescr, vKeys, vArea, vFile  :TString;
+    begin
+      if MacroLock > 0 then
+        Exit;
+      vWhat := FarValuesToInt(AParams, ACount, 1);
+      vDescr := FarValuesToStr(AParams, ACount, 2);
+      vKeys := FarValuesToStr(AParams, ACount, 3);
+      vArea := FarValuesToStr(AParams, ACount, 4);
+      vFile := FarValuesToStr(AParams, ACount, 5);
+      vRow := FarValuesToInt(AParams, ACount, 6);
+      if vRow > 0 then
+        Dec(vRow);
+      MacroLibrary.AddLuaMacro(vWhat, vDescr, vKeys, vArea, vFile, vRow);
+    end;
+   {$endif bLua}
+
+  var
+    vCmd :Integer;
+  begin
+    Result := INVALID_HANDLE_VALUE;
+    vCmd := CmdWords.GetKeywordStr( FarValuesToStr(AParams, ACount, 0) );
+    case vCmd of
+      kwCall     : CmdCall( FarValuesToStr(AParams, ACount, 1) );
+      kwKey      : CmdKey( FarValuesToStr(AParams, ACount, 1) );
+      kwList     : FarAdvControl(ACTL_SYNCHRO, nil);
+      kwListAll  : MacroLibrary.ShowAll;
+      kwUpdate   : LocUpdate;
+     {$ifdef bLua}
+      kwAddLua   : LocAddLua;
+     {$endif bLua}
+    else
+      Result := inherited OpenMacroEx(ACount, AParams);
+    end;
+  end;
+ {$endif Far3}
 
 
   procedure TMacroLibPlug.SynchroEvent(AParam :Pointer); {override;}
@@ -612,11 +636,11 @@ interface
    {$endif bUseInject}
 
 //  if AInfo.Flags and PCIF_FROMMAIN <> 0 then begin
-      if (ARec.EventType = KEY_EVENT) and optProcessHotkey and (FarGetMacroState = MACROSTATE_NOMACRO) then begin
+      if (ARec.EventType = KEY_EVENT) and optProcessHotkey and (FarGetMacroState < MACROSTATE_RECORDING) then begin
         if MacroLibrary.CheckHotkey(ARec.Event.KeyEvent) then
           Result := 1;
       end else
-      if (ARec.EventType = _MOUSE_EVENT) and optProcessMouse and (FarGetMacroState = MACROSTATE_NOMACRO) then begin
+      if (ARec.EventType = _MOUSE_EVENT) and optProcessMouse and (FarGetMacroState < MACROSTATE_RECORDING) then begin
         if MacroLibrary.CheckMouse(ARec.Event.MouseEvent) then
           Result := 1;
       end;
@@ -667,7 +691,6 @@ interface
     Result := 0;
   end;
 
-  
 
 initialization
 finalization

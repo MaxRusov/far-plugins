@@ -23,7 +23,9 @@ interface
     FarDlg,
     FarGrid,
     FarMatch,
+    FarMenu,
     FarListDlg,
+    FarColorDlg,
 
     MacroLibConst,
     MacroLibClasses;
@@ -49,6 +51,7 @@ interface
       procedure ReinitGrid; override;
       procedure ReinitAndSaveCurrent; override;
 
+      procedure GridTitleClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
       function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; override;
       procedure GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor); override;
       procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); override;
@@ -70,14 +73,15 @@ interface
       function FindMacroByLink(const ALink :TString) :Integer;
     end;
 
+
   var
     LastRevision :Integer;
-    LastMacro    :TMacro;
     LastLink     :TString;
 
     MacroLock    :Integer;
 
-
+  procedure OptionsMenu;
+  
   function ListMacrosesDlg(AMacroses :TExList; var AIndex :Integer) :Boolean;
 
 
@@ -89,7 +93,113 @@ interface
     MacroLibHints,
     MixDebug;
 
-    
+
+ {-----------------------------------------------------------------------------}
+
+  procedure ColorMenu;
+  var
+    vMenu :TFarMenu;
+    vBkColor :DWORD;
+    vOk, vChanged :Boolean;
+  begin
+    vBkColor := GetColorBG(FarGetColor(COL_MENUTEXT));
+
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strColorsTitle),
+    [
+      GetMsg(strMHiddenColor),
+      GetMsg(strMQuickFilter),
+      GetMsg(strMColumnTitle),
+      '',
+      GetMsg(strMRestoreDefaults)
+    ]);
+    try
+      vChanged := False;
+
+      while True do begin
+        vMenu.SetSelected(vMenu.ResIdx);
+
+        if not vMenu.Run then
+          Break;
+
+        case vMenu.ResIdx of
+          0: vOk := ColorDlg('', optHiddenColor, vBkColor);
+          1: vOk := ColorDlg('', optFoundColor, vBkColor);
+          2: vOk := ColorDlg('', optTitleColor);
+        else
+          RestoreDefColor;
+          vOk := True;
+        end;
+
+        if vOk then begin
+          FarAdvControl(ACTL_REDRAWALL, nil);
+          vChanged := True;
+        end;
+      end;
+
+      if vChanged then
+        PluginConfig(True);
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
+
+
+  procedure OptionsMenu;
+  var
+    vMenu :TFarMenu;
+  begin
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strTitle),
+    [
+      GetMsg(strMProcessHotkeys),
+      GetMsg(strMProcessMouse),
+      GetMsg(strMMacroPaths),
+     {$ifdef bUseInject}
+      GetMsg(strMUseInjecting),
+     {$endif bUseInject}
+      '',
+      GetMsg(strMColors)
+    ]);
+    try
+      vMenu.Help := 'Options';
+
+      while True do begin
+        vMenu.Checked[0] := optProcessHotkey;
+        vMenu.Checked[1] := optProcessMouse;
+       {$ifdef bUseInject}
+        vMenu.Checked[3] := optUseInject;
+       {$endif bUseInject}
+        vMenu.Enabled[2] := MacroLock = 0;
+
+        vMenu.SetSelected(vMenu.ResIdx);
+
+        if not vMenu.Run then
+          Exit;
+
+        case vMenu.ResIdx of
+          0 : ToggleOption(optProcessHotkey);
+          1 : ToggleOption(optProcessMouse);
+          2 :
+            if FarInputBox(GetMsg(strMacroPathsTitle), GetMsg(strMacroPathsPrompt), optMacroPaths, FIB_BUTTONS or FIB_NOUSELASTHISTORY or FIB_ENABLEEMPTY, cMacroPathName) then begin
+              PluginConfig(True);
+              MacroLibrary.RescanMacroses(True);
+            end;
+         {$ifdef bUseInject}
+          3 : ToggleOption(optUseInject);
+         {$endif bUseInject}
+         
+          5 : ColorMenu;
+        end;
+      end;
+
+    finally
+      FreeObj(vMenu);
+    end;
+  end;
+
+
  {-----------------------------------------------------------------------------}
  { TMacroList                                                                  }
  {-----------------------------------------------------------------------------}
@@ -115,6 +225,7 @@ interface
     inherited Prepare;
     FGUID := cMacroListDlgID;
     FHelpTopic := 'List';
+    FGrid.OnTitleClick := GridTitleClick;    
     FGrid.Options := [{goRowSelect,} goWrapMode {, goFollowMouse}];
   end;
 
@@ -123,8 +234,8 @@ interface
   begin
     inherited InitDialog;
 
-    if (FResInd = -1) and (LastMacro <> nil) and (LastRevision = MacroLibrary.Revision) then
-      FResInd := FindMacro(LastMacro);
+    if (FResInd = -1) and (LastLink <> '') then
+      FResInd := FindMacroByLink(LastLink);
 
     if FResInd <> -1 then
       SetCurrent(FResInd);
@@ -189,7 +300,7 @@ interface
     vStr, vMask, vXMask :TString;
     vHasMask :Boolean;
   begin
-    FTotalCount := FMacroses.Count;
+//  FTotalCount := FMacroses.Count;
 
     vHasMask := False;
     vMask := FFilterMask;
@@ -211,10 +322,20 @@ interface
         vXMask := FarXLatStr(vMask);
     end;
 
-    vMaxLen1 := 2; vMaxLen2 := 2; vMaxLen3 := 2; vMaxLen4 := 2; vMaxLen5 := 2;
+    vMaxLen1 := 2;
+    vMaxLen2 := length(GetMsgStr(strDescription));
+    vMaxLen3 := length(GetMsgStr(strKeys));
+    vMaxLen4 := length(GetMsgStr(strAreas));
+    vMaxLen5 := length(GetMsgStr(strFileName));
 
+    FTotalCount := 0;
     for I := 0 to FMacroses.Count - 1 do begin
       vMacro := FMacroses[I];
+
+      if not optShowHidden and vMacro.Hidden then
+        Continue;
+
+      Inc(FTotalCount);
 
       vPos := 0; vFndLen := 0;
       if vMask <> '' then begin
@@ -246,13 +367,13 @@ interface
 //  if optShowName then
 //    FGrid.Columns.Add( TColumnFormat.CreateEx('', '', vMaxLen1+2, taLeftJustify, [coColMargin{, coOwnerDraw}], 0) );
     if True {optShowDescr} then
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', vMaxLen2+2, taLeftJustify, [coColMargin, coOwnerDraw], 1) );
+      FGrid.Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(strDescription), vMaxLen2+2, taLeftJustify, [coColMargin, coOwnerDraw], 1) );
     if optShowBind > 0 then
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', vMaxLen3+2, taLeftJustify, [coColMargin, coOwnerDraw], 2) );
+      FGrid.Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(strKeys), vMaxLen3+2, taLeftJustify, [coColMargin, coOwnerDraw], 2) );
     if optShowArea > 0 then
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', vMaxLen4+2, taLeftJustify, [coColMargin, coOwnerDraw], 3) );
+      FGrid.Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(strAreas), vMaxLen4+2, taLeftJustify, [coColMargin, coOwnerDraw], 3) );
     if optShowFile > 0 then
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', '', vMaxLen5+2, taLeftJustify, [coColMargin, coOwnerDraw], 4) );
+      FGrid.Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(strFileName), vMaxLen5+2, taLeftJustify, [coColMargin, coOwnerDraw], 4) );
 
     FGrid.Column[0].MinWidth := IntMin(vMaxLen2, 15);
     for I := 1 to FGrid.Columns.Count - 1 do
@@ -261,11 +382,20 @@ interface
 
     FGrid.ReduceColumns(FarGetWindowSize.CX - (10 + FGrid.Columns.Count));
 
+    if optShowTitles then
+      FGrid.Options := FGrid.Options + [goShowTitle]
+    else
+      FGrid.Options := FGrid.Options - [goShowTitle];
+    FGrid.TitleColor  := GetOptColor(optTitleColor, COL_MENUHIGHLIGHT);
+
     FMenuMaxWidth := 0;
     for I := 0 to FGrid.Columns.Count - 1 do
       with FGrid.Column[I] do
-        if Width <> 0 then
+        if Width <> 0 then begin
+          if optShowTitles and (Abs(optSortMode) = Tag) then
+            Header := StrIf(optSortMode > 0, chrUpMark, chrDnMark) + Header;
           Inc(FMenuMaxWidth, Width + IntIf(coNoVertLine in Options, 0, 1) );
+        end;
     Dec(FMenuMaxWidth);
 
     FGrid.RowCount := vCount;
@@ -323,6 +453,22 @@ interface
   end;
 
 
+  procedure TMacroList.GridTitleClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
+  var
+    vTag :Integer;
+  begin
+    if AButton = 1 then begin
+      if ACol < FGrid.Columns.Count then begin
+        vTag := FGrid.Column[ACol].Tag;
+//      if vTag in cDescSort then
+//        vTag := -vTag;
+        SetOrder(vTag);
+      end;  
+    end else
+      Beep;
+  end;
+
+
   function TMacroList.GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; {override;}
   var
     vMacro :TMacro;
@@ -335,9 +481,22 @@ interface
 
 
   procedure TMacroList.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor); {override;}
+  var
+    vMacro :TMacro;
   begin
-    if (ACol = -1) and (FGrid.CurRow = ARow) and (FGrid.CurCol = 0) then
-      AColor := FGrid.SelColor;
+    if ARow < FFilter.Count then begin
+      vMacro := GetMacro(ARow);
+
+      if ACol = -1 then begin
+        AColor := FGrid.NormColor;
+        if (FGrid.CurRow = ARow) and (FGrid.CurCol = 0) then
+          AColor := FGrid.SelColor;
+      end else
+      begin
+        if optShowHidden and vMacro.Hidden then
+          AColor := ChangeFG(AColor, optHiddenColor);
+      end;
+    end;
   end;
 
 
@@ -399,23 +558,20 @@ interface
     vMacro :TMacro;
     vIndex :Integer;
   begin
-    if FMacroses <> MacroLibrary.Macroses then
+    if FMacroses <> MacroLibrary.AllMacroses then
       begin Beep; Exit; end;
 
     LastRevision := MacroLibrary.Revision;
-    LastMacro := nil;
     LastLink := '';
 
     vMacro := GetMacro(FGrid.CurRow);
-    if vMacro <> nil then begin
-      LastMacro := vMacro;
-      LastLink := vMacro.GetSrcLink
-    end;
+    if vMacro <> nil then
+      LastLink := vMacro.GetSrcLink;
 
     MacroLibrary.RescanMacroses(True);
 
     if LastRevision <> MacroLibrary.Revision then begin
-      FMacroses := MacroLibrary.Macroses;
+      FMacroses := MacroLibrary.AllMacroses;
       ReinitGrid;
 
       vIndex := -1;
@@ -425,8 +581,7 @@ interface
         SetCurrent(vIndex, lmCenter);
 
         LastRevision := MacroLibrary.Revision;
-        LastMacro := GetMacro(vIndex);
-        LastLink := LastMacro.GetSrcLink;
+        LastLink := GetMacro(vIndex).GetSrcLink;
       end;
     end;
   end;
@@ -446,18 +601,17 @@ interface
     { Глючит, если в процессе просмотра/редактирования файла изменить размер консоли...}
     SendMsg(DM_ShowDialog, 0, 0);
     vSave := FARAPI.SaveScreen(0, 0, -1, -1);
-    vFull := FMacroses = MacroLibrary.Macroses;
+    vFull := FMacroses = MacroLibrary.AllMacroses;
     if vFull then
       Dec(MacroLock);
     try
       LastRevision := MacroLibrary.Revision;
-      LastMacro := vMacro;
       LastLink := vMacro.GetSrcLink;
 
       FarEditOrView(vMacro.FileName, True, 0, vMacro.Row + 1, vMacro.Col + 1);
 
       if LastRevision <> MacroLibrary.Revision then begin
-        FMacroses := MacroLibrary.Macroses;
+        FMacroses := MacroLibrary.AllMacroses;
         ReinitGrid;
 
         vIndex := -1;
@@ -496,13 +650,18 @@ interface
     case AKey of
       KEY_ENTER:
         SelectItem(1);
+      KEY_CTRLPGDN:
+        SelectItem(2);
 
       KEY_F4:
-        SelectItem(2);
+        SelectItem(3);
       KEY_ALTF4:
         EditCurrent;
       KEY_F5:
         UpdateMacroses;
+
+      KEY_CTRLH:
+        LocToggleOption(optSHowHidden);
 
       KEY_CTRL2:
         LocToggleOptionInt(optShowBind, IntIf(optShowBind < 2, optShowBind + 1, 0));
@@ -521,10 +680,13 @@ interface
         SetOrder(4);
       KEY_CTRLF11:
         SetOrder(0);
-//        KEY_CTRLF12:
-//          SortByDlg;
+//    KEY_CTRLF12:
+//      SortByDlg;
       KEY_ALTF12:
         SetOrder(FGrid.CurCol + 1);
+
+      KEY_ShiftF9:
+        OptionsMenu;
 
     else
       Result := inherited KeyDown(AID, AKey);
@@ -551,6 +713,13 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
+  procedure GotoFile(Active :Boolean; const AFileName :TString);
+  begin
+    FarPanelSetDir(Active, RemoveBackSlash(ExtractFilePath(AFileName)));
+    FarPanelSetCurrentItem(Active, ExtractFileName(AFileName))
+  end;
+
+
   procedure EditMacro(AMacro :TMacro);
   begin
     OpenEditor(AMacro.FileName, AMacro.Row + 1, AMacro.Col + 1);
@@ -563,6 +732,9 @@ interface
     vMacro :TMacro;
   begin
     Result := False;
+    if MacroLock > 0 then
+      Exit;
+
     Inc(MacroLock);
     vDlg := TMacroList.Create;
     try
@@ -578,12 +750,12 @@ interface
         vMacro := vDlg.FMacroses[AIndex];
 
         LastRevision := MacroLibrary.Revision;
-        LastMacro := vMacro;
         LastLink := vMacro.GetSrcLink;
 
         case vDlg.FResCmd of
           1: Result := True;
-          2: EditMacro(vMacro);
+          2: GotoFile(True, vMacro.FileName);
+          3: EditMacro(vMacro);
         end;
       end;
 
@@ -593,5 +765,8 @@ interface
     end;
   end;
 
+
+initialization
+  ColorDlgResBase := Byte(strColorDialog);
 end.
 

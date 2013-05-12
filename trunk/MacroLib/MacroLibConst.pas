@@ -41,6 +41,13 @@ interface
       strMProcessMouse,
       strMMacroPaths,
       strMUseInjecting,
+      strMColors,
+
+      strColorsTitle,
+      strMHiddenColor,
+      strMQuickFilter,
+      strMColumnTitle,
+      strMRestoreDefaults,
 
       strMacroPathsTitle,
       strMacroPathsPrompt,
@@ -49,19 +56,21 @@ interface
 
       strName,
       strDescription,
+      strAreas,
       strMacroarea,
+      strKeys,
       strHotkeys,
       strPriority,
       strFileName,
       strSequence,
-(*
+
       strColorDialog,
       str_CD_Foreground,
       str_CD_Background,
       str_CD_Sample,
       str_CD_Set,
       str_CD_Cancel,
-*)
+
       strMacroNotSpec,
       strMacroNotFound,
       strKeyNotSpec,
@@ -102,13 +111,24 @@ interface
     cAKeyMacroVar = '%_AK_';
    {$endif bLUA}
 
+   {$ifdef bUnicode}
+    chrUpMark           :TChar = #$18;  {#$1E;}
+    chrDnMark           :TChar = #$19;  {#$1F;}
+   {$else}
+    chrUpMark           :TChar = #$18; { $1E }
+    chrDnMark           :TChar = #$19; { $1F }
+   {$endif bUnicode}
+
+
   var
     optProcessHotkey :Boolean = True;   { ќбрабатывать нажати€ гор€чих клавиш }
     optProcessMouse  :Boolean = True;   { ќбрабатывать событи€ мыши }
     optMacroPaths    :TString = '';     { ѕуть к каталогу с макросами }
 
     optXLatMask      :Boolean = True;   { јвтоматическое XLAT преобразование при поиске }
-    optShowHints     :Boolean = True;
+    optShowHints     :Boolean = True;   { ѕоказывать подсказки (требуетс€ FarHints) }
+    optShowTitles    :Boolean = True;   { ѕоказывать заголовки колонок }
+    optShowHidden    :boolean = False;  { ѕоказывать скрытые макросы (описание пусто, или начинаетс€ с точки) }
 
     optShowBind      :Integer = 0;
     optShowArea      :Integer = 0;
@@ -117,6 +137,8 @@ interface
     optSortMode      :Integer = 0;
 
     optFoundColor    :TFarColor;
+    optHiddenColor   :TFarColor;
+    optTitleColor    :TFarColor;
 
     optDoubleDelay   :Integer = 500;
     optHoldDelay     :Integer = 500;
@@ -199,7 +221,11 @@ interface
    {$endif Far3}
   begin
     if ((AName + 1)^ = #0) and IsCharAlpha(AName^) then begin
+     {$ifdef Far3}
+      vTmp[0] := CharLoCase(AName^);
+     {$else}
       vTmp[0] := CharUpCase(AName^);
+     {$endif Far3}
       vTmp[1] := #0;
       AName := @vTmp[0];
     end;
@@ -260,6 +286,7 @@ interface
         LogValue('ProcessMouse', optProcessMouse);
         StrValue('MacroPaths', optMacroPaths);
 
+        LogValue('ShowHidden', optShowHidden);
         IntValue('ShowBind', optShowBind);
         IntValue('ShowArea', optShowArea);
         IntValue('ShowFile', optShowFile);
@@ -268,6 +295,7 @@ interface
 
         LogValue('XLatMask', optXLatMask);
         LogValue('ShowHints', optShowHints);
+        LogValue('ShowTitles', optShowTitles);
 
         IntValue('DoubleDelay', optDoubleDelay);
         IntValue('HoldDelay', optHoldDelay);
@@ -276,6 +304,9 @@ interface
 
         LogValue('UseInject', optUseInject);
 
+        ColorValue('HiddenColor', optHiddenColor);
+        ColorValue('FoundColor', optFoundColor);
+        ColorValue('TitleColor', optTitleColor);
       finally
         Destroy;
       end;
@@ -293,7 +324,9 @@ interface
 
   procedure RestoreDefColor;
   begin
-    optFoundColor := MakeColor(clLime, 0);
+    optHiddenColor := MakeColor(clGray, 0);
+    optFoundColor  := MakeColor(clLime, 0);
+    optTitleColor  := UndefColor;
   end;
 
 

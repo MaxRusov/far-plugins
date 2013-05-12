@@ -298,6 +298,7 @@ interface
       function ParseFile(const AFileName :TString) :boolean;
 
       procedure ShowSequenceError;
+      function GetSequenceError :TString;
 
     private
       FFileName  :TString;
@@ -342,7 +343,7 @@ interface
       function FindMacroConst(AName :PTChar; ALen :Integer = -1) :TMacroConst;
       procedure SkipSpacesAndComments(var APtr :PTChar);
       procedure SkipLineComment(var APtr :PTChar);
-      procedure SkipMultilineComment(var APtr :PTChar);
+      procedure SkipMultilineComment(var APtr :PTChar; AEndMatch :PTChar);
       procedure SkipCRLF(var APtr :PTChar);
       procedure ParseBindStr(APtr :PTChar {; var ARes :TKeyArray} );
       procedure ParseAreaStr(APtr :PTChar; var ARes :TMacroAreas);
@@ -378,6 +379,12 @@ interface
   function AreaToName(Area :TMacroArea) :TString;
   function KeyModToName(AMod :TKeyModifier) :TString;
 
+  procedure InitMacro(var aMacro :TMacroRec);
+ {$ifdef Far3}
+  procedure MacroSetAreas(var aMacro :TMacroRec; const Areas :TString);
+  procedure MacroSetKeys(var aMacro :TMacroRec; const AKeys :TString);
+ {$endif Far3}
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -390,8 +397,14 @@ interface
     cLineComment2 = '//';
     cLineComment3 = '--';
 
-    cInLineCommentBeg = '/*';
-    cInLineCommentEnd = '*/';
+    cCommentBeg   = '/*';
+    cCommentEnd   = '*/';
+   {$ifdef bLua}
+    cCommentBeg1  = '--[[';
+    cCommentEnd1  = ']]';
+    cStringBeg1   = '[[';
+    cStringEnd1   = ']]';
+   {$endif bLua}
 
   const
     kwMacro     = 1;
@@ -626,7 +639,7 @@ interface
       Add('UserMenu',  MACROAREA_USERMENU);
      {$ifdef Far3}
       Add('ShellACompl',  MACROAREA_SHELLAUTOCOMPLETION); Add('ShellAutoCompletion', MACROAREA_SHELLAUTOCOMPLETION);
-      Add('DlgACompl',    MACROAREA_DIALOGAUTOCOMPLETION); Add('DialogAutoCompletion', MACROAREA_DIALOGAUTOCOMPLETION);
+      Add('DialogACompl', MACROAREA_DIALOGAUTOCOMPLETION); Add('DialogAutoCompletion', MACROAREA_DIALOGAUTOCOMPLETION); Add('DlgACompl', MACROAREA_DIALOGAUTOCOMPLETION);
       Add('ACompl',       MACROAREA_AUTOCOMPLETION); Add('AutoCompletion', MACROAREA_AUTOCOMPLETION);
      {$else}
       Add('ACompl',    MACROAREA_AUTOCOMPLETION); Add('AutoCompletion', MACROAREA_AUTOCOMPLETION);
@@ -704,6 +717,71 @@ interface
 
 
  {-----------------------------------------------------------------------------}
+
+  procedure InitMacro(var aMacro :TMacroRec);
+  begin
+    aMacro.Name     := '';
+    aMacro.Descr    := '';
+    aMacro.Bind     := nil;
+   {$ifdef bUseKeyMask}
+    aMacro.Bind1    := nil;
+   {$endif bUseKeyMask}
+    aMacro.Area     := [];
+    aMacro.Dlgs     := nil;
+    aMacro.Dlgs1    := nil;
+    aMacro.Edts     := nil;
+    aMacro.Views    := nil;
+    aMacro.Cond     := [];
+    aMacro.Events   := [];
+    aMacro.Where    := '';
+    aMacro.Priority := 0;
+    aMacro.Options  := [moDisableOutput, moSendToPlugins, moEatOnRun];
+   {$ifdef bMacroInclude}
+    aMacro.Includes := nil;
+   {$endif bMacroInclude}
+    aMacro.Text     := '';
+    aMacro.Row      := 0;
+    aMacro.Col      := 0;
+    aMacro.Index    := 0;
+  end;
+
+
+ {$ifdef Far3}
+  procedure MacroSetAreas(var aMacro :TMacroRec; const Areas :TString);
+  var
+    vChr :PTChar;
+    vStr :TString;
+    vArea :Integer;
+  begin
+    vChr := PTChar(Areas);
+    while vChr^ <> #0 do begin
+      vStr := ExtractNextValue(vChr, [' ', #9]);
+      vArea := KeyAreas.GetKeywordStr(vStr);
+      if vArea <> -1 then
+        aMacro.Area := aMacro.Area + KeyMacroAreaToMacroAreas(vArea)
+      else
+        NOP;
+    end;
+  end;
+
+
+  procedure MacroSetKeys(var aMacro :TMacroRec; const AKeys :TString);
+  var
+    vChr :PTChar;
+    vStr :TString;
+  begin
+    vChr := PTChar(AKeys);
+    while vChr^ <> #0 do begin
+      vStr := ExtractNextValue(vChr, [' ', #9]);
+
+      SetLength(aMacro.Bind1, Length(aMacro.Bind1) + 1);
+      aMacro.Bind1[Length(aMacro.Bind1) - 1].Mask := vStr;
+    end;
+  end;
+ {$endif Far3}
+
+
+ {-----------------------------------------------------------------------------}
  { TGrowBuf                                                                    }
  {-----------------------------------------------------------------------------}
 
@@ -776,6 +854,10 @@ interface
   function TGrowBuf.GetStrValue :TString;
   begin
     SetString(Result, FBuf, FLen);
+
+    if Result = 'Привет' then
+      NOP;
+
   end;
 
 
@@ -1116,12 +1198,45 @@ interface
 
 
   procedure TMacroParser.ParseMacroSequence(var APtr :PTChar);
+
+   {$ifdef bLua}
+    procedure MultilineQuoteEnd(ALevel :Integer; var AEndStr :TString);
+    begin
+      AEndStr := ']' + StringOfChar('=', ALevel) + ']';
+    end;
+
+    function IsMultilineQuote(APtr :PTChar; var AEndStr :TString) :Boolean;
+    var
+      vPos :PTChar;
+    begin
+      Result := False;
+      if APtr^ = '[' then begin
+        vPos := APtr;
+        Inc(APtr);
+        while APtr^ = '=' do
+          Inc(APtr);
+        if APtr^ = '[' then begin
+          if APtr = vPos + 1 then
+            AEndStr := cStringEnd1
+          else
+            MultilineQuoteEnd(APtr - vPos - 1, AEndStr);
+          Result := True;
+        end;
+      end;
+    end;
+   {$endif bLua}
+
   var
-    vRow, vLen, vKey, vIncl :Integer;
+    vLen, vKey, vIncl :Integer;
     vPos :PTChar;
     vLex :TLexType;
     vParam :PTChar;
     vConst :TMacroConst;
+   {$ifdef bLua}
+    vEndStr :TString;
+   {$else}
+    vRow :Integer;
+   {$endif bLua}
   begin
     vIncl := 0;
     FSeq.Clear;
@@ -1139,24 +1254,34 @@ interface
           FSeq.Add(' '#13, 2);
         SkipCRLF(APtr);
       end else
+
      {$ifdef bLua}
-//    if MatchStr(APtr, cLineComment3) then
-//      { Однострочный комментарий }
-//      SkipLineComment(APtr)
-//    else
+      if MatchStr(APtr, cLineComment3) then begin
+        { Комментарий (однострочный или многострочный)  }
+        vPos := APtr;
+        inc(APtr, length(cLineComment3));
+        if (APtr^ = '[') and IsMultilineQuote(APtr, vEndStr) then
+          SkipMultilineComment(APtr, PTChar(vEndStr))
+        else
+          SkipLineComment(APtr);
+        FSeq.Add(vPos, APtr - vPos);
+      end else
+      if (APtr^ = '[') and IsMultilineQuote(APtr, vEndStr) then begin
+        { Многострочный строковый литерал }
+        vPos := APtr;
+        SkipMultilineComment(APtr, PTChar(vEndStr));
+        FSeq.Add(vPos, APtr - vPos);
+      end else
      {$else}
       if MatchStr(APtr, cLineComment1) or MatchStr(APtr, cLineComment2) then
         { Однострочный комментарий }
         SkipLineComment(APtr)
       else
-     {$endif bLua}
-      if MatchStr(APtr, cInLineCommentBeg) then begin
+      if MatchStr(APtr, cCommentBeg) then begin
         { Многострочный комментарий }
         vRow := FRow;
         vPos := APtr;
-
-        SkipMultilineComment(APtr);
-
+        SkipMultilineComment(APtr, cCommentEnd);
         if FRow > vRow then begin
           while vRow < FRow do begin
             FSeq.Add(' '#13, 2);
@@ -1164,28 +1289,30 @@ interface
           end;
           vPos := FBeg;
         end;
-
         if APtr > vPos then
           FSeq.AddChars(' ', APtr - vPos)
-
       end else
-      if APtr^ = '"' then begin
-        { Поддержка строковых литералов }
+     {$endif bLua}
+
+      if (APtr^ = '"') {$ifdef bLua} or (APtr^ = '''') {$endif bLua} then begin
+        FCur := APtr;
         vPos := APtr;
         Inc(APtr);
-        while (APtr^ <> #0) and (APtr^ <> charCR) and (APtr^ <> charLF) and (APtr^ <> '"') do begin
+        while (APtr^ <> #0) and (APtr^ <> charCR) and (APtr^ <> charLF) and (APtr^ <> vPos^) do begin
           if APtr^ = '\' then
             Inc(APtr, 2)
           else
             Inc(APtr);
         end;
-        if APtr^ <> '"' then
+        if APtr^ <> vPos^ then
           Error(errUnclosedString);
         Inc(APtr);
         FSeq.Add(vPos, APtr - vPos);
       end else
+     {$ifndef bLua}
       if MatchStr(APtr, '@"') then begin
         { Поддержка строковых литералов - verbatim string }
+        FCur := APtr;
         vPos := APtr;
         Inc(APtr, 2);
         while (APtr^ <> #0) and (APtr^ <> charCR) and (APtr^ <> charLF) and ((APtr^ <> '"') or ((APtr + 1)^ = '"')) do begin
@@ -1199,9 +1326,13 @@ interface
         Inc(APtr);
         FSeq.Add(vPos, APtr - vPos);
       end else
+     {$endif ~bLua}
+
       if APtr^ = '#' then begin
         { Препроцессор }
+       {$ifdef bLua}
         vPos := APtr;
+       {$endif bLua}
         Inc(APtr);
 
         vLex := GetLex(APtr, vParam, vLen);
@@ -1230,7 +1361,7 @@ interface
             Include(FMacro.Options, moDefineAKey);
           end else
            {$ifdef bLUA}
-            { В LUA # может являться частью синтаксиса?... }
+            { В LUA # может являться частью синтаксиса }
             FSeq.Add(vPos, APtr - vPos);
            {$else}
             Warning(errUnknownKeyword);
@@ -1283,7 +1414,16 @@ interface
 
   procedure TMacroParser.ShowSequenceError;
   begin
-    CheckMacroSequence(PTChar(FMacro.Text), False);
+//  CheckMacroSequence(PTChar(FMacro.Text), False);  ???
+    CheckMacroSequence(FMacro.Text, False);
+  end;
+
+
+  function TMacroParser.GetSequenceError :TString;
+  begin
+    Result := '';
+    if not FarCheckMacro(FMacro.Text, True, nil, @Result) then
+      NOP;
   end;
 
 
@@ -1292,8 +1432,12 @@ interface
     vPos :TCoord;
   begin
     FillZero(vPos, SizeOf(vPos));
-    if not FarCheckMacro(AText, ASilence, @vPos) and ASilence then
+    if not FarCheckMacro(AText, ASilence, @vPos) and ASilence then begin
+     {$ifdef bLua}
+      Dec(vPos.Y);
+     {$endif bLua}
       Error(errBadMacroSequence, FSeqRow + vPos.Y, vPos.X + IntIf(vPos.Y = 0, FSeqCol, 0));
+    end;
   end;
 
 
@@ -1394,8 +1538,8 @@ interface
       if MatchStr(APtr, cLineComment1) or MatchStr(APtr, cLineComment2) or MatchStr(APtr, cLineComment3) then
         SkipLineComment(APtr)
       else
-      if MatchStr(APtr, cInLineCommentBeg) then
-        SkipMultilineComment(APtr)
+      if MatchStr(APtr, cCommentBeg) then
+        SkipMultilineComment(APtr, cCommentEnd)
       else
         Break;
     end;
@@ -1409,16 +1553,16 @@ interface
   end;
 
 
-  procedure TMacroParser.SkipMultilineComment(var APtr :PTChar);
+  procedure TMacroParser.SkipMultilineComment(var APtr :PTChar; AEndMatch :PTChar);
   begin
-    while (APtr^ <> #0) and not MatchStr(APtr, cInLineCommentEnd) do begin
+    while (APtr^ <> #0) and not MatchStr(APtr, AEndMatch) do begin
       if (APtr^ = charCR) or (APtr^ = charLF) then
         SkipCRLF(APtr)
       else
         Inc(APtr);
     end;
     if APtr^ <> #0 then
-      Inc(APtr, length(cInLineCommentEnd));
+      Inc(APtr, length(AEndMatch));
   end;
 
 
@@ -1703,29 +1847,11 @@ interface
 
   procedure TMacroParser.NewMacro;
   begin
-    FMacro.Name     := '';
-    FMacro.Descr    := '';
-    FMacro.Bind     := nil;
-   {$ifdef bUseKeyMask}
-    FMacro.Bind1    := nil;
-   {$endif bUseKeyMask}
-    FMacro.Area     := [];
-    FMacro.Dlgs     := nil;
-    FMacro.Dlgs1    := nil;
-    FMacro.Edts     := nil;
-    FMacro.Views    := nil;
-    FMacro.Cond     := [];
-    FMacro.Events   := [];
-    FMacro.Where    := '';
-    FMacro.Priority := 0;
-    FMacro.Options  := [moDisableOutput, moSendToPlugins, moEatOnRun];
-   {$ifdef bMacroInclude}
-    FMacro.Includes := nil;
-   {$endif bMacroInclude}
-    FMacro.Text     := '';
-    FMacro.Row      := FRow;
-    FMacro.Col      := FBeg - FCur;
-    FMacro.Index    := FCount;
+    InitMacro(FMacro);
+
+    FMacro.Row   := FRow;
+    FMacro.Col   := FBeg - FCur;
+    FMacro.Index := FCount;
   end;
 
 

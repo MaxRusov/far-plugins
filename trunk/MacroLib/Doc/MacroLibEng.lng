@@ -13,6 +13,13 @@
 "Process &mouse"
 "Macro &paths"
 "&Use Injection"
+"&Colors..."
+
+"Colors"
+"&1 Hidden color"
+"&2 Quick filter"
+"&3 Column title"
+"&Restore Defaults"
 
 "Macro paths"
 "One or more paths (separated by "";"")"
@@ -21,11 +28,20 @@
 
 "Name"
 "Description"
+"Areas"
 "Macroarea"
+"Keys"
 "Hotkeys"
 "Priority"
 "File Name"
 "Sequence"
+
+"Color"
+"Foreground"
+"Background"
+"Sample"
+"Set"
+"Cancel"
 
 "Macro not specified"
 "Macro not found: %s"
