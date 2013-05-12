@@ -14,11 +14,10 @@ interface
     FarCtrl,
     FarDlg,
 
-    FarFMCtrl,
-    FarFMCalls;
+    FarFMCtrl;
 
 
-  function LoginDlg(const ARequest :TString; var AResponse :TString) :Boolean;
+  function LoginDlg(const ARequest :TString; var AResponse :TString; const AValidResp :TString) :Boolean;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -44,8 +43,9 @@ interface
       function CloseDialog(ItemID :Integer) :Boolean; override;
 
     private
-      FRequest  :TString;
-      FResponse :TString;
+      FValidResp :TString;
+      FRequest   :TString;
+      FResponse  :TString;
     end;
 
 
@@ -79,6 +79,11 @@ interface
   procedure TLoginDlg.InitDialog; {override;}
   begin
     SetText(IdEdit1, FRequest);
+
+    if FValidResp = '' then begin
+      SetEnabled(IdPrompt2, False);
+      SetEnabled(IdEdit2, False);
+    end;
   end;
 
 
@@ -86,7 +91,7 @@ interface
   begin
     if (ItemID <> -1) and (ItemID <> IdCancel) then begin
       FResponse := Trim(GetText(IdEdit2));
-      if UpCompareSubStr(cVkAuthRes, FResponse) <> 0  then
+      if (FValidResp <> '') and (UpCompareSubStr(FValidResp, FResponse) <> 0)  then
         AppErrorId(strResponseError);
     end;
     Result := True;
@@ -97,7 +102,7 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  function LoginDlg(const ARequest :TString; var AResponse :TString) :Boolean;
+  function LoginDlg(const ARequest :TString; var AResponse :TString; const AValidResp :TString) :Boolean;
   var
     vDlg :TLoginDlg;
     vRes :Integer;
@@ -106,6 +111,7 @@ interface
     vDlg := TLoginDlg.Create;
     try
       vDlg.FRequest := ARequest;
+      vDlg.FValidResp := AValidResp;
 
       vRes := vDlg.Run;
       if (vRes = -1) or (vRes = IdCancel) then

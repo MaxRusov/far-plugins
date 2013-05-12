@@ -1,6 +1,6 @@
 {$I Defines.inc}
 
-unit FarFMFindDlg;
+unit FarFMFindUrlDlg;
 
 interface
 
@@ -21,8 +21,10 @@ interface
     FarFmCalls;
 
 
-  function FindDlg(const APrompt :TString; var AName :TString) :Boolean;
-  function FindUrlDlg(const AKey, AOldURL :TString; var AURL :TString) :Boolean;
+  function FindDlg(AMode :Integer; const APrompt :TString; var AName :TString) :Boolean;
+    { AMode = 1 - поиск исполнителей }
+    { AMode = 2 - поиск пользователей }
+
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -32,60 +34,17 @@ interface
     MixDebug;
 
 
-  procedure TrimAndFilter(var Arr :TStringArray2);
   var
-    I, J, K :Integer;
-    vEmpty :Boolean;
-  begin
-    K := 0;
-    for I := 0 to length(Arr) - 1 do begin
-      vEmpty := True;
-      for J := 0 to length(Arr[I]) - 1 do begin
-        Arr[I, J] := Trim(Arr[I, J]);
-        if Arr[I, J] <> '' then
-          vEmpty := False;
-      end;
-      if I > K then
-        Arr[K] := Arr[I];
-      if not vEmpty then
-        Inc(K);
-    end;
-    if K < length(Arr) then
-      SetLength(Arr, K);
-  end;
-
-
-  var
-    cDlgTitle :array[1..3] of TMessages = (
-      strFindArtist,
-      strFindUser,
-      strFindTrackURL
-    );
-
-    cHistName :array[1..3] of PTChar = (
-      'FarFM.Find',
-      'FarFM.FindUser',
-      'FarFM.Track'
-    );
-
     cFindWhats :array[0..2] of TMessages = (
       strArtists,
       strAlbums,
       strTracks
     );
 
-    cCol2Title :array[0..3] of TMessages = (
+    cCol2Title :array[0..2] of TMessages = (
       strListeners,
-      strAlbum,
-      strTrack,
-      strTrack
-    );
-
-    cCol2Align :array[0..3] of TAlignment = (
-      taRightJustify,
-      taLeftJustify,
-      taLeftJustify,
-      taLeftJustify
+      strAlbums,
+      strTracks
     );
 
 
@@ -94,7 +53,7 @@ interface
     cDlgMinWidth  = 40;
     cDlgMinHeight = 12;
 
-    cTypeDX   = 11;
+    cTypeWidth    = 11;
 
     IdFrame   = 0;
     IdPrompt  = 1;
@@ -122,12 +81,9 @@ interface
       procedure ErrorHandler(E :Exception); override;
 
     private
-      FMode     :Integer; { FMode: 1 - поиск исполнителей, 2 - поиск пользователей, 3 - поиск URL }
-
-
+      FMode     :Integer;
       FPrompt   :TString;
       FRes      :TString;
-      FURL      :TString;
 
       FChanged  :Boolean;
 
@@ -168,16 +124,16 @@ interface
     FGUID := cFindDlgID;
     FWidth := cDlgDefWidth;
     FHeight := cDlgMinHeight;
-    X1 := FWidth-5-cTypeDX;
+    X1 := FWidth-5-cTypeWidth;
     FDialog := CreateDialog(
       [
-        NewItemApi(DI_DoubleBox,   3,  1, FWidth-6, FHeight-2, 0, GetMsg(cDlgTitle[FMode])),
+        NewItemApi(DI_DoubleBox,   3,  1, FWidth-6, FHeight-2, 0, GetMsg(TMessages(IntIf(FMode = 1, byte(strFindArtist), byte(strFindUser))))),
 
         NewItemApi(DI_Text,        5,  2, X1-7, -1, 0, GetMsg(strFindTextPrompt) ),
-        NewItemApi(DI_Edit,        5,  3, X1-7, -1, DIF_HISTORY, '', cHistName[FMode] ),
+        NewItemApi(DI_Edit,        5,  3, X1-7, -1, DIF_HISTORY, '', PCharIf(FMode = 1, 'FarFM.Find', 'FarFM.FindUser') ),
 
-        NewItemApi(DI_Text,        X1, 2, cTypeDX, -1, 0, GetMsg(strFindWherePrompt) ),
-        NewItemApi(DI_ComboBox,    X1, 3, cTypeDX, -1, DIF_DROPDOWNLIST, ''),
+        NewItemApi(DI_Text,        X1,  2, cTypeWidth, -1, 0, GetMsg(strFindWherePrompt) ),
+        NewItemApi(DI_ComboBox,    X1,  3, cTypeWidth, -1, DIF_DROPDOWNLIST, ''),
 
         NewItemApi(DI_USERCONTROL, 5,  5, FWidth-10, FHeight-9, 0, '' ),
 
@@ -205,29 +161,16 @@ interface
   begin
     SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
 
-    if FMode = 1 then begin
-      SetListItems(IdEdit2, [
-        GetMsgStr(cFindWhats[0]),
-        GetMsgStr(cFindWhats[1]),
-        GetMsgStr(cFindWhats[2])
-      ]);
-      SetListIndex(IdEdit2, 0);
-      SetText(IdEdit2, GetMsgStr(cFindWhats[0]));
-    end else
-    begin
-      SendMsg(DM_ShowItem, IdPrompt2, 0);
-      SendMsg(DM_ShowItem, IdEdit2, 0);
-    end;
+    SetListItems(IdEdit2, [
+      GetMsgStr(cFindWhats[0]),
+      GetMsgStr(cFindWhats[1]),
+      GetMsgStr(cFindWhats[2])
+    ]);
+    SetListIndex(IdEdit2, 0);
+    SetText(IdEdit2, GetMsgStr(cFindWhats[0]));
 
-    if FMode <> 3 then begin
-      SetEnabled(IdOk, False);
-      FChanged := True;
-    end else
-    begin
-      SetText(IdEdit, FRes);
-      FChanged := True;
-    end;
-
+    SetEnabled(IdOk, False);
+    FChanged := True;
     ReinitGrid;
   end;
 
@@ -240,10 +183,7 @@ interface
         Result := False;
       end else
       begin
-        if FMode <> 3 then
-          FRes := FList[FGrid.CurRow, 0]
-        else
-          FRes := FList[FGrid.CurRow, 2];
+        FRes := Trim(FList[FGrid.CurRow, 0]);
         Result := True;
       end;
     end else
@@ -255,51 +195,31 @@ interface
 
   function TFindDlg.GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString;
   begin
-    if ARow < length(FList) then begin
+    if ARow < length(FList) then
       Result := FList[ARow, ACol];
-
-      if (FMode = 3) and (ACol = 0) then begin
-        Result := ' ' + Result;
-        if (length(FList[ARow]) >= 3) and StrEqual(FURL, FList[ARow, 2]) then
-          Result[1] := '*'
-      end;
-    end;
   end;
 
 
   procedure TFindDlg.ReinitGrid;
   var
-    I, vMaxLen1, vMaxLen2, vMaxLen3 :Integer;
-    vShowCol3 :Boolean;
+    I, vMaxLen1, vMaxLen2 :Integer;
   begin
-    vShowCol3 := (FListMode = 3) and opt_ShowURL;
-
     FMaxWidth := 0;
-    vMaxLen1 := 0; vMaxLen2 := 0; vMaxLen3 := 0;
+    vMaxLen1 := 2; vMaxLen2 := 2;
     for I := 0 to length(FList) - 1 do begin
       vMaxLen1 := IntMax(vMaxLen1, Length(FList[I, 0]));
       vMaxLen2 := IntMax(vMaxLen2, Length(FList[I, 1]));
-      if vShowCol3 and (Length(FList[I]) >= 3) then
-        vMaxLen3 := IntMax(vMaxLen3, Length(FList[I, 2]));
     end;
 
-    Inc(vMaxLen1, 2);
-    Inc(vMaxLen2, 2);
-    if vShowCol3 then
-      Inc(vMaxLen3, 2);
-
-    if vMaxLen1 + vMaxLen2 + vMaxLen3 + 5{4+1} < cDlgDefWidth then
-      vMaxLen1 := cDlgDefWidth - (vMaxLen2 + vMaxLen3 + 5);
+    if vMaxLen1 + vMaxLen2 + 9{4+4+1} < cDlgDefWidth then
+      vMaxLen1 := cDlgDefWidth - (vMaxLen2 + 9);
 
     FGrid.ResetSize;
     FGrid.Columns.FreeAll;
-    FGrid.Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(strArtist), vMaxLen1, taLeftJustify, [coColMargin], 1) );
-    FGrid.Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(cCol2Title[FListMode]), vMaxLen2, cCol2Align[FListMode], [coColMargin], 2) );
-    if vShowCol3 then
-      FGrid.Columns.Add( TColumnFormat.CreateEx('', 'URL', vMaxLen3, taLeftJustify, [coColMargin], 3) );
-
-    FGrid.ReduceColumns( IntMax(FarGetWindowSize.CX - 4, cDlgMinWidth) - 6 - 4 - (FGrid.Columns.Count-1) );
-    FMaxWidth := FGrid.CalcGridColumnsWidth + 4;
+    FGrid.Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(strArtists), vMaxLen1+2, taLeftJustify, [coColMargin], 1) );
+    FGrid.Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(cCol2Title[FListMode]), vMaxLen2+2, taLeftJustify, [coColMargin], 2) );
+    FGrid.ReduceColumns( IntMax(FarGetWindowSize.CX - 4, cDlgMinWidth) - 6 - 5);
+    FMaxWidth := FGrid.Column[0].Width + FGrid.Column[1].Width + 5;
 
     if length(FList) > 0 then
       FGrid.Options := FGrid.Options + [goShowTitle]
@@ -326,7 +246,7 @@ interface
 
   procedure TFindDlg.ResizeDialog;
   var
-    vWidth, vHeight, vTypeDX :Integer;
+    vWidth, vHeight :Integer;
     vRect, vRect1 :TSmallRect;
     vSize :TSize;
   begin
@@ -350,18 +270,15 @@ interface
 
     RectGrow(vRect, -1, -1);
 
-    vTypeDX := IntIf(FMode = 1, cTypeDX, -1);
-    vRect1 := SRect(vRect.Left + 1, vRect.Top, vRect.Right - vTypeDX - 3, vRect.Top + 1);
+    vRect1 := SRect(vRect.Left + 1, vRect.Top, vRect.Right - cTypeWidth - 3, vRect.Top + 1);
     SendMsg(DM_SETITEMPOSITION, IdPrompt, @vRect1);
     RectMove(vRect1, 0, 1);
     SendMsg(DM_SETITEMPOSITION, IdEdit, @vRect1);
 
-    if FMode = 1 then begin
-      vRect1 := SRect(vRect.Right - vTypeDX, vRect.Top, vRect.Right - 1, vRect.Top + 1);
-      SendMsg(DM_SETITEMPOSITION, IdPrompt2, @vRect1);
-      RectMove(vRect1, 0, 1);
-      SendMsg(DM_SETITEMPOSITION, IdEdit2, @vRect1);
-    end;
+    vRect1 := SRect(vRect.Right - cTypeWidth, vRect.Top, vRect.Right - 1, vRect.Top + 1);
+    SendMsg(DM_SETITEMPOSITION, IdPrompt2, @vRect1);
+    RectMove(vRect1, 0, 1);
+    SendMsg(DM_SETITEMPOSITION, IdEdit2, @vRect1);
 
     vRect1 := SRect(vRect.Left + 1, vRect.Top + 3, vRect.Right - 1, vRect.Bottom - 2);
     SendMsg(DM_SETITEMPOSITION, IdGrid, @vRect1);
@@ -390,9 +307,10 @@ interface
     if vStr = '' then
       Exit;
 
+    FListMode := SendMsg(DM_LISTGETCURPOS, IdEdit2, 0);
+
     if FMode = 1 then begin
 
-      FListMode := SendMsg(DM_LISTGETCURPOS, IdEdit2, 0);
       if FListMode = 0 then begin
         vDoc := LastFMCall('artist.search', ['artist', vStr]);
         FList := XMLParseArray(vDoc, 'lfm/results/artistmatches/artist', ['name', 'listeners']);
@@ -408,19 +326,10 @@ interface
         Sorry;
 
     end else
-    if FMode = 2 then begin
+    begin
       {???}
-      FListMode := -1;
       vDoc := LastFMCall('user.search', ['user', vStr]);
-    end else
-    if FMode = 3 then begin
-      FListMode := 3;
-      vDoc := VkCall('audio.search', ['q', vStr {, 'count', Int2Str(cTryVariants)} ]);
-      FList := XMLParseArray(vDoc, '/response/audio', ['artist', 'title', 'url']);
-    end else
-      Wrong;
-      
-    TrimAndFilter(FList);
+    end;
 
     FChanged := False;
     FGrid.GotoLocation(0, 0, lmScroll);
@@ -431,28 +340,17 @@ interface
  {-----------------------------------------------------------------------------}
 
   function TFindDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
-
-    procedure LocToggleOption(var AOption :Boolean);
-    begin
-      AOption := not AOption;
-//    PluginConfig(True);
-      ReInitGrid;
-    end;
-
   begin
     Result := True;
-    case AKey of
-      KEY_CTRL3:
-        LocToggleOption(opt_ShowURL);
-
-      KEY_UP, KEY_DOWN, KEY_PGUP, KEY_PGDN, KEY_CTRLPGUP, KEY_CTRLPGDN:
-        if SendMsg(DM_GETFOCUS, 0, 0) = IdEdit then
-          FGrid.KeyDown(AKey)
-        else
-          Result := inherited KeyDown(AID, AKey);
-     else
-       Result := inherited KeyDown(AID, AKey);
-    end;
+    if SendMsg(DM_GETFOCUS, 0, 0) = IdEdit then begin
+      case AKey of
+        KEY_UP, KEY_DOWN, KEY_PGUP, KEY_PGDN, KEY_CTRLPGUP, KEY_CTRLPGDN:
+          FGrid.KeyDown(AKey);
+       else
+         Result := inherited KeyDown(AID, AKey);
+      end;
+    end else
+      Result := inherited KeyDown(AID, AKey);
   end;
 
 
@@ -495,16 +393,15 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  function FindDlg(const APrompt :TString; var AName :TString) :Boolean;
+  function FindDlg(AMode :Integer; const APrompt :TString; var AName :TString) :Boolean;
   var
     vDlg :TFindDlg;
     vRes :Integer;
   begin
     Result := False;
-    vDlg := TFindDlg.CreateEx(1);
+    vDlg := TFindDlg.CreateEx(AMode);
     try
       vDlg.FPrompt := APrompt;
-      vDlg.FRes := AName;
 
       vRes := vDlg.Run;
       if (vRes = -1) or (vRes = IdCancel) then
@@ -517,28 +414,6 @@ interface
     end;
   end;
 
-
-  function FindUrlDlg(const AKey, AOldURL :TString; var AURL :TString) :Boolean;
-  var
-    vDlg :TFindDlg;
-    vRes :Integer;
-  begin
-    Result := False;
-    vDlg := TFindDlg.CreateEx(3);
-    try
-      vDlg.FRes := AKey;
-      vDlg.FURL := AOldURL;
-
-      vRes := vDlg.Run;
-      if (vRes = -1) or (vRes = IdCancel) then
-        Exit;
-
-      AURL := vDlg.FRes;
-      Result := AURL <> '';
-    finally
-      FreeObj(vDlg);
-    end;
-  end;
 
 end.
 

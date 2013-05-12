@@ -40,7 +40,7 @@ exports
   SetDirectoryW,
   MakeDirectoryW,
   GetFilesW,
-//PutFilesW,
+  PutFilesW,
   DeleteFilesW,
 
  {$ifdef Far3}

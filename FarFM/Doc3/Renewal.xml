@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<renewal>
+  <plugin guid="{fda904ec-5ae7-497e-891b-e6efeee508e8}">
+    <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=FarFM</url>
+    <home arch="any">http://code.google.com/p/far-plugins/wiki/FarFM</home>
+    <regex arch="x86">//far-plugins.googlecode.com/files/FarFM\.far3.(\d+)\.(\d+)\.rar</regex>
+  </plugin>
+</renewal>
