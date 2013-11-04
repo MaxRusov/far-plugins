@@ -5,7 +5,7 @@
 Ключевые особенности:
 
  * Основные форматы изображений декодируются через GDI+ самим плагином
- * Поддерживаются субплагины формата PVD, совместимые с [http://plugring.farmanager.com/plugin.php?pid=693 PictureView v1] и [https://code.google.com/p/conemu-maximus5/wiki/PicView v2]
+ * Поддерживаются субплагины формата PVD, совместимые с PictureView [http://plugring.farmanager.com/plugin.php?pid=693 v1] и [https://code.google.com/p/conemu-maximus5/wiki/PicView v2]
  * Медиафайлы поддерживаются через субплагин VideoBass.pvd (используются библиотеки BASS и BASSVIDEO - http://www.un4seen.com/)
  * Автоповорот изображений, поворот вручную, сохранение повернутых изображений
  * Использование эскизов для быстрого листания
