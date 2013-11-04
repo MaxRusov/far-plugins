@@ -1,0 +1,18 @@
+#summary Просмотр изображений и медиафайлов
+
+= Описание =
+
+== Загрузить ==
+
+ * [http://code.google.com/p/far-plugins/downloads/list?q=Review Последняя версия]
+
+ * [http://code.google.com/p/far-plugins/downloads/list?q=Review&can=1 Все версии]
+
+
+== Пример ==
+
+http://far-plugins.googlecode.com/svn/trunk/Review/Image/Sample.png
+
+----
+
+= История изменений =
