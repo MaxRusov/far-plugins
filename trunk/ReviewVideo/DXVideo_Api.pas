@@ -242,7 +242,7 @@ implementation
     vVol :Integer;
   begin
     { Vol: -10000 - 0 }
-    vVol := -Round(sqr(100 - RangeLimit(Value, 0, 100)));
+    vVol := -Round(sqr(100 - RangeLimitF(Value, 0, 100)));
     TVideo(chan).FBA.put_Volume( vVol );
   end;
 
