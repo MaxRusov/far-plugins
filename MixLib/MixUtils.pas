@@ -136,6 +136,7 @@ interface
   function IntToStr(AInt :Integer) :TString;
   function Int64ToStr(AInt :Int64) :TString;
 
+  function StrCopyPtr(Dest :PTChar; APtr :Pointer) :PTChar;
   function HexStr(AVal :Int64; ACount :Integer) :TString;
   procedure BinToHex(ASrc :Pointer; ACount :Integer; ADst :PTChar);
   function BinToHexStr(ASrc :Pointer; ACount :Integer) :TString;
@@ -225,10 +226,13 @@ interface
   function FileSeek(Handle :THandle; const Offset: Int64; Origin: Integer): Int64; overload;
   procedure FileClose(Handle :THandle);
   function FileTimeToDosFileDate(const AFileTime :TFileTime) :Integer;
+  function DosFileDateToFileTime(Age :Integer; var AFileTime :TFileTime) :Boolean;
   function FileSize(AHandle :THandle) :TInt64;
   function FileAge(const FileName :TString): Integer;
+  function FileGetDate(Handle :THandle) :Integer;
+  function FileSetDate(Handle :THandle; Age: Integer) :Boolean;
   function FileGetAttr(const FileName :TString): Integer;
-  function FileSetAttr(const FileName :TString; Attr: Integer): Integer;
+  function FileSetAttr(const FileName :TString; Attr: Integer) :Boolean;
   function DeleteFile(const FileName :TString): Boolean;
   function RenameFile(const OldName, NewName :TString): Boolean;
   function CreateDir(const Dir :TString): Boolean;
@@ -470,6 +474,23 @@ interface
 
   const
     HexChars :array[0..15] of TChar = ('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
+
+
+  function StrCopyPtr(Dest :PTChar; APtr :Pointer) :PTChar;
+  var
+    I :Integer;
+    N :TUnsPtr;
+    D :Byte;
+  begin
+    N := TUnsPtr(APtr);
+    for I := SizeOf(Pointer) * 2 - 1 downto 0 do begin
+      D := N and $F;
+      N := N shr 4;
+      (Dest + I)^ := HexChars[D];
+    end;
+    Result := Dest + SizeOf(Pointer) * 2;
+  end;
+
 
   function HexStr(AVal :Int64; ACount :Integer) :TString;
   var
@@ -1235,6 +1256,15 @@ interface
   end;
 
 
+  function DosFileDateToFileTime(Age :Integer; var AFileTime :TFileTime) :Boolean;
+  var
+    vLocalTime :TFileTime;
+  begin
+    Result := DosDateTimeToFileTime(LongRec(Age).Hi, LongRec(Age).Lo, vLocalTime) and
+      LocalFileTimeToFileTime(@vLocalTime, AFileTime);
+  end;
+
+
   function FileSize(AHandle :THandle) :TInt64;
   var
     vSizeLo, vSizeHi :DWORD;
@@ -1261,16 +1291,34 @@ interface
   end;
 
 
+  function FileGetDate(Handle :THandle) :Integer;
+  var
+    FileTime :TFileTime;
+  begin
+    Result := -1;
+    if GetFileTime(Handle, nil, nil, @FileTime) then
+      Result := FileTimeToDosFileDate(FileTime);
+  end;
+
+
+  function FileSetDate(Handle :THandle; Age :Integer) :Boolean;
+  var
+    FileTime: TFileTime;
+  begin
+    Result := False;
+    if DosFileDateToFileTime(Age, FileTime) then
+      Result := SetFileTime(Handle, nil, nil, @FileTime);
+  end;
+
+
   function FileGetAttr(const FileName :TString): Integer;
   begin
     Result := Integer(GetFileAttributes(PTChar(FileName)));
   end;
 
-  function FileSetAttr(const FileName :TString; Attr: Integer): Integer;
+  function FileSetAttr(const FileName :TString; Attr: Integer) :Boolean;
   begin
-    Result := 0;
-    if not SetFileAttributes(PTChar(FileName), Attr) then
-      Result := GetLastError;
+    Result := SetFileAttributes(PTChar(FileName), Attr);
   end;
 
 

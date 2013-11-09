@@ -30,7 +30,7 @@ type
   POpenFilenameW = ^TOpenFilenameW;
   POpenFilename = {$ifdef bUnicode}POpenFilenameW{$else}POpenFilenameA{$endif bUnicode};
 
-  tagOFNA = packed record
+  tagOFNA = record
     lStructSize: DWORD;
     hWndOwner: HWND;
     hInstance: HINST;
@@ -52,7 +52,7 @@ type
     lpfnHook: function(Wnd: HWND; Msg: UINT; wParam: WPARAM; lParam: LPARAM): UINT stdcall;
     lpTemplateName: PAnsiChar;
   end;
-  tagOFNW = packed record
+  tagOFNW = record
     lStructSize: DWORD;
     hWndOwner: HWND;
     hInstance: HINST;

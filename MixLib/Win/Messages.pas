@@ -11,7 +11,7 @@
 
 unit Messages;
 
-{$A-}
+{$Align On}
 {$WEAKPACKAGEUNIT}
 
 {$ifdef bFreePascal}
@@ -498,6 +498,7 @@ type
   HALFPARAMBOOL = WORDBOOL;
  {$endif b64}
 
+
   PMessage = ^TMessage;
   TMessage = record
     msg  :UINT;
@@ -530,16 +531,16 @@ type
     Result: LRESULT;
   end;
 
-  TWMMouse = packed record
-    Msg: Cardinal;
-    Keys: Longint;
+  TWMMouse = record
+    Msg :Cardinal;
+    Keys :WPARAM;
     case Integer of
       0: (
-        XPos: Smallint;
-        YPos: Smallint);
+        XPos :Smallint;
+        YPos :Smallint);
       1: (
-        Pos: TSmallPoint;
-        Result: Longint);
+        Pos :TSmallPoint;
+        Result :LRESULT);
   end;
 
   TWMMouseWheel = packed record
@@ -638,13 +639,26 @@ type
   TWMClear = TWMNoParams;
   TWMClose = TWMNoParams;
 
-  TWMCommand = packed record
-    Msg: Cardinal;
-    ItemID: Word;
-    NotifyCode: Word;
-    Ctl: HWND;
-    Result: Longint;
+  TWMCommand = record
+    Msg :Cardinal;
+    case Integer of
+      0: (
+        ItemID :Word;
+        NotifyCode :Word);
+      1: (
+        wParam :WPARAM;
+        Ctl :HWND;
+        Result :LRESULT);
   end;
+(*
+  TWMCommand = record
+    Msg :Cardinal;
+    ItemID :Word;
+    NotifyCode :Word;
+    Ctl :HWND;
+    Result :LRESULT;
+  end;
+*)
 
   TWMCompacting = packed record
     Msg: Cardinal;
@@ -671,18 +685,18 @@ type
 
   { ?? WM_CLP_LAUNCH, WM_CPL_LAUNCHED }
 
-  TWMCreate = packed record
-    Msg: Cardinal;
-    Unused: Integer;
+  TWMCreate = record
+    Msg :Cardinal;
+    Unused :WPARAM;
     CreateStruct: PCreateStruct;
-    Result: Longint;
+    Result :LRESULT;
   end;
 
-  TWMCtlColor = packed record
-    Msg: Cardinal;
-    ChildDC: HDC;
-    ChildWnd: HWND;
-    Result: Longint;
+  TWMCtlColor = record
+    Msg :Cardinal;
+    ChildDC :HDC;
+    ChildWnd :HWND;
+    Result :LRESULT;
   end;
 
   TWMCtlColorBtn = TWMCtlColor;
@@ -1030,12 +1044,12 @@ type
     Result: Longint;
   end;
 
-  TWMMouseActivate = packed record
-    Msg: Cardinal;
-    TopLevel: HWND;
-    HitTestCode: Word;
-    MouseMsg: Word;
-    Result: Longint;
+  TWMMouseActivate = {packed} record
+    Msg :Cardinal;
+    TopLevel :HWND;
+    HitTestCode :Word;
+    MouseMsg :Word;
+    Result :LRESULT;
   end;
 
   TWMMouseMove = TWMMouse;

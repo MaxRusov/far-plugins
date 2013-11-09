@@ -22,6 +22,7 @@ interface
 
 
   const
+    TBS_NOTIFYBEFOREMOVE = $0800;
     TBS_TRANSPARENTBKGND = $1000;
 
   type
@@ -113,6 +114,18 @@ interface
       property Handle :THandle read FHandle;
       property ClientRect :TRect read GetClientRect;
       property Text :TString read GetText write SetText;
+    end;
+
+
+  const
+    TRBN_THUMBPOSCHANGING  = Integer($FFFFFA22); //TRBN_FIRST-1;
+
+  type
+    PNMTRBTHUMBPOSCHANGING = ^TNMTRBTHUMBPOSCHANGING;
+    TNMTRBTHUMBPOSCHANGING = record
+      hdr :NMHDR;
+      dwPos :DWORD;
+      nReason :Integer;
     end;
 
 
@@ -242,7 +255,7 @@ interface
       WindowClass.hbrBackground := COLOR_WINDOW;
       WindowClass.hCursor := LoadCursor(0, IDC_ARROW);
       WindowClass.hInstance := HInstance;
-      StrPCopy(WinClassName, ClassName);
+      StrCopyPtr(StrEnd(StrPCopy(WinClassName, ClassName)), Pointer(HInstance));
     end;
   end;
 
@@ -299,7 +312,7 @@ interface
   end;
 
 
-  procedure TMSWindow.WMNCDestroy(var Mess :TWMNCDestroy); {message WM_NCDestroy;}
+  procedure TMSWindow.WMNCDestroy(var Mess :TWMNCDestroy); {message WM_Destroy;}
   begin
     inherited;
     FHandle := 0;
@@ -317,7 +330,7 @@ interface
     end;
   end;
 
-
+                                                                                                      
   procedure TMSWindow.WndProc(var Mess :TMessage); {virtual;}
   begin
     Dispatch(Mess);
@@ -447,7 +460,8 @@ interface
   procedure TMSControl.CreateParams(var AParams :TCreateParams); {override;}
   begin
 //  inherited CreateParams(AParams);
-    StrPCopy(AParams.WinClassName, ClassName);
+//  StrPCopy(AParams.WinClassName, ClassName);
+    StrCopyPtr(StrEnd(StrPCopy(AParams.WinClassName, ClassName)), Pointer(HInstance));
     AParams.Style := AParams.Style or WS_CHILD or WS_VISIBLE;
   end;
 
@@ -500,7 +514,7 @@ interface
     CreateSubClass(AParams, 'msctls_trackbar32');
   end;
 
-
+  
  {-----------------------------------------------------------------------------}
  { TToolbar                                                                    }
  {-----------------------------------------------------------------------------}
