@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<renewal>
+  <plugin guid="{0364224C-A21A-42ED-95FD-34189BA4B204}">
+    <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=Review</url>
+    <home arch="any">http://code.google.com/p/far-plugins/wiki/Review</home>
+    <regex arch="x86">//far-plugins.googlecode.com/files/Review\.far3\.(\d+)\.(\d+)\.rar</regex>
+    <regex arch="x64">//far-plugins.googlecode.com/files/Review\.far3\.x64\.(\d+)\.(\d+)\.rar</regex>
+  </plugin>
+</renewal>

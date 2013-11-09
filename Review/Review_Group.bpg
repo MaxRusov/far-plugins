@@ -9,7 +9,7 @@ MAKE = $(ROOT)\bin\make.exe -$(MAKEFLAGS) -f$**
 DCC = $(ROOT)\bin\dcc32.exe $**
 BRCC = $(ROOT)\bin\brcc32.exe $**
 #------------------------------------------------------------------------------
-PROJECTS = GDIPlus.dll VideoBass.dll Review.dll
+PROJECTS = DXVideo.dll Review.dll
 #------------------------------------------------------------------------------
 default: $(PROJECTS)
 #------------------------------------------------------------------------------
@@ -17,10 +17,7 @@ default: $(PROJECTS)
 Review.dll: Review.dpr
   $(DCC)
 
-GDIPlus.dll: ..\PicViewGDI\GDIPlus.dpr
-  $(DCC)
-
-VideoBass.dll: ..\ReviewVideo\VideoBass.dpr
+DXVideo.dll: ..\ReviewVideo\DXVideo.dpr
   $(DCC)
 
 
