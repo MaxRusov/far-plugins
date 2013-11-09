@@ -920,6 +920,20 @@ struct FAR_FIND_DATA
     wchar_t *lpwszAlternateFileName;
 };
 *)
+(*
+type
+  PFarFindData = ^TFarFindData;
+  TFarFindData = {$ifdef CPUX86_64} record {$else} packed record {$endif CPUX86_64}
+    dwFileAttributes : DWORD;
+    ftCreationTime : TFileTime;
+    ftLastAccessTime : TFileTime;
+    ftLastWriteTime : TFileTime;
+    nFileSize :Int64;  // nFileSizeLow, nFileSizeHigh : DWORD;
+    nPackSize :Int64;  // nPackSizeLow, nPackSizeHigh : DWORD;
+    cFileName :PFarChar;
+    cAlternateFileName :PFarChar;
+  end;
+*)
 type
   PFarFindData = ^TFarFindData;
   TFarFindData = {$ifdef CPUX86_64} record {$else} packed record {$endif CPUX86_64}
@@ -952,6 +966,7 @@ struct PluginPanelItem
 };
 *)
 type
+(*
   PPluginPanelItem = ^TPluginPanelItem;
   TPluginPanelItem = record
     FindData : TFarFindData;
@@ -964,6 +979,34 @@ type
     UserData : DWORD_PTR;
     CRC32 : DWORD;
     Reserved : array [0..1] of DWORD_PTR;
+  end;
+*)
+  PPluginPanelItem = ^TPluginPanelItem;
+  TPluginPanelItem = {$ifdef CPUX86_64} record {$else} packed record {$endif CPUX86_64}
+  case Byte of
+    0 : (
+      FindData : TFarFindData;
+      Flags : DWORD;
+      NumberOfLinks : DWORD;
+      Description : PFarChar;
+      Owner : PFarChar;
+      CustomColumnData : PPCharArray;
+      CustomColumnNumber : Integer;
+      UserData : DWORD_PTR;
+      CRC32 : DWORD;
+      Reserved : array [0..1] of DWORD_PTR;
+    );
+    1 : (
+      { ִכÿ סמגלוסעטלמסעט ס Far3 }
+      FileAttributes : DWORD;
+      CreationTime : TFileTime;
+      LastAccessTime : TFileTime;
+      LastWriteTime : TFileTime;
+      FileSize :Int64;
+      AllocationSize :Int64;
+      FileName :PFarChar;
+      AlternateFileName :PFarChar;
+    );
   end;
 
   TPluginPanelItemArray = packed array[0..MaxInt div sizeof(TPluginPanelItem) - 1] of TPluginPanelItem;

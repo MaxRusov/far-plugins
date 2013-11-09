@@ -272,6 +272,7 @@ const
   DIF_HISTORY               =  $00040000;
   DIF_BTNNOCLOSE            =  $00040000;
   DIF_CENTERTEXT            =  $00040000;
+  DIF_SEPARATORUSER         =  $00080000;
   DIF_SETSHIELD             =  $00080000;
   DIF_EDITEXPAND            =  $00080000;
   DIF_DROPDOWNLIST          =  $00100000;
@@ -293,6 +294,8 @@ const
   DIF_DISABLE               =  $80000000;
   DIF_DEFAULTBUTTON         = $100000000;
   DIF_FOCUS                 = $200000000;
+  DIF_RIGHTTEXT             = $400000000;
+  DIF_WORDWRAP              = $800000000;
 
 
 { FARMESSAGE }
@@ -1053,6 +1056,12 @@ type
   TFarPanelItemFreeCallback = procedure(UderData :Pointer; Info :PFarPanelItemFreeInfo); stdcall;
 
 (*
+struct UserDataItem
+{
+  void* Data;
+  FARPANELITEMFREECALLBACK FreeData;
+};
+
 struct PluginPanelItem
 {
   FILETIME CreationTime;
@@ -1068,11 +1077,7 @@ struct PluginPanelItem
   const wchar_t * const *CustomColumnData;
   size_t CustomColumnNumber;
   PLUGINPANELITEMFLAGS Flags;
-  struct
-  {
-    void* Data;
-    FARPANELITEMFREECALLBACK FreeData;
-  } UserData;
+  struct UserDataItem UserData;
   uintptr_t FileAttributes;
   uintptr_t NumberOfLinks;
   uintptr_t CRC32;
@@ -1313,6 +1318,7 @@ const
   FCTL_GETPANELHOSTFILE       = 32;
   FCTL_SETCASESENSITIVESORT   = 33;
   FCTL_GETPANELPREFIX         = 34;
+  FCTL_SETACTIVEPANEL         = 35;
 
 type
 (*
@@ -1508,6 +1514,7 @@ const
   FHELP_FARHELP     = $00000001;
   FHELP_CUSTOMFILE  = $00000002;
   FHELP_CUSTOMPATH  = $00000004;
+  FHELP_GUID        = $00000008;
   FHELP_USECONTENTS = $40000000;
 
 
@@ -1730,6 +1737,8 @@ const
   FMVT_DOUBLE   = 3;
   FMVT_BOOLEAN  = 4;
   FMVT_BINARY   = 5;
+  FMVT_POINTER  = 6;
+
 
 (*
 struct FarMacroValue
@@ -1741,6 +1750,7 @@ struct FarMacroValue
     __int64        Boolean;
     double         Double;
     const wchar_t *String;
+    void          *Pointer;
     struct
     {
       void *Data;
@@ -1761,9 +1771,10 @@ type
     fType :DWORD; {FARMACROVARTYPE}
     Value : record case byte of
       0 : (fInteger :Int64);
-      1 : (fDouble :Double);
-      2 : (fString :PFarChar);
-      3 : (fBinary :TFarBinaryValue);
+      1 : (fDouble  :Double);
+      2 : (fString  :PFarChar);
+      3 : (fPointer :Pointer);
+      4 : (fBinary  :TFarBinaryValue);
     end;
   end;
 
@@ -1783,8 +1794,8 @@ const
   MPRT_PLUGINMENU    = 6;
   MPRT_PLUGINCONFIG  = 7;
   MPRT_PLUGINCOMMAND = 8;
-  MPRT_COMMONCASE    = 9;
-
+  MPRT_USERMENU      = 9;
+  MPRT_COMMONCASE    = 100;
 
 (*
 struct MacroPluginReturn
@@ -2224,6 +2235,10 @@ const
   ECTL_GETFILENAME           = 33;
   ECTL_DELCOLOR              = 34;
 
+  ECTL_SUBSCRIBECHANGEEVENT  = 36;
+  ECTL_UNSUBSCRIBECHANGEEVENT= 37;
+
+
 
 { EDITOR_SETPARAMETER_TYPES }
 
@@ -2614,6 +2629,20 @@ type
     StructSize :size_t;
     _Type :DWORD; {EDITOR_CHANGETYPE}
     StringNumber :TIntPtr;
+  end;
+
+(*
+struct EditorSubscribeChangeEvent
+{
+  size_t StructSize;
+  GUID PluginId;
+};
+*)
+type
+  PEditorSubscribeChangeEvent = ^TEditorSubscribeChangeEvent;
+  TEditorSubscribeChangeEvent = record
+    StructSize :size_t;
+    PluginId :TGUID;
   end;
 
 
@@ -3475,6 +3504,21 @@ struct ArclitePrivateInfo
 {!!!}
 
 (*
+struct NetBoxPrivateInfo
+{
+	size_t StructSize;
+	FARAPICREATEFILE CreateFile;
+	FARAPIGETFILEATTRIBUTES GetFileAttributes;
+	FARAPISETFILEATTRIBUTES SetFileAttributes;
+	FARAPIMOVEFILEEX MoveFileEx;
+	FARAPIDELETEFILE DeleteFile;
+	FARAPIREMOVEDIRECTORY RemoveDirectory;
+	FARAPICREATEDIRECTORY CreateDirectory;
+};
+*)
+{!!!}
+
+(*
 typedef intptr_t (WINAPI *FARAPICALLFAR)(intptr_t CheckCode, struct FarMacroCall* Data);
 
 struct MacroPrivateInfo
@@ -3793,6 +3837,7 @@ struct OpenPanelInfo
   const struct KeyBarTitles   *KeyBar;
   const wchar_t               *ShortcutData;
   unsigned __int64             FreeSize;
+  struct UserDataItem          UserData;
 };
 *)
 type
@@ -3817,6 +3862,8 @@ type
     KeyBar :PKeyBarTitles;
     ShortcutData :PFarChar;
     FreeSize :Int64;
+    UserData :Pointer;
+    FreeData :TFarPanelItemFreeCallback;
   end;
 
 (*
@@ -3946,7 +3993,12 @@ const
   MCT_MACROPARSE    = 3;
   MCT_LOADMACROS    = 4;
   MCT_ENUMMACROS    = 5;
-  MCT_WRITEMACRO    = 6;
+  MCT_WRITEMACROS   = 6;
+  MCT_GETMACRO      = 7;
+  MCT_PROCESSMACRO  = 8;
+  MCT_DELMACRO      = 9;
+  MCT_RUNSTARTMACRO = 10;
+
 
 (*
 struct OpenMacroPluginInfo
@@ -3999,14 +4051,25 @@ type
   end;
 
 (*
-  struct SetDirectoryInfo
-  {
-    size_t StructSize;
-    HANDLE hPanel;
-    const wchar_t *Dir;
-    intptr_t UserData;
-    OPERATION_MODES OpMode;
-  };
+struct SetDirectoryInfo
+{
+  size_t StructSize;
+  HANDLE hPanel;
+  const wchar_t *Dir;
+  intptr_t UserData;
+  OPERATION_MODES OpMode;
+};
+-->
+struct SetDirectoryInfo
+{
+  size_t StructSize;
+  HANDLE hPanel;
+  const wchar_t *Dir;
+  intptr_t Reserved;
+  OPERATION_MODES OpMode;
+  struct UserDataItem UserData;
+};
+
 *)
 type
   PSetDirectoryInfo = ^TSetDirectoryInfo;
@@ -4014,8 +4077,10 @@ type
     StructSize :size_t;
     hPanel :THandle;
     Dir :PFarChar;
-    UserData :Pointer;
+    Reserved :Pointer;
     OpMode :TOperationModes;
+    UserData :Pointer;
+    FreeData :TFarPanelItemFreeCallback;
   end;
 
 (*
@@ -4026,18 +4091,35 @@ type
                     const struct PluginPanelItem *PanelItem;
                     size_t ItemsNumber;
             };
+*)
+{!!!}
 
-            struct PutFilesInfo
-            {
-                    size_t StructSize;
-                    HANDLE hPanel;
-                    struct PluginPanelItem *PanelItem;
-                    size_t ItemsNumber;
-                    BOOL Move;
-                    const wchar_t *SrcPath;
-                    OPERATION_MODES OpMode;
-            };
+(*
+struct PutFilesInfo
+{
+  size_t StructSize;
+  HANDLE hPanel;
+  struct PluginPanelItem *PanelItem;
+  size_t ItemsNumber;
+  BOOL Move;
+  const wchar_t *SrcPath;
+  OPERATION_MODES OpMode;
+};
+*)
+type
+  PPutFilesInfo = ^TPutFilesInfo;
+  TPutFilesInfo = record
+    StructSize :size_t;
+    hPanel :THandle;
+    PanelItem :PPluginPanelItem;
+    ItemsNumber :size_t;
+    Move :Boolean;
+    SrcPath :PFarChar;
+    OpMode :TOperationModes;
+  end;
 
+
+(*
             struct ProcessHostFileInfo
             {
                     size_t StructSize;
@@ -4047,6 +4129,7 @@ type
                     OPERATION_MODES OpMode;
             };
 *)
+{!!!}
 
 (*
 struct MakeDirectoryInfo
@@ -4384,38 +4467,6 @@ void     WINAPI SetStartupInfoW(const struct PluginStartupInfo *Info);
 
 
 function MakeFarVersion(Major :DWORD; Minor :DWORD; Revision :DWORD; Build :DWORD; Stage :DWORD) :TVersionInfo;
-
-(*
-#define Dlg_RedrawDialog(Info,hDlg)            Info.SendDlgMessage(hDlg,DM_REDRAW,0,0)
-
-#define Dlg_GetDlgData(Info,hDlg)              Info.SendDlgMessage(hDlg,DM_GETDLGDATA,0,0)
-#define Dlg_SetDlgData(Info,hDlg,Data)         Info.SendDlgMessage(hDlg,DM_SETDLGDATA,0,(intptr_t)Data)
-
-#define Dlg_GetDlgItemData(Info,hDlg,ID)       Info.SendDlgMessage(hDlg,DM_GETITEMDATA,0,0)
-#define Dlg_SetDlgItemData(Info,hDlg,ID,Data)  Info.SendDlgMessage(hDlg,DM_SETITEMDATA,0,(intptr_t)Data)
-
-#define DlgItem_GetFocus(Info,hDlg)            Info.SendDlgMessage(hDlg,DM_GETFOCUS,0,0)
-#define DlgItem_SetFocus(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_SETFOCUS,ID,0)
-#define DlgItem_Enable(Info,hDlg,ID)           Info.SendDlgMessage(hDlg,DM_ENABLE,ID,TRUE)
-#define DlgItem_Disable(Info,hDlg,ID)          Info.SendDlgMessage(hDlg,DM_ENABLE,ID,FALSE)
-#define DlgItem_IsEnable(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_ENABLE,ID,-1)
-#define DlgItem_SetText(Info,hDlg,ID,Str)      Info.SendDlgMessage(hDlg,DM_SETTEXTPTR,ID,(intptr_t)Str)
-
-#define DlgItem_GetCheck(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_GETCHECK,ID,0)
-#define DlgItem_SetCheck(Info,hDlg,ID,State)   Info.SendDlgMessage(hDlg,DM_SETCHECK,ID,State)
-
-#define DlgEdit_AddHistory(Info,hDlg,ID,Str)   Info.SendDlgMessage(hDlg,DM_ADDHISTORY,ID,(intptr_t)Str)
-
-#define DlgList_AddString(Info,hDlg,ID,Str)    Info.SendDlgMessage(hDlg,DM_LISTADDSTR,ID,(intptr_t)Str)
-#define DlgList_GetCurPos(Info,hDlg,ID)        Info.SendDlgMessage(hDlg,DM_LISTGETCURPOS,ID,0)
-#define DlgList_SetCurPos(Info,hDlg,ID,NewPos) {struct FarListPos LPos={sizeof(FarListPos),NewPos,-1};Info.SendDlgMessage(hDlg,DM_LISTSETCURPOS,ID,(intptr_t)&LPos);}
-#define DlgList_ClearList(Info,hDlg,ID)        Info.SendDlgMessage(hDlg,DM_LISTDELETE,ID,0)
-#define DlgList_DeleteItem(Info,hDlg,ID,Index) {struct FarListDelete FLDItem={sizeof(FarListDelete),Index,1}; Info.SendDlgMessage(hDlg,DM_LISTDELETE,ID,(intptr_t)&FLDItem);}
-#define DlgList_SortUp(Info,hDlg,ID)           Info.SendDlgMessage(hDlg,DM_LISTSORT,ID,0)
-#define DlgList_SortDown(Info,hDlg,ID)         Info.SendDlgMessage(hDlg,DM_LISTSORT,ID,1)
-#define DlgList_GetItemData(Info,hDlg,ID,Index)          Info.SendDlgMessage(hDlg,DM_LISTGETDATA,ID,Index)
-#define DlgList_SetItemStrAsData(Info,hDlg,ID,Index,Str) {struct FarListItemData FLID{sizeof(FarListItemData),Index,0,Str,0}; Info.SendDlgMessage(hDlg,DM_LISTSETDATA,ID,(intptr_t)&FLID);}
-*)
 
 
 const
