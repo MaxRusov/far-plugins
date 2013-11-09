@@ -115,7 +115,6 @@ interface
    {$endif bDelphi15}
 
    {$ifdef bDelphi}
-    LONG = TInt32;
     PPointer = ^Pointer;
    {$endif bDelphi}
 
@@ -142,6 +141,14 @@ interface
 
 
 end.
+
+
+
+
+
+
+
+
 
 
 

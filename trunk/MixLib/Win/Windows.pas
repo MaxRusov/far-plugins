@@ -51,6 +51,7 @@ type
   PDWORD = ^DWORD;
   LPDWORD = PDWORD;
 
+  LONG = TInt32;
   UCHAR = Byte;
   PUCHAR = ^Byte;
   SHORT = Smallint;
@@ -79,8 +80,10 @@ type
  {$endif bFreePascal}
 
   // From BaseTsd.h
+  IntPtr = TIntPtr;
   INT_PTR = TIntPtr;
   LONG_PTR = TIntPtr;
+  UIntPtr = TUnsPtr;
   UINT_PTR = TUnsPtr;
   ULONG_PTR = TUnsPtr;
   DWORD_PTR = TUnsPtr;

@@ -4112,7 +4112,8 @@ implementation
 
   function TGPImage.SetStatus(status: TStatus): TStatus;
   begin
-    if (status <> Ok) then lastResult := status;
+    if (status <> Ok) then
+      lastResult := status;
     result := status;
   end;
 

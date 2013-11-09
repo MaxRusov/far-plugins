@@ -28,7 +28,10 @@ interface
   function IntMin(L1, L2 :Integer) :Integer;
   function IntMax(L1, L2 :Integer) :Integer;
   function Int64Max(const N1, N2 :TInt64) :TInt64;
+  function FloatMin(L1, L2 :TFloat) :TFloat;
+  function FloatMax(L1, L2 :TFloat) :TFloat;
   function RangeLimit(V :Integer; LMin, LMax :Integer) :Integer;
+  function RangeLimitF(V :TFloat; LMin, LMax :TFloat) :TFloat; 
   function LogCompare(L1, L2 :Boolean) :Integer;
   function IntCompare(L1, L2 :Integer) :Integer;
   function Int64Compare(const N1, N2 :TInt64) :Integer;
@@ -46,10 +49,13 @@ interface
   function SRect(X, Y, X2, Y2 :Integer) :TSmallRect;
   function SBounds(X, Y, W, H :Integer) :TSmallRect;
 
-  procedure RectGrow(var AR :TSmallRect; ADX, ADY :Integer);
+  procedure RectGrow(var AR :TRect; ADX, ADY :Integer); overload;
+  procedure RectGrow(var AR :TSmallRect; ADX, ADY :Integer); overload;
   procedure RectMove(var AR :TRect; ADX, ADY :Integer); overload;
   procedure RectMove(var AR :TSmallRect; ADX, ADY :Integer); overload;
+  function RectEquals(const AR, R :TRect) :Boolean;
   function RectEmpty(const AR :TRect) :Boolean;
+  function RectSize(const AR :TRect) :TSize;
   function RectContainsXY(const AR :TRect; X, Y :Integer) :Boolean; overload;
   function RectContainsXY(const AR :TSmallRect; X, Y :Integer) :Boolean; overload;
 
@@ -238,7 +244,35 @@ interface
   end;
 
 
+  function FloatMin(L1, L2 :TFloat) :TFloat;
+  begin
+    if L1 < L2 then
+      Result := L1
+    else
+      Result := L2;
+  end;
+
+
+  function FloatMax(L1, L2 :TFloat) :TFloat;
+  begin
+    if L1 > L2 then
+      Result := L1
+    else
+      Result := L2;
+  end;
+
+
   function RangeLimit(V :Integer; LMin, LMax :Integer) :Integer;
+  begin
+    if V > LMax then
+      V := LMax;
+    if V < LMin then
+      V := LMin;
+    Result := V;
+  end;
+
+
+  function RangeLimitF(V :TFloat; LMin, LMax :TFloat) :TFloat;
   begin
     if V > LMax then
       V := LMax;
@@ -400,6 +434,15 @@ interface
   end;
 
 
+  procedure RectGrow(var AR :TRect; ADX, ADY :Integer);
+  begin
+    Dec(AR.Left,   ADX);
+    Inc(AR.Right,  ADX);
+    Dec(AR.Top,    ADY);
+    Inc(AR.Bottom, ADY);
+  end;
+
+
   procedure RectGrow(var AR :TSmallRect; ADX, ADY :Integer);
   begin
     Dec(AR.Left,   ADX);
@@ -427,9 +470,23 @@ interface
   end;
 
 
+  function RectEquals(const AR, R :TRect) :Boolean;
+  begin
+    Result :=
+      (AR.Left = R.Left) and (AR.Top = R.Top) and
+      (AR.Right = R.Right) and (AR.Bottom = R.Bottom);
+  end;
+
+
   function RectEmpty(const AR :TRect) :Boolean;
   begin
     Result := (AR.Left = 0) and (AR.Top = 0) and (AR.Right = 0) and (AR.Bottom = 0);
+  end;
+
+  function RectSize(const AR :TRect) :TSize;
+  begin
+    Result.cx := AR.Right - AR.Left;
+    Result.cy := AR.Bottom - AR.Top;
   end;
 
 

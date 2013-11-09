@@ -67,6 +67,8 @@ interface
 
   function B2S(const Data {:Pointer}; Size :Integer) :AnsiString;
   function P2S(Data :Pointer; Size :Integer) :AnsiString;
+  function B2H(const Data {:Pointer}; Size :Integer) :AnsiString;
+  function P2H(Data :Pointer; Size :Integer) :AnsiString;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -80,24 +82,6 @@ interface
 
   procedure NOP;
   begin
-  end;
-
-
-  function ChrCopyPtr(Dest :PTChar; APtr :Pointer) :PTChar;
-  const
-    HexChars :array[0..15] of TChar = ('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F');
-  var
-    I :Integer;
-    N :TUnsPtr;
-    D :Byte;
-  begin
-    N := TUnsPtr(APtr);
-    for I := SizeOf(Pointer) * 2 - 1 downto 0 do begin
-      D := N and $F;
-      N := N shr 4;
-      (Dest + I)^ := HexChars[D];
-    end;
-    Result := Dest + SizeOf(Pointer) * 2;
   end;
 
 
@@ -381,7 +365,7 @@ interface
     vChr := @vStr[0];
     while (vCount < MaxStackLen) and (vPtr <> nil) and ReadProcessMemory(vProcess, vPtr, @vBuf, SizeOf(vBuf), vRead) and (vRead = SizeOf(vBuf)) do begin
       vChr := ChrCopy(vChr, ' : ', 3);
-      vChr := ChrCopyPtr(vChr, vBuf[1]);
+      vChr := StrCopyPtr(vChr, vBuf[1]);
 
       vPtr := vBuf[0];
       Inc(vCount);
@@ -433,7 +417,7 @@ interface
     FillChar(vStr, SizeOf(vStr), '.');
     vPtr := @vStr[0];
     vPtr := ChrCopy(vPtr, 'Error at ', 9);
-    vPtr := ChrCopyPtr(vPtr, vAddr);
+    vPtr := StrCopyPtr(vPtr, vAddr);
     vPtr := ChrCopy(vPtr, ', ', 2);
 
    {$ifdef bUnicodeRTL}
@@ -615,8 +599,64 @@ interface
   end;
 
 
+
+  function B2H(const Data {:Pointer}; Size :Integer) :AnsiString;
+  const
+    A :array[0..$F] of AnsiChar = '0123456789ABCDEF';
+  var
+    I :Integer;
+    P, S :PAnsiChar;
+  begin
+    SetLength(Result, Size * 3 - 1);
+    P := @Data;
+    S := PAnsiChar(Result);
+    for I := 1 to Size do begin
+      S^ := A[(Byte(P^) and $F0) shr 4];
+      Inc(S);
+      S^ := A[(Byte(P^) and $0F)];
+      Inc(S);
+      if I < Size then begin
+        S^ := ' ';
+        Inc(S);
+        Inc(P);
+      end;
+    end;
+  end;
+
+(*
+  function B2Hr(const Data {:Pointer}; Size :Integer) :AnsiString;
+  const
+    A :array[0..$F] of AnsiChar = '0123456789ABCDEF';
+  var
+    I :TInteger;
+    P, S :PAnsiChar;
+  begin
+    SetLength(Result, Size * 3 - 1);
+    P := PAnsiChar(@Data) + Size - 1;
+    S := PAnsiChar(Result);
+    for I := 1 to Size do begin
+      S^ := A[(Byte(P^) and $F0) shr 4];
+      Inc(S);
+      S^ := A[(Byte(P^) and $0F)];
+      Inc(S);
+      if I < Size then begin
+        S^ := ' ';
+        Inc(S);
+        Dec(P);
+      end;
+    end;
+  end;
+*)
+
+  function P2H(Data :Pointer; Size :Integer) :AnsiString;
+  begin
+    Result := B2H(Data^, Size);
+  end;
+
+
 {$ifdef bDebug}
 initialization
   Assert( @P2S <> nil );
+  Assert( @P2H <> nil );
 {$endif bDebug}
 end.
