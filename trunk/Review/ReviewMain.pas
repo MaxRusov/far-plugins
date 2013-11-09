@@ -430,7 +430,7 @@ interface
 
   function TReviewPlug.ViewerEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {override;}
   var
-    vQuickView, vRealNames :Boolean;
+    vAltView, vQuickView, vRealNames :Boolean;
     vInfo :TPanelInfo;
     vName :TString;
   begin
@@ -462,7 +462,9 @@ interface
               { ViewModalState(True) };
         end else
         begin
-          if optProcessView then
+          vAltView := (GetKeyState(VK_Menu) < 0) or
+            ((GetKeyState(VK_Control) < 0) and (GetKeyState(VK_Shift) < 0));
+          if optProcessView and not vAltView then
             if Review.ShowImage(vName, 0) then
               ViewModalState(True, False);
         end;

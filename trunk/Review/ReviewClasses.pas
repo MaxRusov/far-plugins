@@ -134,7 +134,6 @@ interface
       procedure WMMouseMove(var Mess :TWMMouseMove); message WM_MouseMove;
       procedure WMLButtonUp(var Mess :TWMLButtonUp); message WM_LButtonUp;
       procedure WMLButtonDblClk(var Mess :TWMLButtonDblClk); message WM_LButtonDblClk;
-      procedure WMMouseWheel(var Mess :TWMMouseWheel); message WM_MOUSEWHEEL;
 
     private
       FWinMode      :TWinMode;
@@ -274,6 +273,7 @@ interface
       procedure Orient(AOrient :Integer);
       function Save(aOptions :TSaveOptions) :Boolean;
       procedure SetFullscreen(aOn :Boolean);
+      procedure ChangeVolume(aDeltaVolume, aVolume :Integer);
       procedure SetTempMsg(const AMsg :TString);
       procedure UpdateWindowPos;
       procedure SyncDelayed(aCmd, aDelay :Integer);
@@ -573,20 +573,12 @@ interface
 
 
   function TViewModalDlg.MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; {override;}
-  var
-    vStep :Integer;
   begin
-    if AMouse.dwEventFlags and MOUSE_HWHEELED <> 0 then begin
-      Review.Rotate(IntIf(Smallint(LongRec(AMouse.dwButtonState).Hi) > 0, 1, 2));
-    end else
-    if AMouse.dwEventFlags and MOUSE_WHEELED <> 0 then begin
-      if GetKeyState(VK_Shift) < 0 then
-        vStep := 1
-      else
-        vStep := 5;
-      Review.ProcessWheel(IntIf(Smallint(LongRec(AMouse.dwButtonState).Hi) > 0, vStep, -vStep));
-      UpdateTitle;
-    end;
+    if AMouse.dwEventFlags and MOUSE_HWHEELED <> 0 then
+      Review.Rotate(IntIf(Smallint(LongRec(AMouse.dwButtonState).Hi) > 0, 1, 2))
+    else
+    if AMouse.dwEventFlags and MOUSE_WHEELED <> 0 then
+      Review.ProcessWheel(IntIf(Smallint(LongRec(AMouse.dwButtonState).Hi) > 0, 1, -1));
     Result := inherited MouseEvent(AID, AMouse);
   end;
 
@@ -1200,6 +1192,7 @@ interface
       SetWindowBounds(CalcWinRect);
 
     Show(SW_SHOWNA);
+    SetForegroundWindow(hConsoleTopWnd);
   end;
 
 
@@ -1512,19 +1505,13 @@ interface
   end;
 
 
-  procedure TReviewWindow.WMMouseWheel(var Mess :TWMMouseWheel); {message WM_MOUSEWHEEL;}
-  begin
-    inherited;
-  end;
-
-
   function TReviewWindow.Idle :Boolean;
   var
     vRect :TRect;
     vArea, vCX, vCY :Integer;
   begin
     Windows.GetClientRect(hFarWindow, vRect);
-    if not RectEmpty(FParentRect) and not RectEquals(vRect, FParentRect) then begin
+    if IsWindowVisible(Handle) and not RectEmpty(vRect) and not RectEquals(vRect, FParentRect) then begin
       { Корректируем размер окна изображения, при изменении окна FAR }
       FParentRect := vRect;
       if FWinMode = wmNormal then
@@ -2544,6 +2531,19 @@ interface
   end;
 
 
+  procedure TReviewManager.ChangeVolume(aDeltaVolume, aVolume :Integer);
+  begin
+    if CurImage.Decoder is TReviewDllDecoder2 then
+      with TReviewDllDecoder2(CurImage.Decoder) do begin
+        if aDeltaVolume <> 0 then begin
+          aVolume := pvdPlayControl(CurImage, PVD_PC_GetVolume, 0);
+          Inc(aVolume, aDeltaVolume);
+        end;
+        pvdPlayControl(CurImage, PVD_PC_SetVolume, aVolume);
+      end;
+  end;
+
+
   function TReviewManager.ProcessKey(AKey :Integer) :Boolean;
 
     procedure LocGotoPage(ADelta :Integer);
@@ -2677,9 +2677,16 @@ interface
             LocGotoPos(LocStep(-cMoveStepSec), 0);
 
         Key_Up, Key_ShiftUp:
-          LocMove( 0, LocStep(+cMoveStep));
+          if not CurImage.FMovie then
+            LocMove( 0, LocStep(+cMoveStep))
+          else
+            ChangeVolume(LocStep(+10), 0);
+
         Key_Down, Key_ShiftDown:
-          LocMove( 0, LocStep(-cMoveStep));
+          if not CurImage.FMovie then
+            LocMove( 0, LocStep(-cMoveStep))
+          else
+            ChangeVolume(LocStep(-10), 0);
 
         Key_CtrlLeft  :
           if not CurImage.FMovie then
@@ -2693,8 +2700,17 @@ interface
           else
             LocGotoPos(0, MaxInt);
 
-        Key_CtrlUp    : LocMove( 0, +MaxInt);
-        Key_CtrlDown  : LocMove( 0, -MaxInt);
+        Key_CtrlUp    :
+          if not CurImage.FMovie then
+            LocMove( 0, +MaxInt)
+          else
+            ChangeVolume(0, 100);
+
+        Key_CtrlDown  :
+          if not CurImage.FMovie then
+            LocMove( 0, -MaxInt)
+          else
+            ChangeVolume(0, 0);
 
         { Переключение изображений }
         Key_Home, Key_ShiftHome : Navigate(1, True);
@@ -2758,7 +2774,17 @@ interface
     Result := False;
     if FWinThread <> nil then begin
 //    TraceF('ProcessWheel: %d', [ADelta]);
-      SetScale( smDeltaScaleMouse, smExact, ADelta );
+      if GetKeyState(VK_Control) < 0 then
+        Navigate(0, ADelta < 0)
+      else
+      if CurImage.FMovie then begin
+        ChangeVolume(ADelta * 5, 0)
+      end else
+      begin
+        if not (GetKeyState(VK_Shift) < 0) then
+          ADelta := ADelta * 5;
+        SetScale( smDeltaScaleMouse, smExact, ADelta );
+      end;
       Result := True;
     end;
   end;
@@ -2783,35 +2809,6 @@ interface
 
     end;
   end;
-
-
-(*
-  function TReviewManager.ProcessCommand :Boolean;
-  var
-    vInfo :TPanelInfo;
-  begin
-    Result := False;
-    if FCommand = GoCmdNone then
-      Exit;
-
-    if FarGetPanelInfo(True, vInfo) then begin
-
-      case FCommand of
-        GoCmdNext:
-          if vInfo.CurrentItem < vInfo.ItemsNumber then begin
-            FarPostMacro('Keys("Esc Down F3")');
-          end else begin
-            Beep;
-            FCommand := GoCmdNone;
-          end;
-
-        GoCmdPrev:
-          FarPostMacro('Keys("Esc Up F3")');
-      end;
-
-    end;
-  end;
-*)
 
 
  {-----------------------------------------------------------------------------}
