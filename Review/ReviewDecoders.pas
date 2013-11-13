@@ -93,6 +93,7 @@ interface
 
       function GetState :TDecoderState; virtual; abstract;
       function CanWork(aLoad :Boolean) :boolean; virtual; abstract;
+      function NeedPrecache :boolean; virtual;
       procedure ResetSettings; virtual;
       procedure SetExtensions(const aActive, aIgnore :TString);
       function SupportedFile(const aName :TString) :Boolean;
@@ -116,7 +117,7 @@ interface
 //    function GetBitmapDC(AImage :TReviewImageRec; var ACX, ACY :Integer) :HDC; virtual;
       function GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; virtual;
       function Idle(AImage :TReviewImageRec; AWidth, AHeight :Integer) :Boolean; virtual;
-      function Save(AImage :TReviewImageRec; aOrient :Integer; aOptions :TSaveOptions) :Boolean; virtual;
+      function Save(AImage :TReviewImageRec; const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean; virtual;
 
     protected
       FKind      :Integer;
@@ -212,6 +213,7 @@ interface
     TReviewDllDecoder2 = class(TReviewDllDecoder)
     public
       constructor Create; override;
+      function NeedPrecache :boolean; override;
       procedure ResetSettings; override;
 
       { Функции инициализации }
@@ -242,6 +244,7 @@ interface
 
     private
       FRegKey            :TString;
+      FPlugFlags         :UINT;         { Возможные флаги PVD_IP_xxx }
 
       { PictureView2 interface }
       FpvdInit           :TpvdInit2;
@@ -346,6 +349,12 @@ BOOL WINAPI SetDllDirectory(
   end;
 
 
+  function TReviewDecoder.NeedPrecache :boolean; {virtual;}
+  begin
+    Result := True;
+  end;
+
+
   procedure TReviewDecoder.ResetSettings; {virtual;}
   begin
   end;
@@ -397,7 +406,7 @@ BOOL WINAPI SetDllDirectory(
   end;
 
 
-  function TReviewDecoder.Save(AImage :TReviewImageRec; aOrient :Integer; aOptions :TSaveOptions) :Boolean; {virtual;}
+  function TReviewDecoder.Save(AImage :TReviewImageRec; const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean; {virtual;}
   begin
     AppError(strUnsupportedFeature);
     Result := False;
@@ -678,6 +687,13 @@ BOOL WINAPI SetDllDirectory(
   end;
 
 
+  function TReviewDllDecoder2.NeedPrecache :boolean; {override;}
+  begin
+    Result := FPlugFlags and PVD_IP_NEEDFILE = 0;
+//  Result := True;
+  end;
+
+
   procedure TReviewDllDecoder2.ResetSettings; {override;}
   begin
     pvdGetFormats;
@@ -792,10 +808,11 @@ BOOL WINAPI SetDllDirectory(
 
     FpvdPluginInfo(@vRec);
 
-    FTitle    := vRec.pName;
-    FVersion  := vRec.pVersion;
-    FComment  := vRec.pComments;
-    FPriority := vRec.Priority;
+    FTitle     := vRec.pName;
+    FVersion   := vRec.pVersion;
+    FComment   := vRec.pComments;
+    FPriority  := vRec.Priority;
+    FPlugFlags := vRec.Flags;
   end;
 
 

@@ -70,7 +70,8 @@ interface
     cDecoderActiveRegKey = 'ActiveMask';
     cDecoderIgnoreRegKey = 'IgnoreMask';
 
-    cMaskHistory = 'Review.Mask';
+    cMaskHistory      = 'Review.Mask';
+    cFileNameHistory  = 'Review.FileName';
 
   var
     optCmdPrefix      :TString = 'pic';
@@ -81,6 +82,8 @@ interface
     optAsyncQView     :Boolean = True;
     optQViewShowFrame :Boolean = True;
     optPrecache       :Boolean = True;
+    optKeepScale      :Boolean = True;        { Сохранять масштаб/позицию при смене изображений }
+
     optTranspBack     :Boolean = True;        { Использовать заливку на полупрозрачных картинках }
     optTileMode       :Boolean = False;
     optFullscreen     :Boolean = False;
@@ -258,6 +261,7 @@ interface
         LogValue('AsyncQView', optAsyncQView);
         LogValue('FrameQView', optQViewShowFrame);
         LogValue('Precache', optPrecache);
+        LogValue('KeepScale', optKeepScale);
 
         LogValue('RotateOnExif', optRotateOnEXIF);
         LogValue('UseThumbnail', optUseThumbnail);

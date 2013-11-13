@@ -56,6 +56,7 @@ interface
       constructor Create; override;
       destructor Destroy; override;
 
+      function NeedPrecache :boolean; override;
       procedure ResetSettings; override;
       function GetState :TDecoderState; override;
       function CanWork(aLoad :Boolean) :boolean; override;
@@ -71,7 +72,7 @@ interface
 //    function GetBitmapDC(AImage :TReviewImageRec; var ACX, ACY :Integer) :HDC; override;
       function GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; override;
       function Idle(AImage :TReviewImageRec; ACX, ACY :Integer) :boolean; override;
-      function Save(AImage :TReviewImageRec; aOrient :Integer; aOptions :TSaveOptions) :Boolean; override;
+      function Save(AImage :TReviewImageRec; const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean; override;
 
     private
       FLastDecode :DWORD;
@@ -97,7 +98,7 @@ interface
     strFileNotFound       = 'File not found: %s';
     strNoEncoderFor       = 'No encoder for %s';
     strReadImageError     = 'Read image error';
-    strLossyRotation      = 'Rotation is a lossy. Shift+F2 to confirm.';
+    strLossyRotation      = 'Rotation is a lossy. Ctrl+F2 to confirm.';
     strCantSaveFrames     = 'Can''t save mutliframe image';
 
 
@@ -552,8 +553,7 @@ interface
 
       function InitThumbnail(ADX, ADY :Integer) :Boolean;
       procedure DecodeImage(ADX, ADY :Integer);
-      function Save(aOrient :Integer; aOptions :TSaveOptions) :Boolean;
-
+      function SaveAs({const} ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean;
 
     private
       FRefCount    :Integer;
@@ -853,6 +853,467 @@ interface
   end;
 
 
+
+  function TView.SaveAs({const} ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean;
+  type
+    EncoderParameters3 = packed record
+      Count     :UINT;
+      Parameter :array[0..2] of TEncoderParameter;
+    end;
+  const
+    cTransform :array[0..8] of EncoderValue =
+    (
+      EncoderValue(0),
+      EncoderValue(0),
+      EncoderValueTransformFlipHorizontal,
+      EncoderValueTransformRotate180,
+      EncoderValueTransformFlipVertical,
+      EncoderValueTransformRotate270,  {!!!}
+      EncoderValueTransformRotate90,
+      EncoderValueTransformRotate90, {!!!}
+      EncoderValueTransformRotate270
+    );
+  var
+    vMimeType, vNewName, vBakName :TString;
+    vEncoderID :TGUID;
+    vImage :TGPImage;
+    vTransf :TEncoderValue;
+    vParams :EncoderParameters3;
+    vPParams :PEncoderParameters;
+    vOrient :Integer;
+    vSrcDate :Integer;
+  begin
+    Result := False;
+
+    if AFmtName = '' then
+      AFmtName := FFmtName
+    else
+    if ANewName = '' then
+      ANewName := ChangeFileExtension(FSrcName, AFmtName);
+    if ANewName = '' then
+      ANewName := FSrcName;
+
+    vNewName := '';
+    try
+      if not WinFileExists(FSrcName) then
+        AppErrorFmt(strFileNotFound, [FSrcName]);
+
+      vMimeType := 'image/' + StrLoCase(AFmtName);
+      if GetEncoderClsid(vMimeType, vEncoderID) = -1 then
+        AppErrorFmt(strNoEncoderFor, [AFmtName]);
+
+      EnterCriticalSection(GDIPlusCS);
+      try
+
+        vImage := TGPImage.Create(FSrcName);
+        try
+//        GDICheck(vImage.GetLastStatus);
+          if vImage.GetLastStatus <> OK then
+            AppError(strReadImageError);
+
+          if GetFrameCount(vImage, nil, nil, nil) > 1 then
+            AppError(strCantSaveFrames);
+
+          vOrient := 0;
+          if not GetExifTagValueAsInt(vImage, PropertyTagOrientation, vOrient) or (vOrient < 1) or (vOrient > 8) then
+            vOrient := 0;
+
+          vParams.Count := 0;
+
+          if aQuality <> 0 then begin
+            with vParams.Parameter[vParams.Count] do begin
+              Guid := EncoderQuality;
+              Type_ := EncoderParameterValueTypeLong;
+              NumberOfValues := 1;
+              Value := @aQuality;
+            end;
+            Inc(vParams.Count);
+          end;
+
+          if (soExifRotation in aOptions) and (StrEqual(AFmtName, 'jpeg') or StrEqual(AFmtName, 'tiff')) then begin
+
+            { Поворот путем коррекции EXIF заголовка - loseless }
+            if aOrient <> vOrient then
+              SetExifTagValueInt(vImage, PropertyTagOrientation, aOrient);
+
+          end else
+          if (soTransformation in aOptions) then begin
+
+            if StrEqual(AFmtName, 'jpeg') then begin
+              { Поворт путем трансформации - может приводить к потерям... }
+
+              vTransf := cTransform[aOrient];
+              if vTransf <> EncoderValue(0) then begin
+                if (((vImage.GetWidth mod 16) <> 0) or ((vImage.GetHeight mod 16) <> 0)) and not (soEnableLossy in aOptions) then
+                  AppError(strLossyRotation);
+
+                with vParams.Parameter[vParams.Count] do begin
+                  Guid := EncoderTransformation;
+                  Type_ := EncoderParameterValueTypeLong;
+                  NumberOfValues := 1;
+                  Value := @vTransf;
+                end;
+                Inc(vParams.Count);
+              end;
+
+            end else
+            begin
+              RotateImage(vImage, aOrient);
+              GDICheck(vImage.GetLastStatus);
+            end;
+
+            if (vOrient <> 0) and (vOrient <> 1) then
+              SetExifTagValueInt(vImage, PropertyTagOrientation, 1);
+          end else
+            Exit;
+
+         {$ifdef bTrace}
+          TraceBeg('Save...');
+         {$endif bTrace}
+
+          vNewName := GetUniqName(ANewName, '$$$');
+
+          vPParams := nil;
+          if vParams.Count > 0 then
+            vPParams := Pointer(@vParams);
+          vImage.Save(vNewName, vEncoderID, vPParams);
+          GDICheck(vImage.GetLastStatus);
+
+         {$ifdef bTrace}
+          TraceEnd('  Ready');
+         {$endif bTrace}
+
+        finally
+          FreeObj(vImage);
+        end;
+
+        vSrcDate := 0;
+        if optKeepDateOnSave {soKeepDate in aOptions} then
+          vSrcDate := FileAge(FSrcName);
+
+        vBakName := GetUniqName(ANewName, '~' + ExtractFileExtension(ANewName) );
+        if WinFileExists(ANewName) then
+          ApiCheck(RenameFile(ANewName, vBakName));
+
+        ApiCheck(RenameFile(vNewName, ANewName));
+
+        if vSrcDate <> 0 then
+          SetFileTimeName(ANewName, vSrcDate);
+
+        DeleteFile(vBakName);
+
+        Result := True;
+
+      finally
+        LeaveCriticalSection(GDIPlusCS);
+      end;
+
+    except
+      on E :Exception do begin
+        if (vNewName <> '') and WinFileExists(vNewName) then
+          DeleteFile(vNewName);
+        Raise;
+      end;
+    end;
+  end;
+
+(*
+  function TView.SaveAs({const} ANewName, AFmtName :TString; aOrient :Integer; aOptions :TSaveOptions) :Boolean;
+  const
+    cTransform :array[0..8] of EncoderValue =
+    (
+      EncoderValue(0),
+      EncoderValue(0),
+      EncoderValueTransformFlipHorizontal,
+      EncoderValueTransformRotate180,
+      EncoderValueTransformFlipVertical,
+      EncoderValueTransformRotate270,  {!!!}
+      EncoderValueTransformRotate90,
+      EncoderValueTransformRotate90, {!!!}
+      EncoderValueTransformRotate270
+    );
+  var
+    vMimeType, vNewName, vBakName :TString;
+    vEncoderID :TGUID;
+    vImage :TGPImage;
+    vTransf :TEncoderValue;
+    vParams :TEncoderParameters;
+    vPParams :PEncoderParameters;
+    vOrient :Integer;
+    vSrcDate :Integer;
+  begin
+    Result := False;
+
+    if AFmtName = '' then
+      AFmtName := FFmtName
+    else
+    if ANewName = '' then
+      ANewName := ChangeFileExtension(FSrcName, AFmtName);
+    if ANewName = '' then
+      ANewName := FSrcName;
+
+    vNewName := '';
+    try
+      if not WinFileExists(FSrcName) then
+        AppErrorFmt(strFileNotFound, [FSrcName]);
+
+      vMimeType := 'image/' + StrLoCase(AFmtName);
+      if GetEncoderClsid(vMimeType, vEncoderID) = -1 then
+        AppErrorFmt(strNoEncoderFor, [AFmtName]);
+
+      EnterCriticalSection(GDIPlusCS);
+      try
+
+        vImage := TGPImage.Create(FSrcName);
+        try
+//        GDICheck(vImage.GetLastStatus);
+          if vImage.GetLastStatus <> OK then
+            AppError(strReadImageError);
+
+          if GetFrameCount(vImage, nil, nil, nil) > 1 then
+            AppError(strCantSaveFrames);
+
+          vOrient := 0;
+          if not GetExifTagValueAsInt(vImage, PropertyTagOrientation, vOrient) or (vOrient < 1) or (vOrient > 8) then
+            vOrient := 0;
+
+         {$ifdef bTrace}
+          TraceBeg('Save...');
+         {$endif bTrace}
+
+          vPParams := nil;
+
+          if (soExifRotation in aOptions) and (StrEqual(AFmtName, 'jpeg') or StrEqual(AFmtName, 'tiff')) then begin
+
+            { Поворот путем коррекции EXIF заголовка - loseless }
+            if aOrient <> vOrient then
+              SetExifTagValueInt(vImage, PropertyTagOrientation, aOrient);
+
+          end else
+          if (soTransformation in aOptions) then begin
+
+            if StrEqual(AFmtName, 'jpeg') then begin
+              { Поворт путем трансформации - может приводить к потерям... }
+
+              vTransf := cTransform[aOrient];
+              if vTransf <> EncoderValue(0) then begin
+                vParams.Count := 1;
+                vParams.Parameter[0].Guid := EncoderTransformation;
+                vParams.Parameter[0].Type_ := EncoderParameterValueTypeLong;
+                vParams.Parameter[0].NumberOfValues := 1;
+                vParams.Parameter[0].Value := @vTransf;
+                vPParams := @vParams;
+              end;
+
+              if (vPParams <> nil) and (((vImage.GetWidth mod 16) <> 0) or ((vImage.GetHeight mod 16) <> 0)) and not (soEnableLossy in aOptions) then
+                AppError(strLossyRotation);
+
+            end else
+            begin
+              RotateImage(vImage, aOrient);
+              GDICheck(vImage.GetLastStatus);
+            end;
+
+            if (vOrient <> 0) and (vOrient <> 1) then
+              SetExifTagValueInt(vImage, PropertyTagOrientation, 1);
+          end else
+            Exit;
+
+          vNewName := GetUniqName(ANewName, '$$$');
+          vImage.Save(vNewName, vEncoderID, vPParams);
+          GDICheck(vImage.GetLastStatus);
+
+         {$ifdef bTrace}
+          TraceEnd('  Ready');
+         {$endif bTrace}
+
+        finally
+          FreeObj(vImage);
+        end;
+
+        vSrcDate := 0;
+        if optKeepDateOnSave {soKeepDate in aOptions} then
+          vSrcDate := FileAge(FSrcName);
+
+        vBakName := GetUniqName(ANewName, '~' + ExtractFileExtension(ANewName) );
+        if WinFileExists(ANewName) then
+          ApiCheck(RenameFile(ANewName, vBakName));
+
+        ApiCheck(RenameFile(vNewName, ANewName));
+
+        if vSrcDate <> 0 then
+          SetFileTimeName(ANewName, vSrcDate);
+
+        DeleteFile(vBakName);
+
+        Result := True;
+
+      finally
+        LeaveCriticalSection(GDIPlusCS);
+      end;
+
+    except
+      on E :Exception do begin
+        if (vNewName <> '') and WinFileExists(vNewName) then
+          DeleteFile(vNewName);
+        Raise;
+      end;
+    end;
+  end;
+*)
+
+(*
+  function TView.SaveAs({const} ANewName, AFmtName :TString; aOrient :Integer; aOptions :TSaveOptions) :Boolean;
+  const
+    cTransform :array[0..8] of EncoderValue =
+    (
+      EncoderValue(0),
+      EncoderValue(0),
+      EncoderValueTransformFlipHorizontal,
+      EncoderValueTransformRotate180,
+      EncoderValueTransformFlipVertical,
+      EncoderValueTransformRotate270,  {!!!}
+      EncoderValueTransformRotate90,
+      EncoderValueTransformRotate90, {!!!}
+      EncoderValueTransformRotate270
+    );
+  var
+    vMimeType, vNewName, vBakName :TString;
+    vEncoderID :TGUID;
+    vImage :TGPImage;
+    vTransf :TEncoderValue;
+    vParams :TEncoderParameters;
+    vPParams :PEncoderParameters;
+    vOrient :Integer;
+    vSrcDate :Integer;
+  begin
+    Result := False;
+
+    if AFmtName = '' then
+      AFmtName := FFmtName
+    else
+    if ANewName = '' then
+      ANewName := ChangeFileExtension(FSrcName, AFmtName);
+    if ANewName = '' then
+      ANewName := FSrcName;
+
+    vNewName := '';
+    try
+      if not WinFileExists(FSrcName) then
+        AppErrorFmt(strFileNotFound, [FSrcName]);
+
+      vMimeType := 'image/' + StrLoCase(AFmtName);
+      if GetEncoderClsid(vMimeType, vEncoderID) = -1 then
+        AppErrorFmt(strNoEncoderFor, [AFmtName]);
+
+      EnterCriticalSection(GDIPlusCS);
+      try
+
+        vImage := TGPImage.Create(FSrcName);
+        try
+//        GDICheck(vImage.GetLastStatus);
+          if vImage.GetLastStatus <> OK then
+            AppError(strReadImageError);
+
+          if GetFrameCount(vImage, nil, nil, nil) > 1 then
+            AppError(strCantSaveFrames);
+
+          vOrient := 0;
+          if not GetExifTagValueAsInt(vImage, PropertyTagOrientation, vOrient) or (vOrient < 1) or (vOrient > 8) then
+            vOrient := 0;
+
+         {$ifdef bTrace}
+          TraceBeg('Save...');
+         {$endif bTrace}
+
+          vPParams := nil;
+
+          if (soExifRotation in aOptions) and (IsEqualGUID(FFmtID, ImageFormatJPEG) or IsEqualGUID(FFmtID, ImageFormatTIFF)) then begin
+
+            { Поворот путем коррекции EXIF заголовка - loseless }
+            if aOrient <> vOrient then
+              SetExifTagValueInt(vImage, PropertyTagOrientation, aOrient);
+
+          end else
+          if (soTransformation in aOptions) then begin
+
+            if IsEqualGUID(FFmtID, ImageFormatJPEG) then begin
+              { Поворт путем трансформации - может приводить к потерям... }
+
+              vTransf := cTransform[aOrient];
+              if vTransf <> EncoderValue(0) then begin
+                vParams.Count := 1;
+                vParams.Parameter[0].Guid := EncoderTransformation;
+                vParams.Parameter[0].Type_ := EncoderParameterValueTypeLong;
+                vParams.Parameter[0].NumberOfValues := 1;
+                vParams.Parameter[0].Value := @vTransf;
+                vPParams := @vParams;
+              end;
+
+              if (vPParams <> nil) and (((vImage.GetWidth mod 16) <> 0) or ((vImage.GetHeight mod 16) <> 0)) and not (soEnableLossy in aOptions) then
+                AppError(strLossyRotation);
+
+            end else
+            begin
+              RotateImage(vImage, aOrient);
+              GDICheck(vImage.GetLastStatus);
+            end;
+
+            if (vOrient <> 0) and (vOrient <> 1) then
+              SetExifTagValueInt(vImage, PropertyTagOrientation, 1);
+          end else
+            Exit;
+
+          vNewName := GetUniqName(ANewName, '$$$');
+          vImage.Save(vNewName, vEncoderID, vPParams);
+          GDICheck(vImage.GetLastStatus);
+
+         {$ifdef bTrace}
+          TraceEnd('  Ready');
+         {$endif bTrace}
+
+        finally
+          FreeObj(vImage);
+        end;
+
+        vSrcDate := 0;
+        if optKeepDateOnSave {soKeepDate in aOptions} then
+          vSrcDate := FileAge(FSrcName);
+
+        vBakName := GetUniqName(ANewName, '~' + ExtractFileExtension(ANewName) );
+        if WinFileExists(ANewName) then
+          ApiCheck(RenameFile(ANewName, vBakName));
+
+        ApiCheck(RenameFile(vNewName, ANewName));
+
+        if vSrcDate <> 0 then
+          SetFileTimeName(ANewName, vSrcDate);
+
+        DeleteFile(vBakName);
+
+        Result := True;
+
+      finally
+        LeaveCriticalSection(GDIPlusCS);
+      end;
+
+    except
+      on E :Exception do begin
+        if (vNewName <> '') and WinFileExists(vNewName) then
+          DeleteFile(vNewName);
+        Raise;
+      end;
+    end;
+  end;
+*)
+
+(*
+  function TView.Save(aOrient :Integer; aOptions :TSaveOptions) :Boolean;
+  begin
+    Result := SaveAs(FSrcName, FFmtName, aOrient, aOptions);
+  end;
+
+
   function TView.Save(aOrient :Integer; aOptions :TSaveOptions) :Boolean;
   const
     cTransform :array[0..8] of EncoderValue =
@@ -978,7 +1439,7 @@ interface
       end;
     end;
   end;
-
+*)
 
 
  {-----------------------------------------------------------------------------}
@@ -1059,6 +1520,12 @@ interface
   begin
     DoneThumbnailThread;
     inherited Destroy;
+  end;
+
+
+  function TReviewGDIDecoder.NeedPrecache :boolean; {override;}
+  begin
+    Result := False;
   end;
 
 
@@ -1207,9 +1674,11 @@ interface
   end;
 
 
-  function TReviewGDIDecoder.Save(AImage :TReviewImageRec; aOrient :Integer; aOptions :TSaveOptions) :Boolean; {override;}
+  function TReviewGDIDecoder.Save(AImage :TReviewImageRec; const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean; {override;}
   begin
-    Result := TView(AImage.FContext).Save(aOrient, aOptions);
+    if aOrient = 0 then
+      aOrient := AImage.FOrient;
+    Result := TView(AImage.FContext).SaveAs(ANewName, AFmtName, aOrient, aQuality, aOptions);
   end;
 
 
