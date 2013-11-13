@@ -968,7 +968,7 @@ interface
     pPluginInfo.pName := 'DXVideo';
     pPluginInfo.pVersion := '1.0';
     pPluginInfo.pComments := '(c) 2013, Maxim Rusov';
-    pPluginInfo.Flags := PVD_IP_DECODE or PVD_IP_DISPLAY or PVD_IP_PRIVATE;
+    pPluginInfo.Flags := PVD_IP_DECODE or PVD_IP_DISPLAY or PVD_IP_PRIVATE or PVD_IP_NEEDFILE;
     pPluginInfo.Priority := $0F01;
   end;
 
