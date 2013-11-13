@@ -35,6 +35,8 @@ interface
       procedure WriteStr(const AName :TString; const AValue :TString);
       function ReadInt(const AName :TString; ADefault :Integer = 0) :Integer;
       procedure WriteInt(const AName :TString; AValue :Integer);
+      function ReadLog(const AName :TString; ADefault :Boolean = False) :Boolean;
+      procedure WriteLog(const AName :TString; AValue :Boolean);
 
       procedure StrValue(const AName :TString; var AValue :TString);
       procedure IntValue(const AName :TString; var AValue :Integer);
@@ -410,6 +412,19 @@ API для хранения настроек:
     RegWriteInt(FCurKey, AName, AValue);
    {$endif Far3}
   end;
+
+
+  function TFarConfig.ReadLog(const AName :TString; ADefault :Boolean = False) :Boolean;
+  begin
+    Result := ReadInt(AName, byte(ADefault)) <> 0;
+  end;
+
+
+  procedure TFarConfig.WriteLog(const AName :TString; AValue :Boolean);
+  begin
+    WriteInt(AName, Byte(AValue));
+  end;
+
 
 
   procedure TFarConfig.IntValue(const AName :TString; var AValue :Integer);
