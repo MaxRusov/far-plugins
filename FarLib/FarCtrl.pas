@@ -174,6 +174,7 @@ interface
   procedure CleanupList(AItem :PFarListItem; ACount :Integer);
  {$endif bUnicodeFar}
 
+  function NewItem(AType :Integer; DX, DY, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
   function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
   function CreateDialog(const AItems :array of TFarDialogItem; AItemCount :PInteger = nil) :PFarDialogItemArray;
   function RunDialog( X1, Y1, DX, DY :Integer; AHelpTopic :PFarChar;
@@ -192,7 +193,8 @@ interface
 
   function FarSendDlgMessage(ADlg :THandle; AMsg, AParam1 :Integer; AParam2 :TIntPtr) :TIntPtr; overload;
   function FarSendDlgMessage(ADlg :THandle; AMsg, AParam1 :Integer; AParam2 :Pointer) :TIntPtr; overload;
-  function FarAdvControl(ACommand :Integer; AParam :Pointer) :Integer;
+  function FarAdvControl(ACommand :Integer; AParam :Pointer) :Integer; overload;
+  function FarAdvControl(ACommand :Integer; AParam :TIntPtr) :Integer; overload;
   function FarEditorControl(ACommand :Integer; AParam :Pointer) :Integer;
   function FarViewerControl(ACommand :Integer; AParam :Pointer) :Integer;
   function FarRegexpControl(AHandle :THandle; ACommand :Integer; AParam :Pointer) :Integer;
@@ -238,6 +240,7 @@ interface
   function FarValueToStr(const Value :TFarMacroValue) :TString;
   function FarValueIsInteger(const AValue :TFarMacroValue; var AInt :Integer) :Boolean;
   function FarValuesToInt(AValues :PFarMacroValueArray; ACount, AIndex :Integer; ADef :Integer = 0) :Integer;
+  function FarValuesToFloat(AValues :PFarMacroValueArray; ACount, AIndex :Integer; const ADef :TFloat = 0) :TFloat;
   function FarValuesToStr(AValues :PFarMacroValueArray; ACount, AIndex :Integer; const ADef :TString = '') :TString;
   function FarReturnValues(const Args :array of const) :TIntPtr;
  {$endif Far3}
@@ -295,6 +298,7 @@ interface
 
   function CheckForEsc :Boolean;
 
+  procedure UpdateConsoleWnd;
   function GetConsoleWnd :THandle;
   function GetConsoleMousePos(AWnd :THandle = 0) :TPoint;
     { ¬ычисл€ем позицию мыши в консольных координатах }
@@ -523,6 +527,65 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  var
+    LastX, LastY :Integer;
+
+
+  function NewItem(AType :Integer; DX, DY, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+  begin
+    FillChar(Result, SizeOf(Result), 0);
+    with Result do begin
+      ItemType := IntIf(AType = DI_DefButton, DI_Button, AType);
+      if DY < 0 then
+        Y1 := -DY
+      else
+        Y1 := LastY + DY;
+
+      if DX < 0 then
+        X1 := -DX
+      else
+        X1 := LastX + DX;
+
+      if W > 0 then begin
+        X2 := X1 + W - 1;
+        LastX := X2 + 1;
+      end else
+      begin
+        LastX := X1;
+        if AText <> nil then
+          Inc(LastX, strlen(AText) - IntIf(StrScan(AText, '&') = nil, 0, 1));
+        if AType in [DI_CheckBox, DI_RADIOBUTTON] then
+          Inc(LastX, 4);
+      end;
+
+      if H > 0 then begin
+        Y2 := Y1 + H - 1;
+        LastY := Y2;
+      end else
+        LastY := Y1;
+
+      Flags := AFlags;
+     {$ifdef Far3}
+      Data := AText;
+      History := AHist;
+      if AType = DI_DefButton then
+        Flags := Flags or DIF_DEFAULTBUTTON;
+     {$else}
+      PtrData := AText;
+      Param.History := AHist;
+      DefaultButton := IntIf(AType = DI_DefButton, 1, 0);
+     {$endif Far3}
+    end;
+  end;
+
+
+  function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+  begin
+    LastX := 0; LastY := 0;
+    Result := NewItem(AType, X, Y, W, H, AFlags, AText, AHist);
+  end;
+
+(*
   function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
   begin
     FillChar(Result, SizeOf(Result), 0);
@@ -547,8 +610,26 @@ interface
      {$endif Far3}
     end;
   end;
+*)
 
+  function CreateDialog(const AItems :array of TFarDialogItem; AItemCount :PInteger = nil) :PFarDialogItemArray;
+  var
+    I, vCount :Integer;
+    vItem :PFarDialogItem;
+  begin
+    LastX := 0; LastY := 0;
+    vCount := High(AItems) + 1;
+    Result := MemAllocZero(vCount * SizeOf(TFarDialogItem));
+    vItem := @Result[0];
+    for I := 0 to vCount - 1 do begin
+      Move(AItems[I], vItem^, SizeOf(TFarDialogItem));
+      Inc(Pointer1(vItem), SizeOf(TFarDialogItem));
+    end;
+    if AItemCount <> nil then
+      AItemCount^ := vCount;
+  end;
 
+(*
   function CreateDialog(const AItems :array of TFarDialogItem; AItemCount :PInteger = nil) :PFarDialogItemArray;
   var
     I, vCount :Integer;
@@ -564,7 +645,7 @@ interface
     if AItemCount <> nil then
       AItemCount^ := vCount;
   end;
-
+*)
 
   function RunDialog( X1, Y1, DX, DY :Integer; AHelpTopic :PFarChar;
     AItems :PFarDialogItemArray; ACount :Integer; AFlags :DWORD; ADlgProc :TFarApiWindowProc;
@@ -613,6 +694,12 @@ interface
    {$else}
     Result := FARAPI.AdvControl(hModule, ACommand, AParam);
    {$endif Far3}
+  end;
+
+
+  function FarAdvControl(ACommand :Integer; AParam :TIntPtr) :Integer;
+  begin
+    Result := FarAdvControl(ACommand, Pointer(AParam));
   end;
 
 
@@ -1104,7 +1191,7 @@ interface
   function FarValueIsInteger(const AValue :TFarMacroValue; var AInt :Integer) :Boolean;
   begin
     Result := True;
-    if AValue.fType = FMVT_INTEGER then
+    if AValue.fType in [FMVT_INTEGER, FMVT_BOOLEAN] then
       AInt := AValue.Value.fInteger
     else
     if (AValue.fType = FMVT_DOUBLE) and (Frac(AValue.Value.fDouble) = 0) then
@@ -1118,6 +1205,15 @@ interface
   begin
     if (AIndex < ACount) and FarValueIsInteger(AValues[AIndex], Result) then
       {Ok}
+    else
+      Result := ADef;
+  end;
+
+
+  function FarValuesToFloat(AValues :PFarMacroValueArray; ACount, AIndex :Integer; const ADef :TFloat = 0) :TFloat;
+  begin
+    if (AIndex < ACount) and (AValues[AIndex].fType = FMVT_DOUBLE) then
+      Result := AValues[AIndex].Value.fDouble
     else
       Result := ADef;
   end;
@@ -1160,7 +1256,7 @@ interface
       with vRes.Values[I] do begin
         case Args[I].VType of
           vtBoolean: begin
-            fType := FMVT_INTEGER;
+            fType := FMVT_BOOLEAN; //FMVT_INTEGER;
             Value.fInteger := IntIf(Args[I].VBoolean, 1, 0);
           end;
           vtInteger: begin
@@ -2045,6 +2141,13 @@ interface
       if hWnd <> 0 then
         Result := hWnd;
     end;
+  end;
+
+
+  procedure UpdateConsoleWnd;
+  begin
+    hFarWindow := 0;
+    GetConsoleWnd;
   end;
 
 

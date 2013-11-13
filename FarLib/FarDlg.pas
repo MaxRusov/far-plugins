@@ -36,12 +36,14 @@ interface
       destructor Destroy; override;
 
       function Run :Integer;
+      procedure Close;
 
       function SendMsg(AMsg, AParam1 :Integer; AParam2 :TIntPtr) :TIntPtr; overload;
       function SendMsg(AMsg, AParam1 :Integer; AParam2 :Pointer) :TIntPtr; overload;
       function GetDlgRect :TSmallrect;
       procedure SetDlgPos(ALeft, ATop, AWidth, AHeight :Integer);
       function GetScreenItemRect(AItemID :Integer) :TSmallRect;
+      procedure SetVisible(AItemID :Integer; AVisible :Boolean);
       procedure SetEnabled(AItemID :Integer; AEnabled :Boolean);
       function GetChecked(AItemID :Integer) :Boolean;
       procedure SetChecked(AItemID :Integer; AChecked :Boolean);
@@ -362,6 +364,12 @@ interface
   end;
 
 
+  procedure TFarDialog.Close;
+  begin
+    SendMsg(DM_CLOSE, -1, 0)
+  end;
+
+
  {$ifdef Far3}
 
   procedure TFarDialog.CtrlPalette(const AColors :array of TFarColor; var Colors :TFarDialogItemColors);
@@ -461,6 +469,12 @@ interface
     SendMsg(DM_GETITEMPOSITION, AItemID, @Result);
     with GetDlgRect do
       RectMove(Result, Left, Top);
+  end;
+
+
+  procedure TFarDialog.SetVisible(AItemID :Integer; AVisible :Boolean);
+  begin
+    SendMsg(DM_SHOWITEM, AItemID, byte(AVisible));
   end;
 
 

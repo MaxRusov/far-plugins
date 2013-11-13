@@ -27,12 +27,14 @@ interface
     ColorDlgResBase :Integer;
 
   const
+    UndefAttr = DWORD(-1);
+(*
    {$ifdef Far3}
     UndefAttr = DWORD(0);
    {$else}
     UndefAttr = DWORD(-1);
    {$endif Far3}
-
+*)
 
   type
     TColorDlg = class(TFarDialog)
@@ -59,6 +61,7 @@ interface
       procedure UpdateControls;
     end;
 
+  function FarAttrToCOLORREF(Attr :DWORD) :DWORD;
 
   function ColorDlg(const ATitle :TString; var AColor :TFarColor; AFixedBG :DWORD = UndefAttr; AFixedFG :DWORD = UndefAttr) :Boolean;
 
@@ -112,6 +115,7 @@ interface
     if Result then
       AColor := vRec.rgbResult;
   end;
+ {$endif Far3}
 
 
   function FarAttrToCOLORREF(Attr :DWORD) :DWORD;
@@ -124,8 +128,6 @@ interface
     else
       Result := Attr and $00FFFFFF;
   end;
- {$endif Far3}
-
 
 
  {-----------------------------------------------------------------------------}
@@ -239,8 +241,13 @@ interface
       for I := IdRadio2 - 1 to IdSample - 2 do
         SendMsg(DM_ENABLE, I, 0);
     end;
+    if FFixedFG <> UndefAttr then begin
+      FColor := MakeColor(FFixedFG, GetColorBG(FColor));
+      for I := IdRadio1 - 1 to IdRadio2 - 2 do
+        SendMsg(DM_ENABLE, I, 0);
+    end;
     UpdateControls;
-    
+
     vColor := GetColorFG(FColor);
     if vColor <= $0F then
       SendMsg(DM_SetFocus, IdRadio1 + vColor, 0);
