@@ -51,7 +51,7 @@ interface
     CM_Sync       = $B007;
     CM_TempMsg    = $B008;
 
-    cPreCacheLimit = 64 * 1024;  //???
+    cPreCacheLimit = 128 * 1024 * 1024;  //???
 
   const
     cScaleStep   = 1.01;
@@ -245,7 +245,11 @@ interface
       FOpenTime    :Integer;
       FDecodeTime  :Integer;
 
-      procedure PrecacheFile;
+      FMapFile     :THandle;
+      FMapHandle   :THandle;
+
+      function PrecacheFile :Boolean;
+      procedure ReleaseCache;
 
     public
       property Page :Integer read FPage;
@@ -271,7 +275,7 @@ interface
       procedure Redecode(AMode :TRedecodeMode = rmSame; aShowInfo :Boolean = True);
       procedure Rotate(ARotate :Integer);
       procedure Orient(AOrient :Integer);
-      function Save(aOptions :TSaveOptions) :Boolean;
+      function Save(const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean;
       procedure SetFullscreen(aOn :Boolean);
       procedure ChangeVolume(aDeltaVolume, aVolume :Integer);
       procedure SetTempMsg(const AMsg :TString);
@@ -360,6 +364,7 @@ interface
   uses
     ReviewDlgDecoders,
     ReviewDlgGeneral,
+    ReviewDlgSaveAs,
     MixDebug;
 
 
@@ -681,8 +686,6 @@ interface
   constructor TReviewWindow.Create; {override;}
   begin
     inherited Create;
-//  FColor := optBkColor1;
-//  FBrush := CreateSolidBrush(FColor1);
     FMsgBrush := CreateSolidBrush(RGB(255, 255, 255));
   end;
 
@@ -850,14 +853,18 @@ interface
       else
         FImageOk := FImage.FBitmap <> nil;
 
-      FMode := smAutoFit;
-      FScale := 1;
-      FLnScale := 0;
+      if IsWindowVisible(Handle) and optKeepScale then
+        {}
+      else begin
+        FMode := smAutoFit;
+        FScale := 1;
+        FLnScale := 0;
+        FDelta := Point(0, 0);
+        FDeltaScale := 1;
+      end;
+
       FDraftMode := False;
       FHiQual := True;
-
-      FDelta := Point(0, 0);
-      FDeltaScale := 1;
 
       FAnimate := FImage.FAnimated and (FImage.FPages > 1) {and (FImage.FDelay > 0)};
       FPageStart := GetTickCount;
@@ -1654,12 +1661,13 @@ interface
         FDecoder.pvdPageFree(Self);
       FDecoder.pvdFileClose(Self);
     end;
-    MemFree(FCacheBuf);
+    ReleaseCache;
     FreeObj(FBitmap);
     inherited Destroy;
   end;
 
 
+(*
   procedure TReviewImage.PrecacheFile;
   var
     vFile :THandle;
@@ -1669,7 +1677,7 @@ interface
     try
       FSize := FileSize(vFile);
 
-      FCacheSize := cPreCacheLimit;
+      FCacheSize := FSize { cPreCacheLimit !!! };
       if FSize < FCacheSize then
         FCacheSize := FSize;
 
@@ -1681,6 +1689,54 @@ interface
     end;
   end;
 
+  procedure TReviewImage.ReleaseCache;
+  begin
+    MemFree(FCacheBuf);
+  end;
+*)
+
+  function TReviewImage.PrecacheFile :Boolean;
+  begin
+    Result := False;
+    FMapFile := CreateFile(PTChar(FName), GENERIC_READ, FILE_SHARE_READ, nil, OPEN_EXISTING, 0, 0);
+    if FMapFile = INVALID_HANDLE_VALUE then
+      Exit;
+
+    FSize := FileSize(FMapFile);
+    if FSize <= 0 then
+      begin ReleaseCache; Exit; end;
+
+    FCacheSize := cPreCacheLimit;
+    if FSize < FCacheSize then
+      FCacheSize := FSize;
+
+    FMapHandle := CreateFileMapping(FMapFile, nil, PAGE_READONLY, 0, FCacheSize, nil);
+    if FMapHandle = 0 then
+      begin ReleaseCache; Exit; end;
+
+    FCacheBuf := MapViewOfFile(FMapHandle, FILE_MAP_READ, 0, 0, FCacheSize);
+    if FCacheBuf = nil then
+      begin ReleaseCache; Exit; end;
+
+    Result := True;
+  end;
+
+
+  procedure TReviewImage.ReleaseCache;
+  begin
+    if FCacheBuf <> nil then
+      UnmapViewOfFile(FCacheBuf);
+    FCacheBuf := nil;
+
+    if FMapHandle <> 0 then
+      FileClose(FMapHandle);
+    FMapHandle := 0;
+
+    if (FMapFile <> 0) and (FMapFile <> INVALID_HANDLE_VALUE) then
+      FileClose(FMapFile);
+    FMapFile := 0;
+  end;
+
 
   function TReviewImage.TryOpenBy(ADecoder :TReviewDecoder; AForce :Boolean) :Boolean;
   var
@@ -1689,8 +1745,9 @@ interface
     Result := False;
     if ADecoder.Enabled and (ADecoder.SupportedFile(FName) = not AForce) and ADecoder.CanWork(True) then begin
 //    TraceF('Try decoding by %s - %s...', [ADecoder.Name, FName]);
-      if FCacheBuf = nil then
-        PrecacheFile;
+      if (FCacheBuf = nil) and ADecoder.NeedPrecache then
+        if not PrecacheFile then
+          Exit;
 
       vStart := GetTickCount;
       FOpenTime := 0;
@@ -1790,15 +1847,15 @@ interface
   procedure TReviewImage.Rotate(ARotate :Integer);
   const
     cReorient :array[0..8, 0..4] of Integer = (
-     (0,6,8,2,4), //
      (1,6,8,2,4), //
-     (2,7,5,0,3), // X
+     (1,6,8,2,4), //
+     (2,7,5,1,3), // X
      (3,8,6,4,2), // LL = RR
-     (4,5,7,3,0), // Y
+     (4,5,7,3,1), // Y
      (5,2,4,6,8), // XR
-     (6,3,0,5,7), // R
+     (6,3,1,5,7), // R
      (7,4,2,8,6), // XL
-     (8,0,3,7,5)  // L
+     (8,1,3,7,5)  // L
     );
     cTransform :array[0..4] of Integer =
       (0, 6, 8, 2, 4);
@@ -2119,12 +2176,21 @@ interface
 
 
   function TReviewManager.CalcWinSize(AMode :Integer = -1) :TSize;
-  begin
     { Прогнозируем размер... }
-    if AMode = -1 then
-      AMode := IntIf(IsQViewMode, 1, 0);
-    with CalcWinRectAs(AMode) do
-      Result := Size(Right - Left, Bottom - Top);
+  var
+    vScaleMode :TScaleMode;
+  begin
+    vScaleMode := smAutoFit;
+    if FWindow <> nil then
+      vScaleMode := FWindow.ScaleMode;
+    if (vScaleMode <> smAutoFit) and optKeepScale then
+      Result := Size(0, 0)
+    else begin
+      if AMode = -1 then
+        AMode := IntIf(IsQViewMode, 1, 0);
+      with CalcWinRectAs(AMode) do
+        Result := Size(Right - Left, Bottom - Top);
+    end;
   end;
 
 
@@ -2505,16 +2571,21 @@ interface
   end;
 
 
-  function TReviewManager.Save(aOptions :TSaveOptions) :boolean;
+  function TReviewManager.Save(const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :boolean;
+  var
+    vImage :TReviewImage;
   begin
     Result := False;
     if CurImage = nil then
       Exit;
     try
       SetTempMsg(GetMsg(strSave));
-      Result := CurImage.Decoder.Save(CurImage, CurImage.FOrient, aOptions);
-      if Result then
-        Redecode(rmSame, False);
+      vImage := CurImage;
+      Result := vImage.Decoder.Save(vImage, ANewName, AFmtName, aOrient, aQuality, aOptions);
+      if Result then begin
+        ClearCache;
+        ShowImage(ANewName, -1);
+      end;
     except
       on E :Exception do begin
         Beep;
@@ -2659,6 +2730,28 @@ interface
         Result := IntIf(aStep > 0, 1, -1);
     end;
 
+
+    procedure LocSaveAs;
+    var
+      vImage :TReviewImage;
+      vFileName, vFmtName :TString;
+      vOrient, vQuality :Integer;
+      vOptions :TSaveOptions;
+    begin
+      vImage := CurImage;
+      vFileName := vImage.FName;
+      vFmtName := vImage.FFormat;
+      vOrient := vImage.FOrient;
+      vQuality := 0;
+      vOptions := [soTransformation];
+      SyncDelayed(SyncCmdUpdateWin, 100);
+      if SaveAsDlg(vFileName, vFmtName, vOrient, vQuality, vOptions) then begin
+        UpdateWindowPos;
+        Save(vFileName, vFmtName, vOrient, vQuality, vOptions);
+      end;
+    end;
+
+
   begin
     Result := False;
     if FWinThread <> nil then begin
@@ -2755,9 +2848,10 @@ interface
 
         Key_Ins     : LocSelectCurrent;
 
-        Key_F2      : Save([soTransformation]);
-        Key_ShiftF2 : Save([soTransformation, soEnableLossy]);
-        Key_AltF2   : Save([soExifRotation]);
+        Key_F2      : Save('', '', 0, 0, [soTransformation]);
+        Key_CtrlF2  : Save('', '', 0, 0, [soTransformation, soEnableLossy]);
+        Key_AltF2   : Save('', '', 0, 0, [soExifRotation]);
+        Key_ShiftF2 : LocSaveAs;
 
         Key_Space   : LocPlayPause;
 

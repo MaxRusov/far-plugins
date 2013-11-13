@@ -123,21 +123,23 @@ interface
     IdDelayLab      = 6;
     IdDelayEdt      = 7;
     IdFrameChk      = 8;
+
     IdPrecacheChk   = 9;
+    IdKeepZoomChk   = 10;
 
-    IdThumnailChk   = 11;
-    IdScreenSizeChk = 12;
-    IdAutorotateChk = 13;
-    IdKeepDateChk   = 14;
+    IdThumnailChk   = 12;
+    IdScreenSizeChk = 13;
+    IdAutorotateChk = 14;
+    IdKeepDateChk   = 15;
 
-    IdOk            = 16;
-    IdCancel        = 17;
+    IdOk            = 17;
+    IdCancel        = 18;
 
 
   procedure TConfigDlg.Prepare; {override;}
   const
     DX = 60;
-    DY = 19;
+    DY = 20;
   var
     X1 :Integer;
   begin
@@ -166,6 +168,7 @@ interface
         NewItem(DI_CheckBox,  -X1-4, 1,    0, 0,   0,  GetMsg(strFrameQView) ),
 
         NewItem(DI_CheckBox,  -X1,   2,    0, 0,   0,  GetMsg(strPrecache) ),
+        NewItem(DI_CheckBox,  -X1,   1,    0, 0,   0,  GetMsg(strKeepZoom) ),
 
         NewItem(DI_Text,      -X1,   2,    0, 0,   0,  GetMsg(strInternalDecoder) ),
         NewItem(DI_CheckBox,  -X1-1, 1,    0, 0,   0,  GetMsg(strUseThumbnail) ),
@@ -193,6 +196,7 @@ interface
     SetChecked(IdFrameChk, optQViewShowFrame);
 
     SetChecked(IdPrecacheChk, optPrecache);
+    SetChecked(IdKeepZoomChk, optKeepScale);
 
     SetChecked(IdThumnailChk, optUseThumbnail);
     SetChecked(IdScreenSizeChk, optUseWinSize);
@@ -215,6 +219,7 @@ interface
       optQViewShowFrame := GetChecked(IdFrameChk);
 
       optPrecache := GetChecked(IdPrecacheChk);
+      optKeepScale := GetChecked(IdKeepZoomChk);
 
       optUseThumbnail := GetChecked(IdThumnailChk);
       optUseWinSize := GetChecked(IdScreenSizeChk);

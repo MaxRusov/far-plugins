@@ -87,6 +87,7 @@ interface
 
   uses
     Windows,
+    ActiveX,
     MixTypes,
     MixUtils,
     MixStrings,
@@ -380,7 +381,7 @@ interface
       vRes :Boolean;
     begin
       vMode := FarValuesToInt(AParams, ACount, 1, 0);
-      vRes := Review.Save(TSaveOptions(vMode));
+      vRes := Review.Save('', '', 0, 0, TSaveOptions(vMode));
       Result := FarReturnValues([vRes]);
     end;
 
@@ -515,6 +516,5 @@ interface
 
 initialization
 finalization
-
 end.
 
