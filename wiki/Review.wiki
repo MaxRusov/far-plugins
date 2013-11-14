@@ -23,6 +23,10 @@
 
 http://far-plugins.googlecode.com/svn/trunk/Review/Image/Sample.png
 
+Поддерживаемые форматы
+
+http://far-plugins.googlecode.com/svn/trunk/Review/Image/Sample2.png
+
 ----
 
 = История изменений =
