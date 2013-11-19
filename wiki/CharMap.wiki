@@ -14,9 +14,6 @@
 
  * [http://code.google.com/p/far-plugins/downloads/list?q=UCharMap&can=1 Все версии]
 
- * [http://far-plugins.googlecode.com/files/UCharMap.v5.rar Unicode CharMap 1.0.5 for FAR 2]
- * [http://far-plugins.googlecode.com/files/UCharMap.x64.v5.rar Unicode CharMap 1.0.5 for FAR 2 x64]
-
 == Пример ==
 
 http://far-plugins.googlecode.com/svn/trunk/UCharMap/Image/Sample.png
