@@ -33,7 +33,7 @@ http://far-plugins.googlecode.com/svn/trunk/Review/Image/Sample2.png
 
 == Ver 1.3 ==
 
- * DXVideo.pvd: Используется наилучший возможный renderer: EVR-VMR9-VMR7 При использовании EVR (vista+) заметно лучше качество воспроизведения.
+ * DXVideo.pvd: Используется наилучший возможный renderer: EVR-VMR9-VMR7. При использовании EVR (Vista+) заметно лучше качество воспроизведения.
 
  * DXVideo.pvd: В Fullscreen режиме OSD автоматически прячется, если 3 сек не шевелить мышкой.
 
