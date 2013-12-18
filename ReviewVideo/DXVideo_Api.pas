@@ -6,46 +6,108 @@ interface
 
 uses
   Windows,
+  Messages,
   ActiveX,
   DirectShow9,
+
+  MFIdl,
+  MFObjects,
+  MFTransform,
+  Evr,
 
   MixTypes,
   MixUtils,
   MixClasses,
   MixStrings;
 
-  type
-    HSTREAM = THandle;
-
   const
-    xVideo_ATTRIB_VOL    = 1;    //used to set Audio Volume
+    WM_GRAPH_EVENT = WM_APP + 1;
+
+  type
+    TRendererClass = class of TRenderer;
+
+    TRenderer = class(TBasis)
+    public
+      constructor CreateEx(const aGraph :IGraphBuilder); virtual; abstract;
+      procedure GetVideoSize(var aWidth, aHeight :Integer); virtual; abstract;
+      procedure SetWindow(aWnd :HWND); virtual; abstract;
+      procedure ResizeWindow(aWnd :HWND; const aRect :TRect); virtual; abstract;
+      procedure Repaint(aWnd :HWND; aDC :HDC); virtual; abstract;
+      procedure FinalizeGraph(const aGraph :IGraphBuilder); virtual; abstract;
+
+    private
+      FInited :Boolean;
+    end;
 
 
-  function  xVideo_Init(handle: HWND;flags: DWORD) :BOOL;
-  function  xVideo_Free(): BOOL;
+    TMedia = class(TBasis)
+    public
+      constructor Create; override;
+      destructor Destroy; override;
 
-  function  xVideo_ErrorGetCode(): DWORD;
+      function Load(const aFileName :TString; aWnd :HWND) :Boolean;
 
-  function  xVideo_StreamCreateFile(aFileName :PTChar; aPos: DWORD; aWindow :HWND; aFlags :DWORD) :HSTREAM;
-  function  xVideo_StreamFree(chan: HStream): bool;
+//    procedure SetWindow(aWnd :HWND);
+      procedure ResizeWindow(aWnd :HWND; const aRect :TRect);
+      procedure Repaint(aWnd :HWND; aDC :HDC);
 
-  function  xVideo_ChannelPlay(chan: HSTREAM):BOOL;
-  function  xVideo_ChannelPause(chan: HSTREAM):bool;
-  function  xVideo_ChannelStop(chan: HStream): bool;
+      procedure GetVideoSize(var aWidth, aHeight :Integer);
+      function GetLength :Double;
+      function GetPosition :Double;
+      procedure SetPosition(aPos :Double);
 
-  procedure xVideo_ChannelGetInfo(chan: HSTREAM; var aWidth, aHeight :Integer);
-  function  xVideo_ChannelGetLength(chan: HSTREAM;mode: DWORD): Double;
-  function  xVideo_ChannelSetPosition(chan: HSTREAM;pos: Double;mode: DWORD): BOOL;
-  function  xVideo_ChannelGetPosition(chan: HSTREAM;mode: DWORD): Double;
+      procedure Play;
+      procedure Stop;
+      procedure Pause;
 
-  procedure xVideo_ChannelResizeWindow(chan: HSTREAM; hVideo :DWORD; left, top, width, height :integer);
-  procedure xVideo_ChannelSetAttribute(chan: HSTREAM;option: DWORD; value :TFLOAT);
+      procedure SetVolume(aValue :Double);
+
+      procedure HandleEvents(aCallback :Pointer);
+
+    private
+      { DirectShow interfaces }
+      FGraph    :IGraphBuilder;
+      FControl  :IMediaControl;
+      FEvent    :IMediaEventEx;
+
+      FMP       :IMediaPosition;
+      FBA       :IBasicAudio;
+
+      FRenderer :TRenderer;
+
+      FLoaded   :Boolean;
+      FIsVideo  :Boolean;
+//    FState    :TPlaybackState;
+
+      procedure RenderStream(const aSrc :IBaseFilter; aWnd :HWND);
+      procedure CreateVideoRenderer;
+
+    public
+      property IsVideo :Boolean read FIsVideo;
+    end;
+
+
+  function OpenMediaFile(const aFileName :TString; aWindow :HWND; aFlags :DWORD = 0) :TMedia;
 
 
 implementation
 
   uses
     MixDebug;
+
+
+  const
+    CLSID_EnhancedVideoRenderer :TGuid = '{FA10746C-9B63-4B6C-BC49-FC300EA5F256}';
+
+
+  threadvar
+    LastResult :HResult;
+
+  function xOk(aRes :HResult) :Boolean;
+  begin
+    LastResult := aRes;
+    Result := Succeeded(aRes);
+  end;
 
 
   procedure OleError(ErrorCode: HResult);
@@ -61,189 +123,546 @@ implementation
   end;
 
 
-  type
-    TVideo = class(TBasis)
-    public
-      constructor Create; override;
-      destructor Destroy; override;
-
-      function Load(aFileName :PTChar) :Boolean;
-
-    private
-      { DirectShow interfaces }
-      FGB :IGraphBuilder;
-      FMC :IMediaControl;
-      FME :IMediaEventEx;
-      FVW :IVideoWindow;
-      FMS :IMediaSeeking;
-      FMP :IMediaPosition;
-//    FFS :IVideoFrameStep;
-      FBA :IBasicAudio;
-      FBV :IBasicVideo;
-
-      FLoaded :Boolean;
-      FIsVideo :Boolean;
-    end;
-
-
-  constructor TVideo.Create; {override;}
+  function AddFilterByCLSID(const aGraph :IGraphBuilder; const clsid :TGUID; var aFilter :IBaseFilter; const aName :PWideChar) :HResult;
   begin
-    inherited Create;
+    Result := CoCreateInstance(clsid, nil, CLSCTX_INPROC_SERVER, IID_IBaseFilter, aFilter);
+    if not Succeeded(Result) then
+      Exit;
 
-    { Get the interface for DirectShow's GraphBuilder }
-    OleCheck(CoCreateInstance(CLSID_FilterGraph, nil, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, FGB));
-
-    { QueryInterface for DirectShow interfaces }
-    OleCheck(FGB.QueryInterface(IID_IMediaControl, FMC));
-    OleCheck(FGB.QueryInterface(IID_IMediaEventEx, FME));
-    OleCheck(FGB.QueryInterface(IID_IMediaSeeking, FMS));
-    OleCheck(FGB.QueryInterface(IID_IMediaPosition, FMP));
-    OleCheck(FGB.QueryInterface(IID_IVideoWindow, FVW));
-    OleCheck(FGB.QueryInterface(IID_IBasicAudio, FBA));
-    OleCheck(FGB.QueryInterface(IID_IBasicVideo, FBV));
+    Result := aGraph.AddFilter(aFilter, aName);
+    if not Succeeded(Result) then
+      begin; aFilter := nil; Exit; end;
   end;
 
 
-  destructor TVideo.Destroy; {override;}
+(*
+  function IsPinConnected(const aPin :IPin; var aRes :Boolean) :HResult;
+  var
+    vTmp :IPin;
   begin
-//  if FLoaded then
-//    FVW.put_Owner(0);
+    Result := aPin.ConnectedTo(vTmp);
+    aRes := Succeeded(Result);
+    if Result = VFW_E_NOT_CONNECTED then
+      Result := S_OK;
+  end;
+
+
+  function IsPinDirection(const aPin :IPin; aDir :PIN_DIRECTION; var aRes :Boolean) :HResult;
+  var
+    vDir :TPinDirection;
+  begin
+    Result := aPin.QueryDirection(vDir);
+    if Succeeded(Result) then
+      aRes := vDir = aDir;
+  end;
+
+  function FindConnectedPin(const aFilter :IBaseFilter; aDir :PIN_DIRECTION; var aPin :IPin) :HResult;
+  var
+    vEnum :IEnumPins;
+    vPin :IPin;
+  begin
+    aPin := nil;
+
+    Result := aFilter.EnumPins(vEnum);
+    if not Succeeded(Result) then
+      Exit;
+
+    while vEnum.Next(1, vPin, nil) = S_OK do
+      if IsPinConnected(vPin) and IsPinDirection(vPin, aDir) then begin
+        aPin := vPin;
+        Exit;
+      end;
+
+    Result := VFW_E_NOT_FOUND;
+  end;
+*)
+
+  function IsPinConnected(const aPin :IPin) :Boolean;
+  var
+    vTmp :IPin;
+  begin
+    Result := Succeeded(aPin.ConnectedTo(vTmp));
+  end;
+
+
+  function IsPinDirection(const aPin :IPin; aDir :PIN_DIRECTION) :Boolean;
+  var
+    vDir :TPinDirection;
+  begin
+    Result := Succeeded(aPin.QueryDirection(vDir)) and (vDir = aDir);
+  end;
+
+
+  function FindConnectedPin(const aFilter :IBaseFilter; aDir :PIN_DIRECTION; var aPin :IPin) :Boolean;
+  var
+    vEnum :IEnumPins;
+    vPin :IPin;
+  begin
+    aPin := nil;
+    OleCheck( aFilter.EnumPins(vEnum) );
+    while vEnum.Next(1, vPin, nil) = S_OK do
+      if IsPinConnected(vPin) and IsPinDirection(vPin, aDir) then begin
+        aPin := vPin;
+        Result := True;
+        Exit;
+      end;
+    Result := False;
+  end;
+
+
+  function RemoveUnconnectedRenderer(const aGraph :IGraphBuilder; const aRenderer :IBaseFilter) :Boolean;
+  var
+    vPin :IPin;
+  begin
+    Result := False;
+    if not FindConnectedPin(aRenderer, PINDIR_INPUT, vPin) then begin
+      OleCheck( aGraph.RemoveFilter(aRenderer) );
+      Result := True;
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  type
+    TVMR7Renderer = class(TRenderer)
+    public
+      constructor CreateEx(const aGraph :IGraphBuilder); override;
+      procedure GetVideoSize(var aWidth, aHeight :Integer); override;
+      procedure SetWindow(aWnd :HWND); override;
+      procedure ResizeWindow(aWnd :HWND; const aRect :TRect); override;
+      procedure Repaint(aWnd :HWND; aDC :HDC); override;
+      procedure FinalizeGraph(const aGraph :IGraphBuilder); override;
+
+    private
+      FWLC :IVMRWindowlessControl;
+    end;
+
+    TVMR9Renderer = class(TRenderer)
+    public
+      constructor CreateEx(const aGraph :IGraphBuilder); override;
+      procedure GetVideoSize(var aWidth, aHeight :Integer); override;
+      procedure SetWindow(aWnd :HWND); override;
+      procedure ResizeWindow(aWnd :HWND; const aRect :TRect); override;
+      procedure Repaint(aWnd :HWND; aDC :HDC); override;
+      procedure FinalizeGraph(const aGraph :IGraphBuilder); override;
+
+    private
+      FWLC :IVMRWindowlessControl9;
+    end;
+
+    TEVRRenderer = class(TRenderer)
+    public
+      constructor CreateEx(const aGraph :IGraphBuilder); override;
+      procedure GetVideoSize(var aWidth, aHeight :Integer); override;
+      procedure SetWindow(aWnd :HWND); override;
+      procedure ResizeWindow(aWnd :HWND; const aRect :TRect); override;
+      procedure Repaint(aWnd :HWND; aDC :HDC); override;
+      procedure FinalizeGraph(const aGraph :IGraphBuilder); override;
+
+    private
+      FEVR  :IBaseFilter;
+      FVDC  :IMFVideoDisplayControl;
+    end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  constructor TVMR7Renderer.CreateEx(const aGraph :IGraphBuilder);
+  var
+    vVMR :IBaseFilter;
+    vConfig :IVMRFilterConfig;
+  begin
+    if not Succeeded(AddFilterByCLSID(aGraph, CLSID_VideoMixingRenderer, vVMR, 'VMR-7')) then
+      Exit;
+
+    OleCheck(vVMR.QueryInterface(IID_IVMRFilterConfig, vConfig));
+    OleCheck(vConfig.SetRenderingMode(VMRMode_Windowless));
+
+    OleCheck(vVMR.QueryInterface(IID_IVMRWindowlessControl, FWLC));
+
+    FInited := True;
+  end;
+
+
+  procedure TVMR7Renderer.FinalizeGraph(const aGraph :IGraphBuilder); {override;}
+  var
+    vFilter :IBaseFilter;
+  begin
+    OleCheck(FWLC.QueryInterface(IID_IBaseFilter, vFilter));
+    if RemoveUnconnectedRenderer(aGraph, vFilter) then begin
+      FreeIntf(FWLC);
+      FInited := False;
+    end;
+  end;
+
+
+  procedure TVMR7Renderer.GetVideoSize(var aWidth, aHeight :Integer); {override;}
+  var
+    vARWidth, vARHeight :Integer;
+  begin
+    FWLC.GetNativeVideoSize(aWidth, aHeight, vARWidth, vARHeight);
+  end;
+
+
+  procedure TVMR7Renderer.SetWindow(aWnd :HWND); {override;}
+  begin
+    OleCheck(FWLC.SetVideoClippingWindow(aWnd));
+    OleCheck(FWLC.SetAspectRatioMode(VMR_ARMODE_LETTER_BOX));
+  end;
+
+
+  procedure TVMR7Renderer.ResizeWindow(aWnd :HWND; const aRect :TRect); {override;}
+  begin
+    FWLC.SetVideoPosition(nil, @aRect);
+  end;
+
+
+  procedure TVMR7Renderer.Repaint(aWnd :HWND; aDC :HDC); {override;}
+  begin
+    FWLC.RepaintVideo(aWnd, aDC);
+  end;
+
+ {-----------------------------------------------------------------------------}
+
+  constructor TVMR9Renderer.CreateEx(const aGraph :IGraphBuilder);
+  var
+    vVMR :IBaseFilter;
+    vConfig :IVMRFilterConfig9;
+  begin
+    if not Succeeded(AddFilterByCLSID(aGraph, CLSID_VideoMixingRenderer9, vVMR, 'VMR-9')) then
+      Exit;
+
+    OleCheck(vVMR.QueryInterface(IID_IVMRFilterConfig9, vConfig));
+    OleCheck(vConfig.SetRenderingMode(VMR9Mode_Windowless));
+
+    OleCheck(vVMR.QueryInterface(IID_IVMRWindowlessControl9, FWLC));
+
+    FInited := True;
+  end;
+
+
+  procedure TVMR9Renderer.FinalizeGraph(const aGraph :IGraphBuilder); {override;}
+  var
+    vFilter :IBaseFilter;
+  begin
+    OleCheck(FWLC.QueryInterface(IID_IBaseFilter, vFilter));
+    if RemoveUnconnectedRenderer(aGraph, vFilter) then begin
+      FreeIntf(FWLC);
+      FInited := False;
+    end;
+  end;
+
+
+  procedure TVMR9Renderer.GetVideoSize(var aWidth, aHeight :Integer); {override;}
+  var
+    vARWidth, vARHeight :Integer;
+  begin
+    FWLC.GetNativeVideoSize(aWidth, aHeight, vARWidth, vARHeight);
+  end;
+
+
+  procedure TVMR9Renderer.SetWindow(aWnd :HWND); {override;}
+  begin
+    OleCheck(FWLC.SetVideoClippingWindow(aWnd));
+    OleCheck(FWLC.SetAspectRatioMode(VMR9ARMODE_LETTERBOX));
+  end;
+
+
+  procedure TVMR9Renderer.ResizeWindow(aWnd :HWND; const aRect :TRect); {override;}
+  begin
+    FWLC.SetVideoPosition(nil, @aRect);
+  end;
+
+
+  procedure TVMR9Renderer.Repaint(aWnd :HWND; aDC :HDC); {override;}
+  begin
+    FWLC.RepaintVideo(aWnd, aDC);
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  constructor TEVRRenderer.CreateEx(const aGraph :IGraphBuilder);
+  var
+    vVMR :IBaseFilter;
+    vGS :IMFGetService;
+  begin
+    if not Succeeded(AddFilterByCLSID(aGraph, CLSID_EnhancedVideoRenderer, vVMR, 'EVR')) then
+      Exit;
+
+    OleCheck(vVMR.QueryInterface(IID_IMFGetService, vGS));
+    OleCheck(vGS.GetService(MR_VIDEO_RENDER_SERVICE, IID_IMFVideoDisplayControl, FVDC));
+
+    // Note: Because IMFVideoDisplayControl is a service interface,
+    // you cannot QI the pointer to get back the IBaseFilter pointer.
+    // Therefore, we need to cache the IBaseFilter pointer.
+
+    FEVR := vVMR;
+
+    FInited := True;
+  end;
+
+
+  procedure TEVRRenderer.FinalizeGraph(const aGraph :IGraphBuilder); {override;}
+  begin
+    if RemoveUnconnectedRenderer(aGraph, FEVR) then begin
+      FreeIntf(FEVR);
+      FreeIntf(FVDC);
+      FInited := False;
+    end;
+  end;
+
+
+  procedure TEVRRenderer.GetVideoSize(var aWidth, aHeight :Integer); {override;}
+  var
+    vSize, vARSize :TSize;
+  begin
+    FVDC.GetNativeVideoSize(vSize, vARSize);
+    aWidth := vSize.cx;
+    aHeight := vSize.cy;
+  end;
+
+
+  procedure TEVRRenderer.SetWindow(aWnd :HWND); {override;}
+  begin
+    OleCheck(FVDC.SetVideoWindow(aWnd));
+    OleCheck(FVDC.SetAspectRatioMode(MFVideoARMode_PreservePicture));
+//  OleCheck(FVDC.SetAspectRatioMode(MFVideoARMode_NonLinearStretch));
+  end;
+
+
+  procedure TEVRRenderer.ResizeWindow(aWnd :HWND; const aRect :TRect); {override;}
+  begin
+    FVDC.SetVideoPosition(nil, aRect);
+  end;
+
+
+  procedure TEVRRenderer.Repaint(aWnd :HWND; aDC :HDC); {override;}
+  begin
+    FVDC.RepaintVideo;
+  end;
+
+ {-----------------------------------------------------------------------------}
+
+  function CreateRenderer(aClass :TRendererClass; const aGraph :IGraphBuilder) :TRenderer;
+  begin
+    Result := nil;
+    try
+      Result := aClass.CreateEx(aGraph);
+      if not Result.Finited then
+        FreeObj(Result);
+    except
+      FreeObj(Result);
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  constructor TMedia.Create; {override;}
+  begin
+    inherited Create;
+
+    OleCheck(CoCreateInstance(CLSID_FilterGraph, nil, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, FGraph));
+    OleCheck(FGraph.QueryInterface(IID_IMediaControl, FControl));
+    OleCheck(FGraph.QueryInterface(IID_IMediaEventEx, FEvent));
+    OleCheck(FGraph.QueryInterface(IID_IMediaPosition, FMP));
+    OleCheck(FGraph.QueryInterface(IID_IBasicAudio, FBA));
+  end;
+
+
+  destructor TMedia.Destroy; {override;}
+  begin
+    if FEvent <> nil then
+      FEvent.SetNotifyWindow(0, 0, 0);
+
+    FreeObj(FRenderer);
+    FreeIntf(FEvent);
+    FreeIntf(FControl);
+    FreeIntf(FGraph);
+
     inherited Destroy;
   end;
 
 
-  function TVideo.Load(aFileName :PTChar) :Boolean;
+  function TMedia.Load(const aFileName :TString; aWnd :HWND) :Boolean;
   var
+    vSrc :IBaseFilter;
     vRes :HResult;
-    vVisible :Longbool;
   begin
    {$ifdef bTrace}
     TraceF('RenderFile %s...', [aFileName]);
    {$endif bTrace}
 
-    vRes := FGB.RenderFile(aFileName, nil);
+    vRes := FGraph.AddSourceFilter(PTChar(aFileName), nil, vSrc);
 
    {$ifdef bTrace}
-    TraceF('  Res=%x (%s)', [vRes, SysErrorMessage(vRes)]);
+//  TraceF('  Res=%x (%s)', [vRes, SysErrorMessage(vRes)]);
    {$endif bTrace}
 
-//  OleCheck(vRes);
-    FLoaded := Succeeded(vRes);
+    if Succeeded(vRes) then
+      RenderStream(vSrc, aWnd);
+
     if FLoaded then
-      FIsVideo := Succeeded(FVW.get_Visible(vVisible));
+      FIsVideo := FRenderer.FInited;
+
     Result := FLoaded;
   end;
 
 
-
-  threadvar
-    LastResult :HResult;
-
-  function xOk(aRes :HResult) :Boolean;
-  begin
-    LastResult := aRes;
-    Result := Succeeded(aRes);
-  end;
-
- {-----------------------------------------------------------------------------}
-
-  function xVideo_Init(handle: HWND;flags: DWORD) :BOOL;
-  begin
-    Result := True;
-  end;
-
-  function xVideo_Free(): BOOL;
-  begin
-    Result := True;
-  end;
-
-  function xVideo_ErrorGetCode(): DWORD;
-  begin
-    Result := LastResult;
-    LastResult := 0;
-  end;
-
-
-  function xVideo_StreamCreateFile(aFileName :PTChar; aPos: DWORD; aWindow :HWND; aFlags :DWORD) :HSTREAM;
+  procedure TMedia.RenderStream(const aSrc :IBaseFilter; aWnd :HWND);
   var
-    vVideo :TVideo;
+    vGraph2 :IFilterGraph2;
+    vAudio :IBaseFilter;
+    vEnum :IEnumPins;
+    vPin :IPin;
   begin
-    vVideo := nil;
-    try
-      vVideo := TVideo.Create;
+    OleCheck(FGraph.QueryInterface(IID_IFilterGraph2, vGraph2));
 
-      if vVideo.Load(aFileName) then begin
-        if (aWindow <> 0) and vVideo.FIsVideo then begin
-          vVideo.FVW.put_Owner(aWindow);
-          vVideo.FVW.put_MessageDrain(aWindow);
-          vVideo.FVW.put_WindowStyle(WS_CHILD);
-        end;
-      end else
-        FreeObj(vVideo);
+    CreateVideoRenderer;
+    if FRenderer = nil then
+      Exit;
 
-    except
-      FreeObj(vVideo);
+    if aWnd <> 0 then begin
+      FEvent.SetNotifyWindow(aWnd, WM_GRAPH_EVENT, 0);
+      FRenderer.SetWindow(aWnd);
     end;
 
-    Result := HSTream(vVideo)
+    OleCheck(AddFilterByCLSID(FGraph, CLSID_DSoundRender, vAudio, 'Audio Renderer'));
+
+    { Enumerate the pins on the source filter. }
+    OleCheck(aSrc.EnumPins(vEnum));
+    while vEnum.Next(1, vPin, nil) = S_OK do begin
+      { Try to render this pin. It's OK if we fail some pins, if at least one pin renders. }
+      if Succeeded( vGraph2.RenderEx(vPin, AM_RENDEREX_RENDERTOEXISTINGRENDERERS, nil) ) then
+        FLoaded := True;
+      FreeIntf(vPin);
+    end;
+
+    FRenderer.FinalizeGraph(FGraph);
+
+    { Remove the audio renderer, if not used. }
+    RemoveUnconnectedRenderer(FGraph, vAudio);
   end;
 
 
-  function xVideo_StreamFree(chan :HStream) :BOOL;
+  procedure TMedia.CreateVideoRenderer;
   begin
-    TVideo(chan).Free;
-    Result := True;
+    FRenderer := CreateRenderer(TEVRRenderer, FGraph);
+    if FRenderer <> nil then
+      Exit;
+
+    FRenderer := CreateRenderer(TVMR9Renderer, FGraph);
+    if FRenderer <> nil then
+      Exit;  
+
+    FRenderer := CreateRenderer(TVMR7Renderer, FGraph);
+    if FRenderer <> nil then
+      Exit;
   end;
 
 
-  function xVideo_ChannelPlay(chan: HSTREAM) :BOOL;
+  procedure TMedia.ResizeWindow(aWnd :HWND; const aRect :TRect);
   begin
-    Result := xOk(TVideo(chan).FMC.Run);
+    if FIsVideo then
+      FRenderer.ResizeWindow(aWnd, aRect);
   end;
 
-  function xVideo_ChannelPause(chan: HSTREAM) :BOOL;
+
+  procedure TMedia.Repaint(aWnd :HWND; aDC :HDC);
   begin
-    Result := xOk(TVideo(chan).FMC.Pause);
+    if FIsVideo then
+      FRenderer.Repaint(aWnd, aDC);
   end;
 
-  function xVideo_ChannelStop(chan: HStream) :BOOL;
-  begin
-    Result := xOk(TVideo(chan).FMC.Stop);
-  end;
 
-  procedure xVideo_ChannelGetInfo(chan: HSTREAM; var aWidth, aHeight :Integer);
+  procedure TMedia.GetVideoSize(var aWidth, aHeight :Integer);
   begin
     aWidth := 0; aHeight := 0;
-    TVideo(chan).FBV.GetVideoSize( aWidth, aHeight );
+    if FIsVideo then
+      FRenderer.GetVideoSize(aWidth, aHeight);
   end;
 
-  function xVideo_ChannelGetLength(chan: HSTREAM;mode: DWORD): Double;
+  function TMedia.GetLength :Double;
   begin
-    TVideo(chan).FMP.get_Duration(Result);
+    FMP.get_Duration(Result);
   end;
 
-  function xVideo_ChannelGetPosition(chan: HSTREAM;mode: DWORD): Double;
+
+  function TMedia.GetPosition :Double;
   begin
-    TVideo(chan).FMP.get_CurrentPosition(Result);
+    FMP.get_CurrentPosition(Result);
   end;
 
-  function xVideo_ChannelSetPosition(chan: HSTREAM;pos: Double;mode: DWORD) :BOOL;
+
+  procedure TMedia.SetPosition(aPos :Double);
   begin
-    Result := xOk(TVideo(chan).FMP.put_CurrentPosition(pos));
+    OleCheck(FMP.put_CurrentPosition(aPos));
   end;
 
-  procedure xVideo_ChannelResizeWindow(chan: HSTREAM; hVideo :DWORD; left, top, width, height :integer);
+
+  procedure TMedia.Play;
   begin
-    TVideo(chan).FVW.SetWindowPosition( left, top, width, height );
+    OleCheck(FControl.Run);
   end;
 
-  procedure xVideo_ChannelSetAttribute(chan :HSTREAM; option :DWORD; value :TFLOAT);
+  procedure TMedia.Stop;
+  begin
+    OleCheck(FControl.Stop);
+  end;
+
+  procedure TMedia.Pause;
+  begin
+    OleCheck(FControl.Pause);
+  end;
+
+  procedure TMedia.SetVolume(aValue :Double);
   var
     vVol :Integer;
   begin
     { Vol: -10000 - 0 }
-    vVol := -Round(sqr(100 - RangeLimitF(Value, 0, 100)));
-    TVideo(chan).FBA.put_Volume( vVol );
+    vVol := -Round(sqr(100 - RangeLimitF(aValue, 0, 100)));
+    OleCheck(FBA.put_Volume( vVol ));
   end;
+
+
+  procedure TMedia.HandleEvents(aCallback :Pointer);
+  var
+    vCode :Integer;
+    vParam1, vParam2 :LONG_PTR;
+  begin
+    while Succeeded( FEvent.GetEvent(vCode, vParam1, vParam2, 0)) do begin
+      if Assigned(aCallback) then
+        {};
+      if not Succeeded(FEvent.FreeEventParams(vCOde, vParam1, vParam2)) then
+        break;
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  function OpenMediaFile(const aFileName :TString; aWindow :HWND; aFlags :DWORD = 0) :TMedia;
+  var
+    vMedia :TMedia;
+  begin
+    vMedia := nil;
+    try
+      vMedia := TMedia.Create;
+
+      if vMedia.Load(aFileName, aWindow) then begin
+//      if (aWindow <> 0) and vMedia.FIsVideo then
+//        vMedia.SetWindow(aWindow);
+      end else
+        FreeObj(vMedia);
+
+    except
+      FreeObj(vMedia);
+    end;
+
+    Result := vMedia;
+  end;
+
 
 end.
