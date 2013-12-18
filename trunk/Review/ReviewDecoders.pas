@@ -32,6 +32,7 @@ interface
       FName        :TString;           { ָלÿ פאיכא }
 
       FSize        :Int64;             { ׀אחלונ פאיכא }
+      FTime        :Integer;
       FCacheBuf    :Pointer;
       FCacheSize   :Integer;
 
@@ -904,6 +905,8 @@ BOOL WINAPI SetDllDirectory(
       AImage.FTranspColor := vInfo.nTransparentColor;
       if vInfo.Flags and (PVD_IDF_TRANSPARENT + PVD_IDF_TRANSPARENT_INDEX) = 0 then
         AImage.FTranspColor := DWORD(-1);
+      if optRotateOnEXIF and (AImage.FOrient = 0) then
+        AImage.FOrient    := vInfo.Orientation;
 
       AImage.FDecodeInfo  := MemAlloc(SizeOf(vInfo));
       Move(vInfo, AImage.FDecodeInfo^, SizeOf(vInfo));

@@ -73,6 +73,9 @@ interface
     cMaskHistory      = 'Review.Mask';
     cFileNameHistory  = 'Review.FileName';
 
+  const
+    cDefAnimationStep  = 50;           { ms }
+
   var
     optCmdPrefix      :TString = 'pic';
 
@@ -87,6 +90,8 @@ interface
     optTranspBack     :Boolean = True;        { Использовать заливку на полупрозрачных картинках }
     optTileMode       :Boolean = False;
     optFullscreen     :Boolean = False;
+    optSmoothScale    :Boolean = True;        { Использовать сглаживание при увеличении }
+    optShowInfo       :Integer = 0;
 
     optDraftDelay     :Integer = 150; {ms}
     optSyncDelay      :Integer = 250; {ms}    { Задержка смены картинки в QuickView (только если включен optAsyncQView) }
@@ -94,6 +99,8 @@ interface
     optTempMsgDelay   :Integer = 2000; {ms}
 
     optCacheLimit     :Integer = 4;
+
+    optInitialScale   :Integer = 100;         { Начальное увеличение изображений }
 
     optBkColor1       :TFarColor;
     optBkColor2       :TFarColor;
