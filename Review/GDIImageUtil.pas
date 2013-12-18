@@ -23,6 +23,10 @@ interface
     GDIPOBJ;
 
 
+  var
+    optSmoothMode  :Integer = InterpolationModeDefault; //InterpolationModeHighQuality;
+
+
   type
     TMemDC = class(TObject)
     public
@@ -172,7 +176,7 @@ interface
   begin
     Result := 0;
 
-    if (aModel <> PVD_CM_BGR) and (aModel <> PVD_CM_BGRA) then
+    if ((aModel <> PVD_CM_BGR) and (aModel <> PVD_CM_BGRA)) or ((aModel = PVD_CM_BGRA) and (aBPP <> 32)) then
       AppError('Unsupported color model');
     if (aBPP < 1) or (aBPP > 32) or ((aBPP <= 8) and (aPalette = nil)) {or (aBPP = 16) ???} then
       AppErrorFmt('Unsupported format: BPP=%d %s', [aBPP, StrIf(aPalette = nil, 'Palette=nil', '') ]);
@@ -499,6 +503,7 @@ interface
   var
     vBmp :TGPBitmap;
     vGraphics :TGPGraphics;
+    vDstRect :TGPRect;
   begin
 //  if ASmooth then
 //    TraceBeg('GDI+StretchDraw...');
@@ -520,12 +525,14 @@ interface
 //        vGraphics.SetSmoothingMode(SmoothingModeHighQuality);
 //        vGraphics.SetCompositingQuality(CompositingQualityHighQuality);
           if ASmooth then
-            vGraphics.SetInterpolationMode(InterpolationModeHighQuality)
+            vGraphics.SetInterpolationMode(optSmoothMode)
           else
             vGraphics.SetInterpolationMode(InterpolationModeLowQuality);
 
+          vDstRect := MakeRect(ADstRect);
+//        Inc(vDstRect.X); Inc(vDstRect.Y);
           with ASrcRect do
-            vGraphics.DrawImage(vBmp, MakeRect(ADstRect), Left, Top, Right - Left, Bottom - Top, UnitPixel);
+            vGraphics.DrawImage(vBmp, vDstRect, Left, Top, Right - Left, Bottom - Top, UnitPixel);
         finally
           FreeObj(vGraphics);
         end;

@@ -19,6 +19,7 @@ interface
     Messages,
     MixTypes,
     MixUtils,
+    MixFormat,
     MixStrings,
     MixClasses,
     MixWinUtils,
@@ -35,6 +36,7 @@ interface
     FarConMan,
 
     PVAPI,
+    GDIPAPI,
     GDIImageUtil,
     ReviewConst,
     ReviewDecoders,
@@ -191,10 +193,11 @@ interface
       procedure SetWinMode(AMode :TWinMode);
       procedure SetScale(aMode :TScaleMode; aLnScale, aScale :TFloat);
       procedure SetPage(aPage :Integer);
-      procedure SetTempMsg(const AMsg :TString);
+      procedure SetTempMsg(const AMsg :TString; aInvalidate :Boolean = True);
       procedure InvalidateMsgRect;
       procedure PaintWindow(DC :HDC);
       procedure DrawTempText(DC :HDC; const AStr :TString);
+      procedure DrawAddInfo(DC :HDC);
 
       procedure ShowWindow;
       procedure HideWindow;
@@ -248,6 +251,9 @@ interface
       FMapFile     :THandle;
       FMapHandle   :THandle;
 
+      FInfoInited  :Boolean;
+
+      procedure CollectInfo;
       function PrecacheFile :Boolean;
       procedure ReleaseCache;
 
@@ -270,6 +276,7 @@ interface
       function CanShowImage(const AFileName :TString) :Boolean;
       function ShowImage(const AFileName :TString; AMode :Integer; AForce :Boolean = False) :Boolean;
       procedure DisplayImage(aImage :TReviewImage; AMode :Integer);
+      procedure InvalidateImage;
       procedure SetImagePage(aPage :Integer);
       procedure Navigate(AOrig :Integer; AForward :Boolean);
       procedure Redecode(AMode :TRedecodeMode = rmSame; aShowInfo :Boolean = True);
@@ -278,7 +285,7 @@ interface
       function Save(const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean;
       procedure SetFullscreen(aOn :Boolean);
       procedure ChangeVolume(aDeltaVolume, aVolume :Integer);
-      procedure SetTempMsg(const AMsg :TString);
+      procedure SetTempMsg(const AMsg :TString; aInvalidate :Boolean = True);
       procedure UpdateWindowPos;
       procedure SyncDelayed(aCmd, aDelay :Integer);
       procedure SyncWindow;
@@ -304,7 +311,6 @@ interface
       FFavDecoder :TReviewDecoder;     { Предпочитаемый декодер }
 
       FBackBmp    :TReviewBitmap;
-      FShowInfo   :Boolean;
 
       procedure CreateWinThread;
       procedure CacheImage(aImage :TReviewImage);
@@ -375,6 +381,10 @@ interface
     hConsoleTopWnd :THandle;
 
     GLockSync :Integer;
+
+  const
+    cOrients :array[0..8] of TString =
+      ('0', '1', 'H', '180'#176, 'V', 'H-90'#176, '90'#176, 'H+90'#176, '-90'#176);
 
 
   procedure FreeImage(var aImage :TReviewImage);
@@ -866,7 +876,7 @@ interface
       FDraftMode := False;
       FHiQual := True;
 
-      FAnimate := FImage.FAnimated and (FImage.FPages > 1) {and (FImage.FDelay > 0)};
+      FAnimate := FImage.FAnimated and (FImage.FPages > 1) and (FImage.FDelay > 0);
       FPageStart := GetTickCount;
 
       FTempMsg := '';
@@ -885,8 +895,19 @@ interface
     end;
   end;
 
+  const
+    cmtInvalidate = 0;
+    cmtSetPage    = 1;
+    cmtRotate     = 2;
+    cmtOrient     = 3;
 
   procedure TReviewWindow.CMTransform(var Mess :TMessage); {message CM_Transform;}
+
+     procedure LocInvalidate;
+     begin
+       FHiQual := True;
+       Invalidate;
+     end;
 
      procedure LocSetPage(APage :Integer);
      begin
@@ -903,19 +924,19 @@ interface
      procedure LocRotate(ARotate :Integer);
      begin
        FImage.Rotate(ARotate);
-       FHiQual := True;
        FTempMsg := '';
        RecalcRects;
-       Invalidate;
+       LocInvalidate;
        FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
      end;
 
   begin
     if FImage <> nil then begin
       case Mess.wParam of
-        0: LocSetPage(Mess.lParam);
-        1: LocRotate(Mess.lParam);
-        2: {};
+        cmtInvalidate : LocInvalidate;
+        cmtSetPage    : LocSetPage(Mess.lParam);
+        cmtRotate     : LocRotate(Mess.lParam);
+        cmtOrient     : {};
       end;
     end;
   end;
@@ -995,7 +1016,7 @@ interface
 
   procedure TReviewWindow.CMTempMsg(var Mess :TMessage); {message CM_TempMsg;}
   begin
-    SetTempMsg(TString(Mess.lParam));
+    SetTempMsg(TString(Mess.lParam), Mess.WParam = 1);
   end;
 
 
@@ -1059,12 +1080,13 @@ interface
   end;
 
 
-  procedure TReviewWindow.SetTempMsg(const AMsg :TString);
+  procedure TReviewWindow.SetTempMsg(const AMsg :TString; aInvalidate :Boolean = True);
   begin
     FTempMsg := AMsg;
     FMsgStart := GetTickCount;
     FMsgDelay := optTempMsgDelay;
-    InvalidateMsgRect;
+    if aInvalidate then
+      InvalidateMsgRect;
   end;
 
 
@@ -1078,7 +1100,6 @@ interface
   end;
 
 
-
   procedure TReviewWindow.RecalcRects;
   var
     vWinRect :TRect;
@@ -1090,18 +1111,15 @@ interface
       vWinSize := Size(Right - Left, Bottom - Top);
 
     if FMode = smAutoFit then begin
-      if (FImage.FWidth > vWinSize.cx) or (FImage.FHeight > vWinSize.cy) then begin
-        { Подберем масштаб, чтобы изображение вписывалось в экран }
-        FScale := FloatMin( vWinSize.cx / FImage.FWidth, vWinSize.cy / FImage.FHeight);
-        if FScale > 0 then
-          FLnScale := Ln(FScale) / Ln( cScaleStep)
-        else
-          FLnScale := 0;
-      end else
-      begin
-        FScale := 1;
+      { Подберем масштаб, чтобы изображение вписывалось в экран }
+      FScale := FloatMin( vWinSize.cx / FImage.FWidth, vWinSize.cy / FImage.FHeight);
+      if FScale > (optInitialScale / 100) then
+        FScale := (optInitialScale / 100);
+
+      if FScale > 0 then
+        FLnScale := Ln(FScale) / Ln( cScaleStep)
+      else
         FLnScale := 0;
-      end;
     end;
 
     vPicSize := Size(
@@ -1215,7 +1233,6 @@ interface
   procedure TReviewWindow.SetWindowBounds(const aRect :TRect);
   begin
     SetBounds(aRect, 0);
-
     if not FClipped then
       FClipStart := GetTickCount;
   end;
@@ -1300,7 +1317,7 @@ interface
     procedure LocDraw(ADC :HDC; const ADstRect :TRect);
     var
       vBmpRect :TRect;
-      vNeedStretch, vIncrease :Boolean;
+      vNeedStretch, vIncrease, vSmooth :Boolean;
     begin
       vBmpRect := FSrcRect;
       if (FImage.FBitmap.Size.CX <> FImage.FWidth) or (FImage.FBitmap.Size.CY <> FImage.FHeight) then
@@ -1316,20 +1333,25 @@ interface
         vIncrease := (vBmpRect.Right - vBmpRect.Left) < (ADstRect.Right - ADstRect.Left);
 
         if FHiQual then begin
-          if not FImage.FIsThumbnail and (vIncrease or vTransparent) {not (GetKeyState(VK_Shift) < 0)} then begin
+          { При уменьшении сглаживаем всегда, а при увеличении - только если включена опция optSmoothScale }
+          vSmooth := not vIncrease or (vIncrease and optSmoothScale);
+
+          if not FImage.FIsThumbnail and ((vIncrease and vSmooth) or (vTransparent and not vIncrease)) then begin
             if TryLockGDIPlus then begin
               try
-                GDIPlusStretchDraw(ADC, ADstRect, FImage.FBitmap.BMP, vBmpRect, vTransparent, True);
+                GDIPlusStretchDraw(ADC, ADstRect, FImage.FBitmap.BMP, vBmpRect, vTransparent, vSmooth);
               finally
                 UnlockGDIPlus;
               end;
             end else
-              GDIStretchDraw(ADC, ADstRect, FImage.FBitmap.DC, vBmpRect, vTransparent, True);
+              GDIStretchDraw(ADC, ADstRect, FImage.FBitmap.DC, vBmpRect, vTransparent, vSmooth);
           end else
-            GDIStretchDraw(ADC, ADstRect, FImage.FBitmap.DC, vBmpRect, vTransparent, True);
+            GDIStretchDraw(ADC, ADstRect, FImage.FBitmap.DC, vBmpRect, vTransparent, vSmooth);
+
           FDraftMode := False;
         end else
         begin
+          { Быстрый вывод - без сглаживания }
           if vTransparent and (FWinBPP < 32) then
             GDIPlusStretchDraw(ADC, ADstRect, FImage.FBitmap.BMP, vBmpRect, vTransparent, False)
           else
@@ -1337,6 +1359,7 @@ interface
           FDraftMode := True;
           FDraftStart := GetTickCount;
         end;
+
       end else
       begin
         GDIBitBlt(ADC, ADstRect, FImage.FBitmap.DC, vBmpRect, vTransparent);
@@ -1422,6 +1445,9 @@ interface
       end else
         FillRect(DC, vClientRect, FBrush);
 
+      if optShowInfo <> 0 then
+        DrawAddInfo(DC);
+
       if FTempMsg <> '' then
         DrawTempText(DC, FTempMsg);
 
@@ -1456,6 +1482,59 @@ interface
       FillRect(DC, vRect, FMsgBrush);
       SetTextColor(DC, RGB(0, 0, 0));
       TextOut(DC, X, Y, PTChar(AStr), Length(AStr));
+
+    finally
+      SelectObject(DC, vOldFont);
+    end;
+  end;
+
+
+  procedure TReviewWindow.DrawAddInfo(DC :HDC);
+  const
+    cNameWidth = 80;
+  var
+    X, Y :Integer;
+    vSize :TSize;
+
+    procedure DrawItem(const AName, AValue :TString);
+    begin
+      TextOut(DC, X, Y, PTChar(AName), Length(AName));
+      TextOut(DC, X + cNameWidth, Y, PTChar(AValue), Length(AValue));
+      Inc(Y, vSize.cy + 2);
+    end;
+
+  var
+    vFont, vOldFont :HFont;
+  begin
+    vFont := GetStockObject(DEFAULT_GUI_FONT);
+    vOldFont := SelectObject(DC, vFont);
+    if vOldFont = 0 then
+      Exit;
+    try
+      SetTextColor(DC, RGB(0, 0, 0));
+      GetTextExtentPoint32(DC, '1', 1, vSize);
+
+      FImage.CollectInfo;
+
+      X := 0; Y := 0;
+      DrawItem('Name',   ExtractFileName(FImage.FName));
+      DrawItem('Size',   Int64ToStrEx(FImage.FSize));
+      DrawItem('Time',   DateTimeToStr(FileDateToDateTime(FImage.FTime)));
+
+      Inc(Y, vSize.cy div 2);
+      
+      DrawItem('Format',      FImage.FFormat);
+      DrawItem('Dimension',   IntToStr(FImage.FWidth) + ' x ' + IntToStr(FImage.FHeight));
+      DrawItem('Colors',      IntToStr(FImage.FBPP) + ' BPP');
+      if FImage.FPages > 1 then
+        DrawItem('Pages', IntToStr(FImage.FPage + 1) + ' / ' + IntToStr(FImage.FPages));
+      if FImage.FOrient > 1 then
+        DrawItem('Orientation', cOrients[FImage.FOrient]);
+
+      Inc(Y, vSize.cy div 2);
+
+      DrawItem('Decoder',     FImage.FDecoder.Title);
+      DrawItem('Decode Time', Format('%d ms', [FImage.FOpenTime + FImage.FDecodeTime]));
 
     finally
       SelectObject(DC, vOldFont);
@@ -1515,7 +1594,7 @@ interface
   function TReviewWindow.Idle :Boolean;
   var
     vRect :TRect;
-    vArea, vCX, vCY :Integer;
+    vArea, vCX, vCY, vDelay :Integer;
   begin
     Windows.GetClientRect(hFarWindow, vRect);
     if IsWindowVisible(Handle) and not RectEmpty(vRect) and not RectEquals(vRect, FParentRect) then begin
@@ -1562,10 +1641,15 @@ interface
       RedrawWindow(Handle, nil, 0, RDW_INVALIDATE or RDW_ALLCHILDREN);
     end;
 
-    if FAnimate and (TickCountDiff(GetTickCount, FPageStart) > FImage.FDelay) then begin
+    if (FImage <> nil) and FAnimate then begin
       { Анимация... }
-      FPageStart := GetTickCount;
-      SetPage( IntIf(FImage.FPage < FImage.FPages - 1, FImage.FPage + 1, 0) );
+      vDelay := FImage.FDelay;
+      if vDelay = 0 then
+        vDelay := cDefAnimationStep;
+      if TickCountDiff(GetTickCount, FPageStart) > vDelay then begin
+        FPageStart := GetTickCount;
+        SetPage( IntIf(FImage.FPage < FImage.FPages - 1, FImage.FPage + 1, 0) );
+      end;
     end;
 
     if (FTempMsg <> '') and (TickCountDiff(GetTickCount, FMsgStart) > FMsgDelay) then begin
@@ -1694,6 +1778,36 @@ interface
     MemFree(FCacheBuf);
   end;
 *)
+
+  function GetFileInfo(const FileName :TString; var aTime :Integer; var aSize :TInt64) :Boolean;
+  var
+    Handle: THandle;
+    FindData: TWin32FindData;
+  begin
+    Handle := FindFirstFile(PTChar(FileName), FindData);
+    if Handle <> INVALID_HANDLE_VALUE then begin
+      Windows.FindClose(Handle);
+      if (FindData.dwFileAttributes and FILE_ATTRIBUTE_DIRECTORY) = 0 then begin
+        aTime := FileTimeToDosFileDate(FindData.ftLastWriteTime);
+        aSize := MakeInt64(FindData.nFileSizeLow, FindData.nFileSizeHigh);
+        Result := True;
+        Exit;
+      end;
+    end;
+    Result := False;
+  end;
+
+
+  procedure TReviewImage.CollectInfo;
+  begin
+    if FInfoInited then
+      Exit;
+
+    GetFileInfo(FName, FTime, FSize);
+
+    FInfoInited := True;
+  end;
+
 
   function TReviewImage.PrecacheFile :Boolean;
   begin
@@ -2104,10 +2218,10 @@ interface
 
 
 
-  procedure TReviewManager.SetTempMsg(const AMsg :TString);
+  procedure TReviewManager.SetTempMsg(const AMsg :TString; aInvalidate :Boolean = True);
   begin
     if FWindow <> nil then
-      SendMessage(FWindow.Handle, CM_TempMsg, 0, TIntPtr(AMsg));
+      SendMessage(FWindow.Handle, CM_TempMsg, Byte(aInvalidate), TIntPtr(AMsg));
   end;
 
 
@@ -2263,8 +2377,6 @@ interface
   function TReviewManager.GetWindowTitle :TString;
   const
     vDelim = $2022;
-    cOrients :array[0..8] of TString =
-      ('0', '1', 'H', '180'#176, 'V', 'H-90'#176, '90'#176, 'H+90'#176, '-90'#176);
 
     function LengthToStr(ASec :Integer) :TString;
     var
@@ -2546,10 +2658,17 @@ interface
   end;
 
 
+  procedure TReviewManager.InvalidateImage;
+  begin
+    if FWindow <> nil then
+      SendMessage(FWindow.Handle, CM_Transform, cmtInvalidate, 0);
+  end;
+
+
   procedure TReviewManager.SetImagePage(aPage :Integer);
   begin
     if FWindow <> nil then
-      SendMessage(FWindow.Handle, CM_Transform, 0, aPage);
+      SendMessage(FWindow.Handle, CM_Transform, cmtSetPage, aPage);
   end;
 
 
@@ -2557,7 +2676,7 @@ interface
   begin
     if FWindow <> nil then begin
       SetTempMsg(GetMsg(strRotate));
-      SendMessage(FWindow.Handle, CM_Transform, 1, ARotate);
+      SendMessage(FWindow.Handle, CM_Transform, cmtRotate, ARotate);
     end;
   end;
 
@@ -2566,7 +2685,7 @@ interface
   begin
     if FWindow <> nil then begin
       SetTempMsg(GetMsg(strRotate));
-      SendMessage(FWindow.Handle, CM_Transform, 2, AOrient);
+      SendMessage(FWindow.Handle, CM_Transform, cmtOrient, AOrient);
     end;
   end;
 
@@ -2637,31 +2756,65 @@ interface
       SendMessage(FWindow.Handle, CM_Move, 0, LPARAM(@vRec));
     end;
 
+    procedure LocMovePage(ADX, ADY :Integer);
+    begin
+      if not CurImage.FMovie then begin
+        with Window.ClientRect do begin
+          ADX := ADX * (Right - Left);
+          ADY := ADY * (Bottom - Top);
+        end;
+        LocMove(ADX, ADY);
+      end;
+    end;
+
     procedure LocShowInfo;
     begin
-      FShowInfo := not FShowInfo;
-      ShowDecoderInfo;
+      optShowInfo := 1 - optShowInfo;
+//    ShowDecoderInfo;
+      InvalidateImage;
     end;
 
     procedure LocSwitchBack;
     begin
       optTranspBack := not optTranspBack;
-      if FWindow <> nil then begin
-        FWIndow.FHiQual := True;
-        FWindow.Invalidate;
-      end;
+      InvalidateImage;
     end;
 
     procedure LocSwitchTile;
     begin
       optTileMode := not optTileMode;
-      if FWindow <> nil then begin
-        FWIndow.FHiQual := True;
-        FWindow.Invalidate;
-      end;
+      InvalidateImage;
     end;
 
-    procedure LocSelectCurrent;
+    procedure LocSwitchSmooth;
+    begin
+      optSmoothScale := not optSmoothScale;
+      SetTempMsg('Smooth mode: ' + StrIf(optSmoothScale, 'On', 'Off'), False);
+      InvalidateImage;
+    end;
+
+    procedure LocSetSmoothMode(aMode :Integer);
+    const
+      cModeNames :array[0..7] of TSTring =
+        ('Default', 'Low', 'High', 'Bilinear', 'Bicubic', 'Nearest', 'HQBilinear', 'HQBicubic');
+    begin
+      optSmoothScale := True;
+      optSmoothMode := aMode;
+      SetTempMsg('Smooth mode: ' + Int2Str(optSmoothMode) + ' - ' + cModeNames[optSmoothMode], False);
+      InvalidateImage;
+    end;
+
+    procedure LocSwitchSmoothMode;
+    var
+      vNewMode :Integer;
+    begin
+      vNewMode := IntIf(optSmoothMode < InterpolationModeHighQualityBicubic, optSmoothMode + 1, InterpolationModeBilinear);
+      if vNewMode = InterpolationModeNearestNeighbor then
+        Inc(vNewMode);
+      LocSetSmoothMode( vNewMode );
+    end;
+
+    procedure LocSelectCurrent(AMode :Integer);
     var
       vInfo :TPanelInfo;
       vItem :PPluginPanelItem;
@@ -2676,10 +2829,10 @@ interface
             vName := AddFileName(FarPanelGetCurrentDirectory(PANEL_ACTIVE), vItem.FileName);
             if StrEqual(CurImage.FName, vName) then begin
 
-              if PPIF_SELECTED and vItem.Flags <> 0 then
-                FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, nil )
+              if (AMode = 1) or ((AMode = -1) and (PPIF_SELECTED and vItem.Flags = 0)) then
+                FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, Pointer(PPIF_SELECTED) )
               else
-                FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, Pointer(PPIF_SELECTED) );
+                FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, nil );
 
               CurImage.FSelected := -1;
               FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
@@ -2805,6 +2958,11 @@ interface
           else
             ChangeVolume(0, 0);
 
+        Key_AltLeft  : LocMovePage(+1,  0);
+        Key_AltRight : LocMovePage(-1,  0);
+        Key_AltUp    : LocMovePage( 0, +1);
+        Key_ALtDown  : LocMovePage( 0, -1);
+
         { Переключение изображений }
         Key_Home, Key_ShiftHome : Navigate(1, True);
         Key_End, Key_ShiftEnd   : Navigate(2, False);
@@ -2837,6 +2995,9 @@ interface
         KEY_CtrlI, Byte('i') : LocShowInfo;
         KEY_CtrlB, Byte('b') : LocSwitchBack;
         KEY_CtrlT, Byte('t') : LocSwitchTile;
+        KEY_CtrlQ, Byte('q') : LocSwitchSmooth;
+        KEY_AltQ             : LocSwitchSmoothMode;
+        KEY_ALT0..KEY_ALT7   : LocSetSmoothMode(AKey - KEY_ALT0);
 
         KEY_CtrlF, Byte('f') :
           SetFullscreen(FWindow.FWinMode = wmNormal);
@@ -2846,7 +3007,8 @@ interface
         Key_Alt + Byte('.') : Rotate(3); { Alt> - X-Flip }
         Key_Alt + Byte(',') : Rotate(4); { Alt< - Y-Flip }
 
-        Key_Ins     : LocSelectCurrent;
+        Key_Ins     : LocSelectCurrent(-1);
+        Key_Del     : LocSelectCurrent(0);
 
         Key_F2      : Save('', '', 0, 0, [soTransformation]);
         Key_CtrlF2  : Save('', '', 0, 0, [soTransformation, soEnableLossy]);

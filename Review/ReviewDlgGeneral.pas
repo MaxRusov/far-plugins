@@ -127,13 +127,15 @@ interface
     IdPrecacheChk   = 9;
     IdKeepZoomChk   = 10;
 
-    IdThumnailChk   = 12;
-    IdScreenSizeChk = 13;
-    IdAutorotateChk = 14;
-    IdKeepDateChk   = 15;
+    IdScaleEdt      = 12;
 
-    IdOk            = 17;
-    IdCancel        = 18;
+    IdThumnailChk   = 14;
+    IdScreenSizeChk = 15;
+    IdAutorotateChk = 16;
+    IdKeepDateChk   = 17;
+
+    IdOk            = 19;
+    IdCancel        = 20;
 
 
   procedure TConfigDlg.Prepare; {override;}
@@ -170,6 +172,9 @@ interface
         NewItem(DI_CheckBox,  -X1,   2,    0, 0,   0,  GetMsg(strPrecache) ),
         NewItem(DI_CheckBox,  -X1,   1,    0, 0,   0,  GetMsg(strKeepZoom) ),
 
+        NewItem(DI_Text,      -X1,   1,    0, 0,   0,  GetMsg(strInitialScale) ),
+        NewItem(DI_Edit,        1,   0,   +5, 0,   0),
+
         NewItem(DI_Text,      -X1,   2,    0, 0,   0,  GetMsg(strInternalDecoder) ),
         NewItem(DI_CheckBox,  -X1-1, 1,    0, 0,   0,  GetMsg(strUseThumbnail) ),
         NewItem(DI_CheckBox,  -X1-1, 1,    0, 0,   0,  GetMsg(strDecodeScreenSize) ),
@@ -188,6 +193,7 @@ interface
   procedure TConfigDlg.InitDialog; {override;}
   begin
     SetText(IdPrefixEdt, optCmdPrefix);
+    SetText(IdScaleEdt, Int2Str(optInitialScale));
 
     SetChecked(IdViewChk, optProcessView);
     SetChecked(IdQViewChk, optProcessQView);
@@ -208,9 +214,20 @@ interface
 
 
   function TConfigDlg.CloseDialog(ItemID :Integer) :Boolean; {override;}
+  const
+    cMaxScale = 9999;
+  var
+    vScale :Integer;
   begin
     if (ItemID <> -1) and (ItemID <> IdCancel) then begin
+      vScale := Str2IntDef(GetText(IdScaleEdt), -1);
+      if (vScale < 1) or (vScale > cMaxScale) then begin
+        SendMsg(DM_SetFocus, IdScaleEdt, 0);
+        AppErrorIdFmt(strValidRangeError, [1, cMaxScale]);
+      end;
+
       optCmdPrefix := GetText(IdPrefixEdt);
+      optInitialScale := vScale;
 
       optProcessView := GetChecked(IdViewChk);
       optProcessQView := GetChecked(IdQViewChk);
