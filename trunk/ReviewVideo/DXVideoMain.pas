@@ -33,10 +33,12 @@ interface
 
 
   const
-    cVideoFormats = '3GP,AVI,FLV,MKV,MOV,MP4,MPG,MPEG,WMV';
+    cVideoFormats = '3GP,AVI,FLV,MKV,MOV,MP4,MPG,MPEG,MTS,WMV';
 
   var
     optVolume :Integer = 100;
+
+    optHideOSDDelay :Integer = 3000;
 
 
   function pvdInit2(pInit :PpvdInitPlugin2) :integer; stdcall;
@@ -125,6 +127,22 @@ interface
   type
     TView = class;
 
+    TScreen = class(TMSWindow)
+    public
+      constructor CreateEx(AOwner :TMSWindow);
+    protected
+      procedure CreateParams(var AParams :TCreateParams); override;
+
+    private
+      FOwner :TMSWindow;
+
+      procedure WMNCHitTest(var Mess :TWMNCHitTest); message WM_NCHitTest;
+      procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
+      procedure WMPaint(var Mess :TWMPaint); message WM_Paint;
+      procedure WMGraphEvent(var Mess :TMessage); message WM_GRAPH_EVENT;
+    end;
+
+
     TMyTracker = class(TTracker)
     public
       procedure SetLimit(AValue :Integer);
@@ -133,7 +151,7 @@ interface
     protected
       procedure ChangePos(aValue :Integer); virtual;
 
-    protected
+    private
       FOwner   :TView;
       FLimit   :Integer;
       FDragged :Boolean;
@@ -158,18 +176,14 @@ interface
 
     public
       procedure DefaultHandler(var Mess ); override;
-      
+
     protected
       procedure CreateParams(var AParams :TCreateParams); override;
+      procedure ErrorHandler(E :Exception); override;
+
       procedure WMWindowPosChanged(var Mess :TWMWindowPosChanged); message WM_WindowPosChanged;
       procedure WMCtlColorStatic(var Mess :TWMCtlColorStatic); message WM_CtlColorStatic;
       procedure WMCommand(var Mess :TWMCommand); message WM_Command;
-//    procedure WMNotify(var Mess :TWMNotify); message WM_Notify;
-//    procedure WMHScroll(var Mess :TWMHScroll); message WM_HScroll;
-//    procedure WMLButtonDown(var Mess :TWMLButtonDown); message WM_LButtonDown;
-//    procedure WMLButtonDblClk(var Mess :TWMLButtonDblClk); message WM_LButtonDblClk;
-//    procedure WMNCHitTest(var Mess :TWMNCHitTest); message WM_NCHitTest;
-      procedure WMMouseActivate(var Mess :TWMMouseActivate); message WM_MouseActivate;
       procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
       procedure CMLoadVideo(var Mess :TMessage); message CM_LoadVideo;
       procedure CMGotoPos(var Mess :TMessage); message CM_GotoPos;
@@ -178,12 +192,13 @@ interface
 
     private
       FOwner    :TView;
-      FColor    :DWORD;
+//    FColor    :DWORD;
       FBrush    :HBrush;
       FBrush1   :HBrush;
       FBrush2   :HBrush;
 
       FImages   :HImagelist;
+      FScreen   :TScreen;
       FToolbar  :TToolbar;
       FTracker  :TMyTracker;
       FVolCtrl  :TMyVolume;
@@ -192,9 +207,17 @@ interface
       FLastTime   :Integer;
       FLastVolume :Integer;
 
+      FShowOSD    :Boolean;
+      FMouseTime  :DWORD;
+      FHideTime   :DWORD;
+
       procedure SetupControls;
-      procedure RealignControls(var aRect :TRect);
-      procedure SetColor(aColor :DWORD);
+      procedure RealignControls(const aRect :TRect);
+//    procedure SetColor(aColor :DWORD);
+
+      function IsFullScreen :Boolean;
+      procedure ShowOSD(aShow :Boolean);
+
       function Idle :Boolean;
     end;
 
@@ -235,7 +258,7 @@ interface
     private
       FRefCount    :Integer;
       FSrcName     :TString;
-      FVideo       :THandle;
+      FMedia       :TMedia;
       FImgSize     :TSize;
       FLength      :Double;
       FState       :Integer;
@@ -247,6 +270,66 @@ interface
       procedure DoLoadFile;
       procedure DoResize({const} ARect :TRect);
     end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TScreen                                                                  }
+ {-----------------------------------------------------------------------------}
+
+  constructor TScreen.CreateEx(AOwner :TMSWindow);
+  begin
+    Create;
+    FOwner := AOwner;
+  end;
+
+
+  procedure TScreen.CreateParams(var AParams :TCreateParams); {override;}
+  begin
+    inherited CreateParams(AParams);
+    AParams.Style := WS_CHILD or WS_VISIBLE;
+    AParams.WndParent := FOwner.Handle;
+  end;
+
+
+  procedure TScreen.WMNCHitTest(var Mess :TWMNCHitTest); {message WM_NCHitTest;}
+  begin
+    Mess.Result := HTTRANSPARENT;
+  end;
+
+
+  procedure TScreen.WMEraseBkgnd(var Mess :TWMEraseBkgnd); {message WM_EraseBkgnd;}
+  begin
+    with (FOwner as TPlayerWindow).FOwner do
+      if (FMedia <> nil) and not FMedia.IsVideo then
+        FillRect(Mess.DC, ClientRect, COLOR_WINDOWTEXT + 1);
+    Mess.Result := 1;
+  end;
+
+
+  procedure TScreen.WMPaint(var Mess :TWMPaint); {message WM_Paint;}
+  var
+    DC :HDC;
+    PS :TPaintStruct;
+  begin
+    DC := Mess.DC;
+    if DC = 0 then
+      DC := BeginPaint(Handle, PS);
+    try
+      with (FOwner as TPlayerWindow).FOwner do
+        if (FMedia <> nil) and FMedia.IsVideo then
+          FMedia.Repaint(Handle, DC);
+    finally
+      if Mess.DC = 0 then
+        EndPaint(Handle, PS);
+    end;
+  end;
+
+
+  procedure TScreen.WMGraphEvent(var Mess :TMessage); {message WM_GRAPH_EVENT;}
+  begin
+    with (FOwner as TPlayerWindow).FOwner do
+      FMedia.HandleEvents(nil);
+  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -342,9 +425,9 @@ interface
     FOwner := AOwner;
     CreateHandle;
     SetupControls;
-//  SetupFont;
     FBrush1 := CreateSolidBrush(cColor1);
     FBrush2 := CreateSolidBrush(cColor3);
+    FShowOSD := True;
     FLastState := 0;
   end;
 
@@ -352,12 +435,10 @@ interface
   destructor TPlayerWindow.Destroy; {override;}
   begin
     DestroyHandle;
-    if FBrush <> 0 then
-      DeleteObject(FBrush);
-    if FBrush1 <> 0 then
-      DeleteObject(FBrush1);
-    if FBrush2 <> 0 then
-      DeleteObject(FBrush2);
+    WidDeleteObject(FBrush);
+    WidDeleteObject(FBrush1);
+    WidDeleteObject(FBrush2);
+    FreeObj(FScreen);
     FreeObj(FTracker);
     FreeObj(FVolCtrl);
     FreeObj(FToolbar);
@@ -375,6 +456,21 @@ interface
 //  AParams.Style := WS_OVERLAPPEDWINDOW;
   end;
 
+
+  procedure TPlayerWindow.DefaultHandler(var Mess ); {override;}
+  begin
+    with TMessage(Mess) do begin
+      if (Msg >= WM_MOUSEFIRST) and (Msg <= WM_MOUSELAST) then begin
+        if (FHideTime = 0) or (TickCountDiff(GetTickCount, FHideTime) > 500) then
+          FMouseTime := GetTickCount;
+      end;
+
+      if Msg = WM_LButtonDblClk then begin
+        Result := SendMessage(ReviewWindow, Msg, WParam, LParam);
+      end else
+        inherited;
+    end;
+  end;
 
 
   const
@@ -411,6 +507,9 @@ interface
 
     X := cDeltaX;
     Y := vRect.Bottom - ((cPanHeight + cTbrHeight) div 2);
+
+    FScreen := TScreen.CreateEx(Self);
+
     FToolbar := TToolbar.CreateEx(Self, 0, X, Y, cTbrWidth, cTbrHeight,
       CCS_NORESIZE or CCS_NODIVIDER or TBSTYLE_FLAT, '');
     Inc(X, cTbrWidth);
@@ -437,12 +536,18 @@ interface
   end;
 
 
-  procedure TPlayerWindow.RealignControls(var aRect :TRect);
+  procedure TPlayerWindow.RealignControls(const aRect :TRect);
   var
     X, Y, W :Integer;
   begin
     X := cDeltaX;
-    Y := aRect.Bottom - ((cPanHeight + cTbrHeight) div 2);
+    if FShowOSD then
+      Y := aRect.Bottom - ((cPanHeight + cTbrHeight) div 2)
+    else
+      Y := aRect.Bottom;
+
+    FScreen.SetBounds(Rect(aRect.Left, aRect.Top, aRect.Right, Y), 0);
+
     FToolbar.SetBounds(Bounds(X, Y, cTbrWidth, cTbrHeight), 0);
     Inc(X, cTbrWidth);
 
@@ -453,7 +558,7 @@ interface
     Inc(X, W);
     FVolCtrl.SetBounds(Bounds(X, Y, cVolWidth, cTrkHeight), 0);
 
-    Dec(aRect.Bottom, cPanHeight);
+//  Dec(aRect.Bottom, cPanHeight);
   end;
 
 
@@ -467,7 +572,7 @@ interface
       if FTracker <> nil then
         RealignControls(vRect);
       if FOwner <> nil then
-        FOwner.DoResize(vRect);
+        FOwner.DoResize(FScreen.ClientRect);
     end;
   end;
 
@@ -499,71 +604,12 @@ interface
   end;
 
 
-//procedure TPlayerWindow.WMNCHitTest(var Mess :TWMNCHitTest); {message WM_NCHitTest;}
-//begin
-//  Mess.Result := HTTRANSPARENT;
-//end;
-
-
-  procedure TPlayerWindow.WMMouseActivate(var Mess :TWMMouseActivate); {message WM_MouseActivate;}
-  begin
-    inherited;
-  end;
-
-
-(*
-  procedure TPlayerWindow.WMMouseActivate(var Mess :TWMMouseActivate); {message WM_MouseActivate;}
-  var
-    hConsoleTopWnd :THandle;
-  begin
-    hConsoleTopWnd := GetAncestor(Handle, GA_ROOT);
-
-    if GetParent(ReviewWindow) = 0 then begin
-//    TraceF('Make topmost %x...', [hConsoleTopWnd]);
-      Windows.SetWindowPos(ReviewWindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE or SWP_SHOWWINDOW );
-      SetActiveWindow(hConsoleTopWnd);
-      Windows.SetWindowPos(ReviewWindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE or SWP_SHOWWINDOW );
-    end else
-    begin
-//    TraceF('Make active %x...', [hConsoleTopWnd]);
-      SetActiveWindow(hConsoleTopWnd);
-      Beep;
-    end;
-
-//  Mess.Result := MA_NoActivateAndEat
-    Mess.Result := MA_NoActivate;
-  end;
-*)
-
-  procedure TPlayerWindow.DefaultHandler(var Mess ); {override;}
-  begin
-    with TMessage(Mess) do
-      if Msg = WM_LButtonDblClk then begin
-        Result := SendMessage(ReviewWindow, Msg, WParam, LParam);
-      end else
-        inherited;
-  end;
-
-
  {-----------------------------------------------------------------------------}
 
-
   procedure TPlayerWindow.WMEraseBkgnd(var Mess :TWMEraseBkgnd); {message WM_EraseBkgnd;}
-  var
-    vRect :TRect;
   begin
-    vRect := ClientRect;
-    Dec(vRect.Bottom, cPanHeight);
-
-    SetColor(0 {FOwner.FColor});
-    FillRect(Mess.DC, vRect, FBrush);
-//  GradientFillRect(Mess.DC, vRect, cColor3, cColor3, True);
-
-    vRect.Top := vRect.Bottom;
-    Inc(vRect.Bottom, cPanHeight);
-    FillRect(Mess.DC, vRect, FBrush1);
+    FillRect(Mess.DC, ClientRect, FBrush1);
 //  GradientFillRect(Mess.DC, vRect, cColor1, cColor2, True);
-
     Mess.Result := 1;
   end;
 
@@ -600,13 +646,38 @@ interface
   end;
 
 
-  procedure TPlayerWindow.SetColor(aColor :DWORD);
+//procedure TPlayerWindow.SetColor(aColor :DWORD);
+//begin
+//  if (FBrush = 0) or (FColor <> aColor) then begin
+//    WinDeleteObject(FBrush);
+//    FColor := aColor;
+//    FBrush := CreateSolidBrush(FColor);
+//  end;
+//end;
+
+
+  procedure TPlayerWindow.ErrorHandler(E :Exception); {override;}
   begin
-    if (FBrush = 0) or (FColor <> aColor) then begin
-      if FBrush <> 0 then
-        DeleteObject(FBrush);
-      FColor := aColor;
-      FBrush := CreateSolidBrush(FColor);
+    Beep;
+  end;
+
+
+  function TPlayerWindow.IsFullScreen :Boolean;
+  const
+    cClassName = 'TFullscreenWindow';
+  var
+    vBuf :array[0..128] of TChar;
+  begin
+    Result := IsWindowVisible(FHandle) and (GetClassName(GetAncestor(Handle, GA_ROOT), vBuf, High(vBuf)) > 0) and
+      (StrLIComp(@vBuf[0], cClassName, length(cClassName)) = 0);
+  end;
+
+
+  procedure TPlayerWindow.ShowOSD(aShow :Boolean);
+  begin
+    if FShowOSD <> aShow then begin
+      FShowOSD := aShow;
+      RealignControls(ClientRect);
     end;
   end;
 
@@ -614,6 +685,8 @@ interface
   function TPlayerWindow.Idle :Boolean;
   var
     vPos, vState :Integer;
+    vOldShow :Boolean;
+    vTick :DWORD;
   begin
     vPos := FOwner.GetPosMS;
 
@@ -634,6 +707,19 @@ interface
     if optVolume <> FLastVolume then begin
       FVolCtrl.SetPos(optVolume);
       FLastVolume := optVolume;
+    end;
+
+    vTick := GetTickCount;
+    if (optHideOSDDelay <> 0) and (vState = 1) and IsFullScreen and (FOwner.FMedia <> nil) and FOwner.FMedia.IsVideo then begin
+//      TraceF('%d', [TickCountDiff(vTick, FMouseTime)]);
+      vOldShow := FShowOSD;
+      ShowOSD( not (TickCountDiff(vTick, FMouseTime) > optHideOSDDelay) );
+      if vOldShow and not FShowOSD then
+        FHideTime := vTick;
+    end else
+    begin
+      ShowOSD(True);
+      FMouseTime := vTick;
     end;
 
     Result := True;
@@ -716,25 +802,24 @@ interface
 
   procedure TView.FreeStream;
   var
-    vVideo :THandle;
+    vMedia :TMedia;
   begin
-    if FVideo <> 0 then begin
-      vVideo := FVideo;
-      FVideo := 0;
-      xVideo_StreamFree(vVideo);
+    if FMedia <> nil then begin
+      vMedia := FMedia;
+      FMedia := nil;
+      vMedia.Free;
     end;
   end;
 
 
-
   procedure TView.DoLoadFile;
   begin
-    FVideo := xVideo_StreamCreateFile(PWideChar(FSrcName), 0, FWindow.Handle, 0);
-    if FVideo = 0 then
+    FMedia := OpenMediaFile(PWideChar(FSrcName), FWindow.FScreen.Handle);
+    if FMedia = nil then
       Exit;
-      
-    xVideo_ChannelGetInfo(FVideo, FImgSize.CX, FImgSize.CY);
-    FLength := xVideo_ChannelGetLength(FVideo, 0);
+
+    FMedia.GetVideoSize(FImgSize.CX, FImgSize.CY);
+    FLength := FMedia.GetLength;
   end;
 
 
@@ -742,10 +827,16 @@ interface
   begin
     FSrcName := AName;
     SendMessage(FWindow.Handle, CM_LoadVideo, 0, 0);
-    Result := FVideo <> 0;
+    Result := FMedia <> nil;
   end;
 
 
+  procedure TView.DoResize({const} ARect :TRect);
+  begin
+    FMedia.ResizeWindow(0, aRect);
+  end;
+
+(*
   procedure TView.DoResize({const} ARect :TRect);
   var
     vWinSize, vVideoSize :TSize;
@@ -756,21 +847,21 @@ interface
       vScale := FloatMin( vWinSize.CX / FImgSize.CX, vWinSize.cy / FImgSize.CY);
       vVideoSize := Size(Round(FImgSize.CX * vScale), Round(FImgSize.CY * vScale));
       ARect := Bounds( (vWinSize.CX - vVideoSize.CX) div 2, (vWinSize.CY - vVideoSize.CY) div 2, vVideoSize.CX, vVideoSize.CY);
-      xVideo_ChannelResizeWindow(FVideo, 0, ARect.Left, ARect.Top, ARect.Right-ARect.Left, ARect.Bottom-ARect.Top);
+      FMedia.ResizeWindow(0, aRect);
     end;
   end;
-
+*)
 
   procedure TView.Play;
   begin
-    xVideo_ChannelPlay(FVideo);
+    FMedia.Play;
     FState := 1;
   end;
 
 
   procedure TView.Stop;
   begin
-    xVideo_ChannelStop(FVideo);
+    FMedia.Stop;
     FState := 0;
   end;
 
@@ -781,11 +872,11 @@ interface
       GotoPosMS(0)
     end else
     if FState = 1 then begin
-      xVideo_ChannelPause(FVideo);
+      FMedia.Pause;
       FState := 2;
     end else
     begin
-      xVideo_ChannelPlay(FVideo);
+      FMedia.Play;
       FState := 1;
     end;
   end;
@@ -800,24 +891,24 @@ interface
   function TView.GetPosMS :Integer;
   begin
     Result := 0;
-    if FVideo = 0 then
+    if FMedia = nil then
       Exit;
-      
-    Result := Round(xVideo_ChannelGetPosition(FVideo, 0) * 1000);
+
+    Result := Round(FMedia.GetPosition * 1000);
   end;
 
 
   procedure TView.GotoPosMS(aPos :Integer);
   begin
     aPos := RangeLimit(aPos, 0, GetLenMS);
-    xVideo_ChannelSetPosition(FVideo, aPos / 1000, 0);
+    FMedia.SetPosition(aPos / 1000);
   end;
 
 
   procedure TView.SetVolume(aVolume :Integer);
   begin
     aVolume := RangeLimit(aVolume, 0, 100);
-    xVideo_ChannelSetAttribute(FVideo, xVideo_ATTRIB_VOL, aVolume);
+    FMedia.SetVolume(aVolume);
     optVolume := aVolume;
   end;
 
@@ -827,7 +918,7 @@ interface
     vRect :TRect;
   begin
 //  TraceF('TView.Activate. Visible=%d, Src=%s', [Byte(IsWindowVisible(ReviewWindow)), FSrcName]);
-    if FVideo = 0 then
+    if FMedia = nil then
       SendMessage(FWindow.Handle, CM_LoadVideo, 0, 0);
 
     SetParent(FWindow.Handle, ReviewWindow);
@@ -837,9 +928,15 @@ interface
 
     FWindow.Show(SW_SHOWNA);
 
-    {!!! Под ConEmu теряется фокус??? }
-    SetVolume(optVolume);
-    Play;
+    try
+      SetVolume(optVolume);
+    except
+    end;
+
+    try
+      Play;
+    except
+    end;
   end;
 
 
@@ -946,8 +1043,8 @@ interface
    {$endif bTracePvd}
     Result := PVD_UNICODE_INTERFACE_VERSION;
 
-    if not xVideo_Init(0, 0) then
-      begin pInit.nErrNumber := 1; exit; end;
+//  if not xVideo_Init(0, 0) then
+//    begin pInit.nErrNumber := 1; exit; end;
   end;
 
 
@@ -956,7 +1053,7 @@ interface
    {$ifdef bTracePvd}
     Trace('pvdExit2');
    {$endif bTracePvd}
-    xVideo_Free;
+//  xVideo_Free;
   end;
 
 
