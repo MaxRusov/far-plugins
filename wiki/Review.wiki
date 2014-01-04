@@ -31,6 +31,10 @@ http://far-plugins.googlecode.com/svn/trunk/Review/Image/Sample2.png
 
 = История изменений =
 
+== Ver 1.6 ==
+
+ * Исправлено несколько ошибок
+
 == Ver 1.5 ==
 
  * Показ тэгов (только для изображений) - CtrI
