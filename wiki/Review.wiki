@@ -18,6 +18,8 @@
 
  * [http://code.google.com/p/far-plugins/downloads/list?q=Review&can=1 Все версии]
 
+ * [http://code.google.com/p/far-plugins/downloads/list?q=gfl34 Библиотека GFL]
+
 
 == Пример ==
 
