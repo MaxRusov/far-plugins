@@ -51,6 +51,9 @@ type
   PDWORD = ^DWORD;
   LPDWORD = PDWORD;
 
+  UINT8 = BYTE;
+  UINT32 = LongWord;
+
   LONG = TInt32;
   UCHAR = Byte;
   PUCHAR = ^Byte;
@@ -75,7 +78,7 @@ type
   PHandle = ^THandle;
  {$ifndef bFreePascal}
  {$ifndef bDelphi15}
-  TThreadID = THandle;       
+  TThreadID = THandle;
  {$endif bDelphi15}
  {$endif bFreePascal}
 

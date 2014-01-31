@@ -2107,10 +2107,11 @@ interface
     H: THandle;
   begin
     H := FHandle;
-    if GetCurrentThreadID = MainThreadID then
-      while MsgWaitForMultipleObjects(1, H, False, INFINITE,
-        QS_SENDMESSAGE) = WAIT_OBJECT_0 + 1 do PeekMessage(Msg, 0, 0, 0, PM_NOREMOVE)
-    else WaitForSingleObject(H, INFINITE);
+    if GetCurrentThreadID = MainThreadID then begin
+      while MsgWaitForMultipleObjects(1, H, False, INFINITE, QS_SENDMESSAGE) = WAIT_OBJECT_0 + 1 do 
+        PeekMessage(Msg, 0, 0, 0, PM_NOREMOVE)
+    end else 
+      WaitForSingleObject(H, INFINITE);
     GetExitCodeThread(H, Result);
   end;
 
