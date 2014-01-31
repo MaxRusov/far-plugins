@@ -11,6 +11,8 @@ unit ReviewMain;
 
 {
 ToDo:
+  * Глючит анимация GIF'ов?
+
   - Глючит позиционирование окна QuickView в режиме Far Fullscreen
   - Глючит: QuicView-F3-PgDn-Esc
 
@@ -21,16 +23,17 @@ ToDo:
     + Управление с клавиатуры
       + Позиционирование
       + Play/Pause
-    - Управление громкостью
+    + Управление громкостью
     - Управление через макросы
-    - Улучшенное качество (?)
+    * Улучшенное качество (?)
+
+  * Slideshow
+    -
 
 На будущее:
   + Поддержка PVD v1
   - Поддержка PVD v3
-  - Показ EXIF
   - Popup меню
-  - Slideshow
 
 
 Ready:
@@ -81,6 +84,13 @@ Ready:
 
   + Поддержка Detach Console
   + Поддержка ConEmu
+
+  + Улучшенный вывод информации
+    + Свертка длинных строк
+    + Затенение фона
+  + Показ Tag'ов
+    + Локализация Tag'ов
+    + Нормализация дат
 }
 
 interface
@@ -121,10 +131,9 @@ interface
 
       function ViewerEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
       procedure SynchroEvent(AParam :Pointer); override;
-//    function ConsoleInput(const ARec :TInputRecord) :Integer; override;
 
     private
-      FCmdWords :TKeywordsList;
+      FCmdWords  :TKeywordsList;
 
      {$ifdef Far3}
       function MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :TIntPtr;
@@ -205,16 +214,36 @@ interface
   end;
 
 
+
   function TReviewPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
+
+    function IsRealFile :Boolean;
+    var
+      vInfo :TPanelInfo;
+    begin
+      Result := False;
+      if (FarGetMacroArea in [MACROAREA_SHELL, MACROAREA_SEARCH, MACROAREA_OTHER{???}]) and (FarGetWindowType = WTYPE_PANELS) then
+        if FarGetPanelInfo(True, vInfo) {and IsVisiblePanel(vInfo)} and (vInfo.PanelType = PTYPE_FILEPANEL) then
+          Result := not IsPluginPanel(vInfo) or (vInfo.Flags and PFLAGS_REALNAMES <> 0);
+    end;
+
   begin
     Result:= INVALID_HANDLE_VALUE;
     case AFrom of
       OPEN_PLUGINSMENU:
-        if Review.ShowImage('', 0, True) then
-          ViewModalState(False, False);
+        if IsRealFile then begin
+          if Review.ShowImage('', 0, True) then
+            ViewModalState(False, False);
+        end else
+        begin
+          Review.SetForceFile(FarPanelItemName(PANEL_ACTIVE, FCTL_GETCURRENTPANELITEM, 0), 2);
+          FarPostMacro('Keys("F3")');
+        end;  
+
       OPEN_VIEWER:
-        if Review.ShowImage(ViewerControlString(VCTL_GETFILENAME), 0) then
+        if Review.ShowImage(ViewerControlString(VCTL_GETFILENAME), 0, True) then
           ViewModalState(False, False);
+
 //    OPEN_ANALYSE:
 //      {};
     end;
@@ -259,7 +288,7 @@ interface
       Result := MacroCommand(AParams[0].Value.fString, ACount, AParams);
   end;
 
-
+  
   const
     kwIsQuickView     = 1;
     kwUpdate          = 2;
@@ -270,6 +299,7 @@ interface
     kwRotate          = 7;
     kwSave            = 8;
     kwFullscreen      = 9;
+    kwSlideShow       = 10;
 
 
   function TReviewPlug.MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :TIntPtr;
@@ -290,6 +320,7 @@ interface
         Add('Rotate', kwRotate);
         Add('Save', kwSave);
         Add('Fullscreen', kwFullscreen);
+        Add('SlideShow', kwSlideShow);
       end;
     end;
 
@@ -302,7 +333,8 @@ interface
       vOrig := FarValuesToInt(AParams, ACount, 1, -1);
       vDir := FarValuesToInt(AParams, ACount, 2, 1);
       if vOrig <> -1 then
-        Review.Navigate(vOrig, vDir > 0);
+        if not Review.Navigate(vOrig, vDir > 0) then
+          Beep;
     end;
 
     function LocPage :TIntPtr;
@@ -398,6 +430,19 @@ interface
       end;
     end;
 
+    function LocSlideShow :TIntPtr;
+    var
+      vMode :Integer;
+    begin
+      Result := 0;
+      if Review.Window <> nil then begin
+        vMode := FarValuesToInt(AParams, ACount, 1, -2);
+        if vMode <> -2 then
+          Review.SlideShow(vMode, False);
+        Result := FarReturnValues([Review.Window.SlideDelay <> 0]);
+      end;
+    end;
+
   var
     vCmd :Integer;
   begin
@@ -423,6 +468,8 @@ interface
         Result := LocSave;
       kwFullscreen:
         Result := LocFullscreen;
+      kwSlideShow:
+        Result := LocSlideShow;
     end;
   end;
  {$endif Far3}
@@ -432,12 +479,14 @@ interface
   function TReviewPlug.ViewerEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {override;}
   var
     vAltView, vQuickView, vRealNames :Boolean;
+    vForce :Integer;
     vInfo :TPanelInfo;
     vName :TString;
   begin
 //  TraceF('Event=%d, AParam=%d, AID=%d', [AEvent, TIntPtr(AParam), AID]);
 
     if AEvent = VE_Read then begin
+      vForce := 0;
       try
        {$ifdef Far3}
         vName := ViewerControlString(VCTL_GETFILENAME);
@@ -463,15 +512,25 @@ interface
               { ViewModalState(True) };
         end else
         begin
+          vForce := Review.ForceMode;
+          if vForce <> 0 then begin
+            if not StrEqual(Review.ForceFile, ExtractFileName(vName)) then
+              vForce := 0;
+            Review.SetForceFile('', 0);
+          end;
+
           vAltView := (GetKeyState(VK_Menu) < 0) or
             ((GetKeyState(VK_Control) < 0) and (GetKeyState(VK_Shift) < 0));
-          if optProcessView and not vAltView then
-            if Review.ShowImage(vName, 0) then
+          if (optProcessView and not vAltView) or (vForce <> 0) then
+            if Review.ShowImage(vName, 0, vForce = 2) then
               ViewModalState(True, False);
         end;
       except
-        on E :Exception do
+        on E :Exception do begin
           Plug.ErrorHandler(E);
+          if vForce = 2 then
+            FarPostMacro('Keys("Esc")');
+        end;
       end;
     end else
     if AEvent = VE_CLOSE then
@@ -495,24 +554,10 @@ interface
           ModalDlg.UpdateTitle;
       SyncCmdCacheNext   : Review.CacheNeighbor(True);
       SyncCmdCachePrev   : Review.CacheNeighbor(False);
+      SyncCmdNextSlide   : Review.GoNextSlide;
     end;
   end;
 
-(*
-  function TReviewPlug.ConsoleInput(const ARec :TInputRecord) :Integer; {override;}
-  begin
-    Result := 0;
-    if (ARec.EventType = KEY_EVENT) and (FarGetMacroState < MACROSTATE_RECORDING) then begin
-      {}
-    end else
-    if (ARec.EventType = _MOUSE_EVENT) and (FarGetMacroState < MACROSTATE_RECORDING) then begin
-      {}
-    end else
-    if ARec.EventType = WINDOW_BUFFER_SIZE_EVENT then begin
-      {}
-    end;
-  end;
-*)
 
 initialization
 finalization

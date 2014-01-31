@@ -28,6 +28,11 @@ interface
 
 
   type
+    RGBRec = packed record
+      Red, Green, Blue, Dummy :Byte;
+    end;
+
+
     TMemDC = class(TObject)
     public
       constructor Create(W, H :Integer);
@@ -72,10 +77,15 @@ interface
   function ScreenBitPerPixel :Integer;
   function GetBitmapSize(ABmp :THandle) :TSize;
 
+  procedure GDIAlhaBlend(ADC :HDC; const ADstRect :TRect; ASrcDC :HDC; const ASrcRect :TRect; ASrcAlpha :Boolean = True; ATransp :Integer = 255);
   procedure GDIBitBlt(ADC :HDC; const ADstRect :TRect; ASrcDC :HDC; const ASrcRect :TRect; Alpha :Boolean);
 //procedure GDIStretchDraw(ADC :HDC; const ADstRect :TGPRect; ASrcDC :TMemDC; const ASrcRect :TGPRect; ASmooth :Boolean = True);
   procedure GDIStretchDraw(ADC :HDC; const ADstRect :TRect; ASrcDC :HDC; const ASrcRect :TRect; Alpha :Boolean; ASmooth :Boolean);
-  procedure GDIPlusStretchDraw(ADC :HDC; const ADstRect :TRect; ASrcBmp :HBitmap; const ASrcRect :TRect; Alpha :Boolean; ASmooth :Boolean);
+  procedure GpStretchDraw(ADC :HDC; const ADstRect :TRect; ASrcBmp :HBitmap; const ASrcRect :TRect; Alpha :Boolean; ASmooth :Boolean);
+
+  procedure GdiFillRect(ADC :HDC; const ARect :TRect; AColor :COLORREF);
+  procedure GdiFillRectTransp(ADC :HDC; const ARect :TRect; AColor :COLORREF; ATransp :Integer = 255);
+  procedure GpFillRectTransp(ADC :HDC; const ARect :TRect; AColor :COLORREF; ATransp :Integer = 255);
 
   procedure GradientFillRect(AHandle :THandle; const ARect :TRect; AColor1, AColor2 :DWORD; AVert :Boolean);
 
@@ -87,8 +97,10 @@ interface
   function GetImgFmtName(AGUID :TGUID) :TString;
   function GetImagePropName(id :ULONG) :TString;
 
-  function GetExifTagValueAsInt(AImage :TGPImage; AID :ULONG; var AValue :Integer) :Boolean;
-  procedure SetExifTagValueInt(AImage :TGPImage; AID :ULONG; AValue :Word);
+  function GetTagValueAsStr(AImage :TGPImage; AID :ULONG; var AValue :TString) :Boolean;
+  function GetTagValueAsInt(AImage :TGPImage; AID :ULONG; var AValue :Integer) :Boolean;
+  function GetTagValueAsInt64(AImage :TGPImage; AID :ULONG; var AValue :Int64) :Boolean;
+  procedure SetTagValueInt(AImage :TGPImage; AID :ULONG; AValue :Word);
 
   function GetFrameCount(AImage :TGPImage; ADimID :PGUID; ADelays :PPointer {^PPropertyItem}; ADelCount :PInteger) :Integer;
 
@@ -406,7 +418,7 @@ interface
   end;
 
 
-  procedure GDIAlhaBlend(ADC :HDC; const ADstRect :TRect; ASrcDC :HDC; const ASrcRect :TRect);
+  procedure GDIAlhaBlend(ADC :HDC; const ADstRect :TRect; ASrcDC :HDC; const ASrcRect :TRect; ASrcAlpha :Boolean = True; ATransp :Integer = 255);
   const
     AC_SRC_ALPHA = 1;
   var
@@ -414,8 +426,9 @@ interface
   begin
     FillZero(vBlend, SizeOf(vBlend));
     vBlend.BlendOp := AC_SRC_OVER;
-    vBlend.SourceConstantAlpha := 255; {???}
-    vBlend.AlphaFormat := AC_SRC_ALPHA;
+    vBlend.SourceConstantAlpha := ATransp;
+    if ASrcAlpha then
+      vBlend.AlphaFormat := AC_SRC_ALPHA;
     AlphaBlend(
       ADC,
       ADstRect.Left, ADstRect.Top, ADstRect.Right - ADstRect.Left, ADstRect.Bottom - ADstRect.Top,
@@ -467,7 +480,7 @@ interface
   end;
 
 
-  function GDIPlusCreateBitmap(ABmp :HBitmap) :TGPBitmap;
+  function GpCreateBitmap(ABmp :HBitmap) :TGPBitmap;
   const
     ImageLockModeWrite = 2;
   var
@@ -499,7 +512,7 @@ interface
   end;
 
 
-  procedure GDIPlusStretchDraw(ADC :HDC; const ADstRect :TRect; ASrcBmp :HBitmap; const ASrcRect :TRect; Alpha :Boolean; ASmooth :Boolean);
+  procedure GpStretchDraw(ADC :HDC; const ADstRect :TRect; ASrcBmp :HBitmap; const ASrcRect :TRect; Alpha :Boolean; ASmooth :Boolean);
   var
     vBmp :TGPBitmap;
     vGraphics :TGPGraphics;
@@ -513,7 +526,7 @@ interface
 
     if Alpha then begin
       { Иначе не сохраняется Alpha-канал...}
-      vBmp := GDIPlusCreateBitmap(ASrcBmp);
+      vBmp := GpCreateBitmap(ASrcBmp);
       if vBmp = nil then
         vBmp := TGPBitmap.Create(ASrcBMP, 0);
     end else
@@ -655,15 +668,68 @@ interface
   end;
 *)
 
+
+  procedure GdiFillRect(ADC :HDC; const ARect :TRect; AColor :COLORREF);
+  var
+    vBrush :HBrush;
+  begin
+    vBrush := CreateSolidBrush(AColor);
+    if vBrush = 0 then
+      Exit;
+    try
+      FillRect(ADC, ARect, vBrush);
+    finally
+      DeleteObject(vBrush);
+    end;
+  end;
+
+
+  procedure GDIFillRectTransp(ADC :HDC; const ARect :TRect; AColor :COLORREF; ATransp :Integer = 255);
+  var
+    vRect :TRect;
+    vMemDC :TMemDC;
+  begin
+    vRect := ARect;
+    RectMove(vRect, -vRect.Left, -vRect.Top);
+    vMemDC := TMemDC.Create(vRect.Right, vRect.Bottom);
+    try
+      GDIFillRect(vMemDC.DC, vRect, AColor);
+//    GDIBitBlt(ADC, ARect, vMemDC.DC, vRect, False);
+      GDIAlhaBlend(ADC, ARect, vMemDC.DC, vRect, False, ATransp);
+    finally
+      FreeObj(vMemDC);
+    end;
+  end;
+
+
+  function MakeGpColor(AColor :COLORREF; ATransp :Integer = 255) :TGpColor;
+  begin
+    Result := MakeColor(aTransp, GetRValue(AColor), GetGValue(AColor), GetBValue(AColor));
+  end;
+
+
+  procedure GpFillRectTransp(ADC :HDC; const ARect :TRect; AColor :COLORREF; ATransp :Integer = 255);
+  var
+    vGraphics :TGPGraphics;
+    vBrush :TGPSolidBrush;
+  begin
+    vGraphics := TGPGraphics.Create(ADC);
+    try
+      vBrush := TGPSolidBrush.Create( MakeGpColor(AColor, ATransp) );
+      try
+        vGraphics.FillRectangle(vBrush, MakeRect(ARect) );
+      finally
+        FreeObj(vBrush);
+      end;
+    finally
+      FreeObj(vGraphics);
+    end;
+  end;
+
+
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
-
-  type
-    RGBRec = packed record
-      Red, Green, Blue, Dummy :Byte;
-    end;
-
 
   procedure GradientFillRect(AHandle :THandle; const ARect :TRect; AColor1, AColor2 :DWORD; AVert :Boolean);
   const
@@ -1088,7 +1154,57 @@ interface
   end;
 *)
 
-  function GetExifTagValueAsInt(AImage :TGPImage; AID :ULONG; var AValue :Integer) :Boolean;
+  function GetTagValueAsStr(AImage :TGPImage; AID :ULONG; var AValue :TString) :Boolean;
+  var
+    vSize :UINT;
+    vItem :PPropertyItem;
+  begin
+    Result := False;
+    vSize := AImage.GetPropertyItemSize(AID);
+    if (AImage.GetLastStatus = OK) and (vSize > 0) then begin
+      vItem := MemAlloc(vSize);
+      try
+        AImage.GetPropertyItem(AID, vSize, vItem);
+        if AImage.GetLastStatus = OK then begin
+          Result := True;
+          if vItem.type_ = PropertyTagTypeASCII then
+            AValue := PAnsiChar(vItem.value)
+          else
+            Result := False;
+        end;
+      finally
+        MemFree(vItem);
+      end;
+    end;
+  end;
+
+
+  function GetTagValueAsInt64(AImage :TGPImage; AID :ULONG; var AValue :Int64) :Boolean;
+  var
+    vSize :UINT;
+    vItem :PPropertyItem;
+  begin
+    Result := False;
+    vSize := AImage.GetPropertyItemSize(AID);
+    if (AImage.GetLastStatus = OK) and (vSize > 0) then begin
+      vItem := MemAlloc(vSize);
+      try
+        AImage.GetPropertyItem(AID, vSize, vItem);
+        if AImage.GetLastStatus = OK then begin
+          Result := True;
+          if vItem.type_ = PropertyTagTypeRational then
+            AValue := Int64(vItem.value^)
+          else
+            Result := False;
+        end;
+      finally
+        MemFree(vItem);
+      end;
+    end;
+  end;
+
+
+  function GetTagValueAsInt(AImage :TGPImage; AID :ULONG; var AValue :Integer) :Boolean;
   var
     vSize :UINT;
     vItem :PPropertyItem;
@@ -1119,7 +1235,7 @@ interface
   end;
 
 
-  procedure SetExifTagValueInt(AImage :TGPImage; AID :ULONG; AValue :Word);
+  procedure SetTagValueInt(AImage :TGPImage; AID :ULONG; AValue :Word);
   var
     vItem :TPropertyItem;
   begin

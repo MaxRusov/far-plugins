@@ -38,6 +38,8 @@ interface
 
       FContext     :Pointer;           { Контекст для декодирования }
       FFormat      :TString;           { Имя формата }
+      FCompress    :TString;           { Алгоритм сжатия }
+      FDescr       :TString;           { Описание }
       FPages       :Integer;           { Количество страниц }
       FPage        :Integer;           { Текущая страница }
       FWidth       :Integer;           { Ширина изображения }
@@ -113,6 +115,9 @@ interface
       function pvdDisplayShow(AWnd :THandle; AImage :TReviewImageRec) :Boolean; virtual;
       function pvdDisplayPaint(AWnd :THandle; AImage :TReviewImageRec; const AImageRect, ADisplayRect :TRect; AColor :DWORD) :Boolean; virtual;
       procedure pvdDisplayClose(AImage :TReviewImageRec); virtual;
+
+//    function pvdPlayControl(AImage :TReviewImageRec; aCmd :Integer; aInfo :TIntPtr) :Integer; {virtual;}
+      function pvdTagInfo(AImage :TReviewImageRec; aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean; virtual;
 
       { Расширенные функции, пока не вынесенные в pvd интерфейс }
 //    function GetBitmapDC(AImage :TReviewImageRec; var ACX, ACY :Integer) :HDC; virtual;
@@ -238,6 +243,7 @@ interface
       procedure pvdDisplayClose(AImage :TReviewImageRec); override;
 
       function pvdPlayControl(AImage :TReviewImageRec; aCmd :Integer; aInfo :TIntPtr) :Integer; {override;}
+      function pvdTagInfo(AImage :TReviewImageRec; aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean; override;
 
     protected
       procedure InitPlugin(aKeepSettings :Boolean); override;
@@ -268,6 +274,7 @@ interface
       FpvdDisplayExit    :TpvdDisplayExit2;
 
       FpvdPlayControl    :TpvdPlayControl;
+      FpvdTagInfo        :TpvdTagInfo;
     end;
 
 
@@ -389,13 +396,13 @@ BOOL WINAPI SetDllDirectory(
   end;
 
 (*
-  function TReviewDecoder.GetBitmapDC(AImage :TReviewImageRec; var ACX, ACY :Integer) :HDC; {override;}
+  function TReviewDecoder.GetBitmapDC(AImage :TReviewImageRec; var ACX, ACY :Integer) :HDC; {virtual;}
   begin
     Result := 0;
   end;
 *)
 
-  function TReviewDecoder.GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; {override;}
+  function TReviewDecoder.GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; {virtual;}
   begin
     Result := 0;
   end;
@@ -416,31 +423,39 @@ BOOL WINAPI SetDllDirectory(
 
  {-----------------------------------------------------------------------------}
 
-  function TReviewDecoder.pvdDisplayInit(AWnd :THandle) :Boolean; {override;}
+  function TReviewDecoder.pvdDisplayInit(AWnd :THandle) :Boolean; {virtual;}
   begin
     Result := True;
   end;
 
 
-  procedure TReviewDecoder.pvdDisplayDone(AWnd :THandle); {override;}
+  procedure TReviewDecoder.pvdDisplayDone(AWnd :THandle); {virtual;}
   begin
   end;
 
 
-  function TReviewDecoder.pvdDisplayShow(AWnd :THandle; AImage :TReviewImageRec) :Boolean; {override;}
+  function TReviewDecoder.pvdDisplayShow(AWnd :THandle; AImage :TReviewImageRec) :Boolean; {virtual;}
   begin
     Result := True;
   end;
 
 
-  function TReviewDecoder.pvdDisplayPaint(AWnd :THandle; AImage :TReviewImageRec; const AImageRect, ADisplayRect :TRect; AColor :DWORD) :Boolean; {override;}
+  function TReviewDecoder.pvdDisplayPaint(AWnd :THandle; AImage :TReviewImageRec; const AImageRect, ADisplayRect :TRect; AColor :DWORD) :Boolean; {virtual;}
   begin
     Result := True;
   end;
 
 
-  procedure TReviewDecoder.pvdDisplayClose(AImage :TReviewImageRec); {override;}
+  procedure TReviewDecoder.pvdDisplayClose(AImage :TReviewImageRec); {virtual;}
   begin
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  function TReviewDecoder.pvdTagInfo(AImage :TReviewImageRec; aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean; {virtual;}
+  begin
+    Result := False;
   end;
 
 
@@ -614,6 +629,8 @@ BOOL WINAPI SetDllDirectory(
 
     if Result then begin
       AImage.FFormat := vInfo.pFormatName;
+      AImage.FCompress := vInfo.pCompression;
+      AImage.FDescr := vInfo.pComments;
       AImage.FPages := vInfo.nPages;
       AImage.FAnimated := vInfo.Flags and PVD_IIF_ANIMATED <> 0;
     end;
@@ -727,6 +744,7 @@ BOOL WINAPI SetDllDirectory(
       FpvdDisplayExit    := GetProcAddressEx(FHandle, 'pvdDisplayExit2', False);
 
       FpvdPlayControl    := GetProcAddressEx(FHandle, 'pvdPlayControl', False);
+      FpvdTagInfo        := GetProcAddressEx(FHandle, 'pvdTagInfo', False);
 
       pvdInit;
       pvdGetInfo;
@@ -847,6 +865,8 @@ BOOL WINAPI SetDllDirectory(
     if Result then begin
       AImage.FContext := vInfo.pImageContext;
       AImage.FFormat := vInfo.pFormatName;
+      AImage.FCompress := vInfo.pCompression;
+      AImage.FDescr := vInfo.pComments;
       AImage.FAnimated := vInfo.Flags and PVD_IIF_ANIMATED <> 0;
       AImage.FMovie := vInfo.Flags and PVD_IIF_MOVIE <> 0;
       if AImage.FMovie then
@@ -872,6 +892,8 @@ BOOL WINAPI SetDllDirectory(
       AImage.FHeight := vInfo.lHeight;
       AImage.FBPP    := vInfo.nBPP;
       AImage.FDelay  := vInfo.lFrameTime;
+      if vInfo.pCompression <> nil then
+        AImage.FCompress := vInfo.pCompression;
     end;
   end;
 
@@ -907,6 +929,9 @@ BOOL WINAPI SetDllDirectory(
         AImage.FTranspColor := DWORD(-1);
       if optRotateOnEXIF and (AImage.FOrient = 0) then
         AImage.FOrient    := vInfo.Orientation;
+
+      if vInfo.pCompression <> nil then
+        AImage.FCompress := vInfo.pCompression;
 
       AImage.FDecodeInfo  := MemAlloc(SizeOf(vInfo));
       Move(vInfo, AImage.FDecodeInfo^, SizeOf(vInfo));
@@ -1115,6 +1140,16 @@ struct pvdInfoDisplayPaint2
       Exit;
 
     Result := FpvdPlayControl(FInitContext, AImage.FContext, aCmd, Pointer(aInfo));
+  end;
+
+
+  function TReviewDllDecoder2.pvdTagInfo(AImage :TReviewImageRec; aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean; {virtual;}
+  begin
+    Result := False;
+    if not Assigned(FpvdTagInfo) then
+      Exit;
+
+    Result := FpvdTagInfo(FInitContext, AImage.FContext, PVD_TagCmd_Get, aCode, aType, aValue);
   end;
 
 
