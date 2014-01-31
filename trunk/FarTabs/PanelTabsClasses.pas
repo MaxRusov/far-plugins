@@ -12,7 +12,6 @@ interface
 
   uses
     Windows,
-    ShellAPI,
     MixTypes,
     MixUtils,
 
@@ -280,25 +279,6 @@ interface
 
 
  {-----------------------------------------------------------------------------}
-
-  function ShellOpen(const AName, AParam :TString) :Boolean;
-  var
-    vInfo :TShellExecuteInfo;
-  begin
-   {$ifdef bTrace}
-    TraceF('%s %s', [AName, AParam]);
-   {$endif bTrace}
-    FillChar(vInfo, SizeOf(vInfo), 0);
-    vInfo.cbSize        := SizeOf(vInfo);
-    vInfo.fMask         := 0;
-    vInfo.Wnd           := 0;
-    vInfo.lpFile        := PTChar(AName);
-    vInfo.lpParameters  := PTChar(AParam);
-    vInfo.lpDirectory   := nil;
-    vInfo.nShow         := SW_Show;
-    Result := ShellExecuteEx(@vInfo);
-  end;
-
 
   procedure ExecuteCommand(const ACommand :TString);
   var
