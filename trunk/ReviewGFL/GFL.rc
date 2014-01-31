@@ -1,0 +1,45 @@
+
+#include "Build.h"
+
+#ifdef Far3
+ #define FarVerS "3"
+#else
+ #define FarVerS "2"
+#endif
+
+#ifdef x64
+ #define PlatformS "x64"
+#else
+ #define PlatformS "x32"
+#endif
+
+LANGUAGE 0, 0
+
+1 VERSIONINFO
+ FILEVERSION 1,Build,0,0
+ PRODUCTVERSION 1,Build,0,0
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0x0L
+ FILEOS 0x10004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "041904E3"
+        BEGIN
+            VALUE "FileDescription", "GFL PVD Decoder\0"
+            VALUE "InternalName", "GFL\0"
+            VALUE "OriginalFilename", "GFL.pvd\0"
+            VALUE "FileVersion", "1." BuildS "\0"
+            VALUE "CompanyName", "Max Rusov\0"
+            VALUE "LegalCopyright", "(c) 2013-2014, Max Rusov\0"
+            VALUE "ProductName", "GFL\0"
+            VALUE "ProductVersion", "1.0\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x419, 1251
+    END
+END

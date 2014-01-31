@@ -1,0 +1,5 @@
+[Options]
+Compiler=ppcrossx64
+CustomOpt=-vb -dDebug -dFar3
+RunHost=C:\Far3x64\Far.exe
+RunParams=
