@@ -26,6 +26,7 @@ interface
     GDIPAPI,
     GDIPOBJ,
     GDIImageUtil,
+    PVApi,
 
     ReviewConst,
     ReviewDecoders;
@@ -66,6 +67,8 @@ interface
       function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; ACache :Boolean) :Boolean; override;
       procedure pvdPageFree(AImage :TReviewImageRec); override;
       procedure pvdFileClose(AImage :TReviewImageRec); override;
+
+      function pvdTagInfo(AImage :TReviewImageRec; aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean; override;
 
       { Эксклюзивные функции }
 //    function GetBitmapDC(AImage :TReviewImageRec; var ACX, ACY :Integer) :HDC; override;
@@ -588,11 +591,16 @@ interface
       FAsyncTask   :TTask;
       FFirstShow   :DWORD;
 
+      { Для поддержки Tag-ов }
+      FStrTag      :TString;
+      FInt64Tag    :Int64;
+
       procedure InitImageInfo;
       procedure SetAsyncTask(const ASize :TSize);
       function CheckAsyncTask :Boolean;
       procedure CancelTask;
       procedure TaskEvent(ASender :Tobject);
+      function TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
       function Idle(ACX, ACY :Integer) :Boolean;
     end;
 
@@ -651,7 +659,7 @@ interface
 
     FOrient0 := 0;
     if optRotateOnEXIF then
-      if GetExifTagValueAsInt(FSrcImage, PropertyTagOrientation, vOrient) and (vOrient >= 1) and (vOrient <= 8) then begin
+      if GetTagValueAsInt(FSrcImage, PropertyTagOrientation, vOrient) and (vOrient >= 1) and (vOrient <= 8) then begin
 //      TraceF('EXIF Orientation: %d', [vOrient]);
         FOrient0 := vOrient;
       end;
@@ -903,6 +911,8 @@ interface
 
       EnterCriticalSection(GDIPlusCS);
       try
+        if FFrames = 1 then
+          ReleaseSrcImage;
 
         vImage := TGPImage.Create(FSrcName);
         try
@@ -914,7 +924,7 @@ interface
             AppError(strCantSaveFrames);
 
           vOrient := 0;
-          if not GetExifTagValueAsInt(vImage, PropertyTagOrientation, vOrient) or (vOrient < 1) or (vOrient > 8) then
+          if not GetTagValueAsInt(vImage, PropertyTagOrientation, vOrient) or (vOrient < 1) or (vOrient > 8) then
             vOrient := 0;
 
           vParams.Count := 0;
@@ -933,7 +943,7 @@ interface
 
             { Поворот путем коррекции EXIF заголовка - loseless }
             if aOrient <> vOrient then
-              SetExifTagValueInt(vImage, PropertyTagOrientation, aOrient);
+              SetTagValueInt(vImage, PropertyTagOrientation, aOrient);
 
           end else
           if (soTransformation in aOptions) then begin
@@ -962,7 +972,7 @@ interface
             end;
 
             if (vOrient <> 0) and (vOrient <> 1) then
-              SetExifTagValueInt(vImage, PropertyTagOrientation, 1);
+              SetTagValueInt(vImage, PropertyTagOrientation, 1);
           end else
             Exit;
 
@@ -1013,6 +1023,64 @@ interface
           DeleteFile(vNewName);
         Raise;
       end;
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  function TView.TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
+
+    procedure LocStrTag(AID :ULONG);
+    begin
+      Result := GetTagValueAsStr(FSrcImage, AID, FStrTag);
+      if Result then begin
+        aValue := PTChar(FStrTag);
+        aType := PVD_TagType_Str;
+      end;
+    end;
+
+    procedure LocInt64Tag(AID :ULONG);
+    begin
+      Result := GetTagValueAsInt64(FSrcImage, AID, FInt64Tag);
+      if Result then begin
+        aValue := @FInt64Tag;
+        aType := PVD_TagType_Int64;
+      end;
+    end;
+
+    procedure LocIntTag(AID :ULONG);
+    var
+      vIntTag :Integer;
+    begin
+      Result := GetTagValueAsInt(FSrcImage, AID, vIntTag);
+      if Result then begin
+        aValue := Pointer(TIntPtr(vIntTag));
+        aType := PVD_TagType_Int;
+      end;
+    end;
+
+  begin
+    Result := False;
+    if FSrcImage = nil then begin
+      {!!!}
+      Exit;
+    end;
+
+    case aCode of
+      PVD_Tag_Description  : LocStrTag(PropertyTagImageDescription);
+      PVD_Tag_Time         : LocStrTag(PropertyTagExifDTOrig);  //PropertyTagDateTime
+      PVD_Tag_EquipMake    : LocStrTag(PropertyTagEquipMake);
+      PVD_Tag_EquipModel   : LocStrTag(PropertyTagEquipModel);
+      PVD_Tag_Software     : LocStrTag(PropertyTagSoftwareUsed);
+      PVD_Tag_Author       : LocStrTag(PropertyTagArtist);
+      PVD_Tag_Copyright    : LocStrTag(PropertyTagCopyright);
+
+      PVD_Tag_ExposureTime : LocInt64Tag(PropertyTagExifExposureTime);
+      PVD_Tag_FNumber      : LocInt64Tag(PropertyTagExifFNumber);
+      PVD_Tag_FocalLength  : LocInt64Tag(PropertyTagExifFocalLength);
+      PVD_Tag_ISO          : LocIntTag(PropertyTagExifISOSpeed);
+      PVD_Tag_Flash        : LocIntTag(PropertyTagExifFlash);
     end;
   end;
 
@@ -1188,11 +1256,11 @@ interface
       AImage.FSelfdraw := False;
       AImage.FTransparent := FHasAlpha;
 //    AImage.FOrient := FOrient0;
-
+(*
       if FFrames = 1 then
         { Освобождаем файл. При необходимости повторного декодирования он откроется заново. }
         ReleaseSrcImage;
-
+*)
       FFirstShow  := 0;
       if not ACache then
         FLastDecode := GetTickCount;
@@ -1210,6 +1278,17 @@ interface
   begin
     if AImage.FContext <> nil then
       TView(AImage.FContext)._Release;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  function TReviewGDIDecoder.pvdTagInfo(AImage :TReviewImageRec; aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean; {override;}
+  begin
+    with TView(AImage.FContext) do begin
+      aType := 0; aValue := nil;
+      Result := TagInfo(aCode, aType, aValue);
+    end;
   end;
 
 

@@ -141,7 +141,7 @@ interface
   procedure TConfigDlg.Prepare; {override;}
   const
     DX = 60;
-    DY = 20;
+    DY = 21;
   var
     X1 :Integer;
   begin

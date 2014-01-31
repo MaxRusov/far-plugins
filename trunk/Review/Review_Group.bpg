@@ -9,7 +9,7 @@ MAKE = $(ROOT)\bin\make.exe -$(MAKEFLAGS) -f$**
 DCC = $(ROOT)\bin\dcc32.exe $**
 BRCC = $(ROOT)\bin\brcc32.exe $**
 #------------------------------------------------------------------------------
-PROJECTS = WIC.dll DXVideo.dll Review.dll
+PROJECTS = GFL.dll WIC.dll DXVideo.dll Review.dll
 #------------------------------------------------------------------------------
 default: $(PROJECTS)
 #------------------------------------------------------------------------------
@@ -21,6 +21,9 @@ DXVideo.dll: ..\ReviewVideo\DXVideo.dpr
   $(DCC)
 
 WIC.dll: ..\ReviewWIC\WIC.dpr
+  $(DCC)
+
+GFL.dll: ..\ReviewGFL\GFL.dpr
   $(DCC)
 
 

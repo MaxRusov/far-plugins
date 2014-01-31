@@ -768,6 +768,205 @@ type
   TpvdPlayControl = function(pContext :Pointer; pImageContext :Pointer; aCmd :Integer; pInfo :Pointer) :Integer; stdcall;
 
 
+{------------------------------------------------------------------------------}
+{ Поддержка тэгов                                                              }
+
+
+(*
+
+Relative Path	Name	Type
+/{ushort=256}	ImageWidth	VT_UI2 or VT_UI4
+/{ushort=257}	ImageLength	VT_UI2 or VT_UI4
+/{ushort=258}	BitsPerSample	VT_UI2
+/{ushort=259}	Compression	VT_UI2
+/{ushort=262}	PhotometricInterpretation	VT_UI2
+/{ushort=274}	Orientation	VT_UI2
+/{ushort=277}	SamplesPerPixel	VT_UI2
+/{ushort=284}	PlanarConfiguration	VT_UI2
+/{ushort=530}	YCbCrSubSampling	VT_VECTOR | VT_UI2
+/{ushort=531}	YCbCrPositioning	VT_UI2
+/{ushort=282}	XResolution	 VT_UI8
+/{ushort=283}	YResolution	VT_UI8
+/{ushort=296}	ResolutionUnit	VT_UI2
+
+*** /{ushort=306}  DateTime         VT_LPSTR
+*** /{ushort=270}  ImageDescription VT_LPSTR
+*** /{ushort=271}  Make	            VT_LPSTR
+*** /{ushort=272}  Model	    VT_LPSTR
+
+*** /{ushort=305}  Software	    VT_LPSTR
+*** /{ushort=315}  Artist	    VT_LPSTR
+*** /{ushort=33432} Copyright	VT_LPSTR
+
+/{ushort=338}	ExtraSamples	VT_UI2
+/{ushort=254}	NewSubfileType	VT_UI4
+/{ushort=278}	RowsPerStrip	VT_UI2 or VT_UI4
+/{ushort=279}	StripByteCounts	VT_VECTOR | VT_UI2 or VT_VECTOR | VT_UI4
+/{ushort=273}	StripOffsets	VT_VECTOR | VT_UI2 or VT_VECTOR | VT_UI4
+
+
+/{ushort=36864}	ExifVersion	VT_BLOB
+/{ushort=40960}	FlashpixVersion	VT_BLOB
+/{ushort=40961}	ColorSpace	VT_UI2
+/{ushort=40962}	PixelXDimension	VT_UI2 or VT_UI4
+/{ushort=40963}	PixelYDimension	VT_UI2 or VT_UI4
+/{ushort=37500}	MakerNote	VT_BLOB
+/{ushort=37510}	UserComment	VT_LPWSTR
+/{ushort=36867}	DateTimeOriginal	VT_LPSTR
+/{ushort=36868}	DateTimeDigitized	VT_LPSTR
+/{ushort=42016}	ImageUniqueID	VT_LPSTR
+/{ushort=42032}	CameraOwnerName	VT_LPSTR
+/{ushort=42033}	BodySerialNumber	VT_LPSTR
+/{ushort=42034}	LensSpecification	VT_VECTOR | VT_UI8
+/{ushort=42035}	LensMake	VT_LPSTR
+/{ushort=42036}	LensModel	VT_LPSTR
+/{ushort=42037}	LensSerialNumber	VT_LPSTR
+
+/{ushort=33434}	ExposureTime	VT_UI8
+/{ushort=33437}	FNumber	VT_UI8
+
+/{ushort=34850}	ExposureProgram	VT_UI2
+/{ushort=34852}	SpectralSensitivity	VT_LPSTR
+/{ushort=34855}	PhotographicSensitivity	VT_VECTOR | VT_UI2
+/{ushort=34856}	OECF	VT_BLOB
+/{ushort=34864}	SensitivityType	VT_UI2
+/{ushort=34865}	StandardOutputSensitivity	VT_UI4
+/{ushort=34866}	RecommendedExposureIndex	VT_UI4
+/{ushort=34867}	ISOSpeed	VT_UI4
+/{ushort=34868}	ISOSpeedLatitudeyyy	VT_UI4
+/{ushort=34869}	ISOSpeedLatitudezzz	VT_UI4
+/{ushort=37377}	ShutterSpeedValue	VT_I8
+/{ushort=37378}	ApertureValue	VT_UI8
+/{ushort=37379}	BrightnessValue	VT_I8
+/{ushort=37380}	ExposureBiasValue	VT_I8
+/{ushort=37381}	MaxApertureValue	VT_UI8
+/{ushort=37382}	SubjectDistance	VT_UI8
+/{ushort=37383}	MeteringMode	VT_UI2
+/{ushort=37384}	LightSource	VT_UI2
+/{ushort=37385}	Flash	VT_UI2
+/{ushort=37386}	FocalLength	VT_UI8
+/{ushort=37396}	SubjectArea	VT_VECTOR | VT_UI2
+/{ushort=41483}	FlashEnergy	VT_UI8
+/{ushort=41484}	SpatialFrequencyResponse	VT_BLOB
+/{ushort=41486}	FocalPlaneXResolution	VT_UI8
+/{ushort=41487}	FocalPlaneYResolution	VT_UI8
+/{ushort=41488}	FocalPlaneResolutionUnit	VT_UI2
+/{ushort=41492}	SubjectLocation	VT_VECTOR | VT_UI2
+/{ushort=41493}	ExposureIndex	VT_UI8
+/{ushort=41495}	SensingMethod	VT_UI2
+/{ushort=41728}	FileSource	VT_BLOB
+/{ushort=41729}	SceneType	VT_BLOB
+/{ushort=41730}	CFAPattern	VT_BLOB
+/{ushort=41985}	CustomRendered	VT_UI2
+/{ushort=41986}	ExposureMode	VT_UI2
+/{ushort=41987}	WhiteBalance	VT_UI2
+/{ushort=41988}	DigitalZoomRatio	VT_UI8
+/{ushort=41989}	FocalLengthIn35mmFilm	VT_UI2
+/{ushort=41990}	SceneCaptureType	VT_UI2
+/{ushort=41991}	GainControl	VT_UI8
+/{ushort=41992}	Contrast	VT_UI2
+/{ushort=41993}	Saturation	VT_UI2
+/{ushort=41994}	Sharpness	VT_UI2
+/{ushort=41995}	DeviceSettingDescription	VT_BLOB
+/{ushort=41996}	SubjectDistanceRange	VT_UI2
+
+{ushort=0}	GPSVersionID	VT_VECTOR | VT_UI1
+{ushort=1}	GPSLatitudeRef	VT_LPSTR
+{ushort=2}	GPSLatitude	VT_VECTOR | VT_UI8
+{ushort=3}	GPSLongitudeRef	VT_LPSTR
+{ushort=4}	GPSLongitude	{ushort=4}	GPSLongitude	VT_VECTOR | VT_UI8
+{ushort=5}	GPSAltitudeRef	VT_UI1
+{ushort=6}	GPSAltitude	VT_UI8
+{ushort=7}	GPSTimeStamp	VT_VECTOR | VT_UI8
+{ushort=8}	GPSSatellites	VT_LPSTR
+{ushort=9}	GPSStatus	VT_LPSTR
+{ushort=10}	GPSMeasureMode	VT_LPSTR
+{ushort=11}	GPSDOP	VT_UI8
+{ushort=12}	GPSSpeedRef	VT_LPSTR
+{ushort=13}	GPSSpeed	VT_UI8
+{ushort=14}	GPSTrackRef	VT_LPSTR
+{ushort=15}	GPSTrack	VT_UI8
+
+
+rdf	http://www.w3.org/1999/02/22-rdf-syntax-ns#	http://www.w3.org/TR/REC-rdf-syntax/
+dc	http://purl.org/dc/elements/1.1/	http://www.adobe.com/devnet/xmp.html
+xmp	http://ns.adobe.com/xap/1.0/	http://www.adobe.com/devnet/xmp.html
+xmpidq	http://ns.adobe.com/xmp/Identifier/qual/1.0/	http://www.adobe.com/devnet/xmp.html
+xmpRights	http://ns.adobe.com/xap/1.0/rights/	http://www.adobe.com/devnet/xmp.html
+xmpMM	http://ns.adobe.com/xap/1.0/mm/	http://www.adobe.com/devnet/xmp.html
+xmpBJ	http://ns.adobe.com/xap/1.0/bj/	http://www.adobe.com/devnet/xmp.html
+xmpTPg	http://ns.adobe.com/xap/1.0/t/pg/	http://www.adobe.com/devnet/xmp.html
+pdf	http://ns.adobe.com/pdf/1.3/	http://www.adobe.com/devnet/xmp.html
+photoshop	http://ns.adobe.com/photoshop/1.0/	http://www.adobe.com/devnet/xmp.html
+tiff	http://ns.adobe.com/tiff/1.0/	http://www.adobe.com/devnet/xmp.html
+exif	http://ns.adobe.com/exif/1.0/	http://www.adobe.com/devnet/xmp.html
+stDim	http://ns.adobe.com/xap/1.0/sType/Dimensions#	http://www.adobe.com/devnet/xmp.html
+xapGImg	http://ns.adobe.com/xap/1.0/g/img/	http://www.adobe.com/devnet/xmp.html
+stEvt	http://ns.adobe.com/xap/1.0/sType/ResourceEvent#	http://www.adobe.com/devnet/xmp.html
+stRef	http://ns.adobe.com/xap/1.0/sType/ResourceRef#	http://www.adobe.com/devnet/xmp.html
+stVer	http://ns.adobe.com/xap/1.0/sType/Version#	http://www.adobe.com/devnet/xmp.html
+stJob	http://ns.adobe.com/xap/1.0/sType/Job#	http://www.adobe.com/devnet/xmp.html
+aux	http://ns.adobe.com/exif/1.0/aux/	http://www.adobe.com/devnet/xmp.html
+crs	http://ns.adobe.com/camera-raw-settings/1.0/	http://www.adobe.com/devnet/xmp.html
+xmpDM	http://ns.adobe.com/xmp/1.0/DynamicMedia/	http://www.adobe.com/devnet/xmp.html
+Iptc4xmpCore	http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/	http://www.iptc.org/cms/site/index.html?channel=CH0099
+MicrosoftPhoto	http://ns.microsoft.com/photo/1.0/	People Tagging Overview
+MP	http://ns.microsoft.com/photo/1.2/	People Tagging Overview
+MPRI	http://ns.microsoft.com/photo/1.2/t/RegionInfo#	People Tagging Overview
+MPReg	http://ns.microsoft.com/photo/1.2/t/Region#	People Tagging Overview
+*)
+
+const
+  PVD_Tag_Description  = 101;  // Описание
+  PVD_Tag_Time         = 102;  // Дата съемки
+  PVD_Tag_EquipMake    = 103;  // Производитель камеры
+  PVD_Tag_EquipModel   = 104;  // Модель камеры
+  PVD_Tag_Software     = 105;  // Программа
+  PVD_Tag_Author       = 106;  // Автор
+  PVD_Tag_Copyright    = 107;  // Права
+
+  PVD_Tag_Title        = 201;
+  PVD_Tag_Artist       = 202;
+  PVD_Tag_Album        = 203;
+  PVD_Tag_Year         = 204;
+  PVD_Tag_Genre        = 205;
+
+  PVD_Tag_ExposureTime = 301;  // Выдержка
+  PVD_Tag_FNumber      = 302;  // Диафрагма
+  PVD_Tag_ISO          = 303;  // Светочувствительность (Photographic Sensitivity)
+  PVD_Tag_FocalLength  = 304;  // Фокусное расстояние
+  PVD_Tag_Flash        = 305;  // Вспышка
+
+const
+  PVD_TagCmd_Get   = 1;
+
+const
+  PVD_TagType_Int     = 1;
+  PVD_TagType_Int64   = 2;
+  PVD_TagType_Double  = 3;
+  PVD_TagType_Str     = 4;
+
+type
+(*
+  PPvdTagRec = ^TPvdTagRec;
+  TPvdTagRec = record
+    TagCode :UINT;
+    TagName :PWideChar;
+    TagType :Byte;
+    case Integer of
+      0: (IntValue :Integer);
+      1: (NumVaule :Double);
+      2: (StrVaule :PWideChar);
+  end;
+
+  PPvdTagArray = ^TPvdTagArray;
+  TPvdTagArray = array[0..$7FFF] of TPvdTagRec;
+
+  TpvdTagInfo = function(pContext :Pointer; pImageContext :Pointer; aCmd :Integer; var aTagCount :Integer; var aTags :PPvdTagArray) :Integer; stdcall;
+*)
+  TpvdTagInfo = function(pContext :Pointer; pImageContext :Pointer; aCmd, aCode :Integer; var aType :Integer; var aValue :Pointer) :BOOL; stdcall;
+
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}

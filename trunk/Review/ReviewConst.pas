@@ -74,7 +74,7 @@ interface
     cFileNameHistory  = 'Review.FileName';
 
   const
-    cDefAnimationStep  = 50;           { ms }
+    cDefAnimationStep  = 100;           { ms }
 
   var
     optCmdPrefix      :TString = 'pic';
@@ -86,6 +86,7 @@ interface
     optQViewShowFrame :Boolean = True;
     optPrecache       :Boolean = True;
     optKeepScale      :Boolean = True;        { Ñîõğàíÿòü ìàñøòàá/ïîçèöèş ïğè ñìåíå èçîáğàæåíèé }
+    optInitialScale   :Integer = 100;         { Íà÷àëüíîå óâåëè÷åíèå èçîáğàæåíèé }
 
     optTranspBack     :Boolean = True;        { Èñïîëüçîâàòü çàëèâêó íà ïîëóïğîçğà÷íûõ êàğòèíêàõ }
     optTileMode       :Boolean = False;
@@ -98,13 +99,20 @@ interface
     optCacheDelay     :Integer = 100; {ms}
     optTempMsgDelay   :Integer = 2000; {ms}
 
-    optCacheLimit     :Integer = 4;
+    optSlideDelay     :Integer = 3000; {ms}   { Çàäåğæêà SlideShow }
+    optEffectType     :Integer = 1;
+    optEffectPeriod   :Integer = 250;  {ms}   { Äëèòåëüíîñòü ıôôåêòà ïåğåõîäà }
 
-    optInitialScale   :Integer = 100;         { Íà÷àëüíîå óâåëè÷åíèå èçîáğàæåíèé }
+    optCacheLimit     :Integer = 4;
 
     optBkColor1       :TFarColor;
     optBkColor2       :TFarColor;
-    optTextColor      :TFarColor;
+    optHintColor      :TFarColor;
+
+    optPanelColor     :TFarColor;
+    optPromptColor    :TFarColor;
+    optInfoColor      :TFarColor;
+    optPanelTransp    :Integer = 128;
 
   var
     FFarExePath      :TString;
@@ -115,13 +123,15 @@ interface
     SyncCmdUpdateTitle = 3;
     SyncCmdCacheNext   = 4;
     SyncCmdCachePrev   = 5;
+    SyncCmdNextSlide   = 6;
 
   const
-    GoCmdNone   = 0;
-    GoCmdNext   = 1;
-    GoCmdPrev   = 2;
-    GoCmdFirst  = 3;
-    GoCmdLast   = 4;
+    GoCmdNone      = 0;
+    GoCmdNext      = 1;
+    GoCmdPrev      = 2;
+    GoCmdFirst     = 3;
+    GoCmdLast      = 4;
+    GoCmdNextSlide = 6;
 
 
   function GetMsg(AMess :TMessages) :PFarChar;
@@ -129,12 +139,15 @@ interface
   procedure AppErrorId(AMess :TMessages);
   procedure AppErrorIdFmt(AMess :TMessages; const Args: array of const);
 
+  function PlugIdToStr(const ID :TGUID) :TString;
+
   function MulDivI32(ANum, AMul, ADiv :Integer) :Integer; stdcall;
   function MulDivU32(ANum, AMul, ADiv :UINT) :UINT; stdcall;
   function MulDivU32R(A, B, C :UINT) :UINT; stdcall;
   function MulDivIU32R(A :Integer; B, C :UINT) :Integer; stdcall;
   function SortExtensions(AStr :PTChar) :Integer; stdcall;
 
+  function YMDStrToDateTime(const AStr :TString) :TDateTime;
   function ScrollKeyPressed :Boolean;
 
   procedure PluginConfig(AStore :Boolean);
@@ -169,6 +182,12 @@ interface
   procedure AppErrorIdFmt(AMess :TMessages; const Args: array of const);
   begin
     FarCtrl.AppErrorIdFmt(Integer(AMess), Args);
+  end;
+
+
+  function PlugIdToStr(const ID :TGUID) :TString;
+  begin
+    Result := StrDeleteChars(GUIDToString(ID), ['{', '}']);
   end;
 
 
@@ -241,6 +260,27 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  function YMDStrToDateTime(const AStr :TString) :TDateTime;
+  const
+    cDel = [' ', ':', '.', '-'];
+  var
+    vPtr :PTChar;
+    Y, M, D, H, N, S :Integer;
+    vDate, vTime :TDateTime;
+  begin
+    Result := 0;
+    vPtr := PTChar(AStr);
+    Y := Str2IntDef(ExtractNextWord(vPtr, cDel), 0);
+    M := Str2IntDef(ExtractNextWord(vPtr, cDel), 0);
+    D := Str2IntDef(ExtractNextWord(vPtr, cDel), 0);
+    H := Str2IntDef(ExtractNextWord(vPtr, cDel), 0);
+    N := Str2IntDef(ExtractNextWord(vPtr, cDel), 0);
+    S := Str2IntDef(ExtractNextWord(vPtr, cDel), 0);
+    if (Y >= 1000) and (Y <= 9999) then
+      if TryEncodeDate(Y, M, D, vDate) and TryEncodeTime(H, N, S, 0, vTime) then
+        Result := vDate + vTime;
+  end;
+
 
   function ScrollKeyPressed :Boolean;
   begin
@@ -269,6 +309,7 @@ interface
         LogValue('FrameQView', optQViewShowFrame);
         LogValue('Precache', optPrecache);
         LogValue('KeepScale', optKeepScale);
+        IntValue('InitialScale', optInitialScale);
 
         LogValue('RotateOnExif', optRotateOnEXIF);
         LogValue('UseThumbnail', optUseThumbnail);
@@ -277,6 +318,15 @@ interface
 
         ColorValue('BkColor1', optBkColor1);
         ColorValue('BkColor2', optBkColor2);
+
+        ColorValue('HintColor', optHintColor);
+        ColorValue('PanelColor', optPanelColor);
+        ColorValue('PromptColor', optPromptColor);
+        ColorValue('InfoColor', optInfoColor);
+
+        IntValue('SlideDelay', optSlideDelay);
+        IntValue('SlideEffect', optEffectType);
+        IntValue('EffectPeriod', optEffectPeriod);
 
         LogValue('Fullscreen', optFullscreen);
 
@@ -292,7 +342,11 @@ interface
   begin
     optBkColor1  := MakeColor(clWhite, clBlack);
     optBkColor2  := FarGetColor(COL_VIEWERTEXT);
-    optTextColor := MakeColor(clWhite, clBlack);
+    optHintColor := MakeColor(clBlack, clWhite);
+
+    optPanelColor := MakeColor(clBlack, clWhite);
+    optPromptColor := MakeColor(clSilver, clBlack);
+    optInfoColor := MakeColor(clWhite, clBlack);
   end;
 
 
@@ -305,6 +359,11 @@ interface
     [
       GetMsg(strMViewColor),
       GetMsg(strMQViewColor),
+      '',
+      GetMsg(strMPanelColor),
+      GetMsg(strMPromptColor),
+      GetMsg(strMInfoColor),
+      '',
       GetMsg(strMTextColor),
       '',
       GetMsg(strMRestoreDefaults)
@@ -319,9 +378,14 @@ interface
         case vMenu.ResIdx of
           0: ColorDlg('', optBkColor1, UndefAttr, 0);
           1: ColorDlg('', optBkColor2, UndefAttr, 0);
-          2: ColorDlg('', optTextColor);
 
-          4: RestoreDefColor;
+          3: ColorDlg('', optPanelColor);
+          4: ColorDlg('', optPromptColor);
+          5: ColorDlg('', optInfoColor);
+
+          7: ColorDlg('', optHintColor);
+
+          9: RestoreDefColor;
         end;
 
 //      FarAdvControl(ACTL_REDRAWALL, nil);
