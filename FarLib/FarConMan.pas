@@ -179,6 +179,8 @@ interface
     end;
 
     try
+//    Trace('ConManIsActiveConsole...');
+
       if Assigned(IsConsoleActive) then begin
         Result := IsConsoleActive;
 //      TraceF('IsConsoleActive: %d', [Byte(Result)]);

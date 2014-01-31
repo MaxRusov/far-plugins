@@ -1263,6 +1263,10 @@ interface
             fType := FMVT_INTEGER;
             Value.fInteger := Args[I].VInteger;
           end;
+          vtInt64: begin
+            fType := FMVT_INTEGER;
+            Value.fInteger := Args[I].VInt64^;
+          end;
           vtExtended: begin
             fType := FMVT_DOUBLE;
             Value.fDouble := Args[I].VExtended^;
@@ -1815,6 +1819,8 @@ interface
 
     case vKey of
       0   : vKey := Word(AEvent.UnicodeChar);
+
+      $0C : vKey := KEY_Clear;
 
       $C0 : vKey := $60;              { ` }
 
