@@ -132,14 +132,6 @@ interface
     strCantRotateAnimated = 'Can''t rotate animated image';
 
 
-  function RectEquals(const AR, R :TRect) :Boolean;
-  begin
-    Result :=
-      (AR.Left = R.Left) and (AR.Top = R.Top) and
-      (AR.Right = R.Right) and (AR.Bottom = R.Bottom);
-  end;
-
-
   procedure CorrectBound(var ASize :TSize; ALimit :Integer);
   begin
     if (ASize.cx > ALimit) or (ASize.CY > ALimit) then begin
@@ -1856,6 +1848,7 @@ interface
     TWndProc = function(HWindow :HWnd; Msg :UINT; WParam :WPARAM; LParam :LPARAM) :LRESULT; stdcall;
 
   var
+    FWindow :THandle;
     FDefProc :TWndProc;
 
 
@@ -1932,7 +1925,7 @@ interface
     end else
     if Msg = WM_NCDestroy then begin
 //    Trace('WM_NCDestroy...');
-
+      FWindow := 0;
     end;
 
     Result := vDefProc(HWindow, Msg, WParam, LParam);
@@ -1943,6 +1936,16 @@ interface
   begin
     FDefProc := Pointer(GetWindowLongPtr(AWnd, GWL_WNDPROC));
     SetWindowLongPtr(AWnd, GWL_WNDPROC, TIntPtr(@MyWndProc));
+    FWindow := AWnd;
+  end;
+
+
+  procedure ReleaseWindowHook;
+  begin
+    if FWindow <> 0 then begin
+      SetWindowLongPtr(FWindow, GWL_WNDPROC, TIntPtr(@FDefProc));
+      FWindow := 0;
+    end;
   end;
 
  {$endif bHookWindow}
@@ -2214,6 +2217,7 @@ interface
     Trace('pvdDisplayExit2');
    {$endif bTracePvd}
    {$ifdef bHookWindow}
+    ReleaseWindowHook;
     SetModifiewdView(nil);
    {$endif bHookWindow}
     DoneIdleThread;
