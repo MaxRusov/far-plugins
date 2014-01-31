@@ -406,18 +406,6 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function GUIDToString(const ClassID: TGUID): TString;
-  var
-    P: PWideChar;
-  begin
-    Result := '';
-    if Succeeded(StringFromCLSID(ClassID, P)) then begin
-      Result := P;
-      CoTaskMemFree(P);
-    end;
-  end;
-
-
   procedure RestoreDefColor;
   begin
 //  optHiddenColor := FarGetColor(COL_MENUDISABLEDTEXT);
