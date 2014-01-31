@@ -328,7 +328,8 @@ interface
   procedure TScreen.WMGraphEvent(var Mess :TMessage); {message WM_GRAPH_EVENT;}
   begin
     with (FOwner as TPlayerWindow).FOwner do
-      FMedia.HandleEvents(nil);
+      if FMedia <> nil then
+        FMedia.HandleEvents(nil);
   end;
 
 
@@ -711,7 +712,7 @@ interface
 
     vTick := GetTickCount;
     if (optHideOSDDelay <> 0) and (vState = 1) and IsFullScreen and (FOwner.FMedia <> nil) and FOwner.FMedia.IsVideo then begin
-//      TraceF('%d', [TickCountDiff(vTick, FMouseTime)]);
+//    TraceF('%d', [TickCountDiff(vTick, FMouseTime)]);
       vOldShow := FShowOSD;
       ShowOSD( not (TickCountDiff(vTick, FMouseTime) > optHideOSDDelay) );
       if vOldShow and not FShowOSD then
