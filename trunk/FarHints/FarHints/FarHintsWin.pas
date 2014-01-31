@@ -83,7 +83,7 @@ interface
       constructor Create; override;
       destructor Destroy; override;
 
-      procedure ShowHint;
+      procedure ShowHint(ASmooth :Boolean = True);
       procedure HideHint;
 
       procedure MoveWindowTo(X, Y :Integer; ASmooth :Boolean);
@@ -512,7 +512,7 @@ interface
           MoveWindowTo(FInitPosX, FInitPosY, True);
 
           if not IsWindowVisible(Handle) then
-            ShowHint
+            ShowHint(Mode <> hcmInfo)
           else
             InvalidateHint;
         end
@@ -659,9 +659,9 @@ interface
   end;
 
 
-  procedure THintWindow.ShowHint;
+  procedure THintWindow.ShowHint(ASmooth :Boolean = True);
   begin
-    if ((FarHintsShowPeriod > 0) or (FTransp < 255)) and Assigned(SetLayeredWindowAttributes) then
+    if ASmooth and ((FarHintsShowPeriod > 0) or (FTransp < 255)) and Assigned(SetLayeredWindowAttributes) then
       SmoothShowOrHide(True)
     else
       Show(SW_SHOWNA);
