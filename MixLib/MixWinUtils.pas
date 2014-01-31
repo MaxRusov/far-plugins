@@ -6,11 +6,13 @@ interface
 
   uses
     Windows,
+    ActiveX,
     ShellAPI,
     MixTypes,
     MixUtils,
     MixStrings;
 
+  function GUIDToString(const ClassID: TGUID): TString;
 
   function GetExeModuleFileName :TString;
   function GetModuleFileNameEx :TString;
@@ -84,6 +86,18 @@ interface
 
   uses
     MixDebug;
+
+
+  function GUIDToString(const ClassID: TGUID): TString;
+  var
+    P: PWideChar;
+  begin
+    Result := '';
+    if Succeeded(StringFromCLSID(ClassID, P)) then begin
+      Result := P;
+      CoTaskMemFree(P);
+    end;
+  end;
 
 
   function GetExeModuleFileName :TString;

@@ -132,7 +132,8 @@ interface
   type
     TMSControl = class(TMSWindow)
     public
-      constructor CreateEx(AOwner :TMSWindow; ID, X, Y, DX, DY, AStyle :Integer; const Caption :TString);
+      constructor CreateEx(AOwner :TMSWindow; ID, X, Y, DX, DY, AStyle :Integer; const Caption :TString); overload;
+      constructor CreateEx(AOwner :HWND; ID, X, Y, DX, DY, AStyle :Integer; const Caption :TString); overload;
     protected
       procedure CreateParams(var AParams :TCreateParams); override;
       procedure CreateSubClass(var AParams :TCreateParams; AClassName :PTChar);
@@ -174,6 +175,7 @@ interface
 
   function ColorToRGB(AColor :TColor) :TColor;
   function WinCreateFont(const AName :TString; ASize :Integer; AStyle :TFontStyles) :HFont;
+  procedure WidDeleteObject(var AHandle :HGDIOBJ);
 
   const
     WS_EX_LAYERED = $00080000;
@@ -438,7 +440,7 @@ interface
  {-----------------------------------------------------------------------------}
  { TMSControl                                                                  }
  {-----------------------------------------------------------------------------}
-
+(*
   constructor TMSControl.CreateEx(AOwner :TMSWindow; ID, X, Y, DX, DY, AStyle :Integer; const Caption :TString);
   var
     vParams :TCreateParams;
@@ -453,6 +455,30 @@ interface
     vParams.Style := AStyle;
     vParams.Caption := PTChar(Caption);
     vParams.WndParent := AOwner.Handle;
+    CreateHandleEx(vParams);
+  end;
+*)
+
+  constructor TMSControl.CreateEx(AOwner :TMSWindow; ID, X, Y, DX, DY, AStyle :Integer; const Caption :TString);
+  begin
+    CreateEx(AOwner.Handle, ID, X, Y, DX, DY, AStyle, Caption);
+  end;
+
+
+  constructor TMSControl.CreateEx(AOwner :HWND; ID, X, Y, DX, DY, AStyle :Integer; const Caption :TString);
+  var
+    vParams :TCreateParams;
+  begin
+    Create;
+    FillChar(vParams, SizeOf(vParams), 0);
+    vParams.HMenu := ID;
+    vParams.X := X;
+    vParams.Y := Y;
+    vParams.DX := DX;
+    vParams.DY := DY;
+    vParams.Style := AStyle;
+    vParams.Caption := PTChar(Caption);
+    vParams.WndParent := AOwner;
     CreateHandleEx(vParams);
   end;
 
@@ -596,6 +622,15 @@ interface
       {lfPitchAndFamily} DEFAULT_PITCH,
       {lfFaceName}       PTChar(AName)
     );
+  end;
+
+
+  procedure WidDeleteObject(var AHandle :HGDIOBJ);
+  begin
+    if AHandle <> 0 then begin
+      DeleteObject(AHandle);
+      AHandle := 0;
+    end;
   end;
 
 

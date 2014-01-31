@@ -27,7 +27,9 @@ const
 function Now :TDateTime;
 function Date :TDateTime;
 function IsLeapYear(Year: Word): Boolean;
+function TryEncodeDate(Year, Month, Day: Word; var Date: TDateTime): Boolean;
 function EncodeDate(Year, Month, Day: Word): TDateTime;
+function TryEncodeTime(Hour, Min, Sec, MSec: Word; var Time: TDateTime): Boolean;
 function EncodeTime(Hour, Min, Sec, MSec: Word) :TDateTime;
 procedure DecodeDate(Date: TDateTime; var Year, Month, Day: Word);
 procedure DecodeTime(Time: TDateTime; var Hour, Min, Sec, MSec: Word);
@@ -93,7 +95,7 @@ begin
 end;
 
 
-function DoEncodeDate(Year, Month, Day: Word; var Date: TDateTime): Boolean;
+function TryEncodeDate(Year, Month, Day: Word; var Date: TDateTime): Boolean;
 var
   I: Integer;
   DayTable: PDayTable;
@@ -111,12 +113,12 @@ end;
 
 function EncodeDate(Year, Month, Day: Word): TDateTime;
 begin
-  if not DoEncodeDate(Year, Month, Day, Result) then
+  if not TryEncodeDate(Year, Month, Day, Result) then
     ConvertError(@SDateEncodeError);
 end;
 
 
-function DoEncodeTime(Hour, Min, Sec, MSec: Word; var Time: TDateTime): Boolean;
+function TryEncodeTime(Hour, Min, Sec, MSec: Word; var Time: TDateTime): Boolean;
 begin
   Result := False;
   if (Hour < 24) and (Min < 60) and (Sec < 60) and (MSec < 1000) then begin
@@ -128,7 +130,7 @@ end;
 
 function EncodeTime(Hour, Min, Sec, MSec: Word): TDateTime;
 begin
-  if not DoEncodeTime(Hour, Min, Sec, MSec, Result) then
+  if not TryEncodeTime(Hour, Min, Sec, MSec, Result) then
     ConvertError(@STimeEncodeError);
 end;
 

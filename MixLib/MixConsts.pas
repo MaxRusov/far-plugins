@@ -13,7 +13,7 @@ resourcestring
   SAssertionFailed       = 'Assertion failed';
   SAssertError           = '%s (%s, line %d)';
   SAbstractError         = 'Abstract method called';
-  SUnknownErrorCode      = 'Unknown error code: %d';
+  SUnknownErrorCode      = 'Unknown error code: %x';
   SExternalException     = 'External exception %x at %p';
   SInternalError         = 'Internal error %d at %p';
   STimeEncodeError       = 'Invalid argument to time encode';
