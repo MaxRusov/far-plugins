@@ -555,7 +555,7 @@ implementation
 
     FRenderer := CreateRenderer(TVMR9Renderer, FGraph);
     if FRenderer <> nil then
-      Exit;  
+      Exit;
 
     FRenderer := CreateRenderer(TVMR7Renderer, FGraph);
     if FRenderer <> nil then
