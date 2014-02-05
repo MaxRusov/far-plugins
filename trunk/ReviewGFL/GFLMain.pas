@@ -471,16 +471,6 @@ const
 
   function TView.TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
 (*
-    procedure LocIntTag(const aName :TString);
-    var
-      vIntTag :Integer;
-    begin
-      Result := MetaQueryInt(FMetadata, aName, vIntTag);
-      if Result then begin
-        aValue := Pointer(TIntPtr(vIntTag));
-        aType := PVD_TagType_Int;
-      end;
-    end;
 
     procedure LocInt64Tag(const aName :TString);
     begin
@@ -498,6 +488,20 @@ const
         aValue := PTChar(FStrTag);
         aType := PVD_TagType_Str;
         Result := True;
+      end;
+    end;
+
+    procedure LocIntTag(aTag :DWORD);
+    var
+      vStr :TString;
+      vInt :Integer;
+    begin
+      Result := False;
+      vStr := GetExifInfo(FExif, aTag);
+      if vStr <> '' then begin
+        Result :=  TryStrToInt(vStr, vInt);
+        aValue := Pointer(TIntPtr(vInt));
+        aType := PVD_TagType_Int;
       end;
     end;
 
@@ -521,6 +525,8 @@ const
 //    PVD_Tag_ISO          : LocIntTag(vIFD + 'exif/{ushort=34855}');
 //    PVD_Tag_Flash        : LocIntTag(vIFD + 'exif/{ushort=37385}');
 
+      PVD_Tag_XResolution  : LocIntTag(282);
+      PVD_Tag_YResolution  : LocIntTag(283);
     end;
   end;
 
