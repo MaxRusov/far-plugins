@@ -656,6 +656,8 @@ interface
 
 
   function TView.TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
+  var
+    vIFD :TString;
 
     procedure LocIntTag(const aName :TString);
     var
@@ -686,8 +688,39 @@ interface
       end;
     end;
 
-  var
-    vIFD :TString;
+    procedure LocResolutionTag(const aName1, aName2 :TString);
+    var
+      vInt, vUnit :Integer;
+      vInt64 :TInt64;
+      vIsSM :Boolean;
+    begin
+      vIsSM := False; vInt := 0;
+      Result := MetaQueryInt64(FMetadata, aName1, vInt64);
+      if Result then begin
+        with Int64Rec(vInt64) do
+          vInt := Trunc(Lo / Hi);
+        if MetaQueryInt(FMetadata, vIFD + '{ushort=296}', vUnit) then
+          vIsSM := vUnit = 3;
+      end else
+      if IsEqualGUID(FFmtID, GUID_ContainerFormatJpeg) then
+        { units (1 byte) Units for the X and Y densities.
+          units = 0: no units, X and Y specify the pixel aspect ratio
+          units = 1: X and Y are dots per inch
+          units = 2: X and Y are dots per cm }
+        if MetaQueryInt(FMetadata, '/app0/{ushort=1}', vUnit) then
+          if vUnit <> 0 then begin
+            Result := MetaQueryInt(FMetadata, aName2, vInt);
+            vIsSM := vUnit = 2;
+          end;
+      if Result then begin
+        if vIsSM then
+          { Разрешение в сантиметрах, пересчитываем в дюймы }
+          vInt := Trunc(vInt * 2.54);
+        aValue := Pointer(TIntPtr(vInt));
+        aType := PVD_TagType_Int;
+      end;
+    end;
+
   begin
     Result := False;
     if FMetadata = nil then
@@ -712,6 +745,9 @@ interface
       PVD_Tag_FocalLength  : LocInt64Tag(vIFD + 'exif/{ushort=37386}');
       PVD_Tag_ISO          : LocIntTag(vIFD + 'exif/{ushort=34855}');
       PVD_Tag_Flash        : LocIntTag(vIFD + 'exif/{ushort=37385}');
+
+      PVD_Tag_XResolution  : LocResolutionTag(vIFD + '{ushort=282}', '/app0/{ushort=2}');
+      PVD_Tag_YResolution  : LocResolutionTag(vIFD + '{ushort=283}', '/app0/{ushort=3}');
     end;
   end;
 
