@@ -5,10 +5,10 @@
 unit ReviewClasses;
 
 {******************************************************************************}
-{* (c) 2013 Max Rusov                                                         *}
-{*                                                                            *}
-{* Review                                                                     *}
-{* Image Viewer Plugn for Far 2/3                                             *}
+{* Review - Media viewer plugin for FAR                                       *}
+{* 2013, Max Rusov                                                            *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
 
 interface
@@ -249,6 +249,8 @@ interface
       FocalLength  :Int64;
       ISO          :Integer;
       Flash        :Integer;
+      XResolution  :Integer;
+      YResolution  :Integer;
 
 //    Title        :TString;
 //    Artist       :TString;
@@ -1448,7 +1450,7 @@ interface
     vTmpRect :TRect;
     vFillAll :Boolean;
   begin
-    Trace('PaintWindow...');
+//  Trace('PaintWindow...');
     vClientRect := ClientRect;
     try
       GetClipBox(DC, vClipRect);
@@ -1641,7 +1643,7 @@ interface
     vTime :DWORD;
     vPeriod :Integer;
   begin
-    Trace('Slide...');
+//  Trace('Slide...');
     try
       vDC := GetDC(Handle);
       ApiCheck(vDC <> 0);
@@ -1721,7 +1723,7 @@ interface
     except
       Invalidate;
     end;
-    Trace('...done slide');
+//  Trace('...done slide');
   end;
 
 
@@ -1989,21 +1991,28 @@ interface
       Add(strIFormat,      vStr);
 
       if FImage.FDescr <> '' then
-        Add1('Описание', FImage.FDescr);
+        Add(strIDescription, FImage.FDescr);
 
       Add(strIDimension,   IntToStr(FImage.FWidth) + ' x ' + IntToStr(FImage.FHeight));
-      Add(strIColors,      IntToStr(FImage.FBPP) + ' BPP');
+      Add(strIColors,      IntToStr(FImage.FBPP) + ' ' + GetMsg(strBPP));
+
+      if (FImage.FTags.XResolution <> 0) or (FImage.FTags.YResolution <> 0) then
+        if FImage.FTags.XResolution = FImage.FTags.YResolution then
+          Add(strIDensity, Int2Str(FImage.FTags.XResolution) + ' ' + GetMsg(strDPI))
+        else
+          Add(strIDensity, Int2Str(FImage.FTags.XResolution) + ' x ' + Int2Str(FImage.FTags.YResolution) + ' ' + GetMsg(strDPI));
+
       if FImage.FPages > 1 then
         Add(strIPages, IntToStr(FImage.FPage + 1) + ' / ' + IntToStr(FImage.FPages));
       if FImage.FAnimated then
-        Add(strIDelay, IntToStr(FImage.FDelay) + ' ms'  );
+        Add(strIDelay, IntToStr(FImage.FDelay) + ' ' + GetMsg(strMS) );
       if FImage.FOrient > 1 then
         Add(strIOrientation, cOrients[FImage.FOrient]);
 
       Add1('', '');
 
       Add(strIDecoder,     FImage.FDecoder.Title);
-      Add(strIDecodeTime,  IntToStr(FImage.FOpenTime + FImage.FDecodeTime) + ' ms');
+      Add(strIDecodeTime,  IntToStr(FImage.FOpenTime + FImage.FDecodeTime) + ' ' + GetMsg(strMS));
 
       Add1('', '');
 
@@ -2025,11 +2034,11 @@ interface
       Add1('', '');
 
       if FImage.FTags.ExposureTime <> 0 then
-        Add(strIExposureTime,  Frac2Str(FImage.FTags.ExposureTime) + ' s');
+        Add(strIExposureTime,  Frac2Str(FImage.FTags.ExposureTime) + ' ' + GetMsg(strSec1));
       if FImage.FTags.FNumber <> 0 then
         Add(strIFNumber,  Div2Str(FImage.FTags.FNumber, 1));
       if FImage.FTags.FocalLength <> 0 then
-        Add(strIFocalLength,  Div2Str(FImage.FTags.FocalLength, 0) + ' mm');
+        Add(strIFocalLength,  Div2Str(FImage.FTags.FocalLength, 0) + ' ' + GetMsg(strMM));
       if FImage.FTags.ISO <> 0 then
         Add(strIISO,  Int2Str(FImage.FTags.ISO));
       if FImage.FTags.Flash <> 0 then
@@ -2448,6 +2457,8 @@ interface
       LocGetInt64(PVD_Tag_FocalLength,  FTags.FocalLength);
       LocGetInt(PVD_Tag_ISO,            FTags.ISO);
       LocGetInt(PVD_Tag_Flash,          FTags.Flash);
+      LocGetInt(PVD_Tag_XResolution,    FTags.XResolution);
+      LocGetInt(PVD_Tag_YResolution,    FTags.YResolution);
 
       vTime := YMDStrToDateTime(FTags.Time);
       if vTime <> 0 then

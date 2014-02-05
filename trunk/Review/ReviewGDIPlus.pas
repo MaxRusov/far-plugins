@@ -6,10 +6,10 @@
 unit ReviewGDIPlus;
 
 {******************************************************************************}
-{* (c) 2013 Max Rusov                                                         *}
-{*                                                                            *}
-{* Review                                                                     *}
-{* Image Viewer Plugn for Far 2/3                                             *}
+{* Review - Media viewer plugin for FAR                                       *}
+{* 2013, Max Rusov                                                            *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
 
 interface
@@ -1060,6 +1060,27 @@ interface
       end;
     end;
 
+    procedure LocResolutionTag(AID :ULONG);
+    var
+      vInt :Integer;
+      vRes :Single;
+    begin
+      Result := False;
+//    if FSrcImage.GetFlags and ImageFlagsHasRealDPI <> 0 then begin
+      if IsEqualGUID(FFmtID, ImageFormatJPEG) or IsEqualGUID(FFmtID, ImageFormatTIFF) then begin
+        if AID = PropertyTagXResolution then
+          vRes := FSrcImage.GetHorizontalResolution
+        else
+          vRes := FSrcImage.GetVerticalResolution;
+        Result := (FSrcImage.GetLastStatus = OK) and (vRes > 0);
+        if Result then begin
+          vInt := Trunc(vRes);
+          aValue := Pointer(TIntPtr(vInt));
+          aType := PVD_TagType_Int;
+        end;
+      end;
+    end;
+
   begin
     Result := False;
     if FSrcImage = nil then begin
@@ -1081,6 +1102,8 @@ interface
       PVD_Tag_FocalLength  : LocInt64Tag(PropertyTagExifFocalLength);
       PVD_Tag_ISO          : LocIntTag(PropertyTagExifISOSpeed);
       PVD_Tag_Flash        : LocIntTag(PropertyTagExifFlash);
+      PVD_Tag_XResolution  : LocResolutionTag(PropertyTagXResolution);
+      PVD_Tag_YResolution  : LocResolutionTag(PropertyTagYResolution);
     end;
   end;
 
