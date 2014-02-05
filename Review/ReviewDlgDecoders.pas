@@ -3,10 +3,10 @@
 unit ReviewDlgDecoders;
 
 {******************************************************************************}
-{* (c) 2013 Max Rusov                                                         *}
-{*                                                                            *}
-{* Review                                                                     *}
-{* Image Viewer Plugn for Far 2/3                                             *}
+{* Review - Media viewer plugin for FAR                                       *}
+{* 2013, Max Rusov                                                            *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
 
 interface

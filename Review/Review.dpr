@@ -10,9 +10,10 @@ library Review;
 {$I Defines1.inc}
 
 {******************************************************************************}
-{* (c) 2013 Max Rusov                                                         *}
-{*                                                                            *}
-{* Review                                                                     *}
+{* Review - Media viewer plugin for FAR                                       *}
+{* 2013, Max Rusov                                                            *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
 
 uses

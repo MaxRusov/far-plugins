@@ -5,9 +5,10 @@
 unit GDIImageUtil;
 
 {******************************************************************************}
-{* (c) 2007 Max Rusov                                                         *}
-{*                                                                            *}
-{* FarHints sub-plugin                                                        *}
+{* Review - Media viewer plugin for FAR                                       *}
+{* 2013, Max Rusov                                                            *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
 
 interface

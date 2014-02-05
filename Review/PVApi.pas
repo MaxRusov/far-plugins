@@ -785,8 +785,8 @@ Relative Path	Name	Type
 /{ushort=284}	PlanarConfiguration	VT_UI2
 /{ushort=530}	YCbCrSubSampling	VT_VECTOR | VT_UI2
 /{ushort=531}	YCbCrPositioning	VT_UI2
-/{ushort=282}	XResolution	 VT_UI8
-/{ushort=283}	YResolution	VT_UI8
+***/{ushort=282}	XResolution	 VT_UI8
+***/{ushort=283}	YResolution	VT_UI8
 /{ushort=296}	ResolutionUnit	VT_UI2
 
 *** /{ushort=306}  DateTime         VT_LPSTR
@@ -936,6 +936,9 @@ const
   PVD_Tag_ISO          = 303;  // Светочувствительность (Photographic Sensitivity)
   PVD_Tag_FocalLength  = 304;  // Фокусное расстояние
   PVD_Tag_Flash        = 305;  // Вспышка
+  PVD_Tag_XResolution  = 306;  // Разрешение (dpi)
+  PVD_Tag_YResolution  = 307;  // Разрешение (dpi)
+//PVD_Tag_ResolutionUnit = 308;  // ResolutionUnit (2 = Inches, 3 = Centimeters)
 
 const
   PVD_TagCmd_Get   = 1;
