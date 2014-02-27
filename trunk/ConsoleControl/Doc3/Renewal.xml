@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<renewal>
+  <plugin guid="{94624B7B-FFDB-435F-B955-F99DBBC3BFE0}">
+    <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=ConCtrl</url>
+    <home arch="any">http://code.google.com/p/far-plugins</home>
+    <regex arch="x86">//far-plugins.googlecode.com/files/ConCtrl\.far3.(\d+)\.(\d+)\.rar</regex>
+    <regex arch="x64">//far-plugins.googlecode.com/files/ConCtrl\.far3.x64.(\d+)\.(\d+)\.rar</regex>
+  </plugin>
+</renewal>

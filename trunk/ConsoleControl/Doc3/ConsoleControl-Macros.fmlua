@@ -1,0 +1,115 @@
+﻿;;
+;; Console Control
+;; (c) Max Rusov
+;; http://code.google.com/p/far-plugins
+;;
+;; Управлением консольным окном
+;;
+;; AltShift+Стрелки   - Изменение размера окна
+;; Ctrl+КолесоМыши    - Изменение размера шрифта
+;; CtrlAlt+КолесоМыши - Изменение прозрачности окна
+;; Alt+F9             - Maximize/Restore
+;; CtrlAlt+F9         - Включение/выключение большого буфера экрана (в режиме "/w")
+;; CtrlAlt+Цифры      - Пресеты размеров
+;;
+const FarHints = "CDF48DA0-0334-4169-8453-69048DD3B51C" 
+
+macro Descr="Console Control: Change Windows Size" Key="/AltShift(Up|Down|Left|Right)/" 
+{{
+  local S = akey(1):sub(9);
+  local DX = S == "Right" and 1 or S == "Left" and -1 or 0
+  local DY = S == "Down" and 1 or S == "Up" and -1 or 0
+  local CX, CY = ConsoleControl.WindowSizeDelta(DX, DY)
+  if CX and CY then
+    Plugin.Call(#%FarHints, "Info", "Size: " .. CX .. " x " .. CY)
+  end
+}}
+
+macro Descr="Console Control: Change Font Size" Key="/Ctrl(MsWheelUp|MsWheelDown)/"
+{{
+  local D = akey(1):sub(-2) == "Up" and 1 or -1
+  local Size, Name = ConsoleControl.Call("FontSizeDelta", D)
+  if Size and Name then
+    Plugin.Call(#%FarHints, "Info", "Font: " .. Name .. ", " .. Size)
+  end
+}}
+
+macro Descr="Console Control: Change Transparency" Key="/CtrlAlt(MsWheelUp|MsWheelDown)/"
+{{
+  local D = akey(1):sub(-2) == "Up" and 1 or -1
+  local Tarnsp = ConsoleControl.Transparency()
+  Tarnsp = ConsoleControl.Transparency(Tarnsp + D * 5)
+  if Tarnsp then
+    Plugin.Call(#%FarHints, "Info", "Transparency: " .. Tarnsp)
+  end
+}}
+
+
+macro Descr="Console Control: Maximize/Restore" Key="AltF9"
+{{
+  local Max = ConsoleControl.Maximize(-1)
+  if Max then
+--  Plugin.Call(#%FarHints, "Info", "Maximize: " .. (Max == 1 and "On" or "Off") )
+    Plugin.Call(#%FarHints, "Hide")
+  else
+    Keys("AKey")
+  end
+}}
+
+
+macro Descr="Console Control: Maximize/Restore console buffer" Key="CtrlAltF9" Area="Shell"
+{{
+  local MaxY = 1000
+  local CX, CY = ConsoleControl.BufferSize()
+  if CX and CY then
+--  Plugin.Call(#%FarHints, "Info", "Buffer: " .. CX .. " x " .. CY)
+    if CY < MaxY  then
+      ConsoleControl.BufferSize(0, MaxY)
+    else
+      ConsoleControl.BufferSize(-1, -1)
+    end
+    -- Устраняет глюки консоли
+    Keys("CtrlY c l s Enter")
+  else
+    Keys("AKey")
+  end
+}}
+
+
+macro Descr="Console Control: Topmost On/Off" Key="CtrlAltPgUp"
+{{
+  local Top = ConsoleControl.Topmost(-1)
+  if Top then
+    ConsoleControl.Transparency( Top == 1 and 50 or 0 )
+    Plugin.Call(#%FarHints, "Info", "Topmost: " .. (Top == 1 and "On" or "Off") )
+  else
+    Keys("AKey")
+  end
+}}
+
+
+
+;; Size presets
+
+macro Descr="Window size 80x25" Key="CtrlAlt1 CtrlAlt0"
+{{
+  ConsoleControl.WindowSize(80, 25)
+}}
+macro Descr="Window size 80x50" Key="CtrlAlt2 CtrlAlt0"
+{{
+  ConsoleControl.WindowSize(80, 50)
+}}
+macro Descr="Window size 160x80" Key="CtrlAlt3 CtrlAlt0"
+{{
+  ConsoleControl.WindowSize(160, 80)
+}}
+
+
+;; Startup preset
+
+--macro Descr="Console Control: startup settings" Area="Shell" Event="Open"
+--{{
+--  Plugin.Call(#%ConCtrl, "FontSize", 10)
+--  Plugin.Call(#%ConCtrl, "WindowSize", 160, 80)
+--}}
+
