@@ -18,7 +18,7 @@ http://code.google.com/p/far-plugins/downloads/list?q=Noisy
 
 == Загрузить ==
 
- * [http://code.google.com/p/far-plugins/downloads/list?q=FarFM Последняя версия]
+ * [http://plugring.farmanager.com/plugin.php?pid=891 Последняя версия]
 
  * [http://code.google.com/p/far-plugins/downloads/list?q=FarFM&can=1 Все версии]
 
@@ -32,6 +32,8 @@ http://far-plugins.googlecode.com/svn/trunk/FarFM/Image/Sample2.png
 
 = История изменений =
 
+== Ver 1.4 ==
+ * Исправлена ошибка закачки/отображения треков на VK.com
 
 == Ver 1.3 ==
  * Добавлена работа с персональным аккаунтом на Last.FM (требуется регистрация). Можно добавлять в библиотеку артистов, альбомы и треки по команде Shift-F5 или просто F5, если FarFM на обоих панелях. В папке артиста добавлена папка "Избранное".
