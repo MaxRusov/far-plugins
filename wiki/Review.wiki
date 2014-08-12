@@ -14,9 +14,9 @@
 
 == Загрузить ==
 
- * [http://code.google.com/p/far-plugins/downloads/list?q=Review Последняя версия]
+ * [http://plugring.farmanager.com/plugin.php?pid=932 Последняя версия]
 
- * [http://code.google.com/p/far-plugins/downloads/list?q=Review&can=1 Все версии]
+ * [http://code.google.com/p/far-plugins/downloads/list?q=Review&can=1 Старые версии]
 
  * [http://code.google.com/p/far-plugins/downloads/list?q=gfl34 Библиотека GFL]
 
