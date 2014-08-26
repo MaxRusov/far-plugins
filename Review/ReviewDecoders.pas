@@ -105,7 +105,7 @@ interface
       { Функции декодирования }
       function pvdFileOpen(AImage :TReviewImageRec) :Boolean; virtual; abstract;
       function pvdGetPageInfo(AImage :TReviewImageRec) :Boolean; virtual; abstract;
-      function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; ACache :Boolean) :Boolean; virtual; abstract;
+      function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean; virtual; abstract;
       procedure pvdPageFree(AImage :TReviewImageRec); virtual; abstract;
       procedure pvdFileClose(AImage :TReviewImageRec); virtual; abstract;
 
@@ -120,7 +120,6 @@ interface
       function pvdTagInfo(AImage :TReviewImageRec; aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean; virtual;
 
       { Расширенные функции, пока не вынесенные в pvd интерфейс }
-//    function GetBitmapDC(AImage :TReviewImageRec; var ACX, ACY :Integer) :HDC; virtual;
       function GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; virtual;
       function Idle(AImage :TReviewImageRec; AWidth, AHeight :Integer) :Boolean; virtual;
       function Save(AImage :TReviewImageRec; const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean; virtual;
@@ -194,7 +193,7 @@ interface
       { Функции декодирования }
       function pvdFileOpen(AImage :TReviewImageRec) :Boolean; override;
       function pvdGetPageInfo(AImage :TReviewImageRec) :Boolean; override;
-      function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; ACache :Boolean) :Boolean; override;
+      function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean; override;
       procedure pvdPageFree(AImage :TReviewImageRec); override;
       procedure pvdFileClose(AImage :TReviewImageRec); override;
 
@@ -231,7 +230,7 @@ interface
       { Функции декодирования }
       function pvdFileOpen(AImage :TReviewImageRec) :Boolean; override;
       function pvdGetPageInfo(AImage :TReviewImageRec) :Boolean; override;
-      function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; ACache :Boolean) :Boolean; override;
+      function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean; override;
       procedure pvdPageFree(AImage :TReviewImageRec); override;
       procedure pvdFileClose(AImage :TReviewImageRec); override;
 
@@ -395,12 +394,6 @@ BOOL WINAPI SetDllDirectory(
     Result := StrLoCase(FActiveExt.GetTextStrEx(','));
   end;
 
-(*
-  function TReviewDecoder.GetBitmapDC(AImage :TReviewImageRec; var ACX, ACY :Integer) :HDC; {virtual;}
-  begin
-    Result := 0;
-  end;
-*)
 
   function TReviewDecoder.GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; {virtual;}
   begin
@@ -653,7 +646,7 @@ BOOL WINAPI SetDllDirectory(
   end;
 
 
-  function TReviewDllDecoder1.pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; ACache :Boolean) :Boolean;
+  function TReviewDllDecoder1.pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean;
   var
     vInfo :TPVDInfoDecode;
   begin
@@ -898,7 +891,7 @@ BOOL WINAPI SetDllDirectory(
   end;
 
 
-  function TReviewDllDecoder2.pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; ACache :Boolean) :Boolean;
+  function TReviewDllDecoder2.pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean;
   var
     vInfo :TPVDInfoDecode2;
   begin

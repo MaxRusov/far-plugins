@@ -52,7 +52,7 @@ interface
 
 
   var
-    cEffectNames :array[0..2] of TString;
+    cEffectNames :array[0..3] of TString;
 
  {-----------------------------------------------------------------------------}
  { TShowConfigDlg                                                              }
@@ -66,20 +66,21 @@ interface
     IdEffectTypeCmb  =  5;
     IdEffectDelayLab =  6;
     IdEffectDelayEdt =  7;
+    IdEffectAlways   =  8;
 
-    IdOk             =  9;
-    IdCancel         = 10;
+    IdOk             = 10;
+    IdCancel         = 11;
 
 
   procedure TShowConfigDlg.Prepare; {override;}
   const
     DX = 55;
-    DY = 10;
+    DY = 12;
   var
     X1 :Integer;
   begin
     FGUID := cConfigDlgID;
-    FHelpTopic := 'Config';
+    FHelpTopic := 'SlideShow';
 
     FWidth := DX;
     FHeight := DY;
@@ -102,6 +103,8 @@ interface
         NewItem(DI_Text,        2,   0,    0, 0,   0,  GetMsg(strSSEffectDelay)),
         NewItem(DI_Edit,        1,   0,   +5, 0,   0),
 
+        NewItem(DI_Checkbox,  -X1,   2,    0, 0,   0, GetMsg(strSSEffectAlways)),
+
         NewItemApi(DI_Text,      0, DY-4,  0, 0, DIF_SEPARATOR),
         NewItemApi(DI_DefButton, 0, DY-3,  0, 0, DIF_CENTERGROUP, GetMsg(strOk) ),
         NewItemApi(DI_Button,    0, DY-3,  0, 0, DIF_CENTERGROUP, GetMsg(strCancel) )
@@ -115,14 +118,18 @@ interface
   begin
     cEffectNames[0] := GetMsg(strSSNoEffect);
     cEffectNames[1] := GetMsg(strSSFade);
-    cEffectNames[2] := GetMsg(strSSSlide);  
+    cEffectNames[2] := GetMsg(strSSSlide);
+    cEffectNames[3] := GetMsg(strSSSlide2);
 
-    SetListItems(IdEffectTypeCmb, [cEffectNames[0], cEffectNames[1], cEffectNames[2]]);
+    SetListItems(IdEffectTypeCmb, [cEffectNames[0], cEffectNames[1], cEffectNames[2], cEffectNames[3]]);
 
     SetText(IdDelayEdt, Int2Str(optSlideDelay div 1000));
+
     SetListIndex(IdEffectTypeCmb, optEffectType);
     SetText(IdEffectTypeCmb, cEffectNames[optEffectType]);
+
     SetText(IdEffectDelayEdt, Int2Str(optEffectPeriod));
+    SetChecked(IdEffectAlways, optEffectOnManual);
 
     EnableCommands;
   end;
@@ -151,6 +158,8 @@ interface
       optSlideDelay := vDelay1 * 1000;
       optEffectPeriod := vDelay2;
       optEffectType := SendMsg(DM_LISTGETCURPOS, IdEffectTypeCmb, 0);
+
+      optEffectOnManual := GetChecked(IdEffectAlways);
     end;
     Result := True;
   end;
@@ -164,14 +173,16 @@ interface
 //  TraceF('vEffectType=%d', [vEffectType]);
     SetEnabled(IdEffectDelayLab, vEffectType <> 0);
     SetEnabled(IdEffectDelayEdt, vEffectType <> 0);
+    SetEnabled(IdEffectAlways, vEffectType <> 0);
   end;
 
 
   function TShowConfigDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
   begin
+//  TraceF('DialogHandler=%d', [Msg]);
     Result := 1;
     case Msg of
-      DN_LISTCHANGE:
+      DN_EDITCHANGE:
         if Param1 = IdEffectTypeCmb then
           EnableCommands
         else

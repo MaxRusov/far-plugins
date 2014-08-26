@@ -92,7 +92,7 @@ interface
     optTileMode       :Boolean = False;
     optFullscreen     :Boolean = False;
     optSmoothScale    :Boolean = True;        { Использовать сглаживание при увеличении }
-    optShowInfo       :Integer = 0;
+    optShowInfo       :Integer = 1;
 
     optDraftDelay     :Integer = 150; {ms}
     optSyncDelay      :Integer = 250; {ms}    { Задержка смены картинки в QuickView (только если включен optAsyncQView) }
@@ -102,6 +102,7 @@ interface
     optSlideDelay     :Integer = 3000; {ms}   { Задержка SlideShow }
     optEffectType     :Integer = 1;
     optEffectPeriod   :Integer = 250;  {ms}   { Длительность эффекта перехода }
+    optEffectOnManual :Boolean = True;
 
     optCacheLimit     :Integer = 4;
 
@@ -124,6 +125,7 @@ interface
     SyncCmdCacheNext   = 4;
     SyncCmdCachePrev   = 5;
     SyncCmdNextSlide   = 6;
+    SyncCmdClose       = 7;
 
   const
     GoCmdNone      = 0;
@@ -327,8 +329,10 @@ interface
         IntValue('SlideDelay', optSlideDelay);
         IntValue('SlideEffect', optEffectType);
         IntValue('EffectPeriod', optEffectPeriod);
+        LogValue('EffectAlways', optEffectOnManual);
 
         LogValue('Fullscreen', optFullscreen);
+        IntValue('ShowInfo', optShowInfo);
 
       finally
         Destroy;
