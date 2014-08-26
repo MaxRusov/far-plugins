@@ -41,7 +41,7 @@ interface
   var
     DecodeWaitDelay   :Integer = 2000;  { Сколько ждем декодирование, прежде чем показать эскиз. Только при первом открытии. }
     StretchDelay      :Integer = 500;   { Задержка для масштабирования }
-    FastListDelay     :Integer = 500;   { Период между декодированиями, по которому определяется быстрое перелистывание }
+    FastListDelay     :Integer = 250;   { Период между декодированиями, по которому определяется быстрое перелистывание }
     ThumbDelay        :Integer = 250;   { Задержка до начала декодирования при перелистывании }
 
     optRotateOnEXIF   :Boolean = True;  { Автоматический поворот на основе информации из EXIF }
@@ -64,20 +64,16 @@ interface
       { Функции декодирования }
       function pvdFileOpen(AImage :TReviewImageRec) :Boolean; override;
       function pvdGetPageInfo(AImage :TReviewImageRec) :Boolean; override;
-      function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; ACache :Boolean) :Boolean; override;
+      function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean; override;
       procedure pvdPageFree(AImage :TReviewImageRec); override;
       procedure pvdFileClose(AImage :TReviewImageRec); override;
 
       function pvdTagInfo(AImage :TReviewImageRec; aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean; override;
 
       { Эксклюзивные функции }
-//    function GetBitmapDC(AImage :TReviewImageRec; var ACX, ACY :Integer) :HDC; override;
       function GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; override;
       function Idle(AImage :TReviewImageRec; ACX, ACY :Integer) :boolean; override;
       function Save(AImage :TReviewImageRec; const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean; override;
-
-    private
-      FLastDecode :DWORD;
     end;
 
 
@@ -1258,19 +1254,15 @@ interface
   end;
 
 
-  function TReviewGDIDecoder.pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; ACache :Boolean) :Boolean; {override;}
-  var
-    vFastScroll :Boolean;
+  function TReviewGDIDecoder.pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean; {override;}
   begin
     with TView(AImage.FContext) do begin
-      vFastScroll := not ACache and (TickCountDiff(GetTickCount, FLastDecode) < FastListDelay);
-
       FBkColor  := ABkColor;
 
       if optUseThumbnail = not (GetKeyState(VK_Shift) < 0) then
         InitThumbnail(0, 0 {cThumbSize, cThumbSize} );
 
-      if not vFastScroll or (FThumbImage = nil) then
+      if not AFastScroll or (FThumbImage = nil) then
         DecodeImage(AWidth, AHeight);
 
       AImage.FWidth := FImgSize.cx;
@@ -1279,14 +1271,12 @@ interface
       AImage.FSelfdraw := False;
       AImage.FTransparent := FHasAlpha;
 //    AImage.FOrient := FOrient0;
-(*
-      if FFrames = 1 then
-        { Освобождаем файл. При необходимости повторного декодирования он откроется заново. }
-        ReleaseSrcImage;
-*)
+
+//    if FFrames = 1 then
+//      { Освобождаем файл. При необходимости повторного декодирования он откроется заново. }
+//      ReleaseSrcImage;
+
       FFirstShow  := 0;
-      if not ACache then
-        FLastDecode := GetTickCount;
       Result := FThumbImage <> nil;
     end;
   end;
@@ -1316,22 +1306,6 @@ interface
 
 
  {-----------------------------------------------------------------------------}
-
-(*
-  function TReviewGDIDecoder.GetBitmapDC(AImage :TReviewImageRec; var ACX, ACY :Integer) :HDC; {virtual;}
-  begin
-    with TView(AImage.FContext) do begin
-      CheckAsyncTask;
-      Result := 0;
-      if FThumbImage <> nil then begin
-        ACX := FThumbImage.Width;
-        ACY := FThumbImage.Height;
-        Result := FThumbImage.DC;
-      end;
-    end;
-  end;
-*)
-
 
   function TReviewGDIDecoder.GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; {override;}
   begin

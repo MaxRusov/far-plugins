@@ -20,6 +20,7 @@ ToDo:
   - Кэширование декодеров: "наследование" списка расширений
 
   - DXVideo.pvd
+    - Показывать скрытый OSD при управлении с клавиатуры
     - Глючит с ConEmu
     - Управление через макросы
     * Улучшенное качество (?)
@@ -339,18 +340,23 @@ interface
       end;
     end;
 
+    
     function LocGoto :TIntPtr;
     var
       vOrig, vDir :Integer;
-//    vImage :TReviewImage;
+      vRes :Boolean;
     begin
-      Result := 0;
+      vRes := False;
       vOrig := FarValuesToInt(AParams, ACount, 1, -1);
       vDir := FarValuesToInt(AParams, ACount, 2, 1);
-      if vOrig <> -1 then
-        if not Review.Navigate(vOrig, vDir > 0) then
-          Beep;
+      if (vOrig >= 0) and (vOrig <= 2) then begin
+        vRes := Review.Navigate(vOrig, vDir > 0, optEffectOnManual);
+      end else
+      if vOrig = 3 then
+        vRes := Review.NavigateTo(FarValuesToStr(AParams, ACount, 2, ''));
+      Result := FarReturnValues([vRes]);
     end;
+
 
     function LocPage :TIntPtr;
     var
@@ -537,7 +543,7 @@ interface
           vAltView := (GetKeyState(VK_Menu) < 0) or
             ((GetKeyState(VK_Control) < 0) and (GetKeyState(VK_Shift) < 0));
           if (optProcessView and not vAltView) or (vForce <> 0) then
-            if Review.ShowImage(vName, 0, vForce = 2) then
+            if Review.ShowImage(vName, 0, vForce = 2) then  
               ViewModalState(True, False);
         end;
       except
@@ -570,6 +576,9 @@ interface
       SyncCmdCacheNext   : Review.CacheNeighbor(True);
       SyncCmdCachePrev   : Review.CacheNeighbor(False);
       SyncCmdNextSlide   : Review.GoNextSlide;
+      SyncCmdClose       :
+        if ModalDlg = nil then
+          Review.CloseWindow;
     end;
   end;
 

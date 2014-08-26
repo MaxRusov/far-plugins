@@ -43,16 +43,17 @@ interface
     ReviewGDIPlus;
 
   const
-    CM_SetImage   = $B000;
-    CM_Transform  = $B001;
-    CM_SetWinPos  = $B002;
-    CM_SetVisible = $B003;
-    CM_SetMode    = $B004;
-    CM_Move       = $B005;
-    CM_Scale      = $B006;
-    CM_Sync       = $B007;
-    CM_TempMsg    = $B008;
-    CM_SlideShow  = $B009;
+    CM_SetImage     = $B000;
+    CM_Transform    = $B001;
+    CM_SetWinPos    = $B002;
+    CM_SetVisible   = $B003;
+    CM_SetMode      = $B004;
+    CM_Move         = $B005;
+    CM_Scale        = $B006;
+    CM_Sync         = $B007;
+    CM_TempMsg      = $B008;
+    CM_SlideShow    = $B009;
+    CM_ReleaseImage = $B00A;
 
     cPreCacheLimit = 128 * 1024 * 1024;  //???
 
@@ -120,6 +121,7 @@ interface
     protected
       procedure CreateParams(var AParams :TCreateParams); override;
       procedure CMSetImage(var Mess :TMessage); message CM_SetImage;
+      procedure CMReleaseImage(var Mess :TMessage); message CM_ReleaseImage;
       procedure CMTransform(var Mess :TMessage); message CM_Transform;
       procedure CMSetWinPos(var Mess :TMessage); message CM_SetWinPos;
       procedure CMSetVisible(var Mess :TMessage); message CM_SetVisible;
@@ -267,7 +269,7 @@ interface
 
       function TryOpenBy(ADecoder :TReviewDecoder; AForce :Boolean) :Boolean;
       function TryOpen(AForce :Boolean) :Boolean;
-      procedure DecodePage(ASize :TSize; ACache :Boolean);
+      procedure DecodePage(ASize :TSize; AFastScroll :Boolean = False);
       procedure UpdateBitmap;
       procedure Rotate(ARotate :Integer);
       procedure OrientBitmap(AOrient :Integer);
@@ -313,6 +315,7 @@ interface
       procedure InvalidateImage;
       procedure SetImagePage(aPage :Integer);
       function Navigate(AOrig :Integer; AForward :Boolean; ASlideShow :Boolean = False) :Boolean;
+      function NavigateTo(const AFileName :TString{; AForward :Boolean; ASlideShow :Boolean = False}) :Boolean;
       procedure Redecode(AMode :TRedecodeMode = rmSame; aShowInfo :Boolean = True);
       procedure Rotate(ARotate :Integer);
       procedure Orient(AOrient :Integer);
@@ -329,6 +332,7 @@ interface
       procedure CacheNeighbor(ANext :Boolean);
       function IsQViewMode :Boolean;
       procedure CloseWindow;
+      procedure CloseWindowDelayed(ADelay :Integer);
       function GetWindowTitle :TString;
 
       function ProcessKey(AKey :Integer) :Boolean;
@@ -353,6 +357,11 @@ interface
 
       FForceFile  :TString;            { Файл для принудительной обработки в ViewerEvent }
       FForceMode  :Integer;
+
+      FLastDecode :DWORD;              { Для быстрой прокрутки }
+
+      function NavigateLow(AInfo :TPanelInfo; AIndex :Integer; const AFileName :TString; ASlideDirect, ACacheDirect :Integer) :Boolean;
+      function CheckSync(const aName :TString; var ASelected :Boolean) :Boolean;
 
       procedure CreateWinThread;
       procedure CacheImage(aImage :TReviewImage);
@@ -393,7 +402,7 @@ interface
       procedure ErrorHandler(E :Exception); override;
 
     private
-      FQuick     :Boolean;
+      FQuick     :Boolean;  { QuickView. Не используется. }
       FErrorStr  :TString;
       FPostKey   :Integer;
       FHidden    :Boolean;  { Окно изображения временно скрыто... }
@@ -538,6 +547,11 @@ interface
     vPoint :TPoint;
   begin
     Windows.GetClientRect(hFarWindow, Result);
+
+    {xxx}
+//  Result.Top := Result.Bottom div 2;
+//  Result.Left := Result.Right div 2;
+
     if AFullscreen then begin
       vPoint := Point((Result.Left + Result.Right) div 2, (Result.Top + Result.Bottom) div 2);
       MapWindowPoints(hFarWindow, 0, vPoint, 1);
@@ -648,12 +662,14 @@ interface
 
   procedure TViewModalDlg.ResizeDialog;
   var
+    vSize :TSize;
     vRect :TSmallRect;
   begin
-    vRect := FarGetWindowRect;
-    vRect.Right := vRect.Left;
-    vRect.Bottom := vRect.Top;
-    SetDlgPos(0, 0, vRect.Right + 1, vRect.Bottom + 1);
+    vSize := FarGetWindowSize;
+    vSize.CY := 1;
+    SetDlgPos(0, 0, vSize.CX, vSize.CY);
+
+    vRect := SBounds(0, 0, vSize.CX, vSize.CY);
     SendMsg(DM_SETITEMPOSITION, 0, @vRect);
   end;
 
@@ -773,7 +789,10 @@ interface
           FarPostMacro('Keys("Esc")');
       end else
       if Review.FCommand = GoCmdNone then begin
-        Review.CloseWindow;
+        if AView then
+          Review.CloseWindowDelayed(100) 
+        else
+          Review.CloseWindow;
         if AView then
           vKeys := 'Esc';
         if ModalDlg.FPostKey <> 0 then
@@ -782,7 +801,7 @@ interface
           FarPostMacro('Keys("' + vKeys + '")');
       end else
       begin
-        Review.CloseWindow; {???}
+        Review.CloseWindowDelayed(1000);
         Review.ProcessCommand;
       end;
 
@@ -790,6 +809,7 @@ interface
       FreeObj(ModalDlg);
     end;
   end;
+
 
  {-----------------------------------------------------------------------------}
  { TFullscreenWindow                                                           }
@@ -1047,6 +1067,13 @@ interface
   end;
 
 
+  procedure TReviewWindow.CMReleaseImage(var Mess :TMessage); {message CM_ReleaseImage;}
+  begin
+    ReleaseImage;
+//  Invalidate;
+  end;
+
+
   const
     cmtInvalidate = 0;
     cmtSetPage    = 1;
@@ -1236,7 +1263,7 @@ interface
   procedure TReviewWindow.SetPage(aPage :Integer);
   begin
     FImage.FPage := RangeLimit(aPage, 0, FImage.FPages);
-    FImage.DecodePage(Size(0,0), False);
+    FImage.DecodePage(Size(0,0));
     FHiQual := True;
     RecalcRects;
     if not FAnimate then
@@ -1514,127 +1541,9 @@ interface
   end;
 
 
-(*
   procedure TReviewWindow.SlideEffect(aOldImage :TReviewImage; const AOldSrcRect, AOldDstRect :TRect; ADirect :Integer);
   var
-    i, j, dx, dy :Integer;
-    vDC :HDC;
-    vClientRect :TRect;
-    vMemDC, vImage1DC, vImage2DC :TMemDC;
-    vSize :TSize;
-    vRect, vRect1 :TRect;
-    vTime :DWORD;
-    vPeriod :Integer;
-  begin
-    try
-      vDC := GetDC(Handle);
-      ApiCheck(vDC <> 0);
-      try
-        vClientRect := ClientRect;
-        vSize := RectSize(vClientRect);
-        vMemDC := nil; vImage1DC := nil; vImage2DC := nil;
-        try
-          vMemDC := TMemDC.Create(vSize.CX, vSize.CY);
-          vImage1DC := TMemDC.Create(vSize.CX, vSize.CY);
-          vImage2DC := TMemDC.Create(vSize.CX, vSize.CY);
-
-          DrawImage(vImage1DC.DC, aOldImage, AOldSrcRect, AOldDstRect, False);
-          DrawImage(vImage2DC.DC, FImage, FSrcRect, FDstRect, False);
-
-          vRect := Bounds(0, 0, vSize.CX, vSize.CY);
-
-          i := 1;
-          vTime := GetTickCount;
-          while (TickCountDiff(GetTickCount, vTime) < optEffectPeriod) and (i <= 255) do begin
-//          TraceF('%d', [i]);
-//          if i > 128 then
-//            NOP;
-
-            FillRect(vMemDC.DC, vRect, FBrush);
-
-            if optEffectType = 1 then begin
-              GDIAlhaBlend(vMemDC.DC, vRect, vImage1DC.DC, vRect, False, 255 - i);
-              GDIAlhaBlend(vMemDC.DC, vRect, vImage2DC.DC, vRect, False, i);
-            end else
-            if optEffectType = 2 then begin
-              dx := MulDiv(i, vSize.CX div 3, 255);
-              dy := MulDiv(i, vSize.CY div 3, 255);
-
-              vRect1 := vRect;
-              RectGrow(vRect1, -dx, -dy);
-              RectMove(vRect1, ADirect * (-MulDiv(i, vSize.CX div 2, 255)), 0);
-              GDIAlhaBlend(vMemDC.DC, vRect1, vImage1DC.DC, vRect, False, 255 - i);
-
-              dx := MulDiv(255 - i, vSize.CX div 3, 255);
-              dy := MulDiv(255 - i, vSize.CY div 3, 255);
-
-              vRect1 := vRect;
-              RectGrow(vRect1, -dx, -dy);
-              RectMove(vRect1, ADirect * ((vSize.CX div 2) - MulDiv(i, vSize.CX div 2, 255)), 0);
-              GDIAlhaBlend(vMemDC.DC, vRect1, vImage2DC.DC, vRect, False, i);
-{*
-              dx := MulDiv(i, vSize.CX, 255);
-
-              vRect1 := vRect;
-              RectMove(vRect1, -dx, 0);
-              GDIAlhaBlend(vMemDC.DC, vRect1, vImage1DC.DC, vRect, False, 255 - i);
-
-              vRect1 := vRect;
-              RectMove(vRect1, vSize.CX - dx, 0);
-              GDIAlhaBlend(vMemDC.DC, vRect1, vImage2DC.DC, vRect, False, i);
-*}
-
-{*
-              dx := MulDiv(i, vSize.CX div 3, 255);
-              dy := MulDiv(i, vSize.CY div 3, 255);
-
-              vRect1 := vRect;
-              RectGrow(vRect1, -dx, -dy);
-              GDIAlhaBlend(vMemDC.DC, vRect1, vImage1DC.DC, vRect, False, 255 - i);
-
-              dx := MulDiv(i, vSize.CX, 255);
-              dy := MulDiv(i, vSize.CY, 255);
-
-              vRect1 := vRect;
-              RectGrow(vRect1, vSize.CX - dx, vSize.CY - dy);
-              GDIAlhaBlend(vMemDC.DC, vRect1, vImage2DC.DC, vRect, False, i);
-*}
-            end;
-
-            if optShowInfo <> 0 then
-              DrawAddInfo(vMemDC.DC);
-            GDIBitBlt(vDC, vRect, vMemDC.DC, vRect, False);
-
-            j := i;
-            while True do begin
-              vPeriod := TickCountDiff(GetTickCount, vTime);
-              i := MulDiv(vPeriod, 255, optEffectPeriod);
-              if i > j then
-                Break;
-//            Trace('Sleep.');
-              Sleep(1);
-            end;
-          end;
-
-          Invalidate;
-
-        finally
-          FreeObj(vImage1DC);
-          FreeObj(vImage2DC);
-          FreeObj(vMemDC);
-        end;
-      finally
-        ReleaseDC(Handle, vDC);
-      end;
-    except
-      Invalidate;
-    end;
-  end;
-*)
-
-  procedure TReviewWindow.SlideEffect(aOldImage :TReviewImage; const AOldSrcRect, AOldDstRect :TRect; ADirect :Integer);
-  var
-    i, j, dx, dy :Integer;
+    i, j, m, a1, a2, dx, dy :Integer;
     vDC :HDC;
     vClientRect :TRect;
     vMemDC, vImage1DC, vImage2DC :TMemDC;
@@ -1665,34 +1574,44 @@ interface
           DrawImage(vImage2DC.DC, FImage, FSrcRect, FDstRect, False);
 
           i := 1;
+          m := 255;
           vTime := GetTickCount;
-          while (TickCountDiff(GetTickCount, vTime) < optEffectPeriod) and (i <= 255) do begin
-//          TraceF('%d', [i]);
+          while (TickCountDiff(GetTickCount, vTime) < optEffectPeriod) and (i <= m) do begin
+            a1 := MulDiv(m - i, 255, m);
+            a2 := MulDiv(i, 255, m);
+
+//          TraceF('i=%d, a1=%d, a2=%d', [i, a1, a2]);
 //          if i > 128 then
 //            NOP;
 
             FillRect(vMemDC.DC, vRect, FBrush);
 
             if optEffectType = 1 then begin
-              GDIAlhaBlend(vMemDC.DC, vRect, vImage1DC.DC, vRect, False, 255 - i);
-              GDIAlhaBlend(vMemDC.DC, vRect, vImage2DC.DC, vRect, False, i);
+              GDIAlhaBlend(vMemDC.DC, vRect, vImage1DC.DC, vRect, False, a1);
+              GDIAlhaBlend(vMemDC.DC, vRect, vImage2DC.DC, vRect, False, a2);
             end else
-            if optEffectType = 2 then begin
-              dx := MulDiv(i, vSize.CX div 3, 255);
-              dy := MulDiv(i, vSize.CY div 3, 255);
+            if optEffectType in [2, 3] then begin
+              dx := MulDiv(i, vSize.CX div 3, m);
+              dy := MulDiv(i, vSize.CY div 3, m);
 
               vRect1 := vRect;
               RectGrow(vRect1, -dx, -dy);
-              RectMove(vRect1, ADirect * (-MulDiv(i, vSize.CX div 2, 255)), 0);
-              GDIAlhaBlend(vMemDC.DC, vRect1, vImage1DC.DC, vRect, False, 255 - i);
+              if optEffectType = 2 then
+                RectMove(vRect1, ADirect * (-MulDiv(i, vSize.CX div 2, m)), 0)
+              else
+                RectMove(vRect1, 0, ADirect * (-MulDiv(i, vSize.CY div 2, m)));
+              GDIAlhaBlend(vMemDC.DC, vRect1, vImage1DC.DC, vRect, False, a1);
 
-              dx := MulDiv(255 - i, vSize.CX div 3, 255);
-              dy := MulDiv(255 - i, vSize.CY div 3, 255);
+              dx := MulDiv(m - i, vSize.CX div 3, m);
+              dy := MulDiv(m - i, vSize.CY div 3, m);
 
               vRect1 := vRect;
               RectGrow(vRect1, -dx, -dy);
-              RectMove(vRect1, ADirect * ((vSize.CX div 2) - MulDiv(i, vSize.CX div 2, 255)), 0);
-              GDIAlhaBlend(vMemDC.DC, vRect1, vImage2DC.DC, vRect, False, i);
+              if optEffectType = 2 then
+                RectMove(vRect1, ADirect * ((vSize.CX div 2) - MulDiv(i, vSize.CX div 2, m)), 0)
+              else
+                RectMove(vRect1, 0, ADirect * ((vSize.CY div 2) - MulDiv(i, vSize.CY div 2, m)));
+              GDIAlhaBlend(vMemDC.DC, vRect1, vImage2DC.DC, vRect, False, a2);
             end;
 
             if optShowInfo <> 0 then
@@ -1702,7 +1621,7 @@ interface
             j := i;
             while True do begin
               vPeriod := TickCountDiff(GetTickCount, vTime);
-              i := MulDiv(vPeriod, 255, optEffectPeriod);
+              i := MulDiv(vPeriod, m, optEffectPeriod);
               if i > j then
                 Break;
 //            Trace('Sleep.');
@@ -2204,7 +2123,7 @@ interface
         SetWindowBounds(CalcWinRect)
       else
       if FWinMode = wmQuickView then
-        FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateWin);
+        FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateWin); 
     end;
 
     if FWinMode = wmQuickView then begin
@@ -2564,7 +2483,7 @@ interface
   end;
 
 
-  procedure TReviewImage.DecodePage(ASize :TSize; ACache :Boolean);
+  procedure TReviewImage.DecodePage(ASize :TSize; AFastScroll :Boolean = False);
   var
     vStart :DWORD;
   begin
@@ -2577,7 +2496,7 @@ interface
         IntSwap(ASize.CX, ASize.CY);
 
       { Декодируем... }
-      if FDecoder.pvdPageDecode(Self, 0{???}, ASize.CX, ASize.CY, ACache) then begin
+      if FDecoder.pvdPageDecode(Self, 0{???}, ASize.CX, ASize.CY, AFastScroll) then begin
         if not FSelfdraw then begin
           try
             { Формируем Bitmap  }
@@ -2738,6 +2657,7 @@ interface
   var
     vName :TString;
     vImage :TReviewImage;
+    vFastScroll :Boolean;
   begin
     Result := False;
     inc(GLockSync);
@@ -2750,6 +2670,11 @@ interface
       vName := AFileName;
       if vName = '' then
         vName := FarPanelCurrentFileName;
+
+      vFastScroll := TickCountDiff(GetTickCount, FLastDecode) < FastListDelay;
+      if vFastScroll then
+        { Отключаем эффект перехода }
+        ADirect := 0;
 
       vImage := FindInCache(vName);
       if vImage = nil then begin
@@ -2764,13 +2689,16 @@ interface
         try
           if vImage.TryOpen(AForce) then begin
             FCommand := GoCmdNone;
-            vImage.DecodePage(CalcWinSize(AMode), {Cache=}False);
+            vImage.DecodePage(CalcWinSize(AMode), vFastScroll);
             DisplayImage(vImage, AMode, ADirect);
             CacheImage(vImage);
             Result := True;
           end else
-          if AForce then
-            AppErrorId(strFormatError);
+          begin
+            if AForce then
+              AppErrorId(strFormatError);
+            FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
+          end;
         finally
           vImage._Release;
         end;
@@ -2787,6 +2715,9 @@ interface
         CacheImage(vImage);
         Result := True;
       end;
+      
+      if Result then
+        FLastDecode := GetTickCount;
 
     finally
       Dec(GLockSync);
@@ -2843,7 +2774,7 @@ interface
         vNewIndex := LocNext(vIndex);
         while vNewIndex <> vIndex do begin
           if vImage.TryOpenBy( FDecoders[vNewIndex], False ) then begin
-            vImage.DecodePage(CalcWinSize, {Cache=}False);
+            vImage.DecodePage(CalcWinSize);
             DisplayImage(vImage, -1);
             CacheImage(vImage);
             FFavDecoder := CurImage.FDecoder;
@@ -3032,6 +2963,46 @@ interface
   end;
 
 
+  procedure TReviewManager.CloseWindowDelayed(ADelay :Integer);
+  begin
+    if FWinThread <> nil then begin
+      SendMessage(FWindow.Handle, CM_ReleaseImage, 0, 0);
+      Review.SyncDelayed(SyncCmdClose, ADelay);
+      ClearCache;
+    end;
+  end;
+
+
+  function TReviewManager.CheckSync(const aName :TString; var ASelected :Boolean) :Boolean;
+  var
+    vInfo :TPanelInfo;
+    vItem :PPluginPanelItem;
+    vName :TString;
+  begin
+    Result := False;
+    if FarGetPanelInfo(True, vInfo) then begin
+      vItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETCURRENTPANELITEM, 0);
+      if vItem <> nil then begin
+        try
+          vName := vItem.FileName;
+          if PFLAGS_REALNAMES and vInfo.Flags = 0 then begin
+            vName := ExtractFileName(vName);
+            Result := StrEqual(ExtractFileName(aName), vName);
+          end else
+          begin
+            vName := AddFileName(FarPanelGetCurrentDirectory, vName);
+            Result := StrEqual(aName, vName);
+          end;
+          if Result then
+            ASelected := PPIF_SELECTED and vItem.Flags <> 0;
+        finally
+          MemFree(vItem);
+        end;
+      end;
+    end;
+  end;
+
+
   function TReviewManager.GetWindowTitle :TString;
   const
     vDelim = $2022;
@@ -3053,28 +3024,10 @@ interface
         Result := IntToStr(S) + ' sec'
     end;
 
-
-    function LocCheckSelected(const aName :TString) :Boolean;
-    var
-      vItem :PPluginPanelItem;
-      vName :TString;
-    begin
-      Result := False;
-      vItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETCURRENTPANELITEM, 0);
-      if vItem <> nil then begin
-        try
-          vName := AddFileName(FarPanelGetCurrentDirectory(PANEL_ACTIVE), vItem.FileName);
-          if StrEqual(aName, vName) then
-            Result := PPIF_SELECTED and vItem.Flags <> 0;
-        finally
-          MemFree(vItem);
-        end;
-      end;
-    end;
-
   var
     vFmt :TString;
     vScale :Integer;
+    vSelected :Boolean;
   begin
     Result := '';
     if CurImage <> nil then
@@ -3096,7 +3049,7 @@ interface
         Result := Format('%s ' + TChar(vDelim) + ' %s', [ExtractFileName(FName), vFmt]);
 
         if FSelected = -1 then
-          FSelected := IntIf(LocCheckSelected(FName), 1, 0);
+          FSelected := IntIf(CheckSync(FName, vSelected) and vSelected, 1, 0);
         if FSelected = 1 then
           Result := '*' + Result;
 
@@ -3136,7 +3089,7 @@ interface
   begin
     if (FWindow <> nil) and FarGetPanelInfo(True, vInfo) and (vInfo.PanelType = PTYPE_FILEPANEL) and (PFLAGS_REALNAMES and vInfo.Flags <> 0) then begin
 //    TraceF('CacheNeighbor: %d', [Byte(ANext)]);
-      vPath := FarPanelGetCurrentDirectory(PANEL_ACTIVE);
+      vPath := FarPanelGetCurrentDirectory;
       vIndex := vInfo.CurrentItem;
 
       while True do begin
@@ -3168,7 +3121,7 @@ interface
               vImage._AddRef;
               try
                 if vImage.TryOpen(False) then begin
-                  vImage.DecodePage(CalcWinSize, {Cache=}True);
+                  vImage.DecodePage(CalcWinSize);
                   CacheImage(vImage);
                   Break;
                 end;
@@ -3280,7 +3233,6 @@ interface
     vInfo :TPanelInfo;
     vIndex, vDirect :Integer;
     vItem :PPluginPanelItem;
-    vRedrawInfo :TPanelRedrawInfo;
     vPath, vFileName :TString;
   begin
     Result := False;
@@ -3288,7 +3240,7 @@ interface
       vDirect := 0;
       if ASlideShow then
         vDirect := IntIf((AOrig = 2) or ((AOrig = 0) and AForward), 1, -1);
-      vPath := FarPanelGetCurrentDirectory(PANEL_ACTIVE);
+      vPath := FarPanelGetCurrentDirectory;
 
       if AOrig = 0 then
         vIndex := vInfo.CurrentItem
@@ -3303,7 +3255,6 @@ interface
       end;
 
       while True do begin
-
         if AForward then begin
           if vIndex = vInfo.ItemsNumber - 1 then
             Break;
@@ -3314,7 +3265,6 @@ interface
             Break;
           Dec(vIndex);
         end;
-
         if (AOrig <> 0) and (vIndex = vInfo.CurrentItem) then
           Break;
 
@@ -3322,41 +3272,83 @@ interface
         if vItem <> nil then begin
           try
             if vItem.FileAttributes and faDirectory = 0 then begin
-
-              if PFLAGS_REALNAMES and vInfo.Flags = 0 then begin
-                { Плагинная панель с "виртуальными" файлами, навигируемся через макросы... }
-                vFileName := vItem.FileName;
-                if CanShowImage(vFileName) then begin
-                  FCommand := IntIf(AForward, GoCmdNext, GoCmdPrev);
-                  FCmdFile := vFileName;
-                  if ModalDlg <> nil then
-                    ModalDlg.Close;
-                  Result := True;
-                  Exit;
-                end;
-              end else
-              begin
+              vFileName := vItem.FileName;
+              if PFLAGS_REALNAMES and vInfo.Flags <> 0 then
                 vFileName := AddFileName(vPath, vItem.FileName);
-                if ShowImage(vFileName, 0, False, vDirect) then begin
-                  if optPrecache then
-                    SyncDelayed(IntIf(AForward, SyncCmdCacheNext, SyncCmdCachePrev), optCacheDelay);
-                 {$ifdef Far3}
-                  vRedrawInfo.StructSize := SizeOf(vRedrawInfo);
-                 {$endif Far3}
-                  vRedrawInfo.TopPanelItem := vInfo.TopPanelItem;
-                  vRedrawInfo.CurrentItem := vIndex;
-                  FARAPI.Control(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, @vRedrawInfo);
-                  Result := True;
-                  Exit;
-                end;
+              if NavigateLow(vInfo, vIndex, vFileName, vDirect, IntIf(AForward, 1, -1)) then begin
+                Result := True;
+                Exit;
               end;
-
             end;
           finally
             MemFree(vItem);
           end;
         end;
+      end;
+    end;
+  end;
 
+
+  function TReviewManager.NavigateTo(const AFileName :TString) :Boolean;
+  var
+    vInfo :TPanelInfo;
+    vItem :PPluginPanelItem;
+    vIndex :Integer;
+    vPath, vFileName :TString;
+  begin
+    Result := False;
+    if FarGetPanelInfo(True, vInfo) then begin
+      vPath := FarPanelGetCurrentDirectory;
+      vIndex := 0;
+      while vIndex < vInfo.ItemsNumber do begin
+        vItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETPANELITEM, vIndex);
+        if vItem <> nil then begin
+          try
+            if vItem.FileAttributes and faDirectory = 0 then begin
+              vFileName := vItem.FileName;
+              if StrEqual(vFileName, AFileName) then begin
+                if PFLAGS_REALNAMES and vInfo.Flags <> 0 then
+                  vFileName := AddFileName(vPath, vItem.FileName);
+                Result := NavigateLow(vInfo, vIndex, vFileName, 0, 0);
+                Exit;
+              end;
+            end;
+          finally
+            MemFree(vItem);
+          end;
+        end;
+        Inc(vIndex);
+      end;
+    end;
+  end;
+
+
+  function TReviewManager.NavigateLow(AInfo :TPanelInfo; AIndex :Integer; const AFileName :TString; ASlideDirect, ACacheDirect :Integer) :Boolean;
+  var
+    vRedrawInfo :TPanelRedrawInfo;
+  begin
+    Result := False;
+    if PFLAGS_REALNAMES and AInfo.Flags = 0 then begin
+      { Плагинная панель с "виртуальными" файлами, навигируемся через макросы... }
+      if CanShowImage(AFileName) then begin
+        FCommand := IntIf(ASlideDirect >= 2, GoCmdNext, GoCmdPrev);
+        FCmdFile := AFileName;
+        if ModalDlg <> nil then
+          ModalDlg.Close;
+        Result := True;
+      end;
+    end else
+    begin
+      if ShowImage(AFileName, 0, False, ASlideDirect) then begin
+        if optPrecache and (ACacheDirect <> 0) then
+          SyncDelayed(IntIf(ACacheDirect > 0, SyncCmdCacheNext, SyncCmdCachePrev), optCacheDelay);
+       {$ifdef Far3}
+        vRedrawInfo.StructSize := SizeOf(vRedrawInfo);
+       {$endif Far3}
+        vRedrawInfo.TopPanelItem := AInfo.TopPanelItem;
+        vRedrawInfo.CurrentItem := AIndex;
+        FARAPI.Control(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, @vRedrawInfo);
+        Result := True;
       end;
     end;
   end;
@@ -3452,7 +3444,7 @@ interface
 
     procedure LocNavigate(AOrig :Integer; AForward :Boolean);
     begin
-      if not Navigate(AOrig, AForward) then
+      if not Navigate(AOrig, AForward, optEffectOnManual) then
         Beep;
     end;
 
@@ -3492,6 +3484,7 @@ interface
       optShowInfo := 1 - optShowInfo;
 //    ShowDecoderInfo;
       InvalidateImage;
+      PluginConfig(True)
     end;
 
     procedure LocSwitchBack;
@@ -3539,33 +3532,21 @@ interface
     procedure LocSelectCurrent(AMode :Integer);
     var
       vInfo :TPanelInfo;
-      vItem :PPluginPanelItem;
-      vName :TString;
       vIndex :Integer;
+      vSelected :Boolean;
     begin
-      if FarGetPanelInfo(True, vInfo) then begin
-        vIndex := vInfo.CurrentItem;
-        vItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETPANELITEM, vIndex);
-        if vItem <> nil then begin
-          try
-            vName := AddFileName(FarPanelGetCurrentDirectory(PANEL_ACTIVE), vItem.FileName);
-            if StrEqual(CurImage.FName, vName) then begin
-
-              if (AMode = 1) or ((AMode = -1) and (PPIF_SELECTED and vItem.Flags = 0)) then
-                FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, Pointer(PPIF_SELECTED) )
-              else
-                FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, nil );
-
-              CurImage.FSelected := -1;
-              FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
-
-            end else
-              Beep;
-          finally
-            MemFree(vItem);
-          end;
+      if CheckSync(CurImage.FName, vSelected) then begin
+        if FarGetPanelInfo(True, vInfo) then begin
+          vIndex := vInfo.CurrentItem;
+          if (AMode = 1) or ((AMode = -1) and not vSelected) then
+            FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, Pointer(PPIF_SELECTED) )
+          else
+            FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, nil );
+          CurImage.FSelected := -1;
+          FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
         end;
-      end;
+      end else
+        Beep;
     end;
 
 
@@ -3758,7 +3739,7 @@ interface
     if FWinThread <> nil then begin
 //    TraceF('ProcessWheel: %d', [ADelta]);
       if GetKeyState(VK_Control) < 0 then
-        Navigate(0, ADelta < 0)
+        Navigate(0, ADelta < 0, optEffectOnManual)
       else
       if CurImage.FMovie then begin
         ChangeVolume(ADelta * 5, 0)
