@@ -308,7 +308,7 @@ interface
 
   function ExtractURLFileExtension(const AURL :TString) :TString;
   begin
-    Result := ExtractFileExtension(ExtractLastWord(AURL, '/'));
+    Result := ExtractFileExtension(ExtractLastWord(ExtractWord(1, AURL, ['?']), '/'));
   end;
 
 
@@ -1033,7 +1033,7 @@ interface
     if not opt_ShowResolvedFile or (FURL = '') then
       AItem.FileName := StrNew(FName)
     else begin
-      vName := AddFileExtension(FName, ExtractFileExtension(FURL));
+      vName := AddFileExtension(FName, ExtractURLFileExtension(FURL));
       AItem.FileName := StrNew(vName);
     end;
     Pointer(AItem.UserData) := Self;
@@ -1083,7 +1083,7 @@ interface
   function TFarFmTrackItem.GetFileName :TString; {override;}
   begin
 //  Result := FormatTrackFileName(FTrack, FArtist, '', ExtractFileExtension(FURL), FIndex);
-    Result := FormatTrackFileName(FName, '', '', ExtractFileExtension(FURL), FIndex);
+    Result := FormatTrackFileName(FName, '', '', ExtractURLFileExtension(FURL), FIndex);
   end;
 
 
