@@ -14,14 +14,20 @@
 
 == Загрузить ==
 
- * [http://code.google.com/p/far-plugins/downloads/list?q=PlugMenu Последняя версия]
+ * [http://plugring.farmanager.com/plugin.php?pid=882 Последняя версия]
 
- * [http://code.google.com/p/far-plugins/downloads/list?q=PlugMenu&can=1 Все версии]
+ * [http://code.google.com/p/far-plugins/downloads/list?q=PlugMenu&can=1 Старые версии]
 
 
 ----
 
 = История изменений =
+
+==Ver 1.21==
+
+ * Переход на страницу плагина на Plugring (CtrlPgUp в списке плагинов или кнопка Plugring в диалоге информации о плагине)
+
+ * Исправлено несколько ошибок
 
 ==Ver 1.20==
 
