@@ -1,33 +1,33 @@
 .Language=Russian
 
-&O Открыть         # np://Open
-&A Добавить        # np://Add
+&O ╬ЄъЁ√Є№         # np://Open
+&A ─юсртшЄ№        # np://Add
 -
-&P Игра/Пауза      # np:/PlayPause
-&S Стоп            # np:/Stop
+&P ╚уЁр/╧рєчр      # np:/PlayPause
+&S ╤Єюя            # np:/Stop
 -
-&L Список >
+&L ╤яшёюъ >
 {
-  &N Следующая     # np:/Next
-  &P Предудущая    # np:/Prev
-  &F Первая        # np:/First
-  &L Последняя     # np:/Last
+  &N ╤ыхфє■∙р      # np:/Next
+  &P ╧Ёхфєфє∙р     # np:/Prev
+  &F ╧хЁтр         # np:/First
+  &L ╧юёыхфэ       # np:/Last
   -
-  &G Перейти к...  # np://Playlist
+  &G ╧хЁхщЄш ъ...  # np://Playlist
   -
-  &C Очистить      # np:/Clear
+  &C ╬ўшёЄшЄ№      # np:/Clear
 }
 -
-&V Громкость >
+&V ├ЁюьъюёЄ№ >
 {
-  &+ Громкость +5%     #+ np:/Volume=+5
-  &- Громкость -5%     #+ np:/Volume=-5
-  &M Приглушить до 5%  #+ np:/Mute=5
+  &+ ├ЁюьъюёЄ№ +5%     #+ np:/Volume=+5
+  &- ├ЁюьъюёЄ№ -5%     #+ np:/Volume=-5
+  &M ╧Ёшуыє°шЄ№ фю 5%  #+ np:/Mute=5
   -
-  &L Баланс -5% влево  #+ np:/Balance=-5
-  &R Баланс +5% вправо #+ np:/Balance=+5
-  &= Баланс по центру  #+ np:/Balance=0
+  &L ┴рырэё -5% тыхтю  #+ np:/Balance=-5
+  &R ┴рырэё +5% тяЁртю #+ np:/Balance=+5
+  &= ┴рырэё яю ЎхэЄЁє  #+ np:/Balance=0
 }
 -
-&I Информация        # np://Info
-&X Выход             # np:/Quit
+&I ╚эЇюЁьрЎш         # np://Info
+&X ┬√їюф             # np:/Quit
