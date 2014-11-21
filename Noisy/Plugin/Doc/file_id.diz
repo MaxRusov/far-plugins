@@ -1,6 +1,6 @@
 
-Noisy Player v 1.0 for FAR 1.71
--------------------------------
+Noisy Player for FAR 3
+----------------------
 
 Noisy - Проигрыватель музыкальных 
 файлов на основе BASS Audio Library
@@ -9,6 +9,9 @@ NoisyFar - Plugin для Far Manager
 для управления проигрывателем.
                         
 Автор: Максим Русов (rusov@tbsoft.ru)
+
+Последние версии и исходные тексты:
+http://code.google.com/p/far-plugins
 
 BASS Audio Library
 (c) 1999-2008 Un4seen Developments Ltd.
