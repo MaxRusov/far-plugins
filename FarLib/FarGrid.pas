@@ -269,7 +269,10 @@ interface
   begin
     CreateEx(AName, AHeader, AWidth, Alignment, AOptions, ATag);
     if AMinWidth > 0 then
-      FMinWidth := IntMin(AMinWidth, AWidth);
+      FMinWidth := IntMin(AMinWidth, AWidth)
+    else
+    if AMinWidth = -1 then
+      FMinWidth := AWidth;
   end;
 
 

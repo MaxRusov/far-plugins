@@ -578,6 +578,9 @@ interface
   var
     vPos :TFarListPos;
   begin
+   {$ifdef Far3}
+    vPos.StructSize := SizeOf(vPos);
+   {$endif Far3}
     vPos.SelectPos := AIndex;
     vPos.TopPos := ATopPos;
     SendMsg(DM_LISTSETCURPOS, AItemID, @vPos);

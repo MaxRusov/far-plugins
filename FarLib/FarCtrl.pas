@@ -228,7 +228,7 @@ interface
   function FarStrToMacro(const AStr :TString) :TString;
   procedure FarPostMacro(const AStr :TFarStr; AFlags :DWORD =
     {$ifdef Far3}
-     KMFLAGS_DISABLEOUTPUT or KMFLAGS_NOSENDKEYSTOPLUGINS;
+     KMFLAGS_NOSENDKEYSTOPLUGINS;
     {$else}
      KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
     {$endif Far3}
@@ -1045,13 +1045,7 @@ interface
   end;
 
 
-  procedure FarPostMacro(const AStr :TFarStr; AFlags :DWORD =
-   {$ifdef Far3}
-    KMFLAGS_DISABLEOUTPUT or KMFLAGS_NOSENDKEYSTOPLUGINS;
-   {$else}
-    KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
-   {$endif Far3}
-    AKey :DWORD = 0);
+  procedure FarPostMacro;
  {$ifdef Far3}
   var
     vMacro :TMacroSendMacroText;
