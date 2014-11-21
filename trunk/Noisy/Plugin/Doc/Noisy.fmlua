@@ -1,0 +1,85 @@
+
+;; Макросы для управлением музыкальным проигрывателем Noisy
+
+const Noisy = "298208DF-2031-4DD8-A461-E3DD80C72F46"
+
+
+macro Descr="Noisy: Add files" Bind="CtrlAltA"
+{{
+  Plugin.Call(#%Noisy, "//Add")
+}}
+
+macro Descr="Noisy: Open files" Bind="CtrlAltO"
+{{
+  Plugin.Call(#%Noisy, "//Open")
+}}
+
+macro Descr="Noisy: Play/Pause" Bind="CtrlAltP"
+{{
+  Plugin.Call(#%Noisy, "/Playpause")
+}}
+
+macro Descr="Noisy: Stop" Bind="CtrlAltS"
+{{
+  Plugin.Call(#%Noisy, "/Stop")
+}}
+
+macro Descr="Noisy: Information" Bind="CtrlAltI"
+{{
+  Plugin.Call(#%Noisy, "//Info")
+}}
+
+macro Descr="Noisy: Goto track" Bind="CtrlAltG"
+{{
+  Plugin.Call(#%Noisy, "//Playlist")
+}}
+
+macro Descr="Noisy: Exit" Bind="CtrlAltX"
+{{
+  Plugin.Call(#%Noisy, "/Quit")
+}}
+
+macro Descr="Noisy: Volume Up" Bind="CtrlAltAdd"
+{{
+  Plugin.Call(#%Noisy, "/Volume=+5")
+}}
+
+macro Descr="Noisy: Volume Down" Bind="CtrlAltSubtract"
+{{
+  Plugin.Call(#%Noisy, "/Volume=-5")
+}}
+
+macro Descr="Noisy: Mute" Bind="CtrlAltMultiply"
+{{
+  Plugin.Call(#%Noisy, "/Mute=1")
+}}
+
+macro Descr="Noisy: Next track" Bind="CtrlAltPgDn"
+{{
+  Plugin.Call(#%Noisy, "/Next")
+}}
+
+macro Descr="Noisy: Prev track" Bind="CtrlAltPgUp"
+{{
+  Plugin.Call(#%Noisy, "/Prev")
+}}
+
+macro Descr="Noisy: First track" Bind="CtrlAltHome"
+{{
+  Plugin.Call(#%Noisy, "/First")
+}}
+
+macro Descr="Noisy: Last track" Bind="CtrlAltEnd"
+{{
+  Plugin.Call(#%Noisy, "/Last")
+}}
+
+macro Descr="Noisy: Seek forward" Bind="CtrlAltRight"
+{{
+  Plugin.Call(#%Noisy, "/Seek=+5")
+}}
+
+macro Descr="Noisy: Seek backward" Bind="CtrlAltLeft"
+{{
+  Plugin.Call(#%Noisy, "/Seek=-5")
+}}
