@@ -85,6 +85,7 @@ type
  {$endif CPUX86_64}
  {$endif Win64}
 
+  PIntPtr = ^TIntPtr;
   TIntPtr = INT_PTR;
   TUIntPtr = DWORD_PTR;
 
@@ -118,8 +119,9 @@ const
   FCF_NONE          = 0;
   FCF_FG_4BIT       = $0000000000000001;
   FCF_BG_4BIT       = $0000000000000002;
-
   FCF_4BITMASK      = $0000000000000003; // FCF_FG_4BIT|FCF_BG_4BIT
+
+  FCF_RAWATTR_MASK  = $000000000000FF00; // stored console attributes
 
   FCF_EXTENDEDFLAGS = $FFFFFFFFFFFFFFFC; // ~FCF_4BITMASK
 
@@ -368,6 +370,7 @@ const
   DM_GETDLGITEMSHORT      = 64;
   DM_SETDLGITEMSHORT      = 65;
   DM_GETDIALOGINFO        = 66;
+  DM_GETDIALOGTITLE       = 67;
 
   DN_FIRST                = 4096;
   DN_BTNCLICK             = 4097;
@@ -392,6 +395,8 @@ const
   DN_CONTROLINPUT         = 4116;
   DN_CLOSE                = 4117;
   DN_GETVALUE             = 4118;
+  DN_DROPDOWNOPENED       = 4119;
+  DN_DRAWDLGITEMDONE      = 4120;
 
   DM_USER                 = $4000;
 
@@ -1017,7 +1022,7 @@ type
     Bottom :PFarChar;
     HelpTopic :PFarChar;
     BreakKeys :PFarKeyArray;
-    BreakCode :PIntPtrArray;
+    BreakCode :PIntPtr;
     Item :PFarMenuItemArray;
     ItemsNumber :size_t
   ) :TIntPtr; stdcall;
@@ -1126,6 +1131,34 @@ type
     Size :size_t;
     Item :PPluginPanelItem;
   end;
+
+(*
+struct SortingPanelItem
+{
+	FILETIME CreationTime;
+	FILETIME LastAccessTime;
+	FILETIME LastWriteTime;
+	FILETIME ChangeTime;
+	unsigned __int64 FileSize;
+	unsigned __int64 AllocationSize;
+	const wchar_t *FileName;
+	const wchar_t *AlternateFileName;
+	const wchar_t *Description;
+	const wchar_t *Owner;
+	const wchar_t * const *CustomColumnData;
+	size_t CustomColumnNumber;
+	PLUGINPANELITEMFLAGS Flags;
+	struct UserDataItem UserData;
+	uintptr_t FileAttributes;
+	uintptr_t NumberOfLinks;
+	uintptr_t CRC32;
+	intptr_t Position;
+	intptr_t SortGroup;
+	uintptr_t NumberOfStreams;
+	unsigned __int64 StreamsSize;
+};
+*)
+{!!!}
 
 { PANELINFOFLAGS }
 
@@ -1454,6 +1487,13 @@ const
   EF_LOCKED                = $00000400;
   EF_DISABLESAVEPOS        = $00000800;
 
+  EF_OPENMODE_MASK         = $F0000000;
+  EF_OPENMODE_QUERY        = $00000000;
+  EF_OPENMODE_NEWIFOPEN    = $10000000;
+  EF_OPENMODE_USEEXISTING  = $20000000;
+  EF_OPENMODE_BREAKIFOPEN  = $30000000;
+  EF_OPENMODE_RELOADIFOPEN = $40000000;
+
 { EDITOR_EXITCODE }
 
 const
@@ -1587,6 +1627,7 @@ const
   MCTL_ADDMACRO     = 7;
   MCTL_DELMACRO     = 8;
   MCTL_GETLASTERROR = 9;
+  MCTL_EXECSTRING   = 10;
 
 { FARKEYMACROFLAGS }
 
@@ -1595,11 +1636,13 @@ type
 
 const
   KMFLAGS_NONE                = 0;
-  KMFLAGS_DISABLEOUTPUT       = $00000001;
-  KMFLAGS_NOSENDKEYSTOPLUGINS = $00000002;
-  KMFLAGS_SILENTCHECK         = $00000001;
-//KMFLAGS_SAVEMACRO           = $00000004;  
 
+  KMFLAGS_SILENTCHECK         = $00000001;
+  KMFLAGS_NOSENDKEYSTOPLUGINS = $00000002;
+  KMFLAGS_ENABLEOUTPUT        = $00000004;
+  KMFLAGS_LANGMASK            = $00000070; // 3 bits reserved for 8 languages
+  KMFLAGS_LUA                 = $00000000;
+  KMFLAGS_MOONSCRIPT          = $00000010;
 
 { FARMACROSENDSTRINGCOMMAND }
 
@@ -1738,7 +1781,8 @@ const
   FMVT_BOOLEAN  = 4;
   FMVT_BINARY   = 5;
   FMVT_POINTER  = 6;
-
+  FMVT_NIL      = 7;
+  FMVT_ARRAY    = 8;
 
 (*
 struct FarMacroValue
@@ -1756,6 +1800,11 @@ struct FarMacroValue
       void *Data;
       size_t Size;
     } Binary;
+    struct
+    {
+      struct FarMacroValue *Values;
+      size_t Count;
+    } Array;
   } Value;
 };
 *)
@@ -1780,38 +1829,6 @@ type
 
   PFarMacroValueArray = ^TFarMacroValueArray;
   TFarMacroValueArray = packed array[0..MaxInt div SizeOf(TFarMacroValue) - 1] of TFarMacroValue;
-
-
-{ MACROPLUGINRETURNTYPE }
-
-const
-  MPRT_NORMALFINISH  = 0;
-  MPRT_ERRORFINISH   = 1;
-  MPRT_ERRORPARSE    = 2;
-  MPRT_KEYS          = 3;
-  MPRT_PRINT         = 4;
-  MPRT_PLUGINCALL    = 5;
-  MPRT_PLUGINMENU    = 6;
-  MPRT_PLUGINCONFIG  = 7;
-  MPRT_PLUGINCOMMAND = 8;
-  MPRT_USERMENU      = 9;
-  MPRT_COMMONCASE    = 100;
-
-(*
-struct MacroPluginReturn
-{
-  size_t Count;
-  struct FarMacroValue *Values;
-  enum MACROPLUGINRETURNTYPE ReturnType;
-};
-*)
-type
-  PMacroPluginReturn = ^TMacroPluginReturn;
-  TMacroPluginReturn = record
-    Count :size_t;
-    Values :PFarMacroValueArray;
-    ReturnType :Integer; {MACROPLUGINRETURNTYPE}
-  end;
 
 (*
 struct FarMacroCall
@@ -1850,6 +1867,20 @@ type
     fType :TIntPtr;
     Value :TFarMacroValue;
   end;
+
+(*
+struct MacroExecuteString
+{
+	size_t StructSize;
+	FARKEYMACROFLAGS Flags;
+	const wchar_t *SequenceText;
+	size_t InCount;
+	struct FarMacroValue *InValues;
+	size_t OutCount;
+	const struct FarMacroValue *OutValues;
+};
+*)
+{!!!}
 
 {------------------------------------------------------------------------------}
 
@@ -3328,8 +3359,9 @@ type
 
 const
   MLF_NONE             = 0;
-  MLF_SHOWERRMSG       = $0000000000010000;
-  MLF_DONOTUPDATEPANEL = $0000000000020000;
+  MLF_SHOWERRMSG       = $00010000;
+  MLF_DONOTUPDATEPANEL = $00020000;
+  MLF_HOLDTARGET       = $00040000;
 
 type
 //typedef BOOL (WINAPI *FARSTDMKLINK)(const wchar_t *Src,const wchar_t *Dest,enum LINK_TYPE Type, MKLINK_FLAGS Flags);
@@ -3477,6 +3509,7 @@ type
     SettingsControl     : TFarApiSettingsControl;
 
     _Private            : Pointer;
+    Instance            : Pointer;
   end; {TPluginStartupInfo}
 
 
@@ -3519,16 +3552,28 @@ struct NetBoxPrivateInfo
 {!!!}
 
 (*
+struct MacroPluginReturn
+{
+	intptr_t ReturnType;
+	size_t Count;
+	struct FarMacroValue *Values;
+};
+*)
+{!!!}
+
+
+(*
 typedef intptr_t (WINAPI *FARAPICALLFAR)(intptr_t CheckCode, struct FarMacroCall* Data);
+typedef void (WINAPI *FARAPICALLPLUGIN)(struct MacroPluginReturn* Data, struct FarMacroCall** Target, int* Boolean);
 
 struct MacroPrivateInfo
 {
 	size_t StructSize;
 	FARAPICALLFAR CallFar;
+	FARAPICALLPLUGIN CallPlugin;
 };
 *)
 {!!!}
-
 
 { PLUGIN_FLAGS }
 
@@ -3599,6 +3644,7 @@ struct GlobalInfo
   const wchar_t *Title;
   const wchar_t *Description;
   const wchar_t *Author;
+  void* Instance;
 };
 *)
 type
@@ -3611,6 +3657,7 @@ type
     Title :PFarChar;
     Description :PFarChar;
     Author :PFarChar;
+    Instance :Pointer;
   end;
 
 (*
@@ -3622,6 +3669,7 @@ struct PluginInfo
   struct PluginMenuItem PluginMenu;
   struct PluginMenuItem PluginConfig;
   const wchar_t *CommandPrefix;
+  void* Instance;
 };
 *)
 type
@@ -3633,6 +3681,7 @@ type
     PluginMenu :TPluginMenuItem;
     PluginConfig :TPluginMenuItem;
     CommandPrefix :PFarChar;
+    Instance :Pointer;
   end;
 
 
@@ -3838,6 +3887,7 @@ struct OpenPanelInfo
   const wchar_t               *ShortcutData;
   unsigned __int64             FreeSize;
   struct UserDataItem          UserData;
+  void* Instance;
 };
 *)
 type
@@ -3864,6 +3914,7 @@ type
     FreeSize :Int64;
     UserData :Pointer;
     FreeData :TFarPanelItemFreeCallback;
+    Instance :Pointer;
   end;
 
 (*
@@ -3874,6 +3925,7 @@ struct AnalyseInfo
   void           *Buffer;
   size_t          BufferSize;
   OPERATION_MODES OpMode;
+  void* Instance;
 };
 *)
 type
@@ -3884,6 +3936,7 @@ type
     Buffer :Pointer;
     BufferSize :size_t;
     OpMode :TOperationModes;
+    Instance :Pointer;
   end;
 
 (*
@@ -3987,17 +4040,35 @@ const
 { MACROCALLTYPE }
 
 const
-  MCT_MACROINIT     = 0;
-  MCT_MACROSTEP     = 1;
-  MCT_MACROFINAL    = 2;
-  MCT_MACROPARSE    = 3;
-  MCT_LOADMACROS    = 4;
-  MCT_ENUMMACROS    = 5;
-  MCT_WRITEMACROS   = 6;
-  MCT_GETMACRO      = 7;
-  MCT_PROCESSMACRO  = 8;
-  MCT_DELMACRO      = 9;
-  MCT_RUNSTARTMACRO = 10;
+  MCT_MACROPARSE         = 0;
+  MCT_LOADMACROS         = 1;
+  MCT_ENUMMACROS         = 2;
+  MCT_WRITEMACROS        = 3;
+  MCT_GETMACRO           = 4;
+  MCT_RECORDEDMACRO      = 5;
+  MCT_DELMACRO           = 6;
+  MCT_RUNSTARTMACRO      = 7;
+  MCT_EXECSTRING         = 8;
+  MCT_PANELSORT          = 9;
+  MCT_GETCUSTOMSORTMODES = 10;
+  MCT_ADDMACRO           = 11;
+  MCT_KEYMACRO           = 12;
+
+
+{ MACROPLUGINRETURNTYPE }
+
+const
+  MPRT_NORMALFINISH  = 0;
+  MPRT_ERRORFINISH   = 1;
+  MPRT_ERRORPARSE    = 2;
+  MPRT_KEYS          = 3;
+  MPRT_PRINT         = 4;
+  MPRT_PLUGINCALL    = 5;
+  MPRT_PLUGINMENU    = 6;
+  MPRT_PLUGINCONFIG  = 7;
+  MPRT_PLUGINCOMMAND = 8;
+  MPRT_USERMENU      = 9;
+  MPRT_HASNOMACRO    = 10;
 
 
 (*
@@ -4008,7 +4079,16 @@ struct OpenMacroPluginInfo
   HANDLE Handle;
   struct FarMacroCall *Data;
 };
+-->
+struct OpenMacroPluginInfo
+{
+	enum MACROCALLTYPE CallType;
+	intptr_t Handle;
+	struct FarMacroCall *Data;
+	struct MacroPluginReturn Ret;
+};
 *)
+(*
 type
   POpenMacroPluginInfo = ^TOpenMacroPluginInfo;
   TOpenMacroPluginInfo = record
@@ -4017,20 +4097,22 @@ type
     Handle :THandle;
     Data :PFarMacroCall;
   end;
-
+*)
+{!!!}
 
 { FAR_EVENTS }
 
 const
-  FE_CHANGEVIEWMODE = 0;
-  FE_REDRAW         = 1;
-  FE_IDLE           = 2;
-  FE_CLOSE          = 3;
-  FE_BREAK          = 4;
-  FE_COMMAND        = 5;
+  FE_CHANGEVIEWMODE   = 0;
+  FE_REDRAW           = 1;
+  FE_IDLE             = 2;
+  FE_CLOSE            = 3;
+  FE_BREAK            = 4;
+  FE_COMMAND          = 5;
 
-  FE_GOTFOCUS       = 6;
-  FE_KILLFOCUS      = 7;
+  FE_GOTFOCUS         = 6;
+  FE_KILLFOCUS        = 7;
+  FE_CHANGESORTPARAMS = 8;
 
 (*
 struct OpenInfo
@@ -4039,6 +4121,7 @@ struct OpenInfo
   enum OPENFROM OpenFrom;
   const GUID* Guid;
   intptr_t Data;
+  void* Instance;
 };
 *)
 type
@@ -4048,6 +4131,7 @@ type
     OpenFrom :DWORD{enum OPENFROM};
     GUID :PGUID;
     Data :TIntPtr;
+    Instance :Pointer;
   end;
 
 (*
@@ -4056,20 +4140,11 @@ struct SetDirectoryInfo
   size_t StructSize;
   HANDLE hPanel;
   const wchar_t *Dir;
-  intptr_t UserData;
-  OPERATION_MODES OpMode;
-};
--->
-struct SetDirectoryInfo
-{
-  size_t StructSize;
-  HANDLE hPanel;
-  const wchar_t *Dir;
   intptr_t Reserved;
   OPERATION_MODES OpMode;
   struct UserDataItem UserData;
+  void* Instance;
 };
-
 *)
 type
   PSetDirectoryInfo = ^TSetDirectoryInfo;
@@ -4081,6 +4156,7 @@ type
     OpMode :TOperationModes;
     UserData :Pointer;
     FreeData :TFarPanelItemFreeCallback;
+    Instance :Pointer;
   end;
 
 (*
@@ -4090,6 +4166,7 @@ type
                     HANDLE hPanel;
                     const struct PluginPanelItem *PanelItem;
                     size_t ItemsNumber;
+                    void* Instance;
             };
 *)
 {!!!}
@@ -4104,6 +4181,7 @@ struct PutFilesInfo
   BOOL Move;
   const wchar_t *SrcPath;
   OPERATION_MODES OpMode;
+  void* Instance;
 };
 *)
 type
@@ -4116,6 +4194,7 @@ type
     Move :Boolean;
     SrcPath :PFarChar;
     OpMode :TOperationModes;
+    Instance :Pointer;
   end;
 
 
@@ -4127,6 +4206,7 @@ type
                     struct PluginPanelItem *PanelItem;
                     size_t ItemsNumber;
                     OPERATION_MODES OpMode;
+                    void* Instance;
             };
 *)
 {!!!}
@@ -4138,6 +4218,7 @@ struct MakeDirectoryInfo
   HANDLE hPanel;
   const wchar_t *Name;
   OPERATION_MODES OpMode;
+  void* Instance;
 };
 *)
 type
@@ -4147,6 +4228,7 @@ type
     hPanel :THandle;
     Name :PFarChar;
     OpMode :TOperationModes;
+    Instance :Pointer;
   end;
 
 (*
@@ -4157,6 +4239,7 @@ type
                     const struct PluginPanelItem *Item1;
                     const struct PluginPanelItem *Item2;
                     enum OPENPANELINFO_SORTMODES Mode;
+                    void* Instance;
             };
 *)
 
@@ -4168,6 +4251,7 @@ struct GetFindDataInfo
   struct PluginPanelItem *PanelItem;
   size_t ItemsNumber;
   OPERATION_MODES OpMode;
+  void* Instance;
 };
 *)
 type
@@ -4178,6 +4262,7 @@ type
     PanelItem :PPluginPanelItemArray;
     ItemsNumber :size_t;
     OpMode :TOperationModes;
+    Instance :Pointer;
   end;
 
 (*
@@ -4187,6 +4272,7 @@ struct FreeFindDataInfo
   HANDLE hPanel;
   struct PluginPanelItem *PanelItem;
   size_t ItemsNumber;
+  void* Instance;
 };
 *)
 type
@@ -4196,6 +4282,7 @@ type
     hPanel :THandle;
     PanelItem :PPluginPanelItemArray;
     ItemsNumber :size_t;
+    Instance :Pointer;
   end;
 
 (*
@@ -4208,6 +4295,7 @@ struct GetFilesInfo
   BOOL Move;
   const wchar_t *DestPath;
   OPERATION_MODES OpMode;
+  void* Instance;
 };
 *)
 type
@@ -4220,6 +4308,7 @@ type
     Move :Boolean;
     DestPath :PFarChar;
     OpMode :TOperationModes;
+    Instance :Pointer;
   end;
 
 (*
@@ -4230,6 +4319,7 @@ struct DeleteFilesInfo
   struct PluginPanelItem *PanelItem;
   size_t ItemsNumber;
   OPERATION_MODES OpMode;
+  void* Instance;
 };
 *)
 type
@@ -4240,6 +4330,7 @@ type
     PanelItem :PPluginPanelItem;
     ItemsNumber :size_t;
     OpMode :TOperationModes;
+    Instance :Pointer;
   end;
 
 
@@ -4249,6 +4340,7 @@ struct ProcessPanelInputInfo
   size_t StructSize;
   HANDLE hPanel;
   INPUT_RECORD Rec;
+  void* Instance;
 };
 *)
 type
@@ -4257,6 +4349,7 @@ type
     StructSize :size_t;
     hPanel :THandle;
     Rec :TInputRecord;
+    Instance :Pointer;
   end;
 
 
@@ -4265,13 +4358,15 @@ struct ProcessEditorInputInfo
 {
   size_t StructSize;
   INPUT_RECORD Rec;
+  void* Instance;
 };
 *)
 type
   PProcessEditorInputInfo = ^TProcessEditorInputInfo;
   TProcessEditorInputInfo = record
     StructSize :size_t;
-    Rec :INPUT_RECORD;
+    Rec :TInputRecord;
+    Instance :Pointer;
   end;
 
 
@@ -4288,7 +4383,7 @@ struct ProcessConsoleInputInfo
   size_t StructSize;
   PROCESSCONSOLEINPUT_FLAGS Flags;
   INPUT_RECORD Rec;
-  HANDLE hPanel;
+  void* Instance;
 };
 *)
 type
@@ -4297,19 +4392,21 @@ type
     StructSize :size_t;
     Flags :TProcessConsoleInputFlags;
     Rec :TInputRecord;
-    hPanel :THandle;
+    Instance :Pointer;
   end;
 
 (*
 struct ExitInfo
 {
   size_t StructSize;
+  void* Instance;
 };
 *)
 type
   PExitInfo = ^TExitInfo;
   TExitInfo = record
     StructSize :size_t;
+    Instance :Pointer;
   end;
 
 (*
@@ -4319,8 +4416,10 @@ struct ProcessPanelEventInfo
   intptr_t Event;
   void* Param;
   HANDLE hPanel;
+  void* Instance;
 };
 *)
+{!!!}
 
 (*
 struct ProcessEditorEventInfo
@@ -4329,6 +4428,7 @@ struct ProcessEditorEventInfo
   intptr_t Event;
   void* Param;
   intptr_t EditorID;
+  void* Instance;
 };
 *)
 type
@@ -4338,6 +4438,7 @@ type
     Event :TIntPtr;
     Param :Pointer;
     EditorID :TIntPtr;
+    Instance :Pointer;
   end;
 
 (*
@@ -4346,6 +4447,7 @@ struct ProcessDialogEventInfo
   size_t StructSize;
   intptr_t Event;
   struct FarDialogEvent* Param;
+  void* Instance;
 };
 *)
 type
@@ -4354,6 +4456,7 @@ type
     StructSize :size_t;
     Event :TIntPtr;
     Param :PFarDialogEvent;
+    Instance :Pointer;
   end;
 
 (*
@@ -4362,6 +4465,7 @@ struct ProcessSynchroEventInfo
   size_t StructSize;
   intptr_t Event;
   void* Param;
+  void* Instance;
 };
 *)
 type
@@ -4370,6 +4474,7 @@ type
     StructSize :size_t;
     Event :TIntPtr;
     Param :Pointer;
+    Instance :Pointer;
   end;
 
 (*
@@ -4379,6 +4484,7 @@ struct ProcessViewerEventInfo
   intptr_t Event;
   void* Param;
   intptr_t ViewerID;
+  void* Instance;
 };
 *)
 type
@@ -4388,6 +4494,7 @@ type
     Event :TIntPtr;
     Param :Pointer;
     ViewerID :TIntPtr;
+    Instance :Pointer;
   end;
 
 (*
@@ -4395,6 +4502,7 @@ struct ClosePanelInfo
 {
   size_t StructSize;
   HANDLE hPanel;
+  void* Instance;
 };
 *)
 type
@@ -4402,6 +4510,7 @@ type
   TClosePanelInfo = record
     StructSize :size_t;
     hPanel :THandle;
+    Instance :Pointer;
   end;
 
 (*
@@ -4409,6 +4518,7 @@ struct CloseAnalyseInfo
 {
   size_t StructSize;
   HANDLE Handle;
+  void* Instance;
 };
 *)
 type
@@ -4416,6 +4526,7 @@ type
   TCloseAnalyseInfo = record
     StructSize :size_t;
     Handle :THandle;
+    Instance :Pointer;
   end;
 
 (*
@@ -4423,6 +4534,7 @@ struct ConfigureInfo
 {
   size_t StructSize;
   const GUID* Guid;
+  void* Instance;
 };
 *)
 type
@@ -4430,8 +4542,8 @@ type
   TConfigureInfo = record
     StructSize :size_t;
     GUID :PGUID;
+    Instance :Pointer;
   end;
-
 
 (*
 // Exported Functions
@@ -4503,4 +4615,5 @@ end;
 {$Warnings Off}
 end.
 {$endif FarAPI}
+
 
