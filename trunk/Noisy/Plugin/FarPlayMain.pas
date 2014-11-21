@@ -4,9 +4,10 @@
 unit FarPlayMain;
 
 {******************************************************************************}
-{* (c) 2008 Max Rusov                                                         *}
-{*                                                                            *}
-{* Noisy Far plugin                                                           *}
+{* Noisy - Noisy Player Far plugin                                            *}
+{* 2008-2014, Max Rusov                                                       *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
 
 interface
@@ -25,23 +26,25 @@ interface
 
     Far_API,
     FarCtrl,
+    FarPlug,
+    FarMenu,
+
     FarPlayCtrl,
     FarPlayInfoDlg,
     FarPlayPlaylistDlg;
 
 
- {$ifdef bUnicodeFar}
-  function GetMinFarVersionW :Integer; stdcall;
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
-  procedure ExitFARW; stdcall;
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
- {$else}
-  procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
-  procedure ExitFAR; stdcall;
-  function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
- {$endif bUnicodeFar}
+  type
+    TNoisyPlug = class(TFarPlug)
+    public
+      procedure Init; override;
+      procedure Startup; override;
+      procedure ExitFar; override;
+      procedure GetInfo; override;
+//    procedure Configure; override;
+      function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+      function OpenCmdLine(AStr :PTChar) :THandle; override;
+    end;
 
 
 {******************************************************************************}
@@ -122,23 +125,24 @@ interface
         end;
       end;
 
-      function LocEnumMenuFile(const AFileName :TString; const ARec :TFarFindData) :Integer;
+      function LocEnumMenuFile(const APath :TString; const ARec :TWin32FindData) :Boolean;
       begin
 //      Trace(AFileName);
-        ReadStrings(AFileName, vList);
+        ReadStrings(AddFileName(APath, ARec.cFileName), vList);
         if (ALang = '') or CheckLang(ALang) then begin
           LocParse(vList);
           vFound := True;
-          Result := 0;
+          Result := False;
         end else
-          Result := 1;
+          Result := True;
       end;
 
     begin
       vList := TStringList.Create;
       try
         vFound := False;
-        EnumFilesEx(FModulePath, cMenuFileMask, LocalAddr(@LocEnumMenuFile));
+        WinEnumFiles(FModulePath, cMenuFileMask, faEnumFiles,  LocalAddr(@LocEnumMenuFile));
+
         Result := vFound;
       finally
         FreeObj(vList);
@@ -204,14 +208,14 @@ interface
       vLast := vTick;
       if vSave = 0 then
         vSave := FARAPI.SaveScreen(0, 0, -1, -1);
-      vMess := StrAnsiToOEM(ExtractFileName(vName));
+      vMess := ExtractFileName(vName);
       if APercent <> -1 then begin
         if Length(vMess) > 10 then
           vMess := Copy(vMess, 1, 40);
         vMess := vMess + #10 + GetProgressStr(cWidth, APercent);
       end;
-      vMess := 'Adding' + #10 + vMess;
-      FARAPI.Message(hModule, FMSG_ALLINONE, nil, PPCharArray(PTChar(vMess)), 0, 0);
+      ShowMessage('Adding', vMess, 0);
+      Sleep(100);
       Assert(cTrue);
     end;
 
@@ -220,48 +224,33 @@ interface
     vInfo :TPanelInfo;
     vItem :PPluginPanelItem;
   begin
-    FillChar(vInfo, SizeOf(vInfo), 0);
-   {$ifdef bUnicode}
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelInfo, 0, @vInfo);
-   {$else}
-    FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_GetPanelInfo, @vInfo);
-   {$endif bUnicode}
+    if not FarGetPanelInfo(True, vInfo) then
+      Exit;
 
     if vInfo.PanelType = PTYPE_FILEPANEL then begin
 
       vSave := 0;
       vLast := GetTickCount;
       try
-        if (vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0) then begin
-         {$ifdef bUnicode}
-          vFolder := FarPanelGetCurrentDirectory(INVALID_HANDLE_VALUE);
-         {$else}
-          vFolder := FarChar2Str(vInfo.CurDir);
-         {$endif bUnicode}
+        if not IsPluginPanel(vInfo) or (PFLAGS_REALNAMES and vInfo.Flags <> 0) then begin
+          vFolder := FarPanelGetCurrentDirectory;
 
           if vInfo.SelectedItemsNumber <= 1 then begin
             vIndex := vInfo.CurrentItem;
             if (vIndex < 0) or (vIndex >= vInfo.ItemsNumber) then
               Exit;
 
-           {$ifdef bUnicode}
-            vItem := FarPanelItem(INVALID_HANDLE_VALUE, FCTL_GETPANELITEM, vIndex);
+            vItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETPANELITEM, vIndex);
             try
-           {$else}
-            vItem := @vInfo.PanelItems[vIndex];
-           {$endif bUnicode}
-
-            vName := AddFileName(vFolder, FarChar2Str(vItem.FindData.cFileName));
-            vIsFolder := faDirectory and vItem.FindData.dwFileAttributes <> 0;
-            if vIsFolder then
-              LocShowMessage(-1);
-            ExecAddCommand(vName, Add, vIsFolder);
-
-           {$ifdef bUnicode}
+              vName := AddFileName(vFolder, vItem.FileName);
+              vIsFolder := faDirectory and vItem.FileAttributes <> 0;
+              if vIsFolder then
+                LocShowMessage(-1);
+              ExecAddCommand(vName, Add, vIsFolder);
             finally
               MemFree(vItem);
             end;
-           {$endif bUnicode}
+
           end else
           if vInfo.SelectedItemsNumber > 1 then begin
             if vFolder <> '' then
@@ -269,29 +258,21 @@ interface
 
             N := vInfo.SelectedItemsNumber;
             for I := 0 to N - 1 do begin
-             {$ifdef bUnicode}
-              vItem := FarPanelItem(INVALID_HANDLE_VALUE, FCTL_GETSELECTEDPANELITEM, I);
+              vItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETSELECTEDPANELITEM, I);
               try
-             {$else}
-              vItem := @vInfo.SelectedItems[I];
-             {$endif bUnicode}
-
-              vName := FarChar2Str(vItem.FindData.cFileName);
-              vIsFolder := faDirectory and vItem.FindData.dwFileAttributes <> 0;
-              LocShowMessage((100 * I) div N);
-              ExecAddCommand(vName, Add, vIsFolder);
-              Add := True;
-
-             {$ifdef bUnicode}
+                vName := vItem.FileName;
+                vIsFolder := faDirectory and vItem.FileAttributes <> 0;
+                LocShowMessage((100 * I) div N);
+                ExecAddCommand(vName, Add, vIsFolder);
+                Add := True;
               finally
                 MemFree(vItem);
               end;
-             {$endif bUnicode}
             end;
           end;
 
         end else
-        if (vInfo.Plugin = 1) {and FTP Plugin...} then begin
+        if IsPluginPanel(vInfo) {and FTP Plugin...} then begin
 
           vFolder := ExtractWord(1, StrOEMToAnsi(GetConsoleTitleStr), ['{', '}']);
 
@@ -307,47 +288,31 @@ interface
               if (vIndex < 0) or (vIndex >= vInfo.ItemsNumber) then
                 Exit;
 
-             {$ifdef bUnicode}
-              vItem := FarPanelItem(INVALID_HANDLE_VALUE, FCTL_GETPANELITEM, vIndex);
+              vItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETPANELITEM, vIndex);
               try
-             {$else}
-              vItem := @vInfo.PanelItems[vIndex];
-             {$endif bUnicode}
-
-              if faDirectory and vItem.FindData.dwFileAttributes = 0 then begin
-                vName := vFolder + '/' + FarChar2Str(vItem.FindData.cFileName);
-                ExecAddCommand(vName, Add, False);
-              end;
-
-             {$ifdef bUnicode}
+                if faDirectory and vItem.FileAttributes = 0 then begin
+                  vName := vFolder + '/' + vItem.FileName;
+                  ExecAddCommand(vName, Add, False);
+                end;
               finally
                 MemFree(vItem);
               end;
-             {$endif bUnicode}
 
             end else
             if vInfo.SelectedItemsNumber > 1 then begin
               N := vInfo.SelectedItemsNumber;
               for I := 0 to N - 1 do begin
-               {$ifdef bUnicode}
-                vItem := FarPanelItem(INVALID_HANDLE_VALUE, FCTL_GETSELECTEDPANELITEM, I);
+                vItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETSELECTEDPANELITEM, I);
                 try
-               {$else}
-                vItem := @vInfo.SelectedItems[I];
-               {$endif bUnicode}
-
-                LocShowMessage((100 * I) div N);
-                if faDirectory and vItem.FindData.dwFileAttributes = 0 then begin
-                  vName := vFolder + '/' + FarChar2Str(vItem.FindData.cFileName);
-                  ExecAddCommand(vName, Add, False);
-                  Add := True;
-                end;
-
-               {$ifdef bUnicode}
+                  LocShowMessage((100 * I) div N);
+                  if faDirectory and vItem.FileAttributes = 0 then begin
+                    vName := vFolder + '/' + vItem.FileName;
+                    ExecAddCommand(vName, Add, False);
+                    Add := True;
+                  end;
                 finally
                   MemFree(vItem);
                 end;
-               {$endif bUnicode}
               end;
             end;
 
@@ -361,7 +326,7 @@ interface
     end;
   end;
 
-
+  
  {-----------------------------------------------------------------------------}
 
   procedure RunPluginCommand(const AStr :TString);
@@ -395,7 +360,7 @@ interface
   end;
 
 
-  procedure OpenCmdLine(const AStr :TString);
+  procedure OpenCmdLineEx(const AStr :TString);
   var
     vStr :PTChar;
     vCmd, vParamStr :TString;
@@ -408,7 +373,6 @@ interface
     while vStr^ <> #0 do begin
       vCmd := ExtractParamStr(vStr);
       if vCmd <> '' then begin
-
         if (Length(vCmd) >= 2) and (((vCmd[1] = '/') and (vCmd[2] = '/')) or ((vCmd[1] = '-') and (vCmd[2] = '-'))) then begin
           { Команда плагина }
           if vParamStr <> '' then begin
@@ -421,7 +385,6 @@ interface
         end else
           { Команда проигрывателя }
           vParamStr := AppendStrCh(vParamStr, '"' + vCmd + '"', ' ');
-
       end;
     end;
 
@@ -429,113 +392,13 @@ interface
       RunPlayerCommand(vParamStr, vSetFolder);
   end;
 
-(*
-  procedure OpenCmdLine(const AStr :TString);
-  var
-    vCurPath :TString;
-  begin
-    vCurPath := GetCurrentDir;
-//  ExecCommand('"/CurPath=' + vCurPath + '" ' + AStr)
-    ExecCommand('"/CurPath=' + vCurPath + '"');
-    ExecCommand(AStr);
-  end;
-*)
-
- {-----------------------------------------------------------------------------}
- { Экспортируемые процедуры                                                    }
- {-----------------------------------------------------------------------------}
-
- {$ifdef bUnicodeFar}
-  function GetMinFarVersionW :Integer; stdcall;
-  begin
-    { Need 2.0.756 }
-//  Result := $02F40200;
-    { Need 2.0.789 }
-    Result := $03150200;
-  end;
- {$endif bUnicodeFar}
-
-
- {$ifdef bUnicodeFar}
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
- {$else}
-  procedure SetStartupInfo(var psi: TPluginStartupInfo); stdcall;
- {$endif bUnicodeFar}
-//var
-//  vStr :TString;
-  begin
-//  TraceF('SetStartupInfo: Module=%d, RootKey=%s', [psi.ModuleNumber, psi.RootKey]);
-    hModule := psi.ModuleNumber;
-    Move(psi, FARAPI, SizeOf(FARAPI));
-    Move(psi.fsf^, FARSTD, SizeOf(FARSTD));
-
-//  vRes := FARAPI.AdvControl(hModule, ACTL_GETFARVERSION, nil);
-
-    { Получаем Handle консоли Far'а }
-//  hFarWindow := FARAPI.AdvControl(hModule, ACTL_GETFARHWND, nil);
-//  hStdin := GetStdHandle(STD_INPUT_HANDLE);
-    hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
-//  hMainThread := GetCurrentThreadID;
-
-    FModulePath := RemoveBackSlash(ExtractFilePath(psi.ModuleName));
-
- (*
-    FarHints := TFarHintsMain.Create;
-    FarHints.RegRoot := psi.RootKey;
-
-    ReadSetup(FarHints.RegRoot);
-*)
-  end;
-
-
-  var
-    PluginMenuStrings: array[0..0] of PFarChar;
-
-
- {$ifdef bUnicodeFar}
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
- {$else}
-  procedure GetPluginInfo(var pi: TPluginInfo); stdcall;
- {$endif bUnicodeFar}
-  begin
-//  TraceF('GetPluginInfo: %s', ['']);
-    pi.StructSize:= SizeOf(pi);
-    pi.Flags:= PF_EDITOR or PF_VIEWER or PF_DIALOG;
-
-    PluginMenuStrings[0] := GetMsg(strTitle);
-    pi.PluginMenuStringsNumber := 1;
-    pi.PluginMenuStrings := @PluginMenuStrings;
-    pi.CommandPrefix := cFarPlayPrefix;
-  end;
-
-
- {$ifdef bUnicodeFar}
-  procedure ExitFARW; stdcall;
- {$else}
-  procedure ExitFAR; stdcall;
- {$endif bUnicodeFar}
-  begin
-//  Trace('ExitFAR');
-  end;
-
 
   procedure InputCommand;
   var
-    vRes :Integer;
-    vStr :array[0..1024] of TChar;
+    vStr :TString;
   begin
-    FillChar(vStr, SizeOf(vStr), 0);
-    vRes := FARAPI.InputBox(
-      GetMsg(strTitle),
-      'Command:',
-      nil,
-      '',
-      @vStr[0],
-      1024,
-      nil,
-      FIB_BUTTONS);
-    if vRes = 1 then
-      OpenCmdLine(vStr);
+    if FarInputBox( GetMsg(strTitle), 'Command:', vStr) then
+      OpenCmdLineEx(vStr);
   end;
 
 
@@ -544,63 +407,46 @@ interface
     cPrefix = cFarPlayPrefix + ':';
   var
     I :Integer;
-    vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
+    vMenu :TFarMenu;
     vStr :TString;
     vRes :Integer;
     vSubList :TStringList;
-    vBreakKey, vBreakCode :Integer;
   begin
     Result := False;
-    
-    vBreakKey := VK_TAB; (*Byte('/')*)
-    vBreakCode := -2;
 
     vRes := 0;
     while True do begin
       Result := False;
 
-      vItems := MemAllocZero(AList.Count * SizeOf(TFarMenuItemEx));
+      vMenu := TFarMenu.Create;
       try
-        vItem := @vItems[0];
+        vMenu.Help := 'MainMenu';
+        vMenu.SetBreakKeys([VK_TAB {Byte('/')} ]);
+
         for I := 0 to AList.Count - 1 do begin
           vStr := AList[I];
           if vStr = '-' then
-            vItem.Flags := MIF_SEPARATOR
+            vMenu.AddItem('', MIF_SEPARATOR)
           else
-            SetMenuItemStr(vItem, Trim(ExtractWord(1, vStr, ['#'])));
-          Inc(PChar(vItem), SizeOf(TFarMenuItemEx));
+            vMenu.AddItem(Trim(ExtractWord(1, vStr, ['#'])));
         end;
 
-        for I := 0 to AList.Count - 1 do
-          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
+        vMenu.SetSelected(vRes);
 
-        vRes := FARAPI.Menu(hModule, -1, -1, 0,
-          FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strTitle),
-          '',
-          'MainMenu',
-          @vBreakKey,
-          @vBreakCode,
-          Pointer(vItems),
-          AList.Count);
-//      FARAPI.AdvControl(hModule, ACTL_COMMIT, 0);
+        if not vMenu.Run then
+          Exit;
+
+        vRes := vMenu.ResIdx;
+
+        if vMenu.BreakIdx = 0 then begin
+          InputCommand;
+          Result := True;
+          Break;
+        end;
 
       finally
-       {$ifdef bUnicodeFar}
-        CleanupMenu(@vItems[0], AList.Count);
-       {$endif bUnicodeFar}
-        MemFree(vItems);
+        FreeObj(vMenu);
       end;
-
-      if vBreakCode = 0 then begin
-        InputCommand;
-        Result := True;
-        Break;
-      end;
-
-      if vRes = -1 then
-        Break;
 
       vSubList := AList.Objects[vRes] as TStringList;
       if vSubList <> nil then begin
@@ -618,13 +464,12 @@ interface
 
         if UpCompareSubStr(cPrefix, vStr) = 0 then begin
           vStr := Trim(Copy(vStr, length(cPrefix) + 1, MaxInt));
-          OpenCmdLine(vStr);
+          OpenCmdLineEx(vStr);
         end;
 
         if Result then
           Break;
       end;
-
     end;
   end;
 
@@ -637,38 +482,71 @@ interface
   end;
 
 
- {$ifdef bUnicodeFar}
-  function OpenPluginW(OpenFrom: integer; Item: integer): THandle; stdcall;
- {$else}
-  function OpenPlugin(OpenFrom: integer; Item: integer): THandle; stdcall;
- {$endif bUnicodeFar}
+ {-----------------------------------------------------------------------------}
+ { Экспортируемые процедуры                                                    }
+ {-----------------------------------------------------------------------------}
+
+  procedure TNoisyPlug.Init; {override;}
+  begin
+    inherited Init;
+
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison;
+    FGUID := cPluginID;
+
+    FMinFarVer := MakeVersion(3, 0, 3000);
+  end;
+
+
+  procedure TNoisyPlug.Startup; {override;}
+  begin
+//  hStdin := GetStdHandle(STD_INPUT_HANDLE);
+//  hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
+
+    FModulePath := RemoveBackSlash(ExtractFilePath(FARAPI.ModuleName));
+
+    RestoreDefColor;
+//  PluginConfig(False);
+  end;
+
+
+  procedure TNoisyPlug.ExitFar; {override;}
+  begin
+    {...}
+  end;
+
+
+  procedure TNoisyPlug.GetInfo; {override;}
+  begin
+//  FFlags:= {PF_PRELOAD or PF_EDITOR or} PF_VIEWER;
+
+    FMenuStr := GetMsg(strTitle);
+    FMenuID := cMenuID;
+    
+//  FConfigStr := FMenuStr;
+//  FConfigID := cConfigID;
+
+    FPrefix := cFarPlayPrefix;
+  end;
+
+
+
+  function TNoisyPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
   begin
     Result:= INVALID_HANDLE_VALUE;
-//  TraceF('OpenPlugin: %d, %d', [OpenFrom, Item]);
-
-    try
-     {$ifndef bUnicode}
-      SetFileApisToAnsi;
-      try
-     {$endif bUnicode}
-
-        if OpenFrom = OPEN_COMMANDLINE then
-          OpenCmdLine(FarChar2Str(PFarChar(Item)))
-        else
-        if OpenFrom in [OPEN_PLUGINSMENU, OPEN_EDITOR, OPEN_VIEWER, OPEN_DIALOG] then
-          Result := OpenMenu;
-
-     {$ifndef bUnicode}
-      finally
-        SetFileApisToOEM;
-      end;
-     {$endif bUnicode} 
-
-    except
-      on E :Exception do
-        ShowMessage(GetMsgStr(strError), E.Message, FMSG_WARNING or FMSG_MB_OK);
-    end;
+    if AFrom in [OPEN_PLUGINSMENU, OPEN_EDITOR, OPEN_VIEWER, OPEN_DIALOG] then
+      Result := OpenMenu;
   end;
+
+
+  function TNoisyPlug.OpenCmdLine(AStr :PTChar) :THandle; {override;}
+  begin
+    Result:= INVALID_HANDLE_VALUE;
+    OpenCmdLineEx(AStr);
+  end;
+
 
 
 initialization

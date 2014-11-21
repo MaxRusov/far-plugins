@@ -3,9 +3,10 @@
 unit FarPlayReg;
 
 {******************************************************************************}
-{* (c) 2007 Max Rusov                                                         *}
-{*                                                                            *}
-{* Noisy Player registry                                                      *}
+{* Noisy - Noisy Player Far plugin                                            *}
+{* 2008-2014, Max Rusov                                                       *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
 
 interface

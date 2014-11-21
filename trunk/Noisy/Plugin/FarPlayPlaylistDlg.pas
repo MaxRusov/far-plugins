@@ -4,9 +4,10 @@
 unit FarPlayPlaylistDlg;
 
 {******************************************************************************}
-{* (c) 2008 Max Rusov                                                         *}
-{*                                                                            *}
-{* Noisy Far plugin                                                           *}
+{* Noisy - Noisy Player Far plugin                                            *}
+{* 2008-2014, Max Rusov                                                       *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
 
 interface
@@ -25,6 +26,10 @@ interface
     Far_API,
     FarCtrl,
     FarMatch,
+    FarDlg,
+    FarGrid,
+    FarListDlg,
+    
     FarPlayCtrl,
     FarPlayReg;
 
@@ -35,573 +40,422 @@ interface
 
   procedure OpenPlaylist;
 
-  
+
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
-
 
   uses
     MixDebug;
 
  {-----------------------------------------------------------------------------}
+ { TPlaylistDlg                                                                }
+ {-----------------------------------------------------------------------------}
 
-  var
-    vPlaylist :TStringList;
-    vPlaylistRevision :Integer;
-    vPlayedTrackIndex :Integer;
-    vPlayerState :TPlayerState;
+  type
+    TPlaylistDlg = class(TFilteredListDlg)
+    public
+      constructor Create; override;
+      destructor Destroy; override;
 
-    vPlaylistMaxWidth :Integer;
-    vPlaylistCheckedIndex :Integer;
-    vPlaylistCheckedState :TPlayerState;
+    protected
+      procedure Prepare; override;
+      procedure InitDialog; override;
 
-    vFilterMask :TString;
-    vFilterList :TExList;
+      procedure SelectItem(ACode :Integer); override;
+      procedure UpdateHeader; override;
+      procedure ReinitGrid; override;
+      procedure ReinitAndSaveCurrent; override;
+
+      function GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; override;
+      procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); override;
+
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
+
+    private
+      FPlaylist :TStringList;
+      FPlaylistRevision :Integer;
+      FPlayedTrackIndex :Integer;
+      FPlayerState :TPlayerState;
+      FPlaylistCheckedIndex :Integer;
+      FPlaylistCheckedState :TPlayerState;
+
+      procedure UpdatePlaylist;
+      function DetectPlaylistChange :Boolean;
+      procedure UpdatePlayed(AIndex :Integer; AState :TPlayerState; ARedraw :Boolean);
+      procedure PlayCurrent;
+      function FormatTitle(const AStr :TString) :TString;
+      function FormatTime(const AStr :TString) :TString;
+    end;
 
 
-  const
-    DX = 20;
-    DY = 10;
 
-    IdList = 0;
-
-
-
-  function GetPlaylistDlg :PFarDialogItemArray;
+  constructor TPlaylistDlg.Create; {override;}
   begin
-    Result := CreateDialog(
-      [
-//      NewItemApi(DI_DoubleBox, 3, 1, 10, 10, 0, GetMsg(strTitle))
-        NewItemApi(DI_LISTBOX, 2, 1, DX - 4, DY - 2, DIF_LISTWRAPMODE {or DIF_LISTAUTOHIGHLIGHT or DIF_LISTNOAMPERSAND}, GetMsg(strPlaylistTitle))
-      ]
-    );
+    inherited Create;
+//  RegisterHints(Self);
+    FPlaylist := TStringList.Create;
   end;
 
 
-  procedure UpdatePlaylist;
+  destructor TPlaylistDlg.Destroy; {override;}
+  begin
+    FreeObj(FPlaylist);
+    inherited Destroy;
+  end;
+
+
+  procedure TPlaylistDlg.Prepare; {override;}
+  begin
+    inherited Prepare;
+    FGUID := cPlaylistDlgID;
+    FHelpTopic := 'Playlist';
+//  FGrid.Options := FGrid.Options + [goRowSelect];
+  end;
+
+
+  procedure TPlaylistDlg.InitDialog; {override;}
+  begin
+    UpdatePlaylist;
+    inherited InitDialog;
+    SetCurrent(IdxToRow(FPlayedTrackIndex), lmSafe);
+  end;
+
+
+  procedure TPlaylistDlg.UpdatePlaylist;
   var
     vInfo :TPlayerInfo;
   begin
     if GetPlayerInfo(vInfo, False) and (vInfo.FTrackCount > 0) then begin
-      vPlaylist.Text := GetPlaylist;
-      vPlaylistRevision := vInfo.FPlaylistRev;
-      vPlayedTrackIndex := vInfo.FTrackIndex;
-      vPlayerState := vInfo.FState;
+      FPlaylist.Text := GetPlaylist;
+      FPlaylistRevision := vInfo.FPlaylistRev;
+      FPlayedTrackIndex := vInfo.FTrackIndex;
+      FPlayerState := vInfo.FState;
     end else
     begin
-      vPlaylist.Clear;
-      vPlaylistRevision := 0;
-      vPlayedTrackIndex := -1;
-      vPlayerState := psEmpty;
+      FPlaylist.Clear;
+      FPlaylistRevision := 0;
+      FPlayedTrackIndex := -1;
+      FPlayerState := psEmpty;
     end;
   end;
 
 
- {-----------------------------------------------------------------------------}
+  function TPlaylistDlg.DetectPlaylistChange :Boolean;
+  var
+    vInfo :TPlayerInfo;
+    vNewRevision :Integer;
+  begin
+    vNewRevision := 0;
+    FPlayedTrackIndex := -1;
+    if GetPlayerInfo(vInfo, False) then begin
+      vNewRevision := vInfo.FPlaylistRev;
+      FPlayedTrackIndex := vInfo.FTrackIndex;
+      FPlayerState := vInfo.FState;
+    end;
+    Result := FPlaylistRevision <> vNewRevision;
+  end;
 
-  function PlaylistDialogProc(hDlg : THandle; Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; stdcall;
 
-    function DetectPlaylistChange :Boolean;
-    var
-      vInfo :TPlayerInfo;
-      vNewRevision :Integer;
-    begin
-      vNewRevision := 0;
-      vPlayedTrackIndex := -1;
-      if GetPlayerInfo(vInfo, False) then begin
-        vNewRevision := vInfo.FPlaylistRev;
-        vPlayedTrackIndex := vInfo.FTrackIndex;
-        vPlayerState := vInfo.FState;
-      end;
-      Result := vPlaylistRevision <> vNewRevision;
+  procedure TPlaylistDlg.UpdateHeader; {override;}
+  var
+    vTitle :TFarStr;
+  begin
+    vTitle := GetMsgStr(strPlaylistTitle);
+
+    if FFilter = nil then
+      vTitle := Format('%s (%d)', [ vTitle, FTotalCount ])
+    else
+      vTitle := Format('%s [%s] (%d/%d)', [vTitle, FFilterMask, FFilter.Count, FTotalCount]);
+
+    SetText(IdFrame, vTitle);
+
+    if length(vTitle) + 4 > FMenuMaxWidth then
+      FMenuMaxWidth := length(vTitle) + 4;
+  end;
+
+
+  procedure TPlaylistDlg.ReinitGrid; {override;}
+  var
+    I, vPos, vFndLen, vCount, vMaxLen :Integer;
+    vStr, vMask, vXMask :TString;
+    vHasMask :Boolean;
+  begin
+    FTotalCount := FPlaylist.Count;
+
+    vHasMask := False;
+    vMask := FFilterMask;
+    if vMask <> '' then begin
+      vHasMask := (ChrPos('*', vMask) <> 0) or (ChrPos('?', vMask) <> 0);
+      if vHasMask and (vMask[Length(vMask)] <> '*') {and (vMask[Length(FMask)] <> '?')} then
+        vMask := vMask + '*';
     end;
 
-
-    function DlgToPlaylistIndex(ADlgIndex :Integer) :Integer;
-    begin
-      Result := ADlgIndex;
-      if (vFilterList <> nil) and (Result >= 0) and (Result < vFilterList.Count) then
-        Result := Integer(vFilterList[Result]);
+    vCount := 0;
+    FreeObj(FFilter);
+    if vMask <> '' then begin
+      FFilter := TListFilter.CreateSize(SizeOf(TFilterRec));
+      FFilter.Owner := Self;
+      if True{optXLatMask} then
+        vXMask := FarXLatStr(vMask);
     end;
 
+    vMaxLen := 0;
+    for I := 0 to FPlaylist.Count - 1 do begin
+      vStr := FormatTitle(FPlaylist[I]);
 
-    function PlaylistToDlgIndex(APlaylistIndex :Integer) :Integer;
-    var
-      I :Integer;
-    begin
-      if vFilterList = nil then
-        Result := APlaylistIndex
-      else begin
-        Result := -1;
-        for I := 0 to vFilterList.Count - 1 do
-          if Integer(vFilterList[I]) = APlaylistIndex then begin
-            Result := I;
-            Exit;
-          end;
-      end;
-    end;
-
-
-    function GetPlaylistIndex :Integer;
-    begin
-      Result := DlgToPlaylistIndex( FARAPI.SendDlgMessage(hDlg, DM_LISTGETCURPOS, IdList, 0) );
-    end;
-
-
-    procedure ResizeDialog;
-    var
-      vWidth, vHeight :Integer;
-      vCoord :TCoord;
-      vRect :TSmallRect;
-      vListInfo :TFarListInfo;
-      vScreenInfo :TConsoleScreenBufferInfo;
-    begin
-      GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
-      FARAPI.SendDlgMessage(hDlg, DM_LISTINFO, IdList, Integer(@vListInfo));
-
-      vWidth := vPlaylistMaxWidth + 9;
-      if vWidth > vScreenInfo.dwSize.X - 4 then
-        vWidth := vScreenInfo.dwSize.X - 4;
-      vWidth := IntMax(vWidth, 40);  
-
-      vHeight := vListInfo.ItemsNumber + 4;
-      if vHeight > vScreenInfo.dwSize.Y - 2 then
-        vHeight := vScreenInfo.dwSize.Y - 2;
-
-      vCoord.X := vWidth;
-      vCoord.Y := vHeight;
-      FARAPI.SendDlgMessage(hDlg, DM_RESIZEDIALOG, 0, Integer(@vCoord));
-
-      vCoord.X := -1;
-      vCoord.Y := -1;
-      FARAPI.SendDlgMessage(hDlg, DM_MOVEDIALOG, 1, Integer(@vCoord));
-
-      vRect.Left := 2;
-      vRect.Top := 1;
-      vRect.Right := vWidth - 3;
-      vRect.Bottom := vHeight - 2;
-      FARAPI.SendDlgMessage(hDlg, DM_SETITEMPOSITION, IdList, Integer(@vRect));
-    end;
-
-
-    procedure UpdatePlayed(AIndex :Integer; AState :TPlayerState; ARedraw :Boolean);
-
-      procedure LocSetChecked(AIndex :Integer; AChecked :Boolean; AState :TPlayerState);
-      var
-        vItem :TFarListUpdate;
-        vChr :Integer;
-      begin
-        vItem.Index := AIndex;
-        FARAPI.SendDlgMessage(hDlg, DM_LISTGETITEM, IdList, Integer(@vItem));
-        vChr := Integer(chrPlay);
-        if AState = psPaused then
-          vChr := Integer(chrPause);
-        if AState = psStopped then
-          vChr := Integer(chrStop);
-        vItem.Item.Flags := SetFlag(vItem.Item.Flags, LIF_CHECKED or vChr, AChecked);
-        FARAPI.SendDlgMessage(hDlg, DM_LISTUPDATE, IdList, Integer(@vItem));
-      end;
-
-    begin
-      if (AIndex <> vPlaylistCheckedIndex) or (AState <> vPlaylistCheckedState) then begin
-//      Trace('UpdatePlayed...');
-        if vPlaylistCheckedIndex <> -1 then
-          LocSetChecked(vPlaylistCheckedIndex, False, vPlaylistCheckedState);
-        if AIndex <> -1 then
-          LocSetChecked(AIndex, True, AState);
-        if ARedraw then
-          FARAPI.SendDlgMessage(hDlg, DM_REDRAW, 0, 0);
-        vPlaylistCheckedIndex := AIndex;
-        vPlaylistCheckedState := AState;
-      end;
-    end;
-
-
-    procedure ReinitListControl;
-    var
-      vNumLen :Integer;
-
-      function FormatTitle(const AStr :TString; var ATrackLen :Integer) :TString;
-      begin
-        Result := '';
-        if PlaylistShowTitle then
-          Result := ExtractWord(3, AStr, ['|']);
-        if Result = '' then begin
-          Result := ExtractWord(1, AStr, ['|']);
-          Result := ExtractFileNameEx(Result);
-        end;
-        ATrackLen := Str2IntDef(ExtractWord(2, AStr, ['|']), 0);
-      end;
-
-      function LocCheckLen(AMaxWidth :Integer) :Integer;
-      var
-        vScreenInfo :TConsoleScreenBufferInfo;
-      begin
-        GetConsoleScreenBufferInfo(hStdOut, vScreenInfo);
-        Result := vScreenInfo.dwSize.X;
-        Result := IntMin(Result - 4{Отступы от краев экрана}, AMaxWidth);
-        Dec(Result, 9); {Борюры}
-        Dec(Result, 3 + 5); {Для времени}
-        if PlaylistShowNumber then
-          Dec(Result, 3 + vNumLen);
-      end;
-
-    var
-      I, J, vCount, vTitleLen, vTrackLen, vMaxTrackLen, vPos, vLen :Integer;
-      vStruct :TFarList;
-      vItems :PFarListItemArray;
-      vItem :PFarListItem;
-      vStr, vMask, vTitle :TString;
-      vListPos :TFarListPos;
-      vRect :TSmallRect;
-      vHeight :Integer;
-      vHasMask :Boolean;
-    begin
-//    Trace('ReinitListControl...');
-      FARAPI.SendDlgMessage(hDlg, DM_LISTGETCURPOS, IdList, Integer(@vListPos));
-      FARAPI.SendDlgMessage(hDlg, DM_ENABLEREDRAW, 0, 0);
-
-      vHasMask := False;
-      if vFilterMask <> '' then begin
-        if vFilterList = nil then
-          vFilterList := TExList.Create;
-        vFilterList.Clear;
-
-        vMask := vFilterMask;
-        vHasMask := (ChrPos('*', vMask) <> 0) or (ChrPos('?', vMask) <> 0);
-        if vHasMask and (vMask[Length(vMask)] <> '*') and (vMask[Length(vMask)] <> '?') then
-          vMask := vMask + '*';
-      end else
-        FreeObj(vFilterList);
-
-      vTitleLen := 0;
-      vMaxTrackLen := 0;
-      for I := 0 to vPlaylist.Count - 1 do begin
-        vTitle := FormatTitle(vPlaylist[I], vTrackLen);
-        if vFilterList <> nil then begin
-          if not CheckMask(vMask, vTitle, vHasMask, vPos, vLen) then
+      vPos := 0; vFndLen := 0;
+      if FFilter <> nil then begin
+        if vMask <> '' then
+          if not ChrCheckXMask(vMask, vXMask, PTChar(vStr), vHasMask, vPos, vFndLen) then
             Continue;
-          vFilterList.Add(Pointer(I));
+        FFilter.Add(I, vPos, vFndLen);
+      end;
+
+      vMaxLen := IntMax(vMaxLen, Length(vStr));
+      Inc(vCount);
+    end;
+
+    FGrid.RowCount := vCount;
+    FGrid.ResetSize;
+    FGrid.Columns.Clear;
+    if PlaylistShowNumber then
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', Length(Int2Str(vCount)) + 2, -1,  taRightJustify, [coColMargin], 1) );
+    if True then
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', vMaxLen + 2, 10, taLeftJustify, [coColMargin, coOwnerDraw], 2) );
+    if PlaylistShowTime then
+      FGrid.Columns.Add( TColumnFormat.CreateEx2('', '', 7, -1, taLeftJustify, [coColMargin], 3) );
+
+    FGrid.ReduceColumns(FarGetWindowSize.CX - (10 + IntIf(True{optShowGrid}, FGrid.Columns.Count, 1) + FGrid.Margins.Left + FGrid.Margins.Right));
+
+    FMenuMaxWidth := 0;
+    for I := 0 to FGrid.Columns.Count - 1 do
+      with FGrid.Column[I] do
+        if Width <> 0 then begin
+//        if optShowTitles and (Abs(PluginSortMode) = Tag) then
+//          Header := StrIf(PluginSortMode > 0, chrUpMark, chrDnMark) + Header;
+          Inc(FMenuMaxWidth, Width + IntIf(coNoVertLine in Options, 0, 1) );
         end;
-        vTitleLen := IntMax(vTitleLen, Length(vTitle));
-        vMaxTrackLen := IntMax(vMaxTrackLen, vTrackLen);
-      end;
+    if True {optShowGrid} then
+      Dec(FMenuMaxWidth);
+    Inc(FMenuMaxWidth, FGrid.Margins.Left + FGrid.Margins.Right);
 
-      vCount := vPlaylist.Count;
-      if vFilterList <> nil then
-        vCount := vFilterList.Count;
 
-      vItems := MemAllocZero(vCount * SizeOf(TFarListItem));
-      try
-        vPlaylistMaxWidth := 0;
-        vNumLen := Length(Int2Str(vCount));
+    FPlaylistCheckedIndex := -1;
+    UpdateHeader;
+    ResizeDialog;
+  end;
 
-        if PlaylistShowTime and (vMaxTrackLen > 0) then
-          { Если vTitleLen слишком большой, то уменьшаем его, чтобы на экран влезло время }
-          vTitleLen := RangeLimit(vTitleLen, LocCheckLen(40), LocCheckLen(MaxInt));
 
-        vItem := @vItems[0];
-        for I := 0 to vCount - 1 do begin
-          J := I;
-          if vFilterList <> nil then
-            J := Integer(vFilterList[I]);
+  procedure TPlaylistDlg.ReinitAndSaveCurrent; {override;}
+  var
+    vIdx :Integer;
+  begin
+    vIdx := RowToIdx(FGrid.CurRow);
+    ReinitGrid;
+    SetCurrent(IdxToRow(vIdx), lmCenter);
+  end;
 
-          vTitle := FormatTitle(vPlaylist[J], vTrackLen);
-         {$ifndef bUnicodeFar}
-          vTitle := StrAnsiToOEM(vTitle);
-         {$endif bUnicodeFar}
 
-          if PlaylistShowTime and (vMaxTrackLen > 0) then begin
-            vTitle := StrLeftAjust(vTitle, vTitleLen) + ' ' + chrVertLine + ' ';
-            if vTrackLen > 0 then
-              vTitle := vTitle + Time2Str(vTrackLen);
-          end;
-
-          if PlaylistShowNumber then begin
-            vStr := Int2Str(I + 1);
-//          if I < 9 then
-//            vStr := '&' + vStr;
-            vTitle := StrLeftAjust(vStr, vNumLen) + ' ' + chrVertLine + ' ' + vTitle;
-          end;
-
-          if Length(vTitle) > vPlaylistMaxWidth then
-            vPlaylistMaxWidth := Length(vTitle);
-
-          {!!!}
-          SetListItem(vItem, PFarChar(vTitle), 0);
-          Inc(PChar(vItem), SizeOf(TFarListItem));
-        end;
-
-        vStruct.ItemsNumber := vCount;
-        vStruct.Items := vItems;
-        FARAPI.SendDlgMessage(hDlg, DM_LISTSET, IdList, Integer(@vStruct));
-
-        vPlaylistCheckedIndex := -1;
-        UpdatePlayed(PlaylistToDlgIndex(vPlayedTrackIndex), vPlayerState, False);
-
-        FARAPI.SendDlgMessage(hDlg, DM_GETITEMPOSITION, IdList, Integer(@vRect));
-        vHeight := vRect.Bottom - vRect.Top - 1;
-        vListPos.SelectPos := RangeLimit(vListPos.SelectPos, 0, vCount - 1);
-        vListPos.TopPos := RangeLimit(vListPos.TopPos, 0, vCount - vHeight);
-        FARAPI.SendDlgMessage(hDlg, DM_LISTSETCURPOS, IdList, Integer(@vListPos));
-
-      finally
-        FARAPI.SendDlgMessage(hDlg, DM_ENABLEREDRAW, 1, 0);
-       {$ifdef bUnicodeFar}
-        CleanupList(@vItems[0], vCount);
-       {$endif bUnicodeFar}
-        MemFree(vItems);
-      end;
-
-      ResizeDialog;
+  procedure TPlaylistDlg.UpdatePlayed(AIndex :Integer; AState :TPlayerState; ARedraw :Boolean);
+  begin
+    if (AIndex <> FPlaylistCheckedIndex) or (AState <> FPlaylistCheckedState) then begin
+//    Trace('UpdatePlayed...');
+      FPlaylistCheckedIndex := AIndex;
+      FPlaylistCheckedState := AState;
+      if ARedraw then
+        FARAPI.SendDlgMessage(FHandle, DM_REDRAW, 0, nil);
     end;
+  end;
 
 
-    procedure SetCurrent(AIndex :Integer; ACenter :Boolean);
-    var
-      vListPos :TFarListPos;
-      vInfo :TFarListInfo;
-      vRect :TSmallRect;
-      vHeight :Integer;
-    begin
-      if AIndex >= 0 then begin
-        FARAPI.SendDlgMessage(hDlg, DM_LISTGETCURPOS, IdList, Integer(@vListPos));
-        FARAPI.SendDlgMessage(hDlg, DM_LISTINFO, IdList, Integer(@vInfo));
-        FARAPI.SendDlgMessage(hDlg, DM_GETITEMPOSITION, IdList, Integer(@vRect));
-        vHeight := vRect.Bottom - vRect.Top - 1;
-
-        if (AIndex < vListPos.TopPos) or (AIndex >= vListPos.TopPos + vHeight) then
-          ACenter := True;
-        if ACenter then
-          vListPos.TopPos := AIndex - (vHeight div 2);
-
-        vListPos.SelectPos := AIndex;
-        vListPos.TopPos := RangeLimit(vListPos.TopPos, 0, vInfo.ItemsNumber - vHeight);
-        FARAPI.SendDlgMessage(hDlg, DM_LISTSETCURPOS, IdList, Integer(@vListPos));
-      end;
+  function TPlaylistDlg.FormatTitle(const AStr :TString) :TString;
+  begin
+    Result := '';
+    if PlaylistShowTitle then
+      Result := ExtractWord(3, AStr, ['|']);
+    if Result = '' then begin
+      Result := ExtractWord(1, AStr, ['|']);
+      Result := ExtractFileNameEx(Result);
     end;
+  end;
 
 
-    procedure PlayCurrent;
-    var
-      vIndex :Integer;
-    begin
-      vIndex := GetPlaylistIndex;
-      ExecCommandFmt(CmdGoto1, [vIndex + 1]);
-      DetectPlaylistChange;
-      UpdatePlayed(PlaylistToDlgIndex(vPlayedTrackIndex), vPlayerState, True);
+  function TPlaylistDlg.FormatTime(const AStr :TString) :TString;
+  var
+    vTime :Integer;
+  begin
+    vTime := Str2IntDef(ExtractWord(2, AStr, ['|']), 0);
+    Result := Time2Str(vTime);
+  end;
+
+
+  function TPlaylistDlg.GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; {override;}
+  var
+    vIdx :Integer;
+  begin
+    vIdx := RowToIdx(ARow);
+    case FGrid.Column[ACol].Tag of
+      1: Result := Int2Str(ARow + 1);
+      2: Result := FormatTitle(FPlaylist[vIdx]);
+      3: Result := FormatTime(FPlaylist[vIdx]);
     end;
+  end;
 
+
+  procedure TPlaylistDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); {override;}
+  const
+    cStatesMarks :array[TPlayerState] of TString =
+      ('', chrPlay, chrPause, chrStop);
+  var
+    vStr :TString;
+    vRec :PFilterRec;
+    vIdx :Integer;
+  begin
+    vIdx := RowToIdx(ARow);
+    vStr := FormatTitle(FPlaylist[vIdx]);
+
+    vRec := nil;
+    if FFilter <> nil then
+      vRec := FFilter.PItems[ARow];
+
+    if vRec <> nil then
+      FGrid.DrawChrEx(X, Y, PTChar(vStr), AWidth, vRec.FPos, vRec.FLen, AColor, ChangeFG(AColor, optFoundColor))
+    else
+      FGrid.DrawChr(X, Y, PTChar(vStr), AWidth, AColor);
+
+    if (vIdx = FPlaylistCheckedIndex) and (FPlaylistCheckedState <> psEmpty) then
+      FGrid.DrawChr(X-1, Y, PTChar(cStatesMarks[FPlaylistCheckedState]), 1, AColor);
+  end;
+
+
+  procedure TPlaylistDlg.PlayCurrent;
+  var
+    vIndex :Integer;
+  begin
+    vIndex := RowToIdx(FGrid.CurRow);
+    ExecCommandFmt(CmdGoto1, [vIndex + 1]);
+    DetectPlaylistChange;
+    UpdatePlayed(vIndex, FPlayerState, True);
+  end;
+
+
+  procedure TPlaylistDlg.SelectItem(ACode :Integer); {override;}
+  begin
+    PlayCurrent;
+    if ACode = 2 then
+      SendMsg(DM_CLOSE, -1, 0);
+  end;
+
+
+  function TPlaylistDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
 
     procedure DeleteCurrent;
     var
       vIndex :Integer;
     begin
-      vIndex := GetPlaylistIndex;
-      if (vIndex >= 0) and (vIndex < vPlaylist.Count) then begin
+      vIndex := RowToIdx(FGrid.CurRow);
+      if (vIndex >= 0) and (vIndex < FPlaylist.Count) then begin
         ExecCommandFmt(CmdDelete1, [vIndex + 1]);
-        vPlaylist.Delete(vIndex);
-        vPlayedTrackIndex := -1;
-        ReinitListControl;
+        FPlaylist.Delete(vIndex);
+        FPlayedTrackIndex := -1;
+        ReinitAndSaveCurrent;
       end;
     end;
-
 
     procedure MoveCurrent(ADelta :Integer);
     var
       vIndex, vNewIndex :Integer;
     begin
-      vIndex := GetPlaylistIndex;
+      vIndex := RowToIdx(FGrid.CurRow);
       vNewIndex := vIndex + ADelta;
-      if (vIndex >= 0) and (vIndex < vPlaylist.Count) and (vNewIndex >= 0) and (vNewIndex < vPlaylist.Count) then begin
+      if (vIndex >= 0) and (vIndex < FPlaylist.Count) and (vNewIndex >= 0) and (vNewIndex < FPlaylist.Count) then begin
         ExecCommandFmt(CmdMoveTrack1, [vIndex + 1, vNewIndex + 1]);
-        vPlaylist.Move(vIndex, vNewIndex);
-        vPlayedTrackIndex := -1;
-        ReinitListControl;
-        SetCurrent(PlaylistToDlgIndex(vNewIndex), False);
+        FPlaylist.Move(vIndex, vNewIndex);
+        FPlayedTrackIndex := -1;
+        ReInitGrid;
+        SetCurrent(IdxToRow(vNewIndex));
       end;
     end;
-
-
-    procedure SetFilter(const ANewFilter :TString);
-    var
-      vTitles :TFarListTitles;
-      vTitle :PFarChar;
-      vFooter :TString;
-      vIndex :Integer;
-    begin
-      if ANewFilter <> vFilterMask then begin
-//      TraceF('Mask: %s', [ANewFilter]);
-        vFilterMask := ANewFilter;
-
-        vIndex := GetPlaylistIndex;
-        ReinitListControl;
-        vIndex := PlaylistToDlgIndex(vIndex);
-        if vIndex < 0 then
-          vIndex := 0;
-        SetCurrent( vIndex, False );
-
-        vTitle := GetMsg(strPlaylistTitle);
-
-        vFooter := '';
-        if vFilterMask <> '' then
-          vFooter := Format('[%s] %d / %d', [ StrAnsiToOEM(vFilterMask), vFilterList.Count, vPlaylist.Count ]);
-
-        FillChar(vTitles, SizeOf(vTitles), 0);
-        vTitles.Title := PTChar(vTitle);
-        vTitles.TitleLen := StrLen(vTitle);
-        vTitles.Bottom := PTChar(vFooter);
-        vTitles.BottomLen := Length(vFooter);
-
-        FARAPI.SendDlgMessage(hDlg, DM_LISTSETTITLES, IdList, Integer(@vTitles));
-      end;
-    end;
-
-
-    procedure ChangePalette(AColors :PFarListColors);
-    const
-      cColors = 10;
-      cMenuPalette :array[0..cColors - 1] of TPaletteColors =
-        (COL_MENUBOX,COL_MENUBOX,COL_MENUTITLE,COL_MENUTEXT, COL_MENUHIGHLIGHT,COL_MENUBOX,COL_MENUSELECTEDTEXT, COL_MENUSELECTEDHIGHLIGHT,COL_MENUSCROLLBAR,COL_MENUDISABLEDTEXT);
-    var
-      I :Integer;
-    begin
-      for I := 0 to IntMin(cColors, AColors.ColorCount) - 1 do
-        AColors.Colors[I] := Char( FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(cMenuPalette[i])) );
-    end;
-
 
   begin
-//  TraceF('InfoDialogProc: hDlg=%d, Msg=%d, Param1=%d, Param2=%d', [hDlg, Msg, Param1, Param2]);
+    Result := True;
+    case AKey of
+      KEY_ENTER, KEY_SHIFTENTER:
+        begin
+          PlayCurrent;
+          if AKey = KEY_ENTER then
+            SendMsg(DM_CLOSE, -1, 0);
+        end;
+
+      KEY_SHIFTHOME:
+        SetCurrent(IdxToRow(FPlayedTrackIndex), lmSafe);
+
+      KEY_CTRL1:
+        begin
+          PlaylistShowNumber := not PlaylistShowNumber;
+          ReinitAndSaveCurrent;
+        end;
+      KEY_CTRL2:
+        begin
+          PlaylistShowTitle := not PlaylistShowTitle;
+          ReinitAndSaveCurrent;
+        end;
+      KEY_CTRL3:
+        begin
+          PlaylistShowTime := not PlaylistShowTime;
+          ReinitAndSaveCurrent;
+        end;
+
+      KEY_CTRLDEL:
+        DeleteCurrent;
+      KEY_CTRLUP:
+        MoveCurrent(-1);
+      KEY_CTRLDOWN:
+        MoveCurrent(+1);
+
+      KEY_CTRLR:
+        begin
+          UpdatePlaylist;
+          ReinitGrid;
+          SetCurrent(IdxToRow(FPlayedTrackIndex), lmCenter);
+        end;
+
+    else
+      Result := inherited KeyDown(AID, AKey);
+    end;
+  end;
+
+
+  function TPlaylistDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  begin
     Result := 1;
-    try
-      case Msg of
-        DN_INITDIALOG: begin
-          ReinitListControl;
-          SetCurrent(vPlayedTrackIndex, False);
-        end;
+    case Msg of
+      DN_EnterIdle:
+        if DetectPlaylistChange then begin
+          UpdatePlaylist;
+          ReinitGrid;
+        end else
+          UpdatePlayed(FPlayedTrackIndex, FPlayerState, True);
 
-        DN_CTLCOLORDIALOG:
-          Result := FARAPI.AdvControl(hModule, ACTL_GETCOLOR, Pointer(COL_MENUTEXT));
+      DN_RESIZECONSOLE:
+        ReinitAndSaveCurrent;
 
-        DN_CTLCOLORDLGLIST:
-          if Param1 = IdList then begin
-            ChangePalette(PFarListColors(Param2));
-            Result := 1;
-          end;
-
-        DN_RESIZECONSOLE: begin
-//        FARAPI.SendDlgMessage(hDlg, DM_ENABLEREDRAW, 0, 0);
-//        try
-            ReinitListControl;
-            SetCurrent(FARAPI.SendDlgMessage(hDlg, DM_LISTGETCURPOS, IdList, 0), False);
-//        finally
-//          FARAPI.SendDlgMessage(hDlg, DM_ENABLEREDRAW, 1, 0);
-//        end;
-        end;
-
-        DN_EnterIdle: begin
-          if DetectPlaylistChange then begin
-            UpdatePlaylist;
-            ReinitListControl;
-          end else
-            UpdatePlayed(PlaylistToDlgIndex(vPlayedTrackIndex), vPlayerState, True);
-        end;
-
-        DN_MouseClick:
-          if Param1 = IdList then begin
-            PlayCurrent;
-            if PMouseEventRecord(Param2).dwButtonState and FROM_LEFT_1ST_BUTTON_PRESSED <> 0 then
-              FARAPI.SendDlgMessage(hDlg, DM_CLOSE, -1, 0);
-          end else
-            Result := FARAPI.DefDlgProc(hDlg, Msg, Param1, Param2);
-
-        DN_KEY: begin
-//        TraceF('Key = %d', [Param2]);
-          case Param2 of
-            KEY_ENTER, KEY_SHIFTENTER:
-              begin
-                PlayCurrent;
-                if Param2 = KEY_ENTER then
-                  FARAPI.SendDlgMessage(hDlg, DM_CLOSE, -1, 0);
-              end;
-
-            KEY_SHIFTHOME:
-              SetCurrent(PlaylistToDlgIndex(vPlayedTrackIndex), False);
-
-            KEY_CTRL1:
-              begin
-                PlaylistShowNumber := not PlaylistShowNumber;
-                ReinitListControl;
-              end;
-            KEY_CTRL2:
-              begin
-                PlaylistShowTitle := not PlaylistShowTitle;
-                ReinitListControl;
-              end;
-            KEY_CTRL3:
-              begin
-                PlaylistShowTime := not PlaylistShowTime;
-                ReinitListControl;
-              end;
-
-            KEY_CTRLDEL:
-              DeleteCurrent;
-            KEY_CTRLUP:
-              MoveCurrent(-1);
-            KEY_CTRLDOWN:
-              MoveCurrent(+1);
-
-            KEY_CTRLR:
-              begin
-                UpdatePlaylist;
-                ReinitListControl;
-                UpdatePlayed(PlaylistToDlgIndex(vPlayedTrackIndex), vPlayerState, True);
-              end;
-
-            KEY_DEL:
-              SetFilter('');
-            KEY_BS:
-              if vFilterMask <> '' then
-                SetFilter( Copy(vFilterMask, 1, Length(vFilterMask) - 1));
-            KEY_MULTIPLY:
-              SetFilter( vFilterMask + '*' );
-
-          else
-           {$ifdef bUnicodeFar}
-            if (Param2 >= 32) and (Param2 < $FFFF) then
-           {$else}
-            if (Param2 >= 32) and (Param2 <= $FF) then
-           {$endif bUnicodeFar}
-            begin
-             {$ifdef bUnicodeFar}
-              SetFilter(vFilterMask + TChar(Param2));
-             {$else}
-              SetFilter(vFilterMask + StrOEMToAnsi(TChar(Param2)));
-             {$endif bUnicodeFar}
-            end else
-              Result := FARAPI.DefDlgProc(hDlg, Msg, Param1, Param2);
-          end;
-        end;
-
-      else
-        Result := FARAPI.DefDlgProc(hDlg, Msg, Param1, Param2);
-      end;
-
-    except
-      on E :Exception do
-        ShowMessage(GetMsgStr(strError), E.Message, FMSG_WARNING or FMSG_MB_OK);
+    else
+      Result := inherited DialogHandler(Msg, Param1, Param2);
     end;
   end;
 
 
  {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
 
   procedure OpenPlaylist;
   var
     vInfo :TPlayerInfo;
-    vDlg :PFarDialogItemArray;
+    vDlg :TPlaylistDlg;
   begin
     if vPlaylistLock > 0 then
       Exit;
@@ -611,29 +465,22 @@ interface
       AppErrorID(strPlayerNotRunning);
 
     Inc(vPlaylistLock);
-    vDlg := GetPlaylistDlg;
+    vDlg := TPlaylistDlg.Create;
     try
-      vPlaylist := TStringList.Create;
-      UpdatePlaylist;
-
       LockPlayer;
       try
-        vFilterMask := '';
-        RunDialog(-1, -1, DX, DY, 'Playlist', vDlg, 1, 0, PlaylistDialogProc, 0);
+        vDlg.Run;
       finally
         UnlockPlayer;
       end;
 
     finally
-      vFilterMask := '';
-      FreeObj(vPlaylist);
-      FreeObj(vFilterList);
-      MemFree(vDlg);
+      vDlg.Destroy;
       Dec(vPlaylistLock);
     end;
 
   end;
-
+  
 
 end.
 
