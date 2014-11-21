@@ -29,25 +29,31 @@ interface
       constructor CreateEx(const ATitle :TString; const AItems :array of PFarChar); overload;
       destructor Destroy; override;
 
+      procedure AddItem(const AStr :TString; AFlags :DWORD = 0);
+      procedure SetBreakKeys(const AKeys :array of DWORD);
       procedure SetSelected(AIndex :Integer);
 
       function Run :Boolean;
 
     protected
-      FItems    :PFarMenuItemsArray;
-      FCount    :Integer;
-      FTitle    :TString;
-      FFooter   :TString;
-      FHelp     :TString;
-      FFlags    :DWORD;
-      FX, FY    :Integer;
-      FMaxDY    :Integer;
+      FItems     :PFarMenuItemsArray;
+      FCount     :Integer;
+      FTitle     :TString;
+      FFooter    :TString;
+      FHelp      :TString;
+      FFlags     :DWORD;
+      FX, FY     :Integer;
+      FMaxDY     :Integer;
      {$ifdef Far3}
-      FMenuID   :TGUID;
+      FMenuID    :TGUID;
      {$endif Far3}
+      FBreakKeys :PFarKeyArray;
+      FNeedClean :Boolean;
 
-      FResIdx   :Integer;
+      FBreakIdx  :TIntPtr;
+      FResIdx    :TIntPtr;
 
+      procedure Cleanup;
       function GetChecked(AIndex :Integer) :Boolean;
       procedure SetChecked(AIndex :Integer; AValue :Boolean);
       function GetEnabled(AIndex :Integer) :Boolean;
@@ -72,7 +78,8 @@ interface
       property Enabled[I :Integer] :Boolean read GetEnabled write SetEnabled;
       property Visible[I :Integer] :Boolean read GetVisible write SetVisible;
 
-      property ResIdx :Integer read FResIdx;
+      property BreakIdx :TIntPtr read FBreakIdx;
+      property ResIdx :TIntPtr read FResIdx;
     end;
 
 
@@ -119,8 +126,48 @@ interface
 
   destructor TFarMenu.Destroy; {override;}
   begin
+    if FNeedClean then
+      Cleanup;
+    MemFree(FBreakKeys);
     MemFree(FItems);
     inherited Destroy;
+  end;
+
+
+  procedure TFarMenu.AddItem(const AStr :TString; AFlags :DWORD = 0);
+  begin
+    ReallocMem(FItems, (FCount + 1) * SizeOf(TFarMenuItem));
+    Inc(FCount);
+
+    FillZero(FItems[FCount - 1], SizeOf(TFarMenuItem));
+    with FItems[FCount - 1] do begin
+      Flags := AFlags;
+      TextPtr := StrNew(PTChar(AStr));
+      UserData := 1;
+    end;
+    
+    FNeedClean := True;
+  end;
+
+
+  procedure TFarMenu.Cleanup;
+  var
+    i :Integer;
+  begin
+    for i := 0 to FCount - 1 do
+      with FItems[i] do
+        if UserData = 1 then
+          StrDispose(TextPtr);
+  end;
+
+
+  procedure TFarMenu.SetBreakKeys(const AKeys :array of DWORD);
+  var
+    I :Integer;
+  begin
+    FBreakKeys := MemAllocZero((High(AKeys) + 2) * SizeOf(TFarKey));
+    for I := 0 to High(AKeys) do
+      FBreakKeys[i].VirtualKeyCode := AKeys[I];
   end;
 
 
@@ -182,7 +229,8 @@ interface
       PTChar(FTitle),
       PTChar(FFooter),
       PTChar(FHelp),
-      nil, nil,
+      FBreakKeys,
+      @FBreakIdx,
       Pointer(FItems),
       FCount);
 

@@ -117,6 +117,7 @@ interface
       FTotalCount   :Integer;
 
       function RowToIdx(ARow :Integer) :Integer;
+      function IdxToRow(AIndex :Integer) :Integer;
     end;
 
 
@@ -404,6 +405,23 @@ interface
       Result := -1;
       if ARow < FFilter.Count then
         Result := FFilter[ARow];
+    end;
+  end;
+
+
+  function TFilteredListDlg.IdxToRow(AIndex :Integer) :Integer;
+  var
+    I :Integer;
+  begin
+    if FFilter = nil then
+      Result := AIndex
+    else begin
+      Result := -1;
+      for I := 0 to FFilter.Count - 1 do
+        if PFilterRec(FFilter.PItems[I]).FIdx = AIndex then begin
+          Result := I;
+          Exit;
+        end;
     end;
   end;
 
