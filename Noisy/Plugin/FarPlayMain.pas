@@ -44,6 +44,7 @@ interface
 //    procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
       function OpenCmdLine(AStr :PTChar) :THandle; override;
+      function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
     end;
 
 
@@ -520,7 +521,7 @@ interface
 
   procedure TNoisyPlug.GetInfo; {override;}
   begin
-//  FFlags:= {PF_PRELOAD or PF_EDITOR or} PF_VIEWER;
+    FFlags:= {PF_PRELOAD or} PF_EDITOR or PF_VIEWER or PF_DIALOG;
 
     FMenuStr := GetMsg(strTitle);
     FMenuID := cMenuID;
@@ -547,6 +548,12 @@ interface
     OpenCmdLineEx(AStr);
   end;
 
+
+  function TNoisyPlug.OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; {override;}
+  begin
+    Result:= INVALID_HANDLE_VALUE;
+    OpenCmdLineEx(AStr);
+  end;
 
 
 initialization
