@@ -24,6 +24,7 @@ resourcestring
   SArgumentMissing       = 'Missing argument in format "%s"';
   SInvalidArgIndex       = 'Invalid argument index in format "%s"';
 
+  SAssignError           = 'Cannot assign a %s to a %s';
   SListIndexError        = 'List index out of bounds (%d)';
   SListCapacityError     = 'List capacity out of bounds (%d)';
   SListCountError        = 'List count out of bounds (%d)';

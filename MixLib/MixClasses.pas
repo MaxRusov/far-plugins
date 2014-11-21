@@ -20,8 +20,10 @@ interface
     PBasis = ^TBasis;
     TBasis = class(TObject)
     public
-      constructor Create; virtual;
-//    constructor CreateCopy(Source :TBasis);
+      constructor Create; overload; virtual;
+     {$ifdef bUseAssign}
+      constructor CreateCopy(Source :TBasis);
+     {$endif bUseAssign}
      {$ifdef bUseStreams}
       constructor CreateStream(Stream :TStream);
      {$endif bUseStreams}
@@ -30,7 +32,12 @@ interface
       class function NewInstance :TObject; override;
       procedure FreeInstance; override;
 
-//    function Clone :TBasis;
+     {$ifdef bUseAssign}
+      function Clone :TBasis;
+      procedure Assign(ASrc :TBasis); virtual;
+      procedure AssignTo(ADst :TBasis); virtual;
+      procedure AssignError(ASrc :TBasis); virtual;
+     {$endif bUseAssign}
 
      {$ifdef bUseStreams}
       procedure WriteToStream(Stream :TStream); virtual;
@@ -195,7 +202,10 @@ interface
     public
       constructor Create; override;
 
-//    procedure Assign(Source :TPersistent); override;
+     {$ifdef bUseAssign}
+      procedure Assign(Source :TBasis); override;
+     {$endif bUseAssign}
+
      {$ifdef bUseStreams}
       procedure ReadFromStream(Stream :TStream); override;
      {$endif bUseStreams}
@@ -248,6 +258,7 @@ interface
     protected
       procedure ItemFree(PItem :Pointer); override;
       function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
+      function ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; override;
      {$ifdef bUseStreams}
       procedure ItemToStream(PItem :Pointer; Stream :TStream); override;
       procedure ItemFromStream(PItem :Pointer; Stream :TStream); override;
@@ -499,11 +510,14 @@ interface
 //  inherited Create;
   end;
 
-//constructor TBasis.CreateCopy(Source :TPersistent);
-//begin
-//  Create;
-//  Assign(Source);
-//end;
+ {$ifdef bUseAssign}
+  constructor TBasis.CreateCopy(Source :TBasis);
+  begin
+    Create;
+    Assign(Source);
+  end;
+ {$endif bUseAssign}
+
 
  {$ifdef bUseStreams}
   constructor TBasis.CreateStream(Stream :TStream);
@@ -573,10 +587,39 @@ interface
   end;
 
 
-//function TBasis.Clone :TBasis;
-//begin
-//  Result := TBasisClass(ClassType).CreateCopy(Self);
-//end;
+ {$ifdef bUseAssign}
+  function TBasis.Clone :TBasis;
+  begin
+    Result := TBasisClass(ClassType).CreateCopy(Self);
+  end;
+
+
+  procedure TBasis.Assign(ASrc :TBasis); {virtual;}
+  begin
+    if ASrc <> nil then
+      ASrc.AssignTo(Self)
+    else
+      AssignError(nil);
+  end;
+
+
+  procedure TBasis.AssignTo(ADst :TBasis); {virtual;}
+  begin
+    ADst.AssignError(Self);
+  end;
+
+
+  procedure TBasis.AssignError(ASrc :TBasis); {virtual;}
+  var
+    vSrcName :TString;
+  begin
+    if ASrc <> nil then
+      vSrcName := ASrc.ClassName
+    else
+      vSrcName := 'nil';
+    AppErrorResFmt(@SAssignError, [vSrcName, ClassName]);
+  end;
+ {$endif bUseAssign}
 
 
   function TBasis.CompareObj(Another :TBasis; Context :TIntPtr) :Integer; {virtual;}
@@ -1224,20 +1267,24 @@ interface
     FOptions := [loItemFree];
   end;
 
-(*
-  procedure TObjList.Assign(Source :TPersistent); {overrite;}
+
+ {$ifdef bUseAssign}
+  procedure TObjList.Assign(Source :TBasis); {overrite;}
   var
     I :Integer;
+    vSrc :TObjList;
   begin
     if Source is TObjList then begin
-      FreeAll;
-      with TObjList(Source) do
-        for I := 0 to Count - 1 do
-          Self.Add( (TObject(List[I]) as TBasis).Clone );
+      Clear;
+      vSrc := TObjList(Source);
+      Capacity := vSrc.Count;
+      for i := 0 to vSrc.Count - 1 do
+        Add( (TObject(vSrc.List[I]) as TBasis).Clone );
     end else
       inherited Assign(Source);
   end;
-*)
+ {$endif bUseAssign}
+
 
  {$ifdef bUseStreams}
   procedure TObjList.ReadFromStream(Stream :TStream); {override;}
@@ -1253,7 +1300,7 @@ interface
     Clear;
   end;
 
-  
+
   procedure TObjList.FreeAt(AIndex: Integer);
   begin
     Delete(AIndex);
@@ -1370,6 +1417,12 @@ interface
   function TStrList.ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; {override;}
   begin
     Result := UpCompareStr(TString(PItem^), TString(PANother^));
+  end;
+
+
+  function TStrList.ItemCompareKey(PItem :Pointer; Key :Pointer; Context :TIntPtr) :Integer; {override;}
+  begin
+    Result := UpCompareStr(TString(PItem^), TString(Key));
   end;
 
 

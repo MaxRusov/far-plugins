@@ -1376,7 +1376,7 @@ type
 { interface IWICBitmapCodecProgressNotification }
   FNProgressNotification = function(pvData: Pointer; uFrameNum: Cardinal;
     operation: WICProgressOperation; dblProgress: Double): HRESULT; stdcall;
-  PFNProgressNotification = ^FNProgressNotification;
+  PFNProgressNotification = FNProgressNotification;
 {$EXTERNALSYM PFNProgressNotification}
 
   {$HPPEMIT 'DECLARE_DINTERFACE_TYPE(IWICBitmapCodecProgressNotification);'}

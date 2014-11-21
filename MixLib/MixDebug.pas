@@ -50,9 +50,13 @@ interface
   procedure TraceStrFA(AMsg :PAnsiChar; const Args: array of const);
   procedure TraceStrFW(AMsg :PWideChar; const Args: array of const);
 
-  procedure Trace(const AMsg :TString);
-  procedure TraceA(const AMsg :TAnsiStr);
-  procedure TraceW(const AMsg :TWideStr);
+  procedure Trace(const AMsg :TString); overload;
+  procedure TraceA(const AMsg :TAnsiStr); overload;
+  procedure TraceW(const AMsg :TWideStr); overload;
+
+  procedure Trace(const AMsg :TString; const Args: array of const); overload;
+  procedure TraceA(const AMsg :TAnsiStr; const Args: array of const); overload;
+  procedure TraceW(const AMsg :TWideStr; const Args: array of const); overload;
 
   procedure TraceF(const AMsg :TString; const Args: array of const);
   procedure TraceFA(const AMsg :TAnsiStr; const Args: array of const);
@@ -522,9 +526,29 @@ interface
     dllTraceA(HInstance, PAnsiChar(AMsg));
   end;
 
-  procedure TraceW(const AMsg :TWideStr); 
+  procedure TraceW(const AMsg :TWideStr);
   begin
     dllTraceW(HInstance, PWideChar(AMsg));
+  end;
+
+
+  procedure Trace(const AMsg :TString; const Args: array of const);
+  begin
+   {$ifdef bUnicode}
+    TraceW(AMsg, Args);
+   {$else}
+    TraceA(AMsg, Args);
+   {$endif bUnicode}
+  end;
+
+  procedure TraceA(const AMsg :TAnsiStr; const Args: array of const);
+  begin
+    dllTraceFmtA(HInstance, PAnsiChar(AMsg), Args);
+  end;
+
+  procedure TraceW(const AMsg :TWideStr; const Args: array of const);
+  begin
+    dllTraceFmtW(HInstance, PWideChar(AMsg), Args);
   end;
 
 
