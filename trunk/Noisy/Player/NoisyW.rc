@@ -1,11 +1,11 @@
 
-#include "..\Plugin\Build.h"
+#include "..\Build.h"
 
 LANGUAGE 0, 0
 
 1 VERSIONINFO
- FILEVERSION 1,0,0,0
- PRODUCTVERSION 1,0,0,0
+ FILEVERSION 1,Build,0,0
+ PRODUCTVERSION 1,Build,0,0
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0x0L
  FILEOS 0x10004L
@@ -18,10 +18,10 @@ BEGIN
         BEGIN
             VALUE "FileDescription", "Noisy player\0"
             VALUE "InternalName", "Noisy\0"
-            VALUE "OriginalFilename", "noisy.exe\0"
-            VALUE "FileVersion", "1.0." BuildS "\0"
+            VALUE "OriginalFilename", "Noisy.exe\0"
+            VALUE "FileVersion", "1." BuildS "\0"
             VALUE "CompanyName", "Max Rusov\0"
-            VALUE "LegalCopyright", "(c) 2008-2009, Max Rusov\0"
+            VALUE "LegalCopyright", "(c) 2008-2014, Max Rusov\0"
             VALUE "ProductName", "Noisy\0"
             VALUE "ProductVersion", "1.0\0"
         END
