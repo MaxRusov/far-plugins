@@ -78,7 +78,8 @@ interface
       procedure AfterConstruction; override;
 
       procedure Show(ACmd :Integer);
-      procedure Invalidate;
+      procedure Invalidate; overload;
+      procedure Invalidate(const ARect :TRect); overload;
 
       procedure SetBounds(const ARect :TRect; AAddFlags :Integer);
       procedure SetWindowPos(X, Y :Integer);
@@ -377,6 +378,12 @@ interface
   procedure TMSWindow.Invalidate;
   begin
     InvalidateRect(FHandle, nil, True);
+  end;
+
+
+  procedure TMSWindow.Invalidate(const ARect :TRect);
+  begin
+    InvalidateRect(FHandle, @ARect, True);
   end;
 
 

@@ -58,6 +58,7 @@ interface
   function RectSize(const AR :TRect) :TSize;
   function RectContainsXY(const AR :TRect; X, Y :Integer) :Boolean; overload;
   function RectContainsXY(const AR :TSmallRect; X, Y :Integer) :Boolean; overload;
+  function RectCenter(const ARect :TRect; AWidth, AHeight :Integer) :TRect;
 
   function Chr2StrL(Str :PTChar; ALen :Integer) :TString;
   function CharInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;
@@ -497,6 +498,7 @@ interface
       (Y >= AR.Top)  and (Y < AR.Bottom);
   end;
 
+
   function RectContainsXY(const AR :TSmallRect; X, Y :Integer) :Boolean;
   begin
     Result :=
@@ -504,6 +506,14 @@ interface
       (Y >= AR.Top)  and (Y < AR.Bottom);
   end;
 
+
+  function RectCenter(const ARect :TRect; AWidth, AHeight :Integer) :TRect;
+  begin
+    Result := Bounds(
+      (ARect.Left + ARect.Right - AWidth) div 2,
+      (ARect.Bottom + ARect.Top - AHeight) div 2,
+      AWidth, AHeight);
+  end;
 
 
   function CharInSet(ACh :TChar; const AChars :TAnsiCharSet) :Boolean;

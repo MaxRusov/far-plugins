@@ -11076,7 +11076,7 @@ function CreateEnhMetaFileA(DC: HDC; p2: PAnsiChar; p3: PRect; p4: PAnsiChar): H
 function CreateEnhMetaFileW(DC: HDC; p2: PWideChar; p3: PRect; p4: PWideChar): HDC; stdcall;
 function CreateEnhMetaFile(DC: HDC; p2: PTChar; p3: PRect; p4: PTChar): HDC; stdcall;
 function DeleteEnhMetaFile(p1: HENHMETAFILE): BOOL; stdcall;
-function EnumEnhMetaFile(DC: HDC; p2: HENHMETAFILE; p3: TFNEnhMFEnumProc; p4: Pointer; const p5: TRect): BOOL; stdcall;
+function EnumEnhMetaFile(DC: HDC; p2: HENHMETAFILE; p3: TFNEnhMFEnumProc; p4: Pointer; p5: PRect): BOOL; stdcall;
 function GetEnhMetaFileA(p1: PAnsiChar): HENHMETAFILE; stdcall;
 function GetEnhMetaFileW(p1: PWideChar): HENHMETAFILE; stdcall;
 function GetEnhMetaFile(p1: PTChar): HENHMETAFILE; stdcall;
@@ -11089,7 +11089,7 @@ function GetEnhMetaFilePaletteEntries(p1: HENHMETAFILE; p2: UINT; p3: Pointer): 
 function GetEnhMetaFilePixelFormat(p1: HENHMETAFILE; p2: Cardinal;  var p3: TPixelFormatDescriptor): UINT; stdcall;
 function GetWinMetaFileBits(p1: HENHMETAFILE; p2: UINT; p3: PByte; p4: Integer; p5: HDC): UINT; stdcall;
 function PlayEnhMetaFile(DC: HDC; p2: HENHMETAFILE; const p3: TRect): BOOL; stdcall;
-function PlayEnhMetaFileRecord(DC: HDC; var p2: THandleTable; const p3: TEnhMetaRecord; p4: UINT): BOOL; stdcall;
+function PlayEnhMetaFileRecord(DC: HDC; p2 :PHandleTable; p3 :PEnhMetaRecord; p4: UINT): BOOL; stdcall;
 function SetEnhMetaFileBits(cbBuffer :UINT; lpData :Pointer): HENHMETAFILE; stdcall;
 function SetWinMetaFileBits(cbBuffer: UINT; lpbBuffer :Pointer; hdcRef :HDC; const lpmfp :TMetaFilePict): HENHMETAFILE; stdcall;
 function GdiComment(DC: HDC; p2: UINT; p3: Pointer): BOOL; stdcall;
@@ -13251,8 +13251,8 @@ const
 type
   { lParam of WM_COPYDATA message points to... }
   PCopyDataStruct = ^TCopyDataStruct;
-  tagCOPYDATASTRUCT = packed record
-    dwData: DWORD;
+  tagCOPYDATASTRUCT = {packed} record
+    dwData: ULONG_PTR;
     cbData: DWORD;
     lpData: Pointer;
   end;
