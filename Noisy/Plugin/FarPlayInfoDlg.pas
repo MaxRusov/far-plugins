@@ -1,12 +1,12 @@
 {$I Defines.inc}
-{$Typedaddress Off}
 
 unit FarPlayInfoDlg;
 
 {******************************************************************************}
-{* (c) 2008 Max Rusov                                                         *}
-{*                                                                            *}
-{* Noisy Far plugin                                                           *}
+{* Noisy - Noisy Player Far plugin                                            *}
+{* 2008-2014, Max Rusov                                                       *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
 
 interface
@@ -23,6 +23,8 @@ interface
 
     Far_API,
     FarCtrl,
+    FarMenu,
+    FarDlg,
     FarPlayCtrl,
     FarPlayReg,
     FarPlayPlaylistDlg;
@@ -40,9 +42,7 @@ interface
   uses
     MixDebug;
 
-    
  {-----------------------------------------------------------------------------}
-
 
   var
     BassVersion :Cardinal;
@@ -98,14 +98,7 @@ interface
       end;
     end;
 
-    vStr :=
-      GetMsgStr(strInfoTitle) + #10 +
-      vStr + #10#10 +
-      GetMsgStr(strOk) + #10 +
-      GetMsgStr(strVersions);
-
-    vStr := StrAnsiToOEM(vStr);
-    vRes := FARAPI.Message(hModule, FMSG_LEFTALIGN or FMSG_ALLINONE, nil, PPCharArray(PFarChar(vStr)), 0, 2);
+    vRes := ShowMessageBut(GetMsgStr(strInfoTitle), vStr, [GetMsgStr(strOk), GetMsgStr(strVersions)]);
 
     if vRes = 1 then
       OpenAboutDialog;
@@ -143,14 +136,7 @@ interface
       end;
     end;
 
-    vStr :=
-      GetMsgStr(strInfoTitle) + #10 +
-      vStr + #10#10 +
-      GetMsgStr(strOk) + #10 +
-      GetMsgStr(strFormats);
-
-    vStr := StrAnsiToOEM(vStr);
-    vRes := FARAPI.Message(hModule, FMSG_LEFTALIGN or FMSG_ALLINONE, nil, PPCharArray(PFarChar(vStr)), 0, 2);
+    vRes := ShowMessageBut(GetMsgStr(strInfoTitle), vStr, [GetMsgStr(strOk), GetMsgStr(strFormats)]);
 
     if vRes = 1 then
       OpenFormatsDialog;
@@ -159,54 +145,42 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-
-  const
-    cConfigMenuCount = 6;
-
   procedure OpenConfig;
   var
-    vRes, I :Integer;
-    vItems :PFarMenuItemsArray;
-    vItem :PFarMenuItemEx;
+    vMenu :TFarMenu;
     vInfo :TPlayerInfo;
   begin
-    vItems := MemAllocZero(cConfigMenuCount * SizeOf(TFarMenuItemEx));
+    vMenu := TFarMenu.CreateEx(
+      GetMsg(strConfigTitle),
+    [
+      GetMsg(strRepeatMode),
+      GetMsg(strSuffleMode),
+      '',
+      GetMsg(strShowIcon),
+      GetMsg(strShowTooltips),
+      GetMsg(strUseHotkeys)
+    ]
+    );
     try
-      vItem := @vItems[0];
-      SetMenuItemChrEx(vItem, GetMsg(strRepeatMode), 0);
-      SetMenuItemChrEx(vItem, GetMsg(strSuffleMode), 0);
-      SetMenuItemChrEx(vItem, '', MIF_SEPARATOR);
-      SetMenuItemChrEx(vItem, GetMsg(strShowIcon), 0);
-      SetMenuItemChrEx(vItem, GetMsg(strShowTooltips), 0);
-      SetMenuItemChrEx(vItem, GetMsg(strUseHotkeys), 0);
-
-      vRes := 0;
       while True do begin
         ExecCommand(cmdInfo);
         if GetPlayerInfo(vInfo, False) then begin
-          vItems[0].Flags := SetFlag(0, MIF_CHECKED1, vInfo.FRepeat);
-          vItems[1].Flags := SetFlag(0, MIF_CHECKED1, vInfo.FShuffle);
-          vItems[3].Flags := SetFlag(0, MIF_CHECKED1, vInfo.FSystray);
-          vItems[4].Flags := SetFlag(0, MIF_CHECKED1, vInfo.FTooltips);
-          vItems[5].Flags := SetFlag(0, MIF_CHECKED1, vInfo.FHotkeys);
+          vMenu.Checked[0] := vInfo.FRepeat;
+          vMenu.Checked[1] := vInfo.FShuffle;
+          vMenu.Checked[3] := vInfo.FSystray;
+          vMenu.Checked[4] := vInfo.FTooltips;
+          vMenu.Checked[5] := vInfo.FHotkeys;
         end;
 
-        for I := 0 to cConfigMenuCount - 1 do
-          vItems[I].Flags := SetFlag(vItems[I].Flags, MIF_SELECTED, I = vRes);
+        vMenu.SetSelected(vMenu.ResIdx);
 
-        vRes := FARAPI.Menu(hModule, -1, -1, 0,
-          FMENU_WRAPMODE or FMENU_USEEXT,
-          GetMsg(strConfigTitle),
-          '',
-          'Config',
-          nil, nil,
-          Pointer(vItems),
-          cConfigMenuCount);
+        if not vMenu.Run then
+          Break;
 
-        case vRes of
+        case vMenu.ResIdx of
           0: ExecCommand(CmdRepeat);
           1: ExecCommand(CmdShuffle);
-          2: {};
+
           3: ExecCommand(CmdSystray);
           4: ExecCommand(CmdTooltip);
           5: ExecCommand(CmdHotkeys);
@@ -216,35 +190,33 @@ interface
       end;  
 
     finally
-      MemFree(vItems);
+      vMenu.Destroy;
     end;
   end;
 
 
+
+ {-----------------------------------------------------------------------------}
+ { TPlayerDlg                                                                  }
  {-----------------------------------------------------------------------------}
 
-  procedure DlgScreenToClient(hDlg :THandle; AItemID :Integer; var APos :COORD);
-  var
-    vRect :SMALL_RECT;
-  begin
-    FARAPI.SendDlgMessage(hDlg, DM_GETDLGRECT, 0, Integer(@vRect));
-    Dec(APos.X, vRect.Left);
-    Dec(APos.Y, vRect.Top);
-    FARAPI.SendDlgMessage(hDlg, DM_GETITEMPOSITION, AItemID, Integer(@vRect));
-    Dec(APos.X, vRect.Left);
-    Dec(APos.Y, vRect.Top);
-  end;
+  type
+    TPlayerDlg = class(TFarDialog)
+    protected
+      procedure Prepare; override;
+      procedure InitDialog; override;
+
+//    function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
+      function MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
+
+    private
+      procedure UpdateStatus;
+    end;
+
 
 
   const
-    cDlgItemsCount = 22;
-
-    DX = 60;
-    DY = 14;
-
-    p1 = 5;
-    p2 = 40;
-
     IdTitle = 1;
     IdInfo  = 2;
     IdTime1 = 4;
@@ -268,12 +240,24 @@ interface
     IdConfig = 20;
     IdAbout = 21;
 
+    DX = 60;
+    DY = 14;
+    
     ProgressLen = DX-10;
 
 
-  function GetInfoDlg :PFarDialogItemArray;
+  procedure TPlayerDlg.Prepare; {override;}
+  const
+    p1 = 5;
+    p2 = 40;
   begin
-    Result := CreateDialog(
+    FGUID := cPlayerDlgID;
+    FHelpTopic := 'Info';
+
+    FWidth := DX;
+    FHeight := DY;
+
+    FDialog := CreateDialog(
       [
         NewItemApi(DI_DoubleBox, 3, 1, DX-6, DY-2, 0, GetMsg(strTitle)),
 
@@ -286,7 +270,7 @@ interface
         NewItemApi(DI_Text, 5, 6, DX-10, -1,  0, ''),
 
         NewItemApi(DI_Text, p1, 8, 9, -1,     0, GetMsg(strTrack)),
-        NewItemApi(DI_Text, p1, 9, 9, -1,     DIF_CENTERTEXT, '' {9999/9999}),
+        NewItemApi(DI_Text, p1, 9, 9, -1,     0{DIF_CENTERTEXT}, '' {9999/9999}),
 
         NewItemApi(DI_Button, p1+10, 9, 3, -1, DIF_BTNNOCLOSE or DIF_NOBRACKETS, '[&<]'),
         NewItemApi(DI_Button, p1+14, 9, 3, -1, DIF_BTNNOCLOSE or DIF_NOBRACKETS, '[&>]'),
@@ -305,193 +289,178 @@ interface
         NewItemApi(DI_Button, 0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strStop)),
         NewItemApi(DI_Button, 0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strConfig)),
         NewItemApi(DI_Button, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strAbout))
-      ]
+      ],
+      @FItemCount
     );
   end;
 
 
-  function InfoDialogProc(hDlg : THandle; Msg :Integer; Param1 :Integer; Param2 :Integer): Integer; stdcall;
-
-    procedure DlgSetTextApi(AItemID :Integer; const AStr :TString);
-    var
-      vData :TFarDialogItemData;
-    begin
-     {$ifdef Far3}
-      vData.StructSize := SizeOf(vData);
-     {$endif Far3}
-      vData.PtrLength := Length(AStr);
-      vData.PtrData := PFarChar(AStr);
-      FARAPI.SendDlgMessage(hDlg, DM_SETTEXT, AItemID, Integer(@vData));
-    end;
-
-    procedure DlgSetText(AItemID :Integer; const AStr :TString);
-    begin
-      DlgSetTextApi( AItemID, StrAnsiToOEM(AStr) );
-    end;
+  procedure TPlayerDlg.InitDialog; {override;}
+  begin
+//  SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
+    UpdateStatus;
+  end;
 
 
-    procedure LocUpdateStatus;
-    var
-      vInfo :TPlayerInfo;
-      vFormat :TBassFormat;
-      vName, vStr :TString;
-      vPerc, vLen :Integer;
-    begin
-      if GetPlayerInfo(vInfo, False) then begin
+  procedure TPlayerDlg.UpdateStatus;
+  var
+    vInfo :TPlayerInfo;
+    vFormat :TBassFormat;
+    vName, vStr :TString;
+    vPerc, vLen :Integer;
+  begin
+    if GetPlayerInfo(vInfo, False) then begin
 
-        vName := vInfo.FTrackArtist;
-        vStr := vInfo.FTrackTitle;
-        if (vName <> '') and (vStr <> '') then
-          vName := vName + ' - ' + vStr;
-        if vName = '' then
-          vName := ExtractFileNameEx(vInfo.FPlayedFile);
+      vName := vInfo.FTrackArtist;
+      vStr := vInfo.FTrackTitle;
+      if (vName <> '') and (vStr <> '') then
+        vName := vName + ' - ' + vStr;
+      if vName = '' then
+        vName := ExtractFileNameEx(vInfo.FPlayedFile);
 
-        if vName <> '' then
-          DlgSetText(IdTitle, vName)
+      if vName <> '' then
+        SetText(IdTitle, vName)
+      else
+        SetText(IdTitle, GetMsg(strPLaylistIsEmpty));
+
+      if vInfo.FTrackType <> 0 then begin
+        vStr := NameOfCType(vInfo.FTrackType);
+        if vStr = '' then begin
+          vFormat := GetFormatByCode(vInfo.FTrackType);
+          if vFormat <> nil then
+            vStr := vFormat.GetShortName;
+          if vStr = '' then
+            vStr := Format('F%x', [vInfo.FTrackType]);
+        end;
+
+        if vInfo.FStreamType = stShoutcast then
+          SetText(IdInfo, Format(' %s, shothcast, %s', [vStr, NameOfChans(vInfo.FTrackChans)] ))
         else
-          DlgSetTextApi(IdTitle, GetMsg(strPLaylistIsEmpty));
-
-        if vInfo.FTrackType <> 0 then begin
-          vStr := NameOfCType(vInfo.FTrackType);
-          if vStr = '' then begin
-            vFormat := GetFormatByCode(vInfo.FTrackType);
-            if vFormat <> nil then
-              vStr := vFormat.GetShortName;
-            if vStr = '' then
-              vStr := Format('F%x', [vInfo.FTrackType]);
-          end;
-
-          if vInfo.FStreamType = stShoutcast then
-            DlgSetText(IdInfo, Format(' %s, shothcast, %s', [vStr, NameOfChans(vInfo.FTrackChans)] ))
-          else
-            DlgSetText(IdInfo, Format(' %s, %d kbps, %s', [vStr, vInfo.FTrackBPS, {vInfo.FTrackFreq,} NameOfChans(vInfo.FTrackChans)] ));
-          DlgSetText(IdTime1, Time2Str(vInfo.FPlayTime));
-          DlgSetText(IdTime2, Time2Str(vInfo.FTrackLength));
-        end else
-        begin
-          DlgSetText(IdInfo, '');
-          DlgSetText(IdTime1, '');
-          DlgSetText(IdTime2, '');
-        end;
-
-        vPerc := 0;
-        if vInfo.FTrackLength > 0 then
-          vPerc := Round(vInfo.FPlayTime / vInfo.FTrackLength * 100);
-        vStr := GetProgressStr(ProgressLen, vPerc);
-
-        if (vInfo.FStreamType = stStream) and (vInfo.FTrackLoaded < vInfo.FTrackBytes) then begin
-          vLen := Round(vInfo.FTrackLoaded / vInfo.FTrackBytes * ProgressLen);
-          vStr := Copy(vStr, 1, vLen);
-        end;
-
-        DlgSetTextApi(IdProgress, vStr);
-
-        if vInfo.FTrackCount = 0 then
-          vStr := GetMsgStr(strEmpty)
-        else begin
-          vStr := Format('%d / %d', [vInfo.FTrackIndex + 1, vInfo.FTrackCount]);
-          if Length(vStr) > 9 then
-            vStr := Format('%d/%d', [vInfo.FTrackIndex + 1, vInfo.FTrackCount]);
-        end;
-        DlgSetText(IdTracks, vStr);
-
-        DlgSetText(IdVol, Format('%3d', [Round(vInfo.FVolume)]));
-
-        if vInfo.FState <> psPlayed then
-          DlgSetTextApi(IdPlay, GetMsg(strPlay) )
-        else
-          DlgSetTextApi(IdPlay, GetMsg(strPause) );
-
+          SetText(IdInfo, Format(' %s, %d kbps, %s', [vStr, vInfo.FTrackBPS, {vInfo.FTrackFreq,} NameOfChans(vInfo.FTrackChans)] ));
+        SetText(IdTime1, Time2Str(vInfo.FPlayTime));
+        SetText(IdTime2, Time2Str(vInfo.FTrackLength));
       end else
       begin
-        DlgSetTextApi(IdTitle, GetMsg(strPlayerNotRunning));
-        DlgSetTextApi(IdInfo, '');
-        DlgSetTextApi(IdTime1, '');
-        DlgSetTextApi(IdTime2, '');
-        DlgSetTextApi(IdProgress, GetProgressStr(ProgressLen, 0));
-        DlgSetTextApi(IdTracks, GetMsg(strEmpty));
-        DlgSetTextApi(IdVol, '--');
-        DlgSetTextApi(IdPlay, GetMsg(strPlay) )
+        SetText(IdInfo, '');
+        SetText(IdTime1, '');
+        SetText(IdTime2, '');
       end;
 
-//    FARAPI.SendDlgMessage(hDlg, DM_ENABLE, IdPrev, Byte(vInfo.FTrackIndex > 0));
-//    FARAPI.SendDlgMessage(hDlg, DM_ENABLE, IdNext, Byte(vInfo.FTrackIndex < vInfo.FTrackCount - 1));
-    end;
+      vPerc := 0;
+      if vInfo.FTrackLength > 0 then
+        vPerc := Round(vInfo.FPlayTime / vInfo.FTrackLength * 100);
+      vStr := GetProgressStr(ProgressLen, vPerc);
 
-
-    procedure LocClickProgress;
-    var
-      vCoord :COORD;
-      vSeekTo :Integer;
-      vInfo :TPlayerInfo;
-    begin
-      vCoord := PMouseEventRecord(Param2).dwMousePosition;
-      DlgScreenToClient(hDlg, IdProgress, vCoord);
-      if GetPlayerInfo(vInfo, False) then begin
-        vSeekTo := Round(vInfo.FTrackLength * vCoord.X / ProgressLen);
-        ExecCommandFmt(CmdSeek1, [vSeekTo]);
-        LocUpdateStatus;
+      if (vInfo.FStreamType = stStream) and (vInfo.FTrackLoaded < vInfo.FTrackBytes) then begin
+        vLen := Round(vInfo.FTrackLoaded / vInfo.FTrackBytes * ProgressLen);
+        vStr := Copy(vStr, 1, vLen);
       end;
-    end;
 
+      SetText(IdProgress, vStr);
 
-  begin
-//  TraceF('InfoDialogProc: hDlg=%d, Msg=%d, Param1=%d, Param2=%d', [hDlg, Msg, Param1, Param2]);
-    Result := 1;
-    try
-      case Msg of
-        DN_INITDIALOG: begin
-          LocUpdateStatus;
-//        SetTimer(0, 0, 100, @MyTimerProc);
-        end;
+      if vInfo.FTrackCount = 0 then
+        vStr := GetMsgStr(strEmpty)
+      else begin
+        vStr := Format('%d / %d', [vInfo.FTrackIndex + 1, vInfo.FTrackCount]);
+        if Length(vStr) > 9 then
+          vStr := Format('%d/%d', [vInfo.FTrackIndex + 1, vInfo.FTrackCount]);
+      end;
+      SetText(IdTracks, vStr);
 
-        DN_BTNCLICK : begin
-          case Param1 of
-            IdPrev:
-              ExecCommand(CmdPrev);
-            IdNext:
-              ExecCommand(CmdNext);
+      SetText(IdVol, Format('%3d', [Round(vInfo.FVolume)]));
 
-            IdVolDn:
-              ExecCommand(CmdVolumeDec);
-            IdVolUp:
-              ExecCommand(CmdVolumeInc);
-            IdVolMute:
-              ExecCommand(CmdVolumeMute);
-
-            IdPlay:
-              ExecCommand(CmdPlayPause);
-            IdStop:
-              ExecCommand(CmdStop);
-            IdList:
-              OpenPlaylist;
-            IdConfig:
-              OpenConfig;
-            IdAbout:
-              OpenAboutDialog;
-          end;
-          LocUpdateStatus;
-        end;
-
-        DN_MouseClick:
-          if Param1 = IdProgress then
-            LocClickProgress
-          else
-            Result := 0;
-
-        DN_EnterIdle:
-          LocUpdateStatus;
+      if vInfo.FState <> psPlayed then
+        SetText(IdPlay, GetMsg(strPlay) )
       else
-        Result := FARAPI.DefDlgProc(hDlg, Msg, Param1, Param2);
-      end;
+        SetText(IdPlay, GetMsg(strPause) );
 
-    except
-      on E :Exception do
-        ShowMessage(GetMsgStr(strError), E.Message, FMSG_WARNING or FMSG_MB_OK);
+    end else
+    begin
+      SetText(IdTitle, GetMsg(strPlayerNotRunning));
+      SetText(IdInfo, '');
+      SetText(IdTime1, '');
+      SetText(IdTime2, '');
+      SetText(IdProgress, GetProgressStr(ProgressLen, 0));
+      SetText(IdTracks, GetMsg(strEmpty));
+      SetText(IdVol, '--');
+      SetText(IdPlay, GetMsg(strPlay) )
+    end;
+
+//  FARAPI.SendDlgMessage(hDlg, DM_ENABLE, IdPrev, Byte(vInfo.FTrackIndex > 0));
+//  FARAPI.SendDlgMessage(hDlg, DM_ENABLE, IdNext, Byte(vInfo.FTrackIndex < vInfo.FTrackCount - 1));
+  end;
+
+
+//function TPlayerDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
+//begin
+//  Result := True;
+//  case AKey of
+//    0: {};
+//  else
+//    Result := inherited KeyDown(AID, AKey);
+//  end;
+//end;
+
+
+  function TPlayerDlg.MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; {override;}
+  var
+    vPos, vSeekTo :Integer;
+    vInfo :TPlayerInfo;
+  begin
+    Result := False;
+    if AID = IdProgress then begin
+      vPos := AMouse.dwMousePosition.X - GetScreenItemRect(IdProgress).Left;
+      if GetPlayerInfo(vInfo, False) then begin
+        vSeekTo := Round(vInfo.FTrackLength * vPos / ProgressLen);
+        ExecCommandFmt(CmdSeek1, [vSeekTo]);
+        UpdateStatus;
+      end;
     end;
   end;
 
 
+  function TPlayerDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  begin
+    Result := 1;
+    case Msg of
+      DN_BTNCLICK : begin
+        case Param1 of
+          IdPrev:
+            ExecCommand(CmdPrev);
+          IdNext:
+            ExecCommand(CmdNext);
+
+          IdVolDn:
+            ExecCommand(CmdVolumeDec);
+          IdVolUp:
+            ExecCommand(CmdVolumeInc);
+          IdVolMute:
+            ExecCommand(CmdVolumeMute);
+
+          IdPlay:
+            ExecCommand(CmdPlayPause);
+          IdStop:
+            ExecCommand(CmdStop);
+          IdList:
+            OpenPlaylist;
+          IdConfig:
+            OpenConfig;
+          IdAbout:
+            OpenAboutDialog;
+        end;
+        UpdateStatus;
+      end;
+
+      DN_EnterIdle:
+        UpdateStatus;
+    else
+      Result := inherited DialogHandler(Msg, Param1, Param2);
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
  {-----------------------------------------------------------------------------}
 
   var
@@ -500,7 +469,7 @@ interface
 
   procedure OpenInfoDialog;
   var
-    vDlg :PFarDialogItemArray;
+    vDlg :TPlayerDlg;
     vInfo :TPlayerInfo;
   begin
     if (vLock > 0) or (vPlaylistLock > 0) then
@@ -511,18 +480,18 @@ interface
       AppErrorID(strPlayerNotRunning);
 
     Inc(vLock);
-    vDlg := GetInfoDlg;
+    vDlg := TPlayerDlg.Create;
     try
 
       LockPlayer;
       try
-        RunDialog(-1, -1, DX, DY, 'Info', vDlg, cDlgItemsCount, 0, InfoDialogProc, 0);
+        vDlg.Run;
       finally
         UnlockPlayer;
       end;
 
     finally
-      MemFree(vDlg);
+      vDlg.Destroy;
       Dec(vLock);
     end;
   end;

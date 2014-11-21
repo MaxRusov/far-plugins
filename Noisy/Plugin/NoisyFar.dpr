@@ -1,13 +1,20 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{$ifdef bDelphi}
+{$ifdef Debug}
  {$ImageBase $40500000}
-{$endif bDelphi}
+{$endif Debug}
 
 library NoisyFar;
 
 {$I Defines1.inc}
+
+{******************************************************************************}
+{* Noisy - Noisy Player Far plugin                                            *}
+{* 2008-2014, Max Rusov                                                       *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
+{******************************************************************************}
 
 uses
   MixErrors,
@@ -15,26 +22,19 @@ uses
   MixCheck,
  {$endif bTrace}
   MixFormat,
+  FarPlug,
   FarPlayMain;
 
 exports
- {$ifdef bUnicodeFar}
-  GetMinFarVersionW,
+  GetGlobalInfoW,
   SetStartupInfoW,
   GetPluginInfoW,
-  OpenPluginW,
-  ExitFarW;
- {$else}
-  SetStartupInfo,
-  GetPluginInfo,
-  OpenPlugin,
-  ExitFar;
- {$endif bUnicodeFar}
+  OpenW,
+  ConfigureW,
+  ExitFARW;
 
- {$ifdef bUnicodeFar}
-  {$R NoisyFarW.res}
- {$else}
-  {$R NoisyFar.res}
- {$endif bUnicodeFar}
+{$R NoisyFar.res}
 
+begin
+  Plug := TNoisyPlug.Create;
 end.

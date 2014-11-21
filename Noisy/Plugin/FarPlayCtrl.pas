@@ -1,12 +1,12 @@
 {$I Defines.inc}
-{$Typedaddress Off}
 
 unit FarPlayCtrl;
 
 {******************************************************************************}
-{* (c) 2008 Max Rusov                                                         *}
-{*                                                                            *}
-{* Noisy Far plugin                                                           *}
+{* Noisy - Noisy Player Far plugin                                            *}
+{* 2008-2014, Max Rusov                                                       *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
 {* Процедуры взаимодействия с плеером                                         *}
 {******************************************************************************}
 
@@ -19,17 +19,22 @@ interface
     Far_API,
     FarCtrl;
 
+  const
+    cPluginName = 'Noisy';
+    cPluginDescr = 'Noisy Player FAR plugin';
+    cPluginAuthor = 'Max Rusov';
+
+    cPluginID      :TGUID = '{298208DF-2031-4DD8-A461-E3DD80C72F46}';
+    cMenuID        :TGUID = '{2E21B566-8C05-46C4-8B55-9271AEC376F4}';
+    cConfigID      :TGUID = '{E7DD2DDF-E18D-4B85-9916-0414473CC8BE}';
+
+    cPlayerDlgID   :TGUID = '{7CD402AF-982E-4396-ACDF-C4F8DF0F34F8}';
+    cPlaylistDlgID :TGUID = '{B851CDF7-D364-4C5D-B1FF-AAFEE5FA702D}';
 
   const
-   {$ifdef bUnicodeFar}
     chrPlay     = '>'; {#$10;}
     chrPause    = '#'; {#$2551;}
     chrStop     = '*'; {#$16;}
-   {$else}
-    chrPlay     = '>'; {#$10;}
-    chrPause    = '#'; {#$BA;}
-    chrStop     = '*'; {#$16;}
-   {$endif bUnicodeFar}
 
 
   type
@@ -85,10 +90,16 @@ interface
     cInfo          = 'Info';
     cAbout         = 'About';
 
+  var
+    optFoundColor    :TFarColor;
+//  optHiddenColor   :TFarColor;
+//  optTitleColor    :TFarColor;
 
   function GetMsg(AMess :TMessages) :PFarChar;
   function GetMsgStr(AMess :TMessages) :TString;
   procedure AppErrorID(AMess :TMessages);
+
+  procedure RestoreDefColor;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -112,6 +123,13 @@ interface
   procedure AppErrorID(AMess :TMessages);
   begin
     FarCtrl.AppErrorID(Integer(AMess));
+  end;
+
+  procedure RestoreDefColor;
+  begin
+//  optHiddenColor := MakeColor(clGray, 0);
+    optFoundColor  := MakeColor(clLime, 0);
+//  optTitleColor  := UndefColor;
   end;
 
 
