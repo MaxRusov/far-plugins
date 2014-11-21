@@ -147,7 +147,7 @@ interface
     vStruct.cbData := Length(vStr) * SizeOf(WideChar);
     vStruct.lpData := PWideChar(vStr);
    {$endif bUnicode}
-    SendMessage(AWnd, WM_CopyData, 0, Integer(@vStruct));
+    SendMessage(AWnd, WM_CopyData, 0, TIntPtr(@vStruct));
   end;
 
 
@@ -225,10 +225,12 @@ interface
     Result := False;
     {!!! Синхронизация }
     vHandle := OpenFileMapping(FILE_MAP_READ, False, InfoMemName);
+//  Trace('OpenFileMapping Handle=%p', [Pointer(vHandle)]);
     if vHandle = 0 then
       Exit;
     try
       vPtr := MapMemory(vHandle, False);
+//    Trace('Memory=%p', [Pointer(vPtr)]);
       try
         {!!!Смотреть на размер структуры в памяти}
         CopyMemory(@AInfo, vPtr, SizeOf(TPlayerInfo));
@@ -293,6 +295,8 @@ interface
 
 
 initialization
+//Trace('SizeOf(TPlayerInfo)=%d', [SizeOf(TPlayerInfo)]);
+
   FPlugins  := TObjList.Create;
   FFormats  := TObjList.Create;
 
