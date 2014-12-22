@@ -20,7 +20,7 @@
 
  * [http://www.dic.ru/plugring/plugin?id=108 Последняя версия]
 
- * [http://plugring.farmanager.com/plugin.php?pid=932 Plugring]
+ * [http://plugring.farmanager.com/plugin.php?pid=932 Страница на Plugring (не обновляется)]
 
  * [http://code.google.com/p/far-plugins/downloads/list?q=Review&can=1 Старые версии]
 
