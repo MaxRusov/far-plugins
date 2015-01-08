@@ -3,4 +3,7 @@
 {$Define bUnicodeFar}  
 {$Define bUnicode}
 
+{$Define bThumbs}
+{$Define bAsync}
+
 {------------------------------------------------------------------------------}

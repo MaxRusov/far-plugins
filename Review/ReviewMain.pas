@@ -10,14 +10,14 @@ unit ReviewMain;
 {******************************************************************************}
 
 {
-ToDo:
+To Do:
   * Slideshow
     - Режим показа media-файлов
     - Глюк плавного перехода (?)
 
-  - Tags: отображение Разрешения
-
-  - Кэширование декодеров: "наследование" списка расширений
+  - Tags:
+    + Отображение Разрешения
+    - Отображение геотегов
 
   - DXVideo.pvd
     - Показывать скрытый OSD при управлении с клавиатуры
@@ -52,6 +52,7 @@ Ready:
 
   + Кэширование декодеров
     + Сохранение кэша при первом запуске
+    + "наследование" списка расширений
 
   + Поддержка макросов:
     + Zoom
@@ -162,6 +163,9 @@ interface
 {******************************************************************************}
 
   uses
+   {$ifdef bThumbs}
+    ReviewThumbs,
+   {$endif bThumbs}
     MixDebug;
 
  {-----------------------------------------------------------------------------}
@@ -266,6 +270,7 @@ interface
   end;
 
 
+(*
   function TReviewPlug.OpenCmdLine(AStr :PTChar) :THandle; {override;}
   var
     vName :TString;
@@ -274,9 +279,13 @@ interface
     if not optProcessPrefix then
       Exit;
 
-    if (AStr = nil) or (AStr^ = #0) then
-      {}
-    else begin
+    if (AStr = nil) or (AStr^ = #0) then begin
+     {$ifdef bThumbs}
+      if Review.ShowThumbs('') then
+        ThumbModalState;
+     {$endif bThumbs}
+    end else
+    begin
       vName := AStr;
       if (vName <> '') and (vName[1] = '"') and (vName[length(vName)] = '"') then
         vName := Copy(vName, 2, length(vName) - 2);
@@ -284,6 +293,31 @@ interface
       if Review.ShowImage(vName, 0, True) then
         ViewModalState(False, False);
     end;
+  end;
+*)
+  function TReviewPlug.OpenCmdLine(AStr :PTChar) :THandle; {override;}
+  var
+    vName :TString;
+  begin
+    Result:= INVALID_HANDLE_VALUE;
+    if not optProcessPrefix then
+      Exit;
+
+    vName := '';
+    if AStr <> nil then
+      vName := AStr;
+    if (vName <> '') and (vName[1] = '"') and (vName[length(vName)] = '"') then
+      vName := Copy(vName, 2, length(vName) - 2);
+    vName := FarExpandFileName(vName);
+
+   {$ifdef bThumbs}
+    if (vName = '') or WinFolderExists(vName) then begin
+      if Review.ShowThumbs(vName, '') then
+        ThumbModalState
+    end else
+   {$endif bThumbs}
+    if Review.ShowImage(vName, 0, True) then
+      ViewModalState(False, False);
   end;
 
 
@@ -316,6 +350,10 @@ interface
     kwSave            = 8;
     kwFullscreen      = 9;
     kwSlideShow       = 10;
+   {$ifdef bThumbs}
+    kwThums           = 11;
+   {$endif bThumbs}
+
 
 
   function TReviewPlug.MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :TIntPtr;
@@ -337,6 +375,9 @@ interface
         Add('Save', kwSave);
         Add('Fullscreen', kwFullscreen);
         Add('SlideShow', kwSlideShow);
+       {$ifdef bThumbs}
+        Add('Thumbs', kwThums);
+       {$endif bThumbs}
       end;
     end;
 
@@ -446,7 +487,7 @@ interface
       if Review.Window <> nil then begin
         vMode := FarValuesToInt(AParams, ACount, 1, -1);
         if vMode >= 0 then
-          Review.SetFullscreen(vMode = 1);
+          Review.SetFullscreen(vMode);
         Result := FarReturnValues([Review.Window.WinMode = wmFullscreen]);
       end;
     end;
@@ -464,33 +505,55 @@ interface
       end;
     end;
 
+   {$ifdef bThumbs}
+    function LocShowThumbs :TIntPtr;
+    begin
+      Result := 0;
+      if Review.ShowThumbs('', '') then begin
+        ThumbModalState
+      end;  
+    end;
+   {$endif bThumbs}
+
   var
     vCmd :Integer;
   begin
-    InitKeywords;
-    vCmd := FCmdWords.GetKeywordStr(ACmd);
     Result := 0;
-    case vCmd of
-      kwIsQuickView:
-        Result := FarReturnValues([Review.IsQViewMode]);
-      kwUpdate:
-        Review.SyncDelayed(SyncCmdUpdateWin, FarValuesToInt(AParams, ACount, 1, optSyncDelay));
-      kwGoto:
-        Result := LocGoto;
-      kwPage:
-        Result := LocPage;
-      kwScale:
-        Result := LocScale;
-      kwDecoder:
-        Result := LocDecoder;
-      kwRotate:
-        Result := LocRotate;
-      kwSave:
-        Result := LocSave;
-      kwFullscreen:
-        Result := LocFullscreen;
-      kwSlideShow:
-        Result := LocSlideShow;
+    try
+      InitKeywords;
+      vCmd := FCmdWords.GetKeywordStr(ACmd);
+      case vCmd of
+        kwIsQuickView:
+          Result := FarReturnValues([Review.IsQViewMode]);
+        kwUpdate:
+          Review.SyncDelayed(SyncCmdUpdateWin, FarValuesToInt(AParams, ACount, 1, optSyncDelay));
+        kwGoto:
+          Result := LocGoto;
+        kwPage:
+          Result := LocPage;
+        kwScale:
+          Result := LocScale;
+        kwDecoder:
+          Result := LocDecoder;
+        kwRotate:
+          Result := LocRotate;
+        kwSave:
+          Result := LocSave;
+        kwFullscreen:
+          Result := LocFullscreen;
+        kwSlideShow:
+          Result := LocSlideShow;
+       {$ifdef bThumbs}
+        kwThums:
+          Result := LocShowThumbs;
+       {$endif bThumbs}
+      end;
+    except
+      on E :Exception do
+        if ModalDlg <> nil then 
+          ModalDlg.SetError( E.Message )
+        else
+          raise;
     end;
   end;
  {$endif Far3}
@@ -570,15 +633,31 @@ interface
     case TUnsPtr(AParam) of
       SyncCmdUpdateWin   : Review.UpdateWindowPos;
       SyncCmdSyncImage   : Review.SyncWindow;
-      SyncCmdUpdateTitle :
-        if ModalDlg <> nil then
-          ModalDlg.UpdateTitle;
       SyncCmdCacheNext   : Review.CacheNeighbor(True);
       SyncCmdCachePrev   : Review.CacheNeighbor(False);
       SyncCmdNextSlide   : Review.GoNextSlide;
+      SyncCmdFullScreen  : Review.SetFullscreen(-1);
+      SyncCmdThumbView   : Review.OpenThumbsView;
       SyncCmdClose       :
         if ModalDlg = nil then
           Review.CloseWindow;
+
+      SyncCmdUpdateTitle :
+        begin
+         {$ifdef bThumbs}
+          if ThumbsModalDlg <> nil then
+            ThumbsModalDlg.UpdateTitle;
+         {$endif bThumbs}
+          if ModalDlg <> nil then
+            ModalDlg.UpdateTitle;
+        end;
+
+    else
+      if AParam <> nil then
+        with TCmdObject(AParam) do begin
+          Execute;
+          Destroy;
+        end;
     end;
   end;
 
