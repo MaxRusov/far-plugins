@@ -254,7 +254,9 @@ interface
   procedure FarPanelSetDir(Active :Boolean; const APath :TString); overload;
   procedure FarPanelJumpToPath(Active :Boolean; const APath :TString);
   function FarPanelGetCurrentItem(Active :Boolean) :TString;
-  function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
+  function FarPanelFindItemByName(Active :Boolean; const AName :TString) :Integer;
+  procedure FarPanelSetCurrentItem(Active :Boolean; AIndex :Integer); overload;
+  function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean; overload;
   procedure FarPanelGetSelectedItems(Active :Boolean; AItems :TStringList);
   procedure FarPanelSetSelectedItems(Active :Boolean; AItems :TStringList; AClearAll :Boolean = True);
 
@@ -1392,39 +1394,52 @@ interface
   end;
 
 
-  function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
+  function FarPanelFindItemByName(Active :Boolean; const AName :TString) :Integer;
   var
     I :Integer;
     vStr :TString;
     vInfo :TPanelInfo;
-    vRedrawInfo :TPanelRedrawInfo;
     vHandle :THandle;
   begin
-    Result := False;
-
+    Result := -1;
     vHandle := HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE);
-    if not FarGetPanelInfo(vHandle, vInfo) then
-      Exit;
+    if FarGetPanelInfo(vHandle, vInfo) and (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
+      for I := 0 to vInfo.ItemsNumber - 1 do begin
+        vStr := FarPanelItemName(vHandle, FCTL_GETPANELITEM, I);
+        if StrEqual(vStr, AName) then begin
+          Result := I;
+          Exit;
+        end;
+      end;
+    end;
+  end;
 
-    if (vInfo.PanelType = PTYPE_FILEPANEL) {and ((vInfo.Plugin = 0) or (PFLAGS_REALNAMES and vInfo.Flags <> 0))} then begin
+
+  procedure FarPanelSetCurrentItem(Active :Boolean; AIndex :Integer);
+  var
+    vInfo :TPanelInfo;
+    vRedrawInfo :TPanelRedrawInfo;
+  begin
+    if FarGetPanelInfo(Active, vInfo) and (vInfo.PanelType = PTYPE_FILEPANEL) then begin
      {$ifdef Far3}
       vRedrawInfo.StructSize := SizeOf(vRedrawInfo);
      {$endif Far3}
+      vRedrawInfo.CurrentItem := AIndex;
       vRedrawInfo.TopPanelItem := vInfo.TopPanelItem;
-      vRedrawInfo.CurrentItem := vInfo.CurrentItem;
+      FARAPI.Control(HandleIf(Active, PANEL_ACTIVE, PANEL_PASSIVE), FCTL_REDRAWPANEL, 0, @vRedrawInfo);
+    end;
+  end;
 
-      for I := 0 to vInfo.ItemsNumber - 1 do begin
-        vStr := FarPanelItemName(vHandle, FCTL_GETPANELITEM, I);
 
-        if StrEqual(vStr, AItem) then begin
-//        vRedrawInfo.TopPanelItem := I; {???}
-          vRedrawInfo.CurrentItem := I;
-          Result := True;
-          Break;
-        end;
-      end;
-
-      FARAPI.Control(vHandle, FCTL_REDRAWPANEL, 0, @vRedrawInfo);
+  function FarPanelSetCurrentItem(Active :Boolean; const AItem :TString) :Boolean;
+  var
+    vIdx :Integer;
+  begin
+    Result := False;
+    vIdx := FarPanelFindItemByName(Active, AItem);
+    if vIdx <> -1 then begin
+      FarPanelSetCurrentItem(Active, vIdx);
+      Result := True;
     end;
   end;
 
