@@ -1285,12 +1285,19 @@ type
     Result: Longint;
   end;
 
-  TWMShowWindow = packed record
-    Msg: Cardinal;
-    Show: BOOL;
-    Status: Longint;
-    Result: Longint;
+  TWMShowWindow = record
+    Msg: UINT;
+    case longint of
+    0: (
+      Show :BOOL;
+    );
+    1: (
+      wParam :WPARAM;
+      Status :LPARAM;
+      Result :LRESULT;
+    );
   end;
+
 
   TWMSize = packed record
     Msg: Cardinal;
