@@ -43,9 +43,10 @@ const
   PVD_IP_CANDESCALE    = $20000; // Поддерживается рендеринг в режиме уменьшения
   PVD_IP_CANUPSCALE    = $40000; // Поддерживается рендеринг в режиме увеличения
 
-  // Review: Не требуется предварительная буферизация файла - плагин все читает сам
-  PVD_IP_NEEDFILE    = $1000000;
+  // Review:
+  PVD_IP_NEEDFILE    = $1000000; // Не требуется предварительная буферизация файла - плагин все читает сам
 
+{ Флаги, возвращаемые pvdFileOpen/pvdFileOpen2 }
 const
   // Анимированное многостраничное изображение
   PVD_IIF_ANIMATED   = 1;
@@ -57,10 +58,11 @@ const
   // Скорее всего первая страница является лицевой, а далее следуют развороты (левая и правая страница)
   PVD_IIF_MAGAZINE = $100;
 
-  // Review: Видео файл. nPages содержит длительность файла в мс.
-  PVD_IIF_MOVIE = $1000;
+  // Review:
+  PVD_IIF_MOVIE = $1000;         // Видео файл. nPages содержит длительность файла в мс.
 
 
+{ Флаги получаемые или возвращаемые pvdPageDecode/pvdPageDecode2 }
 const
   // Данные декодированного изображения доступны только для чтения
   PVD_IDF_READONLY          = 1;
@@ -75,6 +77,10 @@ const
                                    // только этим же субплагином (у плагина должен быть флаг PVD_IP_DISPLAY)
   PVD_IDF_COMPAT_MODE       = 64;  // Плагин второй версии вызван в режиме совместимости с первой (через PVD1Helper.cpp)
 
+  // Review:
+  PVD_IDF_THUMBONLY         = $1000;  // IN: Извлекать эскиз, если есть, иначе вернуть 0
+  PVD_IDF_THUMBFIRST        = $2000;  // IN: Извлекать эскиз, если есть, иначе - само изображение
+  PVD_IDF_THUMBNAIL         = $10000; // OUT: Извлечен эскиз
 
 {pvdColorModel}
 const
@@ -464,7 +470,7 @@ struct pvdInfoDecode2
 //  Дополнительные аргументы версии 2:
 //   pContext      - контекст, возвращённый субплагином в pvdInit2
 //   pImageContext - контекст, возвращаемый субплагином в pvdFileOpen2
-BOOL __stdcall pvdPageDecode2(void *pContext, void *pImageContext, pvdInfoDecode2 *pDecodeInfo, 
+BOOL __stdcall pvdPageDecode2(void *pContext, void *pImageContext, pvdInfoDecode2 *pDecodeInfo,
 							  pvdDecodeCallback2 DecodeCallback, void *pDecodeCallbackContext);
 *)
 type
@@ -494,6 +500,7 @@ type
     nBackgroundColor :DWORD;
     lSrcWidth :UINT;
     lSrcHeight :UINT;
+    lSrcBPP :UINT;
   end;
 
 (*
@@ -636,9 +643,8 @@ typedef BOOL (__stdcall *pvdDecodeCallback)(void *pDecodeCallbackContext, UINT32
 typedef BOOL (__stdcall *pvdDecodeCallback2)(void *pDecodeCallbackContext2, UINT32 iStep, UINT32 nSteps, pvdInfoDecodeStep2* pImagePart);
 *)
 type
-  {!!!}
-  TPVDDecodeCallback = pointer;
-  TPVDDecodeCallback2 = pointer;
+  TPVDDecodeCallback = function(AContext :Pointer; AStep, ASteps :Cardinal) :Boolean; stdcall;
+  TPVDDecodeCallback2 = function(AContext :Pointer; AStep, ASteps :Cardinal; AInfo :Pointer) :Boolean; stdcall;
 
 
 type
@@ -707,7 +713,7 @@ type
 //  Возвращаемое значение: TRUE - при успешном выполнении; иначе - FALSE
 
 //BOOL __stdcall pvdPageDecode(void *pContext, UINT32 iPage, pvdInfoDecode *pDecodeInfo, pvdDecodeCallback DecodeCallback, void *pDecodeCallbackContext);
-  TpvdPageDecode = function(pContext :Pointer; iPage :UINT; pDecodeInfo :PPVDInfoDecode; DecodeCallback :TPVDDecodeCallback; pDecodeCallbackContext :Pointer) :BOOL; stdcall;
+  TpvdPageDecode = function(pContext :Pointer; iPage :UINT; pDecodeInfo :PPVDInfoDecode; DecodeCallback :TPVDDecodeCallback; pDecodeCallbackContext :pointer) :BOOL; stdcall;
 
 
 // pvdPageFree - освобождение декодированного изображения
@@ -729,6 +735,17 @@ type
   TpvdFileClose = procedure(pContext :Pointer); stdcall;
 
 
+// pvdTranslateError2 - расшифровать внутренний код ошибки
+//  Вызывается: Функция может быть вызвана после функции, вернувшей ошибку. Цель - показать пользователю вместо числа
+//   нечто более понятное. Например "ERR_ERR_HEADER" или "Memory allocation failed (60Mb)".
+//  Аргументы:
+//   nErrNumber - код ошибки возвращенный субплагином в поле nErrNumber одной из структур
+//   pszErrInfo - буфер, в который субплагин должен скопировать описание ошибки
+//   nBufLen    - размер буфера в wchar_t
+//  Возвращаемое значение: должен возвращать TRUE. иначе считается что в буфер ничего не помещалось
+//BOOL __stdcall pvdTranslateError2(DWORD nErrNumber, wchar_t *pszErrInfo, int nBufLen);
+  TpvdTranslateError2 = function(nErrNumber :DWORD; pErrInfo :PWideChar; nBufLen :Integer) :Boolean; stdcall;
+
 type
   TpvdInit2 = function(pInit :PpvdInitPlugin2) :integer; stdcall;
   TpvdExit2 = procedure(pContext :Pointer); stdcall;
@@ -738,7 +755,7 @@ type
   TpvdGetFormats2 = procedure(pContext :Pointer; pFormats :PPVDFormats2); stdcall;
   TpvdFileOpen2 = function(pContext :Pointer; pFileName :PWideChar; lFileSize :Int64; pBuf :Pointer; lBuf :UINT; pImageInfo :PPVDInfoImage2) :BOOL; stdcall;
   TpvdPageInfo2 = function(pContext :Pointer; pImageContext :Pointer; pPageInfo :PPVDInfoPage2) :BOOL; stdcall;
-  TpvdPageDecode2 = function(pContext :Pointer; pImageContext :Pointer; pDecodeInfo :PPVDInfoDecode2; DecodeCallback :TPVDDecodeCallback2; pDecodeCallbackContext :Pointer) :BOOL; stdcall;
+  TpvdPageDecode2 = function(pContext :Pointer; pImageContext :Pointer; pDecodeInfo :PPVDInfoDecode2; DecodeCallback :TPVDDecodeCallback2; pDecodeCallbackContext :pointer) :BOOL; stdcall;
   TpvdPageFree2 = procedure(pContext :Pointer; pImageContext :Pointer; pDecodeInfo :PPVDInfoDecode2); stdcall;
   TpvdFileClose2 = procedure(pContext :Pointer; pImageContext :Pointer); stdcall;
 

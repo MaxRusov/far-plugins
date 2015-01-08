@@ -122,17 +122,8 @@ interface
 
 
   procedure TDecoderDlg.InitDialog; {override;}
-  var
-    vStr :TString;
   begin
     UpdateDecoderInfo;
-
-    SetChecked(IdEnabledChk, FDecoder.Enabled);
-
-    vStr := FDecoder.ActiveStr;
-    if FDecoder.IgnoreStr <> '' then
-      vStr := vStr + '|' + FDecoder.IgnoreStr;
-    SetText(IdActiveEdt, vStr);
   end;
 
 
@@ -161,6 +152,11 @@ interface
     end;
     SetText(IdComment, vStr);
 
+    SetChecked(IdEnabledChk, FDecoder.Enabled);
+
+    SetText(IdActiveEdt, FDecoder.GetMaskAsStr);
+    SetEnabled(IdReset, FDecoder.CustomMask);
+
     SetEnabled(IdLoad, FDecoder.GetState = rdsCached);
   end;
 
@@ -170,15 +166,14 @@ interface
     vStr :TString;
   begin
     if (ItemID <> -1) and (ItemID <> IdCancel) then begin
-
       FDecoder.Enabled := GetChecked(IdEnabledChk);
-
       vStr := GetText(IdActiveEdt);
-
-      FDecoder.SetExtensions(
-        ExtractWord(1, vStr, ['|']),
-        ExtractWord(2, vStr, ['|']));
-
+      if not StrEqual(vStr, FDecoder.GetMaskAsStr) then begin
+        FDecoder.SetExtensions(
+          ExtractWord(1, vStr, ['|']),
+          ExtractWord(2, vStr, ['|']));
+        FDecoder.CustomMask := True;
+      end;
     end;
     Result := True;
   end;
@@ -205,9 +200,8 @@ interface
 
     procedure LocResetPlugin;
     begin
-      FDecoder.CanWork(True);
       FDecoder.ResetSettings;
-      InitDialog;
+      UpdateDecoderInfo;
       SendMsg(DM_SetFocus, IdActiveEdt, 0)
     end;
 

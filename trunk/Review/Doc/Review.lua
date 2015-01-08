@@ -1,24 +1,15 @@
 
 local FarHints = "CDF48DA0-0334-4169-8453-69048DD3B51C" 
-local ReviewID = "0364224C-A21A-42ED-95FD-34189BA4B204";
-local ViewDlgID = "FAD3BD72-2641-4D00-8F98-5467EEBCE827";
-
-
-function IsPluginLoaded (guid)
-  guid = win.Uuid(guid)
-  local handle = guid and far.FindPlugin("PFM_GUID", guid)
-  if handle then
-    local info = far.GetPluginInformation(handle)
-    if info then
-      return 0 ~= bit64.band(info.Flags, far.Flags.FPF_LOADED)
-    end
-  end
-  return false
-end
+local ReviewID = "0364224C-A21A-42ED-95FD-34189BA4B204"
+local ViewDlgID = "FAD3BD72-2641-4D00-8F98-5467EEBCE827"
 
 
 function ShowHint(Mess)
-  Plugin.Call(FarHints, "Info", Mess)
+  if Mess ~= "" then
+    Plugin.Call(FarHints, "Info", Mess)
+  else
+    Plugin.Call(FarHints, "Hide")
+  end
 end
 
 
@@ -31,7 +22,7 @@ function Review.Installed()
 end;
 
 function Review.Loaded()
-  return IsPluginLoaded(ID)
+  return far.IsPluginLoaded(ID)
 end;
 
 function Review.IsView()
@@ -56,9 +47,10 @@ end;
 -- Orig=0, Next=0 - к предыдущему
 -- Orig=1         - к первому
 -- Orig=2         - к последнему
+-- Возвращает: Признак успешности перехода
 
 function Review.Goto(Orig, Next)
-  Plugin.Call(ID, "Goto", Orig, Next)
+  return Plugin.Call(ID, "Goto", Orig, Next)
 end;
 
 -- Установка масштаба изображения
@@ -178,28 +170,48 @@ Macro
 
 Macro 
 { 
-  description="Review: Goto Next Image"; area="Dialog"; key="PgDn CtrlMsWheelDown"; condition=Review.IsView; priority=99; EnableOutput=true;
+  description="Review: Goto Next Image"; area="Dialog"; key="PgDn Num3 CtrlMsWheelDown"; condition=Review.IsView; priority=99; EnableOutput=true;
 
   action=function()
-    Review.Goto(0, 1)
+    if Review.Goto(0, 1) then
+      ShowHint("")
+    else
+      mf.beep(0)
+      ShowHint("Last image")
+    end
   end;
 }
 
 Macro 
 { 
-  description="Review: Goto Prev Image"; area="Dialog"; key="PgUp CtrlMsWheelUp"; condition=Review.IsView; priority=99; EnableOutput=true;
+  description="Review: Goto Prev Image"; area="Dialog"; key="PgUp Num9 CtrlMsWheelUp"; condition=Review.IsView; priority=99; EnableOutput=true;
 
   action=function()
-    Review.Goto(0, 0)
+    if Review.Goto(0, 0) then
+      ShowHint("")
+    else
+      mf.beep(0)
+      ShowHint("First image")
+    end;
   end;
 }
+
+
+local LastFile
 
 Macro 
 { 
   description="Review: Goto First Image"; area="Dialog"; key="Home"; condition=Review.IsView; EnableOutput=true;
 
   action=function()
-    Review.Goto(1)
+    local File = APanel.Current
+    if Review.Goto(1) then
+      LastFile = File
+      ShowHint("")
+    else
+      mf.beep(0)
+      ShowHint("First image")
+    end
   end;
 }
 
@@ -208,7 +220,30 @@ Macro
   description="Review: Goto Last Image"; area="Dialog"; key="End"; condition=Review.IsView; EnableOutput=true;
 
   action=function()
-    Review.Goto(2)
+    local File = APanel.Current
+    if Review.Goto(2) then
+      LastFile = File
+      ShowHint("")
+    else
+      mf.beep(0)
+      ShowHint("Last image")
+    end
+  end;
+}
+
+
+Macro 
+{ 
+  description="Review: Goto back Image"; area="Dialog"; key="BS"; condition=Review.IsView; EnableOutput=true;
+
+  action=function()
+    if LastFile then
+      if Review.Goto(3, LastFile) then
+        LastFile = nil
+      else
+        mf.beep(0)
+      end
+    end
   end;
 }
 

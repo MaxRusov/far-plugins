@@ -1,5 +1,7 @@
 {$I Defines.inc}
 
+{$Define bUseMapping}
+
 unit ReviewDecoders;
 
 {******************************************************************************}
@@ -20,21 +22,28 @@ interface
     MixWinUtils,
 
     Far_API,
+    FarCtrl,
     FarConfig,
     PVAPI,
 
-    ReviewConst;
+    ReviewConst,
+    GDIImageUtil;
 
+
+  const
+    cPreCacheLimit = 128 * 1024 * 1024;  //???
 
   type
+    TReviewDecoder = class;
+
     TReviewImageRec = class(TComBasis)
     public
-      FName        :TString;           { Имя файла }
+      FName        :TString;           { Имя файла (не обязательно с путем) }
 
       FSize        :Int64;             { Размер файла }
-      FTime        :Integer;
-      FCacheBuf    :Pointer;
-      FCacheSize   :Integer;
+      FTime        :Integer;           { Время файла }
+      FCacheBuf    :Pointer;           { Считанный файл (первые cPreCacheLimit байт), ...  }
+      FCacheSize   :Integer;           { ... если декодер требует буффер. Используется Memory Mapping. }
 
       FContext     :Pointer;           { Контекст для декодирования }
       FFormat      :TString;           { Имя формата }
@@ -53,19 +62,26 @@ interface
       FOrient      :Integer;           { Ориентация (дополнительный поворот после декодирования) }
 
       FSelfdraw    :Boolean;
+      FSelfPaint   :Boolean;
 
-      FBmpWidth    :Integer;
-      FBmpHeight   :Integer;
-      FBmpBPP      :Integer;
-      FBmpBits     :Pointer;
-      FBmpPalette  :Pointer;
-      FBmpColors   :Integer;
-      FBmpRowBytes :Integer;
-      FColorModel  :byte;
-      FTranspColor :UINT;
-      FDecodeInfo  :Pointer;
-
+      FDecodeInfo  :Pointer;           { Временные данные декодирования }
       FDisplayCtx  :Pointer;           { Контекст для отображения (только для Selfdraw) }
+
+      FMapFile     :THandle;
+      FMapHandle   :THandle;
+
+      FDecoder     :TReviewDecoder;    { Выбранный декодер }
+      FBitmap      :TReviewBitmap;     { Bitmap (только для не Selfdraw) }
+
+      destructor Destroy; override;
+
+      procedure Rotate(ARotate :Integer);
+      procedure OrientBitmap(AOrient :Integer);
+
+      function PrecacheFile(const AFileName :TString) :Boolean;
+      procedure ReleaseCache;
+
+      property Name :TString read FName write FName;
     end;
 
 
@@ -76,6 +92,16 @@ interface
       rdsError
     );
 
+    TDecodeMode = (
+      dmImage,                  { Основное изображение }
+      dmThumbnail,              { Эскиз. Если эскиза нет - возвращаем ошибку }
+      dmThumbnailOrImage        { Эскиз, а если его нет - основное изображение }
+     {$ifdef bAsync}
+     {$else}
+     ,doAsyncExtract            { Эскиз, а основное изображение - асинхронно. Убрать? }
+     {$endif bAsync}
+    );
+
     TSaveOptions = set of (
       soExifRotation,
       soTransformation,
@@ -84,28 +110,34 @@ interface
     );
 
     TReviewDecoderClass = class of TReviewDecoder;
+    TReviewDllDecoderClass = class of TReviewDllDecoder;
+
+    TDecodeCallback = procedure(ASender :Pointer; APercent :Integer; var AContinue :Boolean) of object;
 
     TReviewDecoder = class(TNamedObject)
     public
       constructor Create; override;
       constructor CreateCache(const aName, aTitle :TString; aModified :Integer;
-        aEnabled :Boolean; aPriority :Integer; const aActive, aIgnore :TString);
+        aEnabled :Boolean; aPriority :Integer; const aActive, aIgnore :TString; ACustomMask :Boolean);
       destructor Destroy; override;
 
       function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; override;
 
       function GetState :TDecoderState; virtual; abstract;
       function CanWork(aLoad :Boolean) :boolean; virtual; abstract;
+      function CanShowThumbs :boolean; virtual;
       function NeedPrecache :boolean; virtual;
       procedure ResetSettings; virtual;
       procedure SetExtensions(const aActive, aIgnore :TString);
       function SupportedFile(const aName :TString) :Boolean;
+      function GetMaskAsStr :TString;
       function GetInfoStr :TString; virtual;
 
       { Функции декодирования }
-      function pvdFileOpen(AImage :TReviewImageRec) :Boolean; virtual; abstract;
+      function pvdFileOpen(const AFileName :TString; AImage :TReviewImageRec) :Boolean; virtual; abstract;
       function pvdGetPageInfo(AImage :TReviewImageRec) :Boolean; virtual; abstract;
-      function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean; virtual; abstract;
+      function pvdPageDecode(AImage :TReviewImageRec; AWidth, AHeight :Integer; AMode :TDecodeMode;
+        const ACallback :TDecodeCallback = nil; ACallbackData :Pointer = nil) :Boolean; virtual; abstract;
       procedure pvdPageFree(AImage :TReviewImageRec); virtual; abstract;
       procedure pvdFileClose(AImage :TReviewImageRec); virtual; abstract;
 
@@ -113,7 +145,7 @@ interface
       function pvdDisplayInit(AWnd :THandle) :Boolean; virtual;
       procedure pvdDisplayDone(AWnd :THandle); virtual;
       function pvdDisplayShow(AWnd :THandle; AImage :TReviewImageRec) :Boolean; virtual;
-      function pvdDisplayPaint(AWnd :THandle; AImage :TReviewImageRec; const AImageRect, ADisplayRect :TRect; AColor :DWORD) :Boolean; virtual;
+      function pvdDisplayPaint(AWnd :THandle; ADC :HDC; AImage :TReviewImageRec; const AImageRect, ADisplayRect, AFullDisplayRect :TRect; AColor :DWORD) :Boolean; virtual;
       procedure pvdDisplayClose(AImage :TReviewImageRec); virtual;
 
 //    function pvdPlayControl(AImage :TReviewImageRec; aCmd :Integer; aInfo :TIntPtr) :Integer; {virtual;}
@@ -121,25 +153,28 @@ interface
 
       { Расширенные функции, пока не вынесенные в pvd интерфейс }
       function GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; virtual;
-      function Idle(AImage :TReviewImageRec; AWidth, AHeight :Integer) :Boolean; virtual;
       function Save(AImage :TReviewImageRec; const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean; virtual;
+      function Idle(AImage :TReviewImageRec; AWidth, AHeight :Integer) :Boolean; virtual;
 
     protected
-      FKind      :Integer;
-      FTitle     :TString;
-      FVersion   :TString;
-      FComment   :TString;
-      FPriority  :Integer;
+      FKind       :Integer;
+      FTitle      :TString;
+      FVersion    :TString;
+      FComment    :TString;
+      FPriority   :Integer;
 
-      FInitState :Integer;  { 0-не инициализирован, 1-инициализирован, 2-ошибка при инициализации }
-      FModified  :Integer;  { Дата модификации PVD файла - для проверки актуальности кэша }
-      FEnabled   :Boolean;
+      FInitState  :Integer;  { 0-не инициализирован, 1-инициализирован, 2-ошибка при инициализации }
+      FModified   :Integer;  { Дата модификации PVD файла - для проверки актуальности кэша }
+      FEnabled    :Boolean;
 
-      FActiveStr :TString;
-      FIgnoreStr :TString;
+      FActiveStr  :TString;
+      FIgnoreStr  :TString;
+      FCustomMask :Boolean;  { Список расширений был изменен пользователем }
 
-      FActiveExt :TStringList;
-      FIgnoreExt :TStringList;
+      FActiveMask :TString;
+      FIgnoreMask :TString;
+
+      FLastError  :TString;
 
     public
       property Kind :Integer read FKind;
@@ -151,6 +186,8 @@ interface
       property Enabled :Boolean read FEnabled write FEnabled;
       property ActiveStr :TString read FActiveStr;
       property IgnoreStr :TString read FIgnoreStr;
+      property CustomMask :Boolean read FCustomMask write FCustomMask;
+      property LastError :TString read FLastError;
     end;
 
 
@@ -191,11 +228,14 @@ interface
       procedure pvdGetInfo;
 
       { Функции декодирования }
-      function pvdFileOpen(AImage :TReviewImageRec) :Boolean; override;
+      function pvdFileOpen(const AFileName :TString; AImage :TReviewImageRec) :Boolean; override;
       function pvdGetPageInfo(AImage :TReviewImageRec) :Boolean; override;
-      function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean; override;
+      function pvdPageDecode(AImage :TReviewImageRec; AWidth, AHeight :Integer; AMode :TDecodeMode;
+        const ACallback :TDecodeCallback = nil; ACallbackData :Pointer = nil) :Boolean; override;
       procedure pvdPageFree(AImage :TReviewImageRec); override;
       procedure pvdFileClose(AImage :TReviewImageRec); override;
+
+      function GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; override;
 
     protected
       procedure InitPlugin(aKeepSettings :Boolean); override;
@@ -218,6 +258,7 @@ interface
     TReviewDllDecoder2 = class(TReviewDllDecoder)
     public
       constructor Create; override;
+      function CanShowThumbs :boolean; override;
       function NeedPrecache :boolean; override;
       procedure ResetSettings; override;
 
@@ -226,11 +267,13 @@ interface
       procedure pvdExit;
       procedure pvdGetInfo;
       procedure pvdGetFormats;
+      function pvdTranslateError(aCode :DWORD) :TString;
 
       { Функции декодирования }
-      function pvdFileOpen(AImage :TReviewImageRec) :Boolean; override;
+      function pvdFileOpen(const AFileName :TString; AImage :TReviewImageRec) :Boolean; override;
       function pvdGetPageInfo(AImage :TReviewImageRec) :Boolean; override;
-      function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean; override;
+      function pvdPageDecode(AImage :TReviewImageRec; AWidth, AHeight :Integer; AMode :TDecodeMode;
+        const ACallback :TDecodeCallback = nil; ACallbackData :Pointer = nil) :Boolean; override;
       procedure pvdPageFree(AImage :TReviewImageRec); override;
       procedure pvdFileClose(AImage :TReviewImageRec); override;
 
@@ -238,11 +281,13 @@ interface
       function pvdDisplayInit(AWnd :THandle) :Boolean; override;
       procedure pvdDisplayDone(AWnd :THandle); override;
       function pvdDisplayShow(AWnd :THandle; AImage :TReviewImageRec) :Boolean; override;
-      function pvdDisplayPaint(AWnd :THandle; AImage :TReviewImageRec; const AImageRect, ADisplayRect :TRect; AColor :DWORD) :Boolean; override;
+      function pvdDisplayPaint(AWnd :THandle; ADC :HDC; AImage :TReviewImageRec; const AImageRect, ADisplayRect, AFullDisplayRect :TRect; AColor :DWORD) :Boolean; override;
       procedure pvdDisplayClose(AImage :TReviewImageRec); override;
 
       function pvdPlayControl(AImage :TReviewImageRec; aCmd :Integer; aInfo :TIntPtr) :Integer; {override;}
       function pvdTagInfo(AImage :TReviewImageRec; aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean; override;
+
+      function GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; override;
 
     protected
       procedure InitPlugin(aKeepSettings :Boolean); override;
@@ -257,6 +302,7 @@ interface
       FpvdExit           :TpvdExit2;
       FpvdPluginInfo     :TpvdPluginInfo2;
       FpvdReloadConfig   :TpvdReloadConfig2;
+      FpvdTranslateError :TpvdTranslateError2;
 
       FpvdGetFormats     :TpvdGetFormats2;
       FpvdFileOpen       :TpvdFileOpen2;
@@ -277,6 +323,9 @@ interface
     end;
 
 
+  var
+    NeedStoreCache :Boolean;
+
   function GetPVDVersion(const AName :TString; var AHandle :THandle) :Integer;
 
   procedure SaveDecodersInfo(aDecoders :TObjList);
@@ -289,6 +338,7 @@ interface
 
   uses
     ReviewGDIPlus,
+    ReviewGDI,
     MixDebug;
 
 
@@ -298,15 +348,126 @@ interface
     strUnsupportedFeature = 'Feature not supported';
 
 
-(*
-BOOL WINAPI SetDllDirectory(
-  _In_opt_  LPCTSTR lpPathName
-);
-*)
-
+//BOOL WINAPI SetDllDirectory(_In_opt_  LPCTSTR lpPathName);
 
   function SetDllDirectory(aPath :PTChar) :BOOL; stdcall;
     external kernel32 name 'SetDllDirectory'+_X;
+
+
+ {-----------------------------------------------------------------------------}
+ { TReviewImageRec                                                             }
+ {-----------------------------------------------------------------------------}
+
+  destructor TReviewImageRec.Destroy; {override;}
+  begin
+    ReleaseCache;
+    FreeObj(FBitmap);
+    inherited Destroy;
+  end;
+
+
+  procedure TReviewImageRec.Rotate(ARotate :Integer);
+  const
+    cReorient :array[0..8, 0..4] of Integer = (
+     (1,6,8,2,4), //
+     (1,6,8,2,4), //
+     (2,7,5,1,3), // X
+     (3,8,6,4,2), // LL = RR
+     (4,5,7,3,1), // Y
+     (5,2,4,6,8), // XR
+     (6,3,1,5,7), // R
+     (7,4,2,8,6), // XL
+     (8,1,3,7,5)  // L
+    );
+    cTransform :array[0..4] of Integer =
+      (0, 6, 8, 2, 4);
+  begin
+    if FBitmap <> nil then begin
+      FOrient := cReorient[FOrient, ARotate];
+      OrientBitmap(cTransform[ARotate]);
+    end;
+  end;
+
+
+  procedure TReviewImageRec.OrientBitmap(AOrient :Integer);
+  begin
+    if FBitmap <> nil then
+      FBitmap.Transform(AOrient);
+  end;
+
+
+ {$ifdef bUseMapping}
+  function TReviewImageRec.PrecacheFile(const AFileName :TString) :Boolean;
+  begin
+    Result := False;
+    FMapFile := CreateFile(PTChar(AFileName), GENERIC_READ, FILE_SHARE_READ, nil, OPEN_EXISTING, 0, 0);
+    if FMapFile = INVALID_HANDLE_VALUE then
+      Exit;
+
+    FSize := FileSize(FMapFile);
+    if FSize <= 0 then
+      begin ReleaseCache; Exit; end;
+
+    FCacheSize := cPreCacheLimit;
+    if FSize < FCacheSize then
+      FCacheSize := FSize;
+
+    FMapHandle := CreateFileMapping(FMapFile, nil, PAGE_READONLY, 0, FCacheSize, nil);
+    if FMapHandle = 0 then
+      begin ReleaseCache; Exit; end;
+
+    FCacheBuf := MapViewOfFile(FMapHandle, FILE_MAP_READ, 0, 0, FCacheSize);
+    if FCacheBuf = nil then
+      begin ReleaseCache; Exit; end;
+
+    Result := True;
+  end;
+
+
+  procedure TReviewImageRec.ReleaseCache;
+  begin
+    if FCacheBuf <> nil then
+      UnmapViewOfFile(FCacheBuf);
+    FCacheBuf := nil;
+
+    if FMapHandle <> 0 then
+      FileClose(FMapHandle);
+    FMapHandle := 0;
+
+    if (FMapFile <> 0) and (FMapFile <> INVALID_HANDLE_VALUE) then
+      FileClose(FMapFile);
+    FMapFile := 0;
+  end;
+
+ {$else}
+
+  function TReviewImageRec.PrecacheFile(const AFileName :TString) :Boolean;
+  var
+    vFile :THandle;
+  begin
+    vFile := CreateFile(PTChar(AFileName), GENERIC_READ, FILE_SHARE_READ {or FILE_SHARE_WRITE}, nil, OPEN_EXISTING,
+       FILE_ATTRIBUTE_NORMAL or FILE_FLAG_SEQUENTIAL_SCAN {or FILE_FLAG_NO_BUFFERING}, 0);
+    try
+      FSize := FileSize(vFile);
+
+      FCacheSize := IntMin(FSize, cPreCacheLimit);
+
+      FCacheBuf := MemAlloc(FCacheSize);
+      FCacheSize := FileRead(vFile, FCacheBuf^, FCacheSize);
+
+      Result := True;
+
+    finally
+      FileClose(vFile);
+    end;
+  end;
+
+
+  procedure TReviewImageRec.ReleaseCache;
+  begin
+    MemFree(FCacheBuf);
+  end;
+ {$endif bUseMapping}
 
 
  {-----------------------------------------------------------------------------}
@@ -317,15 +478,11 @@ BOOL WINAPI SetDllDirectory(
   begin
     inherited Create;
     FEnabled := True;
-    FActiveExt := TStringList.Create;
-    FActiveExt.Sorted := True;
-    FIgnoreExt := TStringList.Create;
-    FActiveExt.Sorted := True;
   end;
 
 
   constructor TReviewDecoder.CreateCache(const aName, aTitle :TString; aModified :Integer;
-    aEnabled :Boolean; aPriority :Integer; const aActive, aIgnore :TString);
+    aEnabled :Boolean; aPriority :Integer; const aActive, aIgnore :TString; ACustomMask :Boolean);
   begin
     Create;
 
@@ -336,13 +493,12 @@ BOOL WINAPI SetDllDirectory(
     FPriority := aPriority;
 
     SetExtensions(aActive, aIgnore);
+    FCustomMask := ACustomMask;
   end;
 
 
   destructor TReviewDecoder.Destroy; {override;}
   begin
-    FreeObj(FActiveExt);
-    FreeObj(FIgnoreExt);
     inherited Destroy;
   end;
 
@@ -353,6 +509,12 @@ BOOL WINAPI SetDllDirectory(
       Result := IntCompare(FPriority, TReviewDecoder(Another).FPriority)
     else
       Result := inherited CompareObj(Another, Context);
+  end;
+
+
+  function TReviewDecoder.CanShowThumbs :boolean; {virtual;}
+  begin
+    Result := True;
   end;
 
 
@@ -368,30 +530,59 @@ BOOL WINAPI SetDllDirectory(
 
 
   procedure TReviewDecoder.SetExtensions(const aActive, aIgnore :TString);
+
+    function LocConvertMask(const AStr :TString) :TString;
+    var
+      i :Integer;
+      vStr :TString;
+      vList :TStringList;
+    begin
+      vList := TStringList.Create;
+      try
+        vList.Text := StrDeleteChars(StrReplaceChars(AStr, [',', ';'], #13), [' ']);
+        for i := 0 to vList.Count - 1 do begin
+          vStr := vList[i];
+          if (vStr <> '') and (vStr[1] <> '<') and not FileNameHasMask(vStr) then
+            vList[i] := '*.' + vStr;
+        end;
+        Result := vList.GetTextStrEx(',');
+      finally
+        FreeObj(vList);
+      end;
+    end;
+
   begin
     FActiveStr := aActive;
     FIgnoreStr := aIgnore;
-//  FUnusualStr :=
 
-    FActiveExt.Text := StrDeleteChars(StrReplaceChars(aActive, [',', ';'], #13), [' ']);
-    FIgnoreExt.Text := StrDeleteChars(StrReplaceChars(aIgnore, [',', ';'], #13), [' ']);
+    FActiveMask := LocConvertMask(FActiveStr);
+    FIgnoreMask := LocConvertMask(FIgnoreStr);
   end;
 
 
   function TReviewDecoder.SupportedFile(const AName :TSTring) :Boolean;
   var
-    vExt :TString;
+    vName :TString;
   begin
-    vExt := ExtractFileExtension(AName);
-    Result := (FActiveExt.IndexOf('*') <> -1) or (FActiveExt.IndexOf(vExt) <> -1);
+    vName := ExtractFileName(AName);
+    Result := FARSTD.ProcessName(PTChar(FActiveMask), PTChar(vName), 0, PN_CMPNAMELIST) <> 0;
     if Result then
-      Result := (FIgnoreExt.IndexOf('*') = -1) and (FIgnoreExt.IndexOf(vExt) = -1);
+      Result := FARSTD.ProcessName(PTChar(FIgnoreMask), PTChar(vName), 0, PN_CMPNAMELIST) = 0;
+  end;
+
+
+  function TReviewDecoder.GetMaskAsStr :TString;
+  begin
+    Result := FActiveStr;
+    if FIgnoreStr <> '' then
+      Result := Result + '|' + FIgnoreStr;
   end;
 
 
   function TReviewDecoder.GetInfoStr :TString;
   begin
-    Result := StrLoCase(FActiveExt.GetTextStrEx(','));
+//    Result := StrLoCase(FActiveExt.GetTextStrEx(','));
+    Result := GetMaskAsStr;
   end;
 
 
@@ -433,7 +624,7 @@ BOOL WINAPI SetDllDirectory(
   end;
 
 
-  function TReviewDecoder.pvdDisplayPaint(AWnd :THandle; AImage :TReviewImageRec; const AImageRect, ADisplayRect :TRect; AColor :DWORD) :Boolean; {virtual;}
+  function TReviewDecoder.pvdDisplayPaint(AWnd :THandle; ADC :HDC; AImage :TReviewImageRec; const AImageRect, ADisplayRect, AFullDisplayRect :TRect; AColor :DWORD) :Boolean; {virtual;}
   begin
     Result := True;
   end;
@@ -487,24 +678,33 @@ BOOL WINAPI SetDllDirectory(
 
   function TReviewDllDecoder.CanWork(aLoad :Boolean) :Boolean; {override;}
   var
-    vPath :TString;
+    vPath, vOldExts :TString;
   begin
     if not aLoad then
       Result := FInitState < 2
     else begin
       if FInitState = 0 then begin
+        { Декодер был закэширован, теперь инициализируем его}
+
+        if not CustomMask then
+          vOldExts := GetMaskAsStr;
+
         vPath := RemoveBackSlash(ExtractFilePath(FDLLName));
         SetDllDirectory(PTChar(vPath));
         try
-          InitPlugin(True);
+          InitPlugin(CustomMask);
         finally
           SetDllDirectory(nil);
         end;
+
+        if not CustomMask and not StrEqual(vOldExts, GetMaskAsStr) then
+          { Изменился состав масок, обрабатываемых декодером по умолчанию. }
+          { Например, установили новый кодек... }
+          NeedStoreCache := True;
       end;
       Result := FInitState = 1;
     end;
   end;
-
 
 
   function TReviewDllDecoder.GetInfoStr :TString;
@@ -610,12 +810,12 @@ BOOL WINAPI SetDllDirectory(
   end;
 
 
-  function TReviewDllDecoder1.pvdFileOpen(AImage :TReviewImageRec) :Boolean;
+  function TReviewDllDecoder1.pvdFileOpen(const AFileName :TString; AImage :TReviewImageRec) :Boolean;
   var
     vInfo :TPVDInfoImage;
     vFileName :TAnsiStr;
   begin
-    vFileName := WideToUTF8(AImage.FName);
+    vFileName := WideToUTF8(AFileName);
 
     FillZero(vInfo, SizeOf(vInfo));
     Result := FpvdFileOpen(PAnsiChar(vFileName), AImage.FSize, AImage.FCacheBuf, AImage.FCacheSize, @vInfo, AImage.FContext);
@@ -646,26 +846,32 @@ BOOL WINAPI SetDllDirectory(
   end;
 
 
-  function TReviewDllDecoder1.pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean;
+  function MyDecodeCallback1(AContext :Pointer; AStep, ASteps :Cardinal) :Boolean; stdcall;
+  begin
+    Result := True;
+  end;
+
+
+  function TReviewDllDecoder1.pvdPageDecode(AImage :TReviewImageRec; AWidth, AHeight :Integer; AMode :TDecodeMode;
+    const ACallback :TDecodeCallback = nil; ACallbackData :Pointer = nil) :Boolean;
   var
     vInfo :TPVDInfoDecode;
   begin
     FillZero(vInfo, SizeOf(vInfo));
-    Result := FpvdPageDecode(AImage.FContext, AImage.FPage, @vInfo, nil, nil);
-
+    Result := FpvdPageDecode(AImage.FContext, AImage.FPage, @vInfo, MyDecodeCallback1, Self);
     if Result then begin
-      AImage.FBmpWidth    := AImage.FWidth;
-      AImage.FBmpHeight   := AImage.FHeight;
-      AImage.FBmpBPP      := vInfo.nBPP;
-      AImage.FBmpBits     := vInfo.pImage;
-      AImage.FBmpPalette  := vInfo.pPalette;
-      AImage.FBmpColors   := vInfo.nColorsUsed;
-      AImage.FBmpRowBytes := vInfo.lImagePitch;
-      AImage.FColorModel  := PVD_CM_BGR;
-
-      AImage.FDecodeInfo  := MemAlloc(SizeOf(vInfo));
+      AImage.FDecodeInfo := MemAlloc(SizeOf(vInfo));
       Move(vInfo, AImage.FDecodeInfo^, SizeOf(vInfo));
     end;
+  end;
+
+
+  function TReviewDllDecoder1.GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; {override;}
+  begin
+    Result := 0; aIsThumbnail := False;
+    if AImage.FDecodeInfo <> nil then
+      with PPVDInfoDecode(AImage.FDecodeInfo)^ do
+        Result := CreateBitmapAs(AImage.FWidth, AImage.FHeight, nBPP, lImagePitch, pImage, pPalette, PVD_CM_BGR, 0);
   end;
 
 
@@ -698,6 +904,12 @@ BOOL WINAPI SetDllDirectory(
   end;
 
 
+  function TReviewDllDecoder2.CanShowThumbs :boolean; {override;}
+  begin
+    Result := FPlugFlags and PVD_IP_DISPLAY = 0;
+  end;
+
+
   function TReviewDllDecoder2.NeedPrecache :boolean; {override;}
   begin
     Result := FPlugFlags and PVD_IP_NEEDFILE = 0;
@@ -707,7 +919,11 @@ BOOL WINAPI SetDllDirectory(
 
   procedure TReviewDllDecoder2.ResetSettings; {override;}
   begin
-    pvdGetFormats;
+    if CanWork(True) then
+      pvdGetFormats
+    else
+      SetExtensions('', '');
+    FCustomMask := False;
   end;
 
 
@@ -722,6 +938,7 @@ BOOL WINAPI SetDllDirectory(
       FpvdPluginInfo     := GetProcAddressEx(FHandle, 'pvdPluginInfo2', False);
       FpvdGetFormats     := GetProcAddressEx(FHandle, 'pvdGetFormats2', False);
       FpvdReloadConfig   := GetProcAddressEx(FHandle, 'pvdReloadConfig2', False);
+      FpvdTranslateError := GetProcAddressEx(FHandle, 'pvdTranslateError2', False);
 
       FpvdFileOpen       := GetProcAddressEx(FHandle, 'pvdFileOpen2');
       FpvdPageInfo       := GetProcAddressEx(FHandle, 'pvdPageInfo2', False);
@@ -825,6 +1042,8 @@ BOOL WINAPI SetDllDirectory(
     FComment   := vRec.pComments;
     FPriority  := vRec.Priority;
     FPlugFlags := vRec.Flags;
+
+//  Trace('pvdGetInfo: %s, Flags=%x', [FName, FPlugFlags]);
   end;
 
 
@@ -843,17 +1062,34 @@ BOOL WINAPI SetDllDirectory(
   end;
 
 
+  function TReviewDllDecoder2.pvdTranslateError(aCode :DWORD) :TString;
+  var
+    vBuf :array[0..1024] of TChar;
+  begin
+    Result := '';
+    if not Assigned(FpvdTranslateError) or (aCode = 0) then
+      Exit;
+
+    FillZero(vBuf, SizeOf(vBuf));
+    if FpvdTranslateError(aCode, vBuf, High(vBuf)) then
+      Result := vBuf;
+    if Result = '' then
+      Result := 'Error code = ' + Int2Str(Integer(aCode));  
+  end;
+
+
  {-----------------------------------------------------------------------------}
 
-  function TReviewDllDecoder2.pvdFileOpen(AImage :TReviewImageRec) :Boolean;
+  function TReviewDllDecoder2.pvdFileOpen(const AFileName :TString; AImage :TReviewImageRec) :Boolean;
   var
     vInfo :TPVDInfoImage2;
   begin
+    FLastError := '';
     FillZero(vInfo, SizeOf(vInfo));
     vInfo.cbSize := SizeOf(vInfo);
     vInfo.pImageContext := AImage.FContext;
 
-    Result := FpvdFileOpen(FInitContext, PTChar(AImage.FName), AImage.FSize, AImage.FCacheBuf, AImage.FCacheSize, @vInfo);
+    Result := FpvdFileOpen(FInitContext, PTChar(AFileName), AImage.FSize, AImage.FCacheBuf, AImage.FCacheSize, @vInfo);
 
     if Result then begin
       AImage.FContext := vInfo.pImageContext;
@@ -866,7 +1102,8 @@ BOOL WINAPI SetDllDirectory(
         AImage.FLength := vInfo.nPages
       else
         AImage.FPages := vInfo.nPages;
-    end;
+    end else
+      FLastError := pvdTranslateError(vInfo.nErrNumber);
   end;
 
 
@@ -874,6 +1111,7 @@ BOOL WINAPI SetDllDirectory(
   var
     vInfo :TPVDInfoPage2;
   begin
+    FLastError := '';
     FillZero(vInfo, SizeOf(vInfo));
     vInfo.cbSize := SizeOf(vInfo);
     vInfo.iPage := AImage.FPage;
@@ -885,50 +1123,101 @@ BOOL WINAPI SetDllDirectory(
       AImage.FHeight := vInfo.lHeight;
       AImage.FBPP    := vInfo.nBPP;
       AImage.FDelay  := vInfo.lFrameTime;
+
+      { Коррекция 1 }
+      if vInfo.nPages <> 0 then
+        AImage.FPages := vInfo.nPages;
+      if vInfo.pFormatName <> nil then
+        AImage.FFormat := vInfo.pFormatName;
       if vInfo.pCompression <> nil then
         AImage.FCompress := vInfo.pCompression;
-    end;
+    end else
+      FLastError := pvdTranslateError(vInfo.nErrNumber);
   end;
 
 
-  function TReviewDllDecoder2.pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean;
+  type
+    PContextRec = ^TContextRec;
+    TContextRec = record
+      Callback :TDecodeCallback;
+      Data :Pointer;
+    end;
+
+  function MyDecodeCallback2(AContext :Pointer; AStep, ASteps :Cardinal; AInfo :Pointer) :Boolean; stdcall;
+  begin
+//  Trace('MyDecodeCallback2 %d/%d...', [AStep, ASteps]);
+    Result := True;
+    with PContextRec(AContext)^ do
+      if Assigned(Callback) then
+        Callback(Data, MulDiv(AStep, 100, ASteps), Result);
+  end;
+
+
+  function TReviewDllDecoder2.pvdPageDecode(AImage :TReviewImageRec; AWidth, AHeight :Integer; AMode :TDecodeMode;
+    const ACallback :TDecodeCallback = nil; ACallbackData :Pointer = nil) :Boolean;
   var
     vInfo :TPVDInfoDecode2;
+    vContext :TContextRec;
   begin
+    FLastError := '';
     FillZero(vInfo, SizeOf(vInfo));
     vInfo.cbSize := SizeOf(vInfo);
     vInfo.iPage := AImage.FPage;
-    vInfo.Flags := 0; //PVD_IDF_ASDISPLAY;
-    vInfo.lWidth := 0; //!!!
-    vInfo.lHeight := 0; //!!!
-    vInfo.nBackgroundColor := ABkColor;
+    vInfo.lWidth := AWidth;
+    vInfo.lHeight := AHeight;
+    vInfo.nBackgroundColor := 0{ABkColor};
+    vInfo.Flags := 0;
+    if AMode = dmThumbnail then
+      vInfo.Flags := vInfo.Flags or PVD_IDF_THUMBONLY
+    else
+    if AMode = dmThumbnailOrImage then
+      vInfo.Flags := vInfo.Flags or PVD_IDF_THUMBFIRST;
 
-    Result := FpvdPageDecode(FInitContext, AImage.FContext, @vInfo, nil, nil);
+    vContext.Callback := ACallback;
+    vContext.Data := ACallbackData;
+
+    Result := FpvdPageDecode(FInitContext, AImage.FContext, @vInfo, MyDecodeCallback2, @vContext);
 
     if Result then begin
-      AImage.FSelfdraw    := vInfo.Flags and PVD_IDF_PRIVATE_DISPLAY <> 0;
+      AImage.FSelfdraw := vInfo.Flags and PVD_IDF_PRIVATE_DISPLAY <> 0;
       AImage.FTransparent := vInfo.Flags and ({PVD_IDF_TRANSPARENT + PVD_IDF_TRANSPARENT_INDEX +} PVD_IDF_ALPHA) <> 0;
-
-      AImage.FBmpWidth    := vInfo.lWidth;
-      AImage.FBmpHeight   := vInfo.lHeight;
-      AImage.FBmpBPP      := vInfo.nBPP;
-      AImage.FBmpBits     := vInfo.pImage;
-      AImage.FBmpPalette  := vInfo.pPalette;
-      AImage.FBmpColors   := vInfo.nColorsUsed;
-      AImage.FBmpRowBytes := vInfo.lImagePitch;
-      AImage.FColorModel  := vInfo.ColorModel;
-      AImage.FTranspColor := vInfo.nTransparentColor;
-      if vInfo.Flags and (PVD_IDF_TRANSPARENT + PVD_IDF_TRANSPARENT_INDEX) = 0 then
-        AImage.FTranspColor := DWORD(-1);
       if optRotateOnEXIF and (AImage.FOrient = 0) then
-        AImage.FOrient    := vInfo.Orientation;
+        AImage.FOrient  := vInfo.Orientation;
 
+      { Коррекция 2 }
+      if vInfo.nPages <> 0 then
+        AImage.FPages := vInfo.nPages;
+      if vInfo.pFormatName <> nil then
+        AImage.FFormat := vInfo.pFormatName;
       if vInfo.pCompression <> nil then
         AImage.FCompress := vInfo.pCompression;
+      if vInfo.lSrcWidth <> 0 then
+        AImage.FWidth := vInfo.lSrcWidth;
+      if vInfo.lSrcHeight <> 0 then
+        AImage.FHeight := vInfo.lSrcHeight;
+      if vInfo.lSrcBPP <> 0 then
+        AImage.FBPP := vInfo.lSrcBPP;
 
       AImage.FDecodeInfo  := MemAlloc(SizeOf(vInfo));
       Move(vInfo, AImage.FDecodeInfo^, SizeOf(vInfo));
-    end;
+    end else
+      FLastError := pvdTranslateError(vInfo.nErrNumber);
+  end;
+
+
+  function TReviewDllDecoder2.GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; {override;}
+  var
+    vTranspColor :UINT;
+  begin
+    Result := 0; aIsThumbnail := False;
+    if AImage.FDecodeInfo <> nil then
+      with PPVDInfoDecode2(AImage.FDecodeInfo)^ do begin
+        vTranspColor := nTransparentColor;
+        if Flags and (PVD_IDF_TRANSPARENT + PVD_IDF_TRANSPARENT_INDEX) = 0 then
+          vTranspColor := DWORD(-1);
+        Result := CreateBitmapAs(lWidth, lHeight, nBPP, lImagePitch, pImage, pPalette, ColorModel, vTranspColor);
+        aIsThumbnail := PVD_IDF_THUMBNAIL and Flags <> 0;
+      end;
   end;
 
 
@@ -949,10 +1238,10 @@ BOOL WINAPI SetDllDirectory(
     AImage.FContext := nil;
   end;
 
-  
+
  {-----------------------------------------------------------------------------}
 
-(*
+{
   // Инициализация контекста дисплея. Используется тот pContext, который был получен в pvdInit2
   function pvdDisplayInit2(pContext :Pointer; pDisplayInit :PPVDInfoDisplayInit2) :BOOL; stdcall;
 
@@ -970,7 +1259,7 @@ BOOL WINAPI SetDllDirectory(
 
   // Закрыть модуль вывода (освобождение интерфейсов DX, отцепиться от окна)
   procedure pvdDisplayExit2(pContext :Pointer); stdcall;
-*)
+}
 
 
   function TReviewDllDecoder2.pvdDisplayInit(AWnd :THandle) :Boolean;
@@ -1015,18 +1304,6 @@ BOOL WINAPI SetDllDirectory(
   end;
 
 
-(*
-struct pvdInfoDisplayCreate2
-{
-	UINT32 cbSize;               // [IN]  размер структуры в байтах
-	pvdInfoDecode2* pImage;      // [IN]
-	DWORD BackColor;             // [IN]  RGB background
-	void* pDisplayContext;       // [OUT]
-	DWORD nErrNumber;            // [OUT]
-	const wchar_t* pFileName;    // [IN]  Information only. Valid only in pvdDisplayCreate2
-	UINT32 iPage;                // [IN]  Information only
-};
-*)
   function TReviewDllDecoder2.pvdDisplayShow(AWnd :THandle; AImage :TReviewImageRec) :Boolean;
   var
     vRec :TPVDInfoDisplayCreate2;
@@ -1048,42 +1325,7 @@ struct pvdInfoDisplayCreate2
   end;
 
 
-(*
-struct pvdInfoDisplayPaint2
-{
-	UINT32 cbSize;               // [IN]  размер структуры в байтах
-	DWORD Operation;  // PVD_IDP_*
-	HWND hWnd;                   // [IN]  Где рисовать
-	HWND hParentWnd;             // [IN]
-	union {
-	RGBQUAD BackColor;  //
-	DWORD  nBackColor;  //
-	};
-	RECT ImageRect;
-	RECT DisplayRect;
-
-	LPVOID pDrawContext; // Это поле может использоваться субплагином для хранения "HDC". Освобождать должен субплагин по команде PVD_IDP_COMMIT
-
-	//RECT ParentRect;
-	////DWORD BackColor;             // [IN]  RGB background
-	//BOOL bFreePosition;
-	//BOOL bCorrectMousePos;
-	//POINT ViewCenter;
-	//POINT DragBase;
-	//UINT32 Zoom;
-	//RECT rcGlobal;               // [IN]  в каком месте окна нужно показать изображение (остальное заливается фоном BackColor)
-	//RECT rcCrop;                 // [IN]  прямоугольник отсечения (клиентская часть окна)
-	DWORD nErrNumber;            // [OUT]
-
-	DWORD nZoom; // [IN] передается только для информации. 0x10000 == 100%
-	DWORD nFlags; // [IN] PVD_IDPF_*
-
-	DWORD *pChessMate;
-	DWORD uChessMateWidth;
-	DWORD uChessMateHeight;
-};
-*)
-  function TReviewDllDecoder2.pvdDisplayPaint(AWnd :THandle; AImage :TReviewImageRec; const AImageRect, ADisplayRect :TRect; AColor :DWORD) :Boolean;
+  function TReviewDllDecoder2.pvdDisplayPaint(AWnd :THandle; ADC :HDC; AImage :TReviewImageRec; const AImageRect, ADisplayRect, AFullDisplayRect :TRect; AColor :DWORD) :Boolean;
   var
     vRec :TPVDInfoDisplayPaint2;
   begin
@@ -1180,6 +1422,7 @@ struct pvdInfoDisplayPaint2
           vConfig.WriteLog(cDecoderEnabledRegKey, aDecoder.Enabled);
           vConfig.WriteStr(cDecoderActiveRegKey, aDecoder.ActiveStr);
           vConfig.WriteStr(cDecoderIgnoreRegKey, aDecoder.IgnoreStr);
+          vConfig.WriteLog(cDecoderCustomRegKey, aDecoder.CustomMask);
         finally
           vConfig.OpenKey( '' );
         end;
@@ -1189,8 +1432,7 @@ struct pvdInfoDisplayPaint2
   var
     I :Integer;
   begin
-//  Trace('SaveDecodersInfo...');
-
+//  TraceF('SaveDecodersInfo (%d)...', [aDecoders.Count]);
     vConfig := TFarConfig.CreateEx(True, cPluginName);
     try
       if vConfig.OpenKey(cDecodersRegFolder) then begin
@@ -1199,6 +1441,8 @@ struct pvdInfoDisplayPaint2
 
         for I := 0 to aDecoders.Count - 1 do
           LocSave(I, aDecoders[I]);
+
+        NeedStoreCache := False;
       end;
     finally
       FreeObj(vConfig);
@@ -1206,18 +1450,20 @@ struct pvdInfoDisplayPaint2
   end;
 
 
+
   function RestoreDecodersCache(aDecoders :TObjList) :Boolean;
   var
     vConfig :TFarConfig;
+    vPos :Integer;
 
-    function LocLoad(AIndex :Integer) :Boolean;
+    procedure LocLoad(AIndex :Integer);
     var
       vName, vTitle, vActive, vIgnore :TString;
       vKind, vModified, vPriority, vIndex :Integer;
-      vEnabled :Boolean;
+      vEnabled, vCustomMask :Boolean;
       vClass :TReviewDecoderClass;
+      vDecoder :TReviewDecoder;
     begin
-      Result := False;
       if vConfig.OpenKey( cDecodersRegFolder + '\' + cDecoderRegFolder + Int2Str(AIndex) ) then begin
         try
           vKind := vConfig.ReadInt(cDecoderKindRegKey, -1);
@@ -1228,24 +1474,37 @@ struct pvdInfoDisplayPaint2
           vEnabled := vConfig.ReadLog(cDecoderEnabledRegKey, True);
           vActive := vConfig.ReadStr(cDecoderActiveRegKey);
           vIgnore := vConfig.ReadStr(cDecoderIgnoreRegKey);
+          vCustomMask := vConfig.ReadLog(cDecoderCustomRegKey);
 
-          if (vKind = 0) and not StrEqual(vName, cDefGDIDecoderName) then
-            Exit;
-          if aDecoders.FindKey(Pointer(vName), 0, [], vIndex) then
-            Exit;
+          if vKind = 0 then begin
+            if not aDecoders.FindKey(Pointer(vName), 0, [], vIndex) then
+              Exit;
 
-          case vKind of
-            0: vClass := TReviewGDIDecoder;
-            1: vClass := TReviewDllDecoder1;
-            2: vClass := TReviewDllDecoder2;
-          else
-            Exit;
+            vDecoder := aDecoders[vIndex];
+            vDecoder.FEnabled := vEnabled;
+            if vCustomMask then begin
+              vDecoder.SetExtensions(vActive, vIgnore);
+              vDecoder.FCustomMask := True;
+            end;
+
+            if vIndex <> vPos then
+              aDecoders.Move(vIndex, vPos);
+            Inc(vPos);
+          end else
+          begin
+            if aDecoders.FindKey(Pointer(vName), 0, [], vIndex) then
+              Exit;
+
+            case vKind of
+              1: vClass := TReviewDllDecoder1;
+              2: vClass := TReviewDllDecoder2;
+            else
+              Exit;
+            end;
+
+            aDecoders.Insert(vPos, vClass.CreateCache(vName, vTitle, vModified, vEnabled, vPriority, vActive, vIgnore, vCustomMask) );
+            Inc(vPos);
           end;
-
-          aDecoders.Add( vClass.CreateCache(vName, vTitle, vModified, vEnabled, vPriority, vActive, vIgnore) );
-
-          Result := True;
-
         finally
           vConfig.OpenKey( '' );
         end;
@@ -1261,11 +1520,12 @@ struct pvdInfoDisplayPaint2
       if vConfig.Exists and vConfig.OpenKey( cDecodersRegFolder ) then begin
         vCount := vConfig.ReadInt(cDecodersCount);
         vConfig.OpenKey( '' );
-
-        for I := 0 to vCount - 1 do
-          LocLoad(I);
-
-        Result := aDecoders.Count > 0;
+        if vCount > 0 then begin
+          vPos := 0;
+          for I := 0 to vCount - 1 do
+            LocLoad(I);
+          Result := True;
+        end;
       end;
     finally
       FreeObj(vConfig);
@@ -1275,10 +1535,11 @@ struct pvdInfoDisplayPaint2
 
   procedure InitDecodersFrom(aDecoders :TObjList; const aPath :TString);
   var
-    vCache, vNeedStore :Boolean;
+    vCache :Boolean;
 
     function LocEnumPlugin(const APath :TString; const ARec :TWin32FindData) :Boolean;
     var
+      vClass :TReviewDllDecoderClass;
       vName, vFileName :TString;
       vIndex, vFileDate :Integer;
       vHandle :THandle;
@@ -1290,34 +1551,49 @@ struct pvdInfoDisplayPaint2
       vFileName := AddFileName(APath, vName);
       vFileDate := FileTimeToDosFileDate(ARec.ftLastWriteTime);
 
+      vDecoder := nil;
       if vCache and aDecoders.FindKey(Pointer(vName), 0, [], vIndex) then begin
         vDecoder := aDecoders[vIndex];
         if (vDecoder is TReviewDllDecoder) and (vDecoder.Modified = vFileDate) then begin
           { Информация в кэше соответствует файлу, загрузим декодер позже - по необходимости }
           TReviewDllDecoder(vDecoder).FDllName := vFileName;
           Exit;
-        end else
-          { Что-то изменилось - надо обновить информацию }
-          aDecoders.FreeAt(vIndex);
-      end else
-        vIndex := aDecoders.Count;
+        end;
+      end;
 
      {$ifdef bTrace}
       TraceF('PVD: %s', [vFileName]);
      {$endif bTrace}
-      vHandle := 0; vDecoder := nil;
       SetDllDirectory(PTChar(APath));
       vVer := GetPVDVersion(vFileName, vHandle);
       try
         case vVer of
-        0,1: vDecoder := TReviewDllDecoder1.CreateEx(vFileName, vFileDate);
-          2: vDecoder := TReviewDllDecoder2.CreateEx(vFileName, vFileDate);
+          1: vClass := TReviewDllDecoder1;
+          2: vClass := TReviewDllDecoder2;
+        else
+          Exit;
         end;
 
-        if vDecoder <> nil then begin
+        if (vDecoder <> nil) and (vDecoder.ClassType = vClass) then begin
+          { Обновляем настройки декодера }
+          with TReviewDllDecoder(vDecoder) do begin
+            FDllName := vFileName;
+            FModified := vFileDate;
+            InitPlugin(CustomMask);
+          end;
+        end else
+        begin
+          if vDecoder <> nil then
+            { Изменился тип декодера - экзотическая ситуация, но - на всякий случай }
+            aDecoders.FreeAt(vIndex)
+          else
+            vIndex := aDecoders.Count;
+
+          vDecoder := vClass.CreateEx(vFileName, vFileDate);
           aDecoders.Insert( vIndex, vDecoder );
-          vNeedStore := True;
         end;
+
+        NeedStoreCache := True;
 
       finally
         if vHandle <> 0 then
@@ -1327,81 +1603,35 @@ struct pvdInfoDisplayPaint2
     end;
 
   var
-    I, vIndex :Integer;
+    I :Integer;
     vDecoder :TReviewDecoder;
-    vName :TString;
   begin
-    vCache := RestoreDecodersCache(aDecoders);
-    vNeedStore := not vCache;
+    aDecoders.Add(TReviewGDIDecoder.Create);
+    aDecoders.Add(TReviewWMFDecoder.Create);
 
-    vName := cDefGDIDecoderName;
-    if not aDecoders.FindKey(Pointer(vName), 0, [], vIndex) then
-      aDecoders.Add(TReviewGDIDecoder.Create);
+    vCache := RestoreDecodersCache(aDecoders);
+    NeedStoreCache := not vCache;
 
     if WinFolderExists(aPath) then begin
       WinEnumFilesEx(aPath, cPluginsMask, faEnumFiles, [efoRecursive],  LocalAddr(@LocEnumPlugin));
+
       if not vCache then
+        { Если это первая загрузка - сортируем декодеры по приоритетам }
+        { Если декодеры были добавлены потом - приоритеты игнорируются, }
+        { новые декодеры окажутся в конце списка. }
         aDecoders.SortList(False, 1);
     end;
 
-    { Удалим декодеры, для которых не найдено файлов}
+    { Удалим декодеры, для которых не найдено DLL }
     for I := aDecoders.Count - 1 downto 0 do begin
       vDecoder := aDecoders[I];
       if (vDecoder is TReviewDllDecoder) and (TReviewDllDecoder(vDecoder).FDllName = '') then
         aDecoders.FreeAt(I);
     end;
 
-    if vNeedStore then
+    if NeedStoreCache then
       SaveDecodersInfo(aDecoders);
   end;
-
-
-(*
-  procedure InitDecodersFrom(aDecoders :TObjList; const aPath :TString);
-
-    function LocEnumPlugin(const APath :TString; const ARec :TWin32FindData) :Boolean;
-    var
-      vFileName :TString;
-      vFileDate :Integer;
-      vHandle :THandle;
-      vDecoder :TReviewDecoder;
-      vVer :Integer;
-    begin
-      vFileName := AddFileName(APath, ARec.cFileName);
-      vFileDate := FileTimeToDosFileDate(ARec.ftLastWriteTime);
-     {$ifdef bTrace}
-      TraceF('PVD: %s', [vFileName]);
-     {$endif bTrace}
-
-      vHandle := 0; vDecoder := nil;
-      vVer := GetPVDVersion(vFileName, vHandle);
-      try
-        case vVer of
-        0,1: vDecoder := TReviewDllDecoder1.CreateEx(vFileName, vFileDate);
-          2: vDecoder := TReviewDllDecoder2.CreateEx(vFileName, vFileDate);
-        end;
-
-        if vDecoder <> nil then
-          aDecoders.AddSorted( vDecoder, 0, dupAccept );
-
-      finally
-        if vHandle <> 0 then
-          FreeLibrary(vHandle);
-      end;
-      Result := True;
-    end;
-
-
-  begin
-    aDecoders.Add(TReviewGDIDecoder.Create);
-
-    if not WinFolderExists(aPath) then
-      Exit;
-
-    WinEnumFilesEx(aPath, cPluginsMask, faEnumFiles, [efoRecursive],  LocalAddr(@LocEnumPlugin));
-    aDecoders.SortList(False, 1);
-  end;
-*)
 
 end.
 

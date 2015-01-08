@@ -1,7 +1,8 @@
 {$I Defines.inc}
 
-{-$Define bOwnRotate}
-{$Define bTracePvd}
+{$ifndef bAsync}
+ {$Define bGDIAsync}
+{$endif bAsync}
 
 unit ReviewGDIPlus;
 
@@ -35,19 +36,8 @@ interface
   const
     cGDIPlusFormats = 'JPG,JPEG,JPE,PNG,GIF,TIF,TIFF,EXIF,BMP,DIB'; // EMF,WMF;
 
-  const
-    cThumbSize         = 128;           { Размер извлекаемого эскиза }
-
-  var
-    DecodeWaitDelay   :Integer = 2000;  { Сколько ждем декодирование, прежде чем показать эскиз. Только при первом открытии. }
-    StretchDelay      :Integer = 500;   { Задержка для масштабирования }
-    FastListDelay     :Integer = 250;   { Период между декодированиями, по которому определяется быстрое перелистывание }
-    ThumbDelay        :Integer = 250;   { Задержка до начала декодирования при перелистывании }
-
-    optRotateOnEXIF   :Boolean = True;  { Автоматический поворот на основе информации из EXIF }
-    optUseThumbnail   :Boolean = True;  { Использовать эскизы для быстрого листания }
-    optUseWinSize     :Boolean = True;  { Декодировать под размер окна }
-    optKeepDateOnSave :Boolean = True;  { Сохранять дату при декодировании }
+//const
+//  cThumbSize = 128;           { Размер извлекаемого эскиза }
 
 
   type
@@ -62,9 +52,10 @@ interface
       function CanWork(aLoad :Boolean) :boolean; override;
 
       { Функции декодирования }
-      function pvdFileOpen(AImage :TReviewImageRec) :Boolean; override;
+      function pvdFileOpen(const AFileName :TString; AImage :TReviewImageRec) :Boolean; override;
       function pvdGetPageInfo(AImage :TReviewImageRec) :Boolean; override;
-      function pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean; override;
+      function pvdPageDecode(AImage :TReviewImageRec; AWidth, AHeight :Integer; AMode :TDecodeMode;
+        const ACallback :TDecodeCallback = nil; ACallbackData :Pointer = nil) :Boolean; override;
       procedure pvdPageFree(AImage :TReviewImageRec); override;
       procedure pvdFileClose(AImage :TReviewImageRec); override;
 
@@ -72,12 +63,15 @@ interface
 
       { Эксклюзивные функции }
       function GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; override;
-      function Idle(AImage :TReviewImageRec; ACX, ACY :Integer) :boolean; override;
       function Save(AImage :TReviewImageRec; const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean; override;
+     {$ifdef bGDIAsync}
+      function Idle(AImage :TReviewImageRec; ACX, ACY :Integer) :boolean; override;
+     {$endif bGDIAsync}
     end;
 
 
   function TryLockGDIPlus :Boolean;
+  procedure LockGDIPlus;
   procedure UnlockGDIPlus;
 
 
@@ -98,18 +92,6 @@ interface
     strReadImageError     = 'Read image error';
     strLossyRotation      = 'Rotation is a lossy. Ctrl+F2 to confirm.';
     strCantSaveFrames     = 'Can''t save mutliframe image';
-
-
-  procedure CorrectBoundEx(var ASize :TSize; const ALimit :TSize);
-  var
-    vScale :TFloat;
-  begin
-    if (ASize.cx > ALimit.cx) or (ASize.cy > ALimit.cy) then begin
-      vScale := FloatMin( ALimit.cx / ASize.cx, ALimit.cy / ASize.cy);
-      ASize.cx := Round(ASize.cx * vScale);
-      ASize.cy := Round(ASize.cy * vScale);
-    end;
-  end;
 
 
 
@@ -181,7 +163,7 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- { TThumbnailThread                                                            }
+ {                                                                             }
  {-----------------------------------------------------------------------------}
 
   var
@@ -195,6 +177,11 @@ interface
     Result := TryEnterCriticalSection(GDIPlusCS);
   end;
 
+  procedure LockGDIPlus;
+  begin
+    EnterCriticalSection(GDIPlusCS);
+  end;
+
   procedure UnlockGDIPlus;
   begin
     LeaveCriticalSection(GDIPlusCS);
@@ -202,6 +189,148 @@ interface
 
 
 
+(*
+  function GDIRender(const AName :TString; AImage :TGPImageEx; const ASize :TSize; ACallback :Pointer = nil; ACallbackData :Pointer = nil) :TMemDC;
+  var
+    vThumb    :TMemDC;
+    vGraphics :TGPGraphics;
+//  vDimID    :TGUID;
+  begin
+    vThumb := nil;
+    try
+//    if ATask.FFrame > 0 then begin
+//      FillChar(vDimID, SizeOf(vDimID), 0);
+//      if vImage.GetFrameDimensionsList(@vDimID, 1) = Ok then
+//        vImage.SelectActiveFrame(vDimID, ATask.FFrame);
+//    end;
+
+      vThumb := TMemDC.Create(ASize.CX, ASize.CY);
+
+//    GradientFillRect(vThumb.FDC, Rect(0, 0, vSize.CX, vSize.CY), RandomColor, RandomColor, True);
+//    if ATask.FBackColor <> -1 then
+//      GradientFillRect(vThumb.DC, Rect(0, 0, vSize.CX, vSize.CY), ATask.FBackColor, ATask.FBackColor, True);
+
+      vGraphics := TGPGraphics.Create(vThumb.DC);
+      try
+        GDICheck(vGraphics.GetLastStatus);
+//      vGraphics.SetCompositingMode(CompositingModeSourceCopy);
+//      vGraphics.SetCompositingQuality(CompositingQualityHighSpeed);
+//      vGraphics.SetSmoothingMode(SmoothingModeHighQuality);
+
+//      if ATask.FFrame > 0 then
+//        vGraphics.SetInterpolationMode(InterpolationModeHighQuality);  ???
+
+       {$ifdef bTrace}
+        TraceBegF('Render %s, %d x %d (%d M)...', [AName, ASize.CX, ASize.CY, (ASize.CX * ASize.CY * 4) div (1024 * 1024)]);
+       {$endif bTrace}
+
+        vGraphics.DrawImage(AImage, MakeRect(0, 0, ASize.CX, ASize.CY), 0, 0, AImage.GetWidth, AImage.GetHeight, UnitPixel, nil, ACallback, ACallbackData);
+        GDICheck(vGraphics.GetLastStatus);
+
+       {$ifdef bTrace}
+        TraceEnd('  Ready');
+       {$endif bTrace}
+
+      finally
+        FreeObj(vGraphics);
+      end;
+
+      Result := vThumb;
+      vThumb := nil;
+
+    finally
+      FreeObj(vThumb);
+    end;
+  end;
+*)
+
+
+  type
+    PContextRec = ^TContextRec;
+    TContextRec = record
+      Callback :TDecodeCallback;
+      Data :Pointer;
+    end;
+
+
+  function MyGDIPlusCallback(AData :Pointer) :BOOL; stdcall;
+  var
+    vContinue :Boolean;
+  begin
+    vContinue := True;
+    with PContextRec(AData)^ do
+      if Assigned(Callback) then
+        Callback(Data, 0, vContinue);
+    Result := not vContinue;
+   {$ifdef bTrace}
+    if Result then
+      Trace('!Canceled');
+   {$endif bTrace}
+  end;
+
+
+  function GDIRender(const AName :TString; AImage :TGPImageEx; const ASize :TSize; const ACallback :TDecodeCallback; ACallbackData :Pointer) :TMemDC;
+  var
+    vThumb    :TMemDC;
+    vGraphics :TGPGraphics;
+//  vDimID    :TGUID;
+    vContext :TContextRec;
+  begin
+    vThumb := nil;
+    try
+//    if ATask.FFrame > 0 then begin
+//      FillChar(vDimID, SizeOf(vDimID), 0);
+//      if vImage.GetFrameDimensionsList(@vDimID, 1) = Ok then
+//        vImage.SelectActiveFrame(vDimID, ATask.FFrame);
+//    end;
+
+      vThumb := TMemDC.Create(ASize.CX, ASize.CY);
+
+//    GradientFillRect(vThumb.FDC, Rect(0, 0, vSize.CX, vSize.CY), RandomColor, RandomColor, True);
+//    if ATask.FBackColor <> -1 then
+//      GradientFillRect(vThumb.DC, Rect(0, 0, vSize.CX, vSize.CY), ATask.FBackColor, ATask.FBackColor, True);
+
+      vGraphics := TGPGraphics.Create(vThumb.DC);
+      try
+        GDICheck(vGraphics.GetLastStatus);
+//      vGraphics.SetCompositingMode(CompositingModeSourceCopy);
+//      vGraphics.SetCompositingQuality(CompositingQualityHighSpeed);
+//      vGraphics.SetSmoothingMode(SmoothingModeHighQuality);
+
+//      if ATask.FFrame > 0 then
+//        vGraphics.SetInterpolationMode(InterpolationModeHighQuality);  ???
+
+       {$ifdef bTrace}
+        TraceBegF('Render %s, %d x %d (%d M)...', [AName, ASize.CX, ASize.CY, (ASize.CX * ASize.CY * 4) div (1024 * 1024)]);
+       {$endif bTrace}
+
+        vContext.Callback := ACallback;
+        vContext.Data := ACallbackData;
+
+        vGraphics.DrawImage(AImage, MakeRect(0, 0, ASize.CX, ASize.CY), 0, 0, AImage.GetWidth, AImage.GetHeight, UnitPixel, nil, MyGDIPlusCallback, @vContext);
+        GDICheck(vGraphics.GetLastStatus);
+
+       {$ifdef bTrace}
+        TraceEnd('  Ready');
+       {$endif bTrace}
+
+      finally
+        FreeObj(vGraphics);
+      end;
+
+      Result := vThumb;
+      vThumb := nil;
+
+    finally
+      FreeObj(vThumb);
+    end;
+  end;
+
+ {-----------------------------------------------------------------------------}
+ { TRenderThread                                                               }
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bGDIAsync}
   type
     TTaskState = (
       tsNew,
@@ -271,7 +400,7 @@ interface
 
 
   type
-    TThumbnailThread = class(TThread)
+    TRenderThread = class(TThread)
     public
       constructor Create;
       destructor Destroy; override;
@@ -290,10 +419,12 @@ interface
       function DoTask :Boolean;
       procedure NextTask;
       procedure Render(ATask :TTask);
+      procedure MyDecodeCallback(ASender :Pointer; APercent :Integer; var AContinue :Boolean);
+
     end;
 
 
-  constructor TThumbnailThread.Create;
+  constructor TRenderThread.Create;
   begin
     FEvent := CreateEvent(nil, True, False, nil);
     InitializeCriticalSection(FTaskCS);
@@ -301,7 +432,7 @@ interface
   end;
 
 
-  destructor TThumbnailThread.Destroy; {override;}
+  destructor TRenderThread.Destroy; {override;}
   begin
     while FTask <> nil do
       NextTask;
@@ -311,7 +442,7 @@ interface
   end;
 
 
-  procedure TThumbnailThread.Execute;
+  procedure TRenderThread.Execute;
   var
     vRes :DWORD;
   begin
@@ -329,7 +460,7 @@ interface
   end;
 
 
-  function TThumbnailThread.DoTask :Boolean;
+  function TRenderThread.DoTask :Boolean;
   begin
     Result := False;
 
@@ -362,7 +493,7 @@ interface
   end;
 
 
-  procedure TThumbnailThread.NextTask;
+  procedure TRenderThread.NextTask;
   var
     vTask :TTask;
   begin
@@ -373,6 +504,7 @@ interface
   end;
 
 
+(*
   function ImageAbortProc(AData :Pointer) :BOOL; stdcall;
   begin
 //  TraceF('ImageAbort. State: %d', [Byte(TTask(AData).FState)]);
@@ -382,79 +514,39 @@ interface
       Trace('!Canceled');
    {$endif bTrace}
   end;
+*)
+
+  procedure TRenderThread.MyDecodeCallback(ASender :Pointer; APercent :Integer; var AContinue :Boolean);
+  begin
+    AContinue := TTask(ASender).FState <> tsCancelled;
+  end;
 
 
-  procedure TThumbnailThread.Render(ATask :TTask);
+  procedure TRenderThread.Render(ATask :TTask);
   var
-    vImage    :TGPImageEx;
-    vSize     :TSize;
-    vThumb    :TMemDC;
-    vGraphics :TGPGraphics;
-(*  vDimID    :TGUID; *)
-    vCallback :Pointer;
+    vImage :TGPImageEx;
   begin
     try
-      EnterCriticalSection(GDIPlusCS);
+      LockGDIPlus;
       try
-        vThumb := nil;
-        vSize := ATask.FSize;
         vImage := ATask.FImage;
         try
           if vImage = nil then begin
+            { Файл был освобожден (ReleaseSrcImage). Сейчас - не используется. }
             vImage := TGPImageEx.Create(ATask.FName);
             if vImage.GetLastStatus <> OK then
               AppError(strReadImageError);
           end;
 
-(*        if ATask.FFrame > 0 then begin
-            FillChar(vDimID, SizeOf(vDimID), 0);
-            if vImage.GetFrameDimensionsList(@vDimID, 1) = Ok then
-              vImage.SelectActiveFrame(vDimID, ATask.FFrame);
-          end;  *)
-
-          vThumb := TMemDC.Create(vSize.CX, vSize.CY);
-
-//        GradientFillRect(vThumb.FDC, Rect(0, 0, vSize.CX, vSize.CY), RandomColor, RandomColor, True);
-//        if ATask.FBackColor <> -1 then
-//          GradientFillRect(vThumb.DC, Rect(0, 0, vSize.CX, vSize.CY), ATask.FBackColor, ATask.FBackColor, True); 
-
-          vGraphics := TGPGraphics.Create(vThumb.DC);
-          try
-            GDICheck(vGraphics.GetLastStatus);
-//          vGraphics.SetCompositingMode(CompositingModeSourceCopy);
-//          vGraphics.SetCompositingQuality(CompositingQualityHighSpeed);
-//          vGraphics.SetSmoothingMode(SmoothingModeHighQuality);
-            if ATask.FFrame > 0 then
-              vGraphics.SetInterpolationMode(InterpolationModeHighQuality);
-
-           {$ifdef bTrace}
-            TraceBegF('Render %s, %d x %d (%d M)...', [ATask.FName, vSize.CX, vSize.CY, (vSize.CX * vSize.CY * 4) div (1024 * 1024)]);
-           {$endif bTrace}
-
-            vCallback := @ImageAbortProc;
-            vGraphics.DrawImage(vImage, MakeRect(0, 0, vSize.CX, vSize.CY), 0, 0, vImage.GetWidth, vImage.GetHeight, UnitPixel, nil, ImageAbort(vCallback), ATask);
-            GDICheck(vGraphics.GetLastStatus);
-
-           {$ifdef bTrace}
-            TraceEnd('  Ready');
-           {$endif bTrace}
-
-          finally
-            FreeObj(vGraphics);
-          end;
-
-          ATask.FThumb := vThumb;
-          vThumb := nil;
+          ATask.FThumb := GDIRender(ATask.FName, vImage, ATask.FSize, MyDecodeCallback, ATask);
 
         finally
           if vImage <> ATask.FImage then
             FreeObj(vImage);
-          FreeObj(vThumb);
         end;
       finally
-        LeaveCriticalSection(GDIPlusCS);
+        UnLockGDIPlus;
       end;
-
     except
       on E :Exception do
         ATask.FError := E.Message;
@@ -462,7 +554,7 @@ interface
   end;
 
 
-  procedure TThumbnailThread.AddTask(ATask :TTask);
+  procedure TRenderThread.AddTask(ATask :TTask);
   var
     vTask :TTask;
   begin
@@ -485,7 +577,7 @@ interface
   end;
 
 
-  function TThumbnailThread.CheckTask(ATask :TTask) :Boolean;
+  function TRenderThread.CheckTask(ATask :TTask) :Boolean;
   begin
     EnterCriticalSection(FTaskCS);
     try
@@ -496,7 +588,7 @@ interface
   end;
 
 
-  procedure TThumbnailThread.CancelTask(ATask :TTask);
+  procedure TRenderThread.CancelTask(ATask :TTask);
   begin
     EnterCriticalSection(FTaskCS);
     try
@@ -509,25 +601,26 @@ interface
 
 
   var
-    GThumbThread :TThumbnailThread;
+    GRenderThread :TRenderThread;
 
 
-  procedure InitThumbnailThread;
+  procedure InitRenderThread;
   begin
-    if GThumbThread = nil then
-      GThumbThread := TThumbnailThread.Create;
+    if GRenderThread = nil then
+      GRenderThread := TRenderThread.Create;
   end;
 
 
-  procedure DoneThumbnailThread;
+  procedure DoneRenderThread;
   begin
-    if GThumbThread <> nil then begin
-      GThumbThread.Terminate;
-      SetEvent(GThumbThread.FEvent);
-      GThumbThread.WaitFor;
-      FreeObj(GThumbThread);
+    if GRenderThread <> nil then begin
+      GRenderThread.Terminate;
+      SetEvent(GRenderThread.FEvent);
+      GRenderThread.WaitFor;
+      FreeObj(GRenderThread);
     end;
   end;
+ {$endif bGDIAsync}
 
 
  {-----------------------------------------------------------------------------}
@@ -550,7 +643,10 @@ interface
       function _Release :Integer;
 
       function InitThumbnail(ADX, ADY :Integer) :Boolean;
-      procedure DecodeImage(ADX, ADY :Integer);
+      procedure DecodeImage(ADX, ADY :Integer; const ACallback :TDecodeCallback; ACallbackData :Pointer);
+     {$ifdef bGDIAsync}
+      procedure DecodeImageAsync(ADX, ADY :Integer; ATimeout :Integer);
+     {$endif bGDIAsync}
       function SaveAs({const} ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean;
 
     private
@@ -571,10 +667,6 @@ interface
       FThumbImage  :TMemDC;       { Изображение, буферизированное как Bitmap }
       FThumbSize   :TSize;        { Размер Preview'шки }
       FIsThumbnail :Boolean;      { Это превью (thumbnail) }
-      FErrorMess   :TString;
-
-      FResizeStart :DWORD;        { Для поддержки фонового декодирования при масштабировании }
-      FResizeSize  :TSize;
 
       { Для поддержки анимированных изображений... }
       FFrames      :Integer;
@@ -583,21 +675,30 @@ interface
       FDelays      :PPropertyItem;
       FDimID       :TGUID;
 
+     {$ifdef bGDIAsync}
       { Поддержка фоновой декомпрессии картинок }
       FAsyncTask   :TTask;
       FFirstShow   :DWORD;
+      FErrorMess   :TString;
+
+      FResizeStart :DWORD;        { Для поддержки фонового декодирования при масштабировании }
+      FResizeSize  :TSize;
+     {$endif bGDIAsync}
 
       { Для поддержки Tag-ов }
       FStrTag      :TString;
       FInt64Tag    :Int64;
 
       procedure InitImageInfo;
+      procedure SetThumbnail(AThumb :TMemDC);
+     {$ifdef bGDIAsync}
       procedure SetAsyncTask(const ASize :TSize);
       function CheckAsyncTask :Boolean;
       procedure CancelTask;
       procedure TaskEvent(ASender :Tobject);
-      function TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
       function Idle(ACX, ACY :Integer) :Boolean;
+     {$endif bGDIAsync}
+      function TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
     end;
 
 
@@ -612,7 +713,9 @@ interface
   begin
 //  TraceF('%p TView.Destroy', [Pointer(Self)]);
 
+   {$ifdef bGDIAsync}
     CancelTask;
+   {$endif bGDIAsync}
     FreeObj(FThumbImage);
     MemFree(FDelays);
 
@@ -694,11 +797,26 @@ interface
       FImgSize := FSrcImage.GetImageSize;
       FPixels  := GetPixelFormatSize(FSrcImage.GetPixelFormat);
 
+     {$ifdef bGDIAsync}
       CancelTask;
       FreeObj(FThumbImage);
       FErrorMess := '';
+     {$endif bGDIAsync}
 
       FFrame := AIndex;
+    end;
+  end;
+
+
+  procedure TView.SetThumbnail(AThumb :TMemDC);
+  begin
+    if FThumbImage <> AThumb then begin
+      FreeObj(FThumbImage);
+      FThumbImage := AThumb;
+      if AThumb <> nil then begin
+        FThumbSize.cx := AThumb.Width;
+        FThumbSize.cy := AThumb.Height;
+      end;
     end;
   end;
 
@@ -707,11 +825,15 @@ interface
   var
     vThmImage :TGPImage;
     vGraphics :TGPGraphics;
+    vThumb :TMemDC;
   begin
     Result := False;
     if not IsEqualGUID(FFmtID, ImageFormatJPEG) then
       { Эскизы поддерживаются только(?) для JPEG... }
       Exit;
+
+    if FSrcImage.GetPropertyItemSize(PropertyTagThumbnailData) = 0 then
+      Exit; {Нет эскиза}
 
    {$ifdef bTrace}
     TraceBegF('GetThumbnail: %d x %d', [ADX, ADY]);
@@ -724,21 +846,25 @@ interface
     end;
 
     try
-      FThumbSize.cx := vThmImage.GetWidth;
-      FThumbSize.cy := vThmImage.GetHeight;
-      FIsThumbnail := True;
-
-      FThumbImage := TMemDC.Create(FThumbSize.cx, FThumbSize.cy);
-      vGraphics := TGPGraphics.Create(FThumbImage.DC);
+      vThumb := TMemDC.Create(vThmImage.GetWidth, vThmImage.GetHeight);
       try
-        vGraphics.DrawImage(vThmImage, 0, 0, FThumbSize.cx, FThumbSize.cy);
-      finally
-        vGraphics.Free;
-      end;
+        vGraphics := TGPGraphics.Create(vThumb.DC);
+        try
+          vGraphics.DrawImage(vThmImage, 0, 0, vThumb.Width, vThumb.Height);
+        finally
+          vGraphics.Free;
+        end;
 
-      Result := True;
+        SetThumbnail(vThumb);
+        FIsThumbnail := True;
+        Result := True;
+
+      except
+        vThumb.Free;
+        raise;
+      end;
     finally
-      FreeObj(vThmImage);
+      vThmImage.Free;
     end;
 
    {$ifdef bTrace}
@@ -747,31 +873,53 @@ interface
   end;
 
 
-  procedure TView.DecodeImage(ADX, ADY :Integer);
+  procedure TView.DecodeImage(ADX, ADY :Integer; const ACallback :TDecodeCallback; ACallbackData :Pointer);
   var
     vSize :TSize;
-    vDelay :Integer;
+    vThumb :TMemDC;
+  begin
+    vSize := FImgSize;
+    if (ADX > 0) and (ADY > 0) {and optUseWinSize При вызове} then
+//    CorrectBoundEx(vSize, Size(ADX, ADY));
+      vSize := Size(ADX, ADY);
+
+    LockGDIPlus;
+    try
+      vThumb := GDIRender(FSrcName, FSrcImage, vSize, ACallback, ACallbackData);
+    finally
+      UnlockGDIPlus;
+    end;
+
+    if vThumb <> nil then begin
+      SetThumbnail(vThumb);
+      FIsThumbnail := False;
+    end;
+  end;
+
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bGDIAsync}
+  procedure TView.DecodeImageAsync(ADX, ADY :Integer; ATimeout :Integer);
+  var
+    vSize :TSize;
     vStart :DWORD;
   begin
     vSize := FImgSize;
-    if (ADX > 0) and (ADY > 0) and optUseWinSize then
-      CorrectBoundEx(vSize, Size(ADX, ADY));
+    if (ADX > 0) and (ADY > 0) {and optUseWinSize При вызове} then
+//    CorrectBoundEx(vSize, Size(ADX, ADY));
+      vSize := Size(ADX, ADY);
 
     SetAsyncTask(vSize);
 
-    vDelay := IntIf(FThumbImage <> nil, DecodeWaitDelay, MaxInt);
-
     vStart := GetTickCount;
-    while not CheckAsyncTask and (TickCountDiff(GetTickCount, vStart) < vDelay) do
+    while not CheckAsyncTask and (TickCountDiff(GetTickCount, vStart) < ATimeout) do
       Sleep(1);
   end;
 
 
- {-----------------------------------------------------------------------------}
-
   procedure TView.SetAsyncTask(const ASize :TSize);
   begin
-    InitThumbnailThread;
+    InitRenderThread;
 //  TraceF('SetAsyncTask %s...', [ExtractFileName(FSrcName)]);
 
     FAsyncTask := TTask.CreateEx(FSrcImage, FSrcName, FFrame, ASize);
@@ -780,7 +928,7 @@ interface
     FAsyncTask.FOnTask := TaskEvent;
     FAsyncTask._AddRef;
 
-    GThumbThread.AddTask(FAsyncTask);
+    GRenderThread.AddTask(FAsyncTask);
   end;
 
 
@@ -788,17 +936,12 @@ interface
   begin
     Result := False;
     if FAsyncTask <> nil then begin
-      if GThumbThread.CheckTask(FAsyncTask) then begin
-
+      if GRenderThread.CheckTask(FAsyncTask) then begin
         if FAsyncTask.FThumb <> nil then begin
-          FreeObj(FThumbImage);
-          FThumbImage := FAsyncTask.FThumb;
+          SetThumbnail(FAsyncTask.FThumb);
+          FIsThumbnail := False;
         end;
-
-        FThumbSize   := FAsyncTask.FSize;
         FErrorMess   := FAsyncTask.FError;
-        FIsThumbnail := False;
-
         FAsyncTask.FThumb := nil;
         FAsyncTask._Release;
         FAsyncTask := nil;
@@ -813,7 +956,7 @@ interface
     Assert(ValidInstance);
     if FAsyncTask <> nil then begin
 //    TraceF('CancelTask %s...', [FSrcName]);
-      GThumbThread.CancelTask(FAsyncTask);
+      GRenderThread.CancelTask(FAsyncTask);
       FAsyncTask._Release;
       FAsyncTask := nil;
     end;
@@ -824,6 +967,7 @@ interface
   begin
 //  TraceF('TaskEvent %d...', [Byte(FAsyncTask.FState)]);
   end;
+ {$endif bGDIAsync}
 
 
  {-----------------------------------------------------------------------------}
@@ -905,7 +1049,7 @@ interface
       if GetEncoderClsid(vMimeType, vEncoderID) = -1 then
         AppErrorFmt(strNoEncoderFor, [AFmtName]);
 
-      EnterCriticalSection(GDIPlusCS);
+      LockGDIPlus;
       try
         if FFrames = 1 then
           ReleaseSrcImage;
@@ -1010,7 +1154,7 @@ interface
         Result := True;
 
       finally
-        LeaveCriticalSection(GDIPlusCS);
+        UnLockGDIPlus;
       end;
 
     except
@@ -1106,6 +1250,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+ {$ifdef bGDIAsync}
   function TView.Idle(ACX, ACY :Integer) :Boolean;
   begin
     Result := False;
@@ -1137,6 +1282,7 @@ interface
       { Если в настоящий момент показывается эскиз (и не продолжается быстрое листание), то запускаем задание на декодирование, если еще нет }
       SetAsyncTask( Size(ACX, ACY) );
   end;
+ {$endif bGDIAsync}
 
 
  {-----------------------------------------------------------------------------}
@@ -1180,7 +1326,9 @@ interface
 
   destructor TReviewGDIDecoder.Destroy; {override;}
   begin
-    DoneThumbnailThread;
+   {$ifdef bGDIAsync}
+    DoneRenderThread;
+   {$endif bGDIAsync}
     inherited Destroy;
   end;
 
@@ -1211,13 +1359,13 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function TReviewGDIDecoder.pvdFileOpen(AImage :TReviewImageRec) :Boolean; {override;}
+  function TReviewGDIDecoder.pvdFileOpen(const AFileName :TString; AImage :TReviewImageRec) :Boolean; {override;}
   var
     vView :TView;
   begin
     Result := False;
 
-    vView := CreateView(AImage.FName);
+    vView := CreateView(AFileName);
 
     if vView <> nil then begin
       AImage.FFormat := vView.FFmtName;
@@ -1254,16 +1402,25 @@ interface
   end;
 
 
-  function TReviewGDIDecoder.pvdPageDecode(AImage :TReviewImageRec; ABkColor :Integer; AWidth, AHeight :Integer; AFastScroll :Boolean) :Boolean; {override;}
+  function TReviewGDIDecoder.pvdPageDecode(AImage :TReviewImageRec; AWidth, AHeight :Integer; AMode :TDecodeMode;
+    const ACallback :TDecodeCallback = nil; ACallbackData :Pointer = nil) :Boolean; {override;}
   begin
     with TView(AImage.FContext) do begin
-      FBkColor  := ABkColor;
+      Result := False;
 
-      if optUseThumbnail = not (GetKeyState(VK_Shift) < 0) then
+      FBkColor  := 0 {ABkColor};
+      if AMode <> dmImage then
         InitThumbnail(0, 0 {cThumbSize, cThumbSize} );
+      if (FThumbImage = nil) and (AMode = dmThumbnail) then
+        Exit;
 
-      if not AFastScroll or (FThumbImage = nil) then
-        DecodeImage(AWidth, AHeight);
+      if FThumbImage = nil then
+        DecodeImage(AWidth, AHeight, ACallback, ACallbackData)
+     {$ifdef bGDIAsync}
+      else
+        if AMode = doAsyncExtract then
+          DecodeImageAsync(AWidth, AHeight, DecodeWaitDelay)
+     {$endif bGDIAsync};
 
       AImage.FWidth := FImgSize.cx;
       AImage.FHeight := FImgSize.cy;
@@ -1276,10 +1433,28 @@ interface
 //      { Освобождаем файл. При необходимости повторного декодирования он откроется заново. }
 //      ReleaseSrcImage;
 
+     {$ifdef bGDIAsync}
       FFirstShow  := 0;
+     {$endif bGDIAsync}
       Result := FThumbImage <> nil;
     end;
   end;
+
+
+  function TReviewGDIDecoder.GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; {override;}
+  begin
+    with TView(AImage.FContext) do begin
+     {$ifdef bGDIAsync}
+      CheckAsyncTask;
+     {$endif bGDIAsync}
+      Result := 0;
+      if FThumbImage <> nil then
+        Result := FThumbImage.ReleaseBitmap;
+      FreeObj(FThumbImage);
+      aIsThumbnail := FIsThumbnail;
+    end;
+  end;
+
 
 
   procedure TReviewGDIDecoder.pvdPageFree(AImage :TReviewImageRec); {override;}
@@ -1307,22 +1482,12 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function TReviewGDIDecoder.GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; {override;}
-  begin
-    with TView(AImage.FContext) do begin
-      CheckAsyncTask;
-      Result := 0;
-      if FThumbImage <> nil then
-        Result := FThumbImage.ReleaseBitmap;
-      aIsThumbnail := FIsThumbnail;
-    end;
-  end;
-
-
+ {$ifdef bGDIAsync}
   function TReviewGDIDecoder.Idle(AImage :TReviewImageRec; ACX, ACY :Integer) :Boolean; {override;}
   begin
     Result := TView(AImage.FContext).Idle(ACX, ACY);
   end;
+ {$endif bGDIAsync}
 
 
   function TReviewGDIDecoder.Save(AImage :TReviewImageRec; const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean; {override;}

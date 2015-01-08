@@ -44,12 +44,13 @@ interface
     private
       FDC :HDC;
       FBMP, FBMP0 :HBitmap;
-      FWidth, FHeight :Integer;
+      FSize :TSize;
 
     public
       property DC :HDC read FDC;
-      property Width :Integer read FWidth;
-      property Height :Integer read FHeight;
+      property Size :TSize read FSize;
+      property Width :Integer read FSize.CX;
+      property Height :Integer read FSize.CY;
     end;
 
 
@@ -59,14 +60,22 @@ interface
       constructor CreateEx(aWidth, aHeight, aBPP, aRowBytes :Integer; aData, aPalette :Pointer; aModel :byte; aTransp :DWORD);
       destructor Destroy; override;
 
+      procedure FreeHandles;
+      procedure AllocHandles;
+
       procedure Transform(AOrient :Integer);
+      procedure ReScaleAlpha;
 
     private
       FDC    :HDC;
       FBMP   :HBitmap;
       FBMP0  :HBitmap;
       FSize  :TSize;
+      FBPP   :Integer;
       FOwn   :Boolean;
+      FMem   :Pointer;    { Битмап в памяти, после освобождения Handle }
+
+      procedure DestroyHandles;
 
     public
       property DC :HDC read FDC;
@@ -75,8 +84,13 @@ interface
     end;
 
 
+  function CreateBitmapAs(aWidth, aHeight, aBPP, aRowBytes :Integer; aData, aPalette :Pointer; aModel :byte; aTransp :DWORD) :HBitmap;
+  function RescaleBitmapAlpha(ABitmap :THandle) :THandle;
+  function ResizeBitmap(ABitmap :THandle; ACX, ACY :Integer; Alpha :Boolean) :THandle;
+
   function ScreenBitPerPixel :Integer;
   function GetBitmapSize(ABmp :THandle) :TSize;
+  function GetBitmapSizeEx(ABmp :THandle; var ASize :TSize; var ABPP :Integer) :Boolean;
 
   procedure GDIAlhaBlend(ADC :HDC; const ADstRect :TRect; ASrcDC :HDC; const ASrcRect :TRect; ASrcAlpha :Boolean = True; ATransp :Integer = 255);
   procedure GDIBitBlt(ADC :HDC; const ADstRect :TRect; ASrcDC :HDC; const ASrcRect :TRect; Alpha :Boolean);
@@ -85,6 +99,7 @@ interface
   procedure GpStretchDraw(ADC :HDC; const ADstRect :TRect; ASrcBmp :HBitmap; const ASrcRect :TRect; Alpha :Boolean; ASmooth :Boolean);
 
   procedure GdiFillRect(ADC :HDC; const ARect :TRect; AColor :COLORREF);
+  procedure GdiFillRect2(ADC :HDC; const ARect :TRect; AColor, APenColor :COLORREF);
   procedure GdiFillRectTransp(ADC :HDC; const ARect :TRect; AColor :COLORREF; ATransp :Integer = 255);
   procedure GpFillRectTransp(ADC :HDC; const ARect :TRect; AColor :COLORREF; ATransp :Integer = 255);
 
@@ -98,6 +113,9 @@ interface
   function GetImgFmtName(AGUID :TGUID) :TString;
   function GetImagePropName(id :ULONG) :TString;
 
+ {$ifdef bTrace}
+  procedure TraceExifProps(AImage :TGPImage);
+ {$endif bTrace}
   function GetTagValueAsStr(AImage :TGPImage; AID :ULONG; var AValue :TString) :Boolean;
   function GetTagValueAsInt(AImage :TGPImage; AID :ULONG; var AValue :Integer) :Boolean;
   function GetTagValueAsInt64(AImage :TGPImage; AID :ULONG; var AValue :Int64) :Boolean;
@@ -137,6 +155,29 @@ interface
     finally
       ReleaseDC(0, vDC);
     end;
+  end;
+
+
+
+  function GetBitmapSizeEx(ABmp :THandle; var ASize :TSize; var ABPP :Integer) :Boolean;
+  var
+    vBuf :TBitmap;
+  begin
+    Result := False;
+    if GetObject(ABmp, SizeOf(vBuf), @vBuf) = SizeOf(vBuf) then begin
+      ASize := Size(vBuf.bmWidth, vBuf.bmHeight);
+      ABPP := vBuf.bmBitsPixel;
+      Result := True;
+    end;
+  end;
+
+
+  function GetBitmapSize(ABmp :THandle) :TSize;
+  var
+    vBPP :Integer;
+  begin
+    Result := Size(0,0);
+    GetBitmapSizeEx(ABmp, Result, vBPP);
   end;
 
 
@@ -249,8 +290,7 @@ interface
   constructor TMemDC.Create(W, H :Integer);
   begin
     FBMP := CreateScreenCompatibleBitmap(W, H);
-    FWidth := W;
-    FHeight := H;
+    FSize := MixStrings.Size(W, H);
 
     FDC := CreateCompatibleDC(0);
     FBMP0 := SelectObject(FDC, FBmp);
@@ -285,7 +325,7 @@ interface
   begin
     FBMP := aBMP;
     FOwn := AOwn;
-    FSize := GetBitmapSize(aBMP);
+    GetBitmapSizeEx(aBMP, FSize, FBPP);
 
     FDC := CreateCompatibleDC(0);
     FBMP0 := SelectObject(FDC, FBMP);
@@ -307,14 +347,99 @@ interface
 
   destructor TReviewBitmap.Destroy; {override;}
   begin
-    if FBMP0 <> 0 then
-      SelectObject(FDC, FBMP0);
-    if FOwn and (FBMP <> 0) then
-      DeleteObject(FBMP);
-    if FDC <> 0 then
-      DeleteDC(FDC);
+    DestroyHandles;
+    MemFree(FMem);
     inherited Destroy;
   end;
+
+
+  procedure TReviewBitmap.DestroyHandles;
+  begin
+    if FBMP0 <> 0 then begin
+      SelectObject(FDC, FBMP0);
+      FBMP0 := 0;
+    end;
+    if FDC <> 0 then begin
+      DeleteDC(FDC);
+      FDC := 0
+    end;
+    if (FBMP <> 0) and FOwn then begin
+      DeleteObject(FBMP);
+      FBMP := 0;
+    end;
+  end;
+
+
+  procedure TReviewBitmap.FreeHandles;
+  var
+    vSize :Integer;
+    vInfo :TBitmapInfo;
+    vPtr :Pointer;
+  begin
+    if FBMP = 0 then
+      Exit;
+
+    FillChar(vInfo, SizeOf(vInfo), 0);
+    vInfo.bmiHeader.biSize := sizeof(vInfo.bmiHeader);
+    vInfo.bmiHeader.biWidth := FSize.CX;
+    vInfo.bmiHeader.biHeight := FSize.CY;
+    vInfo.bmiHeader.biPlanes := 1;
+    vInfo.bmiHeader.biBitCount := FBPP;
+    if GetDIBits(FDC, FBMP, 0, FSize.CY, nil, vInfo, DIB_RGB_COLORS) = 0 then
+      ApiCheck(False);
+
+    vSize := FSize.CX * FSize.CY * 4;
+    vPtr := MemAlloc(vSize);
+    try
+      if GetDIBits(FDC, FBMP, 0, FSize.CY, vPtr, vInfo, DIB_RGB_COLORS) = 0 then
+        ApiCheck(False);
+
+      FMEM := vPtr;
+
+      DestroyHandles;
+
+    except
+      MemFree(vPtr);
+      raise;
+    end;
+  end;
+
+
+  procedure TReviewBitmap.AllocHandles;
+  var
+    vNewBmp :HBitmap;
+    vInfo :TBitmapInfo;
+  begin
+    if FMem = nil then
+      Exit;
+
+//  Trace('AllocHandles %p', [Pointer(Self)]);
+
+    vNewBmp := CreateScreenCompatibleBitmap(FSize.CX, FSize.CY);
+    try
+      FillChar(vInfo, SizeOf(vInfo), 0);
+      vInfo.bmiHeader.biSize := sizeof(vInfo.bmiHeader);
+      vInfo.bmiHeader.biWidth := FSize.CX;
+      vInfo.bmiHeader.biHeight := FSize.CY;
+      vInfo.bmiHeader.biPlanes := 1;
+      vInfo.bmiHeader.biBitCount := FBPP;
+      if SetDIBits(0, vNewBmp, 0, FSize.CY, FMem, vInfo, DIB_RGB_COLORS) = 0 then
+        ApiCheck(False);
+
+      FBMP := vNewBmp;
+      FOwn := True;
+
+      MemFree(FMem);
+
+      FDC := CreateCompatibleDC(0);
+      FBMP0 := SelectObject(FDC, FBMP);
+
+    except
+      DeleteObject(vNewBmp);
+      raise;
+    end;
+  end;
+
 
 
   procedure TReviewBitmap.Transform(AOrient :Integer);
@@ -376,8 +501,10 @@ interface
 
         vNewBmp := CreateScreenCompatibleBitmap(vWidth1, vHeight1);
         if SelectObject(FDC, vNewBmp) <> 0 then begin
-          DeleteObject(FBMP);
+          if FOwn then
+            DeleteObject(FBMP);
           FBMP := vNewBmp;
+          FOwn := True;
 
           with vInfo.bmiHeader do begin
             biSize := sizeof(vInfo.bmiHeader);
@@ -404,20 +531,264 @@ interface
   end;
 
 
+(*
+  procedure TReviewBitmap.ReScaleAlpha;
+  var
+    vSize :Integer;
+    vInfo :TBitmapInfo;
+    vPtr :Pointer;
+    vNewBmp :HBitmap;
+  begin
+    FillChar(vInfo, SizeOf(vInfo), 0);
+    vInfo.bmiHeader.biSize := sizeof(vInfo.bmiHeader);
+    if GetDIBits(FDC, FBMP, 0, FSize.CY, nil, vInfo, DIB_RGB_COLORS) = 0 then
+      ApiCheck(False);
+
+    vSize := FSize.CX * FSize.CY * 4;
+    vPtr := MemAlloc(vSize);
+    try
+      FillChar(vInfo, SizeOf(vInfo), 0);
+      with vInfo.bmiHeader do begin
+        biSize := sizeof(vInfo.bmiHeader);
+        biWidth := FSize.CX;
+        biHeight := FSize.CY;
+        biPlanes := 1;
+        biBitCount := 32;
+        biCompression := BI_RGB;
+      end;
+      if GetDIBits(FDC, FBMP, 0, FSize.CY, vPtr, vInfo, DIB_RGB_COLORS) = 0 then
+        ApiCheck(False);
+
+      ScaleAlpha(vPtr, FSize.CX, FSize.Cy);
+
+      vNewBmp := CreateScreenCompatibleBitmap(FSize.CX, FSize.CY);
+      if SelectObject(FDC, vNewBmp) <> 0 then begin
+        if FOwn then
+          DeleteObject(FBMP);
+        FBMP := vNewBmp;
+        FOwn := True;
+
+        with vInfo.bmiHeader do begin
+          biSize := sizeof(vInfo.bmiHeader);
+          biWidth := FSize.CX;
+          biHeight := FSize.CY;
+          biPlanes := 1;
+          biBitCount := 32;
+          biCompression := BI_RGB;
+        end;
+        SetDIBits(0, FBMP, 0, FSize.CY, vPtr, vInfo, DIB_RGB_COLORS);
+      end else
+        DeleteObject(vNewBMP);
+
+    finally
+      MemFree(vPtr);
+    end;
+  end;
+*)
+
+(*
+  procedure TReviewBitmap.ReScaleAlpha;
+  var
+    vSize :Integer;
+    vInfo :TBitmapInfo;
+    vPtr :Pointer;
+    vNewBmp :HBitmap;
+  begin
+    FillChar(vInfo, SizeOf(vInfo), 0);
+    vInfo.bmiHeader.biSize := sizeof(vInfo.bmiHeader);
+    if GetDIBits(FDC, FBMP, 0, FSize.CY, nil, vInfo, DIB_RGB_COLORS) = 0 then
+      ApiCheck(False);
+
+    vSize := FSize.CX * FSize.CY * 4;
+    vPtr := MemAlloc(vSize);
+    try
+      FillChar(vInfo, SizeOf(vInfo), 0);
+      with vInfo.bmiHeader do begin
+        biSize := sizeof(vInfo.bmiHeader);
+        biWidth := FSize.CX;
+        biHeight := FSize.CY;
+        biPlanes := 1;
+        biBitCount := 32;
+        biCompression := BI_RGB;
+      end;
+      if GetDIBits(FDC, FBMP, 0, FSize.CY, vPtr, vInfo, DIB_RGB_COLORS) = 0 then
+        ApiCheck(False);
+
+      ScaleAlpha(vPtr, FSize.CX, FSize.Cy);
+
+      vNewBmp := CreateScreenCompatibleBitmap(FSize.CX, FSize.CY);
+      FillChar(vInfo, SizeOf(vInfo), 0);
+      with vInfo.bmiHeader do begin
+        biSize := sizeof(vInfo.bmiHeader);
+        biWidth := FSize.CX;
+        biHeight := FSize.CY;
+        biPlanes := 1;
+        biBitCount := 32;
+        biCompression := BI_RGB;
+      end;
+      if SetDIBits(0, FBMP, 0, FSize.CY, vPtr, vInfo, DIB_RGB_COLORS) = 0 then
+        NOP;
+
+      if SelectObject(FDC, vNewBmp) <> 0 then begin
+        if FOwn then
+          DeleteObject(FBMP);
+        FBMP := vNewBmp;
+        FOwn := True;
+      end else
+        DeleteObject(vNewBMP);
+
+    finally
+      MemFree(vPtr);
+    end;
+  end;
+*)
+
+  procedure TReviewBitmap.ReScaleAlpha;
+  var
+    vSize :Integer;
+    vInfo :TBitmapInfo;
+    vPtr :Pointer;
+    vNewBmp :HBitmap;
+  begin
+//  Exit;
+    
+    FillChar(vInfo, SizeOf(vInfo), 0);
+    vInfo.bmiHeader.biSize := sizeof(vInfo.bmiHeader);
+    vInfo.bmiHeader.biWidth := FSize.CX;
+    vInfo.bmiHeader.biHeight := FSize.CY;
+    vInfo.bmiHeader.biPlanes := 1;
+    vInfo.bmiHeader.biBitCount := FBPP;
+    if GetDIBits(FDC, FBMP, 0, FSize.CY, nil, vInfo, DIB_RGB_COLORS) = 0 then
+      ApiCheck(False);
+
+    vSize := FSize.CX * FSize.CY * 4;
+    vPtr := MemAlloc(vSize);
+    try
+      if GetDIBits(FDC, FBMP, 0, FSize.CY, vPtr, vInfo, DIB_RGB_COLORS) = 0 then
+        ApiCheck(False);
+
+      ScaleAlpha(vPtr, FSize.CX, FSize.Cy);
+
+      vNewBmp := CreateScreenCompatibleBitmap(FSize.CX, FSize.CY);
+      if SetDIBits(0, vNewBmp, 0, FSize.CY, vPtr, vInfo, DIB_RGB_COLORS) = 0 then
+        NOP;
+
+      if SelectObject(FDC, vNewBmp) <> 0 then begin
+        if FOwn then
+          DeleteObject(FBMP);
+        FBMP := vNewBmp;
+        FOwn := True;
+      end else
+        DeleteObject(vNewBMP);
+
+    finally
+      MemFree(vPtr);
+    end;
+  end;
+
+
+  function RescaleBitmapAlpha(ABitmap :THandle) :THandle;
+  var
+    vDC :HDC;
+    vSize :TSize;
+    vBPP :Integer;
+    vMemSize :Integer;
+    vPtr :Pointer;
+    vInfo :TBitmapInfo;
+    vNewBMP :THandle;
+  begin
+    Result := 0;
+    if not GetBitmapSizeEx(ABitmap, vSize, vBPP) then
+      Exit;
+
+    vDC := GetDC(0);
+    try
+      FillChar(vInfo, SizeOf(vInfo), 0);
+      vInfo.bmiHeader.biSize := sizeof(vInfo.bmiHeader);
+      vInfo.bmiHeader.biWidth := vSize.CX;
+      vInfo.bmiHeader.biHeight := vSize.CY;
+      vInfo.bmiHeader.biPlanes := 1;
+      vInfo.bmiHeader.biBitCount := vBPP;
+      if GetDIBits(vDC, ABitmap, 0, vSize.CY, nil, vInfo, DIB_RGB_COLORS) = 0 then
+        Exit;
+
+      vMemSize := vSize.CX * vSize.CY * 4;
+      vPtr := MemAlloc(vMemSize);
+      try
+        if GetDIBits(vDC, ABitmap, 0, vSize.CY, vPtr, vInfo, DIB_RGB_COLORS) = 0 then
+          Exit;
+
+        ScaleAlpha(vPtr, vSize.CX, vSize.Cy);
+
+        vNewBMP := CreateCompatibleBitmap(vDC, vSize.CX, vSize.CY);
+        if vNewBMP = 0 then
+          Exit;
+        if SetDIBits(0, vNewBMP, 0, vSize.CY, vPtr, vInfo, DIB_RGB_COLORS) = 0 then
+          begin DeleteObject(vNewBMP); Exit; end;
+
+        Result := vNewBMP;
+
+      finally
+        MemFree(vPtr);
+      end;
+    finally
+      ReleaseDC(0, vDC);
+    end;
+  end;
+
+(*
+  function ResizeBitmap(ABitmap :THandle; ACX, ACY :Integer; Alpha :Boolean) :THandle;
+  var
+    vBMP :TReviewBitmap;
+    vMemDC :TMemDC;
+  begin
+    vBMP := TReviewBitmap.Create1(ABitmap, False);
+    try
+      vMemDC := TMemDC.Create(ACX, ACY);
+      try
+        if Alpha then
+          GPStretchDraw(vMemDC.DC, Rect(0, 0, ACX, ACY), vBMP.DC, Rect(0, 0, vBMP.Size.CX, vBMP.Size.CY), Alpha, True{???});
+        else
+          GDIStretchDraw(vMemDC.DC, Rect(0, 0, ACX, ACY), vBMP.DC, Rect(0, 0, vBMP.Size.CX, vBMP.Size.CY), Alpha, True{???});
+
+        Result := vMemDC.ReleaseBitmap;
+      finally
+        FreeObj(vMemDC);
+      end;
+    finally
+      FreeObj(vBMP);
+    end;
+  end;
+*)
+  function ResizeBitmap(ABitmap :THandle; ACX, ACY :Integer; Alpha :Boolean) :THandle;
+  var
+    vBMP :TReviewBitmap;
+    vMemDC :TMemDC;
+  begin
+    vMemDC := TMemDC.Create(ACX, ACY);
+    try
+      if Alpha then begin
+        with GetBitmapSize(ABitmap) do
+          GPStretchDraw(vMemDC.DC, Rect(0, 0, ACX, ACY), ABitmap, Rect(0, 0, CX, CY), Alpha, {ASmooth:}True);
+      end else
+      begin
+        vBMP := TReviewBitmap.Create1(ABitmap, False);
+        try
+          GDIStretchDraw(vMemDC.DC, Rect(0, 0, ACX, ACY), vBMP.DC, Rect(0, 0, vBMP.Size.CX, vBMP.Size.CY), Alpha, {ASmooth:}True);
+        finally
+          FreeObj(vBMP);
+        end;
+      end;
+      Result := vMemDC.ReleaseBitmap;
+    finally
+      FreeObj(vMemDC);
+    end;
+  end;
+
+
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
-
-  function GetBitmapSize(ABmp :THandle) :TSize;
-  var
-    vBuf :TBitmap;
-  begin
-    if GetObject(ABmp, SizeOf(vBuf), @vBuf) = SizeOf(vBuf) then
-      Result := Size(vBuf.bmWidth, vBuf.bmHeight)
-    else
-      Result := Size(0,0);
-  end;
-
 
   procedure GDIAlhaBlend(ADC :HDC; const ADstRect :TRect; ASrcDC :HDC; const ASrcRect :TRect; ASrcAlpha :Boolean = True; ATransp :Integer = 255);
   const
@@ -682,6 +1053,17 @@ interface
     finally
       DeleteObject(vBrush);
     end;
+  end;
+
+
+  procedure GdiFillRect2(ADC :HDC; const ARect :TRect; AColor, APenColor :COLORREF);
+  begin
+    SelectObject(ADC, GetStockObject(DC_BRUSH));
+    SetDCBrushColor(ADC, AColor);
+    SelectObject(ADC, GetStockObject(DC_PEN));
+    SetDCPenColor(ADC, APenColor);
+    with ARect do
+      Rectangle(ADC, Left, Top, Right, Bottom);
   end;
 
 
@@ -1105,7 +1487,8 @@ interface
   end;
 
 
-(*
+
+ {$ifdef bTrace}
   procedure TraceExifProps(AImage :TGPImage);
   var
     I :Integer;
@@ -1143,7 +1526,7 @@ interface
             vValue := '???';
 
           if (vName <> '') {and (vValue <> '')} then
-            TraceF('Prop: %s = %s', [ vName, vValue ]);
+            TraceF('Prop%x: %s = %s', [vItem.id, vName, vValue ]);
 
           Inc(PChar(vItem), SizeOf(TPropertyItem));
         end;
@@ -1153,7 +1536,8 @@ interface
       end;
     end;
   end;
-*)
+ {$endif bTrace}
+
 
   function GetTagValueAsStr(AImage :TGPImage; AID :ULONG; var AValue :TString) :Boolean;
   var

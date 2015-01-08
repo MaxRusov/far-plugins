@@ -15,6 +15,7 @@ interface
 
   uses
     Windows,
+    ActiveX,
     MultiMon,
     Messages,
     MixTypes,
@@ -54,8 +55,8 @@ interface
     CM_TempMsg      = $B008;
     CM_SlideShow    = $B009;
     CM_ReleaseImage = $B00A;
-
-    cPreCacheLimit = 128 * 1024 * 1024;  //???
+    CM_RenderImage  = $B00B;
+    CM_Select       = $B00C;
 
   const
     cScaleStep   = 1.01;
@@ -90,10 +91,13 @@ interface
     );
 
   type
-    TReviewWindow = class;
+    TImageWindow = class;
     TReviewWinThread = class;
     TReviewImage = class;
     TReviewManager = class;
+
+    TReviewWindow = class;
+    TReviewWindowClass = class of TReviewWindow;
 
 
     PSetImageRec = ^TSetImageRec;
@@ -104,6 +108,29 @@ interface
       Direct  :Integer;
     end;
 
+    TCmdObject = class(TStrList)
+    public
+      constructor Create(ACmd :Integer; const AStr :TString); overload;
+      procedure Execute; virtual; abstract;
+
+    protected
+      FCommand  :Integer;
+    end;
+
+    TReviewWinThread = class(TThread)
+    public
+      constructor Create(aClass :TReviewWindowClass);
+      procedure Execute; override;
+
+    private
+      FWinClass :TReviewWindowClass;
+      FWindow   :TReviewWindow;
+
+    public
+      property Window :TReviewWindow read FWindow;
+    end;
+
+
     TFullscreenWindow = class(TMSWindow)
     protected
       procedure CreateParams(var AParams :TCreateParams); override;
@@ -111,45 +138,95 @@ interface
       procedure HideWindow;
     end;
 
+
     TReviewWindow = class(TMSWindow)
+    public
+      destructor Destroy; override;
+
+      procedure ShowWindow;
+      procedure HideWindow;
+      procedure SetWindowBounds(const aRect :TRect);
+
+    protected
+      procedure CreateParams(var AParams :TCreateParams); override;
+      procedure PaintWindow(DC :HDC); virtual; abstract;
+      function Idle :Boolean; virtual;
+
+    protected
+      FWinBPP       :Integer;
+      FWinMode      :TWinMode;
+      FWinRect      :TRect;
+
+      FColor        :Integer;
+      FBrush        :HBrush;
+
+      FParentRect   :TRect;
+      FLastArea     :Integer;
+      FClipped      :Boolean;
+      FClipStart    :DWORD;
+
+      FNeedSync     :Boolean;
+      FSyncStart    :DWORD;
+      FSyncCmd      :Integer;
+      FSyncDelay    :Integer;
+
+      FTempMsg      :TString;
+      FMsgStart     :DWORD;
+      FMsgDelay     :Integer;
+
+      FFullScreenWin :TFullscreenWindow;
+
+      procedure SetColor(AColor :Integer);
+      function CalcWinRect :TRect;
+      procedure SetWinMode(AMode :TWinMode);
+      procedure SetFullscreen(AOn :Boolean);
+      function GetMousePos :TPoint;
+      procedure SetTempMsg(const AMsg :TString; aInvalidate :Boolean = True);
+      procedure InvalidateMsgRect;
+      procedure DrawTempText(DC :HDC; const AStr :TString);
+
+//    procedure WMNCHitTest(var Mess :TWMNCHitTest); message WM_NCHitTest;
+      procedure WMMouseActivate(var Mess :TWMMouseActivate); message WM_MouseActivate;
+      procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
+      procedure WMPaint(var Mess :TWMPaint); message WM_Paint;
+      procedure CMSetMode(var Mess :TMessage); message CM_SetMode;
+      procedure CMSetWinPos(var Mess :TMessage); message CM_SetWinPos;
+      procedure CMSetVisible(var Mess :TMessage); message CM_SetVisible;
+      procedure CMSync(var Mess :TMessage); message CM_Sync;
+
+    public
+      property WinMode :TWinMode read FWinMode;
+    end;
+
+
+    TImageWindow = class(TReviewWindow)
     public
       constructor Create; override;
       destructor Destroy; override;
 
-      function Idle :Boolean;
-
     protected
-      procedure CreateParams(var AParams :TCreateParams); override;
+      procedure PaintWindow(DC :HDC); override;
+      function Idle :Boolean; override;
+
       procedure CMSetImage(var Mess :TMessage); message CM_SetImage;
       procedure CMReleaseImage(var Mess :TMessage); message CM_ReleaseImage;
       procedure CMTransform(var Mess :TMessage); message CM_Transform;
-      procedure CMSetWinPos(var Mess :TMessage); message CM_SetWinPos;
-      procedure CMSetVisible(var Mess :TMessage); message CM_SetVisible;
-      procedure CMSetMode(var Mess :TMessage); message CM_SetMode;
       procedure CMMove(var Mess :TMessage); message CM_Move;
       procedure CMScale(var Mess :TMessage); message CM_Scale;
-      procedure CMSync(var Mess :TMessage); message CM_Sync;
       procedure CMSlideShow(var Mess :TMessage); message CM_SlideShow;
       procedure CMTempMsg(var Mess :TMessage); message CM_TempMsg;
-//    procedure WMNCHitTest(var Mess :TWMNCHitTest); message WM_NCHitTest;
-      procedure WMMouseActivate(var Mess :TWMMouseActivate); message WM_MouseActivate;
+      procedure WMShowWindow(var Mess :TWMShowWindow); message WM_ShowWindow;
       procedure WMSize(var Mess :TWMSize); message WM_Size;
-      procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
-      procedure WMPaint(var Mess :TWMPaint); message WM_Paint;
       procedure WMKeyDown(var Mess :TWMKeyDown); message WM_KeyDown;
       procedure WMLButtonDown(var Mess :TWMLButtonDown); message WM_LButtonDown;
+      procedure WMRButtonDown(var Mess :TWMLButtonDown); message WM_RButtonDown;
+      procedure WMRButtonUp(var Mess :TWMLButtonDown); message WM_RButtonUp;
       procedure WMMouseMove(var Mess :TWMMouseMove); message WM_MouseMove;
       procedure WMLButtonUp(var Mess :TWMLButtonUp); message WM_LButtonUp;
       procedure WMLButtonDblClk(var Mess :TWMLButtonDblClk); message WM_LButtonDblClk;
 
     private
-      FWinMode      :TWinMode;
-      FWinRect      :TRect;
-      FWinBPP       :Integer;
       FImage        :TReviewImage;
-
-      FColor        :Integer;
-      FBrush        :HBrush;
 
       FDecoder      :TReviewDecoder;  { "Attached" decoder }
       FImageOk      :Boolean;
@@ -161,79 +238,47 @@ interface
       FDeltaScale   :TFloat;          { Масштаб смещения }
       FMouseLock    :Integer;         { Масштабирование по позиции мыши }
 
-      FSrcRect      :TRect;
-      FDstRect      :TRect;
+      FSrcRect      :TRect;           { Область картинки, видимая на экране (м.б. меньше картинки) }
+      FDstRect      :TRect;           { Область экрана, отображающая картинку (м.б. меньше экрана, но не больше) }
+      FDstRect0     :TRect;           { Виртуальный прямоугольник всей картинки на экране (м.б. больше или меньше экрана) }
 
       FDragged      :Boolean;
       FMousePos     :TPoint;
 
-      FParentRect   :TRect;
-      FLastArea     :Integer;
-      FClipped      :Boolean;
-
       FAnimate      :Boolean;
-      FPageStart    :TUns32;
-
-      FTempMsg      :TString;
-      FMsgStart     :TUns32;
-      FMsgDelay     :Integer;
+      FPageStart    :DWORD;
 
       FHiQual       :Boolean;
       FDraftMode    :Boolean;
       FDraftStart   :DWORD;
-      FClipStart    :DWORD;
-
-      FNeedSync     :Boolean;
-      FSyncStart    :TUns32;
-      FSyncCmd      :Integer;
-      FSyncDelay    :Integer;
 
       FSlideStart   :DWORD;
       FSlideDelay   :Integer;
 
-      procedure CreateBrushes;
-      function CalcWinRect :TRect;
+     {$ifdef bAsync}
+      FResizeStart  :DWORD;           { Для поддержки фонового декодирования при масштабировании }
+      FResizeSize   :TSize;
+     {$endif bAsync}
+
       procedure RecalcRects;
-      function GetMousePos :TPoint;
       procedure MoveImage(DX, DY :Integer);
-      procedure SetFullscreen(AOn :Boolean);
-      procedure SetWinMode(AMode :TWinMode);
       procedure SetScale(aMode :TScaleMode; aLnScale, aScale :TFloat);
       procedure SetPage(aPage :Integer);
-      procedure SetTempMsg(const AMsg :TString; aInvalidate :Boolean = True);
-      procedure InvalidateMsgRect;
-      procedure PaintWindow(DC :HDC);
       procedure SlideEffect(aOldImage :TReviewImage; const AOldSrcRect, AOldDstRect :TRect; ADirect :Integer);
       procedure DrawImage(DC :HDC; aImage :TReviewImage; const ASrcRect, ADstRect :TRect; ABuffered :Boolean);
-      procedure DrawTempText(DC :HDC; const AStr :TString);
       procedure DrawAddInfo(DC :HDC);
-
-      procedure ShowWindow;
-      procedure HideWindow;
-      procedure SetWindowBounds(const aRect :TRect);
 
       procedure ReleaseDecoder;
       procedure ReleaseImage;
       procedure AttachDecoder(ADecoder :TReviewDecoder);
+     {$ifdef bAsync}
+      function AsyncDecode :Boolean;
+     {$endif bAsync}
 
     public
-      property WinMode :TWinMode read FWinMode;
       property Scale :TFloat read FScale;
       property ScaleMode :TScaleMode read FMode;
       property SlideDelay :Integer read FSlideDelay;
-    end;
-
-
-    TReviewWinThread = class(TThread)
-    public
-      constructor Create;
-      procedure Execute; override;
-
-    private
-      FWindow :TReviewWindow;
-
-    public
-      property Window :TReviewWindow read FWindow;
     end;
 
 
@@ -261,6 +306,35 @@ interface
 //    Genre        :TString;
     end;
 
+   {$ifdef bAsync}
+    TTaskState = (
+      tsNew,
+      tsProceed,
+      tsReady,
+      tsCancelled
+    );
+
+    TTask = class(TBasis)
+    public
+      constructor CreateEx(AImage :TReviewImageRec; AFrame :Integer; const ASize :TSize);
+      destructor Destroy; override;
+
+      function _AddRef :Integer;
+      function _Release :Integer;
+
+    private
+      FRefCount   :Integer;
+      FImage      :TReviewImageRec;
+      FFrame      :Integer;
+      FSize       :TSize;
+      FDecodeTime :Integer;
+      FThumb      :HBitmap;
+      FState      :TTaskState;
+      FError      :TString;
+      FOnTask     :TNotifyEvent;
+      FNext       :TTask;
+    end;
+   {$endif bAsync}
 
     TReviewImage = class(TReviewImageRec)
     public
@@ -271,27 +345,29 @@ interface
       function TryOpen(AForce :Boolean) :Boolean;
       procedure DecodePage(ASize :TSize; AFastScroll :Boolean = False);
       procedure UpdateBitmap;
-      procedure Rotate(ARotate :Integer);
-      procedure OrientBitmap(AOrient :Integer);
 
     private
-      FDecoder     :TReviewDecoder;    { Выбранный декодер }
-      FBitmap      :TReviewBitmap;     { Bitmap (только для не Selfdraw) }
+//    FDecoder     :TReviewDecoder;    { Выбранный декодер }
+//    FBitmap      :TReviewBitmap;     { Bitmap (только для не Selfdraw) }
       FIsThumbnail :Boolean;
       FSelected    :Integer;
 
       FOpenTime    :Integer;
       FDecodeTime  :Integer;
 
-      FMapFile     :THandle;
-      FMapHandle   :THandle;
-
       FTags        :TReviewTags;
       FInfoInited  :Boolean;
 
+     {$ifdef bAsync}
+      FFirstShow   :DWORD;
+      FAsyncTask   :TTask;
+
+      procedure SetAsyncTask(const ASize :TSize);
+      function CheckAsyncTask :Boolean;
+      procedure CancelTask;
+     {$endif bAsync}
+
       procedure CollectInfo;
-      function PrecacheFile :Boolean;
-      procedure ReleaseCache;
 
     public
       property Page :Integer read FPage;
@@ -309,9 +385,7 @@ interface
       procedure InitSubplugins;
       procedure LoadBackground;
 
-      function CanShowImage(const AFileName :TString) :Boolean;
       function ShowImage(const AFileName :TString; AMode :Integer; AForce :Boolean = False; ADirect :Integer = 0) :Boolean;
-      procedure DisplayImage(aImage :TReviewImage; AMode :Integer; ADirect :Integer = 0);
       procedure InvalidateImage;
       procedure SetImagePage(aPage :Integer);
       function Navigate(AOrig :Integer; AForward :Boolean; ASlideShow :Boolean = False) :Boolean;
@@ -320,7 +394,7 @@ interface
       procedure Rotate(ARotate :Integer);
       procedure Orient(AOrient :Integer);
       function Save(const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean;
-      procedure SetFullscreen(aOn :Boolean);
+      procedure SetFullscreen(aMode :Integer);
       procedure SlideShow(AMode :Integer; aShowInfo :Boolean = True);
       procedure SlideShowQueryDelay;
       procedure GoNextSlide;
@@ -335,8 +409,6 @@ interface
       procedure CloseWindowDelayed(ADelay :Integer);
       function GetWindowTitle :TString;
 
-      function ProcessKey(AKey :Integer) :Boolean;
-      function ProcessWheel(ADelta :Integer) :Boolean;
       function ProcessCommand :Boolean;
       procedure PluginSetup;
 
@@ -344,26 +416,49 @@ interface
 
       procedure SetForceFile(const aName :TString; aMode :Integer);
 
+     {$ifdef bThumbs}
+      procedure OpenThumbsView;
+      function ShowThumbs(const AFolder, ACurFile :TString) :Boolean;
+      procedure CloseThumbWindow;
+      procedure ThumbSyncDelayed(aCmd, aDelay :Integer);
+      procedure ThumbChangePath(const APath, ACurFile :TString; aSyncPanel :Boolean);
+      procedure ThumbView(const AFileName :TString);
+     {$endif bThumbs}
+
     private
-      FDecoders   :TObjList;           { Список декодеров }
-      FWinThread  :TReviewWinThread;
-      FWindow     :TReviewWindow;
-      FCommand    :Integer;            { Для навигации по плагинным панелям }
-      FCmdFile    :TString;            { -/-/- }
-      FCache      :TObjList;           { Закэшированные изображения }
-      FFavDecoder :TReviewDecoder;     { Предпочитаемый декодер }
+      FDecoders     :TObjList;           { Список декодеров }
+      FWinThread    :TReviewWinThread;
+      FWindow       :TImageWindow;
+      FCommand      :Integer;            { Для навигации по плагинным панелям }
+      FCmdFile      :TString;            { -/-/- }
+      FCache        :TObjList;           { Закэшированные изображения }
+      FFavDecoder   :TReviewDecoder;     { Предпочитаемый декодер }
 
-      FBackBmp    :TReviewBitmap;
+      FBackBmp      :TReviewBitmap;
 
-      FForceFile  :TString;            { Файл для принудительной обработки в ViewerEvent }
-      FForceMode  :Integer;
+      FForceFile    :TString;            { Файл для принудительной обработки в ViewerEvent }
+      FForceMode    :Integer;
 
-      FLastDecode :DWORD;              { Для быстрой прокрутки }
+      FLastDecode   :DWORD;              { Для быстрой прокрутки }
 
+//    FScreen        :THandle;
+//    FCursor        :HCursor;
+      FOldTitle      :TString;
+      FDecodeStart   :DWORD;
+      FDecodeStep    :Integer;
+      FDecodeFile    :TString;
+
+     {$ifdef bThumbs}
+      FThumbsThread  :TReviewWinThread;
+      FThumbsWindow  :TReviewWindow;     { TThumbsWindow }
+     {$endif bThumbs}
+
+      function CanShowImage(const AFileName :TString) :Boolean;
+      procedure DisplayImage(aImage :TReviewImage; AMode :Integer; ADirect :Integer = 0);
       function NavigateLow(AInfo :TPanelInfo; AIndex :Integer; const AFileName :TString; ASlideDirect, ACacheDirect :Integer) :Boolean;
       function CheckSync(const aName :TString; var ASelected :Boolean) :Boolean;
 
-      procedure CreateWinThread;
+      procedure DecodeImage(aImage :TReviewImage; const ASize :TSize; AFastScroll :Boolean = False; APrecache :Boolean = False);
       procedure CacheImage(aImage :TReviewImage);
       function FindInCache(const aFileName :TString) :TReviewImage;
       procedure ClearCache;
@@ -371,14 +466,21 @@ interface
       function CalcWinRectAs(AMode :Integer) :TRect;
       function CalcWinSize(AMode :Integer = -1) :TSize;
 
+//    procedure WaitCursor(ASet :Boolean);
+      procedure ShowDecodeProgress(ADecoder :TReviewDecoder; APercent :Integer);
+      procedure MyDecodeCallback(ASender :Pointer; APercent :Integer; var AContinue :Boolean);
+
       function GetImage :TReviewImage;
 
     public
       property Decoders :TObjList read FDecoders;
       property CurImage :TReviewImage read GetImage;
-      property Window :TReviewWindow read FWindow;
+      property Window :TImageWindow read FWindow;
       property ForceFile :TString read FForceFile;
       property ForceMode :Integer read FForceMode;
+     {$ifdef bThumbs}
+      property ThumbWindow :TReviewWindow read FThumbsWindow;
+     {$endif bThumbs}
     end;
 
 
@@ -388,26 +490,37 @@ interface
   { Модальное состояние... }
 
   type
-    TViewModalDlg = class(TFarDialog)
+    TModalStateDlg = class(TFarDialog)
     public
-      procedure UpdateTitle;
+      procedure UpdateWindowVisible(AWin :TReviewWindow);
+      procedure SetError(const aMess :TString);
       procedure SetTitle(const aTitle :TString);
 
     protected
-      procedure Prepare; override;
       procedure InitDialog; override;
-      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
-      function MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; override;
-      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
       procedure ErrorHandler(E :Exception); override;
+      function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
-    private
-      FQuick     :Boolean;  { QuickView. Не используется. }
+    protected
       FErrorStr  :TString;
       FPostKey   :Integer;
       FHidden    :Boolean;  { Окно изображения временно скрыто... }
 
       procedure ResizeDialog;
+    end;
+
+
+    TViewModalDlg = class(TModalStateDlg)
+    public
+      procedure UpdateTitle;
+
+    protected
+      procedure Prepare; override;
+      function KeyDown(AID :Integer; AKey :Integer) :Boolean; override;
+      function MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; override;
+
+    private
+      FQuick     :Boolean;  { QuickView. Не используется. }
     end;
 
 
@@ -426,6 +539,10 @@ interface
     ReviewDlgGeneral,
     ReviewDlgSaveAs,
     ReviewDlgSlideShow,
+   {$ifdef bThumbs}
+    ReviewThumbs,
+    ReviewDlgThumb,
+   {$endif bThumbs}
     MixDebug;
 
 
@@ -451,16 +568,6 @@ interface
   end;
 
 
-  procedure IntSwap(var A, B :Integer);
-  var
-    T :Integer;
-  begin
-    T := A;
-    A := B;
-    B := T;
-  end;
-
-
   function RectContainsRect(const ARect, AIntRect :TRect) :Boolean;
   begin
     with AIntRect do
@@ -473,34 +580,6 @@ interface
     Result :=
       (R2.Left < R1.Right) and (R2.Right > R1.Left) and
       (R2.Top < R1.Bottom) and (R2.Bottom > R1.Top);
-  end;
-
-
-  function FarKeyToName(AKey :Integer) :TString;
- {$ifdef Far3}
-  var
-    vInput :INPUT_RECORD;
-    vLen :Integer;
-  begin
-    Result := '';
-    if FarKeyToInputRecord(AKey, vInput) then begin
-      vLen := FARSTD.FarInputRecordToName(vInput, nil, 0);
-      if vLen > 0 then begin
-        SetLength(Result, vLen - 1);
-        FARSTD.FarInputRecordToName(vInput, PTChar(Result), vLen);
-      end;
-    end;
- {$else}
-  var
-    vLen :Integer;
-  begin
-    Result := '';
-    vLen := FARSTD.FarKeyToName(AKey, nil, 0);
-    if vLen > 0 then begin
-      SetLength(Result, vLen - 1);
-      FARSTD.FarKeyToName(AKey, PTChar(Result), vLen);
-    end;
- {$endif Far3}
   end;
 
 
@@ -548,7 +627,6 @@ interface
   begin
     Windows.GetClientRect(hFarWindow, Result);
 
-    {xxx}
 //  Result.Top := Result.Bottom div 2;
 //  Result.Left := Result.Right div 2;
 
@@ -564,6 +642,289 @@ interface
   begin
     Result := WindowIsChildOf(GetConsoleWnd, GetForegroundWindow) and ConManIsActiveConsole;
   end;
+
+
+  procedure ShowProgress(const ATitle, AName :TString; APercent :Integer);
+  const
+    cWidth = 60;
+  var
+    vMess :TString;
+  begin
+    vMess := AName;
+    if Length(vMess) > cWidth then
+      vMess := Copy(vMess, 1, cWidth);
+    if APercent <> -1 then
+      vMess := vMess + #10 + GetProgressStr(cWidth, APercent);
+    ShowMessage(aTitle, vMess, 0);
+  end;
+
+
+
+  function GetConsoleTitleStr :TString;
+  var
+    vBuf :Array[0..1024] of TChar;
+  begin
+    FillZero(vBuf, SizeOf(vBuf));
+    GetConsoleTitle(@vBuf[0], High(vBuf));
+    Result := vBuf;
+  end;
+
+
+  procedure SetConsoleTitleStr(const ATitle :TString);
+  begin
+    SetConsoleTitle(PTChar(ATitle));
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TRenderThread                                                               }
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bAsync}
+  constructor TTask.CreateEx(AImage :TReviewImageRec; AFrame :Integer; const ASize :TSize);
+  begin
+    inherited Create;
+    FImage := AImage;
+//  if FImage <> nil then
+//    FImage._AddRef;
+    FFrame := AFrame;
+    FSize  := ASize;
+  end;
+
+
+  destructor TTask.Destroy; {override;}
+  begin
+//  if FImage <> nil then begin
+//    FImage._Release;
+//    FImage := nil;
+//  end;
+    if FThumb <> 0 then
+      DeleteObject(FThumb);
+    inherited Destroy;
+  end;
+
+
+  function TTask._AddRef :Integer;
+  begin
+    Result := InterlockedIncrement(FRefCount);
+  end;
+
+
+  function TTask._Release :Integer;
+  begin
+    Result := InterlockedDecrement(FRefCount);
+    if Result = 0 then
+      Destroy;
+  end;
+
+
+  type
+    TRenderThread = class(TThread)
+    public
+      constructor Create;
+      destructor Destroy; override;
+
+      procedure Execute; override;
+
+      procedure AddTask(ATask :TTask);
+      function CheckTask(ATask :TTask) :Boolean;
+      procedure CancelTask(ATask :TTask);
+
+    private
+      FEvent   :THandle;
+      FTaskCS  :TRTLCriticalSection;
+      FTask    :TTask;
+
+      function DoTask :Boolean;
+      procedure NextTask;
+      procedure Render(ATask :TTask);
+      procedure MyDecodeCallback(ASender :Pointer; APercent :Integer; var AContinue :Boolean);
+    end;
+
+
+  constructor TRenderThread.Create;
+  begin
+    FEvent := CreateEvent(nil, True, False, nil);
+    InitializeCriticalSection(FTaskCS);
+    inherited Create(False);
+  end;
+
+
+  destructor TRenderThread.Destroy; {override;}
+  begin
+    while FTask <> nil do
+      NextTask;
+    CloseHandle(FEvent);
+    DeleteCriticalSection(FTaskCS);
+    inherited Destroy;
+  end;
+
+
+  procedure TRenderThread.Execute;
+  var
+    vRes :DWORD;
+  begin
+    CoInitialize(nil);
+    try
+      while not Terminated do begin
+        vRes := WaitForSingleObject(FEvent, 5000);
+//      TraceF('WaitRes = %d', [Byte(vRes)]);
+        if Terminated then
+          break;
+
+        if vRes = WAIT_OBJECT_0 then begin
+          ResetEvent(FEvent);
+          while DoTask do;
+        end;
+      end;
+    finally
+      CoUninitialize;
+    end;
+  end;
+
+
+  function TRenderThread.DoTask :Boolean;
+  begin
+    Result := False;
+
+    EnterCriticalSection(FTaskCS);
+    try
+      while (FTask <> nil) and (FTask.FState = tsCancelled) do
+        NextTask;
+      if FTask = nil then
+        Exit;
+      FTask.FState := tsProceed;
+      FTask.FImage._AddRef;
+      if Assigned(FTask.FOnTask) then
+        FTask.FOnTask(nil);
+    finally
+      LeaveCriticalSection(FTaskCS);
+    end;
+
+    Render(FTask);
+
+    EnterCriticalSection(FTaskCS);
+    try
+      FTask.FImage._Release;
+      FTask.FState := tsReady;
+      if Assigned(FTask.FOnTask) then
+        FTask.FOnTask(nil);
+      NextTask;
+    finally
+      LeaveCriticalSection(FTaskCS);
+    end;
+
+    Result := True;
+  end;
+
+
+  procedure TRenderThread.NextTask;
+  var
+    vTask :TTask;
+  begin
+    vTask := FTask;
+    FTask := vTask.FNext;
+    vTask.FNext := nil;
+    vTask._Release;
+  end;
+
+
+  procedure TRenderThread.MyDecodeCallback(ASender :Pointer; APercent :Integer; var AContinue :Boolean);
+  begin
+    AContinue := TTask(ASender).FState <> tsCancelled;
+  end;
+
+
+  procedure TRenderThread.Render(ATask :TTask);
+  var
+    vImage :TReviewImageRec;
+    vStart :DWORD;
+    vIsThumbnail :Boolean;
+  begin
+    try
+      vImage := ATask.FImage;
+      vStart := GetTickCount;
+      if vImage.FDecoder.pvdPageDecode(vImage, ATask.FSize.CX, ATask.FSize.CY, dmImage, MyDecodeCallback, ATask) then
+        try
+          ATask.FThumb := vImage.FDecoder.GetBitmapHandle(vImage, vIsThumbnail);
+        finally
+          vImage.FDecoder.pvdPageFree(vImage);
+        end;
+      ATask.FDecodeTime := TickCountDiff(GetTickCount, vStart);
+    except
+      on E :Exception do
+        ATask.FError := E.Message;
+    end;
+  end;
+
+
+  procedure TRenderThread.AddTask(ATask :TTask);
+  var
+    vTask :TTask;
+  begin
+    EnterCriticalSection(FTaskCS);
+    try
+      if FTask = nil then
+        FTask := ATask
+      else begin
+        vTask := FTask;
+        while vTask.FNext <> nil do
+          vTask := vTask.FNext;
+        vTask.FNext := ATask;
+      end;
+      ATask._AddRef;
+    finally
+      LeaveCriticalSection(FTaskCS);
+    end;
+
+    SetEvent(FEvent);
+  end;
+
+
+  function TRenderThread.CheckTask(ATask :TTask) :Boolean;
+  begin
+    EnterCriticalSection(FTaskCS);
+    try
+      Result := ATask.FState = tsReady;
+    finally
+      LeaveCriticalSection(FTaskCS);
+    end;
+  end;
+
+
+  procedure TRenderThread.CancelTask(ATask :TTask);
+  begin
+    EnterCriticalSection(FTaskCS);
+    try
+      ATask.FState := tsCancelled;
+      ATask.FOnTask := nil;
+    finally
+      LeaveCriticalSection(FTaskCS);
+    end;
+  end;
+
+
+  var
+    GRenderThread :TRenderThread;
+
+
+  procedure InitRenderThread;
+  begin
+    if GRenderThread = nil then
+      GRenderThread := TRenderThread.Create;
+  end;
+
+
+  procedure DoneRenderThread;
+  begin
+    if GRenderThread <> nil then begin
+      GRenderThread.Terminate;
+      SetEvent(GRenderThread.FEvent);
+      GRenderThread.WaitFor;
+      FreeObj(GRenderThread);
+    end;
+  end;
+ {$endif bAsync}
 
 
  {-----------------------------------------------------------------------------}
@@ -585,7 +946,7 @@ interface
     end;
 
 
-  constructor TNumQueryDlg.CreateEx(const aTitle :TString); 
+  constructor TNumQueryDlg.CreateEx(const aTitle :TString);
   begin
     FTitle := aTitle;
     Create;
@@ -637,36 +998,19 @@ interface
  { Диалог модального состояния                                                 }
  {-----------------------------------------------------------------------------}
 
-  procedure TViewModalDlg.Prepare; {override;}
-  var
-    vTitle :TString;
-  begin
-    FHelpTopic := 'View';
-    FGUID := cViewDlgID;
-    FFlags := FDLG_NODRAWSHADOW or FDLG_NODRAWPANEL{???};
-    FWidth := 20;
-    FHeight := 5;
-    vTitle := Review.GetWindowTitle;
-    FDialog := CreateDialog(
-      [ NewItemApi(DI_DoubleBox, 0,  0, FWidth, FHeight, 0, PTChar(vTitle)) ],
-      @FItemCount
-    );
-  end;
-
-
-  procedure TViewModalDlg.InitDialog; {override;}
+  procedure TModalStateDlg.InitDialog; {override;}
   begin
     ResizeDialog;
   end;
 
 
-  procedure TViewModalDlg.ResizeDialog;
+  procedure TModalStateDlg.ResizeDialog;
   var
     vSize :TSize;
     vRect :TSmallRect;
   begin
     vSize := FarGetWindowSize;
-    vSize.CY := 1;
+    vSize.CY := 1; vSize.CX := 1;
     SetDlgPos(0, 0, vSize.CX, vSize.CY);
 
     vRect := SBounds(0, 0, vSize.CX, vSize.CY);
@@ -674,71 +1018,26 @@ interface
   end;
 
 
-  procedure TViewModalDlg.UpdateTitle;
-  begin
-    SetTitle( Review.GetWindowTitle );
-  end;
-
-
-  procedure TViewModalDlg.SetTitle(const aTitle :TString);
+  procedure TModalStateDlg.SetTitle(const aTitle :TString);
   begin
     SetText(0, aTitle);
   end;
 
 
-  function TViewModalDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
+  procedure TModalStateDlg.SetError(const aMess :TString);
   begin
-    Result := True;
-    if FQuick then begin
-
-      if AKey <> KEY_Esc then begin
-        FarPostMacro('Keys("Esc ' + FarKeyToName(AKey) + '")');
-      end else
-        Result := inherited KeyDown(AID, AKey);
-
-    end else
-    begin
-      if Review.ProcessKey(AKey) then
-        UpdateTitle
-      else begin
-        case AKey of
-          KEY_F1 :
-            Review.SyncDelayed(SyncCmdUpdateWin, 100);
-
-          Key_F3, KEY_F10, Key_NumPad5: begin
-            Close;
-            Result := True;
-            Exit;
-          end;
-
-          KEY_F9 : begin
-            Review.SyncDelayed(SyncCmdUpdateWin, 100);
-            Review.PluginSetup;
-          end;
-
-          KEY_F4..KEY_F8{,KEY_F10},KEY_F11: begin
-            FPostKey := AKey;
-            Close;
-          end;
-        end;
-        Result := inherited KeyDown(AID, AKey);
-      end;
-    end;
+    FErrorStr := aMess;
+    Close;
   end;
 
 
-  function TViewModalDlg.MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; {override;}
+  procedure TModalStateDlg.ErrorHandler(E :Exception); {override;}
   begin
-    if AMouse.dwEventFlags and MOUSE_HWHEELED <> 0 then
-      Review.Rotate(IntIf(Smallint(LongRec(AMouse.dwButtonState).Hi) > 0, 1, 2))
-    else
-    if AMouse.dwEventFlags and MOUSE_WHEELED <> 0 then
-      Review.ProcessWheel(IntIf(Smallint(LongRec(AMouse.dwButtonState).Hi) > 0, 1, -1));
-    Result := inherited MouseEvent(AID, AMouse);
+    SetError( E.Message );
   end;
 
 
-  function TViewModalDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  function TModalStateDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
   begin
 //  Result := 1;
     case Msg of
@@ -759,55 +1058,33 @@ interface
   end;
 
 
-  procedure TViewModalDlg.ErrorHandler(E :Exception); {override;}
+  procedure TModalStateDlg.UpdateWindowVisible(AWin :TReviewWindow);
+  var
+    vWinInfo :TWindowInfo;
   begin
-    FErrorStr := E.Message;
-    Close;
+    if FarGetWindowInfo(-1, vWinInfo) then begin
+      if (vWinInfo.WindowType = WTYPE_DIALOG) and (THandle(vWinInfo.ID) = Handle) then begin
+        SendMessage(AWin.Handle, CM_SetVisible, 1, 0);
+        FHidden := False;
+      end else
+      begin
+        SendMessage(AWin.Handle, CM_SetVisible, 0, 0);
+        FHidden := True;
+      end;
+    end;
   end;
 
 
-  function ViewModalState(AView, AQuick :Boolean) :Boolean;
-  var
-    vKeys :TString;
-    vOldFullscrren :Boolean;
+ {-----------------------------------------------------------------------------}
+ { TCmdObject                                                                  }
+ {-----------------------------------------------------------------------------}
+
+  constructor TCmdObject.Create(ACmd :Integer; const AStr :TString);
   begin
-    Assert(ModalDlg = nil);
-    ModalDlg := TViewModalDlg.Create;
-    try
-      vOldFullscrren := optFullscreen;
-
-      ModalDlg.FQuick := AQuick;
-      Result := ModalDlg.Run = -1;
-
-      if vOldFullscrren <> optFullscreen then
-        PluginConfig(True);
-
-      if ModalDlg.FErrorStr <> '' then begin
-        Review.CloseWindow;
-        ShowMessage(cPluginName, ModalDlg.FErrorStr, FMSG_WARNING or FMSG_MB_OK);
-        if AView then
-          FarPostMacro('Keys("Esc")');
-      end else
-      if Review.FCommand = GoCmdNone then begin
-        if AView then
-          Review.CloseWindowDelayed(100) 
-        else
-          Review.CloseWindow;
-        if AView then
-          vKeys := 'Esc';
-        if ModalDlg.FPostKey <> 0 then
-          vKeys := AppendStrCh(vKeys, FarKeyToName(ModalDlg.FPostKey), ' ');
-        if vKeys <> '' then
-          FarPostMacro('Keys("' + vKeys + '")');
-      end else
-      begin
-        Review.CloseWindowDelayed(1000);
-        Review.ProcessCommand;
-      end;
-
-    finally
-      FreeObj(ModalDlg);
-    end;
+    inherited Create;
+    FCommand := ACmd;
+    if AStr <> '' then
+      Add(AStr);
   end;
 
 
@@ -829,75 +1106,57 @@ interface
   end;
 
 
+ {-----------------------------------------------------------------------------}
+ { TReviewWinThread                                                            }
+ {-----------------------------------------------------------------------------}
+
+  constructor TReviewWinThread.Create(aClass :TReviewWindowClass);
+  begin
+    inherited Create(False);
+    FWinClass := aClass;
+  end;
+
+
+  procedure TReviewWinThread.Execute; {override;}
   var
-    FullScreenWin :TFullscreenWindow;
+    vMsg :TMsg;
+  begin
+    PeekMessage(vMsg, 0, WM_USER, WM_USER, PM_NOREMOVE); { Create message queue }
+
+//  CoInitialize(nil);
+    FWindow := FWinClass.Create;
+    try
+
+      while not Terminated do begin
+        while PeekMessage(vMsg, 0 {FWindow.Handle}, 0, 0, PM_REMOVE) do begin
+          TranslateMessage(vMsg);
+          DispatchMessage(vMsg);
+        end;
+        if FWindow.Idle then
+          Sleep(1);
+      end;
+
+      if FWindow.FFullScreenWin <> nil then
+        FWindow.FFullScreenWin.HideWindow;
+      FWindow.HideWindow;
+
+    finally
+      FreeObj(FWindow);
+//    CoUninitialize;
+    end;
+  end;
 
 
  {-----------------------------------------------------------------------------}
  { TReviewWindow                                                               }
  {-----------------------------------------------------------------------------}
 
-  constructor TReviewWindow.Create; {override;}
-  begin
-    inherited Create;
-  end;
-
-
   destructor TReviewWindow.Destroy; {override;}
   begin
-    ReleaseImage;
-    ReleaseDecoder;
+    FreeObj(FFullScreenWin);
     if FBrush <> 0 then
       DeleteObject(FBrush);
     inherited Destroy;
-  end;
-
-
-  procedure TReviewWindow.CreateBrushes;
-  var
-    vColor :Integer;
-  begin
-    if FWinMode <> wmQuickView then
-      vColor := FarAttrToCOLORREF(GetColorBG(optBkColor1))
-    else
-      vColor := FarAttrToCOLORREF(GetColorBG(optBkColor2));
-
-    if (FBrush = 0) or (FColor <> vColor) then begin
-      if FBrush <> 0 then
-        DeleteObject(FBrush);
-      FColor := vColor;
-      FBrush := CreateSolidBrush(FColor);
-    end;
-  end;
-
-
-  procedure TReviewWindow.ReleaseDecoder;
-  begin
-    if FDecoder <> nil then begin
-      FDecoder.pvdDisplayDone(FHandle);
-      FDecoder := nil
-    end;
-  end;
-
-
-  procedure TReviewWindow.ReleaseImage;
-  begin
-    if FImage <> nil then begin
-      if (FDecoder <> nil) and FImage.FSelfdraw then
-        FDecoder.pvdDisplayClose(FImage);
-      FreeImage(FImage);
-      FImageOk := False;
-    end;
-  end;
-
-
-  procedure TReviewWindow.AttachDecoder(ADecoder :TReviewDecoder);
-  begin
-    if FDecoder <> ADecoder then begin
-      ReleaseDecoder;
-      if ADecoder.pvdDisplayInit(FHandle) then
-        FDecoder := ADecoder;
-    end;
   end;
 
 
@@ -905,7 +1164,106 @@ interface
   begin
     inherited CreateParams(AParams); {CreateWindowEx}
     AParams.WndParent := hFarWindow;
-    AParams.Style := WS_CHILD or WS_CLIPCHILDREN;
+    AParams.Style := WS_CHILD or WS_CLIPCHILDREN or WS_CLIPSIBLINGS;
+  end;
+
+
+  procedure TReviewWindow.ShowWindow;
+  begin
+    FClipped := GetWindowLong(hFarWindow, GWL_STYLE) and WS_ClipChildren <> 0;
+   {$ifdef bSetClip}
+    if not FClipped then begin
+      SetWindowLong(hFarWindow, GWL_STYLE, GetWindowLong(hFarWindow, GWL_STYLE) or WS_ClipChildren);
+      FClipped := GetWindowLong(hFarWindow, GWL_STYLE) and WS_ClipChildren <> 0;
+    end;
+   {$endif bSetClip}
+
+    Windows.GetClientRect(hFarWindow, FParentRect);
+
+    if FWinMode <> wmFullscreen then
+//    SetBounds(CalcWinRect, 0);
+      SetWindowBounds(CalcWinRect);
+
+    Show(SW_SHOWNA);
+//  Show(SW_SHOW);
+    Windows.SetWindowPos(FHandle, HWND_TOP, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE);
+
+    SetForegroundWindow(hConsoleTopWnd);
+  end;
+
+
+  procedure TReviewWindow.HideWindow;
+  begin
+    Show(SW_Hide);
+//  if GNeedWriteSizeSettings then
+//    FarAdvControl(ACTL_SYNCHRO, scmSaveSettings);
+//  GNeedWriteSizeSettings := False;
+  end;
+
+
+  procedure TReviewWindow.SetColor(AColor :Integer);
+  begin
+    if (FBrush = 0) or (FColor <> AColor) then begin
+      if FBrush <> 0 then
+        DeleteObject(FBrush);
+      FColor := AColor;
+      FBrush := CreateSolidBrush(FColor);
+    end;
+  end;
+
+
+  procedure TReviewWindow.SetWindowBounds(const aRect :TRect);
+  begin
+//  Trace('%s SetWindowBounds...', [ClassName]);
+    SetBounds(aRect, 0);
+    if not FClipped then
+      FClipStart := GetTickCount;
+  end;
+
+
+  function TReviewWindow.CalcWinRect :TRect;
+  begin
+    case FWinMode of
+      wmNormal:
+        Result := GetNormalWinRect(False);
+      wmFullscreen:
+        Result := GetNormalWinRect(True);
+      wmQuickView:
+        Result := FWinRect;
+    end;
+  end;
+
+
+  procedure TReviewWindow.SetWinMode(AMode :TWinMode);
+  begin
+//  TraceF('TImageWindow.SetWinMode: %d', [byte(AMode)]);
+
+    if AMode <> FWinMode then begin
+      FWinMode := AMode;
+//    if AMode <> wmQuickView then begin
+//      optFullscreen := AMode = wmFullscreen;
+//      InterlockedIncrement(OptionsRevision);
+//    end;
+
+      if FWinMode = wmFullscreen then begin
+        Assert(FFullScreenWin = nil);
+
+        FFullScreenWin := TFullscreenWindow.Create;
+        FFullScreenWin.SetBounds(CalcWinRect, 0);
+
+        Windows.SetWindowPos(FFullScreenWin.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE or SWP_SHOWWINDOW );
+        SetForegroundWindow(hConsoleTopWnd);
+        Windows.SetWindowPos(FFullScreenWin.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE );
+
+        SetParent(Handle, FFullScreenWin.Handle);
+        SetBounds(FFullScreenWin.ClientRect, 0);
+      end else
+      begin
+        SetParent(Handle, hFarWindow);
+        SetWindowBounds(CalcWinRect);
+        FreeObj(FFullScreenWin);
+      end;
+    end;
   end;
 
 
@@ -918,38 +1276,62 @@ interface
   end;
 
 
-  procedure TReviewWindow.SetWinMode(AMode :TWinMode);
+  function TReviewWindow.GetMousePos :TPoint;
   begin
-//  TraceF('TReviewWindow.SetWinMode: %d', [byte(AMode)]);
+    Windows.GetCursorPos(Result);
+    ScreenToClient(Handle, Result);
+  end;
 
-    if AMode <> FWinMode then begin
-      FWinMode := AMode;
-      if AMode <> wmQuickView then
-        optFullscreen := AMode = wmFullscreen;  
 
-      if FWinMode = wmFullscreen then begin
-        Assert(FullScreenWin = nil);
+  procedure TReviewWindow.SetTempMsg(const AMsg :TString; aInvalidate :Boolean = True);
+  begin
+    FTempMsg := AMsg;
+    FMsgStart := GetTickCount;
+    FMsgDelay := optTempMsgDelay;
+    if aInvalidate then
+      InvalidateMsgRect;
+  end;
 
-        FullScreenWin := TFullscreenWindow.Create;
-        FullScreenWin.SetBounds(CalcWinRect, 0);
 
-        Windows.SetWindowPos(FullScreenWin.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE or SWP_SHOWWINDOW );
-        SetForegroundWindow(hConsoleTopWnd);
-        Windows.SetWindowPos(FullScreenWin.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE );
+  procedure TReviewWindow.InvalidateMsgRect;
+  var
+    vRect :TRect;
+  begin
+    vRect := ClientRect;
+    vRect.Top := vRect.Bottom - 18{???};
+    InvalidateRect(FHandle, @vRect, True);
+  end;
 
-        SetParent(Handle, FullScreenWin.Handle);
-        SetBounds(FullScreenWin.ClientRect, 0);
-      end else
-      begin
-        SetParent(Handle, hFarWindow);
-        SetWindowBounds(CalcWinRect);
-        FreeObj(FullScreenWin);
+
+  procedure TReviewWindow.DrawTempText(DC :HDC; const AStr :TString);
+  var
+    X, Y :Integer;
+    vSize :TSize;
+    vFont, vOldFont :HFont;
+  begin
+    vFont := GetStockObject(DEFAULT_GUI_FONT);
+    vOldFont := SelectObject(DC, vFont);
+    if vOldFont = 0 then
+      Exit;
+    try
+      GetTextExtentPoint32(DC, PTChar(AStr), Length(AStr), vSize);
+      with GetClientRect do begin
+        X := Left; //Right - vSize.CX;
+        Y := Bottom - vSize.CY;
       end;
+
+      SetBkMode(DC, OPAQUE);
+      SetBkColor(DC, FarAttrToCOLORREF(GetColorBG(optHintColor)));
+      SetTextColor(DC, FarAttrToCOLORREF(GetColorFG(optHintColor)));
+      TextOut(DC, X, Y, PTChar(AStr), Length(AStr));
+
+    finally
+      SelectObject(DC, vOldFont);
     end;
   end;
 
 
-//procedure TReviewWindow.WMNCHitTest(var Mess :TWMNCHitTest); {message WM_NCHitTest;}
+//procedure TImageWindow.WMNCHitTest(var Mess :TWMNCHitTest); {message WM_NCHitTest;}
 //begin
 //  Mess.Result := HTTRANSPARENT;
 //end;
@@ -960,12 +1342,12 @@ interface
     inherited;
 
     if FWinMode = wmFullscreen then begin
-      if FullScreenWin <> nil then begin
+      if FFullScreenWin <> nil then begin
 //      TraceF('Make topmost. FullScreenWin=%x, Console=%x, Msg.TopLevel=%x, Msg.HitTest=%d, Msg.MouseMsg=%d, Msg.Result=%d',
 //        [FullScreenWin.Handle, hConsoleTopWnd, Mess.TopLevel, Mess.HitTestCode, Mess.MouseMsg, Mess.Result]);
-        Windows.SetWindowPos(FullScreenWin.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE );
+        Windows.SetWindowPos(FFullScreenWin.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE );
         SetForegroundWindow(hConsoleTopWnd);
-        Windows.SetWindowPos(FullScreenWin.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE );
+        Windows.SetWindowPos(FFullScreenWin.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE );
       end;
     end else
     begin
@@ -977,12 +1359,193 @@ interface
   end;
 
 
-  procedure TReviewWindow.CMSetImage(var Mess :TMessage); {message CM_SetImage;}
+  procedure TReviewWindow.WMEraseBkgnd(var Mess :TWMEraseBkgnd); {message WM_EraseBkgnd;}
+  begin
+//  FillRect(Mess.DC, ClientRect, FBrush);
+    Mess.Result := 1;
+  end;
+
+
+  procedure TReviewWindow.WMPaint(var Mess :TWMPaint); {message WM_Paint;}
+  var
+    DC :HDC;
+    PS :TPaintStruct;
+  begin
+    DC := Mess.DC;
+    if DC = 0 then
+      DC := BeginPaint(Handle, PS);
+    try
+      PaintWindow(DC);
+    finally
+      if Mess.DC = 0 then
+        EndPaint(Handle, PS);
+    end;
+  end;
+
+
+  procedure TReviewWindow.CMSetMode(var Mess :TMessage); {message CM_SetMode;}
+  begin
+    if FWinMode <> wmQuickView then
+      SetFullscreen( Mess.wParam = 1 );
+  end;
+
+
+  procedure TReviewWindow.CMSetWinPos(var Mess :TMessage); {message CM_SetWinPos;}
+  begin
+    with PSetImageRec(Mess.LParam)^ do begin
+      FWinRect := WinRect;
+      SetWindowBounds(CalcWinRect);
+    end;
+  end;
+
+
+  procedure TReviewWindow.CMSetVisible(var Mess :TMessage); {message CM_SetVisible;}
+  begin
+    if Mess.wParam = 1 then begin
+      if FFullscreenWin <> nil then
+        FFullscreenWin.Show(SW_SHOWNA)
+      else
+        ShowWindow
+    end else
+    begin
+      if FFullscreenWin <> nil then
+        FFullscreenWin.HideWindow
+      else
+        HideWindow;
+    end;
+  end;
+
+
+  procedure TReviewWindow.CMSync(var Mess :TMessage); {message CM_Sync;}
+  begin
+    FNeedSync  := True;
+    FSyncStart := GetTickCount;
+    FSyncCmd   := Mess.wParam;
+    FSyncDelay := Mess.lParam;
+  end;
+
+
+  function TReviewWindow.Idle :Boolean;
+  var
+    vRect :TRect;
+    vArea :Integer;
+  begin
+    Windows.GetClientRect(hFarWindow, vRect);
+    if IsWindowVisible(Handle) and not RectEquals(vRect, FParentRect) then begin
+      { Корректируем размер окна, при изменении окна FAR }
+      FParentRect := vRect;
+      if not RectEmpty(vRect) then begin
+        if FWinMode = wmNormal then
+          SetWindowBounds(CalcWinRect)
+        else
+        if FWinMode = wmQuickView then
+          FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateWin);
+      end;    
+    end;
+
+    if FWinMode = wmQuickView then begin
+      vArea := FarGetMacroArea;
+      if vArea <> FLastArea then begin
+        { Прячем/показываем окно изображения, при изменении MacroArea (для QuickView) }
+        FLastArea := vArea;
+        if vArea in [MACROAREA_SHELL, MACROAREA_SEARCH, MACROAREA_OTHER{???}] then begin
+          Show(SW_SHOWNA);
+          FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateWin);
+        end else
+          Show(SW_HIDE);
+      end;
+    end;
+
+    if FWinMode = wmFullscreen then
+      { Делаем FullScreen окно не Topmost, если FAR теряет фокус }
+      if not IsActiveConsole and (FFullScreenWin <> nil) and (GetWindowLong(FFullScreenWin.Handle, GWL_EXSTYLE) and WS_EX_TOPMOST <> 0) then begin
+//      TraceF('Make no topmost. FullScreenWin=%x, Console=%x...', [FullScreenWin.Handle, hConsoleTopWnd]);
+        Windows.SetWindowPos(FFullScreenWin.Handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE);
+      end;
+
+    if FNeedSync and (TickCountDiff(GetTickCount, FSyncStart) > FSyncDelay) and (GLockSync = 0) and not ScrollKeyPressed then begin
+      { Асинхронный вызов в главном потоке (для обновления QuickView или для предварительного декодирования)... }
+      FNeedSync := False;
+      FarAdvControl(ACTL_SYNCHRO, FSyncCmd);
+    end;
+
+    Result := True;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TImageWindow                                                                }
+ {-----------------------------------------------------------------------------}
+
+  constructor TImageWindow.Create; {override;}
+  begin
+    inherited Create;
+  end;
+
+
+  destructor TImageWindow.Destroy; {override;}
+  begin
+    ReleaseImage;
+    ReleaseDecoder;
+    inherited Destroy;
+  end;
+
+
+  procedure TImageWindow.ReleaseDecoder;
+  begin
+    if FDecoder <> nil then begin
+      FDecoder.pvdDisplayDone(FHandle);
+      FDecoder := nil
+    end;
+  end;
+
+
+  procedure TImageWindow.ReleaseImage;
+  begin
+    if FImage <> nil then begin
+     {$ifdef bAsync}
+      FImage.CancelTask;
+     {$endif bAsync}
+      if (FDecoder <> nil) and FImage.FSelfdraw then
+        FDecoder.pvdDisplayClose(FImage);
+      FreeImage(FImage);
+      FImageOk := False;
+    end;
+  end;
+
+
+  procedure TImageWindow.AttachDecoder(ADecoder :TReviewDecoder);
+  begin
+    if FDecoder <> ADecoder then begin
+      ReleaseDecoder;
+      if ADecoder.pvdDisplayInit(FHandle) then
+        FDecoder := ADecoder;
+    end;
+  end;
+
+
+  procedure TImageWindow.WMShowWindow(var Mess :TWMShowWindow); {message WM_ShowWindow;}
+  var
+    vColor :Integer;
+  begin
+    inherited;
+    if Mess.Show then begin
+      if FWinMode <> wmQuickView then
+        vColor := FarAttrToCOLORREF(GetColorBG(optBkColor1))
+      else
+        vColor := FarAttrToCOLORREF(GetColorBG(optBkColor2));
+      SetColor(vColor);
+    end;
+  end;
+
+
+  procedure TImageWindow.CMSetImage(var Mess :TMessage); {message CM_SetImage;}
   var
     vOldImage :TReviewImage;
     vOldSrcRect, vOldDstRect :TRect;
   begin
     with PSetImageRec(Mess.LParam)^ do begin
+//    Trace('CMSetImage...');
 
       vOldImage := nil;
       if FImage <> nil then begin
@@ -1043,9 +1606,9 @@ interface
 
         FTempMsg := '';
 
-        CreateBrushes;
         RecalcRects;
 
+//      Trace('Show window...');
         if not IsWindowVisible(Handle) then
           ShowWindow
         else
@@ -1067,20 +1630,14 @@ interface
   end;
 
 
-  procedure TReviewWindow.CMReleaseImage(var Mess :TMessage); {message CM_ReleaseImage;}
+  procedure TImageWindow.CMReleaseImage(var Mess :TMessage); {message CM_ReleaseImage;}
   begin
     ReleaseImage;
 //  Invalidate;
   end;
 
 
-  const
-    cmtInvalidate = 0;
-    cmtSetPage    = 1;
-    cmtRotate     = 2;
-    cmtOrient     = 3;
-
-  procedure TReviewWindow.CMTransform(var Mess :TMessage); {message CM_Transform;}
+  procedure TImageWindow.CMTransform(var Mess :TMessage); {message CM_Transform;}
 
      procedure LocInvalidate;
      begin
@@ -1121,48 +1678,14 @@ interface
   end;
 
 
-  procedure TReviewWindow.CMSetWinPos(var Mess :TMessage); {message CM_SetWinPos;}
-  begin
-    with PSetImageRec(Mess.LParam)^ do begin
-      FWinRect := WinRect;
-      SetWindowBounds(CalcWinRect);
-    end;
-  end;
-
-
-  procedure TReviewWindow.CMSetVisible(var Mess :TMessage); {message CM_SetVisible;}
-  begin
-    if Mess.wParam = 1 then begin
-      CreateBrushes;
-      if FullscreenWin <> nil then
-        FullscreenWin.Show(SW_SHOWNA)
-      else
-        ShowWindow
-    end else
-    begin
-      if FullscreenWin <> nil then
-        FullscreenWin.HideWindow
-      else
-        HideWindow;
-    end;
-  end;
-
-
-  procedure TReviewWindow.CMSetMode(var Mess :TMessage); {message CM_SetMode;}
-  begin
-    if FWinMode <> wmQuickView then
-      SetFullscreen( Mess.wParam = 1 );
-  end;
-
-
-  procedure TReviewWindow.CMMove(var Mess :TMessage); {message CM_Move;}
+  procedure TImageWindow.CMMove(var Mess :TMessage); {message CM_Move;}
   begin
     with PPoint(Mess.LParam)^ do
       MoveImage(X, Y);
   end;
 
 
-  procedure TReviewWindow.CMScale(var Mess :TMessage); {message CM_Scale;}
+  procedure TImageWindow.CMScale(var Mess :TMessage); {message CM_Scale;}
   begin
     case TScaleSetMode(Mess.wParam) of
       smSetMode:
@@ -1184,16 +1707,7 @@ interface
   end;
 
 
-  procedure TReviewWindow.CMSync(var Mess :TMessage); {message CM_Sync;}
-  begin
-    FNeedSync  := True;
-    FSyncStart := GetTickCount;
-    FSyncCmd   := Mess.wParam;
-    FSyncDelay := Mess.lParam;
-  end;
-
-
-  procedure TReviewWindow.CMSlideShow(var Mess :TMessage); {message CM_SlideShow;}
+  procedure TImageWindow.CMSlideShow(var Mess :TMessage); {message CM_SlideShow;}
   begin
     if Mess.wParam = 1 then begin
       FSlideStart := GetTickCount;
@@ -1206,20 +1720,13 @@ interface
   end;
 
 
-  procedure TReviewWindow.CMTempMsg(var Mess :TMessage); {message CM_TempMsg;}
+  procedure TImageWindow.CMTempMsg(var Mess :TMessage); {message CM_TempMsg;}
   begin
     SetTempMsg(TString(Mess.lParam), Mess.WParam = 1);
   end;
 
 
-  function TReviewWindow.GetMousePos :TPoint;
-  begin
-    Windows.GetCursorPos(Result);
-    ScreenToClient(Handle, Result);
-  end;
-
-
-  procedure TReviewWindow.MoveImage(DX, DY :Integer);
+  procedure TImageWindow.MoveImage(DX, DY :Integer);
 
     procedure LocInc(var AVal :Integer; ADelta :Integer);
     begin
@@ -1240,7 +1747,7 @@ interface
   end;
 
 
-  procedure TReviewWindow.SetScale(aMode :TScaleMode; aLnScale, aScale :TFloat);
+  procedure TImageWindow.SetScale(aMode :TScaleMode; aLnScale, aScale :TFloat);
   begin
     FMode := aMode;
     if FMode = smExact then begin
@@ -1260,7 +1767,7 @@ interface
   end;
 
 
-  procedure TReviewWindow.SetPage(aPage :Integer);
+  procedure TImageWindow.SetPage(aPage :Integer);
   begin
     FImage.FPage := RangeLimit(aPage, 0, FImage.FPages);
     FImage.DecodePage(Size(0,0));
@@ -1272,40 +1779,23 @@ interface
   end;
 
 
-  procedure TReviewWindow.SetTempMsg(const AMsg :TString; aInvalidate :Boolean = True);
-  begin
-    FTempMsg := AMsg;
-    FMsgStart := GetTickCount;
-    FMsgDelay := optTempMsgDelay;
-    if aInvalidate then
-      InvalidateMsgRect;
-  end;
-
-
-  procedure TReviewWindow.InvalidateMsgRect;
-  var
-    vRect :TRect;
-  begin
-    vRect := ClientRect;
-    vRect.Top := vRect.Bottom - 18{???};
-    InvalidateRect(FHandle, @vRect, True);
-  end;
-
-
-  procedure TReviewWindow.RecalcRects;
+  procedure TImageWindow.RecalcRects;
   var
     vWinRect :TRect;
-    vWinSize, vPicSize, vOldPicSize :TSize;
+    vWinSize, vImgSize, vPicSize, vOldPicSize :TSize;
     vMaxDelta, vOrigDelta, vFocusDelta, vDelta, vMousePos :TPoint;
   begin
     vWinRect := GetClientRect;
-    with vWinRect do
-      vWinSize := Size(Right - Left, Bottom - Top);
+    vWinSize := RectSize(vWinRect);
+
+    vImgSize := Size(FImage.FWidth, FImage.FHeight);
+    if FImage.FOrient in [5,6,7,8] then
+      IntSwap(vImgSize.cx, vImgSize.cy);
 
     if FMode = smAutoFit then begin
-      if (FImage.FWidth <> 0) and (FImage.FHeight <> 0) then begin
+      if (vImgSize.CX <> 0) and (vImgSize.CY <> 0) then begin
         { Подберем масштаб, чтобы изображение вписывалось в экран }
-        FScale := FloatMin( vWinSize.cx / FImage.FWidth, vWinSize.cy / FImage.FHeight);
+        FScale := FloatMin( vWinSize.cx / vImgSize.cx, vWinSize.cy / vImgSize.cy);
         if FScale > (optInitialScale / 100) then
           FScale := (optInitialScale / 100);
       end else
@@ -1317,9 +1807,10 @@ interface
         FLnScale := 0;
     end;
 
+    { Размер отмасштабированной картинки }
     vPicSize := Size(
-      Round(FImage.FWidth * FScale),
-      Round(FImage.FHeight * FScale)
+      Round(vImgSize.cx * FScale),
+      Round(vImgSize.cy * FScale)
     );
 
     if FDeltaScale <> FScale then begin
@@ -1337,8 +1828,8 @@ interface
       end;
 
       vOldPicSize := Size(
-        Round(FImage.FWidth * FDeltaScale),
-        Round(FImage.FHeight * FDeltaScale)
+        Round(vImgSize.cx * FDeltaScale),
+        Round(vImgSize.cy * FDeltaScale)
       );
       vFocusDelta := Point(
         (vOldPicSize.cx div 2) + FDelta.x + vDelta.X,
@@ -1366,12 +1857,7 @@ interface
       ((vWinSize.cy - vPicSize.cy) div 2) + FDelta.y
     );
 
-    FSrcRect := Rect(
-      MulDiv(IntMax(0, -vOrigDelta.X), FImage.FWidth, vPicSize.cx),
-      MulDiv(IntMax(0, -vOrigDelta.Y), FImage.FHeight, vPicSize.cy),
-      MulDiv(IntMin(vPicSize.cx, vWinSize.cx - vOrigDelta.x), FImage.FWidth, vPicSize.cx),
-      MulDiv(IntMin(vPicSize.cy, vWinSize.cy - vOrigDelta.y), FImage.FHeight, vPicSize.cy)
-    );
+    FDstRect0 := Bounds( vOrigDelta.X, vOrigDelta.Y, vPicSize.cx, vPicSize.cy);
 
     FDstRect := Rect(
       IntMax(0, vOrigDelta.X),
@@ -1379,61 +1865,17 @@ interface
       IntMin(vWinSize.cx, vOrigDelta.X + vPicSize.cx),
       IntMin(vWinSize.cy, vOrigDelta.Y + vPicSize.cy)
     );
+
+    FSrcRect := Rect(
+      MulDiv(IntMax(0, -vOrigDelta.X), vImgSize.cx, vPicSize.cx),
+      MulDiv(IntMax(0, -vOrigDelta.Y), vImgSize.cy, vPicSize.cy),
+      MulDiv(IntMin(vPicSize.cx, vWinSize.cx - vOrigDelta.x), vImgSize.cx, vPicSize.cx),
+      MulDiv(IntMin(vPicSize.cy, vWinSize.cy - vOrigDelta.y), vImgSize.cy, vPicSize.cy)
+    );
   end;
 
 
-  function TReviewWindow.CalcWinRect :TRect;
-  begin
-    case FWinMode of
-      wmNormal:
-        Result := GetNormalWinRect(False);
-      wmFullscreen:
-        Result := GetNormalWinRect(True);
-      wmQuickView:
-        Result := FWinRect;
-    end;
-  end;
-
-
-  procedure TReviewWindow.ShowWindow;
-  begin
-    FClipped := GetWindowLong(hFarWindow, GWL_STYLE) and WS_ClipChildren <> 0;
-   {$ifdef bSetClip}
-    if not FClipped then begin
-      SetWindowLong(hFarWindow, GWL_STYLE, GetWindowLong(hFarWindow, GWL_STYLE) or WS_ClipChildren);
-      FClipped := GetWindowLong(hFarWindow, GWL_STYLE) and WS_ClipChildren <> 0;
-    end;
-   {$endif bSetClip}
-
-    Windows.GetClientRect(hFarWindow, FParentRect);
-
-    if FWinMode <> wmFullscreen then
-//    SetBounds(CalcWinRect, 0);
-      SetWindowBounds(CalcWinRect);
-
-    Show(SW_SHOWNA);
-    SetForegroundWindow(hConsoleTopWnd);
-  end;
-
-
-  procedure TReviewWindow.HideWindow;
-  begin
-    Show(SW_Hide);
-//  if GNeedWriteSizeSettings then
-//    FarAdvControl(ACTL_SYNCHRO, scmSaveSettings);
-//  GNeedWriteSizeSettings := False;
-  end;
-
-
-  procedure TReviewWindow.SetWindowBounds(const aRect :TRect);
-  begin
-    SetBounds(aRect, 0);
-    if not FClipped then
-      FClipStart := GetTickCount;
-  end;
-
-
-  procedure TReviewWindow.WMSize(var Mess :TWMSize); {message WM_Size;}
+  procedure TImageWindow.WMSize(var Mess :TWMSize); {message WM_Size;}
   begin
     inherited;
     if FImage <> nil then
@@ -1442,51 +1884,32 @@ interface
   end;
 
 
-  procedure TReviewWindow.WMEraseBkgnd(var Mess :TWMEraseBkgnd); {message WM_EraseBkgnd;}
-  begin
-//  FillRect(Mess.DC, ClientRect, FBrush);
-    Mess.Result := 1;
-  end;
-
-
-  procedure TReviewWindow.WMPaint(var Mess :TWMPaint); {message WM_Paint;}
-  var
-    DC :HDC;
-    PS :TPaintStruct;
-  begin
-    DC := Mess.DC;
-    if DC = 0 then
-      DC := BeginPaint(Handle, PS);
-    try
-      PaintWindow(DC);
-    finally
-      if Mess.DC = 0 then
-        EndPaint(Handle, PS);
-    end;
-  end;
-
-
  {-----------------------------------------------------------------------------}
 
-  procedure TReviewWindow.PaintWindow(DC :HDC);
+  procedure TImageWindow.PaintWindow(DC :HDC);
   var
     vClientRect, vClipRect :TRect;
     vMemDC :TMemDC;
     vSaveDC :Integer;
     vSize :TSize;
     vTmpRect :TRect;
-    vFillAll :Boolean;
+    vOwnDC, vTileMode, vFillAll :Boolean;
   begin
-//  Trace('PaintWindow...');
+//  Trace('%s PaintWindow (HiQual=%d)...', [ClassName, Byte(FHiQual)]);
+
     vClientRect := ClientRect;
     try
       GetClipBox(DC, vClipRect);
 
       if FImageOk then begin
+        { Декодер рисует что-то в своем окне }
+        vOwnDC := FImage.FSelfdraw and not FImage.FSelfPaint;
+        { Режим плитки, только не для Self-Draw}
+        vTileMode := optTileMode and not vOwnDC;
         { Картинка заполняет весь экран }
-        vFillAll := (optTileMode and not FImage.FSelfdraw) or RectContainsRect(FDstRect, vClientRect);
+        vFillAll := vTileMode or RectContainsRect(FDstRect, vClientRect);
 
-        if (optShowInfo <> 0) and not FImage.FSelfdraw then begin
+        if (optShowInfo <> 0) and not vOwnDC then begin
 
           vSize := RectSize(vClientRect);
           vMemDC := TMemDC.Create(vSize.CX, vSize.CY);
@@ -1494,7 +1917,7 @@ interface
             if not vFillAll then
               FillRect(vMemDC.DC, vClientRect, FBrush);
 
-            if (optTileMode and not FImage.FSelfdraw) or RectIntersects(FDstRect, vClipRect) then
+            if vTileMode or RectIntersects(FDstRect, vClipRect) then
               DrawImage(vMemDC.DC, FImage, FSrcRect, FDstRect, True);
               
             if optShowInfo <> 0 then
@@ -1508,7 +1931,7 @@ interface
 
         end else
         begin
-          if (optTileMode and not FImage.FSelfdraw) or RectIntersects(FDstRect, vClipRect) then
+          if vTileMode or RectIntersects(FDstRect, vClipRect) then
             DrawImage(DC, FImage, FSrcRect, FDstRect, False);
 
           if not vFillAll then begin
@@ -1541,7 +1964,7 @@ interface
   end;
 
 
-  procedure TReviewWindow.SlideEffect(aOldImage :TReviewImage; const AOldSrcRect, AOldDstRect :TRect; ADirect :Integer);
+  procedure TImageWindow.SlideEffect(aOldImage :TReviewImage; const AOldSrcRect, AOldDstRect :TRect; ADirect :Integer);
   var
     i, j, m, a1, a2, dx, dy :Integer;
     vDC :HDC;
@@ -1646,18 +2069,20 @@ interface
   end;
 
 
-  procedure TReviewWindow.DrawImage(DC :HDC; aImage :TReviewImage; const ASrcRect, ADstRect :TRect; ABuffered :Boolean);
+
+  procedure TImageWindow.DrawImage(DC :HDC; aImage :TReviewImage; const ASrcRect, ADstRect :TRect; ABuffered :Boolean);
   var
+    vImgSize :TSize;
     vTransparent :Boolean;
 
     function LocScaleX(X :Integer) :Integer;
     begin
-      Result := MulDiv(X, aImage.FBitmap.Size.CX, aImage.FWidth);
+      Result := MulDiv(X, aImage.FBitmap.Size.CX, vImgSize.cx);
     end;
 
     function LocScaleY(Y :Integer) :Integer;
     begin
-      Result := MulDiv(Y, aImage.FBitmap.Size.CY, aImage.FHeight);
+      Result := MulDiv(Y, aImage.FBitmap.Size.CY, vImgSize.cy);
     end;
 
 
@@ -1689,83 +2114,85 @@ interface
     end;
 
 
-    procedure LocDraw(ADC :HDC; const ADstRect :TRect);
+    procedure LocDraw(ADC :HDC; const ADstRect, ADstRect0 :TRect);
     var
       vBmpRect :TRect;
       vNeedStretch, vIncrease, vSmooth :Boolean;
     begin
-      vBmpRect := ASrcRect;
-      if (aImage.FBitmap.Size.CX <> aImage.FWidth) or (aImage.FBitmap.Size.CY <> aImage.FHeight) then
-        { Размер декодированного битмапа не равен декларируемому размеру изображения - масштабируем }
-        with ASrcRect do
-          vBmpRect := Rect(LocScaleX(Left), LocScaleY(Top), LocScaleX(Right), LocScaleY(Bottom));
+      if FImage.FSelfPaint then
+        FDecoder.pvdDisplayPaint(Handle, ADC, aImage, ASrcRect, ADstRect, ADstRect0, FColor)
+      else begin
+        vBmpRect := ASrcRect;
+        if (aImage.FBitmap.Size.CX <> vImgSize.cx) or (aImage.FBitmap.Size.CY <> vImgSize.cy) then
+          { Размер декодированного битмапа не равен декларируемому размеру изображения - масштабируем }
+          with ASrcRect do
+            vBmpRect := Rect(LocScaleX(Left), LocScaleY(Top), LocScaleX(Right), LocScaleY(Bottom));
 
-      vNeedStretch :=
-        ((vBmpRect.Right - vBmpRect.Left) <> (ADstRect.Right - ADstRect.Left)) or
-        ((vBmpRect.Bottom - vBmpRect.Top) <> (ADstRect.Bottom - ADstRect.Top));
+        vNeedStretch :=
+          ((vBmpRect.Right - vBmpRect.Left) <> (ADstRect.Right - ADstRect.Left)) or
+          ((vBmpRect.Bottom - vBmpRect.Top) <> (ADstRect.Bottom - ADstRect.Top));
 
-      if vNeedStretch or (vTransparent and (FWinBPP < 32)) then begin
-        vIncrease := (vBmpRect.Right - vBmpRect.Left) < (ADstRect.Right - ADstRect.Left);
+        if vNeedStretch or (vTransparent and (FWinBPP < 32)) then begin
+//        Trace('Stretch...');
 
-        if FHiQual then begin
-          { При уменьшении сглаживаем всегда, а при увеличении - только если включена опция optSmoothScale }
-          vSmooth := not vIncrease or (vIncrease and optSmoothScale);
+          vIncrease := (vBmpRect.Right - vBmpRect.Left) < (ADstRect.Right - ADstRect.Left);
+          if FHiQual then begin
+            { При уменьшении сглаживаем всегда, а при увеличении - только если включена опция optSmoothScale }
+            vSmooth := not vIncrease or (vIncrease and optSmoothScale);
 
-          if not aImage.FIsThumbnail and ((vIncrease and vSmooth) or (vTransparent and not vIncrease)) then begin
-            if TryLockGDIPlus then begin
-              try
-                GpStretchDraw(ADC, ADstRect, aImage.FBitmap.BMP, vBmpRect, vTransparent, vSmooth);
-              finally
-                UnlockGDIPlus;
-              end;
+            if not aImage.FIsThumbnail and ((vIncrease and vSmooth) or (vTransparent and not vIncrease)) then begin
+              if TryLockGDIPlus then begin
+                try
+                  GpStretchDraw(ADC, ADstRect, aImage.FBitmap.BMP, vBmpRect, vTransparent, vSmooth);
+                finally
+                  UnlockGDIPlus;
+                end;
+              end else
+                GDIStretchDraw(ADC, ADstRect, aImage.FBitmap.DC, vBmpRect, vTransparent, vSmooth);
             end else
               GDIStretchDraw(ADC, ADstRect, aImage.FBitmap.DC, vBmpRect, vTransparent, vSmooth);
-          end else
-            GDIStretchDraw(ADC, ADstRect, aImage.FBitmap.DC, vBmpRect, vTransparent, vSmooth);
 
-          FDraftMode := False;
+            FDraftMode := False;
+          end else
+          begin
+            { Быстрый вывод - без сглаживания }
+            if vTransparent and (FWinBPP < 32) then
+              GpStretchDraw(ADC, ADstRect, aImage.FBitmap.BMP, vBmpRect, vTransparent, False)
+            else
+              GDIStretchDraw(ADC, ADstRect, aImage.FBitmap.DC, vBmpRect, vTransparent, False);
+            FDraftMode := True;
+            FDraftStart := GetTickCount;
+          end;
+
         end else
         begin
-          { Быстрый вывод - без сглаживания }
-          if vTransparent and (FWinBPP < 32) then
-            GpStretchDraw(ADC, ADstRect, aImage.FBitmap.BMP, vBmpRect, vTransparent, False)
-          else
-            GDIStretchDraw(ADC, ADstRect, aImage.FBitmap.DC, vBmpRect, vTransparent, False);
-          FDraftMode := True;
-          FDraftStart := GetTickCount;
+          GDIBitBlt(ADC, ADstRect, aImage.FBitmap.DC, vBmpRect, vTransparent);
+          FDraftMode := False;
         end;
-
-      end else
-      begin
-        GDIBitBlt(ADC, ADstRect, aImage.FBitmap.DC, vBmpRect, vTransparent);
-        FDraftMode := False;
       end;
     end;
 
   var
     I, J, vTileX, vTileY :Integer;
     vSize, vPicSize :TSize;
-    vTmpRect, vRect :TRect;
+    vTmpRect, vTmpRect1, vRect :TRect;
     vMemDC :TMemDC;
   begin
 //  with ADstRect do
 //    TraceF('Draw. DstRect=%dx%d-%dx%d', [Left, Top, Right, Bottom]);
 
-    if aImage.FSelfdraw then begin
+    vImgSize := Size(FImage.FWidth, FImage.FHeight);
+    if FImage.FOrient in [5,6,7,8] then
+      IntSwap(vImgSize.cx, vImgSize.cy);
 
-//    if aImage.FTransparent then begin
-//      LocFillBackground(ADC, ADstRect);
-        FDecoder.pvdDisplayPaint(Handle, aImage, ASrcRect, ADstRect, FColor)
-//    end else
-//      FDecoder.pvdDisplayPaint(Handle, aImage, ASrcRect, ADstRect, FColor)
-
-    end else
-    begin
+    if FImage.FSelfdraw and not FImage.FSelfPaint then
+      FDecoder.pvdDisplayPaint(Handle, DC, aImage, ASrcRect, ADstRect, FDstRect0, FColor)
+    else begin
       vTileX := 0; vTileY := 0;
       if optTileMode then begin
         vPicSize := Size(
-          Round(aImage.FWidth * FScale),
-          Round(aImage.FHeight * FScale));
+          Round(vImgSize.cx * FScale),
+          Round(vImgSize.cy * FScale));
         vTileX := IntMax((ADstRect.Left + vPicSize.CX - 1) div vPicSize.CX, 0);
         vTileY := IntMax((ADstRect.Top + vPicSize.CY - 1) div vPicSize.CY, 0);
       end;
@@ -1780,7 +2207,10 @@ interface
           if vTransparent then
             LocFillBackground(vMemDC.DC, vTmpRect);
 
-          LocDraw(vMemDC.DC, vTmpRect);
+          vTmpRect1 := FDstRect0;
+          RectMove(vTmpRect1, -ADstRect.Left, -ADstRect.Top);
+
+          LocDraw(vMemDC.DC, vTmpRect, vTmpRect1);
 
           if (vTileX > 0) or (vTileY > 0) then begin
             vRect := ADstRect;
@@ -1799,42 +2229,14 @@ interface
           FreeObj(vMemDC);
         end;
       end else
-        LocDraw(DC, ADstRect);
+        LocDraw(DC, ADstRect, FDstRect0);
 
       FHiQual := False;
     end;
   end;
 
 
-  procedure TReviewWindow.DrawTempText(DC :HDC; const AStr :TString);
-  var
-    X, Y :Integer;
-    vSize :TSize;
-    vFont, vOldFont :HFont;
-  begin
-    vFont := GetStockObject(DEFAULT_GUI_FONT);
-    vOldFont := SelectObject(DC, vFont);
-    if vOldFont = 0 then
-      Exit;
-    try
-      GetTextExtentPoint32(DC, PTChar(AStr), Length(AStr), vSize);
-      with GetClientRect do begin
-        X := Left; //Right - vSize.CX;
-        Y := Bottom - vSize.CY;
-      end;
-
-      SetBkMode(DC, OPAQUE);
-      SetBkColor(DC, FarAttrToCOLORREF(GetColorBG(optHintColor)));
-      SetTextColor(DC, FarAttrToCOLORREF(GetColorFG(optHintColor)));
-      TextOut(DC, X, Y, PTChar(AStr), Length(AStr));
-
-    finally
-      SelectObject(DC, vOldFont);
-    end;
-  end;
-
-
-  procedure TReviewWindow.DrawAddInfo(DC :HDC);
+  procedure TImageWindow.DrawAddInfo(DC :HDC);
   const
     cDeltaL = 5;
     cDeltaT = 5;
@@ -2061,13 +2463,13 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure TReviewWindow.WMKeyDown(var Mess :TWMKeyDown); {message WM_KeyDown;}
+  procedure TImageWindow.WMKeyDown(var Mess :TWMKeyDown); {message WM_KeyDown;}
   begin
     Mess.Result := 0;
   end;
 
 
-  procedure TReviewWindow.WMLButtonDown(var Mess :TWMLButtonDown); {message WM_LButtonDown;}
+  procedure TImageWindow.WMLButtonDown(var Mess :TWMLButtonDown); {message WM_LButtonDown;}
   begin
     SetCapture(Handle);
     FMousePos := SmallPointToPoint(Mess.Pos);
@@ -2076,7 +2478,21 @@ interface
   end;
 
 
-  procedure TReviewWindow.WMMouseMove(var Mess :TWMMouseMove); {message WM_MouseMove;}
+  procedure TImageWindow.WMRButtonDown(var Mess :TWMLButtonDown); {message WM_LRuttonDown;}
+  begin
+//  FarAdvControl(ACTL_SYNCHRO, SyncCmdThumbView);
+    Mess.Result := 0;
+  end;
+
+
+  procedure TImageWindow.WMRButtonUp(var Mess :TWMLButtonDown); {message WM_RButtonDown;}
+  begin
+    FarAdvControl(ACTL_SYNCHRO, SyncCmdThumbView);
+    Mess.Result := 0;
+  end;
+
+
+  procedure TImageWindow.WMMouseMove(var Mess :TWMMouseMove); {message WM_MouseMove;}
   begin
     if FDragged then begin
       MoveImage(Mess.Pos.X - FMousePos.X, Mess.Pos.Y - FMousePos.Y);
@@ -2086,7 +2502,7 @@ interface
   end;
 
 
-  procedure TReviewWindow.WMLButtonUp(var Mess :TWMLButtonUp); {message WM_LButtonUp;}
+  procedure TImageWindow.WMLButtonUp(var Mess :TWMLButtonUp); {message WM_LButtonUp;}
   begin
     if FDragged then begin
       ReleaseCapture;
@@ -2096,11 +2512,12 @@ interface
   end;
 
 
-  procedure TReviewWindow.WMLButtonDblClk(var Mess :TWMLButtonDblClk); {message WM_LButtonDblClk;}
+  procedure TImageWindow.WMLButtonDblClk(var Mess :TWMLButtonDblClk); {message WM_LButtonDblClk;}
   begin
     if (GetKeyState(VK_Control) < 0) or FImage.FMovie then begin
       if FWinMode <> wmQuickView then
-        SetFullscreen( FWinMode = wmNormal )
+//      SetFullscreen( FWinMode = wmNormal )
+        FarAdvControl(ACTL_SYNCHRO, SyncCmdFullscreen);
     end else
     if FMode = smExact then
       SetScale(smAutoFit, 0, 0)
@@ -2110,54 +2527,35 @@ interface
   end;
 
 
-  function TReviewWindow.Idle :Boolean;
+  function TImageWindow.Idle :Boolean;
   var
-    vRect :TRect;
-    vArea, vCX, vCY, vDelay :Integer;
+    vDelay :Integer;
+   {$ifdef bAsync}
+   {$else}
+    vCX, vCY :Integer;
+   {$endif bAsync}
   begin
-    Windows.GetClientRect(hFarWindow, vRect);
-    if IsWindowVisible(Handle) and not RectEmpty(vRect) and not RectEquals(vRect, FParentRect) then begin
-      { Корректируем размер окна изображения, при изменении окна FAR }
-      FParentRect := vRect;
-      if FWinMode = wmNormal then
-        SetWindowBounds(CalcWinRect)
-      else
-      if FWinMode = wmQuickView then
-        FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateWin); 
-    end;
-
-    if FWinMode = wmQuickView then begin
-      vArea := FarGetMacroArea;
-      if vArea <> FLastArea then begin
-        { Прячем/показываем окно изображения, при изменении MacroArea (для QuickView) }
-        FLastArea := vArea;
-        if vArea in [MACROAREA_SHELL, MACROAREA_SEARCH, MACROAREA_OTHER{???}] then begin
-          Show(SW_SHOWNA);
-          FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateWin);
-        end else
-          Show(SW_HIDE);
-      end;
-    end;
-
-    if FWinMode = wmFullscreen then
-      { Делаем FullScreen окно не Topmost, если FAR теряет фокус }
-      if not IsActiveConsole and (FullScreenWin <> nil) and (GetWindowLong(FullScreenWin.Handle, GWL_EXSTYLE) and WS_EX_TOPMOST <> 0) then begin
-//      TraceF('Make no topmost. FullScreenWin=%x, Console=%x...', [FullScreenWin.Handle, hConsoleTopWnd]);
-        Windows.SetWindowPos(FullScreenWin.Handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE);
-      end;
+    Result := inherited Idle;
 
     if FDraftMode and (TickCountDiff(GetTickCount, FDraftStart) > optDraftDelay) and not ScrollKeyPressed{???} then begin
       { Перерисовываем изображение в высоком качестве, после прекращения прокуртки/масштабирования }
       FDraftMode := False;
       FHiQual := True;
-      Invalidate;
+      Invalidate;  
     end;
 
     if (FClipStart <> 0) and (TickCountDiff(GetTickCount, FClipStart) > 150) then begin
 //    Trace('Clipped redraw...');
-      FClipStart := 0;
       FHiQual := not FDraftMode;
-      RedrawWindow(Handle, nil, 0, RDW_INVALIDATE or RDW_ALLCHILDREN);
+      FClipStart := 0;
+      RedrawWindow(Handle, nil, 0, {RDW_ERASE??? or} RDW_INVALIDATE or RDW_ALLCHILDREN);
+    end;
+
+    if (FTempMsg <> '') and (TickCountDiff(GetTickCount, FMsgStart) > FMsgDelay) then begin
+      { Прячем надпись... }
+      FHiQual := not FDraftMode;
+      FTempMsg := '';
+      InvalidateMsgRect;
     end;
 
     if (FImage <> nil) and FAnimate then begin
@@ -2178,77 +2576,68 @@ interface
       FarAdvControl(ACTL_SYNCHRO, SyncCmdNextSlide);  { Вызов GoNextSlide в главном потоке }
     end;
 
-    if (FTempMsg <> '') and (TickCountDiff(GetTickCount, FMsgStart) > FMsgDelay) then begin
-      { Прячем надпись... }
-      FHiQual := not FDraftMode;
-      FTempMsg := '';
-      InvalidateMsgRect;
-    end;
-
-    if FNeedSync and (TickCountDiff(GetTickCount, FSyncStart) > FSyncDelay) and (GLockSync = 0) and not ScrollKeyPressed then begin
-      { Асинхронный вызов в главном потоке (для обновления QuickView или для предварительного декодирования)... }
-      FNeedSync := False;
-      FarAdvControl(ACTL_SYNCHRO, FSyncCmd);
-    end;
-
-    if FImage <> nil then begin
+    {xxx}
+    if (FImage <> nil) and (Fimage.FBitmap <> nil) then begin
       { Даем декодеру возможность улучшить качество изображения, если он сначала вернул эскиз }
+     {$ifdef bAsync}
+      if AsyncDecode then begin
+        RecalcRects;
+        FHiQual := not FDraftMode;
+        Invalidate;
+      end;
+     {$else}
       vCX := Round(FImage.FWidth * FScale);
       vCY := Round(FImage.FHeight * FScale);
-      if FImage.FOrient in [5,6,7,8] then
-        IntSwap(vCX, vCY);
       if FImage.FDecoder.Idle(FImage, vCX, vCY) then begin
         FImage.UpdateBitmap;
         FHiQual := not FDraftMode;
         Invalidate;
       end;
+     {$endif bAsync}
     end;
-
-    Result := True;
   end;
 
 
- {-----------------------------------------------------------------------------}
- { TReviewWinThread                                                            }
- {-----------------------------------------------------------------------------}
-
-  constructor TReviewWinThread.Create;
-  begin
-    inherited Create(False);
-//  FWindow := THintWindow.Create;
-//  FreeOnTerminate := True;
-  end;
-
-
-  procedure TReviewWinThread.Execute; {override;}
+ {$ifdef bAsync}
+  function TImageWindow.AsyncDecode :Boolean;
   var
-    vMsg :TMsg;
+    vBestSize, vBmpSize :TSize;
   begin
-    PeekMessage(vMsg, 0, WM_USER, WM_USER, PM_NOREMOVE); { Create message queue }
+    if FImage.FAsyncTask <> nil then
+      Result := FImage.CheckAsyncTask
+    else begin
+      if optUseWinSize then begin
+        vBestSize := Size(
+          Round(FImage.FWidth * FloatMin(FScale, 1.0)),
+          Round(FImage.FHeight * FloatMin(FScale, 1.0))
+        );
+      end else
+        vBestSize := Size(FImage.FWidth, FImage.FHeight);
 
-//  CoInitialize(nil);
-    FWindow := TReviewWindow.Create;
-    try
+      vBmpSize := FImage.FBitmap.Size;
+      if FImage.FOrient in [5,6,7,8] then
+        IntSwap(vBmpSize.cx, vBmpSize.cy);
 
-      while not Terminated do begin
-        while PeekMessage(vMsg, 0 {FWindow.Handle}, 0, 0, PM_REMOVE) do begin
-          TranslateMessage(vMsg);
-          DispatchMessage(vMsg);
+      if not FImage.FIsThumbnail and ((vBestSize.CX > vBmpSize.CX) or (vBestSize.CY > vBmpSize.CY)) then
+        if (FResizeStart = 0) or (vBestSize.CX <> FResizeSize.CX) or (vBestSize.CY <> FResizeSize.CY) then begin
+          FResizeStart := GetTickCount;
+          FResizeSize := vBestSize;
         end;
-        if FWindow.Idle then
-          Sleep(1);
+
+      if (FResizeStart <> 0) and (TickCountDiff(GetTickCount, FResizeStart) > StretchDelay) then begin
+        FResizeStart := 0;
+        if (vBestSize.CX > vBmpSize.CX) or (vBestSize.CY > vBmpSize.CY) then
+          FImage.SetAsyncTask(vBestSize);
       end;
 
-      if FullScreenWin <> nil then
-        FullScreenWin.HideWindow;
-      FWindow.HideWindow;
+      if FImage.FIsThumbnail and (TickCountDiff(GetTickCount, FImage.FFirstShow) > ThumbDelay) and not ScrollKeyPressed then
+        { Если в настоящий момент показывается эскиз (и не продолжается быстрое листание), то запускаем задание на декодирование, если еще нет }
+        FImage.SetAsyncTask(vBestSize);
 
-    finally
-      FreeObj(FWindow);
-      FreeObj(FullScreenWin);
-//    CoUninitialize;
+      Result := False;
     end;
   end;
+ {$endif bAsync}
 
 
  {-----------------------------------------------------------------------------}
@@ -2266,44 +2655,17 @@ interface
 
   destructor TReviewImage.Destroy; {override;}
   begin
+   {$ifdef bAsync}
+    CancelTask;
+   {$endif bAsync}
     if FDecoder <> nil then begin
       if FDecodeInfo <> nil then
         FDecoder.pvdPageFree(Self);
       FDecoder.pvdFileClose(Self);
     end;
-    ReleaseCache;
-    FreeObj(FBitmap);
     inherited Destroy;
   end;
 
-
-(*
-  procedure TReviewImage.PrecacheFile;
-  var
-    vFile :THandle;
-  begin
-    vFile := CreateFile(PTChar(FName), GENERIC_READ, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING,
-       FILE_ATTRIBUTE_NORMAL or FILE_FLAG_SEQUENTIAL_SCAN {or FILE_FLAG_NO_BUFFERING}, 0);
-    try
-      FSize := FileSize(vFile);
-
-      FCacheSize := FSize { cPreCacheLimit !!! };
-      if FSize < FCacheSize then
-        FCacheSize := FSize;
-
-      FCacheBuf := MemAlloc(FCacheSize);
-      FCacheSize := FileRead(vFile, FCacheBuf^, FCacheSize);
-
-    finally
-      FileClose(vFile);
-    end;
-  end;
-
-  procedure TReviewImage.ReleaseCache;
-  begin
-    MemFree(FCacheBuf);
-  end;
-*)
 
   function GetFileInfo(const FileName :TString; var aTime :Integer; var aSize :TInt64) :Boolean;
   var
@@ -2352,6 +2714,7 @@ interface
     begin
       if FDecoder.pvdTagInfo(Self, aCode, vType, vValue) and (vType = PVD_TagType_Str) then
         aValue := Trim(PTChar(vValue));
+//      aValue := UTF8ToWide(Trim(PTChar(vValue)));
     end;
 
   var
@@ -2388,49 +2751,6 @@ interface
   end;
 
 
-  function TReviewImage.PrecacheFile :Boolean;
-  begin
-    Result := False;
-    FMapFile := CreateFile(PTChar(FName), GENERIC_READ, FILE_SHARE_READ, nil, OPEN_EXISTING, 0, 0);
-    if FMapFile = INVALID_HANDLE_VALUE then
-      Exit;
-
-    FSize := FileSize(FMapFile);
-    if FSize <= 0 then
-      begin ReleaseCache; Exit; end;
-
-    FCacheSize := cPreCacheLimit;
-    if FSize < FCacheSize then
-      FCacheSize := FSize;
-
-    FMapHandle := CreateFileMapping(FMapFile, nil, PAGE_READONLY, 0, FCacheSize, nil);
-    if FMapHandle = 0 then
-      begin ReleaseCache; Exit; end;
-
-    FCacheBuf := MapViewOfFile(FMapHandle, FILE_MAP_READ, 0, 0, FCacheSize);
-    if FCacheBuf = nil then
-      begin ReleaseCache; Exit; end;
-
-    Result := True;
-  end;
-
-
-  procedure TReviewImage.ReleaseCache;
-  begin
-    if FCacheBuf <> nil then
-      UnmapViewOfFile(FCacheBuf);
-    FCacheBuf := nil;
-
-    if FMapHandle <> 0 then
-      FileClose(FMapHandle);
-    FMapHandle := 0;
-
-    if (FMapFile <> 0) and (FMapFile <> INVALID_HANDLE_VALUE) then
-      FileClose(FMapFile);
-    FMapFile := 0;
-  end;
-
-
   function TReviewImage.TryOpenBy(ADecoder :TReviewDecoder; AForce :Boolean) :Boolean;
   var
     vStart :DWORD;
@@ -2440,13 +2760,13 @@ interface
 //    TraceF('Try decoding by %s - %s...', [ADecoder.Name, FName]);
 
       if (FCacheBuf = nil) and ADecoder.NeedPrecache then
-        if not PrecacheFile then
+        if not PrecacheFile(FName) then
           Exit;
 
       vStart := GetTickCount;
       FOpenTime := 0;
       FContext := nil;
-      if ADecoder.pvdFileOpen(Self) then begin
+      if ADecoder.pvdFileOpen(FName, Self) then begin
         FOpenTime := TickCountDiff(GetTickCount, vStart);
         FDecoder := ADecoder;
         FPage := 0;
@@ -2483,38 +2803,170 @@ interface
   end;
 
 
+ {$ifdef bAsync}
   procedure TReviewImage.DecodePage(ASize :TSize; AFastScroll :Boolean = False);
+
+    procedure LocDecodeError;
+    begin
+      AppError(AppendStrCh(FDecoder.Name + ': Decode error.', FDecoder.LastError, charLF));
+    end;
+
   var
     vStart :DWORD;
+    vMode :TDecodeMode;
+    vSize :TSize;
   begin
     vStart := GetTickCount;
     FDecodeTime := 0;
 
-    if FDecoder.pvdGetPageInfo(Self) then begin
+    if not FDecoder.pvdGetPageInfo(Self) then
+      LocDecodeError;
 
+    if optUseWinSize then begin
       if FOrient in [5,6,7,8] then
         IntSwap(ASize.CX, ASize.CY);
+      vSize := Size(FWidth, FHeight);
+      CorrectBoundEx(vSize, ASize);
+    end else
+      vSize := Size(0, 0);
 
-      { Декодируем... }
-      if FDecoder.pvdPageDecode(Self, 0{???}, ASize.CX, ASize.CY, AFastScroll) then begin
-        if not FSelfdraw then begin
-          try
-            { Формируем Bitmap  }
-            FreeObj(FBitmap);
-            if FBmpBits <> nil then
-              FBitmap := TReviewBitmap.CreateEx(FBmpWidth, FBmpHeight, FBmpBPP, FBmpRowBytes, FBmpBits, FBmpPalette, FColorModel, FTranspColor)
-            else
-              FBitmap := TReviewBitmap.Create1(FDecoder.GetBitmapHandle(Self, FIsThumbnail), True);
-            if FOrient > 1 then
-              OrientBitmap(FOrient);
-          finally
-            FDecoder.pvdPageFree(Self);
-          end;
-        end;
-        FDecodeTime := TickCountDiff(GetTickCount, vStart);
+    { Декодируем... }
+    if optUseThumbnail = not (GetKeyState(VK_Shift) < 0) then
+      vMode := dmThumbnailOrImage
+    else
+      vMode := dmImage;
+
+    if not FDecoder.pvdPageDecode(Self, vSize.CX, vSize.CY, vMode, Review.MyDecodeCallback, FDecoder) then
+      LocDecodeError;
+
+    FFirstShow := GetTickCount;
+    FDecodeTime := TickCountDiff(GetTickCount, vStart);
+
+    if not FSelfdraw then begin
+      try
+        { Формируем Bitmap  }
+        FreeObj(FBitmap);
+        FBitmap := TReviewBitmap.Create1(FDecoder.GetBitmapHandle(Self, FIsThumbnail), True);
+        if FOrient > 1 then
+          OrientBitmap(FOrient);
+      finally
+        FDecoder.pvdPageFree(Self);
+      end;
+
+      if FIsThumbnail and not AFastScroll then begin
+        SetAsyncTask(vSize);
+        vStart := GetTickCount;
+        FDecodeTime := 0;
+        while not CheckAsyncTask and (TickCountDiff(GetTickCount, vStart) < DecodeWaitDelay) do
+          Sleep(1);
       end;
     end;
   end;
+
+
+  procedure TReviewImage.SetAsyncTask(const ASize :TSize);
+  begin
+    InitRenderThread;
+//  TraceF('SetAsyncTask %s...', [ExtractFileName(FSrcName)]);
+
+    FAsyncTask := TTask.CreateEx(Self, FPage, ASize);
+//  if FHasAlpha then
+//    FAsyncTask.FBackColor := FBkColor;
+//  FAsyncTask.FOnTask := TaskEvent;
+    FAsyncTask._AddRef;
+
+    GRenderThread.AddTask(FAsyncTask);
+  end;
+
+
+  function TReviewImage.CheckAsyncTask :Boolean;
+  begin
+    Result := False;
+    if FAsyncTask <> nil then begin
+      if GRenderThread.CheckTask(FAsyncTask) then begin
+        if FAsyncTask.FThumb <> 0 then begin
+          FreeObj(FBitmap);
+          FBitmap := TReviewBitmap.Create1(FAsyncTask.FThumb, True);
+          if FOrient > 1 then
+            OrientBitmap(FOrient);
+          FDecodeTime := FAsyncTask.FDecodeTime;
+          FIsThumbnail := False;
+        end;
+//      FErrorMess := FAsyncTask.FError;
+        FAsyncTask.FThumb := 0;
+        FAsyncTask._Release;
+        FAsyncTask := nil;
+        Result := True;
+      end;
+    end;
+  end;
+
+
+  procedure TReviewImage.CancelTask;
+  begin
+    Assert(ValidInstance);
+    if FAsyncTask <> nil then begin
+//    TraceF('CancelTask %s...', [FSrcName]);
+      GRenderThread.CancelTask(FAsyncTask);
+      FAsyncTask._Release;
+      FAsyncTask := nil;
+    end;
+  end;
+
+ {$else}
+
+  procedure TReviewImage.DecodePage(ASize :TSize; AFastScroll :Boolean = False);
+
+    procedure LocDecodeError;
+    begin
+      AppError(AppendStrCh(FDecoder.Name + ': Decode error.', FDecoder.LastError, charLF));
+    end;
+
+  var
+    vStart :DWORD;
+    vMode :TDecodeMode;
+    vSize :TSize;
+  begin
+    vStart := GetTickCount;
+    FDecodeTime := 0;
+
+    if not FDecoder.pvdGetPageInfo(Self) then
+      LocDecodeError;
+
+    if optUseWinSize and (FDecoder is TReviewGDIDecoder) then begin
+      if FOrient in [5,6,7,8] then
+        IntSwap(ASize.CX, ASize.CY);
+      vSize := Size(FWidth, FHeight);
+      CorrectBoundEx(vSize, ASize);
+    end else
+      vSize := Size(0, 0);
+
+    { Декодируем... }
+    if optUseThumbnail = not (GetKeyState(VK_Shift) < 0) then begin
+      if AFastScroll then
+        vMode := dmThumbnailOrImage
+      else
+        vMode := doAsyncExtract;
+    end else
+      vMode := dmImage;
+
+    if not FDecoder.pvdPageDecode(Self, vSize.CX, vSize.CY, vMode, Review.MyDecodeCallback, FDecoder) then
+      LocDecodeError;
+
+    if not FSelfdraw then begin
+      try
+        { Формируем Bitmap  }
+        FreeObj(FBitmap);
+        FBitmap := TReviewBitmap.Create1(FDecoder.GetBitmapHandle(Self, FIsThumbnail), True);
+        if FOrient > 1 then
+          OrientBitmap(FOrient);
+      finally
+        FDecoder.pvdPageFree(Self);
+      end;
+    end;
+    FDecodeTime := TickCountDiff(GetTickCount, vStart);
+  end;
+ {$endif bAsync}
 
 
   procedure TReviewImage.UpdateBitmap;
@@ -2528,45 +2980,9 @@ interface
         FreeObj(FBitmap);
         FBitmap := TReviewBitmap.Create1(vNewBitmap, True);
         FIsThumbnail := vIsThumbnail;
-        if FOrient > 1 then begin
-          if FOrient in [5,6,7,8] then
-            IntSwap(FWidth, FHeight);
+        if FOrient > 1 then 
           OrientBitmap(FOrient);
-        end;
       end;
-    end;
-  end;
-
-
-  procedure TReviewImage.Rotate(ARotate :Integer);
-  const
-    cReorient :array[0..8, 0..4] of Integer = (
-     (1,6,8,2,4), //
-     (1,6,8,2,4), //
-     (2,7,5,1,3), // X
-     (3,8,6,4,2), // LL = RR
-     (4,5,7,3,1), // Y
-     (5,2,4,6,8), // XR
-     (6,3,1,5,7), // R
-     (7,4,2,8,6), // XL
-     (8,1,3,7,5)  // L
-    );
-    cTransform :array[0..4] of Integer =
-      (0, 6, 8, 2, 4);
-  begin
-    if FBitmap <> nil then begin
-      FOrient := cReorient[FOrient, ARotate];
-      OrientBitmap(cTransform[ARotate]);
-    end;
-  end;
-
-
-  procedure TReviewImage.OrientBitmap(AOrient :Integer);
-  begin
-    if FBitmap <> nil then begin
-      FBitmap.Transform(AOrient);
-      if AOrient in [5,6,7,8] then
-        IntSwap(FWidth, FHeight);
     end;
   end;
 
@@ -2603,6 +3019,17 @@ interface
   destructor TReviewManager.Destroy; {override;}
   begin
     CloseWindow;
+   {$ifdef bThumbs}
+    CloseThumbWindow;
+   {$endif bThumbs}
+
+    try
+      if NeedStoreCache then
+        SaveDecodersInfo(FDecoders);
+    except
+      {Nothing}
+    end;
+
     FreeObj(FCache);
     FreeObj(FDecoders);
     FreeObj(FBackBmp);
@@ -2662,6 +3089,8 @@ interface
     Result := False;
     inc(GLockSync);
     try
+      if ScreenBitPerPixel < 16 then
+        AppErrorId(strBadVideoModeError);
       UpdateConsoleWnd;
 //    hConsoleTopWnd := GetTopParent(hFarWindow);
       hConsoleTopWnd := GetAncestor(hFarWindow, GA_ROOT);
@@ -2689,7 +3118,7 @@ interface
         try
           if vImage.TryOpen(AForce) then begin
             FCommand := GoCmdNone;
-            vImage.DecodePage(CalcWinSize(AMode), vFastScroll);
+            DecodeImage(vImage, CalcWinSize(AMode), vFastScroll);
             DisplayImage(vImage, AMode, ADirect);
             CacheImage(vImage);
             Result := True;
@@ -2715,7 +3144,7 @@ interface
         CacheImage(vImage);
         Result := True;
       end;
-      
+
       if Result then
         FLastDecode := GetTickCount;
 
@@ -2726,12 +3155,21 @@ interface
 
 
   procedure TReviewManager.DisplayImage(aImage :TReviewImage; AMode :Integer; ADirect :Integer = 0);
+
+    procedure CreateWinThread;
+    begin
+      if FWinThread = nil then begin
+        LoadBackground;
+        FWinThread := TReviewWinThread.Create(TImageWindow);
+        while FWinThread.Window = nil do
+          Sleep(0);
+        FWindow := FWinThread.Window as TImageWindow;
+      end;
+    end;
+
   var
     vRec :TSetImageRec;
   begin
-    if ScreenBitPerPixel < 16 then
-      AppErrorId(strBadVideoModeError);
-
     CreateWinThread;
 
 //  TraceF('SetItemToWindow. ACallMode=%d', [Byte(ACallMode)]);
@@ -2774,7 +3212,7 @@ interface
         vNewIndex := LocNext(vIndex);
         while vNewIndex <> vIndex do begin
           if vImage.TryOpenBy( FDecoders[vNewIndex], False ) then begin
-            vImage.DecodePage(CalcWinSize);
+            DecodeImage(vImage, CalcWinSize);
             DisplayImage(vImage, -1);
             CacheImage(vImage);
             FFavDecoder := CurImage.FDecoder;
@@ -2806,7 +3244,6 @@ interface
   end;
 
 
-
   procedure TReviewManager.SetTempMsg(const AMsg :TString; aInvalidate :Boolean = True);
   begin
     if FWindow <> nil then
@@ -2818,24 +3255,19 @@ interface
   procedure TReviewManager.UpdateWindowPos;
   var
     vRec :TSetImageRec;
-    vWinInfo :TWindowInfo;
   begin
     if IsQViewMode then begin
       FillZero(vRec, SizeOf(vRec));
       vRec.WinRect := CalcWinRectAs(1);
       SendMessage(FWindow.Handle, CM_SetWinPos, 0, LPARAM(@vRec));
     end else
-    if (FWindow <> nil) and (ModalDlg <> nil) then begin
-      if FarGetWindowInfo(-1, vWinInfo) then begin
-        if (vWinInfo.WindowType = WTYPE_DIALOG) and (THandle(vWinInfo.ID) = ModalDlg.Handle) then begin
-          SendMessage(FWindow.Handle, CM_SetVisible, 1, 0);
-          ModalDlg.FHidden := False;
-        end else
-        begin
-          SendMessage(FWindow.Handle, CM_SetVisible, 0, 0);
-          ModalDlg.FHidden := True;
-        end;
-      end;
+    begin
+      if (FWindow <> nil) and (ModalDlg <> nil) then
+        ModalDlg.UpdateWindowVisible(FWindow);
+     {$ifdef bThumbs}
+      if (FThumbsWindow <> nil) and (ThumbsModalDlg <> nil) then
+        ThumbsModalDlg.UpdateWindowVisible(FThumbsWindow);
+     {$endif bThumbs}
     end;
   end;
 
@@ -2935,39 +3367,26 @@ interface
   end;
 
 
-  procedure TReviewManager.CreateWinThread;
-  begin
-    if FWinThread = nil then begin
-      LoadBackground;
-      FWinThread := TReviewWinThread.Create;
-      while FWinThread.Window = nil do
-        Sleep(0);
-      FWindow := FWinThread.Window;
-    end;
-  end;
-
-
   procedure TReviewManager.CloseWindow;
   begin
     if FWinThread <> nil then begin
-
-      FWinThread.Terminate;
-
-      FWinThread.WaitFor;
       FreeObj(FWinThread);
-
       FWindow := nil;
-
       ClearCache;
     end;
+   {$ifdef bAsync}
+    DoneRenderThread;
+   {$endif bAsync}
   end;
 
 
   procedure TReviewManager.CloseWindowDelayed(ADelay :Integer);
   begin
     if FWinThread <> nil then begin
+      { Сразу, чтобы не оставалось мусора в Temp, при просмотре файлов в архиве }
       SendMessage(FWindow.Handle, CM_ReleaseImage, 0, 0);
-      Review.SyncDelayed(SyncCmdClose, ADelay);
+      { С задержкой, чтобы не промаргивал Viewer }
+      SyncDelayed(SyncCmdClose, ADelay);
       ClearCache;
     end;
   end;
@@ -3089,53 +3508,143 @@ interface
   begin
     if (FWindow <> nil) and FarGetPanelInfo(True, vInfo) and (vInfo.PanelType = PTYPE_FILEPANEL) and (PFLAGS_REALNAMES and vInfo.Flags <> 0) then begin
 //    TraceF('CacheNeighbor: %d', [Byte(ANext)]);
-      vPath := FarPanelGetCurrentDirectory;
-      vIndex := vInfo.CurrentItem;
+      try
+        vPath := FarPanelGetCurrentDirectory;
+        vIndex := vInfo.CurrentItem;
 
-      while True do begin
+        while True do begin
+          if ANext then begin
+            if vIndex = vInfo.ItemsNumber - 1 then
+              Break;
+            Inc(vIndex);
+          end else
+          begin
+            if vIndex = 0 then
+              Break;
+            Dec(vIndex);
+          end;
 
-        if ANext then begin
-          if vIndex = vInfo.ItemsNumber - 1 then
-            Break;
-          Inc(vIndex);
-        end else
-        begin
-          if vIndex = 0 then
-            Break;
-          Dec(vIndex);
-        end;
+          vItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETPANELITEM, vIndex);
+          if vItem <> nil then begin
+            try
+              if vItem.FileAttributes and faDirectory = 0 then begin
 
-        vItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETPANELITEM, vIndex);
-        if vItem <> nil then begin
-          try
-            if vItem.FileAttributes and faDirectory = 0 then begin
-
-              vFileName := AddFileName(vPath, vItem.FileName);
-              vImage := FindInCache(vFileName);
-              if vImage <> nil then begin
-                CacheImage(vImage);
-                Break;
-              end;
-
-              vImage := TReviewImage.CreateEx(vFileName);
-              vImage._AddRef;
-              try
-                if vImage.TryOpen(False) then begin
-                  vImage.DecodePage(CalcWinSize);
+                vFileName := AddFileName(vPath, vItem.FileName);
+                vImage := FindInCache(vFileName);
+                if vImage <> nil then begin
                   CacheImage(vImage);
                   Break;
                 end;
-              finally
-                vImage._Release;
-              end;
 
+                vImage := TReviewImage.CreateEx(vFileName);
+                vImage._AddRef;
+                try
+                  if vImage.TryOpen(False) then begin
+                    DecodeImage(vImage, CalcWinSize, {FastScroll=}False, {Precache=}True);
+                    CacheImage(vImage);
+                    FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
+                    Break;
+                  end;
+                finally
+                  vImage._Release;
+                end;
+
+              end;
+            finally
+              MemFree(vItem);
             end;
-          finally
-            MemFree(vItem);
           end;
         end;
 
+      except
+        FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
       end;
+    end;
+  end;
+
+
+//procedure TReviewImage.WaitCursor(ASet :Boolean);
+//begin
+//  if ASet then begin
+//    if FCursor = 0 then
+//      FCursor := LoadCursor(0, IDC_WAIT);
+//    if FCursor <> 0 then
+//      SetCursor(FCursor);
+//  end else
+//  begin
+//  end;
+//end;
+
+
+  procedure TReviewManager.ShowDecodeProgress(ADecoder :TReviewDecoder; APercent :Integer);
+  var
+    vStr :TString;
+  begin
+    vStr :=
+      FDecodeFile + ' - ' + ADecoder.Title + ' decoding' +
+      StrIf(APercent > 0, ' ' + Int2Str(APercent) + '%', '') +
+      '...';
+
+    if (Window <> nil) and (Window.WinMode = wmFullscreen) then
+      SetTempMsg(vStr)
+    else
+    if ModalDlg <> nil then
+      ModalDlg.SetTitle(vStr)
+    else begin
+      if FOldTitle = '' then
+        FOldTitle := GetConsoleTitleStr;
+      SetConsoleTitleStr(vStr);
+    end;
+  end;
+
+
+  procedure TReviewManager.MyDecodeCallback(ASender :Pointer; APercent :Integer; var AContinue :Boolean);
+  begin
+    if GetCurrentThreadID <> MainThreadID then
+      { DecodePage вызывается из потока окна для анимированных изображений... }
+      begin NOP; Exit; end;
+
+    if (FDecodeStart <> 0) and (TickCountDiff(GetTickCount, FDecodeStart) > FDecodeStep) then begin
+      ShowDecodeProgress(TReviewDecoder(ASender), APercent);
+
+      if CheckForEsc then
+        AContinue := False;
+
+      FDecodeStart := GetTickCount;
+      FDecodeStep := 100;
+    end;
+  end;
+
+  
+  procedure TReviewManager.DecodeImage(aImage :TReviewImage; const ASize :TSize; AFastScroll :Boolean = False; APrecache :Boolean = False);
+  begin
+//  WaitCursor(True);
+//  FScreen := 0;
+    FOldTitle := '';
+
+    if not APrecache then begin
+      FDecodeFile := ExtractFileName(aImage.FName);
+      FDecodeStart := GetTickCount;
+      FDecodeStep := 500;
+
+      if not AFastScroll{???} then
+        ShowDecodeProgress(aImage.FDecoder, 0);
+    end;
+
+    try
+      aImage.DecodePage(ASize, AFastScroll);
+    finally
+//    WaitCursor(False);
+//    if FScreen <> 0 then
+//      FARAPI.RestoreScreen(FScreen);
+//    FScreen := 0;
+
+      if FOldTitle <> '' then
+        SetConsoleTitleStr(FOldTitle);
+      FOldTitle := '';
+
+      FDecodeFile := '';
+      FDecodeStart := 0;
     end;
   end;
 
@@ -3324,8 +3833,6 @@ interface
 
 
   function TReviewManager.NavigateLow(AInfo :TPanelInfo; AIndex :Integer; const AFileName :TString; ASlideDirect, ACacheDirect :Integer) :Boolean;
-  var
-    vRedrawInfo :TPanelRedrawInfo;
   begin
     Result := False;
     if PFLAGS_REALNAMES and AInfo.Flags = 0 then begin
@@ -3342,12 +3849,11 @@ interface
       if ShowImage(AFileName, 0, False, ASlideDirect) then begin
         if optPrecache and (ACacheDirect <> 0) then
           SyncDelayed(IntIf(ACacheDirect > 0, SyncCmdCacheNext, SyncCmdCachePrev), optCacheDelay);
-       {$ifdef Far3}
-        vRedrawInfo.StructSize := SizeOf(vRedrawInfo);
-       {$endif Far3}
-        vRedrawInfo.TopPanelItem := AInfo.TopPanelItem;
-        vRedrawInfo.CurrentItem := AIndex;
-        FARAPI.Control(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, @vRedrawInfo);
+        FarPanelSetCurrentItem(True, AIndex);
+       {$ifdef bThumbs}
+        if FThumbsWindow <> nil then
+          SendMessage(FThumbsWindow.Handle, CM_Move, cmMoveByName, TIntPtr(pointer(AFileName)));
+       {$endif bThumbs}
         Result := True;
       end;
     end;
@@ -3420,13 +3926,44 @@ interface
   end;
 
 
+(*
   procedure TReviewManager.SetFullscreen(aOn :Boolean);
   begin
+   {$ifdef bThumbs}
+    if FThumbsWindow <> nil then
+      SendMessage(FThumbsWindow.Handle, CM_SetMode, IntIf(aOn, 1, 0), 0);
+   {$endif bThumbs}
     if FWindow <> nil then
       SendMessage(FWindow.Handle, CM_SetMode, IntIf(aOn, 1, 0), 0);
   end;
+*)
+  procedure TReviewManager.SetFullscreen(aMode :Integer);
+  begin
+    if aMode = -1 then begin
+      if (FWindow <> nil) and (FWindow.WinMode <> wmQuickView) then
+        aMode := IntIf(FWindow.WinMode = wmFullscreen, 0, 1)
+     {$ifdef bThumbs}
+      else
+      if FThumbsWindow <> nil then
+        aMode := IntIf(FThumbsWindow.WinMode = wmFullscreen, 0, 1);
+     {$endif bThumbs}
+    end;
 
-  
+   {$ifdef bThumbs}
+    if (FThumbsWindow <> nil) and ((FWindow = nil) or (FWindow.WinMode = wmQuickView) or (aMode = 0)) then begin
+      SendMessage(FThumbsWindow.Handle, CM_SetMode, aMode, 0);
+      optThumbFullscreen := aMode = 1;
+      InterlockedIncrement(OptionsRevision);
+    end;
+   {$endif bThumbs}
+    if FWindow <> nil then begin
+      SendMessage(FWindow.Handle, CM_SetMode, aMode, 0);
+      optFullscreen := aMode = 1;
+      InterlockedIncrement(OptionsRevision);
+    end;
+  end;
+
+
   procedure TReviewManager.ChangeVolume(aDeltaVolume, aVolume :Integer);
   begin
     if CurImage.Decoder is TReviewDllDecoder2 then
@@ -3437,320 +3974,6 @@ interface
         end;
         pvdPlayControl(CurImage, PVD_PC_SetVolume, aVolume);
       end;
-  end;
-
-
-  function TReviewManager.ProcessKey(AKey :Integer) :Boolean;
-
-    procedure LocNavigate(AOrig :Integer; AForward :Boolean);
-    begin
-      if not Navigate(AOrig, AForward, optEffectOnManual) then
-        Beep;
-    end;
-
-    procedure LocGotoPage(ADelta :Integer);
-    var
-      vPage :Integer;
-    begin
-      vPage := FWindow.FImage.FPage + ADelta;
-      if (vPage >= 0) and (vPage < FWindow.FImage.FPages) then
-        SetImagePage(vPage)
-      else
-        Beep;
-    end;
-
-    procedure LocMove(ADX, ADY :Integer);
-    var
-      vRec :TPoint;
-    begin
-      vRec.x := ADX;
-      vRec.Y := ADY;
-      SendMessage(FWindow.Handle, CM_Move, 0, LPARAM(@vRec));
-    end;
-
-    procedure LocMovePage(ADX, ADY :Integer);
-    begin
-      if not CurImage.FMovie then begin
-        with Window.ClientRect do begin
-          ADX := ADX * (Right - Left);
-          ADY := ADY * (Bottom - Top);
-        end;
-        LocMove(ADX, ADY);
-      end;
-    end;
-
-    procedure LocShowInfo;
-    begin
-      optShowInfo := 1 - optShowInfo;
-//    ShowDecoderInfo;
-      InvalidateImage;
-      PluginConfig(True)
-    end;
-
-    procedure LocSwitchBack;
-    begin
-      optTranspBack := not optTranspBack;
-      InvalidateImage;
-    end;
-
-    procedure LocSwitchTile;
-    begin
-      optTileMode := not optTileMode;
-      InvalidateImage;
-    end;
-
-    procedure LocSwitchSmooth;
-    begin
-      optSmoothScale := not optSmoothScale;
-      SetTempMsg('Smooth mode: ' + StrIf(optSmoothScale, 'On', 'Off'), False);  {!Localize}
-      InvalidateImage;
-    end;
-
-    procedure LocSetSmoothMode(aMode :Integer);
-    const
-      cModeNames :array[0..7] of TSTring =
-        ('Default', 'Low', 'High', 'Bilinear', 'Bicubic', 'Nearest', 'HQBilinear', 'HQBicubic');
-    begin
-      optSmoothScale := True;
-      optSmoothMode := aMode;
-      SetTempMsg('Smooth mode: ' + Int2Str(optSmoothMode) + ' - ' + cModeNames[optSmoothMode], False);  {!Localize}
-      InvalidateImage;
-    end;
-
-
-    procedure LocSwitchSmoothMode;
-    var
-      vNewMode :Integer;
-    begin
-      vNewMode := IntIf(optSmoothMode < InterpolationModeHighQualityBicubic, optSmoothMode + 1, InterpolationModeBilinear);
-      if vNewMode = InterpolationModeNearestNeighbor then
-        Inc(vNewMode);
-      LocSetSmoothMode( vNewMode );
-    end;
-
-
-    procedure LocSelectCurrent(AMode :Integer);
-    var
-      vInfo :TPanelInfo;
-      vIndex :Integer;
-      vSelected :Boolean;
-    begin
-      if CheckSync(CurImage.FName, vSelected) then begin
-        if FarGetPanelInfo(True, vInfo) then begin
-          vIndex := vInfo.CurrentItem;
-          if (AMode = 1) or ((AMode = -1) and not vSelected) then
-            FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, Pointer(PPIF_SELECTED) )
-          else
-            FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, nil );
-          CurImage.FSelected := -1;
-          FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
-        end;
-      end else
-        Beep;
-    end;
-
-
-    procedure LocGotoPos(aDeltaSec, aPosMS :Integer);
-    begin
-      if CurImage.Decoder is TReviewDllDecoder2 then
-        with TReviewDllDecoder2(CurImage.Decoder) do begin
-          if aDeltaSec <> 0 then begin
-            aPosMS := pvdPlayControl(CurImage, PVD_PC_GetPos, 0);
-            Dec(aPosMS, ADeltaSec * 1000);
-          end;
-          pvdPlayControl(CurImage, PVD_PC_SetPos, aPosMS);
-        end;
-    end;
-
-
-    procedure LocPlayPause;
-    var
-      vState :Integer;
-    begin
-      if CurImage.Decoder is TReviewDllDecoder2 then
-        with TReviewDllDecoder2(CurImage.Decoder) do begin
-          vState := pvdPlayControl(CurImage, PVD_PC_GetState, 0);
-          if vState = 1 then
-            pvdPlayControl(CurImage, PVD_PC_Pause, 0)
-          else
-            pvdPlayControl(CurImage, PVD_PC_Play, 0)
-        end;
-    end;
-
-
-    function LocStep(aStep :Integer) :Integer;
-    begin
-      if Key_Shift and AKey = 0 then
-        Result := aStep
-      else
-        Result := IntIf(aStep > 0, 1, -1);
-    end;
-
-
-    procedure LocSaveAs;
-    var
-      vImage :TReviewImage;
-      vFileName, vFmtName :TString;
-      vOrient, vQuality :Integer;
-      vOptions :TSaveOptions;
-    begin
-      vImage := CurImage;
-      vFileName := vImage.FName;
-      vFmtName := vImage.FFormat;
-      vOrient := vImage.FOrient;
-      vQuality := 0;
-      vOptions := [soTransformation];
-      SyncDelayed(SyncCmdUpdateWin, 100);
-      if SaveAsDlg(vFileName, vFmtName, vOrient, vQuality, vOptions) then begin
-        UpdateWindowPos;
-        Save(vFileName, vFmtName, vOrient, vQuality, vOptions);
-      end;
-    end;
-
-
-  begin
-    Result := False;
-    if FWinThread <> nil then begin
-      if (AKey >= byte('A')) and (AKey <= byte('Z')) then
-        AKey := AKey + 32;
-
-      case AKey of
-        { Смещение }
-        Key_Left, Key_ShiftLeft, Key_NumPad4, Key_ShiftNumPad4:
-          if not CurImage.FMovie then
-            LocMove(LocStep(+cMoveStep),  0)
-          else
-            LocGotoPos(LocStep(+cMoveStepSec), 0);
-
-        Key_Right, Key_ShiftRight, Key_NumPad6, Key_ShiftNumPad6:
-          if not CurImage.FMovie then
-            LocMove(LocStep(-cMoveStep),  0)
-          else
-            LocGotoPos(LocStep(-cMoveStepSec), 0);
-
-        Key_Up, Key_ShiftUp, Key_NumPad8, Key_ShiftNumPad8:
-          if not CurImage.FMovie then
-            LocMove( 0, LocStep(+cMoveStep))
-          else
-            ChangeVolume(LocStep(+10), 0);
-
-        Key_Down, Key_ShiftDown, Key_NumPad2, Key_ShiftNumPad2:
-          if not CurImage.FMovie then
-            LocMove( 0, LocStep(-cMoveStep))
-          else
-            ChangeVolume(LocStep(-10), 0);
-
-        Key_CtrlLeft, Key_CtrlNumPad4:
-          if not CurImage.FMovie then
-            LocMove(+MaxInt,  0)
-          else
-            LocGotoPos(0, 0);
-
-        Key_CtrlRight, Key_CtrlNumPad6:
-          if not CurImage.FMovie then
-            LocMove(-MaxInt,  0)
-          else
-            LocGotoPos(0, MaxInt);
-
-        Key_CtrlUp, Key_CtrlNumPad8:
-          if not CurImage.FMovie then
-            LocMove( 0, +MaxInt)
-          else
-            ChangeVolume(0, 100);
-
-        Key_CtrlDown, Key_CtrlNumPad2:
-          if not CurImage.FMovie then
-            LocMove( 0, -MaxInt)
-          else
-            ChangeVolume(0, 0);
-
-        Key_AltLeft   : LocMovePage(+1,  0);
-        Key_AltRight  : LocMovePage(-1,  0);
-        Key_AltUp     : LocMovePage( 0, +1);
-        Key_ALtDown   : LocMovePage( 0, -1);
-
-        { Переключение изображений }
-        Key_Home, Key_ShiftHome, Key_NumPad7 : LocNavigate(1, True);
-        Key_End, Key_ShiftEnd, Key_NumPad1   : LocNavigate(2, False);
-        Key_PgDn, Key_ShiftPgDn, Key_NumPad3 : LocNavigate(0, True);
-        Key_PgUp, Key_ShiftPgUp, Key_NumPad9 : LocNavigate(0, False);
-
-        { Переключение страниц }
-        Key_CtrlHome, Key_CtrlNumPad7 : SetImagePage(0);
-        Key_CtrlEnd, Key_CtrlNumPad1  : SetImagePage(MaxInt);
-        Key_CtrlPgDn, Key_CtrlNumPad3 : LocGotoPage(+1);
-        Key_CtrlPgUp, Key_CtrlNumPad9 : LocGotoPage(-1);
-
-        { Переключение декодеров }
-        Key_AltHome  : Redecode(rmBest);
-        Key_AltPgDn  : Redecode(rmNext);
-        Key_AltPgUp  : Redecode(rmPrev);
-
-        { Масштабирование }
-        KEY_MULTIPLY      :
-          if FWindow.ScaleMode = smExact then
-            SetScale( smSetMode, smAutoFit, 0  )
-          else
-            SetScale( smSetScale, smExact, 1  );
-        KEY_Add           : SetScale( smDeltaScale, smExact, +5 {Change scale} );
-        KEY_Subtract      : SetScale( smDeltaScale, smExact, -5 {Change scale} );
-        KEY_ShiftAdd      : SetScale( smDeltaScale, smExact, +1 {Change scale} );
-        KEY_ShiftSubtract : SetScale( smDeltaScale, smExact, -1 {Change scale} );
-
-        KEY_CtrlR, Byte('r') : Redecode;
-        KEY_CtrlS, Byte('s') : SlideShow(-1);
-        KEY_AltS             : SlideShowQueryDelay;
-        KEY_CtrlI, Byte('i') : LocShowInfo;
-        KEY_CtrlB, Byte('b') : LocSwitchBack;
-        KEY_CtrlT, Byte('t') : LocSwitchTile;
-        KEY_CtrlQ, Byte('q') : LocSwitchSmooth;
-        KEY_AltQ             : LocSwitchSmoothMode;
-        KEY_ALT0..KEY_ALT7   : LocSetSmoothMode(AKey - KEY_ALT0);
-
-        KEY_CtrlF, Byte('f') :
-          SetFullscreen(FWindow.FWinMode = wmNormal);
-
-        Byte('.')           : Rotate(1); { > - Поворот по часовой }
-        Byte(',')           : Rotate(2); { < - Поворот против часовой }
-        Key_Alt + Byte('.') : Rotate(3); { Alt> - X-Flip }
-        Key_Alt + Byte(',') : Rotate(4); { Alt< - Y-Flip }
-
-        Key_Ins     : LocSelectCurrent(-1);
-        Key_Del     : LocSelectCurrent(0);
-
-        Key_F2      : Save('', '', 0, 0, [soTransformation]);
-        Key_CtrlF2  : Save('', '', 0, 0, [soTransformation, soEnableLossy]);
-        Key_AltF2   : Save('', '', 0, 0, [soExifRotation]);
-        Key_ShiftF2 : LocSaveAs;
-
-        Key_Space   : LocPlayPause;
-
-      else
-        Exit;
-      end;
-      Result := True;
-    end;
-  end;
-
-
-  function TReviewManager.ProcessWheel(ADelta :Integer) :Boolean;
-  begin
-    Result := False;
-    if FWinThread <> nil then begin
-//    TraceF('ProcessWheel: %d', [ADelta]);
-      if GetKeyState(VK_Control) < 0 then
-        Navigate(0, ADelta < 0, optEffectOnManual)
-      else
-      if CurImage.FMovie then begin
-        ChangeVolume(ADelta * 5, 0)
-      end else
-      begin
-        if not (GetKeyState(VK_Shift) < 0) then
-          ADelta := ADelta * 5;
-        SetScale( smDeltaScaleMouse, smExact, ADelta );
-      end;
-      Result := True;
-    end;
   end;
 
 
@@ -3788,6 +4011,130 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+ {$ifdef bThumbs}
+
+(*
+        Key_F12: begin
+          if Review.ThumbWindow = nil then
+            Review.FCommand := GoCmdThumbs;
+          Close;
+        end;
+*)
+
+  procedure TReviewManager.OpenThumbsView;
+  begin
+    if ModalDlg <> nil then begin
+      if ThumbWindow = nil then
+        FCommand := GoCmdThumbs;
+      ModalDlg.Close;
+    end;
+  end;
+
+
+  function TReviewManager.ShowThumbs(const AFolder, ACurFile :TString) :Boolean;
+  var
+    vThumbs :TThumbList;
+    vRec :TSetThumbsRec;
+    vPath, vCurFile :TString;
+  begin
+    Result := False;
+
+    if ScreenBitPerPixel < 16 then
+      AppErrorId(strBadVideoModeError);
+    UpdateConsoleWnd;
+//  hConsoleTopWnd := GetTopParent(hFarWindow);
+    hConsoleTopWnd := GetAncestor(hFarWindow, GA_ROOT);
+//  TraceF('FarWnd=%x, ConsoleWnd=%x', [hFarWindow, hConsoleTopWnd]);
+
+    if AFolder = '' then begin
+      vPath := FarPanelGetCurrentDirectory;
+      vCurFile := ACurFile;
+      if ACurFile <> cKeepCurrent then
+        vCurFile := FarPanelItemName(PANEL_ACTIVE, FCTL_GETCURRENTPANELITEM, 0);
+      vThumbs := CollectThumb('');
+    end else
+    begin
+      vPath := RemoveBackSlash(AFolder);
+      vCurFile := ACurFile;
+      vThumbs := CollectThumb(vPath);
+    end;
+
+    try
+//    if vThumbs.Count = 0 then
+//      begin Beep; FreeObj(vThumbs); exit; end;
+      if vThumbs = nil then
+        begin Beep; exit; end;
+
+      if FThumbsThread = nil then begin
+        FThumbsThread := TReviewWinThread.Create(TThumbsWindow);
+        while FThumbsThread.Window = nil do
+          Sleep(0);
+        FThumbsWindow := FThumbsThread.Window;
+      end;
+
+      FillZero(vRec, SizeOf(vRec));
+      vRec.Thumbs := vThumbs;
+      vRec.Path := vPath;
+      vRec.CurFile := vCurFile;
+//    vRec.WinMode := AMode;
+      vRec.WinRect := CalcWinRectAs(0{AMode});
+      vRec.SyncPanel := AFolder = '';
+      SendMessage(FThumbsWindow.Handle, CM_SetImage, 0, LPARAM(@vRec));
+
+      Result := True;
+
+    except
+      FreeObj(vThumbs);
+      raise;
+    end;
+  end;
+
+
+  procedure TReviewManager.CloseThumbWindow;
+  begin
+    if FThumbsThread <> nil then begin
+      FreeObj(FThumbsThread);
+      FThumbsWindow := nil;
+//    ClearThumbsCache?;
+    end;
+  end;
+
+
+  procedure TReviewManager.ThumbSyncDelayed(aCmd, aDelay :Integer);
+  begin
+    if FThumbsWindow <> nil then begin
+//    Trace('ThumbSyncDelayed...');
+      SendMessage(FThumbsWindow.Handle, CM_Sync, aCmd, aDelay);
+    end;
+  end;
+
+
+  procedure TReviewManager.ThumbChangePath(const APath, ACurFile :TString; aSyncPanel :Boolean);
+  begin
+    if aSyncPanel then begin
+      FarPanelSetDir(True, APath);
+      if ACurFile <> '' then
+        FarPanelSetCurrentItem(True, ACurFile);
+      ShowThumbs('', '');
+    end else
+      ShowThumbs(APath, ACurFile);
+    if ThumbsModalDlg <> nil then
+      ThumbsModalDlg.UpdateTitle;
+  end;
+
+
+  procedure TReviewManager.ThumbView(const AFileName :TString);
+  begin
+    if ThumbWindow.WinMode = wmFullscreen then
+      optFullscreen := True;
+    if ShowImage( AFileName, 0) then
+      ViewModalState(False, False);
+  end;
+ {$endif bThumbs}
+
+
+ {-----------------------------------------------------------------------------}
+
   procedure TReviewManager.PluginSetup;
   var
     vMenu :TFarMenu;
@@ -3800,6 +4147,7 @@ interface
     [
       GetMsg(strMOptions),
       GetMsg(strMSlideShow),
+      GetMsg(strMThumbnails),
       PTChar(vDecodersStr),
       GetMsg(strMColors)
     ]);
@@ -3810,12 +4158,495 @@ interface
       case vMenu.ResIdx of
         0 : ReviewConfig;
         1 : SlideShowConfig;
-        2 : DecodersConfig(Review);
-        3 : ColorMenu;
+       {$ifdef bThumbs}
+        2 : ThumbConfig;
+       {$else}
+        2 : Sorry;
+       {$endif bThumbs}
+        3 : DecodersConfig(Review);
+        4 : ColorMenu;
       end;
 
     finally
       FreeObj(vMenu);
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { Диалог модального состояния                                                 }
+ {-----------------------------------------------------------------------------}
+
+  procedure TViewModalDlg.Prepare; {override;}
+  var
+    vTitle :TString;
+  begin
+    FHelpTopic := 'View';
+    FGUID := cViewDlgID;
+    FFlags := FDLG_NODRAWSHADOW or FDLG_NODRAWPANEL{???};
+    FWidth := 20;
+    FHeight := 5;
+    vTitle := Review.GetWindowTitle;
+    FDialog := CreateDialog(
+      [ NewItemApi(DI_DoubleBox, 0,  0, FWidth, FHeight, 0, PTChar(vTitle)) ],
+      @FItemCount
+    );
+  end;
+
+
+  procedure TViewModalDlg.UpdateTitle;
+  begin
+    SetTitle( Review.GetWindowTitle );
+  end;
+
+
+  function TViewModalDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
+  var
+    vImage :TReviewImage;
+
+    procedure LocNavigate(AOrig :Integer; AForward :Boolean);
+    begin
+      if not Review.Navigate(AOrig, AForward, optEffectOnManual) then
+        Beep;
+    end;
+
+    procedure LocGotoPage(ADelta :Integer);
+    var
+      vPage :Integer;
+    begin
+      vPage := vImage.FPage + ADelta;
+      if (vPage >= 0) and (vPage < vImage.FPages) then
+        Review.SetImagePage(vPage)
+      else
+        Beep;
+    end;
+
+    procedure LocMove(ADX, ADY :Integer);
+    var
+      vRec :TPoint;
+    begin
+      vRec.x := ADX;
+      vRec.Y := ADY;
+      SendMessage(Review.Window.Handle, CM_Move, 0, LPARAM(@vRec));
+    end;
+
+    procedure LocMovePage(ADX, ADY :Integer);
+    begin
+      if not vImage.FMovie then begin
+        with Review.Window.ClientRect do begin
+          ADX := ADX * (Right - Left);
+          ADY := ADY * (Bottom - Top);
+        end;
+        LocMove(ADX, ADY);
+      end;
+    end;
+
+    procedure LocShowInfo;
+    begin
+      optShowInfo := 1 - optShowInfo;
+//    ShowDecoderInfo;
+      Review.InvalidateImage;
+      InterlockedIncrement(OptionsRevision);
+    end;
+
+    procedure LocSwitchBack;
+    begin
+      optTranspBack := not optTranspBack;
+      Review.InvalidateImage;
+    end;
+
+    procedure LocSwitchTile;
+    begin
+      optTileMode := not optTileMode;
+      Review.InvalidateImage;
+    end;
+
+    procedure LocSwitchSmooth;
+    begin
+      optSmoothScale := not optSmoothScale;
+      Review.SetTempMsg('Smooth mode: ' + StrIf(optSmoothScale, 'On', 'Off'), False);  {!Localize}
+      Review.InvalidateImage;
+    end;
+
+    procedure LocSetSmoothMode(aMode :Integer);
+    const
+      cModeNames :array[0..7] of TSTring =
+        ('Default', 'Low', 'High', 'Bilinear', 'Bicubic', 'Nearest', 'HQBilinear', 'HQBicubic');
+    begin
+      optSmoothScale := True;
+      optSmoothMode := aMode;
+      Review.SetTempMsg('Smooth mode: ' + Int2Str(optSmoothMode) + ' - ' + cModeNames[optSmoothMode], False);  {!Localize}
+      Review.InvalidateImage;
+    end;
+
+
+    procedure LocSwitchSmoothMode;
+    var
+      vNewMode :Integer;
+    begin
+      vNewMode := IntIf(optSmoothMode < InterpolationModeHighQualityBicubic, optSmoothMode + 1, InterpolationModeBilinear);
+      if vNewMode = InterpolationModeNearestNeighbor then
+        Inc(vNewMode);
+      LocSetSmoothMode( vNewMode );
+    end;
+
+(*
+    procedure LocSelectCurrent(AMode :Integer);
+    var
+      vInfo :TPanelInfo;
+      vIndex :Integer;
+      vSelected :Boolean;
+    begin
+      if Review.CheckSync(vImage.FName, vSelected) then begin
+        if FarGetPanelInfo(True, vInfo) then begin
+          vIndex := vInfo.CurrentItem;
+          if (AMode = 1) or ((AMode = -1) and not vSelected) then
+            FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, Pointer(PPIF_SELECTED) )
+          else
+            FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, nil );
+          vImage.FSelected := -1;
+          FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
+         {$ifdef bThumbs}
+          if Review.FThumbsWindow <> nil then
+            SendMessage(Review.FThumbsWindow.Handle, CM_Select, cmMoveByName, TIntPtr(pointer(AFileName)))};
+         {$endif bThumbs}
+        end;
+      end else
+        Beep;
+    end;
+*)
+    procedure LocSelectCurrent(AMode :Integer);
+    var
+      vInfo :TPanelInfo;
+      vIndex :Integer;
+      vSelected :Boolean;
+    begin
+      if Review.CheckSync(vImage.FName, vSelected) then begin
+        if FarGetPanelInfo(True, vInfo) then begin
+          vIndex := vInfo.CurrentItem;
+          vSelected := (AMode = 1) or ((AMode = -1) and not vSelected);
+          FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, Pointer(IntIf(vSelected, PPIF_SELECTED, 0) ));
+          vImage.FSelected := -1;
+          FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
+         {$ifdef bThumbs}
+          if Review.FThumbsWindow <> nil then
+            SendMessage(Review.FThumbsWindow.Handle, CM_Select, IntIf(vSelected, cmSelSetName,cmSelClrName), TIntPtr(pointer(vImage.FName)));
+         {$endif bThumbs}
+        end;
+      end else
+        Beep;
+    end;
+
+
+    procedure LocGotoPos(aDeltaSec, aPosMS :Integer);
+    begin
+      if vImage.Decoder is TReviewDllDecoder2 then
+        with TReviewDllDecoder2(vImage.Decoder) do begin
+          if aDeltaSec <> 0 then begin
+            aPosMS := pvdPlayControl(vImage, PVD_PC_GetPos, 0);
+            Dec(aPosMS, ADeltaSec * 1000);
+          end;
+          pvdPlayControl(vImage, PVD_PC_SetPos, aPosMS);
+        end;
+    end;
+
+
+    procedure LocPlayPause;
+    var
+      vState :Integer;
+    begin
+      if vImage.Decoder is TReviewDllDecoder2 then
+        with TReviewDllDecoder2(vImage.Decoder) do begin
+          vState := pvdPlayControl(vImage, PVD_PC_GetState, 0);
+          if vState = 1 then
+            pvdPlayControl(vImage, PVD_PC_Pause, 0)
+          else
+            pvdPlayControl(vImage, PVD_PC_Play, 0)
+        end;
+    end;
+
+
+    function LocStep(aStep :Integer) :Integer;
+    begin
+      if Key_Shift and AKey = 0 then
+        Result := aStep
+      else
+        Result := IntIf(aStep > 0, 1, -1);
+    end;
+
+
+    procedure LocSaveAs;
+    var
+      vFileName, vFmtName :TString;
+      vOrient, vQuality :Integer;
+      vOptions :TSaveOptions;
+    begin
+      vFileName := vImage.FName;
+      vFmtName := vImage.FFormat;
+      vOrient := vImage.FOrient;
+      vQuality := 0;
+      vOptions := [soTransformation];
+      Review.SyncDelayed(SyncCmdUpdateWin, 100);
+      if SaveAsDlg(vFileName, vFmtName, vOrient, vQuality, vOptions) then begin
+        Review.UpdateWindowPos;
+        Review.Save(vFileName, vFmtName, vOrient, vQuality, vOptions);
+      end;
+    end;
+
+  begin
+    Result := True;
+    if FQuick then begin
+
+      if AKey <> KEY_Esc then begin
+        FarPostMacro('Keys("Esc ' + FarKeyToName(AKey) + '")');
+      end else
+        Result := inherited KeyDown(AID, AKey);
+
+    end else
+    begin
+      vImage := Review.CurImage;
+
+      if (AKey >= byte('A')) and (AKey <= byte('Z')) then
+        AKey := AKey + 32;
+
+      case AKey of
+        KEY_F1 : begin
+          Review.SyncDelayed(SyncCmdUpdateWin, 100);
+          Result := inherited KeyDown(AID, AKey);
+        end;
+
+        Key_F3, KEY_F10, Key_NumPad5:
+          Close;
+
+        KEY_F9 : begin
+          Review.SyncDelayed(SyncCmdUpdateWin, 100);
+          Review.PluginSetup;
+        end;
+
+        KEY_F4..KEY_F8{,KEY_F10},KEY_F11,
+        KEY_SHIFTF3..KEY_SHIFTF8,
+        KEY_ALTF3,KEY_ALTF4:
+        begin
+          FPostKey := AKey;
+          Close;
+        end;
+       {$ifdef bThumbs}
+        Key_F12: Review.OpenThumbsView;
+       {$endif bThumbs}
+
+        { Смещение }
+        Key_Left, Key_ShiftLeft, Key_NumPad4, Key_ShiftNumPad4:
+          if not vImage.FMovie then
+            LocMove(LocStep(+cMoveStep),  0)
+          else
+            LocGotoPos(LocStep(+cMoveStepSec), 0);
+
+        Key_Right, Key_ShiftRight, Key_NumPad6, Key_ShiftNumPad6:
+          if not vImage.FMovie then
+            LocMove(LocStep(-cMoveStep),  0)
+          else
+            LocGotoPos(LocStep(-cMoveStepSec), 0);
+
+        Key_Up, Key_ShiftUp, Key_NumPad8, Key_ShiftNumPad8:
+          if not vImage.FMovie then
+            LocMove( 0, LocStep(+cMoveStep))
+          else
+            Review.ChangeVolume(LocStep(+10), 0);
+
+        Key_Down, Key_ShiftDown, Key_NumPad2, Key_ShiftNumPad2:
+          if not vImage.FMovie then
+            LocMove( 0, LocStep(-cMoveStep))
+          else
+            Review.ChangeVolume(LocStep(-10), 0);
+
+        Key_CtrlLeft, Key_CtrlNumPad4:
+          if not vImage.FMovie then
+            LocMove(+MaxInt,  0)
+          else
+            LocGotoPos(0, 0);
+
+        Key_CtrlRight, Key_CtrlNumPad6:
+          if not vImage.FMovie then
+            LocMove(-MaxInt,  0)
+          else
+            LocGotoPos(0, MaxInt);
+
+        Key_CtrlUp, Key_CtrlNumPad8:
+          if not vImage.FMovie then
+            LocMove( 0, +MaxInt)
+          else
+            Review.ChangeVolume(0, 100);
+
+        Key_CtrlDown, Key_CtrlNumPad2:
+          if not vImage.FMovie then
+            LocMove( 0, -MaxInt)
+          else
+            Review.ChangeVolume(0, 0);
+
+        Key_AltLeft   : LocMovePage(+1,  0);
+        Key_AltRight  : LocMovePage(-1,  0);
+        Key_AltUp     : LocMovePage( 0, +1);
+        Key_ALtDown   : LocMovePage( 0, -1);
+
+        { Переключение изображений }
+        Key_Home, Key_ShiftHome, Key_NumPad7 : LocNavigate(1, True);
+        Key_End, Key_ShiftEnd, Key_NumPad1   : LocNavigate(2, False);
+        Key_PgDn, Key_ShiftPgDn, Key_NumPad3 : LocNavigate(0, True);
+        Key_PgUp, Key_ShiftPgUp, Key_NumPad9 : LocNavigate(0, False);
+
+        { Переключение страниц }
+        Key_CtrlHome, Key_CtrlNumPad7 : Review.SetImagePage(0);
+        Key_CtrlEnd, Key_CtrlNumPad1  : Review.SetImagePage(MaxInt);
+        Key_CtrlPgDn, Key_CtrlNumPad3 : LocGotoPage(+1);
+        Key_CtrlPgUp, Key_CtrlNumPad9 : LocGotoPage(-1);
+
+        { Переключение декодеров }
+        Key_AltHome  : Review.Redecode(rmBest);
+        Key_AltPgDn  : Review.Redecode(rmNext);
+        Key_AltPgUp  : Review.Redecode(rmPrev);
+
+        { Масштабирование }
+        KEY_MULTIPLY      :
+          if Review.Window.ScaleMode = smExact then
+            Review.SetScale( smSetMode, smAutoFit, 0  )
+          else
+            Review.SetScale( smSetScale, smExact, 1  );
+        KEY_Add           : Review.SetScale( smDeltaScale, smExact, +5 {Change scale} );
+        KEY_Subtract      : Review.SetScale( smDeltaScale, smExact, -5 {Change scale} );
+        KEY_ShiftAdd      : Review.SetScale( smDeltaScale, smExact, +1 {Change scale} );
+        KEY_ShiftSubtract : Review.SetScale( smDeltaScale, smExact, -1 {Change scale} );
+
+        KEY_CtrlR, Byte('r') : Review.Redecode;
+        KEY_CtrlS, Byte('s') : Review.SlideShow(-1);
+        KEY_AltS             : Review.SlideShowQueryDelay;
+        KEY_CtrlI, Byte('i') : LocShowInfo;
+        KEY_CtrlB, Byte('b') : LocSwitchBack;
+        KEY_CtrlT, Byte('t') : LocSwitchTile;
+        KEY_CtrlQ, Byte('q') : LocSwitchSmooth;
+        KEY_AltQ             : LocSwitchSmoothMode;
+        KEY_ALT0..KEY_ALT7   : LocSetSmoothMode(AKey - KEY_ALT0);
+
+        KEY_CtrlF, Byte('f') :
+//        Review.SetFullscreen(Review.Window.FWinMode = wmNormal);
+          Review.SetFullscreen(-1);
+
+        Byte('.')           : Review.Rotate(1); { > - Поворот по часовой }
+        Byte(',')           : Review.Rotate(2); { < - Поворот против часовой }
+        Key_Alt + Byte('.') : Review.Rotate(3); { Alt> - X-Flip }
+        Key_Alt + Byte(',') : Review.Rotate(4); { Alt< - Y-Flip }
+
+        Key_Ins     : LocSelectCurrent(-1);
+        Key_Del     : LocSelectCurrent(0);
+
+        Key_F2      : Review.Save('', '', 0, 0, [soTransformation]);
+        Key_CtrlF2  : Review.Save('', '', 0, 0, [soTransformation, soEnableLossy]);
+        Key_AltF2   : Review.Save('', '', 0, 0, [soExifRotation]);
+        Key_ShiftF2 : LocSaveAs;
+
+        Key_Space   : LocPlayPause;
+
+       {$ifdef bDebug}
+        KEY_AltX : Sorry;
+       {$endif bDebug}
+       
+      else
+        Result := inherited KeyDown(AID, AKey);
+      end;
+    end;
+  end;
+
+
+  function TViewModalDlg.MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; {override;}
+
+    function LocProcessWheel(ADelta :Integer) :Boolean;
+    var
+      vImage :TReviewImage;
+    begin
+      Result := False;
+      vImage := Review.CurImage;
+      if vImage <> nil then begin
+//      TraceF('ProcessWheel: %d', [ADelta]);
+        if GetKeyState(VK_Control) < 0 then
+          Review.Navigate(0, ADelta < 0, optEffectOnManual)
+        else
+        if vImage.FMovie then
+          Review.ChangeVolume(ADelta * 5, 0)
+        else begin
+          if not (GetKeyState(VK_Shift) < 0) then
+            ADelta := ADelta * 5;
+          Review.SetScale( smDeltaScaleMouse, smExact, ADelta );
+        end;
+        Result := True;
+      end;
+    end;
+
+  begin
+    if AMouse.dwEventFlags and MOUSE_HWHEELED <> 0 then
+      Review.Rotate(IntIf(Smallint(LongRec(AMouse.dwButtonState).Hi) > 0, 1, 2))
+    else
+    if AMouse.dwEventFlags and MOUSE_WHEELED <> 0 then
+      LocProcessWheel(IntIf(Smallint(LongRec(AMouse.dwButtonState).Hi) > 0, 1, -1));
+    Result := inherited MouseEvent(AID, AMouse);
+  end;
+
+
+
+  function ViewModalState(AView, AQuick :Boolean) :Boolean;
+  var
+    vKeys :TString;
+    vRevision :Integer;
+  begin
+    Assert(ModalDlg = nil);
+    ModalDlg := TViewModalDlg.Create;
+    try
+      vRevision := OptionsRevision;
+
+      ModalDlg.FQuick := AQuick;
+      Result := ModalDlg.Run = -1;
+
+      if vRevision <> OptionsRevision then
+        PluginConfig(True);
+
+      if ModalDlg.FErrorStr <> '' then begin
+        Review.CloseWindow;
+        ShowMessage(cPluginName, ModalDlg.FErrorStr, FMSG_WARNING or FMSG_MB_OK);
+        if AView then
+          FarPostMacro('Keys("Esc")');
+      end else
+      if Review.FCommand = GoCmdNone then begin
+        if AView then
+          Review.CloseWindowDelayed(100)
+        else
+          Review.CloseWindow;
+        if AView then
+          vKeys := 'Esc';
+        if ModalDlg.FPostKey <> 0 then
+          vKeys := AppendStrCh(vKeys, FarKeyToName(ModalDlg.FPostKey), ' ');
+        if vKeys <> '' then
+          FarPostMacro('Keys("' + vKeys + '")');
+      end else
+     {$ifdef bThumbs}
+      if Review.FCommand = GoCmdThumbs then begin
+        if Review.Window <> nil then
+          optThumbFullscreen := Review.Window.WinMode = wmFullscreen;
+        if AView then
+          Review.CloseWindowDelayed(100)
+        else
+          Review.CloseWindow;
+        vKeys := '';
+        if AView then
+          vKeys := 'Keys("Esc")';
+        FarPostMacro(vKeys +
+          ' Plugin.Call("' + PlugIdToStr(cPluginID) + '", "Thumbs", 1)');
+      end else
+     {$endif bThumbs}
+      begin
+        Review.CloseWindowDelayed(1000);
+        Review.ProcessCommand;
+      end;
+
+    finally
+      FreeObj(ModalDlg);
     end;
   end;
 

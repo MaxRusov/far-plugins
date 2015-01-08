@@ -46,6 +46,7 @@ interface
    {$endif Far3}
 
     cViewDlgID :TGUID = '{FAD3BD72-2641-4D00-8F98-5467EEBCE827}';
+    cThumbDlgID :TGUID = '{ABDFD3DF-FE59-4714-8068-9F944022EA50}';
     cConfigDlgID :TGUID = '{A69784DA-05AF-49A1-B7EB-853215215B68}';
     cDecoderDlgID :TGUID = '{83F5946C-7BD9-40FA-8FE6-683A215BD1C1}';
     cDecoderListDlgID :TGUID = '{F7476A5F-4795-41C0-AC3D-77A5537558AC}';
@@ -69,6 +70,7 @@ interface
     cDecoderEnabledRegKey = 'Enabled';
     cDecoderActiveRegKey = 'ActiveMask';
     cDecoderIgnoreRegKey = 'IgnoreMask';
+    cDecoderCustomRegKey = 'CustomMask';
 
     cMaskHistory      = 'Review.Mask';
     cFileNameHistory  = 'Review.FileName';
@@ -94,6 +96,11 @@ interface
     optSmoothScale    :Boolean = True;        { Использовать сглаживание при увеличении }
     optShowInfo       :Integer = 1;
 
+    optRotateOnEXIF   :Boolean = True;        { Автоматический поворот на основе информации из EXIF }
+    optUseThumbnail   :Boolean = True;        { Использовать эскизы для быстрого листания }
+    optUseWinSize     :Boolean = True;        { Декодировать под размер окна }
+    optKeepDateOnSave :Boolean = True;        { Сохранять дату при декодировании }
+
     optDraftDelay     :Integer = 150; {ms}
     optSyncDelay      :Integer = 250; {ms}    { Задержка смены картинки в QuickView (только если включен optAsyncQView) }
     optCacheDelay     :Integer = 100; {ms}
@@ -109,14 +116,47 @@ interface
     optBkColor1       :TFarColor;
     optBkColor2       :TFarColor;
     optHintColor      :TFarColor;
+   {$ifdef bThumbs}
+    optBkColor3       :TFarColor;
+    optCurColor       :TFarColor;
+    optSelColor       :TFarColor;
+    optTitleColor     :TFarColor;
+   {$endif bThumbs}
 
     optPanelColor     :TFarColor;
     optPromptColor    :TFarColor;
     optInfoColor      :TFarColor;
     optPanelTransp    :Integer = 128;
 
+   {$ifdef bThumbs}
+    optThumbSize       :Integer = 96;
+    optThumbFullscreen :Boolean = False;
+    optThumbShowTitle  :Boolean = True;    { Показывать имена файлов }
+    optThumbFoldTitle  :Boolean = False;   { Сворачивать имена файлов }
+    optThumbShowInfo   :Boolean = False;   { Показывать информацию о декодере (для отладки) }
+    optZoomThumb       :Boolean = False;   { Масштабировать эскиз по наименьшей размерности (растягивать до "квадрата") }
+    optVerticalScroll  :Boolean = True;    { Вертикальная или горизонтальная прокрутка }
+    optExtractPriority :Integer = 1;       { 0-Нет, 1-Sys-PVD, 2-Pvd-Sys 3-Sys 4-Pvd }
+    optThumbFirst      :Boolean = False;   { Сначала декодировать эскизы, для которых есть preview (быстрое декодирование) }
+    optRenderAhead     :Boolean = True;    { Декодировать на экран больше эскизов (в направлении прокрутки) }
+    optMouseSelect     :Boolean = False;   { Выделеять мышкой (без Shift) }
+    optThumbFontSize   :Integer = 8;
+    optThumbFontName   :TString = '';
+
+    optHandlesLimit    :Integer = 1000;    { Макс кол-во GDI Handles }
+   {$endif bThumbs}
+
+  var
+    DecodeWaitDelay   :Integer = 1000;  { Сколько ждем декодирование, прежде чем показать эскиз. Только при первом открытии. }
+    StretchDelay      :Integer = 500;   { Задержка для масштабирования }
+    FastListDelay     :Integer = 250;   { Период между декодированиями, по которому определяется быстрое перелистывание }
+    ThumbDelay        :Integer = 250;   { Задержка до начала декодирования при перелистывании }
+
+
   var
     FFarExePath      :TString;
+
+    OptionsRevision  :Integer;
 
   const
     SyncCmdUpdateWin   = 1;
@@ -126,6 +166,8 @@ interface
     SyncCmdCachePrev   = 5;
     SyncCmdNextSlide   = 6;
     SyncCmdClose       = 7;
+    SyncCmdFullScreen  = 8;
+    SyncCmdThumbView   = 9;
 
   const
     GoCmdNone      = 0;
@@ -134,6 +176,17 @@ interface
     GoCmdFirst     = 3;
     GoCmdLast      = 4;
     GoCmdNextSlide = 6;
+   {$ifdef bThumbs}
+    GoCmdThumbs    = 7;
+   {$endif bThumbs}
+
+
+  const
+    { Команды CM_Transform }
+    cmtInvalidate = 0;
+    cmtSetPage    = 1;
+    cmtRotate     = 2;
+    cmtOrient     = 3;
 
 
   function GetMsg(AMess :TMessages) :PFarChar;
@@ -149,8 +202,11 @@ interface
   function MulDivIU32R(A :Integer; B, C :UINT) :Integer; stdcall;
   function SortExtensions(AStr :PTChar) :Integer; stdcall;
 
+  procedure IntSwap(var A, B :Integer);
+  procedure CorrectBoundEx(var ASize :TSize; const ALimit :TSize);
   function YMDStrToDateTime(const AStr :TString) :TDateTime;
   function ScrollKeyPressed :Boolean;
+  function FarKeyToName(AKey :Integer) :TString;
 
   procedure PluginConfig(AStore :Boolean);
   procedure RestoreDefColor;
@@ -262,6 +318,28 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  procedure IntSwap(var A, B :Integer);
+  var
+    T :Integer;
+  begin
+    T := A;
+    A := B;
+    B := T;
+  end;
+
+
+  procedure CorrectBoundEx(var ASize :TSize; const ALimit :TSize);
+  var
+    vScale :TFloat;
+  begin
+    if (ASize.cx > ALimit.cx) or (ASize.cy > ALimit.cy) then begin
+      vScale := FloatMin( ALimit.cx / ASize.cx, ALimit.cy / ASize.cy);
+      ASize.cx := Round(ASize.cx * vScale);
+      ASize.cy := Round(ASize.cy * vScale);
+    end;
+  end;
+
+
   function YMDStrToDateTime(const AStr :TString) :TDateTime;
   const
     cDel = [' ', ':', '.', '-'];
@@ -294,6 +372,34 @@ interface
   end;
 
 
+  function FarKeyToName(AKey :Integer) :TString;
+ {$ifdef Far3}
+  var
+    vInput :INPUT_RECORD;
+    vLen :Integer;
+  begin
+    Result := '';
+    if FarKeyToInputRecord(AKey, vInput) then begin
+      vLen := FARSTD.FarInputRecordToName(vInput, nil, 0);
+      if vLen > 0 then begin
+        SetLength(Result, vLen - 1);
+        FARSTD.FarInputRecordToName(vInput, PTChar(Result), vLen);
+      end;
+    end;
+ {$else}
+  var
+    vLen :Integer;
+  begin
+    Result := '';
+    vLen := FARSTD.FarKeyToName(AKey, nil, 0);
+    if vLen > 0 then begin
+      SetLength(Result, vLen - 1);
+      FARSTD.FarKeyToName(AKey, PTChar(Result), vLen);
+    end;
+ {$endif Far3}
+  end;
+
+
  {-----------------------------------------------------------------------------}
 
   procedure PluginConfig(AStore :Boolean);
@@ -302,6 +408,9 @@ interface
       try
         if not Exists then
           Exit;
+
+//      if AStore then
+//        Beep;
 
         StrValue('Prefix', optCmdPrefix);
 
@@ -334,6 +443,18 @@ interface
         LogValue('Fullscreen', optFullscreen);
         IntValue('ShowInfo', optShowInfo);
 
+       {$ifdef bThumbs}
+        IntValue('ThumbSize', optThumbSize);
+        LogValue('ThumbShowTitle', optThumbShowTitle);
+        LogValue('ThumbVertScroll', optVerticalScroll);
+        IntValue('ThumbExtract', optExtractPriority);
+        LogValue('ThumbFullscreen', optThumbFullscreen);
+
+        ColorValue('BkColor3', optBkColor3);
+        ColorValue('TitleColor', optTitleColor);
+        ColorValue('CurThumbColor', optCurColor);
+        ColorValue('SelThumbColor', optSelColor);
+       {$endif bThumbs}
       finally
         Destroy;
       end;
@@ -344,13 +465,20 @@ interface
 
   procedure RestoreDefColor;
   begin
-    optBkColor1  := MakeColor(clWhite, clBlack);
-    optBkColor2  := FarGetColor(COL_VIEWERTEXT);
+    optBkColor1 := MakeColor(clWhite, clBlack);
+    optBkColor2 := FarGetColor(COL_VIEWERTEXT);
     optHintColor := MakeColor(clBlack, clWhite);
 
     optPanelColor := MakeColor(clBlack, clWhite);
     optPromptColor := MakeColor(clSilver, clBlack);
     optInfoColor := MakeColor(clWhite, clBlack);
+
+   {$ifdef bThumbs}
+    optBkColor3 := FarGetColor(COL_PANELTEXT);
+    optTitleColor := FarGetColor(COL_PANELTEXT);
+    optCurColor := FarGetColor(COL_PANELCURSOR);
+    optSelColor := MakeColor(clBlack, clYellow);
+   {$endif bThumbs}
   end;
 
 
@@ -367,9 +495,15 @@ interface
       GetMsg(strMPanelColor),
       GetMsg(strMPromptColor),
       GetMsg(strMInfoColor),
-      '',
       GetMsg(strMTextColor),
       '',
+     {$ifdef bThumbs}
+      GetMsg(strMThumbColor),
+      GetMsg(strMThumbCaptionColor),
+      GetMsg(strMThumbCurrentColor),
+      GetMsg(strMThumbSelectedColor),
+      '',
+     {$endif bThumbs}
       GetMsg(strMRestoreDefaults)
     ]);
     try
@@ -386,10 +520,17 @@ interface
           3: ColorDlg('', optPanelColor);
           4: ColorDlg('', optPromptColor);
           5: ColorDlg('', optInfoColor);
+          6: ColorDlg('', optHintColor);
 
-          7: ColorDlg('', optHintColor);
+         {$ifdef bThumbs}
+          8: ColorDlg('', optBkColor3);
+          9: ColorDlg('', optTitleColor);
+         10: ColorDlg('', optCurColor, UndefAttr, 0);
+         11: ColorDlg('', optSelColor, UndefAttr, 0);
+         {$endif bThumbs}
 
-          9: RestoreDefColor;
+        else
+          RestoreDefColor;
         end;
 
 //      FarAdvControl(ACTL_REDRAWALL, nil);
@@ -402,7 +543,7 @@ interface
     end;
   end;
 
-  
+
 initialization
   ColorDlgResBase := Byte(strColorDialog);
 end.
