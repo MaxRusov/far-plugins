@@ -2746,12 +2746,14 @@ type
 function InterlockedIncrement(var Addend: Integer): Integer;
 function InterlockedDecrement(var Addend: Integer): Integer;
 {$endif bFreePascal}
+function InterlockedExchangePointer(var Target :Pointer; Value :Pointer) :Pointer; 
 {$else}
 function InterlockedIncrement(var Addend: Integer): Integer; stdcall;
 function InterlockedDecrement(var Addend: Integer): Integer; stdcall;
 function InterlockedExchange(var Target: Integer; Value: Integer): Integer; stdcall;
 function InterlockedCompareExchange(var Destination: Pointer; Exchange: Pointer; Comperand: Pointer): Pointer stdcall;
 function InterlockedExchangeAdd(Addend: PLongint; Value: Longint): Longint stdcall;
+function InterlockedExchangePointer(var Target :Pointer; Value :Pointer) :Pointer; stdcall;
 {$endif b64}
 
 function FreeResource(hResData: HGLOBAL): BOOL; stdcall;
@@ -19502,6 +19504,17 @@ function InterlockedExchange; external kernel32 name 'InterlockedExchange';
 function InterlockedCompareExchange; external kernel32 name 'InterlockedCompareExchange';
 function InterlockedExchangeAdd; external kernel32 name 'InterlockedExchangeAdd';
 {$endif b64}
+
+{$ifdef b64}
+function InterlockedExchangePointer(var Target: Pointer; Value: Pointer): Pointer;
+asm
+  LOCK XCHG [RCX],RDX
+  MOV RAX,RDX
+end;
+{$else}
+function InterlockedExchangePointer(var Target :Pointer; Value :Pointer) :Pointer; external kernel32 name 'InterlockedExchange';
+{$endif b64}
+
 function FreeResource; external kernel32 name 'FreeResource';
 function GenerateConsoleCtrlEvent; external kernel32 name 'GenerateConsoleCtrlEvent';
 function GetACP; external kernel32 name 'GetACP';

@@ -118,6 +118,20 @@ interface
     end;
 
 
+    TFont = class(TBasis)
+    public
+      destructor Destroy; override;
+
+      procedure SetFont(const AName :TString; ASize :Integer; AStyle :TFontStyles);
+
+    private
+      FHandle :HFont;
+      FName   :TString;
+      FSize   :Integer;
+      FStyle  :TFontStyles;
+    end;
+
+
   const
     TRBN_THUMBPOSCHANGING  = Integer($FFFFFA22); //TRBN_FIRST-1;
 
@@ -176,7 +190,8 @@ interface
 
   function ColorToRGB(AColor :TColor) :TColor;
   function WinCreateFont(const AName :TString; ASize :Integer; AStyle :TFontStyles) :HFont;
-  procedure WidDeleteObject(var AHandle :HGDIOBJ);
+  procedure WinDeleteObject(var AHandle :HGDIOBJ);
+  function TextSize(AFont :HFont; const AText :TString) :TSize;
 
   const
     WS_EX_LAYERED = $00080000;
@@ -333,7 +348,7 @@ interface
     end;
   end;
 
-                                                                                                      
+
   procedure TMSWindow.WndProc(var Mess :TMessage); {virtual;}
   begin
     Dispatch(Mess);
@@ -591,6 +606,33 @@ interface
 
 
  {-----------------------------------------------------------------------------}
+ { TFont                                                                       }
+ {-----------------------------------------------------------------------------}
+
+  destructor TFont.Destroy; {override;}
+  begin
+    WinDeleteObject(FHandle);
+    inherited Destroy;
+  end;
+
+
+  procedure TFont.SetFont(const AName :TString; ASize :Integer; AStyle :TFontStyles);
+  begin
+    if not StrEqual(AName, FName) or (FSize <> ASize) or (FStyle <> AStyle) then begin
+      WinDeleteObject(FHandle);
+
+      FHandle := WinCreateFont(AName, ASize, AStyle);
+      if FHandle = 0 then
+        RaiseLastWin32Error;
+
+      FName := AName;
+      FSize := ASize;
+      FStyle := AStyle;
+    end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
@@ -632,11 +674,27 @@ interface
   end;
 
 
-  procedure WidDeleteObject(var AHandle :HGDIOBJ);
+  procedure WinDeleteObject(var AHandle :HGDIOBJ);
   begin
     if AHandle <> 0 then begin
       DeleteObject(AHandle);
       AHandle := 0;
+    end;
+  end;
+
+
+  function TextSize(AFont :HFont; const AText :TString) :TSize;
+  var
+    vDC :HDC;
+    vOld :THandle;
+  begin
+    vDC := CreateCompatibleDC(0);
+    vOld := SelectObject(vDC, AFont);
+    try
+      GetTextExtentPoint32(vDC, PWideChar(AText), Length(AText), Result);
+    finally
+      SelectObject(vDC, vOld);
+      DeleteDC(vDC);
     end;
   end;
 

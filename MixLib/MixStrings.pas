@@ -45,7 +45,8 @@ interface
   function Size(CX, CY :Integer) :TSize;
   function MakeCoord(X, Y :Integer) :TCoord;
   function Rect(X, Y, X2, Y2 :Integer) :TRect;
-  function Bounds(X, Y, W, H :Integer) :TRect;
+  function Bounds(X, Y, W, H :Integer) :TRect; overload;
+  function Bounds(X, Y :Integer; ASize :TSize) :TRect; overload;
   function SRect(X, Y, X2, Y2 :Integer) :TSmallRect;
   function SBounds(X, Y, W, H :Integer) :TSmallRect;
 
@@ -54,6 +55,7 @@ interface
   procedure RectMove(var AR :TRect; ADX, ADY :Integer); overload;
   procedure RectMove(var AR :TSmallRect; ADX, ADY :Integer); overload;
   function RectEquals(const AR, R :TRect) :Boolean;
+  function RectEqualSize(const AR, R :TRect) :Boolean;
   function RectEmpty(const AR :TRect) :Boolean;
   function RectSize(const AR :TRect) :TSize;
   function RectContainsXY(const AR :TRect; X, Y :Integer) :Boolean; overload;
@@ -413,6 +415,17 @@ interface
   end;
 
 
+  function Bounds(X, Y :Integer; ASize :TSize) :TRect; 
+  begin
+    with Result do begin
+      Left := X;
+      Top := Y;
+      Right := X + ASize.CX;
+      Bottom := Y + ASize.CY;
+    end;
+  end;
+
+
   function SRect(X, Y, X2, Y2 :Integer) :TSmallRect;
   begin
     with Result do begin
@@ -476,6 +489,14 @@ interface
     Result :=
       (AR.Left = R.Left) and (AR.Top = R.Top) and
       (AR.Right = R.Right) and (AR.Bottom = R.Bottom);
+  end;
+
+
+  function RectEqualSize(const AR, R :TRect) :Boolean;
+  begin
+    Result :=
+      (AR.Right - AR.Left = R.Right - R.Left) and
+      (AR.Bottom - AR.Top = R.Bottom - R.Top);
   end;
 
 
