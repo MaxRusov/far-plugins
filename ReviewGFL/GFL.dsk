@@ -11,8 +11,8 @@ File_8=SourceModule,'C:\SrcFAR2\MyTest1\gfl\Demo\Source\ImageView_Form.pas',0,1,
 
 [Modules]
 Module0=C:\SrcFAR2\MyPlugins\ReviewGFL\GFLMain.pas
-Module1=C:\SrcFAR2\MyPlugins\ReviewGFL\GFL.dpr
-Module2=C:\SrcFAR2\MyPlugins\ReviewGFL\LibGFL.pas
+Module1=C:\SrcFAR2\MyPlugins\ReviewGFL\LibGFL.pas
+Module2=C:\SrcFAR2\MyPlugins\ReviewGFL\GFL.dpr
 Module3=C:\SrcFAR2\MyPlugins\Review\PVApi.pas
 Module4=C:\SrcFAR2\MyPlugins\MixLib\MixWinUtils.pas
 Count=5
@@ -23,12 +23,12 @@ ModuleType=SourceModule
 FormState=0
 FormOnTop=0
 
-[C:\SrcFAR2\MyPlugins\ReviewGFL\GFL.dpr]
+[C:\SrcFAR2\MyPlugins\ReviewGFL\LibGFL.pas]
 ModuleType=SourceModule
 FormState=0
 FormOnTop=0
 
-[C:\SrcFAR2\MyPlugins\ReviewGFL\LibGFL.pas]
+[C:\SrcFAR2\MyPlugins\ReviewGFL\GFL.dpr]
 ModuleType=SourceModule
 FormState=0
 FormOnTop=0
@@ -64,8 +64,8 @@ Left=0
 Top=77
 Width=1166
 Height=870
-MaxLeft=-1
-MaxTop=-1
+MaxLeft=-8
+MaxTop=-8
 ClientWidth=1150
 ClientHeight=832
 LeftPanelSize=0
@@ -83,9 +83,9 @@ LeftCol=1
 
 [View1]
 Module=C:\SrcFAR2\MyPlugins\ReviewGFL\GFLMain.pas
-CursorX=26
-CursorY=490
-TopLine=460
+CursorX=68
+CursorY=458
+TopLine=312
 LeftCol=1
 
 [View2]
@@ -105,8 +105,8 @@ LeftCol=1
 [View4]
 Module=C:\SrcFAR2\MyPlugins\ReviewGFL\LibGFL.pas
 CursorX=1
-CursorY=921
-TopLine=879
+CursorY=157
+TopLine=126
 LeftCol=1
 
 [Watches]
@@ -125,7 +125,7 @@ State=2
 Left=0
 Top=0
 Width=1036
-Height=94
+Height=92
 MaxLeft=-1
 MaxTop=-1
 MaxWidth=1616

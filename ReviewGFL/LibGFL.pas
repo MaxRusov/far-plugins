@@ -119,6 +119,7 @@ uses Windows, MixUtils;
 
 
 const
+//GflDLL = 'libgfl311.dll';   // DLL filename
   GflDLL = 'libgfl340.dll';   // DLL filename
   GfleDLL = 'libgfle340.dll';  // DLL filename
   GFL_VERSION = '340';
@@ -307,8 +308,8 @@ const
 type
   GFL_HANDLE = Pointer;
 
-  GFL_ALLOC_CALLBACK = procedure(size: GFL_UINT32; param: Pointer); stdcall;
-  GFL_REALLOC_CALLBACK = procedure(ptr: Pointer; newsize: GFL_UINT32; param: Pointer); stdcall;
+  GFL_ALLOC_CALLBACK = function(size: GFL_UINT32; param: Pointer) :Pointer; stdcall;
+  GFL_REALLOC_CALLBACK = function(ptr: Pointer; newsize: GFL_UINT32; param: Pointer) :Pointer; stdcall;
   GFL_FREE_CALLBACK = procedure(buffer: Pointer; param: Pointer); stdcall;
 
   GFL_READ_CALLBACK = function(handle: GFL_HANDLE; var buffer: Pointer; size: GFL_UINT32): GFL_UINT32; stdcall; 
@@ -320,6 +321,7 @@ type
   GFL_PROGRESS_CALLBACK = procedure(percent: GFL_INT32; user_params: Pointer); stdcall;
   GFL_WANTCANCEL_CALLBACK = function(user_params: Pointer): GFL_BOOL; stdcall;
 
+  GFL_VIRTUAL_LOAD_CALLBACK = pointer;
   GFL_VIRTUAL_SAVE_CALLBACK = function(user_params: Pointer): GFL_ERROR; stdcall;
 
 type
@@ -328,12 +330,14 @@ type
     Tell: GFL_TELL_CALLBACK;
     Seek: GFL_SEEK_CALLBACK;
 
-    AllocateBitmap: GFL_ALLOCATEBITMAP_CALLBACK; 
-    AllocateBitmapParams : Pointer; 
+    AllocateBitmap: GFL_ALLOCATEBITMAP_CALLBACK;
+    AllocateBitmapParams : Pointer;
     Progress: GFL_PROGRESS_CALLBACK;
-    ProgressParams : Pointer; 
-    WantCancel: GFL_WANTCANCEL_CALLBACK; 
-    WantCancelParams : Pointer; 
+    ProgressParams : Pointer;
+    WantCancel: GFL_WANTCANCEL_CALLBACK;
+    WantCancelParams : Pointer;
+    SetLine :GFL_VIRTUAL_LOAD_CALLBACK;
+    SetLineParams : Pointer;
   end;
 
 type
@@ -401,21 +405,23 @@ type
        // For Dpx, Cineon
     LutType: GFL_LUT_TYPE; // GFL_LUT_TO8BITS, GFL_LUT_TO10BITS, GFL_LUT_TO12BITS, GFL_LUT_TO16BITS */
     CompressRatio : GFL_UINT16; 
-    MaxFileSize : GFL_UINT32; 
+(*  MaxFileSize : GFL_UINT32;  ???*)
     LutData: PGFL_UINT16; // RRRR.../GGGG..../BBBB.....
     LutFilename: PChar;
 
        // Camera RAW only
-    CameraRawUseAutomaticBalance: GFL_UINT8; 
-    CameraRawUseCameraBalance: GFL_UINT8; 
-    Reserved4: GFL_UINT16; 
-    CameraRawGamma: Single; 
-    CameraRawBrightness: Single; 
-    CameraRawRedScaling: Single; 
-    CameraRawBlueScaling: Single; 
-    CameraRawFilterDomain: Single; 
-    CameraRawFilterRange: Single; 
-         
+    CameraRawUseAutomaticBalance: GFL_UINT8;
+    CameraRawUseCameraBalance: GFL_UINT8;
+    Reserved4: GFL_UINT16;
+    CameraRawGamma: Single;
+    CameraRawBrightness: Single;
+    CameraRawRedScaling: Single;
+    CameraRawBlueScaling: Single;
+
+(*
+    CameraRawFilterDomain: Single;
+    CameraRawFilterRange: Single;
+*)         
         // Own callback
     Callbacks: TGFL_LoadCallbacks;
     
@@ -560,9 +566,11 @@ procedure gflSetPluginsPathnameW(const pathname :PWideChar); stdcall;
 
 var
   gflLibraryInit :function: GFL_ERROR; stdcall;
+  gflLibraryInitEx :function(alloc_callback: GFL_ALLOC_CALLBACK; realloc_callback: GFL_REALLOC_CALLBACK; free_callback: GFL_FREE_CALLBACK; user_parms: Pointer): GFL_ERROR; stdcall;
   gflLibraryExit :procedure; stdcall;
   gflEnableLZW :procedure(value: GFL_BOOL); stdcall;
   gflSetPluginsPathnameW :procedure(const S: PWideChar); stdcall;
+  gflGetErrorString :function(error: GFL_ERROR): PChar; stdcall;
 
 {$endif bStaticLink}
 
@@ -713,10 +721,18 @@ var
   gflGetFormatInformationByIndex :function(index: GFL_INT32; var info: TGFL_FORMAT_INFORMATION): GFL_ERROR; stdcall;
 
   gflGetFileInformationW :function (const filename: PWideChar; index: GFL_INT32; const info: TGFL_FILE_INFORMATION): GFL_ERROR; stdcall;
+  gflGetFileInformationFromMemory :function(const data: PGFL_UINT8; data_length : GFL_UINT32; index: GFL_INT32; var info: TGFL_FILE_INFORMATION): GFL_ERROR; stdcall;
   gflFreeFileInformation :procedure(var info: TGFL_FILE_INFORMATION); stdcall;
 
-  gflGetDefaultLoadParams :procedure(var params: TGFL_LOAD_PARAMS); stdcall;
-  gflLoadBitmapW :function(const filename: PWideChar; var Bitmap: PGFL_BITMAP; var params: TGFL_LOAD_PARAMS; var info: TGFL_FILE_INFORMATION): GFL_ERROR; stdcall;
+  gflGetDefaultLoadParams :procedure(var params :TGFL_LOAD_PARAMS); stdcall;
+  gflGetDefaultThumbnailParams :procedure(var params :TGFL_LOAD_PARAMS); stdcall;
+
+  gflLoadBitmapW :function(const filename: PWideChar; var Bitmap: PGFL_BITMAP; const params: TGFL_LOAD_PARAMS; info: PGFL_FILE_INFORMATION): GFL_ERROR; stdcall;
+  gflLoadBitmapFromMemory :function(const data: PGFL_UINT8; data_length : GFL_UINT32; var bitmap: PGFL_BITMAP; const params: TGFL_LOAD_PARAMS; info :PGFL_FILE_INFORMATION) :GFL_ERROR; stdcall;
+
+  gflLoadThumbnailW :function(const filename: PWideChar; width, height: GFL_INT32; var Bitmap: PGFL_BITMAP; const params: TGFL_LOAD_PARAMS; info: PGFL_FILE_INFORMATION): GFL_ERROR; stdcall;
+  gflLoadThumbnailFromMemory :function(const data: PGFL_UINT8; data_length :GFL_UINT32; width, height: GFL_INT32; var bitmap: PGFL_BITMAP; const params: TGFL_LOAD_PARAMS; info :PGFL_FILE_INFORMATION) :GFL_ERROR; stdcall;
+
   gflFreeBitmap :procedure(bitmap: PGFL_BITMAP); stdcall;
 
 {$endif bStaticLink}
@@ -873,16 +889,16 @@ const
   GFL_EXIF_GPS_IFD              = $0010;
   GFL_EXIF_MAKERNOTE_IFD        = $0020;
 
-  GFL_EXIF_MAKER						 = $010F;
-  GFL_EXIF_MODEL						 = $0110;
-  GFL_EXIF_ORIENTATION			 = $0112;
-  GFL_EXIF_EXPOSURETIME		   = $829A;
-  GFL_EXIF_FNUMBER				   = $829D;
-  GFL_EXIF_DATETIME_ORIGINAL = $9003;
-  GFL_EXIF_SHUTTERSPEED			 = $9201;
-  GFL_EXIF_APERTURE				   = $9202;
-  GFL_EXIF_MAXAPERTURE			 = $9205;
-  GFL_EXIF_FOCALLENGTH       = $920A;
+  GFL_EXIF_MAKER		= $010F;
+  GFL_EXIF_MODEL		= $0110;
+  GFL_EXIF_ORIENTATION		= $0112;
+  GFL_EXIF_EXPOSURETIME		= $829A;
+  GFL_EXIF_FNUMBER		= $829D;
+  GFL_EXIF_DATETIME_ORIGINAL    = $9003;
+  GFL_EXIF_SHUTTERSPEED		= $9201;
+  GFL_EXIF_APERTURE		= $9202;
+  GFL_EXIF_MAXAPERTURE		= $9205;
+  GFL_EXIF_FOCALLENGTH          = $920A;
 
 {
 /*
@@ -940,6 +956,8 @@ var
   gflBitmapGetEXIF :function(src: PGFL_BITMAP; flags: GFL_UINT32): PGFL_EXIF_DATA; stdcall;
   gflFreeEXIF :procedure(exif: PGFL_EXIF_DATA); stdcall;
 
+//  gflBitmapGetEXIFValue :function(src: PGFL_BITMAP; tag :GFL_UINT32; Value :PAnsiChar; MaxLen :GFL_INT32) :GFL_ERROR; stdcall;
+
 {$endif bStaticLink}
 
 //****** GPo 2008
@@ -965,22 +983,22 @@ const
 
 type
    PGFL_EXIF_ENTRYEX= ^TGFL_EXIF_ENTRYEX;
-   TGFL_EXIF_ENTRYEX = packed record
-		 Tag: GFL_UINT16;
-		 Format: GFL_UINT16;
-		 lfd: GFL_INT32;
-		 NumberOfComponents: GFL_INT32;
-		 Value: GFL_UINT32;
-		 DataLength: GFL_INT32;
-		 Data: Pointer;
+   TGFL_EXIF_ENTRYEX = {packed} record
+     Tag: GFL_UINT16;
+     Format: GFL_UINT16;
+     lfd: GFL_INT32;
+     NumberOfComponents: GFL_INT32;
+     Value: GFL_UINT32;
+     DataLength: GFL_INT32;
+     Data: Pointer;
      Next: PGFL_EXIF_ENTRYEX;
    end;
 
   PGFL_EXIF_DATAEX = ^TGFL_EXIF_DATAEX;
-  TGFL_EXIF_DATAEX = packed record
-   Root: PGFL_EXIF_ENTRYEX;
-   UseMsbf: GFL_INT32;
-	end;
+  TGFL_EXIF_DATAEX = {packed} record
+    Root: PGFL_EXIF_ENTRYEX;
+    UseMsbf: GFL_INT32;
+  end;
 
 {$ifdef bStaticLink}
 function gflBitmapGetEXIF2(bitmap: PGFL_BITMAP): PGFL_EXIF_DATAEX; stdcall;
@@ -990,6 +1008,10 @@ procedure gflBitmapSetEXIFValueString2(exif: PGFL_EXIF_DATAEX; ifd, tag: GFL_UIN
 procedure gflBitmapSetEXIFValueInt2(exif: PGFL_EXIF_DATAEX; ifd,tag: GFL_UINT16; format, value: GFL_UINT32); stdcall;
 procedure gflBitmapSetEXIFValueRational2(exif: PGFL_EXIF_DATAEX; ifd, tag: GFL_UINT16; p,q: GFL_UINT32); stdcall;
 procedure gflBitmapSetEXIFValueRationalArray2(exif: PGFL_EXIF_DATAEX; ifd, tag: GFL_UINT16; const pq: PGFL_UINT32; count: GFL_INT32); stdcall;
+{$else}
+var
+  gflBitmapGetEXIF2 :function(bitmap: PGFL_BITMAP): PGFL_EXIF_DATAEX; stdcall;
+  gflFreeEXIF2 :procedure(exif_data: PGFL_EXIF_DATAEX); stdcall;
 {$endif bStaticLink}
 
 // IPTC
@@ -1615,22 +1637,36 @@ function gflDrawCircleColor; external GfleDLL;
     FHandle := LoadLibraryEx(GflDLL);
 
     gflLibraryInit := GetProcAddressEx(FHandle, 'gflLibraryInit');
+    gflLibraryInitEx := GetProcAddressEx(FHandle, 'gflLibraryInitEx');
     gflLibraryExit := GetProcAddressEx(FHandle, 'gflLibraryExit');
     gflEnableLZW := GetProcAddressEx(FHandle, 'gflEnableLZW');
     gflSetPluginsPathnameW := GetProcAddressEx(FHandle, 'gflSetPluginsPathnameW');
+    gflGetErrorString := GetProcAddressEx(FHandle, 'gflGetErrorString');
 
     gflGetNumberOfFormat := GetProcAddressEx(FHandle, 'gflGetNumberOfFormat');
     gflGetFormatInformationByIndex := GetProcAddressEx(FHandle, 'gflGetFormatInformationByIndex');
 
     gflGetFileInformationW := GetProcAddressEx(FHandle, 'gflGetFileInformationW');
+    gflGetFileInformationFromMemory := GetProcAddressEx(FHandle, 'gflGetFileInformationFromMemory');
     gflFreeFileInformation := GetProcAddressEx(FHandle, 'gflFreeFileInformation');
 
     gflGetDefaultLoadParams := GetProcAddressEx(FHandle, 'gflGetDefaultLoadParams');
+    gflGetDefaultThumbnailParams := GetProcAddressEx(FHandle, 'gflGetDefaultThumbnailParams');
+
     gflLoadBitmapW := GetProcAddressEx(FHandle, 'gflLoadBitmapW');
+    gflLoadBitmapFromMemory := GetProcAddressEx(FHandle, 'gflLoadBitmapFromMemory');
+
+    gflLoadThumbnailW := GetProcAddressEx(FHandle, 'gflLoadThumbnailW');
+    gflLoadThumbnailFromMemory := GetProcAddressEx(FHandle, 'gflLoadThumbnailFromMemory');
+
     gflFreeBitmap := GetProcAddressEx(FHandle, 'gflFreeBitmap');
 
     gflBitmapGetEXIF := GetProcAddressEx(FHandle, 'gflBitmapGetEXIF');
     gflFreeEXIF := GetProcAddressEx(FHandle, 'gflFreeEXIF');
+//  gflBitmapGetEXIFValue := GetProcAddressEx(FHandle, 'gflBitmapGetEXIFValue');
+
+    gflBitmapGetEXIF2 := GetProcAddressEx(FHandle, 'gflBitmapGetEXIF2');
+    gflFreeEXIF2 := GetProcAddressEx(FHandle, 'gflFreeEXIF2');
 
 //  Result := Assigned(gflLibraryInit) and Assigned(gflLibraryExit) and Assigned(gflEnableLZW) and Assigned(gflSetPluginsPathnameW) and
 //    Assigned(gflGetNumberOfFormat) and Assigned(gflGetFormatInformationByIndex) and Assigned(gflGetFileInformationW) and
