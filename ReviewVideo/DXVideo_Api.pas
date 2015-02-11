@@ -510,7 +510,6 @@ implementation
     Result := FLoaded;
   end;
 
-
   procedure TMedia.RenderStream(const aSrc :IBaseFilter; aWnd :HWND);
   var
     vGraph2 :IFilterGraph2;
@@ -529,7 +528,9 @@ implementation
       FRenderer.SetWindow(aWnd);
     end;
 
-    OleCheck(AddFilterByCLSID(FGraph, CLSID_DSoundRender, vAudio, 'Audio Renderer'));
+//  OleCheck(AddFilterByCLSID(FGraph, CLSID_DSoundRender, vAudio, 'Audio Renderer'));
+    if not Succeeded(AddFilterByCLSID(FGraph, CLSID_DSoundRender, vAudio, 'Audio Renderer')) then
+      NOP;
 
     { Enumerate the pins on the source filter. }
     OleCheck(aSrc.EnumPins(vEnum));
@@ -542,10 +543,10 @@ implementation
 
     FRenderer.FinalizeGraph(FGraph);
 
-    { Remove the audio renderer, if not used. }
-    RemoveUnconnectedRenderer(FGraph, vAudio);
+    if vAudio <> nil then
+      { Remove the audio renderer, if not used. }
+      RemoveUnconnectedRenderer(FGraph, vAudio);
   end;
-
 
   procedure TMedia.CreateVideoRenderer;
   begin
