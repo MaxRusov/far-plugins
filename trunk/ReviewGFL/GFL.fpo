@@ -1,5 +1,5 @@
 [Options]
 Compiler=ppcrossx64
 CustomOpt=-vb -dDebug -dFar3
-RunHost=C:\Far3x64\Far.exe
-RunParams=
+RunHost=C:\FarDeb3x64\Far.exe
+RunParams=/p%FarHome%\Plugins,C:\SrcFAR2\MyPlugins\Bin3x64
