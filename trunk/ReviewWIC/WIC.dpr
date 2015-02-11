@@ -34,7 +34,8 @@ exports
   pvdPageFree2,
   pvdFileClose2,
 
-  pvdTagInfo;
+  pvdTagInfo,
+  pvdTranslateError2;
 
 {$R WIC.res}
 

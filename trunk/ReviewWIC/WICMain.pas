@@ -37,8 +37,10 @@ interface
   procedure pvdPageFree2(pContext :Pointer; pImageContext :Pointer; pDecodeInfo :PPVDInfoDecode2); stdcall;
   procedure pvdFileClose2(pContext :Pointer; pImageContext :Pointer); stdcall;
 
-(*  function pvdTagInfo(pContext :Pointer; pImageContext :Pointer; aCmd :Integer; var aTagCount :Integer; var aTags :PPvdTagArray) :Integer; stdcall;  *)
+(*function pvdTagInfo(pContext :Pointer; pImageContext :Pointer; aCmd :Integer; var aTagCount :Integer; var aTags :PPvdTagArray) :Integer; stdcall;  *)
   function pvdTagInfo(pContext :Pointer; pImageContext :Pointer; aCmd, aCode :Integer; var aType :Integer; var aValue :Pointer) :BOOL; stdcall;
+
+  function pvdTranslateError2(nErrNumber :DWORD; pErrInfo :PWideChar; nBufLen :Integer) :Boolean; stdcall;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -61,16 +63,66 @@ interface
   end;
 
 
+  function WICError2Mess(aCode :HResult) :TString;
+  begin
+    Result := '';
+    case DWORD(aCode) of
+      $88982f04: Result := 'Wrong state';
+      $88982f05: Result := 'Value out of range';
+      $88982f07: Result := 'Unknown image format';
+      $88982f0B: Result := 'Unsupported version';
+      $88982f0C: Result := 'Not initialized';
+      $88982f0D: Result := 'Already locked';
+      $88982f40: Result := 'Property not found';
+      $88982f41: Result := 'Property not supported';
+      $88982f42: Result := 'Property size';
+      $88982f43: Result := 'Codec present';
+      $88982f44: Result := 'Codec not humbnail';
+      $88982f45: Result := 'Palette unavailable';
+      $88982f46: Result := 'Codec too many scan lines';
+      $88982f48: Result := 'Internal error';
+      $88982f49: Result := 'Source rect does not match dimensions';
+      $88982f50: Result := 'Component not found';
+      $88982f51: Result := 'Image size out of range';
+      $88982f52: Result := 'Too much metadata';
+      $88982f60: Result := 'Bad image';
+      $88982f61: Result := 'Bad header';
+      $88982f62: Result := 'Frame missing';
+      $88982f63: Result := 'Bad metadata header';
+      $88982f70: Result := 'Bad stream data';
+      $88982f71: Result := 'Stream write';
+      $88982f72: Result := 'Stream read';
+      $88982f73: Result := 'Stream not available';
+      $88982f80: Result := 'Unsupported pixel format';
+      $88982f81: Result := 'Unsupported operation';
+      $88982f8A: Result := 'Invalid registration';
+      $88982f8B: Result := 'Component initialize failure';
+      $88982f8C: Result := 'Insufficient buffer';
+      $88982f8D: Result := 'Duplicate metadata present';
+      $88982f8E: Result := 'Property unexpected type';
+      $88982f8F: Result := 'Unexpected size';
+      $88982f90: Result := 'Invalid query request';
+      $88982f91: Result := 'Unexpected metadata type';
+      $88982f92: Result := 'Request only valid at metadata root';
+      $88982f93: Result := 'Invalid query character';
+    end;
+  end;
+  
+
   type
     EWicError = class(EWin32Error);
 
-  procedure WicError(ErrorCode :HResult);
+  procedure WicError(aCode :HResult);
   var
+    vStr :TString;
     vErr :EWin32Error;
   begin
 //  TraceF('WICError=%d', [ErrorCode]);
-    vErr := EWicError.CreateFmt('WIC API Error (code: %x)', [ErrorCode]);
-    vErr.ErrorCode := DWORD(ErrorCode);
+    vStr := WICError2Mess(aCode);
+    if vStr = '' then
+      vStr := SysErrorMessage(aCode);
+    vErr := EWicError.CreateFmt('WIC Error code: %x'#10'%s', [aCode, vStr]);
+    vErr.ErrorCode := DWORD(aCode);
     raise vErr;
   end;
 
@@ -151,7 +203,7 @@ interface
        Succeeded(vFmtInfo.GetBitsPerPixel(vBPP))
     then begin
      {$ifdef bTrace}
-      Trace(GetFriendlyName(vFmtInfo));
+//    Trace(GetFriendlyName(vFmtInfo));
      {$endif bTrace}
       Result := vBPP;
     end;
@@ -247,8 +299,13 @@ interface
   begin
     Result := True;
     case aVar.vt of
-      VT_LPSTR  : aRes := aVar.pszVal;
-      VT_LPWSTR : aRes := aVar.pwszVal
+      VT_LPSTR  :
+        if DetectUTF8(aVar.pszVal) then
+          aRes := UTF8ToWide(aVar.pszVal)
+        else
+          aRes := aVar.pszVal;
+      VT_LPWSTR :
+        aRes := aVar.pwszVal
     else
       Result := False;
     end;
@@ -271,7 +328,9 @@ interface
       VT_LPSTR:
         Result := aVar.pszVal;
       VT_LPWSTR:
-        Result := aVar.pwszVal
+        Result := aVar.pwszVal;
+      VT_BLOB:
+        Result := 'Blob';
     else
       Result := 'UnknownType' + Int2Str(aVar.vt);
     end;
@@ -326,7 +385,7 @@ interface
     FillZero(vVar, SizeOf(vVar));
     Result := aMetadata.GetMetadataByName(PTChar(aQuery), vVar) = S_OK;
     if Result then
-       Result := VarToStr(vVar, aRes);
+      Result := VarToStr(vVar, aRes);
   end;
 
 
@@ -410,37 +469,44 @@ interface
       class function CreateByFile(AManager :TManager; const AName :TString) :TView;
       function LoadFile(const AName :TString) :Boolean;
       procedure SetPage(AIndex :Integer);
-      procedure DecodePage(ACX, ACY :Integer);
+      procedure DecodePage(ACX, ACY :Integer; AThumbnail :Boolean);
       procedure FreePage;
 
       function TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
 
     private
-      FFactory  :IWICImagingFactory;
-      FDecoder  :IWICBitmapDecoder;
-      FFrame    :IWICBitmapFrameDecode;
-      FBitmap   :IWICBitmapSource;
-      FBitmap2  :IWICBitmapSource;
-      FMetadata :IWICMetadataQueryReader;
-      FFmtID    :TGUID;
-      FFmtName  :TString;
-//    FCompress :TString;
-      FDescr    :TString;
-      FFrames   :Cardinal;
-      FCurFrame :Integer;
-      FSize     :TSize;
-      FSize2    :TSize;
-      FPixFmt   :TGUID;        { Исходный формат цвета }
-      FPixBPP   :Integer;      { Исходная глубина цвета (BPP) }
-      FPixBPP2  :Integer;      { Сконветированная глубина цвета }
-      FAlpha    :Boolean;      { Наличие альфа-канала на странице }
-      FTransp   :Boolean;
-      FDelay    :Integer;      { Задержка страницы, для анимированных изображений }
-      FOrient0  :Integer;      { Ориентация страницы }
-      FRowSize  :Integer;      { Количество байт на строку (FSize2.CX * 3 или 4) }
-      FBuffer   :Pointer;
-      FStrTag   :TString;
-      FInt64Tag :Int64;
+      FFactory   :IWICImagingFactory;
+      FDecoder   :IWICBitmapDecoder;
+      FFrame     :IWICBitmapFrameDecode;
+      FBitmap    :IWICBitmapSource;
+      FBitmap2   :IWICBitmapSource;
+      FMetadata  :IWICMetadataQueryReader;
+      FFmtID     :TGUID;
+      FFmtName   :TString;
+//    FCompress  :TString;
+      FDescr     :TString;
+      FFrames    :Cardinal;
+      FCurFrame  :Integer;
+      FSize      :TSize;
+      FSize2     :TSize;
+      FPixFmt    :TGUID;        { Исходный формат цвета }
+      FPixBPP    :Integer;      { Исходная глубина цвета (BPP) }
+      FPixBPP2   :Integer;      { Сконветированная глубина цвета }
+      FAlpha     :Boolean;      { Наличие альфа-канала на странице }
+      FTransp    :Boolean;
+      FDelay     :Integer;      { Задержка страницы, для анимированных изображений }
+      FOrient0   :Integer;      { Ориентация страницы }
+      FRowSize   :Integer;      { Количество байт на строку (FSize2.CX * 3 или 4) }
+      FBuffer    :Pointer;
+      FThumbnail :Boolean;
+      FStrTag    :TString;
+      FInt64Tag  :Int64;
+
+      FCallback :TPVDDecodeCallback2;
+      FCallbackContext :Pointer;
+      FLastProgress :Integer;
+      FProgressStep :Integer;
+//    FInterrupt :Boolean;
 
      {$ifdef bTrace}
       procedure MetadataCallback(const aName :TString; const aVal :PROPVARIANT; var aMore :Boolean);
@@ -546,12 +612,13 @@ interface
       EnumMetadata(FMetadata, '', MetadataCallback, True);
      {$endif bTrace}
 
-      if IsEqualGUID(FFmtID, GUID_ContainerFormatGif) then begin
-        MetaQueryLog(FMetadata, '/grctlext/TransparencyFlag', FTransp);
+      if IsEqualGUID(FFmtID, GUID_ContainerFormatGIF) then begin
+        MetaQueryLog(FMetadata, '/grctlext/TransparencyFlag', FTransp);  
         MetaQueryInt(FMetadata, '/grctlext/Delay', FDelay);
         FDelay := FDelay * 10;
       end else
       if IsEqualGUID(FFmtID, GUID_ContainerFormatPNG) then begin
+        FTransp := True; {???}
 //      if MetaQueryInt(vMetadata, '/bKGD/BackgroundColor', vColor) then
 //      if MetaExist(vMetadata, '/tRNS') then
 //      if MetaExist(vMetadata, '/iCCP') then
@@ -571,20 +638,77 @@ interface
   end;
 
 
-  procedure TView.DecodePage(ACX, ACY :Integer);
+//typedef HRESULT (*PFNProgressNotification) (
+//   LPVOID pvData,
+//   ULONG uFrameNum,
+//   WICProgressOperation operation,
+//   double dblProgress );
+
+  function MyProgress(pvData :Pointer; uFrameNum :ULONG; Operation :WICProgressOperation; dblProgress :Double) :HResult; stdcall;
+  var
+    vPercent :Integer;
+  begin
+    Result := 0;
+//  Trace('MyProgress: Frame=%d, Operation=%d, Percent=%g', [uFrameNum, Operation, dblProgress]);
+    with TView(pvData) do
+      if Assigned(FCallback) then begin
+
+        vPercent := Round(dblProgress * 100);
+        if vPercent < FLastProgress then
+          Inc(FProgressStep);
+        FLastProgress := vPercent;
+
+//      Trace('MyProgress: %d, %d', [vPercent, FProgressStep]);
+        if not FCallback(FCallbackContext, (100 * FProgressStep) + vPercent, 100, nil) then
+          Result := WINCODEC_ERR_ABORTED;
+      end;
+  end;
+
+
+// const
+//   IID_IWICBitmapSource1  :TGUID = '{00000120-a8f2-4877-ba0a-fd2b6645ffff}';
+
+(*
+  procedure CorrectBoundEx(var ASize :TSize; const ALimit :TSize);
+  var
+    vScale :TFloat;
+  begin
+    if (ASize.cx > ALimit.cx) or (ASize.cy > ALimit.cy) then begin
+      vScale := FloatMin( ALimit.cx / ASize.cx, ALimit.cy / ASize.cy);
+      ASize.cx := Round(ASize.cx * vScale);
+      ASize.cy := Round(ASize.cy * vScale);
+    end;
+  end;
+*)
+
+(*
+  procedure TView.DecodePage(ACX, ACY :Integer; AThumbnail :Boolean);
   var
     vScaler :IWICBitmapScaler;
     vConverter :IWICFormatConverter;
     vBufSize :Integer;
     vPixID :TGUID;
+    vCX, vCY :Cardinal;
+    vProgress :IWICBitmapCodecProgressNotification;
   begin
-    if ACX = 0 then
-      ACX := FSize.cx;
-    if ACY = 0 then
-      ACY := FSize.cy;
-    FSize2 := Size(ACX, ACY);
+    FSize2 := FSize;
+    if (ACX > 0) and (ACY > 0) then
+      CorrectBoundEx(FSize2, Size(ACX, ACY));
 
+    if AThumbnail then begin
+
+      if not Succeeded(FFrame.GetThumbnail(FBitmap2)) then
+        Exit;
+
+      if FBitmap2.GetSize(vCX, vCY) = S_OK then
+        FSize2 := Size(vCX, vCY);
+      WicCheck(FBitmap2.GetPixelFormat(vPixID));
+      FPixBPP2 := PixelsFromFormat(FFactory, vPixID);
+      FAlpha := IsEqualGUID(vPixID, GUID_WICPixelFormat32bppBGRA)
+
+    end else
     if (FTransp = FAlpha) and
+    ((FSize2.CX = FSize.CX) and (FSize2.CY = FSize.CY)) and
     (
       {$ifdef b64}
        False   { Иначе иногда почему-то падает. Пока не разобрался. }
@@ -618,7 +742,7 @@ interface
       else
         vPixID := GUID_WICPixelFormat24bppBGR;
       WicCheck(FFactory.CreateFormatConverter(vConverter));
-      WicCheck(vConverter.Initialize(vScaler, vPixID, WICBitmapDitherTypeNone,  nil, 0, WICBitmapPaletteTypeCustom));
+      WicCheck(vConverter.Initialize(vScaler, vPixID, WICBitmapDitherTypeNone, nil, 0, WICBitmapPaletteTypeCustom));
 
       { Store the converted bitmap as ppToRenderBitmapSource }
       OleCheck(vConverter.QueryInterface(IID_IWICBitmapSource, FBitmap2));
@@ -637,8 +761,121 @@ interface
     vBufSize := FRowSize * FSize2.CY;
     FBuffer := MemAlloc(vBufSize);
 
+    FLastProgress := 0;
+    FProgressStep := 0;
+    FDecoder.QueryInterface(IWICBitmapCodecProgressNotification, vProgress);
+    if vProgress <> nil then
+      vProgress.RegisterProgressNotification(MyProgress, Self, WICProgressOperationAll or WICProgressNotificationAll);
+
    {$ifdef bTrace}
     TraceBegF('CopyPixels (%d x %d, %d K)...', [FSize2.CX, FSize2.CY, vBufSize div 1024]);
+   {$endif bTrace}
+    WicCheck(FBitmap2.CopyPixels(nil, FRowSize, vBufSize, FBuffer));
+   {$ifdef bTrace}
+    TraceEnd('  done');
+   {$endif bTrace}
+  end;
+*)
+
+  procedure TView.DecodePage(ACX, ACY :Integer; AThumbnail :Boolean);
+  var
+    vScaler :IWICBitmapScaler;
+    vConverter :IWICFormatConverter;
+    vBufSize :Integer;
+    vPixFmt, vNewPixFmt :TGUID;
+    vCX, vCY :Cardinal;
+    vProgress :IWICBitmapCodecProgressNotification;
+  begin
+    FSize2 := FSize;
+    if (ACX > 0) and (ACY > 0) then
+//    CorrectBoundEx(FSize2, Size(ACX, ACY));
+      FSize2 := Size(ACX, ACY);
+
+    FThumbnail := False;
+    if AThumbnail then begin
+      { Извлекаем эскиз }
+      if not Succeeded(FFrame.GetThumbnail(FBitmap2)) then
+        Exit;
+
+      if FBitmap2.GetSize(vCX, vCY) = S_OK then
+        FSize2 := Size(vCX, vCY);
+      WicCheck(FBitmap2.GetPixelFormat(vPixFmt));
+      FThumbnail := True;
+    end else
+    begin
+      FBitmap2 := FBitmap;
+      vPixFmt := FPixFmt;
+
+      if (FSize2.CX <> FSize.CX) or (FSize2.CY <> FSize.CY) then begin
+       {$ifdef bTrace}
+        TraceBeg('Scale image...');
+       {$endif bTrace}
+
+        { Create a BitmapScaler }
+        WicCheck(FFactory.CreateBitmapScaler(vScaler));
+        { Initialize the bitmap scaler from the original bitmap map bits }
+        WicCheck(vScaler.Initialize(FBitmap, FSize2.CX, FSize2.CY, WICBitmapInterpolationModeFant));
+
+        { Store the converted bitmap as ppToRenderBitmapSource }
+        OleCheck(vScaler.QueryInterface(IID_IWICBitmapSource, FBitmap2));
+
+       {$ifdef bTrace}
+        TraceEnd('  done');
+       {$endif bTrace}
+      end;
+    end;
+
+    if (FTransp <> FAlpha) or not
+    (
+      {$ifdef b64}
+       False   { Иначе иногда почему-то падает. Пока не разобрался. }
+      {$else}
+//     IsEqualGUID(vPixFmt, GUID_WICPixelFormat32bppCMYK) or
+       IsEqualGUID(vPixFmt, GUID_WICPixelFormat24bppBGR) or
+       IsEqualGUID(vPixFmt, GUID_WICPixelFormat32bppBGR) or
+       IsEqualGUID(vPixFmt, GUID_WICPixelFormat32bppBGRA)
+      {$endif b64}
+    )
+    then begin
+      { Format convert the bitmap into convenient pixel format for GDI rendering }
+      if FTransp then
+        vNewPixFmt := GUID_WICPixelFormat32bppBGRA
+      else
+        vNewPixFmt := GUID_WICPixelFormat24bppBGR;
+
+     {$ifdef bTrace}
+      TraceBegF('ConvertFormat (%s -> %s)...', [GetFriendlyName(FFactory, vPixFmt), GetFriendlyName(FFactory, vNewPixFmt)]);
+     {$endif bTrace}
+
+      WicCheck(FFactory.CreateFormatConverter(vConverter));
+      WicCheck(vConverter.Initialize(FBitmap2, vNewPixFmt, WICBitmapDitherTypeNone, nil, 0, WICBitmapPaletteTypeCustom));
+
+      { Store the converted bitmap as ppToRenderBitmapSource }
+      OleCheck(vConverter.QueryInterface(IID_IWICBitmapSource, FBitmap2));
+
+      WicCheck(FBitmap2.GetPixelFormat(vPixFmt));
+
+     {$ifdef bTrace}
+      TraceEnd('  done');
+     {$endif bTrace}
+    end;
+
+    FPixBPP2 := PixelsFromFormat(FFactory, vPixFmt);
+    FAlpha := IsEqualGUID(vPixFmt, GUID_WICPixelFormat32bppBGRA);
+
+    FRowSize := FSize2.CX * IntIf(FPixBPP2 = 24, 3, 4);
+    FRowSize := (FRowSize + 3) div 4 * 4; { Выравниваем, чтобы избежать RealignBits в CreateBitmap }
+    vBufSize := FRowSize * FSize2.CY;
+    FBuffer := MemAlloc(vBufSize);
+
+    FLastProgress := 0;
+    FProgressStep := 0;
+    FDecoder.QueryInterface(IWICBitmapCodecProgressNotification, vProgress);
+    if vProgress <> nil then
+      vProgress.RegisterProgressNotification(MyProgress, Self, WICProgressOperationAll or WICProgressNotificationAll);
+
+   {$ifdef bTrace}
+    TraceBegF('CopyPixels (%d x %d, %s, %d K)...', [FSize2.CX, FSize2.CY, GetFriendlyName(FFactory, vPixFmt), vBufSize div 1024]);
    {$endif bTrace}
     WicCheck(FBitmap2.CopyPixels(nil, FRowSize, vBufSize, FBuffer));
    {$ifdef bTrace}
@@ -651,7 +888,7 @@ interface
   begin
     MemFree(FBuffer);
     FreeIntf(FBitmap2);
-    FreeIntf(FBitmap); {???}
+//  FreeIntf(FBitmap);
   end;
 
 
@@ -835,8 +1072,10 @@ interface
       end;
 
     except
-      on E :Exception do
+      on E :Exception do begin
         FLastError := E.Message;
+        pImageInfo.nErrNumber := DWORD(-1);
+      end;
     end;
   end;
 
@@ -852,12 +1091,15 @@ interface
         pPageInfo.lHeight := FSize.cy;
         pPageInfo.nBPP := FPixBPP;
         pPageInfo.lFrameTime := FDelay;
+        pPageInfo.Orientation := FOrient0;
 
         Result := True;
       end;
     except
-      on E :Exception do
+      on E :Exception do begin
         FLastError := E.Message;
+        pPageInfo.nErrNumber := DWORD(-1);
+      end;
     end;
   end;
 
@@ -868,12 +1110,26 @@ interface
     try
       with TView(pImageContext) do begin
         SetPage(pDecodeInfo.iPage);
-        DecodePage(0, 0);
+
+        FCallback := DecodeCallback;
+        FCallbackContext := pDecodeCallbackContext;
+
+        if pDecodeInfo.Flags and PVD_IDF_THUMBONLY <> 0 then begin
+          DecodePage(pDecodeInfo.lWidth, pDecodeInfo.lHeight, True);
+          if FBuffer = nil then
+            Exit;
+        end else
+        if pDecodeInfo.Flags and PVD_IDF_THUMBFIRST <> 0 then begin
+          DecodePage(pDecodeInfo.lWidth, pDecodeInfo.lHeight, True);
+          if FBuffer = nil then
+            DecodePage(pDecodeInfo.lWidth, pDecodeInfo.lHeight, False);
+        end else
+          DecodePage(pDecodeInfo.lWidth, pDecodeInfo.lHeight, False);
 
         pDecodeInfo.lWidth := FSize2.cx;
         pDecodeInfo.lHeight := FSize2.cy;
         pDecodeInfo.nBPP := FPixBPP2;
-        pDecodeInfo.Flags := IntIf(FAlpha, PVD_IDF_ALPHA, 0);
+        pDecodeInfo.Flags := IntIf(FAlpha, PVD_IDF_ALPHA, 0) or IntIf(FThumbnail, PVD_IDF_THUMBNAIL, 0);
         pDecodeInfo.ColorModel := IntIf(FAlpha, PVD_CM_BGRA, PVD_CM_BGR);
 
         pDecodeInfo.lImagePitch := FRowSize;
@@ -885,8 +1141,10 @@ interface
         Result := True;
       end;
     except
-      on E :Exception do
+      on E :Exception do begin
         FLastError := E.Message;
+        pDecodeInfo.nErrNumber := DWORD(-1);
+      end;
     end;
   end;
 
@@ -936,6 +1194,13 @@ interface
       on E :Exception do
         FLastError := E.Message;
     end;
+  end;
+
+
+  function pvdTranslateError2(nErrNumber :DWORD; pErrInfo :PWideChar; nBufLen :Integer) :Boolean; stdcall;
+  begin
+    StrPLCopy(pErrInfo, FLastError, nBufLen);
+    Result := True;
   end;
 
 

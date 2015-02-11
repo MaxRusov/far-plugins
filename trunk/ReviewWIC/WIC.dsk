@@ -63,9 +63,9 @@ LeftCol=1
 
 [View1]
 Module=C:\SrcFAR2\MyPlugins\ReviewWIC\WICMain.pas
-CursorX=125
-CursorY=715
-TopLine=690
+CursorX=48
+CursorY=607
+TopLine=557
 LeftCol=1
 
 [Watches]
