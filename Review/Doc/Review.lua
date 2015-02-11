@@ -2,6 +2,7 @@
 local FarHints = "CDF48DA0-0334-4169-8453-69048DD3B51C" 
 local ReviewID = "0364224C-A21A-42ED-95FD-34189BA4B204"
 local ViewDlgID = "FAD3BD72-2641-4D00-8F98-5467EEBCE827"
+local ThumbDlgID = "ABDFD3DF-FE59-4714-8068-9F944022EA50"
 
 
 function ShowHint(Mess)
@@ -27,6 +28,10 @@ end;
 
 function Review.IsView()
   return Area.Dialog and Dlg.Id == ViewDlgID
+end;
+
+function Review.IsThumbView()
+  return Area.Dialog and Dlg.Id == ThumbDlgID
 end;
 
 function Review.IsQuickView()
@@ -120,9 +125,22 @@ function Review.Fullscreen(On)
 end;
 
 
+-- Отображение эскизов 
+
+function Review.Thumbs(...)
+  return Plugin.Call(ID, "Thumbs", ...)
+end;
+
+
+-- Устанавливает размер эскиза, если задано Val
+-- Возвращает: Новый размер эскиза
+
+function Review.Size(Val)
+  return Plugin.Call(ID, "Size", Val)
+end;
+
 
 -------------------------------------------------------------------------------
-
 
 Macro 
 { 
@@ -371,3 +389,36 @@ Macro
 --    end
 --  end;
 --}
+
+
+
+------------------------------------------------------------------------------
+-- Эскизы
+
+
+Macro 
+{ 
+  description="Review: Scale Thumbs"; area="Dialog"; 
+    key="CtrlMsWheelUp CtrlMsWheelDown ShiftMsWheelUp ShiftMsWheelDown"; 
+    condition=Review.IsThumbView; priority=99;
+
+  action=function()
+    local Delta = akey(1):sub(-2) == "Up" and 1 or -1
+    if akey(1):sub(1,4) == "Ctrl" then
+      Delta = Delta * 16
+    end
+    Review.Size( Review.Size() + Delta )
+  end;
+}
+
+
+Macro 
+{ 
+  description="Review: Thumbs Size"; area="Dialog"; key="/\\d/"; condition=Review.IsThumbView;
+
+  action=function()
+    n = tonumber(mf.akey(2))
+    Review.Size(96 + n * 32)
+  end;
+}
+

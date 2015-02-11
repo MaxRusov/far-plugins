@@ -87,6 +87,7 @@ interface
   function CreateBitmapAs(aWidth, aHeight, aBPP, aRowBytes :Integer; aData, aPalette :Pointer; aModel :byte; aTransp :DWORD) :HBitmap;
   function RescaleBitmapAlpha(ABitmap :THandle) :THandle;
   function ResizeBitmap(ABitmap :THandle; ACX, ACY :Integer; Alpha :Boolean) :THandle;
+  function StretchBitmap(ABitmap :THandle; ACX, ACY :Integer) :THandle;
 
   function ScreenBitPerPixel :Integer;
   function GetBitmapSize(ABmp :THandle) :TSize;
@@ -782,6 +783,29 @@ interface
       Result := vMemDC.ReleaseBitmap;
     finally
       FreeObj(vMemDC);
+    end;
+  end;
+
+
+
+  function StretchBitmap(ABitmap :THandle; ACX, ACY :Integer) :THandle;
+  var
+    vBMP :TReviewBitmap;
+    vMemDC :TMemDC;
+    vRect :TRect;
+  begin
+    vBMP := TReviewBitmap.Create1(ABitmap, False);
+    try
+      vMemDC := TMemDC.Create(vBMP.Size.CX, vBMP.Size.CY);
+      try
+        vRect := Bounds(0, 0, vBMP.Size);
+        GDIStretchDraw(vMemDC.DC, vRect, vBMP.DC, RectCenter(vRect, ACX, ACY), False, {ASmooth:}True);
+        Result := vMemDC.ReleaseBitmap;
+      finally
+        FreeObj(vMemDC);
+      end;
+    finally
+      FreeObj(vBMP);
     end;
   end;
 
@@ -1552,9 +1576,12 @@ interface
         AImage.GetPropertyItem(AID, vSize, vItem);
         if AImage.GetLastStatus = OK then begin
           Result := True;
-          if vItem.type_ = PropertyTagTypeASCII then
-            AValue := PAnsiChar(vItem.value)
-          else
+          if vItem.type_ = PropertyTagTypeASCII then begin
+            if DetectUTF8(PAnsiChar(vItem.value)) then
+              AValue := UTF8ToWide(PAnsiChar(vItem.value))
+            else
+              AValue := PAnsiChar(vItem.value)
+          end else
             Result := False;
         end;
       finally

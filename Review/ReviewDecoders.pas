@@ -77,6 +77,7 @@ interface
 
       procedure Rotate(ARotate :Integer);
       procedure OrientBitmap(AOrient :Integer);
+      function CorrectThumbnail(ABitmap :HBitmap) :HBitmap;
 
       function PrecacheFile(const AFileName :TString) :Boolean;
       procedure ReleaseCache;
@@ -96,10 +97,6 @@ interface
       dmImage,                  { Основное изображение }
       dmThumbnail,              { Эскиз. Если эскиза нет - возвращаем ошибку }
       dmThumbnailOrImage        { Эскиз, а если его нет - основное изображение }
-     {$ifdef bAsync}
-     {$else}
-     ,doAsyncExtract            { Эскиз, а основное изображение - асинхронно. Убрать? }
-     {$endif bAsync}
     );
 
     TSaveOptions = set of (
@@ -130,6 +127,7 @@ interface
       procedure ResetSettings; virtual;
       procedure SetExtensions(const aActive, aIgnore :TString);
       function SupportedFile(const aName :TString) :Boolean;
+      function CanShowThumbFor(const AName :TString) :Boolean;
       function GetMaskAsStr :TString;
       function GetInfoStr :TString; virtual;
 
@@ -396,6 +394,33 @@ interface
   end;
 
 
+  function TReviewImageRec.CorrectThumbnail(ABitmap :HBitmap) :HBitmap;
+  var
+    vSize, vSize1 :TSize;
+    vRatio1, vRatio2 :TFloat;
+  begin
+    Result := ABitmap;
+
+    vSize := GetBitmapSize(ABitmap);
+    if (FWidth = 0) or (FHeight = 0) or (vSize.CX = 0) then
+      Exit;
+
+    vRatio1 := FHeight / FWidth;
+    vRatio2 := vSize.CY / vSize.CX;
+
+    vSize1 := vSize;
+    if vRatio2 > vRatio1 then
+      vSize1.CY := Round( vSize1.CX * vRatio1)
+    else
+      vSize1.CX := Round( vSize1.CY / vRatio1);
+
+    if (vSize1.CX <> vSize.CX) or (vSize1.CY <> vSize.CY) then begin
+      Result := StretchBitmap(ABitmap, vSize1.CX, vSize1.CY-1);
+      DeleteObject(ABitmap);
+    end;
+  end;
+
+
  {$ifdef bUseMapping}
   function TReviewImageRec.PrecacheFile(const AFileName :TString) :Boolean;
   begin
@@ -433,8 +458,7 @@ interface
     if FMapHandle <> 0 then
       FileClose(FMapHandle);
     FMapHandle := 0;
-
-    if (FMapFile <> 0) and (FMapFile <> INVALID_HANDLE_VALUE) then
+                                 if (FMapFile <> 0) and (FMapFile <> INVALID_HANDLE_VALUE) then
       FileClose(FMapFile);
     FMapFile := 0;
   end;
@@ -468,6 +492,7 @@ interface
     MemFree(FCacheBuf);
   end;
  {$endif bUseMapping}
+
 
 
  {-----------------------------------------------------------------------------}
@@ -571,6 +596,12 @@ interface
   end;
 
 
+  function TReviewDecoder.CanShowThumbFor(const AName :TString) :Boolean;
+  begin
+    Result := Enabled and SupportedFile(AName) and CanWork(True) and CanShowThumbs;
+  end;
+
+
   function TReviewDecoder.GetMaskAsStr :TString;
   begin
     Result := FActiveStr;
@@ -641,6 +672,7 @@ interface
   begin
     Result := False;
   end;
+
 
 
  {-----------------------------------------------------------------------------}
@@ -1123,6 +1155,7 @@ interface
       AImage.FHeight := vInfo.lHeight;
       AImage.FBPP    := vInfo.nBPP;
       AImage.FDelay  := vInfo.lFrameTime;
+      AImage.FOrient := vInfo.Orientation;  
 
       { Коррекция 1 }
       if vInfo.nPages <> 0 then
@@ -1181,7 +1214,7 @@ interface
     if Result then begin
       AImage.FSelfdraw := vInfo.Flags and PVD_IDF_PRIVATE_DISPLAY <> 0;
       AImage.FTransparent := vInfo.Flags and ({PVD_IDF_TRANSPARENT + PVD_IDF_TRANSPARENT_INDEX +} PVD_IDF_ALPHA) <> 0;
-      if optRotateOnEXIF and (AImage.FOrient = 0) then
+      if vInfo.Orientation <> 0 then
         AImage.FOrient  := vInfo.Orientation;
 
       { Коррекция 2 }
@@ -1217,6 +1250,8 @@ interface
           vTranspColor := DWORD(-1);
         Result := CreateBitmapAs(lWidth, lHeight, nBPP, lImagePitch, pImage, pPalette, ColorModel, vTranspColor);
         aIsThumbnail := PVD_IDF_THUMBNAIL and Flags <> 0;
+        if aIsThumbnail and optCorrectThumb then
+          Result := AImage.CorrectThumbnail(Result);
       end;
   end;
 
