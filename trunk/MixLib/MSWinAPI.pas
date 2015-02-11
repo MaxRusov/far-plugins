@@ -39,6 +39,7 @@ interface
     IEIFLAG_GLEAM    = $0010;     // does the image have a gleam ? this will be returned if it does
     IEIFLAG_SCREEN   = $0020;     // render as if for the screen  (this is exlusive with IEIFLAG_ASPECT )
     IEIFLAG_ORIGSIZE = $0040;     // render to the approx size passed, but crop ifneccessary
+    IEIFLAG_QUALITY  = $0200;
 
 
   type

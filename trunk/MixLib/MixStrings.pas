@@ -151,6 +151,7 @@ interface
   function GetCommandLineStr :PTChar;
   function ExtractParamStr(var AStr :PTChar) :TString;
 
+  function DetectUTF8(AStr :PAnsiChar) :Boolean;
   function WideToUTF8(const AStr :TWideStr) :TAnsiStr;
   function UTF8ToWide(const AStr :TAnsiStr) :TWideStr;
 
@@ -1844,6 +1845,51 @@ interface
 
 
  {-----------------------------------------------------------------------------}
+
+{
+U+0000-U+007F    0xxxxxxx
+U+0080-U+07FF    110yyyxx    10xxxxxx
+U+0800-U+FFFF    1110yyyy    10yyyyxx    10xxxxxx
+U+10000-U+10FFFF 11110zzz    10zzyyyy    10yyyyxx    10xxxxxx
+}
+
+  function DetectUTF8(AStr :PAnsiChar) :Boolean;
+  var
+    B, N :Byte;
+    vHasMultibyte :Boolean;
+  begin
+    Result := False;
+    vHasMultibyte := False;
+    while AStr^ <> #0 do begin
+      B := byte(AStr^);
+      if B and $80 <> 0 then begin
+        N := 0;
+        if B and $40 <> 0 then begin
+          Inc(N);
+          if B and $20 <> 0 then begin
+            Inc(N);
+            if B and $10 <> 0 then
+              Exit; {Error: max 3 bytes }
+          end;
+        end;
+        if N = 0 then
+          Exit; {Error}
+
+        Inc(AStr);
+        while (AStr^ <> #0) and (byte(AStr^) and $C0 = $80) and (N > 0) do begin
+          Inc(AStr);
+          Dec(N);
+        end;
+        if N > 0 then
+          Exit; {Error}
+
+        vHasMultibyte := True;
+      end else
+        Inc(AStr);
+    end;
+    Result := vHasMultibyte;
+  end;
+
 
   function WideToUTF8(const AStr :TWideStr) :TAnsiStr;
   var

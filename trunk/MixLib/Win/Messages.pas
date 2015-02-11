@@ -575,12 +575,25 @@ type
     Result: Longint;
   end;
 
+(*
   TWMScroll = packed record
     Msg: Cardinal;
     ScrollCode: Smallint; { SB_xxxx }
     Pos: Smallint;
     ScrollBar: HWND;
     Result: Longint;
+  end;
+*)
+  TWMScroll = record
+    Msg :Cardinal;
+    case Integer of
+      0: (
+        ScrollCode :Smallint; { SB_xxxx }
+        Pos :Smallint);
+      1: (
+        wParam :WPARAM;
+        ScrollBar: HWND;
+        Result: Longint);
   end;
 
 { Message records }
@@ -639,6 +652,15 @@ type
   TWMClear = TWMNoParams;
   TWMClose = TWMNoParams;
 
+(*
+  TWMCommand = record
+    Msg :Cardinal;
+    ItemID :Word;
+    NotifyCode :Word;
+    Ctl :HWND;
+    Result :LRESULT;
+  end;
+*)
   TWMCommand = record
     Msg :Cardinal;
     case Integer of
@@ -650,15 +672,6 @@ type
         Ctl :HWND;
         Result :LRESULT);
   end;
-(*
-  TWMCommand = record
-    Msg :Cardinal;
-    ItemID :Word;
-    NotifyCode :Word;
-    Ctl :HWND;
-    Result :LRESULT;
-  end;
-*)
 
   TWMCompacting = packed record
     Msg: Cardinal;
@@ -1371,11 +1384,23 @@ type
 
   TWMTimeChange = TWMNoParams;
 
+(*
   TWMTimer = packed record
     Msg: Cardinal;
     TimerID: Longint;
     TimerProc: TFarProc;
     Result: Longint;
+  end;
+*)
+  TWMTimer = record
+    Msg: Cardinal;
+    case Integer of
+      0: (
+        TimerID: Longint);
+      1: (
+        wParam :WPARAM;
+        TimerProc: TFarProc;
+        Result: Longint);
   end;
 
   TWMUIState = packed record

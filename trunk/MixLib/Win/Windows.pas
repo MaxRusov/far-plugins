@@ -1771,8 +1771,8 @@ type
   LPARAM = TIntPtr;
   LRESULT = TIntPtr;
 
-function MakeWord(a, b: Byte): Word;
-function MakeLong(a, b: Word): Longint;
+function MakeWord(aLo, aHi: Byte): Word;
+function MakeLong(aLo, aHi: Word): Longint;
 
 type
   LOWORD = Word;
@@ -21296,14 +21296,14 @@ end;
 
 { Translated from WINDEF.H }
 
-function MakeWord(A, B: Byte): Word;
+function MakeWord(aLo, aHi: Byte): Word;
 begin
-  Result := A or B shl 8;
+  Result := aLo or aHi shl 8;
 end;
 
-function MakeLong(A, B: Word): Longint;
+function MakeLong(aLo, aHi: Word): Longint;
 begin
-  Result := A or B shl 16;
+  Result := aLo or aHi shl 16;
 end;
 
 function HiWord(L: DWORD): Word;
