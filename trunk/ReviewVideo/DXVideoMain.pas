@@ -33,7 +33,7 @@ interface
 
 
   const
-    cVideoFormats = '3GP,AVI,FLV,MKV,MOV,MP4,MPG,MPEG,MTS,WMV';
+    cVideoFormats = '3GP,AVI,FLV,MKV,MOV,MP4,MPG,MPEG,MTS,WEBM,WMV';
 
   var
     optVolume :Integer = 100;
@@ -436,9 +436,9 @@ interface
   destructor TPlayerWindow.Destroy; {override;}
   begin
     DestroyHandle;
-    WidDeleteObject(FBrush);
-    WidDeleteObject(FBrush1);
-    WidDeleteObject(FBrush2);
+    WinDeleteObject(FBrush);
+    WinDeleteObject(FBrush1);
+    WinDeleteObject(FBrush2);
     FreeObj(FScreen);
     FreeObj(FTracker);
     FreeObj(FVolCtrl);
