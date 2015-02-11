@@ -98,6 +98,7 @@ interface
 
     optRotateOnEXIF   :Boolean = True;        { Автоматический поворот на основе информации из EXIF }
     optUseThumbnail   :Boolean = True;        { Использовать эскизы для быстрого листания }
+    optCorrectThumb   :Boolean = True;        { Корректируем эскиз, чтобы убрать черные полосы }
     optUseWinSize     :Boolean = True;        { Декодировать под размер окна }
     optKeepDateOnSave :Boolean = True;        { Сохранять дату при декодировании }
 
@@ -137,9 +138,13 @@ interface
     optZoomThumb       :Boolean = False;   { Масштабировать эскиз по наименьшей размерности (растягивать до "квадрата") }
     optVerticalScroll  :Boolean = True;    { Вертикальная или горизонтальная прокрутка }
     optExtractPriority :Integer = 1;       { 0-Нет, 1-Sys-PVD, 2-Pvd-Sys 3-Sys 4-Pvd }
+    optExtractSize     :Boolean = True;    { При извлечении системных эскизов сначала пытаемся получить информацию через pvd }
+    optThumbAutoRotate :Boolean = True;    { Автоматический поворот эскизов на основе информации из EXIF }
     optThumbFirst      :Boolean = False;   { Сначала декодировать эскизы, для которых есть preview (быстрое декодирование) }
     optRenderAhead     :Boolean = True;    { Декодировать на экран больше эскизов (в направлении прокрутки) }
     optMouseSelect     :Boolean = False;   { Выделеять мышкой (без Shift) }
+    optSmoothScroll    :Boolean = True;
+    optScrollPeriod    :Integer = 250;
     optThumbFontSize   :Integer = 8;
     optThumbFontName   :TString = '';
 
@@ -204,6 +209,7 @@ interface
 
   procedure IntSwap(var A, B :Integer);
   procedure CorrectBoundEx(var ASize :TSize; const ALimit :TSize);
+  procedure StretchBounds(var ASize :TSize; const ALimit :TSize);
   function YMDStrToDateTime(const AStr :TString) :TDateTime;
   function ScrollKeyPressed :Boolean;
   function FarKeyToName(AKey :Integer) :TString;
@@ -340,6 +346,18 @@ interface
   end;
 
 
+  procedure StretchBounds(var ASize :TSize; const ALimit :TSize);
+  var
+    vScale :TFloat;
+  begin
+    if (ASize.cx < ALimit.cx) and (ASize.cy < ALimit.cy) then begin
+      vScale := FloatMin( ALimit.cx / ASize.cx, ALimit.cy / ASize.cy);
+      ASize.cx := Round(ASize.cx * vScale);
+      ASize.cy := Round(ASize.cy * vScale);
+    end;
+  end;
+
+
   function YMDStrToDateTime(const AStr :TString) :TDateTime;
   const
     cDel = [' ', ':', '.', '-'];
@@ -448,7 +466,9 @@ interface
         LogValue('ThumbShowTitle', optThumbShowTitle);
         LogValue('ThumbVertScroll', optVerticalScroll);
         IntValue('ThumbExtract', optExtractPriority);
+        LogValue('ThumbAutoRotate', optThumbAutoRotate);
         LogValue('ThumbFullscreen', optThumbFullscreen);
+        LogValue('SmoothScroll', optSmoothScroll);
 
         ColorValue('BkColor3', optBkColor3);
         ColorValue('TitleColor', optTitleColor);

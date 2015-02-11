@@ -12,11 +12,10 @@ unit ReviewMain;
 {
 To Do:
   * Slideshow
+    - Пауза на время удержания мышки/масштабирования.
     - Режим показа media-файлов
-    - Глюк плавного перехода (?)
 
   - Tags:
-    + Отображение Разрешения
     - Отображение геотегов
 
   - DXVideo.pvd
@@ -24,9 +23,6 @@ To Do:
     - Глючит с ConEmu
     - Управление через макросы
     * Улучшенное качество (?)
-
-  - GFL.pvd
-    - Запрос информации через EXIF2
 
   - Глючит позиционирование окна QuickView в режиме Far Fullscreen
   - Глючит: QuicView-F3-PgDn-Esc
@@ -39,7 +35,6 @@ To Do:
   - Копирование в clipboard
   - SaveAs: форматы Bitmaps
   - SaveAs: для *.pvd декодеров
-  - Декодирование с экранным разрешением для *.pvd декодеров
 
 Ready:
   + Help
@@ -49,6 +44,7 @@ Ready:
   + Косячат повороты
     + Глючит прогнозирование размеров повернутых изображений
   + Запоминать состояние FullScreen
+  + Улучшить "появление" картинки
 
   + Кэширование декодеров
     + Сохранение кэша при первом запуске
@@ -81,8 +77,10 @@ Ready:
       + Play/Pause
     + Управление громкостью
 
+  + GFL.pvd
+    + Запрос информации через EXIF2
 
-  - Настройки
+  + Настройки
     + Диалог настроек
       + Национализация
       + Запрещение команд
@@ -106,8 +104,12 @@ Ready:
   + Показ Tag'ов
     + Локализация Tag'ов
     + Нормализация дат
+    + Отображение Разрешения
+    + Автоопределение кодировки
 
   + Slideshow
+  + Глюк плавного перехода
+  + Декодирование с экранным разрешением для *.pvd декодеров
 }
 
 interface
@@ -351,7 +353,8 @@ interface
     kwFullscreen      = 9;
     kwSlideShow       = 10;
    {$ifdef bThumbs}
-    kwThums           = 11;
+    kwThumbs          = 11;
+    kwSize            = 12;
    {$endif bThumbs}
 
 
@@ -376,7 +379,8 @@ interface
         Add('Fullscreen', kwFullscreen);
         Add('SlideShow', kwSlideShow);
        {$ifdef bThumbs}
-        Add('Thumbs', kwThums);
+        Add('Thumbs', kwThumbs);
+        Add('Size', kwSize);
        {$endif bThumbs}
       end;
     end;
@@ -435,7 +439,6 @@ interface
       if Review.Window <> nil then
         Result := FarReturnValues([byte(Review.Window.ScaleMode), Review.Window.Scale]);
     end;
-
 
     function LocDecoder :TIntPtr;
     var
@@ -509,9 +512,19 @@ interface
     function LocShowThumbs :TIntPtr;
     begin
       Result := 0;
-      if Review.ShowThumbs('', '') then begin
-        ThumbModalState
-      end;  
+      Review.OpenThumbsView;
+    end;
+
+    function LocSetSize :TIntPtr;
+    var
+      vSize :Integer;
+    begin
+      Result := 0;
+      vSize := FarValuesToInt(AParams, ACount, 1);
+      if vSize > 0 then
+        Review.ThumbSetSize(vSize);
+      if Review.ThumbWindow <> nil then
+        Result := FarReturnValues([(Review.ThumbWindow as TThumbsWindow).ThumbSize]);
     end;
    {$endif bThumbs}
 
@@ -544,8 +557,10 @@ interface
         kwSlideShow:
           Result := LocSlideShow;
        {$ifdef bThumbs}
-        kwThums:
+        kwThumbs:
           Result := LocShowThumbs;
+        kwSize:
+          Result := LocSetSize;
        {$endif bThumbs}
       end;
     except
@@ -637,7 +652,9 @@ interface
       SyncCmdCachePrev   : Review.CacheNeighbor(False);
       SyncCmdNextSlide   : Review.GoNextSlide;
       SyncCmdFullScreen  : Review.SetFullscreen(-1);
+     {$ifdef bThumbs}
       SyncCmdThumbView   : Review.OpenThumbsView;
+     {$endif bThumbs}
       SyncCmdClose       :
         if ModalDlg = nil then
           Review.CloseWindow;

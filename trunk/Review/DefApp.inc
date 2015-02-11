@@ -4,6 +4,7 @@
 {$Define bUnicode}
 
 {$Define bThumbs}
-{$Define bAsync}
+{-$Define bXPSupport}
+{$Define bSafeScroll}
 
 {------------------------------------------------------------------------------}

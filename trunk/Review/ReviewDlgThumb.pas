@@ -71,17 +71,18 @@ interface
 
     IdShowTitleChk   = 1;
     IdFoldTitleChk   = 2;
-    IdMouseSelectChk = 3;
+    IdAutorotateChk  = 3;
 
 //  IdVertScrollChk  = 4;
     IdVertScrollRbn  = 4;
     IdHorzScrollRbn  = 5;
+    IdSafeScrollChk  = 6;
 
-    IdPriorityLab    = 6;
-    IdPriorityCmb    = 7;
+    IdPriorityLab    = 7;
+    IdPriorityCmb    = 8;
 
-    IdOk             = 9;
-    IdCancel         = 10;
+    IdOk             = 10;
+    IdCancel         = 11;
 
 
   procedure TThumbConfigDlg.Prepare; {override;}
@@ -104,11 +105,12 @@ interface
 
         NewItem(DI_CheckBox,  -X1,  -2,    0, 0,   0,  GetMsg(strShowThumbTitle)),
         NewItem(DI_CheckBox,  -X1-3, 1,    0, 0,   0,  GetMsg(strFoldThumbTitle) ),
-        NewItem(DI_CheckBox,  -X1,   1,    0, 0,   0,  GetMsg(strThumbMouseSelect) ),
+        NewItem(DI_CheckBox,  -X1,   1,    0, 0,   0,  GetMsg(strThumbAutoRotate) ),
 
 //      NewItem(DI_CheckBox,  -X1,   1,   0,  0,  0,  'Вертикальная прокрутка' ),
-        NewItem(DI_RADIOBUTTON, -X1, 2,   0,  0,  0,  GetMsg(strThumbVertScroll) ),
-        NewItem(DI_RADIOBUTTON, -X1, 1,   0,  0,  0,  GetMsg(strThumbHorzScroll) ),
+        NewItem(DI_RadioButton, -X1, 2,   0,  0,  0,  GetMsg(strThumbVertScroll) ),
+        NewItem(DI_RadioButton, -X1, 1,   0,  0,  0,  GetMsg(strThumbHorzScroll) ),
+        NewItem(DI_CheckBox,    -X1, 1,   0,  0,  0,  GetMsg(strSmoothScroll) ),
 
         NewItem(DI_Text,      -X1,   2,    0, 0,   0,  GetMsg(strExtractPriority) ),
         NewItem(DI_ComboBox,    1,   0,   20, 0,   DIF_DROPDOWNLIST),
@@ -130,13 +132,15 @@ interface
 
     SetChecked(IdShowTitleChk, optThumbShowTitle);
     SetChecked(IdFoldTitleChk, optThumbFoldTitle);
-    SetChecked(IdMouseSelectChk, optMouseSelect);
-    
+//  SetChecked(IdMouseSelectChk, optMouseSelect);
+    SetChecked(IdAutorotateChk, optThumbAutoRotate);
+
 //  SetChecked(IdVertScrollChk, optVerticalScroll);
     if optVerticalScroll then
       SetChecked(IdVertScrollRbn, True)
     else
       SetChecked(IdHorzScrollRbn, True);
+    SetChecked(IdSafeScrollChk, optSmoothScroll);
 
     vPriority := IntIf(optExtractPriority = 0, 4, optExtractPriority - 1);
     SetListIndex(IdPriorityCmb, vPriority);
@@ -151,12 +155,14 @@ interface
     vPriority :Integer;
   begin
     if (ItemID <> -1) and (ItemID <> IdCancel) then begin
-      optThumbShowTitle := GetChecked(IdShowTitleChk);
-      optThumbFoldTitle := GetChecked(IdFoldTitleChk);
-      optMouseSelect    := GetChecked(IdMouseSelectChk);
+      optThumbShowTitle  := GetChecked(IdShowTitleChk);
+      optThumbFoldTitle  := GetChecked(IdFoldTitleChk);
+//    optMouseSelect     := GetChecked(IdMouseSelectChk);
+      optThumbAutoRotate := GetChecked(IdAutorotateChk);
 
 //    optVerticalScroll := GetChecked(IdVertScrollChk);
       optVerticalScroll := GetChecked(IdVertScrollRbn);
+      optSmoothScroll := GetChecked(IdSafeScrollChk);
 
       vPriority := SendMsg(DM_LISTGETCURPOS, IdPriorityCmb, 0);
       optExtractPriority := IntIf(vPriority = 4, 0, vPriority + 1);

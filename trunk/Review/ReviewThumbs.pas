@@ -11,57 +11,33 @@ unit ReviewThumbs;
 
 {
 To Do:
-  - Отображение
-    - Оптимизация заливки (без ExcludeClipRect)
-    + Улучшение рисования выделения и рамок
+  - Фильтрация
 
-  * Просмотр эскизов
-    - Комбинированное извлечение (размер - через PVD, эскиз - от системы)
-    * Растягивать маленькие эскизы (если известен размер?)
-      - В том числе - для системных эскизов (при комбинированном извлечении)
-    * Use Explorer thumbnails
-      - Не всегда извлекавется картинка высокого качества?
-    * Use Review Decoders
-      + Уменьшать размер изображения, если декодер вернул слишком большое...
-        + Улучшенное сглаживание?
-        + Поддержка прозрачности?
-      * Поддержать для WIC/GFL опцию извлечения эскизов
-      * Поддержать для WIC/GFL опцию декодирования с заданным размером
-      - Поддержка SelfPaint (типа WMF/EMF)
-      * Опции декодера: поддерживает эскизы, потоки, Selfdarw
-      + Для GDI+ - не асинхронное извлечение
-      + Поддержка Precache File
-    * Приоритеты извлечения
+  - Глюки ориентации (из-за многопоточности?)
+
+  - Извлечение эскизов
+    - Поддержка SelfPaint (типа WMF/EMF)
+    + Ограничение размера извлекаемого системного эскиза
 
   * Скроллер прокрутки
     + "Длинный" скроллер
     - "Зацепление" скроллера
-  + Скроллинг окна
-    - Плавный скроллинг
 
   * Синхронизация с окном просмотора
     + Синхронизация выделения
     + Оптимизировать поиск
     - В режиме not FSyncPanel?
 
-  - Выделение
-    - Выделять правой кнопкой
-    * Выделить все (CtrlA, Ctrl+, Ctrl-)
-    * Инверсия выделения
-    * Улучшить выделение мышкой
-    - Оптимизировать поиск
-
-  - Оптимизация по масштабированию
+  - Оптимизация по масштабированию?
   - Поддержка 16 цветного режима?
 
-  - Макросы
-
-  + Настройка цветов
-  + Диалог настроек
-  - Помощь
+  * Помощь
 
 
 Готово:
+  + Выбор декодера - без асинхронного события.
+  + Переключение приоритетов декодера на лету
+
   + Оптимизация получения иконок (кэшировать расширения)
   + Заголовок окна в плагинных панелях
 
@@ -70,6 +46,7 @@ To Do:
     + Ограничение количества активных Handle
 
   + Обновление с сохранением смещения
+    + Cохранение смещения, если текущая позиция за пределами окна
   + Масштабирование с сохранением смещения
   + При изменении размеров окна сохранять смещение (?)
   + При переключении показа заголовков сохранять смещение (как при мастабировании)
@@ -85,7 +62,7 @@ To Do:
 
   + Поддержка DblClick
 
-  - Отображение
+  + Отображение
     + Без моргания
     + Улучшение горизонтальной раскладки
     + Надписи:
@@ -94,6 +71,47 @@ To Do:
       x Шрифт надписи
       + Свертка надписи?
         + Свертка без пробелов
+    + Оптимизация заливки (без ExcludeClipRect)
+    + Улучшение рисования выделения и рамок
+
+  + Скроллинг окна
+    + Плавный скроллинг
+
+  * Просмотр эскизов
+    * Комбинированное извлечение (размер - через PVD, эскиз - от системы)
+      * Автоповороты системных эскизов
+        + С декодером WIC
+        x С декодером GFL
+      * Опциональное отключение автоповоротов
+        + В настройки
+        + В помощь
+    * Растягивать маленькие эскизы (если известен размер?)
+      + В том числе - для системных эскизов (при комбинированном извлечении)
+    * Use Explorer thumbnails
+      x Не всегда извлекавется картинка высокого качества?
+    * Use Review Decoders
+      + Уменьшать размер изображения, если декодер вернул слишком большое...
+        + Улучшенное сглаживание?
+        + Поддержка прозрачности?
+      * Поддержать для WIC/GFL опцию извлечения эскизов
+      * Поддержать для WIC/GFL опцию декодирования с заданным размером
+      * Опции декодера: поддерживает эскизы, потоки, Selfdarw
+      + Для GDI+ - не асинхронное извлечение
+      + Поддержка Precache File
+    * Приоритеты извлечения
+
+  + Выделение
+    + Выделять правой кнопкой
+    + Выделить все (CtrlA, Ctrl+, Ctrl-)
+    + Инверсия выделения
+    + Улучшить выделение мышкой
+    x Оптимизировать поиск
+
+  * Макросы
+    + Установка размера эскиза
+
+  + Настройка цветов
+  + Диалог настроек
 }
 
 interface
@@ -188,7 +206,7 @@ interface
       function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; override;
       function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
 
-      function DecodeImage(const AName :TString; ASize :Integer; AThumb :Boolean) :THandle;
+      function DecodeImage(const AName :TString; ASize :Integer; ALevel :Integer) :THandle;
 
       procedure PrepareBitmap;
 
@@ -196,14 +214,14 @@ interface
       FIsFolder      :Boolean;
       FSelected      :Boolean;
       FIconIdx       :Integer;
-      FIconIdx2      :Integer;
+      FIconIdx2      :Integer;  { Оверлейная иконка. Не поддерживается... }
+      FIconLevel     :Integer;
 
       FTmpBitmap     :THandle;  { Декодированный эскиз. Временное значение для передачи между потоками. }
       FBitmapSize    :Integer;
 
       FRenderLevel   :Integer;  { 0-Не извлекалось, 1-Извлечен из кэша, 2-Извлечен из эскиза, 3-Извлечен из картинки }
       FRenderSize    :Integer;  { Размер, для которого извлекалось }
-      FDecoderInited :Boolean;  { Значение FDecoder инициализировано (при этом оно может быть nil) }
 
      {$ifdef bDebug}
       FDecodeTime1   :Integer;
@@ -252,6 +270,7 @@ interface
       procedure WMHScroll(var Mess :TWMHScroll); message WM_HScroll;
       procedure WMVScroll(var Mess :TWMVScroll); message WM_VScroll;
       procedure WMSize(var Mess :TWMSize); message WM_Size;
+      procedure WMTimer(var Mess :TWMTimer); message WM_Timer;
 
     private
       FThumbs       :TThumbList;
@@ -272,12 +291,19 @@ interface
       FCurrent      :Integer;
       FDelta        :Integer;
 
+      FAsyncDelta   :Integer;
+      FAsyncDir     :Integer;
+      FScrollTimer  :TUnsPtr;
+      FStartDelta   :Integer;
+      FStartTime    :DWORD;
+      FScrollPeriod :Integer;
+      FScrollLock   :Integer;
+
       FDragged      :Integer;
       FClicked      :Integer;
 
       FSysIcons     :THandle;         { Системный ImageList иконок, используется пока не извлечен эскиз }
       FIconSize     :TSize;
-
 
       FHandCursor   :HCURSOR;
 
@@ -297,13 +323,19 @@ interface
       procedure SafeRecalcSizes;
       procedure SetSize(ASize :Integer);
       procedure SetScroller(BarType, Min, Max, OnPage, Pos :Integer; Disable :Boolean = False);
-      procedure ScrollTo(ADelta :Integer; ACanScroll :Boolean = True);
+      procedure SmoothScrollTo(AOffset :Integer);
+      procedure SmoothScroll(ADelta :Integer);
+      procedure AsyncScroll(ADir :Integer);
+      procedure ScrollTo(ADelta :Integer; ASmoothStep :Boolean = False);
       procedure GoToItem(AIndex :Integer; AScroll :Boolean; ASelect :Boolean = False; ASync :Boolean = True);
       procedure SelectRange(AIdx, AIdx2 :Integer; ACmd :Integer; ASync :Boolean = True);
       function GetItemRect(AIdx :Integer) :TRect;
-      function CalcHotSpot(X, Y :Integer) :Integer;
+      function CalcHotSpot(X, Y :Integer; ACheckRect :Boolean = True) :Integer;
       function Selected(AIdx :Integer) :Boolean;
       function FindByName(const AName :TString) :Integer;
+
+    public
+      property ThumbSize :Integer read FThumbSize;
     end;
 
 
@@ -323,6 +355,7 @@ interface
 
 
   function CollectThumb(const AFolder :TString) :TThumbList;
+  procedure ChooseDecoders(AThumbs :TThumbList);
 
 
   var ThumbsModalDlg :TThumbModalDlg;
@@ -351,53 +384,15 @@ interface
     cLimitSBar = $7FF0;
 
 
- {-----------------------------------------------------------------------------}
- { TCmdFindDecoder                                                             }
- {-----------------------------------------------------------------------------}
-
-  type
-    TCmdFindDecoder = class(TCmdObject)
-    public
-      constructor Create(AThumb :TReviewThumb); overload;
-      destructor Destroy; override;
-      procedure Execute; override;
-
-    private
-      FThumb :TReviewThumb;
-    end;
-
-
-  constructor TCmdFindDecoder.Create(AThumb :TReviewThumb); {overload;}
+  function Sign(AVal :Integer) :Integer;
   begin
-    inherited Create;
-    FThumb := AThumb;
-    FThumb._AddRef;
-  end;
-
-
-  destructor TCmdFindDecoder.Destroy; {override;}
-  begin
-    if FThumb <> nil then
-      FThumb._Release;
-    inherited Destroy
-  end;
-
-
-  procedure TCmdFindDecoder.Execute; {override;}
-  var
-    I :Integer;
-    vDecoder :TReviewDecoder;
-  begin
-//  Trace('Find decoder for: %s', [FThumb.Name]);
-    for I := 0 to Review.Decoders.Count - 1 do begin
-      vDecoder := Review.Decoders[I];
-      if vDecoder.Enabled and vDecoder.SupportedFile(FThumb.Name) and vDecoder.CanWork(True) and vDecoder.CanShowThumbs then begin
-//      Trace('  Choosen: %s', [vDecoder.Name]);
-        FThumb.FDecoder := vDecoder;
-        break;
-      end;
-    end;
-    FThumb.FDecoderInited := True;
+    if AVal > 0 then
+      Result := 1
+    else
+    if Aval < 0 then
+      Result := -1
+    else
+      Result := 0;
   end;
 
 
@@ -545,12 +540,19 @@ interface
 
       FCache    :IThumbnailCache;
 
-      FDecoders :TStringList;
+     {$ifdef bXPSupport}
+      FMalloc   :IMalloc;
+      FDesktop  :IShellFolder;
+     {$endif bXPSupport}
 
       function DoTask :Boolean;
       function Render(AThumb :TReviewThumb; ALevel, ASize :Integer) :boolean;
       function GetIconIndex(const AName :TString) :Integer;
       function GetSystemThumbnail(AThumb :TReviewThumb; const AName :TString; ALevel, ASize :Integer) :HBitmap;
+      function GetSystemThumbnailVista(AThumb :TReviewThumb; const AName :TString; ALevel, ASize :Integer) :HBitmap;
+     {$ifdef bXPSupport}
+      function GetSystemThumbnailXP(AThumb :TReviewThumb; const AName :TString; ALevel, ASize :Integer) :HBitmap;
+     {$endif bXPSupport}
       function GetReviewThumbnail(AThumb :TReviewThumb; const AName :TString; ALevel, ASize :Integer) :HBitmap;
     end;
 
@@ -560,8 +562,6 @@ interface
     inherited Create(False);
     InitializeCriticalSection(FTaskCS);
     FEvent := CreateEvent(nil, True, False, nil);
-    FDecoders := TStringList.Create;
-    FDecoders.Sorted := True;
     FOwner := AOwner;
   end;
 
@@ -573,7 +573,6 @@ interface
     WaitFor;
 
     FreeObj(FTasks);
-    FreeObj(FDecoders);
     CloseHandle(FEvent);
     DeleteCriticalSection(FTaskCS);
     inherited Destroy;
@@ -619,10 +618,12 @@ interface
     CoInitialize(nil);
     try
       CoCreateInstance(CLSID_ThumbnailCache, nil, CLSCTX_INPROC_SERVER, IThumbnailCache, FCache);
-//    if FCache = nil then begin
-//      SHGetMalloc(FMalloc);
-//      SHGetDesktopFolder(FDesktop);
-//    end;
+     {$ifdef bXPSupport}
+      if FCache = nil then begin
+        SHGetMalloc(FMalloc);
+        SHGetDesktopFolder(FDesktop);
+      end;
+     {$endif bXPSupport}
 
       while not Terminated do begin
         vRes := WaitForSingleObject(FEvent, 5000);
@@ -714,7 +715,6 @@ interface
           vMaxSize := ASize;
         end;
 
-        {!64}
         vOldBitmap := THandle(InterlockedExchangePointer(Pointer(AThumb.FTmpBitmap), nil));
         if vOldBitmap <> 0 then
           DeleteObject(vOldBitmap);
@@ -739,36 +739,51 @@ interface
     vIconIndex :Integer;
   begin
     Result := False;
-//  Trace('Render: %s', [AThumb.Name]);
-//  Sleep(100);
-
-    vName := AddFileName(FPath, AThumb.Name);
-
     vBitmap := 0;
+    try
+//    Trace('Render: %s', [AThumb.Name]);
+//    Sleep(100);
 
-    if (optExtractPriority in [1, 3]) or ((optExtractPriority = 2) and AThumb.FIsFolder) then
-      vBitmap := GetSystemThumbnail(AThumb, vName, ALevel, ASize);
+      vName := AddFileName(FPath, AThumb.Name);
 
-    if (vBitmap = 0) and (optExtractPriority in [1, 2, 4]) and not AThumb.FIsFolder and not Terminated then
-      vBitmap := GetReviewThumbnail(AThumb, vName, ALevel, ASize);
+      if (optExtractPriority in [1, 3]) or ((optExtractPriority = 2) and AThumb.FIsFolder) then
+        vBitmap := GetSystemThumbnail(AThumb, vName, ALevel, ASize);
 
-    if (vBitmap = 0) and (optExtractPriority = 2) and (ALevel > 1) and not Terminated then
-      vBitmap := GetSystemThumbnail(AThumb, vName, ALevel, ASize);
+      if (vBitmap = 0) and (optExtractPriority in [1, 2, 4]) and not AThumb.FIsFolder and not Terminated then
+        vBitmap := GetReviewThumbnail(AThumb, vName, ALevel, ASize);
 
-    if vBitmap <> 0 then
-      LocUpdateBitmap(vBitmap);
+      if (vBitmap = 0) and (optExtractPriority = 2) and (ALevel > 1) and not Terminated then
+        vBitmap := GetSystemThumbnail(AThumb, vName, ALevel, ASize);
 
-    if (AThumb.FRenderSize = 0) and not Terminated then begin
-      vIconIndex := GetIconIndex(vName);
-      if (vIconIndex <> -1) and (vIconIndex <> AThumb.FIconIdx) then begin
-        AThumb.FIconIdx := vIconIndex;
-        Result := True;
+      if vBitmap <> 0 then begin
+        LocUpdateBitmap(vBitmap);
+        vBitmap := 0;
       end;
-    end;
 
-    AThumb.FRenderLevel := IntMax(AThumb.FRenderLevel, ALevel);
-    if (ALevel >= 3) {or ((ALevel = 2) and not optThumbFirst))} and (AThumb.FBitmapSize < ASize) then
-      AThumb.FRenderLevel := MaxInt { Дальнейшие попытки бессмыслены }
+      if (ALevel > 1) and (AThumb.FIconLevel = 0) and (AThumb.FBitmapSize = 0) and not Terminated then begin
+        AThumb.FIconLevel := 1;
+        vIconIndex := GetIconIndex(vName);
+        if (vIconIndex <> -1) and (vIconIndex <> AThumb.FIconIdx) then begin
+          AThumb.FIconIdx := vIconIndex;
+          Result := True;
+        end;
+      end;
+
+      AThumb.FRenderLevel := IntMax(AThumb.FRenderLevel, ALevel);
+      if ((ALevel >= 3) {or ((ALevel = 2) and not optThumbFirst))} and (AThumb.FBitmapSize < ASize)) or
+
+        { На втором уровне извлекается эскиз, а если не удалось - декодируется картинка. }
+        { Т.ч. если ничего не извлеклось, то далее пробовать бессмысленно... }
+        ((ALevel = 2) and (AThumb.FBitmapSize = 0))
+
+      then
+        AThumb.FRenderLevel := MaxInt { Дальнейшие попытки бессмыслены }
+
+    except
+      AThumb.FRenderLevel := MaxInt; { Ошибка, дальнейшие попытки бессмыслены }
+      if vBitmap <> 0 then
+        DeleteObject(vBitmap);
+    end;
   end;
 
 
@@ -800,7 +815,21 @@ interface
   end;
 
 
+
   function TThumbThread.GetSystemThumbnail(AThumb :TReviewThumb; const AName :TString; ALevel, ASize :Integer) :HBitmap;
+  begin
+    if (FCache <> nil) and Assigned(SHCreateItemFromParsingName) then
+      Result := GetSystemThumbnailVista(AThumb, AName, ALevel, ASize)
+    else
+     {$ifdef bXPSupport}
+      Result := GetSystemThumbnailXP(AThumb, AName, ALevel, ASize);
+     {$else}
+      Result := 0;
+     {$endif bXPSupport}
+  end;
+
+
+  function TThumbThread.GetSystemThumbnailVista(AThumb :TReviewThumb; const AName :TString; ALevel, ASize :Integer) :HBitmap;
   var
     vItem :IShellItem;
     vBitmap :ISharedBitmap;
@@ -813,15 +842,13 @@ interface
    {$endif bDebug}
   begin
     Result := 0;
-    if not Assigned(SHCreateItemFromParsingName) or (FCache = nil) then
-      Exit;
-    if not Succeeded( SHCreateItemFromParsingName( PWideChar(AName), nil, IShellItem, @vItem) ) then
-      Exit;
-
    {$ifdef bDebug}
     Trace('System Extract Level %d: %s', [ALevel, AName]);
     vStart := GetTickCount;
    {$endif bDebug}
+
+    if not Succeeded( SHCreateItemFromParsingName( PWideChar(AName), nil, IShellItem, @vItem) ) then
+      Exit;
 
     vFlags := 0; vOutFlags := 0;
 
@@ -831,10 +858,12 @@ interface
       3: vFlags := WTS_EXTRACT or WTS_SLOWRECLAIM;
     end;
 
+    if ALevel < 3 then
+      ASize := IntMin(ASize, 256);
+
     if not Succeeded( FCache.GetThumbnail(vItem, ASize, vFlags, @vBitmap, vOutFlags, nil) ) then begin
 //    if (ALevel = 2) then
 //      FCache.GetThumbnail(vItem, ASize, vFlags, @vBitmap, vOutFlags, nil)
-
       if (ALevel = 2) and not optThumbFirst then begin
         if not Succeeded( FCache.GetThumbnail(vItem, ASize, WTS_EXTRACT, @vBitmap, vOutFlags, nil) ) then
           Exit;
@@ -865,14 +894,31 @@ interface
     else
       AThumb.FDecodeTime2 := vTime;
     with GetBitmapSize(Result) do
-      Trace('  Ok, %d, %d x %d, %d ms', [vOutFlags, CX, CY, vTime]);
+      Trace('  Ok, %d x %d, %d ms', [CX, CY, vTime]);
    {$endif bDebug}
+
+    if optExtractSize and not AThumb.FIsFolder and ((AThumb.FWidth = 0) and (AThumb.FHeight = 0)) then
+      GetReviewThumbnail(AThumb, AName, 0, 0);
   end;
 
 
-  function TThumbThread.GetReviewThumbnail(AThumb :TReviewThumb; const AName :TString; ALevel, ASize :Integer) :HBitmap;
+ {$ifdef bXPSupport}
+  function TThumbThread.GetSystemThumbnailXP(AThumb :TReviewThumb; const AName :TString; ALevel, ASize :Integer) :HBitmap;
   var
-    vIdx :Integer;
+    vPath, vName :TWideStr;
+    vFolder :IShellFolder;
+    vXtractImg :IExtractImage;
+    vItems :PItemIDList;
+    vEaten, vAttrs :Cardinal;
+
+    vBuf: array[0..MAX_PATH] of WideChar;
+    vPriority, vColorDepth, vFlags :Cardinal;
+    vSize :TSize;
+    vRes :HResult;
+
+    vHBitmap :HBitmap;
+//  vHBitmap1 :HBitmap;
+
    {$ifdef bDebug}
     vStart :DWORD;
     vTime :Integer;
@@ -883,26 +929,99 @@ interface
       Exit;
 
    {$ifdef bDebug}
+    Trace('System Extract XP Level %d: %s', [ALevel, AName]);
+    vStart := GetTickCount;
+   {$endif bDebug}
+
+    if not Assigned(FMalloc) or not Assigned(FDesktop) then
+      Exit;
+
+    vPath := RemoveBackSlash(ExtractFilePath(AName));
+    if not Succeeded( FDesktop.ParseDisplayName(0, nil, PWideChar(vPath), vEaten, vItems, vAttrs) ) then
+      Exit;
+    FDesktop.BindToObject(vItems, nil, IShellFolder, vFolder);
+    FMalloc.Free(vItems);
+
+    vName := ExtractFileName(AName);
+    if not Succeeded( vFolder.ParseDisplayName(0, nil, PWideChar(vName), vEaten, vItems, vAttrs)) then
+      Exit;
+    vFolder.GetUIObjectOf(0, 1, vItems, IExtractImage, nil, vXtractImg);
+    FMalloc.Free(vItems);
+
+    if vXtractImg = nil then
+      Exit;
+
+    vFlags :=
+      IEIFLAG_ORIGSIZE or
+//    IEIFLAG_QUALITY or
+//    IEIFLAG_ASPECT or
+//    IEIFLAG_SCREEN or
+//    IEIFLAG_CACHE or
+//    IEIFLAG_OFFLINE or
+      0;
+
+    if ALevel = 3 then
+      vFlags := vFlags or IEIFLAG_QUALITY;
+
+    vPriority := 0;
+    vColorDepth := 32;
+    vSize.cx := ASize;
+    vSize.cy := ASize;
+
+    vRes := vXtractImg.GetLocation(vBuf, High(vBuf), vPriority, vSize, vColorDepth, vFlags);
+    if (vRes <> NOERROR) {or (vRes = E_PENDING)} then
+      Exit;
+
+    if not Succeeded( vXtractImg.Extract(vHBitmap) ) then
+      Exit;
+
+//  vHBitmap1 := RescaleBitmapAlpha(vHBitmap);
+//  if vHBitmap1 <> 0 then begin
+//    DeleteObject(vHBitmap);
+//    vHBitmap := vHBitmap1;
+//  end;
+
+    Result := vHBitmap;
+
+   {$ifdef bDebug}
+    vTime := TickCountDiff(GetTickCount, vStart);
+    if ALevel =  2 then
+      AThumb.FDecodeTime1 := vTime
+    else
+      AThumb.FDecodeTime2 := vTime;
+    with GetBitmapSize(Result) do
+      Trace('  Ok, %d x %d, %d ms', [CX, CY, vTime]);
+   {$endif bDebug}
+
+    if optExtractSize and not AThumb.FIsFolder and ((AThumb.FWidth = 0) and (AThumb.FHeight = 0)) then begin
+      GetReviewThumbnail(AThumb, AName, 0, 0);
+//    AThumb.FWidth := 0;
+//    AThumb.FHeight := 0;
+    end;
+  end;
+ {$endif bXPSupport}
+
+
+  function TThumbThread.GetReviewThumbnail(AThumb :TReviewThumb; const AName :TString; ALevel, ASize :Integer) :HBitmap;
+ {$ifdef bDebug}
+  var
+//  vIdx :Integer;
+    vStart :DWORD;
+    vTime :Integer;
+ {$endif bDebug}
+  begin
+    Result := 0;
+    if ALevel = 1 then
+      Exit;
+
+   {$ifdef bDebug}
     Trace('Review Extract Level %d: %s', [ALevel, AName]);
     vStart := GetTickCount;
    {$endif bDebug}
 
-    if not AThumb.FDecoderInited then begin
-      vIdx := FDecoders.IndexOf(ExtractFileExtension(AName));
-      if vIdx <> -1 then
-        AThumb.FDecoder := FDecoders.Objects[vIdx] as TReviewDecoder
-      else begin
-        { Поиск декодеров выносим в главный поток... }
-        FarAdvControl( ACTL_SYNCHRO, TCmdFindDecoder.Create(AThumb) );
-        while not Terminated and not AThumb.FDecoderInited do
-          Sleep(1);
-        FDecoders.AddObject(ExtractFileExtension(AName), AThumb.FDecoder);
-      end;
-    end;
-
     if (AThumb.FDecoder <> nil) and not Terminated then begin
-      Result := AThumb.DecodeImage(AName, ASize, ALevel = 2);
-      if Result = 0 then
+      Result := AThumb.DecodeImage(AName, ASize, ALevel);
+      if (Result = 0) and (ALevel <> 0) then
         AThumb.FDecoder := nil;
 
      {$ifdef bDebug}
@@ -970,17 +1089,17 @@ interface
     if vHBitmap <> 0 then begin
       FBitmap := TReviewBitmap.Create1(vHBitmap, True);
 
-      if FOrient > 1 then
-        OrientBitmap(FOrient);
-
+      if optThumbAutoRotate and (FOrient > 1) then
+        OrientBitmap(FOrient)
+      else
+        FOrient := 1;
     end;
   end;
 
 
-  function TReviewThumb.DecodeImage(const AName :TString; ASize :Integer; AThumb :Boolean) :THandle;
+  function TReviewThumb.DecodeImage(const AName :TString; ASize :Integer; ALevel :Integer) :THandle;
     { Метод вызывается из потока декодирования, и в нем устанавливаются свойства эскиза }
     { К некоторым эти свойствам возможно обращение в потоке окна. Не совсем хорошо, но пока так. }
-    {!!!Вычисление размера?}
   var
     vMode :TDecodeMode;
     vIsThumb :Boolean;
@@ -988,11 +1107,8 @@ interface
   begin
     Result := 0;
 
-    if not AThumb then
-      NOP;
-
     vMode := dmImage;
-    if AThumb then
+    if ALevel = 2 then
       if optThumbFirst then
         vMode := dmThumbnail
       else
@@ -1001,21 +1117,33 @@ interface
     if (FCacheBuf = nil) and FDecoder.NeedPrecache then
       if not PrecacheFile(AName) then
         Exit;
-
-    if FDecoder.pvdFileOpen(AName, Self) then begin
-      if FDecoder.pvdGetPageInfo(Self) then begin
-        vSize := Size(FWidth, FHeight);
-        CorrectBoundEx(vSize, Size(ASize, ASize));
-        if FDecoder.pvdPageDecode(Self, vSize.CX, vSize.CY, vMode) then begin
-          if FSelfdraw or FSelfPaint then begin
-            {!!! Пока не поддерживается}
-            NOP;
-          end else
-            Result := FDecoder.GetBitmapHandle(Self, vIsThumb);
+    try
+      if FDecoder.pvdFileOpen(AName, Self) then begin
+        try
+          if FDecoder.pvdGetPageInfo(Self) then begin
+            try
+              if ALevel > 0 then begin
+                vSize := Size(FWidth, FHeight);
+                CorrectBoundEx(vSize, Size(ASize, ASize));
+                if FDecoder.pvdPageDecode(Self, vSize.CX, vSize.CY, vMode) then begin
+                  if FSelfdraw or FSelfPaint then begin
+                    {!!! Пока не поддерживается}
+                    NOP;
+                  end else
+                    Result := FDecoder.GetBitmapHandle(Self, vIsThumb);
+                end;
+              end;
+            finally
+              FDecoder.pvdPageFree(Self);
+            end;
+          end;
+        finally
+          FDecoder.pvdFileClose(Self);
         end;
-        FDecoder.pvdPageFree(Self);
       end;
-      FDecoder.pvdFileClose(Self);
+
+    finally
+      ReleaseCache;
     end;
   end;
 
@@ -1060,6 +1188,7 @@ interface
 
   destructor TThumbsWindow.Destroy; {override;}
   begin
+    AsyncScroll(0);
     FreeObj(FThumbThread);
     FreeObj(FThumbs);
     inherited Destroy;
@@ -1092,12 +1221,14 @@ interface
 
       with FThumbThread as TThumbThread do
         CancelTasks;
+      AsyncScroll(0);
       FreeObj(FThumbs);
       FThumbs := Thumbs;
       FPath := Path;
       FSyncPanel := SyncPanel;
       FCurrent := -1;
       FDelta := 0;
+      FAsyncDelta := 0;
 
       FMinAlloc := 0;
       FMaxAlloc := 0;
@@ -1110,15 +1241,20 @@ interface
       if FWinMode <> wmFullscreen then
         SetWindowBounds(CalcWinRect);
 
-      if CurFile <> cKeepCurrent then begin
-        if FThumbs.FindKey(Pointer(CurFile), 0, [], vIndex) then
-          GoToItem(vIndex, {Scroll:}True, {Select:}False, {Sync:}False)
-        else
-          GoToItem(0, {Scroll:}True, {Select:}False, {Sync:}False);
-      end else
-      begin
-        ScrollTo(vOldDelta);
-        GoToItem(vOldCurrent, {Scroll:}True, {Select:}False, {Sync:}False);
+      Inc(FScrollLock);
+      try
+        if CurFile <> cKeepCurrent then begin
+          if FThumbs.FindKey(Pointer(CurFile), 0, [], vIndex) then
+            GoToItem(vIndex, {Scroll:}True, {Select:}False, {Sync:}False)
+          else
+            GoToItem(0, {Scroll:}True, {Select:}False, {Sync:}False);
+        end else
+        begin
+          ScrollTo(vOldDelta);
+          GoToItem(vOldCurrent, {Scroll:}True, {Select:}False, {Sync:}False);
+        end;
+      finally
+        Dec(FScrollLock);
       end;
 
       Invalidate;
@@ -1169,7 +1305,7 @@ interface
         GoToItem( vIndex, {Scroll:}True, {Select:}False, {Sync:}False)
     end else
     if Mess.wParam = cmMoveScroll then
-      ScrollTo( FDelta + Mess.LParam * FLineSize )
+      SmoothScroll( Mess.LParam * FLineSize )
   end;
 
 
@@ -1265,9 +1401,10 @@ interface
     SetCapture(Handle);
     with Mess.Pos do
       FClicked := CalcHotSpot(X, Y);
-    if FClicked <> -1 then
+    if FClicked <> -1 then begin
       GoToItem(FClicked, False, GetKeyState(VK_Shift) < 0);
-    FDragged := 1;
+      FDragged := 1;
+    end;
     Mess.Result := 0;
   end;
 
@@ -1363,7 +1500,7 @@ interface
   var
     vMax, vDelta :Integer;
   begin
-    vDelta := FDelta;
+    vDelta := 0;
     case Mess.ScrollCode of
       SB_LINEUP{, SB_LINELEFT}:
         Dec(vDelta, FLineSize);
@@ -1382,10 +1519,15 @@ interface
             vDelta := Mess.Pos
           else
             vDelta := MulDiv(Mess.Pos, vMax, cLimitSBar);
+          ScrollTo(vDelta);
+          Idle;
+          Exit;
         end;
     end;
-    ScrollTo(vDelta);
-    Idle;
+    if vDelta <> 0 then begin
+      SmoothScroll(vDelta);
+      Idle;
+    end;
   end;
 
 
@@ -1476,6 +1618,7 @@ interface
       FSeatCount  := 1;
       FSeatSplit  := 0;
       FDelta      := 0;
+      FAsyncDelta := 0;
       FCurrent    := 0;
       FAllocLimit := 0;
     end;
@@ -1484,15 +1627,32 @@ interface
 
   procedure TThumbsWindow.SafeRecalcSizes;
   var
-    vTopDelta :Integer;
+    vIdx, vTopDelta :Integer;
+    vRect :TRect;
   begin
-    with GetItemRect(FCurrent) do
-      vTopDelta := IntIf(optVerticalScroll, Top, Left);
+    Inc(FScrollLock);
+    try
+      if FLineSize > 0 then begin
+        vIdx := FCurrent;
+        with GetItemRect(vIdx) do
+          vTopDelta := IntIf(optVerticalScroll, Top, Left);
 
-    RecalcSizes;
+        vRect := GetWorkRect;
+        if (vTopDelta < 0) or (vTopDelta > IntIf(optVerticalScroll, vRect.Bottom, vRect.Right)) then begin
+          vIdx := CalcHotSpot(vRect.Left, vRect.Top, False);
+          with GetItemRect(vIdx) do
+            vTopDelta := IntIf(optVerticalScroll, Top, Left);
+        end;
 
-    with GetItemRect(FCurrent) do
-      ScrollTo(FDelta + IntIf(optVerticalScroll, Top, Left) - vTopDelta, False);
+        RecalcSizes;
+
+        with GetItemRect(vIdx) do
+          ScrollTo(FDelta + IntIf(optVerticalScroll, Top, Left) - vTopDelta);
+      end else
+        RecalcSizes;
+    finally
+      Dec(FScrollLock);
+    end;
   end;
 
 
@@ -1514,12 +1674,79 @@ interface
   end;
 
 
-  procedure TThumbsWindow.ScrollTo(ADelta :Integer; ACanScroll :Boolean = True);
+  procedure TThumbsWindow.SmoothScrollTo(AOffset :Integer);
+  begin
+    if optSmoothScroll and (FScrollLock = 0) then begin
+      if AOffset <> FAsyncDelta then
+        SmoothScroll(AOffset - FAsyncDelta)
+    end else
+      ScrollTo(AOffset);
+  end;
+
+
+  procedure TThumbsWindow.SmoothScroll(ADelta :Integer);
+  var
+    vDir :Integer;
+  begin
+    if optSmoothScroll and (Abs(ADelta) <= FWinLen) and (FScrollLock = 0) then begin
+
+      vDir := Sign(ADelta);
+      if vDir <> FAsyncDir then
+        FAsyncDelta := FDelta;
+      FAsyncDelta := RangeLimit(FAsyncDelta + ADelta, 0, FLineCount * FLineSize - FWinLen);
+      AsyncScroll(vDir);
+
+      FStartDelta   := FDelta;
+      FStartTime    := GetTickCount;
+      FScrollPeriod := optScrollPeriod;
+
+    end else
+      ScrollTo(FDelta + ADelta);
+  end;
+
+
+  procedure TThumbsWindow.AsyncScroll(ADir :Integer);
+  begin
+    if FAsyncDir <> ADir then begin
+      if FScrollTimer <> 0 then begin
+        KillTimer(FHandle, FScrollTimer);
+        FScrollTimer := 0;
+        FAsyncDir := 0;
+      end;
+
+      if ADir <> 0 then begin
+        FScrollTimer := SetTimer(FHandle, 1, 1, nil);
+        FAsyncDir := ADir;
+      end;
+    end;
+  end;
+
+
+  procedure TThumbsWindow.WMTimer(var Mess :TWMTimer); {message WM_Timer;}
+  var
+    vPeriod, vDelta :Integer;
+  begin
+//  Trace('WMTimer: %d', [Mess.TimerID]);
+    if Mess.TimerID = 1 then begin
+      if Sign(FAsyncDelta - FDelta) = FAsyncDir then begin
+        vPeriod := TickCountDiff(GetTickCount, FStartTime);
+        vDelta := MulDiv( FAsyncDelta - FStartDelta, IntMin(vPeriod, FScrollPeriod), FScrollPeriod );
+        ScrollTo(FStartDelta + vDelta, True);
+      end;
+      if Sign(FAsyncDelta - FDelta) <> FAsyncDir then
+        AsyncScroll(0);
+    end;
+  end;
+
+
+  procedure TThumbsWindow.ScrollTo(ADelta :Integer; ASmoothStep :Boolean = False);
   var
     vDY, vDX :Integer;
     vRect :TRect;
   begin
-    {!!!}
+    if not ASmoothStep then
+      AsyncScroll(0);
+
     ADelta := RangeLimit(ADelta, 0, FLineCount * FLineSize - FWinLen);
     if ADelta = FDelta then
       Exit;
@@ -1528,15 +1755,22 @@ interface
     vDX := 0;
 
     FDelta := ADelta;
+    if FAsyncDir = 0 then
+      FAsyncDelta := FDelta;
 
-    if (Abs(vDY) > FWinLen) or not ACanScroll then
+    if (Abs(vDY) > FWinLen) or (FScrollLock > 0) then
       Invalidate
     else begin
+      if FTempMsg <> '' then begin
+        FTempMsg := '';
+        InvalidateMsgRect;
+      end;
       vRect := ClientRect;
       if not optVerticalScroll then
         IntSwap(vDX, vDY);
       ScrollWindowEx(Handle, vDX, vDY, @vRect, @vRect, 0, nil,
         SW_Erase or SW_Invalidate {or SW_ScrollChildren} {or Flags});
+      UpdateWindow(Handle);  
     end;
 
     SetScroller(IntIf(optVerticalScroll, SB_Vert, SB_Horz), 0, FLineSize * FLineCount, FWinLen, FDelta);
@@ -1661,10 +1895,10 @@ interface
     if AScroll then begin
       vDelta := (FCurrent div FSeatCount) * FLineSize;
       if vDelta < FDelta then
-        ScrollTo(vDelta)
+        SmoothScrollTo(vDelta)
       else
       if vDelta + FLineSize - cThumbSplitY > FDelta + FWinLen then
-        ScrollTo(vDelta + FLineSize - cThumbSplitY - FWinLen);
+        SmoothScrollTo(vDelta + FLineSize - cThumbSplitY - FWinLen);
     end;
   end;
 
@@ -1697,7 +1931,7 @@ interface
   end;
 
 
-  function TThumbsWindow.CalcHotSpot(X, Y :Integer) :Integer;
+  function TThumbsWindow.CalcHotSpot(X, Y :Integer; ACheckRect :Boolean = True) :Integer;
   var
     vLine, vSeat, vIdx :Integer;
     vRect :TRect;
@@ -1717,9 +1951,12 @@ interface
     vIdx := (vLine * FSeatCount) + vSeat;
 
     if vIdx < FThumbs.Count then begin
-      vRect := GetItemRect(vIdx);
-//    RectGrow(vRect, -cThumbDeltaX, -cThumbDeltaY);
-      if RectContainsXY(vRect, X, Y) then
+      if ACheckRect then begin
+        vRect := GetItemRect(vIdx);
+//      RectGrow(vRect, -cThumbDeltaX, -cThumbDeltaY);
+        if RectContainsXY(vRect, X, Y) then
+          Result := vIdx;
+      end else
         Result := vIdx;
     end;
   end;
@@ -1736,11 +1973,23 @@ interface
   procedure TThumbsWindow.PaintWindow(APaintDC :HDC); {override;}
   var
     vMemDC :TMemDC;
+    vClipRect :TRect;
     vItemSize :TSize;
     vTColor1, vTColor2 :COLORREF;
 //  vBColor1, vBColor2 :COLORREF;
 
-    procedure LocDrawTempText(DC :HDC; AIndex :Integer; AItem :TReviewThumb; const AStr :TString; {const} ARect :TRect);
+
+    procedure LocFill(X1, X2, Y1, Y2 :Integer);
+    begin
+      if (X1 < X2) and (Y1 < Y2) then
+        if optVerticalScroll then
+          FillRect(APaintDC, Rect(X1, Y1, X2, Y2), FBrush)
+        else
+          FillRect(APaintDC, Rect(Y1, X1, Y2, X2), FBrush)
+    end;
+
+
+    procedure LocDrawTempText(DC :HDC; const AStr :TString; {const} ARect :TRect);
     var
       vFont, vOldFont :HFont;
       vRect :TRect;
@@ -1813,6 +2062,10 @@ interface
           vSrcSize := Size(AItem.FWidth, AItem.FHeight);
           if AItem.FOrient in [5,6,7,8] then
             IntSwap(vSrcSize.CX, vSrcSize.CY);
+        end else
+        begin
+          if AItem.FIsFolder then
+            StretchBounds(vSrcSize, vSize);
         end;
 
         if (vSrcSize.CX <= vSize.CX) and (vSrcSize.CY <= vSize.CY) then begin
@@ -1853,6 +2106,24 @@ interface
     end;
 
 
+   {$ifdef bDebug}
+    procedure LocDrawDebugInfo(DC :HDC; AItem :TReviewThumb; X, Y :Integer);
+    var
+      vStr :TString;
+    begin
+      if (AItem.FWidth > 0) or (AItem.FHeight > 0) then begin
+        vStr := Format('%d x %d', [AItem.FWidth, AItem.FHeight]);
+        LocDrawTempText(DC, vStr, Bounds(X, Y, FThumbSize, FTextHeight));
+        Inc(Y, FTextHeight);
+      end;
+      if AItem.FDecoder <> nil then begin
+        vStr := Format('%s (%d, %d)', [AItem.FDecoder.Name, AItem.FDecodeTime1, AItem.FDecodeTime2]);
+        LocDrawTempText(DC, vStr, Bounds(X, Y, FThumbSize, FTextHeight));
+      end;
+    end;
+   {$endif bDebug}
+
+
     procedure PaintItemAt(DC :HDC; AIndex :Integer; X, Y :Integer);
     var
       vItem :TReviewThumb;
@@ -1881,21 +2152,21 @@ interface
       LocDrawImage(DC, AIndex, vItem, vRect);
 
      {$ifdef bDebug}
-      if optThumbShowInfo and (vItem.FDecoder <> nil) then
-        LocDrawTempText(DC, -1, vItem,
-          Format('%s (%d, %d)', [vItem.FDecoder.Name, vItem.FDecodeTime1, vItem.FDecodeTime2]),
-          Bounds(vRect.Left, vRect.Top, FThumbSize, FTextHeight));
+      if optThumbShowInfo then
+        LocDrawDebugInfo(DC, vItem, vRect.Left, vRect.Top);
      {$endif bDebug}
 
       if optThumbShowTitle then begin
         vRect.Top := vRect.Bottom;
         vRect.Bottom := vRect.Top + FTextHeight;
-        LocDrawTempText(DC, AIndex, vItem, ExtractFileName(vItem.Name), vRect);
+        LocDrawTempText(DC, ExtractFileName(vItem.Name), vRect);
       end;
     end;
 
 
     procedure PaintItem(AIndex :Integer; X, Y :Integer);
+    var
+      vSize :TSize;
     begin
       if vMemDC = nil then
         PaintItemAt(APaintDC, AIndex, X, Y)
@@ -1904,19 +2175,20 @@ interface
         GDIBitBlt(APaintDC, Bounds(X, Y, vMemDC.Size), vMemDC.DC, Bounds(0, 0, vMemDC.Size), False);
       end;
 
-      ExcludeClipRect(APaintDC, X, Y, X + vItemSize.CX, Y + vItemSize.CY);
+      vSize := vItemSize;
+      if not optVerticalScroll then begin
+        IntSwap(X, Y);
+        IntSwap(vSize.CX, vSize.CY);
+      end;
 
-      if optVerticalScroll then
-        FillRect(APaintDC, Bounds(X, Y, FSeatSize + FSeatSplit, FLineSize), FBrush)
-      else
-        FillRect(APaintDC, Bounds(X, Y, FLineSize, FSeatSize + FSeatSplit), FBrush)
+      LocFill(X + vSize.CX, X + FSeatSize + FSeatSplit, Y, Y + FLineSize);
+      LocFill(X, X + FSeatSize + FSeatSplit, Y + vSize.CY, Y + FLineSize);
     end;
 
+
   var
-    vClipRect :TRect;
     vWorkBeg, vClipBeg, vClipEnd :TPoint;
     vIdx, X, Y, vRow, vCol, vRow1, vRow2, vCol1, vCol2, vColWidth :Integer;
-    vSaveDC :Integer;
   begin
 //  TraceBegF('%s PaintWindow...', [ClassName]);
 
@@ -1932,58 +2204,60 @@ interface
     try
       GetClipBox(APaintDC, vClipRect);
 //    FillRect(DC, vClipRect, FBrush);
-      vSaveDC := SaveDC(APaintDC);
-      try
-        vClipBeg := vClipRect.TopLeft;
-        vClipEnd := vClipRect.BottomRight;
-        if not optVerticalScroll then begin
-          IntSwap(vClipBeg.X, vClipBeg.Y);
-          IntSwap(vClipEnd.X, vClipEnd.Y);
-        end;
 
-        vRow1 := (vClipBeg.Y - vWorkBeg.Y + FDelta) div FLineSize;
-        if vRow1 < FLineCount then begin
-          vRow2 := IntMin((vClipEnd.Y - vWorkBeg.Y + FDelta - 1) div FLineSize + 1, FLineCount);
+      vClipBeg := vClipRect.TopLeft;
+      vClipEnd := vClipRect.BottomRight;
+      if not optVerticalScroll then begin
+        IntSwap(vClipBeg.X, vClipBeg.Y);
+        IntSwap(vClipEnd.X, vClipEnd.Y);
+      end;
 
-          vItemSize := Size(FThumbSize + cThumbDeltaX * 2, FThumbSize + cThumbDeltaY * 2);
-          if optThumbShowTitle {and not optThumbFoldTitle} then
-            Inc(vItemSize.CY, FTextHeight);
+      vRow1 := (vClipBeg.Y - vWorkBeg.Y + FDelta) div FLineSize;
+      if vRow1 < FLineCount then begin
+        LocFill(vClipBeg.X, vClipEnd.X, vClipBeg.Y, vWorkBeg.Y);
 
-          vMemDC := TMemDC.Create(vItemSize.CX, vItemSize.CY);
-          try
-            vColWidth := FSeatSize + FSeatSplit;
+        vRow2 := IntMin((vClipEnd.Y - vWorkBeg.Y + FDelta - 1) div FLineSize + 1, FLineCount);
 
-            vCol1 := (vClipBeg.X - vWorkBeg.X) div vColWidth;
-            vCol2 := IntMin((vClipEnd.X - vWorkBeg.X - 1) div vColWidth + 1, FSeatCount);
+        vItemSize := Size(FThumbSize + cThumbDeltaX * 2, FThumbSize + cThumbDeltaY * 2);
+        if optThumbShowTitle {and not optThumbFoldTitle} then
+          Inc(vItemSize.CY, FTextHeight);
 
-            Y := vWorkBeg.Y + (vRow1 * FLineSize) - FDelta;
-            vIdx := vRow1 * FSeatCount;
-            for vRow := vRow1 to vRow2 - 1 do begin
-              X := vWorkBeg.X + (vCol1 * vColWidth);
-              for vCol := vCol1 to vCol2 - 1 do begin
-                if vIdx + vCol >= FThumbs.Count then
-                  Break;
-                if optVerticalScroll then
-                  PaintItem(vIdx + vCol, X, Y)
-                else
-                  PaintItem(vIdx + vCol, Y, X);
-                Inc(X, vColWidth);
-              end;
+        vMemDC := TMemDC.Create(vItemSize.CX, vItemSize.CY);
+        try
+          vColWidth := FSeatSize + FSeatSplit;
 
-              Inc(vIdx, FSeatCount);
-              Inc(Y, FLineSize);
+          vCol1 := (vClipBeg.X - vWorkBeg.X) div vColWidth;
+          vCol2 := IntMin((vClipEnd.X - vWorkBeg.X - 1) div vColWidth + 1, FSeatCount);
+
+          Y := vWorkBeg.Y + (vRow1 * FLineSize) - FDelta;
+          vIdx := vRow1 * FSeatCount;
+          for vRow := vRow1 to vRow2 - 1 do begin
+            LocFill(vClipBeg.X, vWorkBeg.X, Y, Y + FLineSize);
+
+            X := vWorkBeg.X + (vCol1 * vColWidth);
+            for vCol := vCol1 to vCol2 - 1 do begin
+              if vIdx + vCol >= FThumbs.Count then
+                Break;
+              if optVerticalScroll then
+                PaintItem(vIdx + vCol, X, Y)
+              else
+                PaintItem(vIdx + vCol, Y, X);
+              Inc(X, vColWidth);
             end;
 
-          finally
-            FreeObj(vMemDC);
+            LocFill(X, vClipEnd.X, Y, Y + FLineSize);
+
+            Inc(vIdx, FSeatCount);
+            Inc(Y, FLineSize);
           end;
+
+        finally
+          FreeObj(vMemDC);
         end;
 
+        LocFill(vClipBeg.X, vClipEnd.X, Y, vClipEnd.Y);
+      end else
         FillRect(APaintDC, vClipRect, FBrush);
-
-      finally
-        RestoreDC(APaintDC, vSaveDC);
-      end;
 
       if FTempMsg <> '' then
         DrawTempText(APaintDC, FTempMsg);
@@ -2205,78 +2479,6 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- {                                                                             }
- {-----------------------------------------------------------------------------}
-
-  function CollectThumb(const AFolder :TString) :TThumbList;
-
-    procedure FillFromPanel(AList :TThumbList);
-    var
-      i :Integer;
-      vInfo :TPanelInfo;
-      vItem :PPluginPanelItem;
-      vName :TString;
-    begin
-      if FarGetPanelInfo(PANEL_ACTIVE, vInfo) and (vInfo.PanelType = PTYPE_FILEPANEL) and
-        { Не работает на плагинных панелях с "ненастоящими" файлами }
-        (PFLAGS_REALNAMES and vInfo.Flags <> 0) then
-      begin
-        for i := 0 to vInfo.ItemsNumber - 1 do begin
-          vItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETPANELITEM, i);
-          if vItem <> nil then begin
-            try
-              vName := vItem.FileName;
-              if vName = '..' then
-                Continue;
-              AList.Add( TReviewThumb.Create(
-                vName,
-                vItem.FileSize,
-                FileTimeToDosFileDate(vItem.LastWriteTime),
-                vItem.FileAttributes and faDirectory <> 0,
-                PPIF_SELECTED and vItem.Flags <> 0) );
-            finally
-              MemFree(vItem);
-            end;
-          end;
-        end;
-      end else
-        FreeObj(Result);
-    end;
-
-    procedure FillFromFolder(AList :TThumbList);
-
-      function LocEnumFiles(const APath :TString; const ARec :TWin32FindData) :Boolean;
-      begin
-        AList.Add( TReviewThumb.Create(
-          ARec.cFileName,
-          MakeInt64(ARec.nFileSizeLow, ARec.nFileSizeHigh),
-          FileTimeToDosFileDate(ARec.ftLastWriteTime),
-          ARec.dwFileAttributes and faDirectory <> 0,
-          False));
-        Result := True;
-      end;
-
-    begin
-      WinEnumFiles(AFolder, '*.*', faEnumFilesAndFolders, LocalAddr(@LocEnumFiles));
-      AList.SortList(True, 1);
-    end;
-
-  begin
-    Result := TThumbList.Create;
-    try
-      if AFolder = '' then
-        FillFromPanel(Result)
-      else
-        FillFromFolder(Result);
-    except
-      FreeObj(Result);
-      raise;
-    end;
-  end;
-
-  
-
- {-----------------------------------------------------------------------------}
  { Диалог модального состояния                                                 }
  {-----------------------------------------------------------------------------}
 
@@ -2384,6 +2586,21 @@ interface
       Review.ShowThumbs(vPath, cKeepCurrent);
     end;
 
+
+    procedure LocRedecode(AMode :TRedecodeMode);
+    begin
+      if vWin.FThumbs.Count > 0 then begin
+        with vWin.FThumbs[vWin.FCurrent] do
+          if not FIsFolder and Review.ThumbRedecode(AMode, FDecoder, FName) then begin
+            LocReRead;
+            if Review.FavDecoder <> nil then
+              Review.SetTempMsg(Format('Decoder: %s', [Review.FavDecoder.Title]));  {!Localize}
+          end else
+            Beep;
+      end else
+        Beep;  
+    end;
+
   var
     vPath :TString;
   begin
@@ -2461,6 +2678,11 @@ interface
       Key_PgUp, Key_ShiftPgUp, Key_NumPad9:
         LocGotoPage(-1);
 
+      { Переключение декодеров }
+      Key_AltHome  : LocRedecode(rmBest);
+      Key_AltPgDn  : LocRedecode(rmNext);
+      Key_AltPgUp  : LocRedecode(rmPrev);
+
       KEY_Ins:
         begin
           LocSend(CM_Select, cmSelInv, vWin.FCurrent);
@@ -2495,8 +2717,15 @@ interface
       KEY_CtrlT, Byte('t') : LocSwitchOption(optThumbShowTitle, True);
       KEY_AltT             : LocSwitchOption(optThumbFoldTitle, True);
       KEY_CtrlZ, Byte('z') : LocSwitchOption(optZoomThumb, False);
-      KEY_CtrlO, Byte('o') : LocSwitchOption(optVerticalScroll, True);
+      KEY_CtrlJ, Byte('j') : LocSwitchOption(optVerticalScroll, True);
       KEY_CtrlI, Byte('i') : LocSwitchOption(optThumbShowInfo, False);
+
+      KEY_CtrlO, Byte('o') :
+        begin
+          optThumbAutoRotate := not optThumbAutoRotate;
+          InterlockedIncrement(OptionsRevision);
+          LocReRead;
+        end;
 
       KEY_CTRL0..KEY_CTRL4:
         begin
@@ -2516,6 +2745,17 @@ interface
           LocReRead;
         end;
 *)
+      KEY_CTRL7:
+        begin
+          optExtractSize := not optExtractSize;
+          LocReRead;
+        end;
+      KEY_CTRL8:
+        begin
+          optCorrectThumb := not optCorrectThumb;
+          LocReRead;
+        end;
+
      {$ifdef bDebug}
       KEY_AltX : Sorry;
      {$endif bDebug}
@@ -2568,6 +2808,140 @@ interface
 
     finally
       FreeObj(ThumbsModalDlg);
+    end;
+  end;
+
+
+
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
+
+  function CollectThumb(const AFolder :TString) :TThumbList;
+
+    procedure FillFromPanel(AList :TThumbList);
+    var
+      i :Integer;
+      vInfo :TPanelInfo;
+      vItem :PPluginPanelItem;
+      vName :TString;
+    begin
+      if FarGetPanelInfo(PANEL_ACTIVE, vInfo) and (vInfo.PanelType = PTYPE_FILEPANEL) and
+        { Не работает на плагинных панелях с "ненастоящими" файлами }
+        (PFLAGS_REALNAMES and vInfo.Flags <> 0) then
+      begin
+        for i := 0 to vInfo.ItemsNumber - 1 do begin
+          vItem := FarPanelItem(PANEL_ACTIVE, FCTL_GETPANELITEM, i);
+          if vItem <> nil then begin
+            try
+              vName := vItem.FileName;
+              if vName = '..' then
+                Continue;
+              AList.Add( TReviewThumb.Create(
+                vName,
+                vItem.FileSize,
+                FileTimeToDosFileDate(vItem.LastWriteTime),
+                vItem.FileAttributes and faDirectory <> 0,
+                PPIF_SELECTED and vItem.Flags <> 0) );
+            finally
+              MemFree(vItem);
+            end;
+          end;
+        end;
+      end else
+        FreeObj(Result);
+    end;
+
+    procedure FillFromFolder(AList :TThumbList);
+
+      function LocEnumFiles(const APath :TString; const ARec :TWin32FindData) :Boolean;
+      begin
+        AList.Add( TReviewThumb.Create(
+          ARec.cFileName,
+          MakeInt64(ARec.nFileSizeLow, ARec.nFileSizeHigh),
+          FileTimeToDosFileDate(ARec.ftLastWriteTime),
+          ARec.dwFileAttributes and faDirectory <> 0,
+          False));
+        Result := True;
+      end;
+
+    begin
+      WinEnumFiles(AFolder, '*.*', faEnumFilesAndFolders, LocalAddr(@LocEnumFiles));
+      AList.SortList(True, 1);
+    end;
+
+  begin
+    Result := TThumbList.Create;
+    try
+      if AFolder = '' then
+        FillFromPanel(Result)
+      else
+        FillFromFolder(Result);
+    except
+      FreeObj(Result);
+      raise;
+    end;
+  end;
+
+
+  procedure ChooseDecoders(AThumbs :TThumbList);
+
+    function ChooseDecoder(const AName :TString) :TReviewDecoder;
+    var
+      I :Integer;
+      vDecoder :TReviewDecoder;
+    begin
+      Result := nil;
+      if Review.FavDecoder <> nil then
+        if Review.FavDecoder.CanShowThumbFor(AName) then begin
+          Result := Review.FavDecoder;
+          Exit;
+        end;
+
+      for I := 0 to Review.Decoders.Count - 1 do begin
+        vDecoder := Review.Decoders[I];
+        if (vDecoder <> Review.FavDecoder) and vDecoder.CanShowThumbFor(AName) then begin
+          Result := vDecoder;
+          Exit;
+        end;
+      end;
+    end;
+
+  var
+    i, j :Integer;
+    vExt :TString;
+    vThumb :TReviewThumb;
+    vDecoder :TReviewDecoder;
+    vDecoders :TStringList;
+  begin
+   {$ifdef bDebug}
+    TraceBegF('ChooseDecoders (%d)', [AThumbs.Count]);
+   {$endif bDebug}
+
+    vDecoders := TStringList.Create;
+    try
+      for i := 0 to AThumbs.Count - 1 do begin
+        vThumb := AThumbs[I];
+        if vThumb.FIsFolder then
+          Continue;
+
+        vExt := ExtractFileExtension(vThumb.Name);
+        if vDecoders.FindKey(Pointer(vExt), 0, [foBinary], j) then
+          vDecoder := vDecoders.Objects[j] as TReviewDecoder
+        else begin
+          vDecoder := ChooseDecoder(vThumb.Name);
+          vDecoders.InsertObject(j, vExt, vDecoder)
+        end;
+
+        vThumb.FDecoder := vDecoder;
+      end;
+
+     {$ifdef bDebug}
+      TraceEnd(Format('  Done, %d Exts', [vDecoders.Count]));
+     {$endif bDebug}
+
+    finally
+      FreeObj(vDecoders);
     end;
   end;
 

@@ -377,6 +377,7 @@ type
     nPages :UINT;
     pFormatName :PWideChar;
     pCompression :PWideChar;
+    Orientation :byte;               { Review v.13}
   end;
 
 
@@ -500,7 +501,7 @@ type
     nBackgroundColor :DWORD;
     lSrcWidth :UINT;
     lSrcHeight :UINT;
-    lSrcBPP :UINT;
+    lSrcBPP :UINT;                   { Review v.12}
   end;
 
 (*
