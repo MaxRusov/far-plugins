@@ -33,7 +33,7 @@ BEGIN
             VALUE "OriginalFilename", "WIC.pvd\0"
             VALUE "FileVersion", "1." BuildS "\0"
             VALUE "CompanyName", "Max Rusov\0"
-            VALUE "LegalCopyright", "(c) 2013-2014, Max Rusov\0"
+            VALUE "LegalCopyright", "(c) 2013-2015, Max Rusov\0"
             VALUE "ProductName", "WIC\0"
             VALUE "ProductVersion", "1.0\0"
         END
