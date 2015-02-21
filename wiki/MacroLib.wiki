@@ -15,10 +15,9 @@
 
 == Загрузить ==
 
- * [http://code.google.com/p/far-plugins/downloads/list?q=MacroLib Последняя версия]
+ * [http://plugring.farmanager.com/plugin.php?pid=844 Последняя версия]
 
- * [http://code.google.com/p/far-plugins/downloads/list?q=MacroLib&can=1 Все версии]
-
+ * [http://code.google.com/p/far-plugins/downloads/list?q=MacroLib&can=1 Старые версии]
 
 
 == Пример ==
