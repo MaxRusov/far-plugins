@@ -1868,19 +1868,30 @@ type
     Value :TFarMacroValue;
   end;
 
+
 (*
 struct MacroExecuteString
 {
-	size_t StructSize;
-	FARKEYMACROFLAGS Flags;
-	const wchar_t *SequenceText;
-	size_t InCount;
-	struct FarMacroValue *InValues;
-	size_t OutCount;
-	const struct FarMacroValue *OutValues;
+  size_t StructSize;
+  FARKEYMACROFLAGS Flags;
+  const wchar_t *SequenceText;
+  size_t InCount;
+  struct FarMacroValue *InValues;
+  size_t OutCount;
+  const struct FarMacroValue *OutValues;
 };
 *)
-{!!!}
+type
+  PMacroExecuteString = ^TMacroExecuteString;
+  TMacroExecuteString = record
+    StructSize :size_t;
+    Flags :TFarKeyMacroFlags;
+    SequenceText :PFarChar;
+    InCount :size_t;
+    InValues :PFarMacroValueArray;
+    OutCount :size_t;
+    OutValues :PFarMacroValueArray;
+  end;
 
 {------------------------------------------------------------------------------}
 
