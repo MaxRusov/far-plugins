@@ -233,6 +233,12 @@ interface
      KSFLAGS_DISABLEOUTPUT or KSFLAGS_NOSENDKEYSTOPLUGINS;
     {$endif Far3}
      AKey :DWORD = 0);
+ {$ifdef Far3}
+  function FarExecMacroEx(const AStr :TFarStr; const Args :array of const; var ACount :Integer; var ARes :PFarMacroValueArray;
+    AFlags :DWORD = KMFLAGS_NOSENDKEYSTOPLUGINS or KMFLAGS_LUA) :boolean;
+  function FarExecMacro(const AStr :TFarStr; const Args :array of const;
+    AFlags :DWORD = KMFLAGS_NOSENDKEYSTOPLUGINS or KMFLAGS_LUA) :boolean; 
+ {$endif Far3}
   function FarCheckMacro(const AStr :TFarStr; ASilent :Boolean; ACoord :PCoord = nil; AMess :PTString = nil) :Boolean;
   function FarGetMacroArea :Integer;
   function FarGetMacroState :Integer;
@@ -1224,32 +1230,14 @@ interface
   end;
 
 
-  procedure FarReturnValuesCallback(CallbackData :Pointer; Values :PFarMacroValueArray; Count :size_t); stdcall;
+  function InitFarValues(const Args :array of const) :PFarMacroValueArray;
   var
-    I :Integer;
-  begin
-//  TraceF('FarReturnValuesCallback: %s, %d', [FarValueToStr(Values[0]), Count]);
-    for I := 0 to Count - 1 do
-      if Values[I].fType = FMVT_STRING then
-        StrDisposeW(Values[I].Value.fString);
-    MemFree(CallbackData);
-  end;
-
-
-  function FarReturnValues(const Args :array of const) :TIntPtr;
-  var
-    vRes :PFarMacroCall;
     I, vCount :Integer;
   begin
     vCount := High(Args) + 1;
-    vRes := MemAllocZero(SizeOf(TFarMacroCall) + SizeOf(TFarMacroValue) * vCount);
-    vRes.StructSize := SizeOf(TFarMacroCall);
-    vRes.Count := vCount;
-    vRes.Values := Pointer(Pointer1(vRes) + SizeOf(TFarMacroCall));
-    vRes.Callback := FarReturnValuesCallback;
-    vRes.CallbackData := vRes;
+    Result := MemAllocZero(SizeOf(TFarMacroValue) * vCount);
     for I := 0 to vCount - 1 do
-      with vRes.Values[I] do begin
+      with Result[I] do begin
         case Args[I].VType of
           vtBoolean: begin
             fType := FMVT_BOOLEAN; //FMVT_INTEGER;
@@ -1277,9 +1265,81 @@ interface
           end;
         end;
       end;
+  end;
+
+
+  procedure DoneFarValues(aValues :PFarMacroValueArray; aCount :Integer);
+  var
+    I :Integer;
+  begin
+    for I := 0 to aCount - 1 do
+      if aValues[I].fType = FMVT_STRING then
+        StrDisposeW(aValues[I].Value.fString);
+    MemFree(aValues);
+  end;
+
+
+  procedure FarReturnValuesCallback(CallbackData :Pointer; Values :PFarMacroValueArray; Count :size_t); stdcall;
+  begin
+//  TraceF('FarReturnValuesCallback: %s, %d', [FarValueToStr(Values[0]), Count]);
+    DoneFarValues(Values, Count);
+    MemFree(CallbackData);
+  end;
+
+
+  function FarReturnValues(const Args :array of const) :TIntPtr;
+  var
+    vRes :PFarMacroCall;
+  begin
+    vRes := MemAllocZero(SizeOf(TFarMacroCall));
+    vRes.StructSize := SizeOf(TFarMacroCall);
+    vRes.Count := High(Args) + 1;
+    if vRes.Count > 0 then
+      vRes.Values := InitFarValues(Args);
+    vRes.Callback := FarReturnValuesCallback;
+    vRes.CallbackData := vRes;
     Result := TIntPtr(vRes);
   end;
 
+  
+  function FarExecMacroEx(const AStr :TFarStr; const Args :array of const; var ACount :Integer; var ARes :PFarMacroValueArray;
+    AFlags :DWORD = KMFLAGS_NOSENDKEYSTOPLUGINS or KMFLAGS_LUA) :boolean;
+  var
+    vMacro :TMacroExecuteString;
+  begin
+   {$ifdef bTrace}
+    TraceF('ExecMacro: %s', [AStr]);
+   {$endif bTrace}
+
+    FillZero(vMacro, SizeOf(vMacro));
+    vMacro.StructSize := SizeOf(vMacro);
+    vMacro.SequenceText := PFarChar(AStr);
+    vMacro.Flags := AFlags;
+
+    vMacro.InCount := High(Args) + 1;
+    if vMacro.InCount > 0 then
+      vMacro.InValues := InitFarValues(Args);
+    try
+      Result := FARAPI.MacroControl(PluginID, MCTL_EXECSTRING, 0, @vMacro) <> 0;
+
+      ACount := vMacro.OutCount;
+      ARes := vMacro.OutValues;
+
+    finally
+      if vMacro.InCount > 0 then
+        DoneFarValues(vMacro.InValues, vMacro.InCount);
+    end;
+  end;
+
+
+  function FarExecMacro(const AStr :TFarStr; const Args :array of const;
+    AFlags :DWORD = KMFLAGS_NOSENDKEYSTOPLUGINS or KMFLAGS_LUA) :boolean;
+  var
+    vCount :Integer;
+    vRes :PFarMacroValueArray;
+  begin
+    Result := FarExecMacroEx(AStr, Args, vCount, vRes, AFlags);
+  end;
  {$endif Far3}
 
 
