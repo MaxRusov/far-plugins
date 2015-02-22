@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<renewal>
-  <plugin guid="{84884660-5B2F-4581-9282-96E00AE109A2}">
-    <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=MacroLib</url>
-    <regex arch="x86">//far-plugins.googlecode.com/files/MacroLib\.far3.(\d+)\.(\d+)\.rar</regex>
-    <regex arch="x64">//far-plugins.googlecode.com/files/MacroLib\.far3.x64.(\d+)\.(\d+)\.rar</regex>
-  </plugin>
-</renewal>

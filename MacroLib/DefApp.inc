@@ -13,6 +13,8 @@
  {$Define bMacroInclude}
  {$Define bLUA}
 
+ {$Define bAddLUAMacro}
+
 {$else}
 
  {$Define bUseInject}
