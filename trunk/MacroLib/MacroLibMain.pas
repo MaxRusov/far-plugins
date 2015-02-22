@@ -414,7 +414,8 @@ interface
 //  FMinFarVer := MakeVersion(3, 0, 2380);   { MacroAddMacro - изменена (fuck!) };
 //  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
 //  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
-    FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
+//  FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
+    FMinFarVer := MakeVersion(3, 0, 3461);   { MCTL_EXECSTRING }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1765);   { MCMD_GETAREA };
     FMinFarVer := MakeVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING, MCMD_POSTMACROSTRING };
@@ -542,10 +543,10 @@ interface
         Result := FarReturnValues([-1, MacroLibrary.LastError])
     end;
 
-   {$ifdef bLua}
+   {$ifdef bAddLUAMacro}
     procedure LocAddLua;
     var
-      vWhat, vRow :Integer;
+      vWhat, vFlags, vRow :Integer;
       vDescr, vKeys, vArea, vFile  :TString;
     begin
       if MacroLock > 0 then
@@ -554,13 +555,14 @@ interface
       vDescr := FarValuesToStr(AParams, ACount, 2);
       vKeys := FarValuesToStr(AParams, ACount, 3);
       vArea := FarValuesToStr(AParams, ACount, 4);
-      vFile := FarValuesToStr(AParams, ACount, 5);
-      vRow := FarValuesToInt(AParams, ACount, 6);
+      vFlags := FarValuesToInt(AParams, ACount, 5);
+      vFile := FarValuesToStr(AParams, ACount, 6);
+      vRow := FarValuesToInt(AParams, ACount, 7);
       if vRow > 0 then
         Dec(vRow);
-      MacroLibrary.AddLuaMacro(vWhat, vDescr, vKeys, vArea, vFile, vRow);
+      Result := FarReturnValues([ MacroLibrary.AddLuaMacro(vWhat, vDescr, vKeys, vArea, vFlags, vFile, vRow) ]);
     end;
-   {$endif bLua}
+   {$endif bAddLUAMacro}
 
   var
     vCmd :Integer;
@@ -573,9 +575,9 @@ interface
       kwList     : FarAdvControl(ACTL_SYNCHRO, nil);
       kwListAll  : MacroLibrary.ShowAll;
       kwUpdate   : LocUpdate;
-     {$ifdef bLua}
+     {$ifdef bAddLUAMacro}
       kwAddLua   : LocAddLua;
-     {$endif bLua}
+     {$endif bAddLUAMacro}
     else
       Result := inherited OpenMacroEx(ACount, AParams);
     end;

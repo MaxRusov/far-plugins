@@ -50,10 +50,10 @@ interface
       constructor CreateBy(const ARec :TMacroRec; const AFileName :TString);
       destructor Destroy; override;
 
-      function CheckKeyCondition(Area :TMacroArea; AKey :Integer; APress :TKeyPress; ALib :TMacroLibrary; var AEat :Boolean) :Boolean;
+      function CheckKeyCondition(Area :TMacroArea; AKey :Integer; APress :TKeyPress; ALib :TMacroLibrary; var AEat :Boolean) :Boolean; virtual;
       function CheckAreaCondition(Area :TMacroArea; ALib :TMacroLibrary) :Boolean;
       function CheckEventCondition(Area :TMacroArea; Event :TMacroEvent) :Boolean;
-      procedure Execute(AKeyCode :Integer);
+      procedure Execute(AKeyCode :Integer); virtual;
 
       procedure AddToFar;
       procedure RemoveFromFar;
@@ -110,10 +110,20 @@ interface
     end;
 
 
+   {$ifdef bAddLUAMacro}
+    TNativeMacro = class(TMacro)
+    public
+      function CheckKeyCondition(Area :TMacroArea; AKey :Integer; APress :TKeyPress; ALib :TMacroLibrary; var AEat :Boolean) :Boolean; override;
+      procedure Execute(AKeyCode :Integer); override;
+    end;
+   {$endif bAddLUAMacro}
+
+
     TRunList = class(TExList)
     public
-      KeyCode :Integer;
-      RunAll  :Boolean;
+      KeyCode  :Integer;
+      KeyPress :TKeyPress;
+      RunAll   :Boolean;
     end;
 
     TRunEvent = class(TBasis)
@@ -152,18 +162,22 @@ interface
 
       procedure CancellPress;
 
-     {$ifdef bLua}
-      procedure AddLuaMacro(AWhat :Integer; const ADescr, AKeys, AAreas, AFileName :TString; ARow :Integer);
-     {$endif bLua}
+     {$ifdef bAddLUAMacro}
+      procedure UpdateLuaMacroses;
+      function AddLuaMacro(AWhat :Integer; const ADescr, AKeys, AAreas :TString; AFlags :Integer; const AFileName :TString; ARow :Integer) :Integer;
+     {$endif bAddLUAMacro}
+
+      procedure Reindex;
 
     private
       FMacroses    :TObjList;
       FNewMacroses :TObjList;
       FKeyIndex    :TObjList;
-     {$ifdef bLua}
+     {$ifdef bAddLUAMacro}
       FLuaMacroses :TObjList;
       FAllMacroses :TExList;
-     {$endif bLua}
+      FLuaInited   :Boolean;
+     {$endif bAddLUAMacro}
       FRevision    :Integer;
       FSilence     :Boolean;
       FHideError   :Boolean;
@@ -182,7 +196,7 @@ interface
 
       procedure ScanMacroFolder(const AFolder :TString);
       function ParseMacroFile(const AFileName :TString) :boolean;
-      procedure Reindex;
+      procedure AddFarMacros;
 
       procedure AddMacro(Sender :TMacroParser; const ARec :TMacroRec);
       procedure ParseError(Sender :TMacroParser; ACode :Integer; const AMessage :TString; const AFileName :TString; ARow, ACol :Integer);
@@ -395,8 +409,8 @@ interface
     vRec.Description := PFarChar(AOwner.FDescr);
     vRec.SequenceText := PFarChar(AOwner.FText);
 
-    if moDisableOutput in AOwner.FOptions then
-      vRec.Flags := vRec.Flags or KMFLAGS_DISABLEOUTPUT;
+    if not (moDisableOutput in AOwner.FOptions) then
+      vRec.Flags := vRec.Flags or KMFLAGS_ENABLEOUTPUT;
     if not (moSendToPlugins in AOwner.FOptions) then
       vRec.Flags := vRec.Flags or KMFLAGS_NOSENDKEYSTOPLUGINS;
 
@@ -643,8 +657,8 @@ interface
     vFlags := 0;
 
    {$ifdef Far3}
-    if moDisableOutput in FOptions then
-      vFlags := vFlags or KMFLAGS_DISABLEOUTPUT;
+    if not (moDisableOutput in FOptions) then
+      vFlags := vFlags or KMFLAGS_ENABLEOUTPUT;
     if not (moSendToPlugins in FOptions) then
       vFlags := vFlags or KMFLAGS_NOSENDKEYSTOPLUGINS;
    {$else}
@@ -684,7 +698,7 @@ interface
   function KeyToName(const AKey :TKeyRec) :TString;
   begin
     Result := FarKeyToName(AKey.Key);
-    if AKey.KMod <> kmPress then
+    if (AKey.KMod <> kmPress) and (AKey.KMod <> kmNever) then
       Result := Result + ':' + KeyModToName(AKey.KMod);
   end;
 
@@ -800,6 +814,48 @@ interface
   end;
 
 
+
+ {-----------------------------------------------------------------------------}
+ { TNativeMacro                                                                }
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bAddLUAMacro}
+  function TNativeMacro.CheckKeyCondition(Area :TMacroArea; AKey :Integer; APress :TKeyPress; ALib :TMacroLibrary; var AEat :Boolean) :Boolean; {override;}
+  var
+    vCount :Integer;
+    vRes :PFarMacroValueArray;
+  begin
+    FPriority := 0;
+    Result := inherited CheckKeyCondition(Area, AKey, APress, ALib, AEat);
+    if Result then
+      if FarExecMacroEx('return MacroLib.Check(...)', [FIndex], vCount, vRes) then
+        if vCount > 0 then begin
+          if vRes[0].fType = FMVT_BOOLEAN then
+            Result := vRes[0].Value.fInteger <> 0
+          else
+          if (vRes[0].fType = FMVT_INTEGER) or (vRes[0].fType = FMVT_DOUBLE) then begin
+            FPriority := FarValuesToInt(vRes, vCount, 0) - 50;
+            Result := True; {???}
+          end else
+            Result := vRes[0].fType <> FMVT_NIL;
+        end;
+  end;
+
+
+  procedure TNativeMacro.Execute(AKeyCode :Integer); {override;}
+  var
+    vFlags :DWORD;
+  begin
+    vFlags := 0;
+    if not (moDisableOutput in FOptions) then
+      vFlags := vFlags or KMFLAGS_ENABLEOUTPUT;
+    if not (moSendToPlugins in FOptions) then
+      vFlags := vFlags or KMFLAGS_NOSENDKEYSTOPLUGINS;
+    FarPostMacro('MacroLib.Run(' + Int2Str(FIndex) + ')', vFlags, AKeyCode);
+  end;
+ {$endif bAddLUAMacro}
+
+
  {-----------------------------------------------------------------------------}
  { TKeyIndex                                                                   }
  {-----------------------------------------------------------------------------}
@@ -825,18 +881,18 @@ interface
     inherited Create;
     FMacroses := TObjList.Create;
     FKeyIndex := TObjList.Create;
-   {$ifdef bLua}
+   {$ifdef bAddLUAMacro}
     FLuaMacroses := TObjList.Create;
-   {$endif bLua}
+   {$endif bAddLUAMacro}
   end;
 
 
   destructor TMacroLibrary.Destroy; {override;}
   begin
-   {$ifdef bLua}
+   {$ifdef bAddLUAMacro}
     FreeObj(FLuaMacroses);
     FreeObj(FAllMacroses);
-   {$endif bLua}
+   {$endif bAddLUAMacro}
     FreeObj(FMacroses);
     FreeObj(FKeyIndex);
     inherited Destroy;
@@ -845,12 +901,27 @@ interface
 
  {-----------------------------------------------------------------------------}
 
- {$ifdef bLua}
-  procedure TMacroLibrary.AddLuaMacro(AWhat :Integer; const ADescr, AKeys, AAreas, AFileName :TString; ARow :Integer);
+ {$ifdef bAddLUAMacro}
+  procedure TMacroLibrary.UpdateLuaMacroses;
+  var
+    vFileName :TString;
+  begin
+    if not FLuaInited then begin
+      FLuaInited := True;
+      vFileName := AddFileName(ExtractFilePath(FARAPI.ModuleName), cMacroLibLua);
+      if WinFileExists(vFileName) then
+        FarExecMacro('@"' + vFileName + '"', []);
+    end;
+    FarExecMacro('if MacroLib then MacroLib.UpdateLuaMacros() end', []);
+  end;
+
+
+  function TMacroLibrary.AddLuaMacro(AWhat :Integer; const ADescr, AKeys, AAreas :TString; AFlags :Integer; const AFileName :TString; ARow :Integer) :Integer;
   var
     vRec :TMacroRec;
     vMacro :TMacro;
   begin
+    Result := 0;
     if AWhat = 0 then begin
       FLuaMacroses.FreeAll;
       FreeObj(FAllMacroses);
@@ -861,11 +932,16 @@ interface
       vRec.Descr := ADescr;
       MacroSetKeys(vRec, AKeys);
       MacroSetAreas(vRec, AAreas);
+      if AFlags <> 0 then
+        MacroSetFlags(vRec, AFlags);
+
       vRec.Row := ARow;
       vRec.Index := FLuaMacroses.Count;
 
-      vMacro := TMacro.CreateBy(vRec, AFileName);
+      vMacro := TNativeMacro.CreateBy(vRec, AFileName);
       FLuaMacroses.Add(vMacro);
+
+      Result := vRec.Index;
     end;
   end;
 
@@ -876,10 +952,8 @@ interface
   begin
     if FAllMacroses = nil then begin
       FAllMacroses := TExList.Create;
-     {$ifdef bLua}
       for I := 0 to FLuaMacroses.Count - 1 do
         FAllMacroses.Add( FLuaMacroses[I] );
-     {$endif bLua}
       for I := 0 to FMacroses.Count - 1 do
         FAllMacroses.Add( FMacroses[I] );
     end;
@@ -887,12 +961,11 @@ interface
   end;
 
  {$else}
-
   function TMacroLibrary.GetAllMacroses :TExList;
   begin
     Result := FMacroses;
   end;
- {$endif bLua}
+ {$endif bAddLUAMacro}
 
 
  {-----------------------------------------------------------------------------}
@@ -913,18 +986,21 @@ interface
 
     FNewMacroses := TObjList.Create;
     try
-
       ScanMacroFolder(vFolder);
 
       if FNewMacroses <> nil then begin
-       {$ifdef bLua}
+       {$ifdef bAddLUAMacro}
         FreeObj(FAllMacroses);
-       {$endif bLua}
+       {$endif bAddLUAMacro}
         FreeObj(FMacroses);
         FMacroses := FNewMacroses;
         FNewMacroses := nil;
         Reindex;
+        AddFarMacros;
         Inc(FRevision);
+       {$ifdef bAddLUAMacro}
+        UpdateLuaMacroses;
+       {$endif bAddLUAMacro}
         Result := True;
       end;
 
@@ -1020,11 +1096,16 @@ interface
 
 
   procedure TMacroLibrary.Reindex;
+  begin
+    FKeyIndex.Clear;
+  end;
+
+
+  procedure TMacroLibrary.AddFarMacros;
   var
     I :Integer;
     vMacro :TMacro;
   begin
-    FKeyIndex.Clear;
     for I := 0 to FMacroses.Count - 1 do begin
       vMacro := FMacroses[I];
       if moCompatible in vMacro.FOptions then
@@ -1173,6 +1254,7 @@ interface
             vList.KeyCode := word(AChr)
           else
             vList.KeyCode := AKey;
+          vList.KeyPress := APress;
 
 //        if (vList.Count = 1) and True then begin
 //          { Быстрый запуск. Возможны глюки (?) }
@@ -1199,6 +1281,7 @@ interface
       I, J :Integer;
       vMacro :TMacro;
       vMatch :Boolean;
+      vMacroses :TExList;
      {$ifdef bUseKeyMask}
       vKeyName :TString;
      {$endif bUseKeyMask}
@@ -1207,13 +1290,17 @@ interface
       vKeyName := FarKeyToName(AKey);
      {$endif bUseKeyMask}
 
-      for I := 0 to FMacroses.Count - 1 do begin
-        vMacro := FMacroses[I];
+//    if vKeyName = 'AltY' then
+//      NOP;
+
+      vMacroses := FMacroses;
+      if optExtendFarKey then
+        vMacroses := GetAllMacroses;
+
+      for I := 0 to vMacroses.Count - 1 do begin
+        vMacro := vMacroses[I];
         if not (moCompatible in vMacro.FOptions) then begin
           vMatch := False;
-
-//        if vMacro.Descr = 'Привет' then
-//          NOP;
 
           for J := 0 to length(vMacro.FBind) - 1 do
             if vMacro.FBind[J].Key = AKey then begin
@@ -1255,11 +1342,14 @@ interface
 
       for I := 0 to vList.Count - 1 do begin
         vMacro := vList[ I ];
+
+//      if vMacro.Descr = 'Test!' then
+//        NOP;
+
         if vMacro.CheckKeyCondition(Area, AKey, APress, Self, AEat) then
           AList.Add(vMacro);
       end;
     end;
-
 
   begin
     InitConditions;
@@ -1345,11 +1435,21 @@ interface
   var
     vIndex :Integer;
     vMacro :TMacro;
+    vList :TRunList;
   begin
     vIndex := -1;
     if ListMacrosesDlg(AList, vIndex) then begin
-      vMacro := AList[vIndex];
-      FarAdvControl(ACTL_SYNCHRO, vMacro);
+      if AList is TRunList {Всегда?} then begin
+        vList := TRunList.Create;
+        vList.Add( AList[vIndex] );
+        vList.KeyCode := TRunList(AList).KeyCode;
+        vList.KeyPress := TRunList(AList).KeyPress;
+        FarAdvControl(ACTL_SYNCHRO, vList);
+      end else
+      begin
+        vMacro := AList[vIndex];
+        FarAdvControl(ACTL_SYNCHRO, vMacro);
+      end;
     end;
   end;
 

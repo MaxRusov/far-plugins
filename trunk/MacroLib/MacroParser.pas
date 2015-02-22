@@ -160,7 +160,8 @@ interface
       kmHold,
       kmRelease,
       kmDown,
-      kmUp
+      kmUp,
+      kmNever
     );
 
     TKeyRec = record
@@ -383,6 +384,7 @@ interface
  {$ifdef Far3}
   procedure MacroSetAreas(var aMacro :TMacroRec; const Areas :TString);
   procedure MacroSetKeys(var aMacro :TMacroRec; const AKeys :TString);
+  procedure MacroSetFlags(var aMacro :TMacroRec; AFlags :DWORD);
  {$endif Far3}
 
 {******************************************************************************}
@@ -746,6 +748,24 @@ interface
   end;
 
 
+  procedure MacroAddBind(var aMacro :TMacroRec; AKey :Integer; AMod :TKeyModifier);
+  begin
+    SetLength(aMacro.Bind, Length(aMacro.Bind) + 1);
+    aMacro.Bind[Length(aMacro.Bind) - 1].Key := AKey;
+    aMacro.Bind[Length(aMacro.Bind) - 1].KMod := AMod;
+  end;
+
+
+ {$ifdef bUseKeyMask}
+  procedure MacroAddBind1(var aMacro :TMacroRec; const AMask :TString; AMod :TKeyModifier);
+  begin
+    SetLength(aMacro.Bind1, Length(aMacro.Bind1) + 1);
+    aMacro.Bind1[Length(aMacro.Bind1) - 1].Mask := AMask;
+    aMacro.Bind1[Length(aMacro.Bind1) - 1].KMod := AMod;
+  end;
+ {$endif bUseKeyMask}
+
+
  {$ifdef Far3}
   procedure MacroSetAreas(var aMacro :TMacroRec; const Areas :TString);
   var
@@ -753,6 +773,7 @@ interface
     vStr :TString;
     vArea :Integer;
   begin
+    InitKeywords;
     vChr := PTChar(Areas);
     while vChr^ <> #0 do begin
       vStr := ExtractNextValue(vChr, [' ', #9]);
@@ -765,6 +786,120 @@ interface
   end;
 
 
+  function KeyModParse(AName :PTChar; var AMod :TKeyModifier) :Boolean;
+  var
+    vModi :Integer;
+  begin
+    Result := False;
+//  AMod := kmPress;
+    if AName <> nil then begin
+      vModi := KeyMods.GetKeyword(AName, StrLen(AName));
+      if vModi = -1 then
+        Exit;
+      AMod := TKeyModifier(vModi);
+    end;
+    Result := True;
+  end;
+
+
+  function KeyNameParse(AName :PTChar; var AKey :Integer; var AMod :TKeyModifier) :Boolean;
+  var
+    vPtr, vName :PTChar;
+    vTmp :array[0..255] of TChar;
+  begin
+    Result := False;
+
+    vPtr := StrScan(AName, ':');
+    if vPtr = nil then
+      vName := AName
+    else begin
+      vName := @vTmp[0];
+      StrLCopy(vName, AName, IntMin(vPtr - AName, High(vTmp)));
+      Inc(vPtr);
+    end;
+
+    AKey := NameToFarKey(vName);
+    if AKey = -1 then
+      Exit;
+
+//  AMod := kmPress;  Устанавливается перед вызовом
+    if vPtr <> nil then
+      if not KeyModParse(vPtr, AMod) then
+        Exit;
+
+    Result := True;
+  end;
+
+
+ {$ifdef bUseKeyMask}
+  function KeyMaskParse(AName :PTChar; ACheck :Boolean; var AMask :TString; var AMod :TKeyModifier) :Boolean;
+  var
+    vLen :Integer;
+    vPtr :PTChar;
+  begin
+    Result := False;
+
+    vLen := strlen(AName);
+    vPtr := AName + vLen;
+
+    while (vPtr > AName) and ((vPtr - 1)^ <> cRegexpChar) do
+      Dec(vPtr);
+    if (vPtr - AName) <= 1 then
+      Exit;
+
+    if vPtr^ = ':' then begin
+      vPtr^ := #0;
+      Inc(vPtr);
+    end else
+      vPtr := nil;
+
+    if ACheck then
+      if not CheckRegexp(AName) then
+        Exit;
+
+    AMask := AName;
+
+//  AMod := kmPress;  Устанавливается пере вызовом
+    if vPtr <> nil then
+      if not KeyModParse(vPtr, AMod) then
+        Exit;
+
+    Result := True;
+  end;
+ {$endif bUseKeyMask}
+
+
+  procedure MacroSetKeys(var aMacro :TMacroRec; const AKeys :TString);
+  var
+    vPtr  :PTChar;
+    vKey  :Integer;
+    vMod  :TKeyModifier;
+   {$ifdef bUseKeyMask}
+    vMask :TString;
+   {$endif bUseKeyMask}
+    vBuf  :array[0..255] of TChar;
+  begin
+    InitKeywords;
+    vPtr := PTChar(AKeys);
+    while CanExtractNext(vPtr, @vBuf[0], high(vBuf), [' ', charTab]) do begin
+      vMod := kmNever;
+     {$ifdef bUseKeyMask}
+      if vBuf[0] = cRegexpChar then begin
+        if KeyMaskParse(@vBuf[0], {ACheck:}False, vMask, vMod) then
+          MacroAddBind1(aMacro, vMask, vMod)
+        else
+         {MacroAddBind1(aMacro, PTChar(@vBuf[0]), kmPress)};
+      end else
+     {$endif bUseKeyMask}
+      if KeyNameParse(@vBuf[0], vKey, vMod) then
+        MacroAddBind(aMacro, vKey, vMod)
+      else
+       {MacroAddBind1(aMacro, PTChar(@vBuf[0]), kmPress)};
+    end;
+  end;
+
+
+(*
   procedure MacroSetKeys(var aMacro :TMacroRec; const AKeys :TString);
   var
     vChr :PTChar;
@@ -778,6 +913,72 @@ interface
       aMacro.Bind1[Length(aMacro.Bind1) - 1].Mask := vStr;
     end;
   end;
+*)
+
+
+  const
+    MFLAGS_ENABLEOUTPUT            =$0000000000000001; // не подавлять обновление экрана во время выполнения макроса
+    MFLAGS_NOSENDKEYSTOPLUGINS     =$0000000000000002; // НЕ передавать плагинам клавиши во время записи/воспроизведения макроса
+    MFLAGS_RUNAFTERFARSTART        =$0000000000000008; // этот макрос запускается при старте ФАРа
+
+    MFLAGS_EMPTYCOMMANDLINE        =$0000000000000010; // запускать, если командная линия пуста
+    MFLAGS_NOTEMPTYCOMMANDLINE     =$0000000000000020; // запускать, если командная линия не пуста
+    MFLAGS_EDITSELECTION           =$0000000000000040; // запускать, если есть выделение в редакторе
+    MFLAGS_EDITNOSELECTION         =$0000000000000080; // запускать, если есть нет выделения в редакторе
+    MFLAGS_SELECTION               =$0000000000000100; // активная:  запускать, если есть выделение
+    MFLAGS_PSELECTION              =$0000000000000200; // пассивная: запускать, если есть выделение
+    MFLAGS_NOSELECTION             =$0000000000000400; // активная:  запускать, если есть нет выделения
+    MFLAGS_PNOSELECTION            =$0000000000000800; // пассивная: запускать, если есть нет выделения
+    MFLAGS_NOFILEPANELS            =$0000000000001000; // активная:  запускать, если это плагиновая панель
+    MFLAGS_PNOFILEPANELS           =$0000000000002000; // пассивная: запускать, если это плагиновая панель
+    MFLAGS_NOPLUGINPANELS          =$0000000000004000; // активная:  запускать, если это файловая панель
+    MFLAGS_PNOPLUGINPANELS         =$0000000000008000; // пассивная: запускать, если это файловая панель
+    MFLAGS_NOFOLDERS               =$0000000000010000; // активная:  запускать, если текущий объект "файл"
+    MFLAGS_PNOFOLDERS              =$0000000000020000; // пассивная: запускать, если текущий объект "файл"
+    MFLAGS_NOFILES                 =$0000000000040000; // активная:  запускать, если текущий объект "папка"
+    MFLAGS_PNOFILES                =$0000000000080000; // пассивная: запускать, если текущий объект "папка"
+
+
+  procedure MacroSetFlags(var aMacro :TMacroRec; AFlags :DWORD);
+  const
+    cConds :array[TMacroCondition] of DWORD = (
+      {mcCmdLineEmpty}      MFLAGS_EMPTYCOMMANDLINE,
+      {mcCmdLineNotEmpty}   MFLAGS_NOTEMPTYCOMMANDLINE,
+      {mcBlockNotSelected}  MFLAGS_EDITNOSELECTION,
+      {mcBlockSelected}     MFLAGS_EDITSELECTION,
+      {mcPanelTypeFile}     MFLAGS_NOPLUGINPANELS,
+      {mcPanelTypePlugin}   MFLAGS_NOFILEPANELS,
+      {mcPanelItemFile}     MFLAGS_NOFOLDERS,
+      {mcPanelItemFolder}   MFLAGS_NOFILES,
+      {mcPanelNotSelected}  MFLAGS_NOSELECTION,
+      {mcPanelSelected}     MFLAGS_SELECTION,
+      {mcPPanelTypeFile}    MFLAGS_PNOPLUGINPANELS,
+      {mcPPanelTypePlugin}  MFLAGS_PNOFILEPANELS,
+      {mcPPanelItemFile}    MFLAGS_PNOFOLDERS,
+      {mcPPanelItemFolder}  MFLAGS_PNOFILES,
+      {mcPPanelNotSelected} MFLAGS_PNOSELECTION,
+      {mcPPanelSelected}    MFLAGS_PSELECTION
+    );
+  var
+    i :TMacroCondition;
+  begin
+    if AFlags and MFLAGS_ENABLEOUTPUT <> 0 then
+      Exclude(aMacro.Options, moDisableOutput);
+    if AFlags and MFLAGS_NOSENDKEYSTOPLUGINS <> 0 then
+      Exclude(aMacro.Options, moSendToPlugins);
+
+    AFlags := AFlags and not (MFLAGS_ENABLEOUTPUT or MFLAGS_NOSENDKEYSTOPLUGINS or MFLAGS_RUNAFTERFARSTART);
+
+    if AFlags <> 0 then
+      for i := Low(TMacroCondition) to High(TMacroCondition) do 
+        if AFlags and cConds[i] <> 0 then begin
+          Include(aMacro.Cond, i);
+          AFlags := AFlags and not cConds[i];
+          if AFlags = 0 then
+            Exit;
+        end;
+  end;
+
  {$endif Far3}
 
 
@@ -854,10 +1055,6 @@ interface
   function TGrowBuf.GetStrValue :TString;
   begin
     SetString(Result, FBuf, FLen);
-
-    if Result = 'Привет' then
-      NOP;
-
   end;
 
 
@@ -1584,89 +1781,6 @@ interface
   end;
 
 
-  function KeyModParse(AName :PTChar; var AMod :TKeyModifier) :Boolean;
-  var
-    vModi :Integer;
-  begin
-    Result := False;
-    AMod := kmPress;
-    if AName <> nil then begin
-      vModi := KeyMods.GetKeyword(AName, StrLen(AName));
-      if vModi = -1 then
-        Exit;
-      AMod := TKeyModifier(vModi);
-    end;
-    Result := True;
-  end;
-
-
-  function KeyNameParse(AName :PTChar; var AKey :Integer; var AMod :TKeyModifier) :Boolean;
-  var
-    vPtr, vName :PTChar;
-    vTmp :array[0..255] of TChar;
-  begin
-    Result := False;
-
-    vPtr := StrScan(AName, ':');
-    if vPtr = nil then
-      vName := AName
-    else begin
-      vName := @vTmp[0];
-      StrLCopy(vName, AName, IntMin(vPtr - AName, High(vTmp)));
-      Inc(vPtr);
-    end;
-
-    AKey := NameToFarKey(vName);
-    if AKey = -1 then
-      Exit;
-
-    AMod := kmPress;
-    if vPtr <> nil then
-      if not KeyModParse(vPtr, AMod) then
-        Exit;
-
-    Result := True;
-  end;
-
-
- {$ifdef bUseKeyMask}
-  function KeyMaskParse(AName :PTChar; ACheck :Boolean; var AMask :TString; var AMod :TKeyModifier) :Boolean;
-  var
-    vLen :Integer;
-    vPtr :PTChar;
-  begin
-    Result := False;
-
-    vLen := strlen(AName);
-    vPtr := AName + vLen;
-
-    while (vPtr > AName) and ((vPtr - 1)^ <> cRegexpChar) do
-      Dec(vPtr);
-    if (vPtr - AName) <= 1 then
-      Exit;
-
-    if vPtr^ = ':' then begin
-      vPtr^ := #0;
-      Inc(vPtr);
-    end else
-      vPtr := nil;
-
-    if ACheck then
-      if not CheckRegexp(AName) then
-        Exit;
-
-    AMask := AName;
-
-    AMod := kmPress;
-    if vPtr <> nil then
-      if not KeyModParse(vPtr, AMod) then
-        Exit;
-
-    Result := True;
-  end;
- {$endif bUseKeyMask}
-
-
   procedure TMacroParser.ParseBindStr(APtr :PTChar {; var ARes :TKeyArray} );
   var
     vKey  :Integer;
@@ -1677,6 +1791,7 @@ interface
     vBuf  :array[0..255] of TChar;
   begin
     while CanExtractNext(APtr, @vBuf[0], high(vBuf), [' ', charTab]) do begin
+      vMod := kmPress;
      {$ifdef bUseKeyMask}
       if vBuf[0] = cRegexpChar then begin
         if (moCompatible in FMacro.Options) then
@@ -1685,9 +1800,7 @@ interface
         if not KeyMaskParse(@vBuf[0], FCheckBody, vMask, vMod) then
           begin Warning1(errBadHotkey, APtr); Exit; end;
 
-        SetLength(FMacro.Bind1, Length(FMacro.Bind1) + 1);
-        FMacro.Bind1[Length(FMacro.Bind1) - 1].Mask := vMask;
-        FMacro.Bind1[Length(FMacro.Bind1) - 1].KMod := vMod;
+        MacroAddBind1(FMacro, vMask, vMod);
       end else
      {$endif bUseKeyMask}
       begin
@@ -1697,9 +1810,7 @@ interface
         if (moCompatible in FMacro.Options) and (vMod <> kmPress) then
           begin Warning1(errNotSupportedInFarMacro, APtr); Exit; end;
 
-        SetLength(FMacro.Bind, Length(FMacro.Bind) + 1);
-        FMacro.Bind[Length(FMacro.Bind) - 1].Key := vKey;
-        FMacro.Bind[Length(FMacro.Bind) - 1].KMod := vMod;
+        MacroAddBind(FMacro, vKey, vMod);
       end;
     end;
   end;

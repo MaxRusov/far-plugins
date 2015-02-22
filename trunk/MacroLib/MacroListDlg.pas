@@ -155,6 +155,7 @@ interface
     [
       GetMsg(strMProcessHotkeys),
       GetMsg(strMProcessMouse),
+      GetMsg(strMExtendMacroKey),
       GetMsg(strMMacroPaths),
      {$ifdef bUseInject}
       GetMsg(strMUseInjecting),
@@ -168,10 +169,11 @@ interface
       while True do begin
         vMenu.Checked[0] := optProcessHotkey;
         vMenu.Checked[1] := optProcessMouse;
+        vMenu.Checked[2] := optExtendFarKey;
        {$ifdef bUseInject}
-        vMenu.Checked[3] := optUseInject;
+        vMenu.Checked[4] := optUseInject;
        {$endif bUseInject}
-        vMenu.Enabled[2] := MacroLock = 0;
+        vMenu.Enabled[3] := MacroLock = 0;
 
         vMenu.SetSelected(vMenu.ResIdx);
 
@@ -182,15 +184,20 @@ interface
           0 : ToggleOption(optProcessHotkey);
           1 : ToggleOption(optProcessMouse);
           2 :
+            begin
+              ToggleOption(optExtendFarKey);
+              MacroLibrary.Reindex;
+            end;
+          3 :
             if FarInputBox(GetMsg(strMacroPathsTitle), GetMsg(strMacroPathsPrompt), optMacroPaths, FIB_BUTTONS or FIB_NOUSELASTHISTORY or FIB_ENABLEEMPTY, cMacroPathName) then begin
               PluginConfig(True);
               MacroLibrary.RescanMacroses(True);
             end;
          {$ifdef bUseInject}
-          3 : ToggleOption(optUseInject);
+          4 : ToggleOption(optUseInject);
          {$endif bUseInject}
-         
-          5 : ColorMenu;
+
+          6 : ColorMenu;
         end;
       end;
 

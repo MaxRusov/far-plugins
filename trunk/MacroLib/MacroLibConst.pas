@@ -39,6 +39,7 @@ interface
 
       strMProcessHotkeys,
       strMProcessMouse,
+      strMExtendMacroKey,
       strMMacroPaths,
       strMUseInjecting,
       strMColors,
@@ -94,6 +95,9 @@ interface
    {$endif Far3}
 
     cDefMacroFolder = 'Macros';
+   {$ifdef bAddLUAMacro}
+    cMacroLibLua    = 'MacroLib.lua';
+   {$endif bAddLUAMacro}
 
    {$ifdef bLUA}
     cMacroFileExt   = 'FMLUA';
@@ -123,6 +127,7 @@ interface
   var
     optProcessHotkey :Boolean = True;   { Обрабатывать нажатия горячих клавиш }
     optProcessMouse  :Boolean = True;   { Обрабатывать события мыши }
+    optExtendFarKey  :Boolean = False;  { Расширенная привязка кнопок для native макросов FAR }
     optMacroPaths    :TString = '';     { Путь к каталогу с макросами }
 
     optXLatMask      :Boolean = True;   { Автоматическое XLAT преобразование при поиске }
@@ -284,6 +289,7 @@ interface
 
         LogValue('ProcessHotkey', optProcessHotkey);
         LogValue('ProcessMouse', optProcessMouse);
+        LogValue('ExtendFarKey', optExtendFarKey);
         StrValue('MacroPaths', optMacroPaths);
 
         LogValue('ShowHidden', optShowHidden);
