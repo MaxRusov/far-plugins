@@ -17,9 +17,7 @@
 
 == Загрузить ==
 
- * [http://www.dic.ru/plugring/plugin?id=108 Последняя версия]
-
- * [http://plugring.farmanager.com/plugin.php?pid=932 Страница на Plugring (не обновляется)]
+ * [http://plugring.farmanager.com/plugin.php?pid=932 Последняя версия]
 
  * [http://code.google.com/p/far-plugins/downloads/list?q=Review&can=1 Старые версии]
 
