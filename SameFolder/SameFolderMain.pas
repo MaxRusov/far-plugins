@@ -92,6 +92,49 @@ interface
     Result := FarCtrl.GetMsg(Integer(AMess));
   end;
 
+ {$ifdef Far3}
+  function GetPluginPath(AHandle :THandle) :TString;
+  var
+    vFrmt, vPrefix, vPath, vHost :TString;
+  begin
+    Result := '';
+
+    vFrmt := FarPanelString(AHandle, FCTL_GETPANELFORMAT);
+    vPrefix := FarPanelString(AHandle, FCTL_GETPANELPREFIX);
+    vHost := FarPanelString(AHandle, FCTL_GETPANELHOSTFILE);
+    vPath := FarPanelGetCurrentDirectory(AHandle);
+   {$ifdef bTrace}
+    TraceF('Format=%s, Prefix=%s, Path=%s, Host=%s', [vFrmt, vPrefix, vPath, vHost]);
+   {$endif bTrace}
+
+    if StrEqual(vPrefix, 'FTP') then begin
+      if UpCompareSubStr('//Hosts', vFrmt) = 0 then
+        Exit;
+      Result := 'FTP:' + vFrmt;
+      if Result[length(Result)] <> '/' then
+        Result := Result + '/';
+    end else
+    if UpCompareSubStr('NetBox', vPrefix) = 0 then begin
+      if StrEqual('NetBox', vFrmt) then
+        Exit;
+      Result := 'Netbox:' + vFrmt + vPath;
+    end else
+    if StrEqual(vFrmt, 'Network') then begin
+      if (vPath = '') or (vPath[1] <> '\') then
+        Exit;
+      Result := 'NET:' + vPath;
+    end else
+    if (vPrefix <> '') and ((vHost <> '') or (vPath <> '')) then begin
+      {Reg: Arc: Observe: SQLite:}
+      Result := vPrefix;
+      if vHost <> '' then
+        Result := Result + ':' + vHost;
+      if vPath <> '' then
+        Result := Result + ':' + vPath;
+    end;
+  end;
+
+ {$else}
 
   function GetPluginPath(AHandle :THandle) :TString;
   var
@@ -134,6 +177,7 @@ interface
       { "Правильные" плагины }
       Result := vFrmt + ':' + vPath;
   end;
+ {$endif Far3}
 
 
   procedure FarPanelSetPath(AHandle :THandle; const APath, AItem :TString);
@@ -168,13 +212,8 @@ interface
 
     FarGetPanelInfo(vSrcPanel, vInfo);
 
-   {$ifdef Far3}
-    vVisible := PFLAGS_VISIBLE and vInfo.Flags <> 0;
-    vPlugin  := PFLAGS_PLUGIN and vInfo.Flags <> 0;
-   {$else}
-    vVisible := vInfo.Visible <> 0;
-    vPlugin  := vInfo.Plugin <> 0;
-   {$endif Far3}
+    vVisible := IsVisiblePanel(vInfo);
+    vPlugin := IsPluginPanel(vInfo);
 
     if (vInfo.PanelType <> PTYPE_FILEPANEL) or not vVisible then
       begin beep; exit; end;
@@ -216,13 +255,9 @@ interface
       vItem := FarPanelItem(vSrcPanel, FCTL_GETPANELITEM, vInfo.CurrentItem);
       if vItem <> nil then begin
         try
-         {$ifdef Far3}
           vFile := vItem.FileName;
           vFolder := faDirectory and vItem.FileAttributes <> 0;
-         {$else}
-          vFile := vItem.FindData.cFileName;
-          vFolder := faDirectory and vItem.FindData.dwFileAttributes <> 0;
-         {$endif Far3}
+
           if vFile <> '..' then begin
             if vRealFolder and (vPath = '') then begin
               vPath := RemoveBackSlash(ExtractFilePath(vFile));
@@ -261,13 +296,13 @@ interface
       case vInfo.PanelType of
         PTYPE_FILEPANEL:
           if not vVisible then
-            vMacro := 'CtrlP';
+            vMacro := FarKeyToMacro('CtrlP');
         PTYPE_TREEPANEL:
-          vMacro := 'CtrlT';
+          vMacro := FarKeyToMacro('CtrlT');
         PTYPE_QVIEWPANEL:
-          vMacro := 'CtrlQ';
+          vMacro := FarKeyToMacro('CtrlQ');
         PTYPE_INFOPANEL:
-          vMacro := 'CtrlL';
+          vMacro := FarKeyToMacro('CtrlL');
       end;
 
       if AutoFollow and (vMacro <> '') then
@@ -283,20 +318,25 @@ interface
 
         if vRealFolder then begin
           vMacro := vMacro +
-            'panel.setpath('  + StrIf(ASetPassive, '1', '0') + ', @"' + vPath + '"' +
-            StrIf(vFile <> '', ', @"' + vFile + '"', '') +
+            'Panel.SetPath('  +
+            StrIf(ASetPassive, '1', '0') + ', ' +
+            FarStrToMacro(vPath) +
+            StrIf(vFile <> '', ', ' + FarStrToMacro(vFile), '') +
             ')';
         end else
         begin
           vStr := '';
           FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(vStr));
           vMacro := vMacro +
-            'print(@"' + vPath + '") Enter';
+           {$ifdef Far3}
+            'Far.DisableHistory(1) ' +
+           {$endif Far3}
+            'print(' + FarStrToMacro(vPath) + ') ' + FarKeyToMacro('Enter');
           if ASetPassive then
-            vMacro := 'Tab ' + vMacro + ' Tab';
+            vMacro := FarKeyToMacro('Tab') + ' ' + vMacro + ' ' + FarKeyToMacro('Tab');
           if vFile <> '' then
             vMacro := vMacro +
-              ' panel.setpos(' + StrIf(ASetPassive, '1', '0') + ', @"' + vFile + '")';
+              ' Panel.SetPos(' + StrIf(ASetPassive, '1', '0') + ', ' + FarStrToMacro(vFile) + ')';
         end;
 
         FarPostMacro(vMacro);
@@ -557,7 +597,8 @@ interface
    {$ifdef Far3}
 //  FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
 //  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
-    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+//  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+    FMinFarVer := MakeVersion(3, 0, 3000);
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 1652);   { "verbatim string" }
     FMinFarVer := MakeVersion(2, 0, 1657);   { FCTL_GETPANELFORMAT }
