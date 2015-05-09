@@ -1934,7 +1934,9 @@ interface
   var
     vEvent :TKeyEventRecord;
   begin
-    if (word(AEvent.UnicodeChar) >= 32) and ((LEFT_CTRL_PRESSED + RIGHT_CTRL_PRESSED + LEFT_ALT_PRESSED + RIGHT_ALT_PRESSED) and AEvent.dwControlKeyState = 0) then
+    if (word(AEvent.UnicodeChar) >= 32) and ((LEFT_CTRL_PRESSED + RIGHT_CTRL_PRESSED + LEFT_ALT_PRESSED + RIGHT_ALT_PRESSED) and AEvent.dwControlKeyState = 0) and
+      not (AEvent.wVirtualKeyCode in [VK_Add, VK_SUBTRACT, VK_MULTIPLY, VK_DIVIDE])
+    then
       Result := Word(AEvent.UnicodeChar)
     else begin
       vEvent := AEvent;
