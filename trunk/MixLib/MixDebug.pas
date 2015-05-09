@@ -575,22 +575,26 @@ interface
 
   threadvar
     gStart :DWORD;
+    gStart1 :DWORD;
 
   procedure TraceBeg(const AMsg :TString);
   begin
     Trace(AMsg);
+    gStart1 := gStart;
     gStart := GetTickCount;
   end;
 
   procedure TraceBegF(const AMsg :TString; const Args: array of const);
   begin
     TraceF(AMsg, Args);
+    gStart1 := gStart;
     gStart := GetTickCount;
   end;
 
   procedure TraceEnd(const AMsg :TString);
   begin
     TraceF('%s (%d ms)', [AMsg, TickCountDiff(GetTickCount, gStart)]);
+    gStart := gStart1
   end;
  {$endif bTrace}
 
