@@ -3,9 +3,10 @@
 unit VersionColumn_Main;
 
 {******************************************************************************}
-{* (c) 2010 Max Rusov                                                         *}
-{*                                                                            *}
 {* VersionColumn Far Plugin                                                   *}
+{* 2010-2014, Max Rusov                                                       *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
 
 interface
@@ -17,24 +18,41 @@ interface
     MixWinUtils,
     MixStrings,
 
-    PluginW,
+    Far_API,  //Plugin3.pas
     FarCtrl,
+    FarConfig,
+    FarMenu,
+    FarPlug,
     FarDlg;
 
 
   const
-    cPlugRegFolder = 'VerCol';
+    cPluginName = 'VersionColumn';
+    cPluginDescr = 'Version Column FAR plugin';
+    cPluginAuthor = 'Max Rusov';
+
+    cPluginID   :TGUID = '{4CCD74EE-757B-4D4D-8B27-66D013116BC3}';
+    cMenuID     :TGUID = '{C414D105-1F76-43FF-9BE7-E168954CBB7C}';
+//  cConfigID   :TGUID =
 
   var
     opt_Format :TString = 'FileVersion:20 | FileDescription';
 
 
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
+  type
+    TVersionColumn = class(TFarPlug)
+    public
+      procedure Init; override;
+      procedure Startup; override;
+      procedure ExitFar; override;
+      procedure GetInfo; override;
+      function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
+    private
+    end;
+
+
   function GetCustomDataW(AFileName :PFarChar; var CustomData :PFarChar) :Integer; stdcall;
   procedure FreeCustomDataW(CustomData :PFarChar); stdcall;
-  procedure ExitFARW; stdcall;
 
 
 {******************************************************************************}
@@ -45,18 +63,37 @@ interface
   uses
     MixDebug;
 
+
+  procedure InsertText(const AStr :TString);
   var
-    FRegRoot :TString;
+    vStr :TString;
+  begin
+    vStr := 'print("' + FarMaskStr(AStr) + '")';
+    FarPostMacro(vStr);
+  end;
+
+
+  procedure PluginConfig(AStore :Boolean);
+  begin
+    with TFarConfig.CreateEx(AStore, cPluginName) do
+      try
+        if not Exists then
+          Exit;
+        StrValue('Format', opt_Format);
+      finally
+        Destroy;
+      end;
+  end;
 
  {-----------------------------------------------------------------------------}
 
   function FormatMenu(var AFmt :TString) :Boolean;
   var
-    N, vRes :Integer;
-    vItems :PFarMenuItemsArray;
+    vMenu :TFarMenu;
   begin
-    Result := False;
-    vItems := FarCreateMenu([
+    vMenu := TFarMenu.CreateEx(
+      'Version Info',
+    [
       'FileVersion',
       'FileDescription',
       'LegalCopyright',
@@ -66,24 +103,15 @@ interface
       'ProductName',
       'ProductVersion',
       'Comments'
-    ], @N);
+    ]);
     try
-      vRes := FARAPI.Menu(hModule, -1, -1, 0,
-        FMENU_WRAPMODE or FMENU_USEEXT,
-        'Version Info',
-        '',
-        '',
-        nil, nil,
-        Pointer(vItems),
-        N);
+      Result := vMenu.Run;
 
-      if vRes <> -1 then begin
-        AFmt := vItems[vRes].TextPtr;
-        Result := True;
-      end;
+      if Result then
+        AFmt := vMenu.Items[vMenu.ResIdx].TextPtr;
 
     finally
-      MemFree(vItems);
+      FreeObj(vMenu);
     end;
   end;
 
@@ -155,8 +183,7 @@ interface
     vFmt :TString;
   begin
     if FormatMenu(vFmt) then
-      FarPostMacro('"' + vFmt + '"');
-//    InsertText(vFmt);
+      InsertText(vFmt);
   end;
 
 
@@ -187,57 +214,6 @@ interface
         AFormat := vDlg.FInitStr;
     finally
       FreeObj(vDlg);
-    end;
-  end;
-
-
-(*
-  function QueryFormat(var AFormat :TString) :Boolean;
-  var
-    vStr :array[0..1024] of TFarChar;
-  begin
-    FillChar(vStr, SizeOf(vStr), 0);
-    Result := FARAPI.InputBox(
-      'Version Column',
-      'Format:',
-      'VerCol.Format',
-      PFarChar(AFormat),
-      @vStr[0],
-      1024,
-      nil,
-      FIB_BUTTONS or FIB_NOUSELASTHISTORY or FIB_ENABLEEMPTY) = 1;
-
-    if Result then
-      AFormat := vStr;
-  end;
-*)
-
-
- {-----------------------------------------------------------------------------}
-
-  procedure ReadSetup;
-  var
-    vKey :HKEY;
-  begin
-    if RegOpenRead(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey) then begin
-      try
-        opt_Format := RegQueryStr(vKey, 'Format', opt_Format);
-      finally
-        RegCloseKey(vKey);
-      end;
-    end;
-  end;
-
-
-  procedure WriteSetup;
-  var
-    vKey :HKEY;
-  begin
-    RegOpenWrite(HKCU, FRegRoot + '\' + cPlugRegFolder, vKey);
-    try
-      RegWriteStr(vKey, 'Format', opt_Format);
-    finally
-      RegCloseKey(vKey);
     end;
   end;
 
@@ -366,44 +342,58 @@ interface
   end;
 
 
+
  {-----------------------------------------------------------------------------}
- { Ёкспортируемые процедуры                                                    }
+ { TVersionColumn                                                              }
  {-----------------------------------------------------------------------------}
 
-  procedure SetStartupInfoW(var psi: TPluginStartupInfo); stdcall;
+  procedure TVersionColumn.Init; {override;}
   begin
-    hModule := psi.ModuleNumber;
-    FARAPI := psi;
-    FARSTD := psi.fsf^;
-    FRegRoot := psi.RootKey;
-    ReadSetup;
+    inherited Init;
+
+    FName := cPluginName;
+    FDescr := cPluginDescr;
+    FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison;
+    FGUID := cPluginID;
+
+    FMinFarVer := MakeVersion(3, 0, 3000);
   end;
 
 
-  var
-    PluginMenuStrings : array[0..0] of PFarChar;
-
-
-  procedure GetPluginInfoW(var pi: TPluginInfo); stdcall;
+  procedure TVersionColumn.Startup; {override;}
   begin
-    pi.StructSize:= SizeOf(pi);
-    pi.Flags:= PF_PRELOAD;
-
-    PluginMenuStrings[0] := 'Version Column';
-    pi.PluginMenuStrings := Pointer(@PluginMenuStrings);
-    pi.PluginMenuStringsNumber := 1;
+    PluginConfig(False);
   end;
 
 
-  function OpenPluginW(OpenFrom: integer; Item :TIntPtr): THandle; stdcall;
+  procedure TVersionColumn.ExitFar; {override;}
   begin
-    Result:= INVALID_HANDLE_VALUE;
-    if QueryFormat(opt_Format) then begin
-      WriteSetup;
-    end;
+    MemFree(vDstBuf);
   end;
 
 
+  procedure TVersionColumn.GetInfo; {override;}
+  begin
+    FFlags := PF_PRELOAD;
+
+    FMenuStr := 'Version Column';
+    FMenuID  := cMenuID;
+
+    //  FConfigStr := FMenuStr;
+//  FConfigID  := cConfigID;
+  end;
+
+
+  function TVersionColumn.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
+  begin
+    Result := INVALID_HANDLE_VALUE;
+    if QueryFormat(opt_Format) then
+      PluginConfig(True);
+  end;
+
+
+ {-----------------------------------------------------------------------------}
 
   function GetCustomDataW(AFileName :PFarChar; var CustomData :PFarChar) :Integer;
   var
@@ -439,12 +429,6 @@ interface
   procedure FreeCustomDataW(CustomData :PFarChar);
   begin
     StrDispose(CustomData);
-  end;
-
-
-  procedure ExitFARW; stdcall;
-  begin
-    MemFree(vDstBuf);
   end;
 
 
