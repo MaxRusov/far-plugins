@@ -101,6 +101,7 @@ interface
     optCorrectThumb   :Boolean = True;        { Корректируем эскиз, чтобы убрать черные полосы }
     optUseWinSize     :Boolean = True;        { Декодировать под размер окна }
     optKeepDateOnSave :Boolean = True;        { Сохранять дату при декодировании }
+    optUnlockFile     :Boolean = True;        { Не блокировать файл, по возможности }
 
     optDraftDelay     :Integer = 150; {ms}
     optSyncDelay      :Integer = 250; {ms}    { Задержка смены картинки в QuickView (только если включен optAsyncQView) }
@@ -110,7 +111,11 @@ interface
     optSlideDelay     :Integer = 3000; {ms}   { Задержка SlideShow }
     optEffectType     :Integer = 1;
     optEffectPeriod   :Integer = 250;  {ms}   { Длительность эффекта перехода }
-    optEffectOnManual :Boolean = True;
+    optEffectOnManual :Boolean = True;        { Использовать эффект перехода при ручном переключении }
+
+   {$ifdef bUseLibJPEG}
+    optUseLibJPEG     :Boolean = True;
+   {$endif bUseLibJPEG}
 
     optCacheLimit     :Integer = 4;
 
@@ -152,10 +157,11 @@ interface
    {$endif bThumbs}
 
   var
-    DecodeWaitDelay   :Integer = 1000;  { Сколько ждем декодирование, прежде чем показать эскиз. Только при первом открытии. }
-    StretchDelay      :Integer = 500;   { Задержка для масштабирования }
-    FastListDelay     :Integer = 250;   { Период между декодированиями, по которому определяется быстрое перелистывание }
-    ThumbDelay        :Integer = 250;   { Задержка до начала декодирования при перелистывании }
+    optBigImageLimit  :Integer = 128;      { Если размер картинки превышает эту величину, DecodeWaitDelay считается = 0 }
+    DecodeWaitDelay   :Integer = 1000;     { Сколько ждем декодирование, прежде чем показать эскиз. Только при первом открытии. }
+    StretchDelay      :Integer = 500;      { Задержка для масштабирования }
+    FastListDelay     :Integer = 250;      { Период между декодированиями, по которому определяется быстрое перелистывание }
+    ThumbDelay        :Integer = 250;      { Задержка до начала декодирования при перелистывании }
 
 
   var
@@ -189,9 +195,8 @@ interface
   const
     { Команды CM_Transform }
     cmtInvalidate = 0;
-    cmtSetPage    = 1;
-    cmtRotate     = 2;
-    cmtOrient     = 3;
+    cmtRotate     = 1;
+    cmtOrient     = 2;
 
 
   function GetMsg(AMess :TMessages) :PFarChar;

@@ -59,7 +59,8 @@ interface
       FMovie       :Boolean;           { Видео-файл }
       FLength      :Integer;           { Длительность видео в MS }
       FDelay       :Integer;           { Задержка текущей страницы при анимации }
-      FOrient      :Integer;           { Ориентация (дополнительный поворот после декодирования) }
+      FOrient0     :Integer;           { Начальная ориентация (по EXIF) }
+      FOrient      :Integer;           { Текущая ориентация (дополнительный поворот после декодирования) }
 
       FSelfdraw    :Boolean;
       FSelfPaint   :Boolean;
@@ -129,7 +130,6 @@ interface
       function SupportedFile(const aName :TString) :Boolean;
       function CanShowThumbFor(const AName :TString) :Boolean;
       function GetMaskAsStr :TString;
-      function GetInfoStr :TString; virtual;
 
       { Функции декодирования }
       function pvdFileOpen(const AFileName :TString; AImage :TReviewImageRec) :Boolean; virtual; abstract;
@@ -164,6 +164,7 @@ interface
       FInitState  :Integer;  { 0-не инициализирован, 1-инициализирован, 2-ошибка при инициализации }
       FModified   :Integer;  { Дата модификации PVD файла - для проверки актуальности кэша }
       FEnabled    :Boolean;
+      FWasInCache :Boolean;  { Вспом. при инициализации }
 
       FActiveStr  :TString;
       FIgnoreStr  :TString;
@@ -196,7 +197,6 @@ interface
 
       function GetState :TDecoderState; override;
       function CanWork(aLoad :Boolean) :boolean; override;
-      function GetInfoStr :TString; override;
 
     protected
       procedure InitPlugin(aKeepSettings :Boolean); virtual; abstract;
@@ -209,10 +209,6 @@ interface
       { Параметры, возвращаемые плагином }
       FInitError      :Integer;
       FInitContext    :Pointer;
-      FInitErrorMess  :TString;
-
-    public
-      property InitErrorMess :TString read FInitErrorMess;
     end;
 
 
@@ -337,6 +333,9 @@ interface
   uses
     ReviewGDIPlus,
     ReviewGDI,
+   {$ifdef bUseLibJPEG}
+    ReviewJPEG,
+   {$endif bUseLibJPEG}
     MixDebug;
 
 
@@ -424,6 +423,8 @@ interface
  {$ifdef bUseMapping}
   function TReviewImageRec.PrecacheFile(const AFileName :TString) :Boolean;
   begin
+//  Trace('Create FileMapping: %s', [AFileName] );
+
     Result := False;
     FMapFile := CreateFile(PTChar(AFileName), GENERIC_READ, FILE_SHARE_READ, nil, OPEN_EXISTING, 0, 0);
     if FMapFile = INVALID_HANDLE_VALUE then
@@ -451,6 +452,9 @@ interface
 
   procedure TReviewImageRec.ReleaseCache;
   begin
+//  if FMapFile <> 0 then
+//    Trace('Close FileMapping: %s', [FName] );
+
     if FCacheBuf <> nil then
       UnmapViewOfFile(FCacheBuf);
     FCacheBuf := nil;
@@ -458,7 +462,7 @@ interface
     if FMapHandle <> 0 then
       FileClose(FMapHandle);
     FMapHandle := 0;
-                                 if (FMapFile <> 0) and (FMapFile <> INVALID_HANDLE_VALUE) then
+    if (FMapFile <> 0) and (FMapFile <> INVALID_HANDLE_VALUE) then
       FileClose(FMapFile);
     FMapFile := 0;
   end;
@@ -610,13 +614,6 @@ interface
   end;
 
 
-  function TReviewDecoder.GetInfoStr :TString;
-  begin
-//    Result := StrLoCase(FActiveExt.GetTextStrEx(','));
-    Result := GetMaskAsStr;
-  end;
-
-
   function TReviewDecoder.GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; {virtual;}
   begin
     Result := 0;
@@ -739,15 +736,6 @@ interface
   end;
 
 
-  function TReviewDllDecoder.GetInfoStr :TString;
-  begin
-    if FInitState < 2 then
-      Result := inherited GetInfoStr
-    else
-      Result := '-- ' + FInitErrorMess;
-  end;
-
-
  {-----------------------------------------------------------------------------}
  { TReviewDllDecoder1                                                          }
  {-----------------------------------------------------------------------------}
@@ -786,7 +774,7 @@ interface
 
     except
       on E :Exception do begin
-        FInitErrorMess := E.Message;
+        FLastError := E.Message;
         FInitState := 2;
       end;
     end;
@@ -998,7 +986,7 @@ interface
 
     except
       on E :Exception do begin
-        FInitErrorMess := E.Message;
+        FLastError := E.Message;
         FInitState := 2;
       end;
     end;
@@ -1151,11 +1139,11 @@ interface
     Result := FpvdPageInfo(FInitContext, AImage.FContext, @vInfo);
 
     if Result then begin
-      AImage.FWidth  := vInfo.lWidth;
-      AImage.FHeight := vInfo.lHeight;
-      AImage.FBPP    := vInfo.nBPP;
-      AImage.FDelay  := vInfo.lFrameTime;
-      AImage.FOrient := vInfo.Orientation;  
+      AImage.FWidth   := vInfo.lWidth;
+      AImage.FHeight  := vInfo.lHeight;
+      AImage.FBPP     := vInfo.nBPP;
+      AImage.FDelay   := vInfo.lFrameTime;
+      AImage.FOrient0 := vInfo.Orientation;
 
       { Коррекция 1 }
       if vInfo.nPages <> 0 then
@@ -1215,7 +1203,7 @@ interface
       AImage.FSelfdraw := vInfo.Flags and PVD_IDF_PRIVATE_DISPLAY <> 0;
       AImage.FTransparent := vInfo.Flags and ({PVD_IDF_TRANSPARENT + PVD_IDF_TRANSPARENT_INDEX +} PVD_IDF_ALPHA) <> 0;
       if vInfo.Orientation <> 0 then
-        AImage.FOrient  := vInfo.Orientation;
+        AImage.FOrient0 := vInfo.Orientation;
 
       { Коррекция 2 }
       if vInfo.nPages <> 0 then
@@ -1521,6 +1509,7 @@ interface
               vDecoder.SetExtensions(vActive, vIgnore);
               vDecoder.FCustomMask := True;
             end;
+            vDecoder.FWasInCache := True;
 
             if vIndex <> vPos then
               aDecoders.Move(vIndex, vPos);
@@ -1641,6 +1630,10 @@ interface
     I :Integer;
     vDecoder :TReviewDecoder;
   begin
+   {$ifdef bUseLibJPEG}
+    aDecoders.Add(TReviewJPEGDecoder.Create);
+    vDecoder := aDecoders[0];
+   {$endif bUseLibJPEG}
     aDecoders.Add(TReviewGDIDecoder.Create);
     aDecoders.Add(TReviewWMFDecoder.Create);
 
@@ -1654,7 +1647,13 @@ interface
         { Если это первая загрузка - сортируем декодеры по приоритетам }
         { Если декодеры были добавлены потом - приоритеты игнорируются, }
         { новые декодеры окажутся в конце списка. }
-        aDecoders.SortList(False, 1);
+        aDecoders.SortList(False, 1)
+      else begin
+       {$ifdef bUseLibJPEG}
+        if not vDecoder.FWasInCache then
+          aDecoders.Move(aDecoders.IndexOf(vDecoder), 0);
+       {$endif bUseLibJPEG}
+      end;
     end;
 
     { Удалим декодеры, для которых не найдено DLL }

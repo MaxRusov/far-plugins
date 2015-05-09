@@ -144,11 +144,8 @@ interface
         vStr := FDecoder.Comment;
       rdsCached:
         vStr := GetMsg(strNotLoaded);
-      rdsError: begin
-        vStr := GetMsg(strLoadError);
-        if FDecoder is TReviewDllDecoder then
-          vStr := vStr + ': ' + TReviewDllDecoder(FDecoder).InitErrorMess;
-      end;
+      rdsError:
+        vStr := FDecoder.LastError;
     end;
     SetText(IdComment, vStr);
 

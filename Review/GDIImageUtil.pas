@@ -191,6 +191,10 @@ interface
   begin
     vAlignedBytes := (aRowBytes + 3) div 4 * 4;
 
+   {$ifdef bTrace}
+    TraceBegF('RealignBits: %d -> %d...', [aRowBytes, vAlignedBytes]);
+   {$endif bTrace}
+
     Result := MemAlloc( aHeight * vAlignedBytes );
 
     vSrc := aData;
@@ -200,6 +204,10 @@ interface
       Inc(vSrc, aRowBytes);
       Inc(vDst, vAlignedBytes);
     end;
+
+   {$ifdef bTrace}
+    TraceEnd('  done');
+   {$endif bTrace}
   end;
 
 
@@ -216,9 +224,43 @@ interface
           rgbBlue := rgbBlue * rgbReserved div 255;
           rgbGreen := rgbGreen * rgbReserved div 255;
         end;
-        Inc(PAnsiChar(vSrc), SizeOf(vSrc^));
+        Inc(vSrc);
       end;
     end;
+  end;
+
+
+  procedure CMYK2RGB(aData :Pointer; aWidth, aHeight :Integer);
+  type
+    TCMYKRec = packed record
+      C, M, Y, K: Byte;
+    end;
+  var
+    I, J  :Integer;
+    vSrc  :PRGBQuad;
+    vCMYK :TCMYKRec;
+  begin
+   {$ifdef bTrace}
+    TraceBegF('CMYK2RGB: %d x %d, %d M...', [aWidth, aHeight, aWidth * aHeight * 4 div (1024 * 1024)]);
+   {$endif bTrace}
+
+    vSrc := aData;
+    for J := 0 to aWidth - 1 do begin
+      for I := 0 to aHeight - 1 do begin
+        vCMYK := TCMYKRec(vSrc^);
+        with vSrc^ do begin
+          rgbRed := vCMYK.C * vCMYK.K shr 8;
+          rgbGreen := vCMYK.M * vCMYK.K shr 8;
+          rgbBlue := vCMYK.Y * vCMYK.K shr 8;
+          rgbReserved := 0;
+        end;
+        Inc(vSrc);
+      end;
+    end;
+
+   {$ifdef bTrace}
+    TraceEnd('  done');
+   {$endif bTrace}
   end;
 
 
@@ -230,6 +272,11 @@ interface
     vTmpBuf :Pointer;
   begin
     Result := 0;
+
+    if aModel = PVD_CM_CMYK then begin
+      CMYK2RGB(aData, aWidth, aHeight);  
+      aModel := PVD_CM_BGR;
+    end;
 
     if ((aModel <> PVD_CM_BGR) and (aModel <> PVD_CM_BGRA)) or ((aModel = PVD_CM_BGRA) and (aBPP <> 32)) then
       AppError('Unsupported color model');
@@ -243,14 +290,20 @@ interface
       aData := vTmpBuf;
     end;
 
+    if aModel = PVD_CM_BGRA then
+      { Premultiplied alpha }
+      ScaleAlpha(aData, aWidth, aHeight);
+
+   {$ifdef bTrace}
+    TraceBegF('Create bitmap: %d x %d, %d M...', [aWidth, aHeight, aWidth * aHeight * (aBPP div 8) div (1024 * 1024) ]);
+   {$endif bTrace}
+
     vBMP := 0;
     try
-      if aModel = PVD_CM_BGRA then
-        { Premultiplied alpha }
-        ScaleAlpha(aData, aWidth, aHeight);
-
+//    TraceBeg('...CreateScreenCompatibleBitmap');
       vBMP := CreateScreenCompatibleBitmap(aWidth, aHeight);
       ApiCheck(vBMP <> 0);
+//    TraceEnd('...done');
 
       vPalSize := 0;
       if aBPP <= 8 then
@@ -269,8 +322,10 @@ interface
       if aBPP <= 8 then
         Move(aPalette^, vInfo.bmiColors, vPalSize);
 
+//    TraceBeg('...SetDIBits');
       if SetDIBits(0, vBMP, 0, aHeight, aData, vInfo^, DIB_RGB_COLORS) = 0 then
         ApiCheck(False);
+//    TraceEnd('...done');
 
       Result := vBMP;
 
@@ -281,6 +336,10 @@ interface
       if (Result = 0) and (vBMP <> 0) then
         DeleteObject(vBMP);
     end;
+
+   {$ifdef bTrace}
+    TraceEnd('  done');
+   {$endif bTrace}
   end;
 
 
@@ -454,6 +513,10 @@ interface
     if AOrient <= 1 then
       Exit;
 
+   {$ifdef bTrace}
+    TraceBegF('Transform: %d...', [AOrient]);
+   {$endif bTrace}
+
     vSize := FSize.CX * FSize.CY * 4;
     vPtr := MemAlloc(vSize);
     try
@@ -485,7 +548,7 @@ interface
               7: PRGBQuad(PAnsiChar(vNew) + (I * FSize.CY * 4) + (J * 4))^ := vSrc^;
               8: PRGBQuad(PAnsiChar(vNew) + (I * FSize.CY * 4) + ((FSize.CY - J - 1) * 4))^ := vSrc^;                  {L: -90 }
             end;
-            Inc(PAnsiChar(vSrc), SizeOf(vSrc^));
+            Inc(vSrc);
           end;
         end;
 
@@ -529,6 +592,10 @@ interface
     finally
       MemFree(vPtr);
     end;
+
+   {$ifdef bTrace}
+    TraceEnd('  done');
+   {$endif bTrace}
   end;
 
 
@@ -1217,10 +1284,12 @@ interface
 
   function GetEncoderClsid(const AFormat :WideString; out pClsid: TGUID) :Integer;
   Type
-    ArrIMgInf = array of TImageCodecInfo;
+    PImageCodecInfoArray = ^TImageCodecInfoArray;
+    TImageCodecInfoArray = array[0..MaxInt div Sizeof(TImageCodecInfo) - 1] of TImageCodecInfo;
   var
-    i, vNum, vSize :UINT;
-    vImageCodecInfo :PImageCodecInfo;
+    i :Integer;
+    vNum, vSize :UINT;
+    vImageCodecInfo :PImageCodecInfoArray;
   begin
     Result := -1;
 
@@ -1233,11 +1302,12 @@ interface
 
     vImageCodecInfo := MemAlloc(vSize);
     try
-      GetImageEncoders(vNum, vSize, vImageCodecInfo);
+      GetImageEncoders(vNum, vSize, @vImageCodecInfo[0]);
 
-      for i := 0 to vNum - 1 do begin
-        if ArrIMgInf(vImageCodecInfo)[i].MimeType = AFormat then begin
-          pClsid := ArrIMgInf(vImageCodecInfo)[i].Clsid;
+      for i := 0 to Integer(vNum) - 1 do begin
+//     Trace('%d: %s', [i, vImageCodecInfo[i].CodecName]);
+       if vImageCodecInfo[i].MimeType = AFormat then begin
+          pClsid := vImageCodecInfo[i].Clsid;
           Result := i;
           Break;
         end;

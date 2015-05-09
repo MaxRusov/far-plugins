@@ -46,17 +46,18 @@ interface
   const
     CM_SetImage     = $B000;
     CM_Transform    = $B001;
-    CM_SetWinPos    = $B002;
-    CM_SetVisible   = $B003;
-    CM_SetMode      = $B004;
-    CM_Move         = $B005;
-    CM_Scale        = $B006;
-    CM_Sync         = $B007;
-    CM_TempMsg      = $B008;
-    CM_SlideShow    = $B009;
-    CM_ReleaseImage = $B00A;
-    CM_RenderImage  = $B00B;
-    CM_Select       = $B00C;
+    CM_SetPage      = $B002; { Ручное переключение многостраничного изображения }
+    CM_SetWinPos    = $B003;
+    CM_SetVisible   = $B004;
+    CM_SetMode      = $B005;
+    CM_Move         = $B006;
+    CM_Scale        = $B007;
+    CM_Sync         = $B008;
+    CM_TempMsg      = $B009;
+    CM_SlideShow    = $B00A;
+    CM_ReleaseImage = $B00B;
+    CM_RenderImage  = $B00C;  {Thumbs: Завершено извлечение эскиза (ThumbThread -> ThumbsWindow) }
+    CM_Select       = $B00D;  {Thumbs: Выделение изображений}
 
   const
     cScaleStep   = 1.01;
@@ -152,6 +153,8 @@ interface
       procedure CreateParams(var AParams :TCreateParams); override;
       procedure PaintWindow(DC :HDC); virtual; abstract;
       function Idle :Boolean; virtual;
+      function WndIdle :Boolean;
+      procedure ErrorHandler(E :Exception); override;
 
     protected
       FWinBPP       :Integer;
@@ -213,6 +216,7 @@ interface
       procedure CMSetImage(var Mess :TMessage); message CM_SetImage;
       procedure CMReleaseImage(var Mess :TMessage); message CM_ReleaseImage;
       procedure CMTransform(var Mess :TMessage); message CM_Transform;
+      procedure CMSetPage(var Mess :TMessage); message CM_SetPage;
       procedure CMMove(var Mess :TMessage); message CM_Move;
       procedure CMScale(var Mess :TMessage); message CM_Scale;
       procedure CMSlideShow(var Mess :TMessage); message CM_SlideShow;
@@ -256,13 +260,16 @@ interface
       FSlideStart   :DWORD;
       FSlideDelay   :Integer;
 
+      FThumbStart   :DWORD;           { Для поддержки фонового декодирования при быстром листании }
       FResizeStart  :DWORD;           { Для поддержки фонового декодирования при масштабировании }
       FResizeSize   :TSize;
+
+      FUseWinSize   :Boolean;
 
       procedure RecalcRects;
       procedure MoveImage(DX, DY :Integer);
       procedure SetScale(aMode :TScaleMode; aLnScale, aScale :TFloat);
-      procedure SetPage(aPage :Integer);
+      procedure SetPage(aPage :Integer; ASize :PSize = nil);
       procedure SlideEffect(aOldImage :TReviewImage; const AOldSrcRect, AOldDstRect :TRect; ADirect :Integer);
       procedure DrawImage(DC :HDC; aImage :TReviewImage; const ASrcRect, ADstRect :TRect; ABuffered :Boolean);
       procedure DrawAddInfo(DC :HDC);
@@ -312,7 +319,7 @@ interface
 
     TTask = class(TBasis)
     public
-      constructor CreateEx(AImage :TReviewImageRec; AFrame :Integer; const ASize :TSize);
+      constructor CreateEx(AImage :TReviewImage; AFrame :Integer; const ASize :TSize);
       destructor Destroy; override;
 
       function _AddRef :Integer;
@@ -320,7 +327,7 @@ interface
 
     private
       FRefCount   :Integer;
-      FImage      :TReviewImageRec;
+      FImage      :TReviewImage;
       FFrame      :Integer;
       FSize       :TSize;
       FDecodeTime :Integer;
@@ -336,10 +343,14 @@ interface
       constructor CreateEx(const aName :TString);
       destructor Destroy; override;
 
-      function TryOpenBy(ADecoder :TReviewDecoder; AForce :Boolean) :Boolean;
       function TryOpen(AForce :Boolean) :Boolean;
-      procedure DecodePage(ASize :TSize; AFastScroll :Boolean = False);
+      function TryOpenBy(ADecoder :TReviewDecoder; AForce :Boolean) :Boolean;
+      procedure DecodePage(ASize :TSize; AFirstOpen :Boolean; AFastScroll :Boolean = False);
       procedure UpdateBitmap;
+      function LockSource :Boolean;
+      procedure UnLockSource;
+      function CanReleaseSource :Boolean;
+      procedure ReleaseSource;
 
     private
 //    FDecoder     :TReviewDecoder;    { Выбранный декодер }
@@ -347,13 +358,15 @@ interface
       FIsThumbnail :Boolean;
       FSelected    :Integer;
 
+      FOpened      :Boolean;
+      FSrcLock     :Integer;
       FOpenTime    :Integer;
       FDecodeTime  :Integer;
+      FDecodeError :TString;
 
       FTags        :TReviewTags;
       FInfoInited  :Boolean;
 
-      FFirstShow   :DWORD;
       FAsyncTask   :TTask;
 
       procedure SetAsyncTask(const ASize :TSize);
@@ -676,12 +689,10 @@ interface
  { TRenderThread                                                               }
  {-----------------------------------------------------------------------------}
 
-  constructor TTask.CreateEx(AImage :TReviewImageRec; AFrame :Integer; const ASize :TSize);
+  constructor TTask.CreateEx(AImage :TReviewImage; AFrame :Integer; const ASize :TSize);
   begin
     inherited Create;
     FImage := AImage;
-//  if FImage <> nil then
-//    FImage._AddRef;
     FFrame := AFrame;
     FSize  := ASize;
   end;
@@ -689,10 +700,6 @@ interface
 
   destructor TTask.Destroy; {override;}
   begin
-//  if FImage <> nil then begin
-//    FImage._Release;
-//    FImage := nil;
-//  end;
     if FThumb <> 0 then
       DeleteObject(FThumb);
     inherited Destroy;
@@ -773,7 +780,7 @@ interface
         end;
       end;
     finally
-      CoUninitialize;  
+      CoUninitialize;
     end;
   end;
 
@@ -832,22 +839,25 @@ interface
 
   procedure TRenderThread.Render(ATask :TTask);
   var
-    vImage :TReviewImageRec;
+    vImage :TReviewImage;
     vStart :DWORD;
     vIsThumbnail :Boolean;
   begin
     try
       vImage := ATask.FImage;
-      vStart := GetTickCount;
-      if vImage.FDecoder.pvdPageDecode(vImage, ATask.FSize.CX, ATask.FSize.CY, dmImage, MyDecodeCallback, ATask) then
-        try
-          if not optRotateOnEXIF then
-            vImage.FOrient := 1;
-          ATask.FThumb := vImage.FDecoder.GetBitmapHandle(vImage, vIsThumbnail);
-        finally
-          vImage.FDecoder.pvdPageFree(vImage);
-        end;
-      ATask.FDecodeTime := TickCountDiff(GetTickCount, vStart);
+      vImage.LockSource;
+      try
+        vStart := GetTickCount;
+        if vImage.FDecoder.pvdPageDecode(vImage, ATask.FSize.CX, ATask.FSize.CY, dmImage, MyDecodeCallback, ATask) then
+          try
+            ATask.FThumb := vImage.FDecoder.GetBitmapHandle(vImage, vIsThumbnail);
+          finally
+            vImage.FDecoder.pvdPageFree(vImage);
+          end;
+        ATask.FDecodeTime := TickCountDiff(GetTickCount, vStart);
+      finally
+        vImage.UnLockSource;
+      end;
     except
       on E :Exception do
         ATask.FError := E.Message;
@@ -1126,7 +1136,7 @@ interface
   begin
     PeekMessage(vMsg, 0, WM_USER, WM_USER, PM_NOREMOVE); { Create message queue }
 
-//  CoInitialize(nil);
+    CoInitialize(nil);
     FWindow := FWinClass.Create;
     try
 
@@ -1135,7 +1145,7 @@ interface
           TranslateMessage(vMsg);
           DispatchMessage(vMsg);
         end;
-        if FWindow.Idle then
+        if FWindow.WndIdle then
           Sleep(1);
       end;
 
@@ -1145,10 +1155,9 @@ interface
 
     finally
       FreeObj(FWindow);
-//    CoUninitialize;
+      CoUninitialize;
     end;
   end;
-
 
  {-----------------------------------------------------------------------------}
  { TReviewWindow                                                               }
@@ -1434,6 +1443,26 @@ interface
   end;
 
 
+  procedure TReviewWindow.ErrorHandler(E :Exception); {override;}
+  begin
+    SetTempMsg(E.Message);
+    Beep;
+  end;
+
+
+  function TReviewWindow.WndIdle :Boolean;
+  begin
+    try
+      Result := Idle;
+    except
+      on E :Exception do begin
+        ErrorHandler(E);
+        Result := True;
+      end;  
+    end;
+  end;
+
+
   function TReviewWindow.Idle :Boolean;
   var
     vRect :TRect;
@@ -1611,7 +1640,15 @@ interface
         FSlideStart := 0;
         FSlideDelay := 0;
 
+        FResizeStart := 0;
+        FResizeSize := Size(0, 0);
+
+        FThumbStart := 0;
+        if FImage.FIsThumbnail then
+          FThumbStart := GetTickCount;
+
         FTempMsg := '';
+        FUseWinSize := optUseWinSize;
 
         RecalcRects;
 
@@ -1652,18 +1689,6 @@ interface
        Invalidate;
      end;
 
-     procedure LocSetPage(APage :Integer);
-     begin
-       FAnimate := False;
-
-       APage := RangeLimit(APage, 0, FImage.FPages - 1);
-       if APage = FImage.FPage then
-         Exit;
-
-       SetPage( APage );
-       FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
-     end;
-
      procedure LocRotate(ARotate :Integer);
      begin
        FImage.Rotate(ARotate);
@@ -1677,11 +1702,25 @@ interface
     if FImage <> nil then begin
       case Mess.wParam of
         cmtInvalidate : LocInvalidate;
-        cmtSetPage    : LocSetPage(Mess.lParam);
         cmtRotate     : LocRotate(Mess.lParam);
         cmtOrient     : {};
       end;
     end;
+  end;
+
+
+  procedure TImageWindow.CMSetPage(var Mess :TMessage); {message CM_SetPage;}
+  var
+    vPage :Integer;
+  begin
+    FAnimate := False;
+
+    vPage := RangeLimit(Mess.WParam, 0, FImage.FPages - 1);
+    if vPage = FImage.FPage then
+      Exit;
+
+    SetPage( vPage, Pointer(Mess.LParam) );
+    FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
   end;
 
 
@@ -1768,15 +1807,26 @@ interface
   end;
 
 
-  procedure TImageWindow.SetPage(aPage :Integer);
+  procedure TImageWindow.SetPage(aPage :Integer; ASize :PSize = nil);
+  var
+    vSize :TSize;
   begin
-    FImage.FPage := RangeLimit(aPage, 0, FImage.FPages);
-    FImage.DecodePage(Size(0,0));
-    FHiQual := True;
-    RecalcRects;
-    if not FAnimate then
-      SetTempMsg(Format('Page: %d / %d', [FImage.FPage + 1, FImage.FPages])); {!Localize}
-    Invalidate;
+    try
+      if ASize <> nil then
+        vSize := ASize^
+      else
+        vSize := Size(0, 0);
+      FImage.FPage := RangeLimit(aPage, 0, FImage.FPages);
+      FImage.DecodePage(vSize, False);
+      FHiQual := True;
+      RecalcRects;
+      if not FAnimate then
+        SetTempMsg(Format('Page: %d / %d', [FImage.FPage + 1, FImage.FPages])); {!Localize}
+      Invalidate;
+    except
+      FAnimate := False;
+      raise;
+    end;
   end;
 
 
@@ -2305,8 +2355,10 @@ interface
       FImage.CollectInfo;
 
       Add(strIName,   ExtractFileName(FImage.FName));
-      Add(strISize,   Int64ToStrEx(FImage.FSize));
-      Add(strITime,   DateTimeToStr(FileDateToDateTime(FImage.FTime)));
+      if FImage.FSize <> 0 then
+        Add(strISize,   Int64ToStrEx(FImage.FSize));
+      if FImage.FTime <> 0 then
+        Add(strITime,   DateTimeToStr(FileDateToDateTime(FImage.FTime)));
 
       Add1('', '');
 
@@ -2577,16 +2629,18 @@ interface
       FarAdvControl(ACTL_SYNCHRO, SyncCmdNextSlide);  { Вызов GoNextSlide в главном потоке }
     end;
 
-    {xxx}
     if (FImage <> nil) and (Fimage.FBitmap <> nil) then begin
       { Даем декодеру возможность улучшить качество изображения, если он сначала вернул эскиз }
       if AsyncDecode then begin
         RecalcRects;
         FHiQual := not FDraftMode;
+        if FImage.FDecodeError <> '' then
+          SetTempMsg(FImage.FDecodeError, False);
         Invalidate;
       end;
     end;
   end;
+
 
 
   function TImageWindow.AsyncDecode :Boolean;
@@ -2596,7 +2650,7 @@ interface
     if FImage.FAsyncTask <> nil then
       Result := FImage.CheckAsyncTask
     else begin
-      if optUseWinSize then begin
+      if FUseWinSize then begin
         vBestSize := Size(
           Round(FImage.FWidth * FloatMin(FScale, 1.0)),
           Round(FImage.FHeight * FloatMin(FScale, 1.0))
@@ -2608,11 +2662,11 @@ interface
       if FImage.FOrient in [5,6,7,8] then
         IntSwap(vBmpSize.cx, vBmpSize.cy);
 
-      if not FImage.FIsThumbnail and ((vBestSize.CX > vBmpSize.CX) or (vBestSize.CY > vBmpSize.CY)) then
-        if (FResizeStart = 0) or (vBestSize.CX <> FResizeSize.CX) or (vBestSize.CY <> FResizeSize.CY) then begin
+      if (vBestSize.CX <> FResizeSize.CX) or (vBestSize.CY <> FResizeSize.CY) then begin
+        if not FImage.FIsThumbnail and ((vBestSize.CX > vBmpSize.CX) or (vBestSize.CY > vBmpSize.CY)) then
           FResizeStart := GetTickCount;
-          FResizeSize := vBestSize;
-        end;
+        FResizeSize := vBestSize;
+      end;
 
       if (FResizeStart <> 0) and (TickCountDiff(GetTickCount, FResizeStart) > StretchDelay) then begin
         FResizeStart := 0;
@@ -2620,15 +2674,18 @@ interface
           FImage.SetAsyncTask(vBestSize);
       end;
 
-      if FImage.FIsThumbnail and (TickCountDiff(GetTickCount, FImage.FFirstShow) > ThumbDelay) and not ScrollKeyPressed then
+      if (FThumbStart <> 0) and (TickCountDiff(GetTickCount, FThumbStart) > ThumbDelay) and not ScrollKeyPressed then begin
         { Если в настоящий момент показывается эскиз (и не продолжается быстрое листание), то запускаем задание на декодирование, если еще нет }
-        FImage.SetAsyncTask(vBestSize);
+        FThumbStart := 0;
+        if FImage.FIsThumbnail then
+          FImage.SetAsyncTask(vBestSize);
+      end;
 
       Result := False;
     end;
   end;
 
-  
+
  {-----------------------------------------------------------------------------}
  { TReviewImage                                                                }
  {-----------------------------------------------------------------------------}
@@ -2645,11 +2702,7 @@ interface
   destructor TReviewImage.Destroy; {override;}
   begin
     CancelTask;
-    if FDecoder <> nil then begin
-      if FDecodeInfo <> nil then
-        FDecoder.pvdPageFree(Self);
-      FDecoder.pvdFileClose(Self);
-    end;
+    ReleaseSource;
     inherited Destroy;
   end;
 
@@ -2714,60 +2767,41 @@ interface
     if FInfoInited then
       Exit;
 
-    GetFileInfo(FName, FTime, FSize);
+    if not GetFileInfo(FName, FTime, FSize) then
+      { Файл был удален?... }
+      Exit;
 
-    if FAsyncTask <> nil then
+    if (FAsyncTask <> nil) or FIsThumbnail then
       { Пока идет декодирование в отдельном потоке - не запрашиваем Tag'и, }
       { это приведет либо к ошибке, либо к задержке... }
       Exit;
 
-    if FDecoder <> nil then begin
-      LocGetStr(PVD_Tag_Description, FTags.Description);
-      LocGetStr(PVD_Tag_Time,        FTags.Time);
-      LocGetStr(PVD_Tag_EquipMake,   FTags.EquipMake);
-      LocGetStr(PVD_Tag_EquipModel,  FTags.EquipModel);
-      LocGetStr(PVD_Tag_Software,    FTags.Software);
-      LocGetStr(PVD_Tag_Author,      FTags.Author);
-      LocGetStr(PVD_Tag_Copyright,   FTags.Copyright);
+    if LockSource then begin
+      try
+        LocGetStr(PVD_Tag_Description, FTags.Description);
+        LocGetStr(PVD_Tag_Time,        FTags.Time);
+        LocGetStr(PVD_Tag_EquipMake,   FTags.EquipMake);
+        LocGetStr(PVD_Tag_EquipModel,  FTags.EquipModel);
+        LocGetStr(PVD_Tag_Software,    FTags.Software);
+        LocGetStr(PVD_Tag_Author,      FTags.Author);
+        LocGetStr(PVD_Tag_Copyright,   FTags.Copyright);
 
-      LocGetInt64(PVD_Tag_ExposureTime, FTags.ExposureTime);
-      LocGetInt64(PVD_Tag_FNumber,      FTags.FNumber);
-      LocGetInt64(PVD_Tag_FocalLength,  FTags.FocalLength);
-      LocGetInt(PVD_Tag_ISO,            FTags.ISO);
-      LocGetInt(PVD_Tag_Flash,          FTags.Flash);
-      LocGetInt(PVD_Tag_XResolution,    FTags.XResolution);
-      LocGetInt(PVD_Tag_YResolution,    FTags.YResolution);
+        LocGetInt64(PVD_Tag_ExposureTime, FTags.ExposureTime);
+        LocGetInt64(PVD_Tag_FNumber,      FTags.FNumber);
+        LocGetInt64(PVD_Tag_FocalLength,  FTags.FocalLength);
+        LocGetInt(PVD_Tag_ISO,            FTags.ISO);
+        LocGetInt(PVD_Tag_Flash,          FTags.Flash);
+        LocGetInt(PVD_Tag_XResolution,    FTags.XResolution);
+        LocGetInt(PVD_Tag_YResolution,    FTags.YResolution);
 
-      vTime := YMDStrToDateTime(FTags.Time);
-      if vTime <> 0 then
-        FTags.Time := DateTimeToStr(vTime);
-    end;
+        vTime := YMDStrToDateTime(FTags.Time);
+        if vTime <> 0 then
+          FTags.Time := DateTimeToStr(vTime);
 
-    FInfoInited := True;
-  end;
+        FInfoInited := True;
 
-
-  function TReviewImage.TryOpenBy(ADecoder :TReviewDecoder; AForce :Boolean) :Boolean;
-  var
-    vStart :DWORD;
-  begin
-    Result := False;
-    if ADecoder.Enabled and (ADecoder.SupportedFile(FName) = not AForce) and ADecoder.CanWork(True) then begin
-//    TraceF('Try decoding by %s - %s...', [ADecoder.Name, FName]);
-
-      if (FCacheBuf = nil) and ADecoder.NeedPrecache then
-        if not PrecacheFile(FName) then
-          Exit;
-
-      vStart := GetTickCount;
-      FOpenTime := 0;
-      FContext := nil;
-      if ADecoder.pvdFileOpen(FName, Self) then begin
-        FOpenTime := TickCountDiff(GetTickCount, vStart);
-        FDecoder := ADecoder;
-        FPage := 0;
-        Result := True;
-        Exit;
+      finally
+        UnlockSource;
       end;
     end;
   end;
@@ -2799,7 +2833,34 @@ interface
   end;
 
 
-  procedure TReviewImage.DecodePage(ASize :TSize; AFastScroll :Boolean = False);
+  function TReviewImage.TryOpenBy(ADecoder :TReviewDecoder; AForce :Boolean) :Boolean;
+  var
+    vStart :DWORD;
+  begin
+    Result := False;
+    if ADecoder.Enabled and (ADecoder.SupportedFile(FName) = not AForce) and ADecoder.CanWork(True) then begin
+//    TraceF('Try decoding by %s - %s...', [ADecoder.Name, FName]);
+
+      if (FCacheBuf = nil) and ADecoder.NeedPrecache then
+        if not PrecacheFile(FName) then
+          Exit;
+
+      vStart := GetTickCount;
+      FOpenTime := 0;
+      FContext := nil;
+      if ADecoder.pvdFileOpen(FName, Self) then begin
+        FPage := 0;
+        FOpenTime := TickCountDiff(GetTickCount, vStart);
+        FDecoder := ADecoder;
+        FOpened := True;
+        Result := True;
+        Exit;
+      end;
+    end;
+  end;
+
+
+  procedure TReviewImage.DecodePage(ASize :TSize; AFirstOpen :Boolean; AFastScroll :Boolean = False);
 
     procedure LocDecodeError;
     begin
@@ -2810,61 +2871,83 @@ interface
     vStart :DWORD;
     vMode :TDecodeMode;
     vSize :TSize;
+    vWaitDelay :Integer;
   begin
-    vStart := GetTickCount;
-    FDecodeTime := 0;
+    if not LockSource then
+      AppErrorId(strFileLoadError);
+    try
+      vStart := GetTickCount;
+      FDecodeTime := 0;
 
-    if not FDecoder.pvdGetPageInfo(Self) then
-      LocDecodeError;
-    if not optRotateOnEXIF then
-      FOrient := 1;
+      if not FDecoder.pvdGetPageInfo(Self) then
+        LocDecodeError;
+      if AFirstOpen and optRotateOnEXIF then
+        FOrient := FOrient0;
 
-    if optUseWinSize then begin
-      if FOrient in [5,6,7,8] then
-        IntSwap(ASize.CX, ASize.CY);
-      vSize := Size(FWidth, FHeight);
-      CorrectBoundEx(vSize, ASize);
-    end else
-      vSize := Size(0, 0);
+      if optUseWinSize then begin
+        if FOrient in [5,6,7,8] then
+          IntSwap(ASize.CX, ASize.CY);
+        vSize := Size(FWidth, FHeight);
+        CorrectBoundEx(vSize, ASize);
+      end else
+        vSize := Size(0, 0);
 
-    { Декодируем... }
-    if optUseThumbnail = not (GetKeyState(VK_Shift) < 0) then
-      vMode := dmThumbnailOrImage
-    else
-      vMode := dmImage;
+      { Декодируем... }
+      if optUseThumbnail = not (GetKeyState(VK_Shift) < 0) then
+        vMode := dmThumbnailOrImage
+      else
+        vMode := dmImage;
 
-    if not FDecoder.pvdPageDecode(Self, vSize.CX, vSize.CY, vMode, Review.MyDecodeCallback, FDecoder) then
-      LocDecodeError;
-    if not optRotateOnEXIF then
-      FOrient := 1;
+      if not FDecoder.pvdPageDecode(Self, vSize.CX, vSize.CY, vMode, Review.MyDecodeCallback, FDecoder) then
+        LocDecodeError;
+      if AFirstOpen and optRotateOnEXIF then
+        FOrient := FOrient0;
 
-    FFirstShow := GetTickCount;
-    FDecodeTime := TickCountDiff(GetTickCount, vStart);
+      FDecodeTime := TickCountDiff(GetTickCount, vStart);
 
-    if not FSelfdraw then begin
-      try
-        { Формируем Bitmap  }
-        FreeObj(FBitmap);
-        FBitmap := TReviewBitmap.Create1(FDecoder.GetBitmapHandle(Self, FIsThumbnail), True);
-        if FOrient > 1 then
-          OrientBitmap(FOrient);
-      finally
-        FDecoder.pvdPageFree(Self);
+//    if (optShowInfo <> 0) and not AFastScroll then
+//      CollectInfo;
+
+      if not FSelfdraw then begin
+        try
+          { Формируем Bitmap  }
+          FreeObj(FBitmap);
+          FBitmap := TReviewBitmap.Create1(FDecoder.GetBitmapHandle(Self, FIsThumbnail), True);
+          if FOrient > 1 then
+            OrientBitmap(FOrient);
+        finally
+          FDecoder.pvdPageFree(Self);
+        end;
+
+        if FIsThumbnail and not AFastScroll then begin
+          SetAsyncTask(vSize);
+          vStart := GetTickCount;
+          FDecodeTime := 0;
+
+          vWaitDelay := 0;
+//        Trace('Image: %d', [FWidth * FHeight * 4 div (1024 * 1024)]);
+          if (FWidth * FHeight * 4 div (1024 * 1024)) < optBigImageLimit then
+            vWaitDelay := DecodeWaitDelay;
+
+          while not CheckAsyncTask and (TickCountDiff(GetTickCount, vStart) < vWaitDelay) do
+            Sleep(1);
+        end;
+
+        if (optShowInfo <> 0) and not FIsThumbnail then
+          CollectInfo;
       end;
 
-      if FIsThumbnail and not AFastScroll then begin
-        SetAsyncTask(vSize);
-        vStart := GetTickCount;
-        FDecodeTime := 0;
-        while not CheckAsyncTask and (TickCountDiff(GetTickCount, vStart) < DecodeWaitDelay) do
-          Sleep(1);
-      end;
+    finally
+      UnlockSource;
     end;
   end;
 
 
   procedure TReviewImage.SetAsyncTask(const ASize :TSize);
   begin
+    if not LockSource then
+      AppErrorId(strFileLoadError);
+
     InitRenderThread;
 //  TraceF('SetAsyncTask %s...', [ExtractFileName(FSrcName)]);
 
@@ -2891,10 +2974,15 @@ interface
           FDecodeTime := FAsyncTask.FDecodeTime;
           FIsThumbnail := False;
         end;
-//      FErrorMess := FAsyncTask.FError;
+        FDecodeError := FAsyncTask.FError;
         FAsyncTask.FThumb := 0;
         FAsyncTask._Release;
         FAsyncTask := nil;
+
+        if optShowInfo <> 0 then
+          CollectInfo;
+
+        UnlockSource;
         Result := True;
       end;
     end;
@@ -2909,6 +2997,7 @@ interface
       GRenderThread.CancelTask(FAsyncTask);
       FAsyncTask._Release;
       FAsyncTask := nil;
+      UnlockSource;
     end;
   end;
 
@@ -2927,6 +3016,52 @@ interface
         if FOrient > 1 then
           OrientBitmap(FOrient);
       end;
+    end;
+  end;
+
+
+  function TReviewImage.LockSource :Boolean;
+  begin
+    Result := False;
+    if not FOpened then begin
+      if (FCacheBuf = nil) and FDecoder.NeedPrecache then
+        if not PrecacheFile(FName) then
+          Exit;
+      FContext := nil;
+      if not FDecoder.pvdFileOpen(FName, Self) then
+        Exit;
+//    FPage := 0;
+      FOpened := True;
+    end;
+    InterlockedIncrement(FSrcLock);
+    Result := True;
+  end;
+
+
+  procedure TReviewImage.UnLockSource;
+  begin
+    InterlockedDecrement(FSrcLock);
+    if FSrcLock = 0 then
+      if optUnlockFile and CanReleaseSource then
+        ReleaseSource;
+  end;
+
+
+  function TReviewImage.CanReleaseSource :Boolean;
+  begin
+    Result := not (FAnimated or FMovie or FSelfPaint) and (FPages = 1);
+  end;
+
+
+  procedure TReviewImage.ReleaseSource;
+  begin
+    if FOpened then begin
+      if FDecodeInfo <> nil then
+        FDecoder.pvdPageFree(Self);
+      FDecoder.pvdFileClose(Self);
+      FContext := nil;
+      ReleaseCache;
+      FOpened := False;
     end;
   end;
 
@@ -3029,7 +3164,13 @@ interface
     vName :TString;
     vImage :TReviewImage;
     vFastScroll :Boolean;
+//  vTimer :DWORD;
   begin
+   {$ifdef bTrace}
+//  Trace('ShowImage...');
+//  vTimer := GetTickCount;
+   {$endif bTrace}
+
     Result := False;
     inc(GLockSync);
     try
@@ -3083,7 +3224,7 @@ interface
             CacheImage(CurImage);
 
         FCommand := GoCmdNone;
-        vImage.UpdateBitmap;
+//      vImage.UpdateBitmap;  ???
         DisplayImage(vImage, AMode, ADirect);
         CacheImage(vImage);
         Result := True;
@@ -3095,6 +3236,10 @@ interface
     finally
       Dec(GLockSync);
     end;
+
+   {$ifdef bTrace}
+//  Trace('ShowImage Done (%d)...', [TickCountDiff(GetTickCount, vTimer)]);
+   {$endif bTrace}
   end;
 
 
@@ -3310,8 +3455,8 @@ interface
   procedure TReviewManager.SyncDelayed(aCmd, aDelay :Integer);
   begin
     if FWindow <> nil then begin
-//    Trace('SyncWindowDelayed...');
-      SendMessage(FWindow.Handle, CM_Sync, aCmd, aDelay);
+//    SendMessage(FWindow.Handle, CM_Sync, aCmd, aDelay);
+      PostMessage(FWindow.Handle, CM_Sync, aCmd, aDelay);
     end;
   end;
 
@@ -3454,7 +3599,7 @@ interface
     vPath, vFileName :TString;
   begin
     if (FWindow <> nil) and FarGetPanelInfo(True, vInfo) and (vInfo.PanelType = PTYPE_FILEPANEL) and (PFLAGS_REALNAMES and vInfo.Flags <> 0) then begin
-//    TraceF('CacheNeighbor: %d', [Byte(ANext)]);
+//    Trace('CacheNeighbor: %d...', [Byte(ANext)]);
       try
         vPath := FarPanelGetCurrentDirectory;
         vIndex := vInfo.CurrentItem;
@@ -3579,7 +3724,7 @@ interface
     end;
 
     try
-      aImage.DecodePage(ASize, AFastScroll);
+      aImage.DecodePage(ASize, True, AFastScroll);
     finally
 //    WaitCursor(False);
 //    if FScreen <> 0 then
@@ -3825,9 +3970,13 @@ interface
 
 
   procedure TReviewManager.SetImagePage(aPage :Integer);
+  var
+    vSize :TSize;
   begin
-    if FWindow <> nil then
-      SendMessage(FWindow.Handle, CM_Transform, cmtSetPage, aPage);
+    if FWindow <> nil then begin
+      vSize := CalcWinSize;
+      SendMessage(FWindow.Handle, CM_SetPage, aPage, TIntPtr(@vSize));
+    end;
   end;
 
 
@@ -3854,12 +4003,24 @@ interface
     vImage :TReviewImage;
   begin
     Result := False;
-    if CurImage = nil then
+    vImage := CurImage;
+    if vImage = nil then
       Exit;
     try
+      if not vImage.CanReleaseSource then
+        AppErrorId(strSaveFormatError);
+
+//    vImage.ReleaseSource;
+
+
+
       SetTempMsg(GetMsg(strSave));
-      vImage := CurImage;
-      Result := vImage.Decoder.Save(vImage, ANewName, AFmtName, aOrient, aQuality, aOptions);
+
+      if aOrient = 0 then
+        aOrient := vImage.Orient;
+
+      Result := GDISaveAs(vImage.Name, ANewName, AFmtName, aOrient, aQuality, aOptions);
+
       if Result then begin
         ClearCache;
         ShowImage(ANewName, -1);
@@ -4241,6 +4402,14 @@ interface
       Review.InvalidateImage;
     end;
 
+    procedure LocSwitchWinSize;
+    begin
+      optUseWinSize := not optUseWinSize;
+//    Review.InvalidateImage;
+      Review.Redecode(rmSame, False);
+      Review.SetTempMsg('Decode to screen size: ' + StrIf(optUseWinSize, 'On', 'Off'));  {!Localize}
+    end;
+
     procedure LocSwitchSmooth;
     begin
       optSmoothScale := not optSmoothScale;
@@ -4281,7 +4450,7 @@ interface
         if FarGetPanelInfo(True, vInfo) then begin
           vIndex := vInfo.CurrentItem;
           vSelected := (AMode = 1) or ((AMode = -1) and not vSelected);
-          FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, Pointer(IntIf(vSelected, PPIF_SELECTED, 0) ));
+          FARAPI.Control(PANEL_ACTIVE, FCTL_SETSELECTION, vIndex, Pointer( TIntPtr(IntIf(vSelected, PPIF_SELECTED, 0)) ));
           vImage.FSelected := -1;
           FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
          {$ifdef bThumbs}
@@ -4479,6 +4648,7 @@ interface
         KEY_CtrlB, Byte('b') : LocSwitchBack;
         KEY_CtrlT, Byte('t') : LocSwitchTile;
         KEY_CtrlQ, Byte('q') : LocSwitchSmooth;
+        KEY_CtrlW, Byte('w') : LocSwitchWinSize;
         KEY_AltQ             : LocSwitchSmoothMode;
         KEY_ALT0..KEY_ALT7   : LocSetSmoothMode(AKey - KEY_ALT0);
 

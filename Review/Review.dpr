@@ -2,7 +2,7 @@
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
- {$ImageBase $41100000}
+ {$ImageBase $41100000}  
 {$endif Debug}
 
 library Review;

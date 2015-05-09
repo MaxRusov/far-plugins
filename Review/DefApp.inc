@@ -5,6 +5,7 @@
 
 {$Define bThumbs}
 {-$Define bXPSupport}
-{$Define bSafeScroll}
+
+{$Define bUseLibJPEG}
 
 {------------------------------------------------------------------------------}

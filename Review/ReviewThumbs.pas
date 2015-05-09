@@ -1089,10 +1089,10 @@ interface
     if vHBitmap <> 0 then begin
       FBitmap := TReviewBitmap.Create1(vHBitmap, True);
 
-      if optThumbAutoRotate and (FOrient > 1) then
-        OrientBitmap(FOrient)
-      else
-        FOrient := 1;
+      if optThumbAutoRotate and (FOrient0 > 1) then begin
+        FOrient := FOrient0;
+        OrientBitmap(FOrient);
+      end;
     end;
   end;
 
