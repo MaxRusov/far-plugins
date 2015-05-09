@@ -129,7 +129,8 @@ interface
       if TFldMenuDlg(FOwner).DlgItemFlag(vRow) and 2 <> 0 then
         vStr := vHist.GetDomain;
 
-      if TFldHistoryEntry(vHist).GetMode = 1 then
+//    if TFldHistoryEntry(vHist).GetMode = 1 then
+      if IsFullFilePath(TFldHistoryEntry(vHist).Path) then
         AItem.AddStringInfo(GetMsgStr(strHintPath), vStr)
       else
       if UpCompareSubStr('FTP:', vHist.Path) = 0 then begin
@@ -152,8 +153,10 @@ interface
           AItem.AddStringInfo(GetMsgStr(strHintPath), vStr);
       end;
 
-      AItem.AddDateInfo(GetMsgStr(strHintLastVisited), vHist.Time);
-      AItem.AddIntInfo(GetMsgStr(strHintVisitCount), TFldHistoryEntry(vHist).Hits);
+      AItem.AddDateInfo(GetMsgStr(strHintAccessTime), vHist.Time);
+      if TFldHistoryEntry(vHist).ActTime <> 0 then
+        AItem.AddDateInfo(GetMsgStr(strHintActionTime), TFldHistoryEntry(vHist).ActTime);
+//    AItem.AddIntInfo(GetMsgStr(strHintActionCount), TFldHistoryEntry(vHist).Hits);
 
       Result := True;
     end else

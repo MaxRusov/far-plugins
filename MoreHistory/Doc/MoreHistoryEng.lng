@@ -9,6 +9,7 @@
 "Cancel"
 
 "&Folders history"
+"&Active folders history"
 "&View/Edit history"
 "&Modify history"
 "&Command History"
@@ -17,6 +18,7 @@
 "&Options..."
 
 "Folders History"
+"Active Folders History"
 "View/Edit History"
 "Modify History"
 "Command History"
@@ -38,8 +40,10 @@
 "Path"
 "FTP"
 "Prefix"
-"Last Visited"
-"Visit Count"
+"Access time"
+"Action time"
+"Access count"
+"Action count"
 
 "File"
 "Folder"
@@ -61,15 +65,18 @@
 "O&ptions              F9"
 
 "Options"
-"Show &Hidden    Ctrl-H"
-"&Group By...    Ctrl-G"
-"Separate &name  Ctrl-N"
+"&Group By         Ctrl-G"
+"Show &unavailable Ctrl-H"
+"Show &viewed      Ctrl-V"
+"Separate &name    Ctrl-N"
 
 "&Full path      Ctrl-1"
 "&Access Time    Ctrl-2"
 "Hit &Count      Ctrl-3"
 "Open &Count     Ctrl-3"
+"Action &Time    Ctrl-4"
 "&Modify Time    Ctrl-4"
+"A&ction Count   Ctrl-5"
 "Sa&ve Count     Ctrl-5"
 "&Sort By...     Ctrl-F12"
 
@@ -86,13 +93,16 @@
 "&3 Group count color"
 "&4 Quick filter"
 "&5 Selected color"
+"&6 Unavailable color"
 "&Restore Defaults"
 
 "Sort By"
 "&Name          Ctrl-F1"
 "&Access Time   Ctrl-F2"
 "&Hit count     Ctrl-F3"
+"A&ction Time   Ctrl-F4"
 "&Modify Time   Ctrl-F4"
+"Action &Count  Ctrl-F5"
 "&Save Count    Ctrl-F5"
 "&Unsorted      Ctrl-F11"
 
@@ -106,12 +116,16 @@
 "&Maximum history length:"
 "&Hide current folder in folder history"
 "&Case sensitive command history"
-" Visualization options "
-"&Wrap Mode"
+"&Exclude files from command history"
+
+"Wrap M&ode"
 "&Follow Mouse"
 "&Show Hints"
-"&Auto XLat mask"
-"&Remember last mask"
+"Highlight &unavailable"
+
+"Filter by &word"
+"&Auto XLat filter"
+"&Remember last filter"
 "M&idnight hour:"
 "Valid range is: %d - %d"
 
@@ -130,6 +144,7 @@
 "Later in this year"
 "Past years"
 "In the future"
+"Never"
 
 "day%s ago"
 "day%s forward"

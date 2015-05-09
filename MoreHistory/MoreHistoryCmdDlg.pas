@@ -66,7 +66,8 @@ interface
     FCmdLastFilter :TString;
 
 
-  procedure OpenCmdHistoryDlg(const ACaption, AModeName :TString; const AFilter :TString);
+  procedure OpenCmdHistoryDlg1(const ACaption, AModeName :TString; const AFilter :TString = '';
+    AGroupMode :Integer = MaxInt; ASortMode :Integer = MaxInt; AShowHidden :Integer = MaxInt);
 
 
 {******************************************************************************}
@@ -147,11 +148,23 @@ interface
 
 
   function TCmdMenuDlg.GetEntryStr(AItem :THistoryEntry; AColTag :Integer) :TString; {override;}
+
+    function LocGetBaseTime :TDateTime;
+    begin
+      Result := Date;
+      if optHierarchical then
+        case Abs(optSortMode) of
+          0, 2 : Result := GetBaseTime(AItem.Time);
+        end;
+    end;
+
   begin
-    if AColTag = 3 then
-      Result := Int2Str((AItem as TCmdHistoryEntry).Hits)
+    case AColTag of
+      2: Result := Date2StrBase(AItem.Time, optDateFormat, LocGetBaseTime);
+      3: Result := Int2Str((AItem as TCmdHistoryEntry).Hits)
     else
       Result := inherited GetEntryStr(AItem, AColTag);
+    end;
   end;
 
  {-----------------------------------------------------------------------------}
@@ -197,7 +210,7 @@ interface
       GetMsg(strOptionsTitle1),
     [
       GetMsg(strMGroupBy),
-      GetMsg(strMShowHidden),
+      GetMsg(strMShowUnavail),
       '',
       GetMsg(strMAccessTime),
       GetMsg(strMHitCount),
@@ -208,7 +221,7 @@ interface
       while True do begin
         vMenu.Checked[0] := optHierarchical;
         
-        vMenu.Checked[1] := optShowHidden;
+        vMenu.Checked[1] := optShowUnavail;
         vMenu.Visible[1] := False;
 
         vMenu.Checked[3] := optShowDate;
@@ -220,8 +233,8 @@ interface
           Exit;
 
         case vMenu.ResIdx of
-          0 : ChangeHierarchMode;
-          1 : ToggleOption(optShowHidden);
+          0 : ToggleOption(optHierarchical); 
+          1 : ToggleOption(optShowUnavail);
 
           3 : ToggleOption(optShowDate);
           4 : ToggleOption(optShowHits);
@@ -303,9 +316,33 @@ interface
 
 
   function TCmdMenuDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
+(*
+    procedure LocShellOpen;
+    var
+      vItem :THistoryEntry;
+      vFlags :Byte;
+    begin
+      vItem := GetHistoryEntry(FGrid.CurRow);
+      if vItem <> nil then begin
+
+        vFlags := DlgItemFlag(FGrid.CurRow);
+        if vFlags and 2 <> 0 then
+          Exit;
+
+        {???}
+        ShellOpen('cmd', '/p ' + vItem.Path);
+
+      end else
+        Beep;
+    end;
+*)
   begin
     Result := True;
     case AKey of
+      KEY_SHIFTENTER, KEY_SHIFT + KEY_NUMENTER:
+//      LocShellOpen;
+        SelectItem(4);
+
       KEY_F2:
         CommandsMenu;
       KEY_F9:
@@ -334,7 +371,7 @@ interface
     vMenuLock :Integer;
 
 
-  procedure ApplyCmd(const ACmd :TString);
+  procedure ApplyCmd(const ACmd :TString; AnotherWindow :Boolean = False);
   var
     vWinInfo :TWindowInfo;
   begin
@@ -342,7 +379,7 @@ interface
     if vWinInfo.WindowType = WTYPE_PANELS then begin
       FARAPI.Control(INVALID_HANDLE_VALUE, FCTL_SETCMDLINE, 0, PFarChar(ACmd));
 //    FarPostMacro('history.enable(1); Enter', 0);
-      FarPostMacro(KeyMacro('Enter'), 0);
+      FarPostMacro(FarKeyToMacro(StrIf(AnotherWindow, 'ShiftEnter', 'Enter')), 0);
     end else
       Beep;
   end;
@@ -373,12 +410,13 @@ interface
       vPath := ExtractWord(1, vPath, [' ']);
     vPath := FarExpandFileName(vPath);
     if WinFileExists(vPath) or WinFolderExists(vPath) then
-      JumpToPath(ExtractFilePath(vPath), ExtractFileName(vPath), False);
+      JumpToPath(RemoveBackSlash(ExtractFilePath(vPath)), ExtractFileName(vPath), False);
   end;
 
 
 
-  procedure OpenCmdHistoryDlg(const ACaption, AModeName :TString; const AFilter :TString);
+  procedure OpenCmdHistoryDlg1(const ACaption, AModeName :TString; const AFilter :TString = '';
+    AGroupMode :Integer = MaxInt; ASortMode :Integer = MaxInt; AShowHidden :Integer = MaxInt);
   var
     vDlg :TCmdMenuDlg;
     vFinish :Boolean;
@@ -387,14 +425,10 @@ interface
     if vMenuLock > 0 then
       Exit;
 
-    CmdHistory.LoadModifiedHistory;
-    CmdHistory.UpdateHistory;
-
-    optShowHidden := False;
+    optShowUnavail  := True;
     optSeparateName := False;
     optShowFullPath := True;
     optHierarchical := True;
-    optHierarchyMode := hmDate;
     optShowDate := True;
     optShowHits := False;
     optSortMode := 0;
@@ -403,33 +437,55 @@ interface
 
     Inc(vMenuLock);
     CmdHistory.LockHistory;
-    vDlg := TCmdMenuDlg.Create;
     try
-      vDlg.FCaption := ACaption;
-      vDlg.FHistory := CmdHistory;
-      vDlg.FModeName := AModeName;
+      CmdHistory.LoadModifiedHistory;
+      CmdHistory.UpdateHistory;
 
-      vFilter := AFilter;
-      if (vFilter = '') and optSaveMask then
-        vFilter := FCmdLastFilter;
-      vDlg.SetFilter(vFilter);
+      vDlg := TCmdMenuDlg.Create;
+      try
+        vDlg.FCaption := ACaption;
+        vDlg.FHistory := CmdHistory;
+        vDlg.FModeName := AModeName;
 
-      vFinish := False;
-      while not vFinish do begin
-        if vDlg.Run = -1 then
-          Exit;
+        vFilter := AFilter;
+        if (vFilter = '') and optSaveMask then
+          vFilter := FCmdLastFilter;
+        if vFilter = #0 then
+          vFilter := '';
+        vDlg.SetFilter(vFilter);
 
-        case vDlg.FResCmd of
-          1: ApplyCmd(vDlg.FResStr);
-          2: InsertCmd(vDlg.FResStr);
-          3: TryJumpToPath(vDlg.FResStr);
+        if AGroupMode <> MaxInt then begin
+          optHierarchical := AGroupMode in [1..3];
+  (*      if optHierarchical then
+            optHierarchyMode := THierarchyMode(AGroupMode - 1);  *)
         end;
-        vFinish := True;
+
+        if ASortMode <> MaxInt then
+          optSortMode := ASortMode;
+
+  (*    if AShowHidden <> MaxInt then
+          optShowHidden := AShowHidden <> 0;  *)
+
+        vFinish := False;
+        while not vFinish do begin
+          if vDlg.Run = -1 then
+            Exit;
+
+          case vDlg.FResCmd of
+            1: ApplyCmd(vDlg.FResStr);
+            2: InsertCmd(vDlg.FResStr);
+            3: TryJumpToPath(vDlg.FResStr);
+            4: ApplyCmd(vDlg.FResStr, True);
+          end;
+          vFinish := True;
+        end;
+
+      finally
+        FCmdLastFilter := vDlg.GetFilter;
+        FreeObj(vDlg);
       end;
 
     finally
-      FCmdLastFilter := vDlg.GetFilter;
-      FreeObj(vDlg);
       CmdHistory.UnlockHistory;
       Dec(vMenuLock);
     end;

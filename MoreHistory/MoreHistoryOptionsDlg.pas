@@ -58,23 +58,26 @@ interface
 
     IdHideCurrent     =  3;
     IdCaseSensCmdHist =  4;
+    IdCmdExcludeFile  =  5;
 
     IdWrapMode        =  6;
     IdFollowMouse     =  7;
     IdShowHints       =  8;
+    IdHilightUnavail  =  9;
 
-    IdXLatMask        =  9;
-    IdSaveMask        = 10;
+    IdFindWordBeg     = 10;
+    IdXLatMask        = 11;
+    IdSaveMask        = 12;
 
-    IdMidnightHour    = 12;
+    IdMidnightHour    = 14;
 
-    IdCancel          = 15;
+    IdCancel          = 17;
 
 
   procedure TOptionsDlg.Prepare; {override;}
   const
     DX = 72;
-    DY = 17;
+    DY = 18;
   var
     vPrompt1, vPrompt2 :PTChar;
     X2 :Integer;
@@ -95,20 +98,23 @@ interface
         NewItemApi(DI_Text,      5,  2,   strlen(vPrompt1), -1,     0, PTChar(vPrompt1) ),
         NewItemApi(DI_FixEdit,   5 + strlen(vPrompt1), 2,   5, -1,  0),
 
-        NewItemApi(DI_CHECKBOX,  5,  4,  -1, -1,  0, GetMsg(strMHideCurrent)),
-        NewItemApi(DI_CHECKBOX,  5,  5,  -1, -1,  0, GetMsg(strCaseSensitiveCommands)),
+        NewItemApi(DI_CHECKBOX,  5,  4,  -1, -1,  0, GetMsg(strHideCurrent)),
+        NewItemApi(DI_CHECKBOX,  5,  5,  -1, -1,  0, GetMsg(strCaseSensCmdHist)),
+        NewItemApi(DI_CHECKBOX,  5,  6,  -1, -1,  0, GetMsg(strExcludeFilesCmdHist)),
 
-        NewItemApi(DI_Text,      0,  7,  -1, -1, DIF_SEPARATOR, GetMsg(strVisualizationOptions)),
+//      NewItemApi(DI_Text,     -1,  7,  -1, -1, DIF_SEPARATOR, '' {GetMsg(strVisualizationOptions)} ),
 
         NewItemApi(DI_CHECKBOX,  5,  8,  -1, -1,  0, GetMsg(strWrapMode)),
         NewItemApi(DI_CHECKBOX,  5,  9,  -1, -1,  0, GetMsg(strFollowMouse)),
         NewItemApi(DI_CHECKBOX,  5, 10,  -1, -1,  0, GetMsg(strShowHints)),
+        NewItemApi(DI_CHECKBOX,  5, 11,  -1, -1,  0, GetMsg(strHighlightUnavail)),
 
-        NewItemApi(DI_CHECKBOX,  X2, 8,  -1, -1,  0, GetMsg(strAutoXLatMask)),
-        NewItemApi(DI_CHECKBOX,  X2, 9,  -1, -1,  0, GetMsg(strRememberLastMask)),
+        NewItemApi(DI_CHECKBOX,  X2, 8,  -1, -1,  0, GetMsg(strFilterByWord)),
+        NewItemApi(DI_CHECKBOX,  X2, 9,  -1, -1,  0, GetMsg(strAutoXLatMask)),
+        NewItemApi(DI_CHECKBOX,  X2,10,  -1, -1,  0, GetMsg(strRememberLastMask)),
 
-        NewItemApi(DI_Text,      5, 12,   strlen(vPrompt2), -1,   0, PTChar(vPrompt2) ),
-        NewItemApi(DI_FixEdit,   5 + strlen(vPrompt2),  12,   3,  -1,  0),
+        NewItemApi(DI_Text,      5, 13,   strlen(vPrompt2), -1,   0, PTChar(vPrompt2) ),
+        NewItemApi(DI_FixEdit,   5 + strlen(vPrompt2),  13,   3,  -1,  0),
 
         NewItemApi(DI_Text,      0, DY-4, -1, -1, DIF_SEPARATOR),
         NewItemApi(DI_DefButton, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strOk) ),
@@ -117,18 +123,24 @@ interface
     );
   end;
 
+
   procedure TOptionsDlg.InitDialog; {override;}
   begin
     SetText(IdHistLimit, Int2Str(optHistoryLimit));
     SetText(IdMidnightHour, Int2Str(optMidnightHour));
 
+    SetChecked(IdHideCurrent, optHideCurrent);
+    SetChecked(IdCaseSensCmdHist, optCaseSensCmdHist = 1);
+    SetChecked(IdCmdExcludeFile, optCmdExcludeFile);
+
+    SetChecked(IdHilightUnavail, optHilightUnavail);
     SetChecked(IdShowHints, optShowHints);
     SetChecked(IdWrapMode, optWrapMode);
     SetChecked(IdFollowMouse, optFollowMouse);
+
+    SetChecked(IdFindWordBeg, optMaskByWord);
     SetChecked(IdXLatMask, optXLatMask);
     SetChecked(IdSaveMask, optSaveMask);
-    SetChecked(IdHideCurrent, optHideCurrent);
-    SetChecked(IdCaseSensCmdHist, optCaseSensCmdHist = 1);
   end;
 
 
@@ -153,13 +165,18 @@ interface
       optHistoryLimit := vLimit;
       optMidnightHour := vHour;
 
+      optHideCurrent := GetChecked(IdHideCurrent);
+      optCaseSensCmdHist := IntIf(GetChecked(IdCaseSensCmdHist), 1, 0);
+      optCmdExcludeFile := GetChecked(IdCmdExcludeFile);
+
+      optHilightUnavail := GetChecked(IdHilightUnavail);
       optShowHints := GetChecked(IdShowHints);
       optWrapMode := GetChecked(IdWrapMode);
       optFollowMouse := GetChecked(IdFollowMouse);
+
+      optMaskByWord := GetChecked(IdFindWordBeg);
       optXLatMask := GetChecked(IdXLatMask);
       optSaveMask := GetChecked(IdSaveMask);
-      optHideCurrent := GetChecked(IdHideCurrent);
-      optCaseSensCmdHist := IntIf(GetChecked(IdCaseSensCmdHist), 1, 0);
     end;
     Result := True;
   end;
