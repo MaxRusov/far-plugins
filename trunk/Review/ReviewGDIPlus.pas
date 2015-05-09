@@ -14,6 +14,7 @@ interface
   uses
     Windows,
     ActiveX,
+
     MixTypes,
     MixUtils,
     MixStrings,
@@ -37,6 +38,79 @@ interface
 
 
   type
+    PDelays = ^TDelays;
+    TDelays = array[0..MaxInt div SizeOf(Integer) - 1] of Integer;
+
+
+    TGPImageEx = class(TGPImage)
+//  TGPImageEx = class(TGPBitmap)
+    public
+      function _AddRef :Integer;
+      function _Release :Integer;
+
+      function GetImageSize :TSize;
+
+      function Clone :TGPImageEx;
+
+    private
+      FRefCount :Integer;
+    end;
+
+
+    TGPView = class(TBasis)
+    public
+      class function CreateView(const AName :TString; ABuf :Pointer; ABufSize :Integer) :TGPView; 
+
+      constructor Create; override;
+      destructor Destroy; override;
+      procedure SetSrcImage(AImage :TGPImageEx);
+      procedure ReleaseSrcImage;
+      procedure SetFrame(AIndex :Integer);
+
+      function _AddRef :Integer;
+      function _Release :Integer;
+
+      function InitThumbnail(ADX, ADY :Integer) :Boolean;
+      procedure DecodeImage(ADX, ADY :Integer; const ACallback :TDecodeCallback; ACallbackData :Pointer); virtual;
+
+    protected
+      FRefCount    :Integer;
+
+      FSrcName     :TString;      { Имя файла }
+      FSrcBuf      :Pointer;      { Буфер файла, может быть nil, если файл слишком большой ( > cPreCacheLimit = 128 M ) }
+      FSrcSize     :Integer;
+      FSrcImage    :TGPImageEx;   { Исходное изображение }
+      FOrient0     :Integer;      { Исходная ориентация }
+      FImgSize0    :TSize;        { Исходный размер картинки (текущей страницы) }
+      FImgSize     :TSize;        { Размер картинки с учетом ориентации }
+      FPixels      :Integer;      { Цветность (BPP) }
+      FFmtID       :TGUID;
+      FFmtName     :TString;
+      FHasAlpha    :Boolean;      { Полупрозрачное изображение }
+      FDirectDraw  :Boolean;      { Анимированное изображение, не используем preview'шки }
+      FBkColor     :Integer;
+
+      FThumbBMP    :HBitmap;      { Изображение, буферизированное как Bitmap }
+      FThumbSize   :TSize;        { Размер Preview'шки }
+      FIsThumbnail :Boolean;      { Это превью (thumbnail) }
+
+      { Для поддержки анимированных изображений... }
+      FFrames      :Integer;
+      FFrame       :Integer;
+      FDelCount    :Integer;
+      FDelays      :PPropertyItem;
+      FDimID       :TGUID;
+
+      { Для поддержки Tag-ов }
+      FStrTag      :TString;
+      FInt64Tag    :Int64;
+
+      procedure InitImageInfo;
+      procedure SetThumbnail(AThumb :HBitmap);
+      function TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
+    end;
+
+
     TReviewGDIDecoder = class(TReviewDecoder)
     public
       constructor Create; override;
@@ -46,6 +120,7 @@ interface
       procedure ResetSettings; override;
       function GetState :TDecoderState; override;
       function CanWork(aLoad :Boolean) :boolean; override;
+      function CreateView(const AFileName :TString; ABuf :Pointer; ABufSize :Integer) :TGPView; virtual;
 
       { Функции декодирования }
       function pvdFileOpen(const AFileName :TString; AImage :TReviewImageRec) :Boolean; override;
@@ -59,9 +134,10 @@ interface
 
       { Эксклюзивные функции }
       function GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; override;
-      function Save(AImage :TReviewImageRec; const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean; override;
     end;
 
+
+  function GDISaveAs({const} AFileName, ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean;
 
   function TryLockGDIPlus :Boolean;
   procedure LockGDIPlus;
@@ -75,18 +151,10 @@ interface
   uses
     MixDebug;
 
+
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
-
-  const
-    strFileNotFound       = 'File not found: %s';
-    strNoEncoderFor       = 'No encoder for %s';
-    strReadImageError     = 'Read image error';
-    strLossyRotation      = 'Rotation is a lossy. Ctrl+F2 to confirm.';
-    strCantSaveFrames     = 'Can''t save mutliframe image';
-
-
 
   procedure RotateImage(AImage :TGPImage; AOrient :Integer);
   begin
@@ -105,25 +173,18 @@ interface
   end;
 
 
+  procedure WinDeleteObject(var AHandle :HGDIOBJ);
+  begin
+    if AHandle <> 0 then begin
+      DeleteObject(AHandle);
+      AHandle := 0;
+    end;
+  end;
+
+
  {-----------------------------------------------------------------------------}
  { TGPImageEx                                                                  }
  {-----------------------------------------------------------------------------}
-
-  type
-    TGPImageEx = class(TGPImage)
-//  TGPImageEx = class(TGPBitmap)
-    public
-      function _AddRef :Integer;
-      function _Release :Integer;
-
-      function GetImageSize :TSize;
-
-      function Clone :TGPImageEx;
-
-    private
-      FRefCount :Integer;
-    end;
-
 
   function TGPImageEx._AddRef :Integer;
   begin
@@ -181,62 +242,202 @@ interface
   end;
 
 
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
 
-(*
-  function GDIRender(const AName :TString; AImage :TGPImageEx; const ASize :TSize; ACallback :Pointer = nil; ACallbackData :Pointer = nil) :TMemDC;
+  function GetUniqName(const aName, aExt :TString) :TString;
   var
-    vThumb    :TMemDC;
-    vGraphics :TGPGraphics;
-//  vDimID    :TGUID;
+    I :Integer;
   begin
-    vThumb := nil;
+    I := 0;
+    Result := ChangeFileExtension(aName, aExt);
+    while WinFileExists(Result) do begin
+      Inc(I);
+      Result := ChangeFileExtension(aName, aExt + Int2Str(I));
+    end;
+  end;
+
+
+  function SetFileTimeName(const aName :TString; aAge :Integer {const aTime :TFileTime}) :Boolean;
+  var
+    vHandle :THandle;
+  begin
+    Result := False;
+    vHandle := FileOpen(aName, fmOpenWrite);
+//  vHandle := CreateFile(PTChar(aName), FILE_WRITE_ATTRIBUTES,  0, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    if vHandle = INVALID_HANDLE_VALUE then
+      Exit;
+//  Result := SetFileTime(vHandle, nil, nil, @aTime);
+    Result := FileSetDate(vHandle, aAge);
+    FileClose(vHandle);
+  end;
+
+
+  function GDISaveAs({const} AFileName, ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean;
+  const
+    cTransform :array[0..8] of EncoderValue =
+    (
+      EncoderValue(0),
+      EncoderValue(0),
+      EncoderValueTransformFlipHorizontal,
+      EncoderValueTransformRotate180,
+      EncoderValueTransformFlipVertical,
+      EncoderValueTransformRotate270,  {!!!}
+      EncoderValueTransformRotate90,
+      EncoderValueTransformRotate90, {!!!}
+      EncoderValueTransformRotate270
+    );
+  var
+    vImage :TGPImageEx;
+    vMimeType, vTmpName, vBakName :TString;
+    vFmtID, vEncoderID :TGUID;
+    vTransf :TEncoderValue;
+    vParams :EncoderParameters;
+    vPParams :PEncoderParameters;
+    vOrient :Integer;
+    vSrcDate :Integer;
+  begin
+    Result := False;
+
+    vTmpName := '';
     try
-//    if ATask.FFrame > 0 then begin
-//      FillChar(vDimID, SizeOf(vDimID), 0);
-//      if vImage.GetFrameDimensionsList(@vDimID, 1) = Ok then
-//        vImage.SelectActiveFrame(vDimID, ATask.FFrame);
-//    end;
-
-      vThumb := TMemDC.Create(ASize.CX, ASize.CY);
-
-//    GradientFillRect(vThumb.FDC, Rect(0, 0, vSize.CX, vSize.CY), RandomColor, RandomColor, True);
-//    if ATask.FBackColor <> -1 then
-//      GradientFillRect(vThumb.DC, Rect(0, 0, vSize.CX, vSize.CY), ATask.FBackColor, ATask.FBackColor, True);
-
-      vGraphics := TGPGraphics.Create(vThumb.DC);
+      vImage := nil;
+      LockGDIPlus;
       try
-        GDICheck(vGraphics.GetLastStatus);
-//      vGraphics.SetCompositingMode(CompositingModeSourceCopy);
-//      vGraphics.SetCompositingQuality(CompositingQualityHighSpeed);
-//      vGraphics.SetSmoothingMode(SmoothingModeHighQuality);
+        vImage := TGPImageEx.Create(AFileName);
+//      GDICheck( vImage.GetLastStatus );
+        if vImage.GetLastStatus <> Ok then
+          AppErrorId(strSaveFormatError);
 
-//      if ATask.FFrame > 0 then
-//        vGraphics.SetInterpolationMode(InterpolationModeHighQuality);  ???
+        vImage.GetRawFormat(vFmtID);
+
+        if AFmtName = '' then
+          AFmtName := GetImgFmtName(vFmtID)
+        else
+        if ANewName = '' then
+          ANewName := ChangeFileExtension(AFileName, AFmtName);
+        if ANewName = '' then
+          ANewName := AFileName;
+
+        if GetFrameCount(vImage, nil, nil, nil) > 1 then
+          AppErrorId(strSaveFormatError);
+
+        vMimeType := 'image/' + StrLoCase(AFmtName);
+        if GetEncoderClsid(vMimeType, vEncoderID) = -1 then
+//        AppErrorFmt(strNoEncoderFor, [AFmtName]);
+          AppErrorId(strSaveFormatError);
+
+        vOrient := 0;
+        if not GetTagValueAsInt(vImage, PropertyTagOrientation, vOrient) or (vOrient < 1) or (vOrient > 8) then
+          vOrient := 0;
+
+        vParams.Count := 0;
+
+        if aQuality <> 0 then begin
+          with vParams.Parameter[vParams.Count] do begin
+            Guid := EncoderQuality;
+            Type_ := EncoderParameterValueTypeLong;
+            NumberOfValues := 1;
+            Value := @aQuality;
+          end;
+          Inc(vParams.Count);
+        end;
+
+        if (soExifRotation in aOptions) and (StrEqual(AFmtName, 'jpeg') or StrEqual(AFmtName, 'tiff')) then begin
+
+          { Поворот путем коррекции EXIF заголовка - loseless }
+          if aOrient <> vOrient then
+            SetTagValueInt(vImage, PropertyTagOrientation, aOrient);
+
+        end else
+        if (soTransformation in aOptions) then begin
+
+          if StrEqual(AFmtName, 'jpeg') then begin
+            { Поворт путем трансформации - может приводить к потерям... }
+
+            vTransf := cTransform[aOrient];
+            if vTransf <> EncoderValue(0) then begin
+              if (((vImage.GetWidth mod 16) <> 0) or ((vImage.GetHeight mod 16) <> 0)) and not (soEnableLossy in aOptions) then
+                AppErrorId(strSaveLossyPrompt);
+
+              with vParams.Parameter[vParams.Count] do begin
+                Guid := EncoderTransformation;
+                Type_ := EncoderParameterValueTypeLong;
+                NumberOfValues := 1;
+                Value := @vTransf;
+              end;
+              Inc(vParams.Count);
+            end;
+
+          end else
+          begin
+            RotateImage(vImage, aOrient);
+            GDICheck(vImage.GetLastStatus);
+          end;
+
+          if (vOrient <> 0) and (vOrient <> 1) then
+            SetTagValueInt(vImage, PropertyTagOrientation, 1);
+        end else
+          Exit;
+
+        vTmpName := GetUniqName(ANewName, '$$$');
+
+        vPParams := nil;
+        if vParams.Count > 0 then
+          vPParams := Pointer(@vParams);
 
        {$ifdef bTrace}
-        TraceBegF('Render %s, %d x %d (%d M)...', [AName, ASize.CX, ASize.CY, (ASize.CX * ASize.CY * 4) div (1024 * 1024)]);
+        TraceBegF('Save %s...', [vTmpName]);
        {$endif bTrace}
 
-        vGraphics.DrawImage(AImage, MakeRect(0, 0, ASize.CX, ASize.CY), 0, 0, AImage.GetWidth, AImage.GetHeight, UnitPixel, nil, ACallback, ACallbackData);
-        GDICheck(vGraphics.GetLastStatus);
+        vImage.Save(vTmpName, vEncoderID, vPParams);
+        GDICheck(vImage.GetLastStatus);
 
        {$ifdef bTrace}
         TraceEnd('  Ready');
        {$endif bTrace}
 
       finally
-        FreeObj(vGraphics);
+        FreeObj(vImage);
+        UnLockGDIPlus;
       end;
 
-      Result := vThumb;
-      vThumb := nil;
+      vSrcDate := 0;
+      if optKeepDateOnSave {soKeepDate in aOptions} then
+        vSrcDate := FileAge(AFileName);
 
-    finally
-      FreeObj(vThumb);
+//    Небезопасно. DeleteFile не удаляет открытые файлы сразу, а помечает как удаленные...
+//    if WinFileExists(ANewName) then
+//      ApiCheck(DeleteFile(ANewName));
+//    ApiCheck(RenameFile(vTmpName, ANewName));
+
+//    ApiCheck(MoveFileEx(PTChar(vTmpName), PTChar(ANewName), MOVEFILE_REPLACE_EXISTING));
+      if not MoveFileEx(PTChar(vTmpName), PTChar(ANewName), MOVEFILE_REPLACE_EXISTING) then begin
+        { Файл в режиме просмтора не может быть переописан, но может быть переименован }
+        vBakName := GetUniqName(ANewName, '~' + ExtractFileExtension(ANewName));
+        ApiCheck(RenameFile(ANewName, vBakName));
+        ApiCheck(RenameFile(vTmpName, ANewName));
+        DeleteFile(vBakName);
+      end;
+
+      if vSrcDate <> 0 then
+        SetFileTimeName(ANewName, vSrcDate);
+
+      Result := True;
+
+    except
+      on E :Exception do begin
+        if (vTmpName <> '') and WinFileExists(vTmpName) then
+          DeleteFile(vTmpName);
+        Raise;
+      end;
     end;
   end;
-*)
 
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
 
   type
     PContextRec = ^TContextRec;
@@ -262,7 +463,7 @@ interface
   end;
 
 
-  function GDIRender(const AName :TString; AImage :TGPImageEx; const ASize :TSize; const ACallback :TDecodeCallback; ACallbackData :Pointer) :TMemDC;
+  function GDIRender(const AName :TString; AImage :TGPImageEx; const ASize :TSize; const ACallback :TDecodeCallback; ACallbackData :Pointer) :HBitmap;
   var
     vThumb    :TMemDC;
     vGraphics :TGPGraphics;
@@ -270,15 +471,12 @@ interface
     vContext :TContextRec;
     vRes :TStatus;
   begin
-    vThumb := nil;
-    try
-//    if ATask.FFrame > 0 then begin
-//      FillChar(vDimID, SizeOf(vDimID), 0);
-//      if vImage.GetFrameDimensionsList(@vDimID, 1) = Ok then
-//        vImage.SelectActiveFrame(vDimID, ATask.FFrame);
-//    end;
+   {$ifdef bTrace}
+    TraceBegF('GPImange Render %s, %d x %d (%d M)...', [AName, ASize.CX, ASize.CY, (ASize.CX * ASize.CY * 4) div (1024 * 1024)]);
+   {$endif bTrace}
 
-      vThumb := TMemDC.Create(ASize.CX, ASize.CY);
+    vThumb := TMemDC.Create(ASize.CX, ASize.CY);
+    try
 
 //    GradientFillRect(vThumb.FDC, Rect(0, 0, vSize.CX, vSize.CY), RandomColor, RandomColor, True);
 //    if ATask.FBackColor <> -1 then
@@ -293,10 +491,6 @@ interface
 
 //      if ATask.FFrame > 0 then
 //        vGraphics.SetInterpolationMode(InterpolationModeHighQuality);  ???
-
-       {$ifdef bTrace}
-        TraceBegF('Render1 %s, %d x %d (%d M)...', [AName, ASize.CX, ASize.CY, (ASize.CX * ASize.CY * 4) div (1024 * 1024)]);
-       {$endif bTrace}
 
         vContext.Callback := ACallback;
         vContext.Data := ACallbackData;
@@ -313,94 +507,69 @@ interface
         end;
         GDICheck(vRes);
 
-       {$ifdef bTrace}
-        TraceEnd('  Ready');
-       {$endif bTrace}
-
       finally
         FreeObj(vGraphics);
       end;
 
-      Result := vThumb;
-      vThumb := nil;
+      Result := vThumb.ReleaseBitmap
 
     finally
       FreeObj(vThumb);
     end;
+
+   {$ifdef bTrace}
+    TraceEnd('  Ready');
+   {$endif bTrace}
   end;
 
 
  {-----------------------------------------------------------------------------}
- { TView                                                                       }
+ { TGPView                                                                       }
  {-----------------------------------------------------------------------------}
 
-  type
-    PDelays = ^TDelays;
-    TDelays = array[0..MaxInt div SizeOf(Integer) - 1] of Integer;
+  class function TGPView.CreateView(const AName :TString; ABuf :Pointer; ABufSize :Integer) :TGPView; 
+  var
+    vImage :TGPImageEx;
+    vStatus :TStatus;
+  begin
+    Result := nil;
 
-    TView = class(TBasis)
-    public
-      constructor Create; override;
-      destructor Destroy; override;
-      procedure SetSrcImage(AImage :TGPImageEx);
-      procedure ReleaseSrcImage;
-      procedure SetFrame(AIndex :Integer);
+   {$ifdef bTrace}
+    Trace('GPImage Create: %s...', [AName]);
+   {$endif bTrace}
 
-      function _AddRef :Integer;
-      function _Release :Integer;
+    vImage := TGPImageEx.Create(AName);
+    vStatus := vImage.GetLastStatus;
 
-      function InitThumbnail(ADX, ADY :Integer) :Boolean;
-      procedure DecodeImage(ADX, ADY :Integer; const ACallback :TDecodeCallback; ACallbackData :Pointer);
-      function SaveAs({const} ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean;
+   {$ifdef bTrace}
+    Trace('  Done. Status=%d', [Byte(vStatus)]);
+   {$endif bTrace}
 
-    private
-      FRefCount    :Integer;
-
-      FSrcName     :TString;      { Имя файла }
-      FSrcImage    :TGPImageEx;   { Исходное изображение }
-      FOrient0     :Integer;      { Исходная ориентация }
-      FImgSize0    :TSize;        { Исходный размер картинки (текущей страницы) }
-      FImgSize     :TSize;        { Размер картинки с учетом ориентации }
-      FPixels      :Integer;      { Цветность (BPP) }
-      FFmtID       :TGUID;
-      FFmtName     :TString;
-      FHasAlpha    :Boolean;      { Полупрозрачное изображение }
-      FDirectDraw  :Boolean;      { Анимированное изображение, не используем preview'шки }
-      FBkColor     :Integer;
-
-      FThumbImage  :TMemDC;       { Изображение, буферизированное как Bitmap }
-      FThumbSize   :TSize;        { Размер Preview'шки }
-      FIsThumbnail :Boolean;      { Это превью (thumbnail) }
-
-      { Для поддержки анимированных изображений... }
-      FFrames      :Integer;
-      FFrame       :Integer;
-      FDelCount    :Integer;
-      FDelays      :PPropertyItem;
-      FDimID       :TGUID;
-
-      { Для поддержки Tag-ов }
-      FStrTag      :TString;
-      FInt64Tag    :Int64;
-
-      procedure InitImageInfo;
-      procedure SetThumbnail(AThumb :TMemDC);
-      function TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
-    end;
+    if vStatus = Ok then begin
+      Result := Create;
+//    TraceF('%p TGPView.Create: %s', [Pointer(Result), AName]);
+      Result.SetSrcImage(vImage);
+      Result.FSrcName := AName;
+      Result.FSrcBuf  := ABuf;
+      Result.FSrcSize := ABufSize;
+    end else
+      FreeObj(vImage);
+  end;
 
 
-  constructor TView.Create; {override;}
+
+  constructor TGPView.Create; {override;}
   begin
     inherited Create;
     FFrame := -1;
   end;
 
 
-  destructor TView.Destroy; {override;}
+  destructor TGPView.Destroy; {override;}
   begin
-//  TraceF('%p TView.Destroy', [Pointer(Self)]);
+//  TraceF('%p TGPView.Destroy', [Pointer(Self)]);
 
-    FreeObj(FThumbImage);
+    WinDeleteObject(FThumbBmp);
     MemFree(FDelays);
 
     ReleaseSrcImage;
@@ -408,22 +577,25 @@ interface
   end;
 
 
-  procedure TView.ReleaseSrcImage;
+  procedure TGPView.ReleaseSrcImage;
   begin
     if FSrcImage <> nil then begin
+     {$ifdef bTrace}
+      Trace('GPImage Close %s', [FSrcName]);
+     {$endif bTrace}
       FSrcImage._Release;
       FSrcImage := nil;
     end;
   end;
 
 
-  function TView._AddRef :Integer;
+  function TGPView._AddRef :Integer;
   begin
     Result := InterlockedIncrement(FRefCount);
   end;
 
 
-  function TView._Release :Integer;
+  function TGPView._Release :Integer;
   begin
     Result := InterlockedDecrement(FRefCount);
     if Result = 0 then
@@ -431,7 +603,7 @@ interface
   end;
 
 
-  procedure TView.SetSrcImage(AImage :TGPImageEx);
+  procedure TGPView.SetSrcImage(AImage :TGPImageEx);
   var
     vOrient :Integer;
   begin
@@ -450,7 +622,7 @@ interface
   end;
 
 
-  procedure TView.InitImageInfo;
+  procedure TGPView.InitImageInfo;
   begin
     FImgSize0 := FSrcImage.GetImageSize;
     FImgSize := FImgSize0;
@@ -470,12 +642,22 @@ interface
   end;
 
 
-  procedure TView.SetFrame(AIndex :Integer);
+  procedure TGPView.SetFrame(AIndex :Integer);
   begin
     AIndex := RangeLimit(AIndex, 0, FFrames - 1);
     if AIndex <> FFrame then begin
-      if (FFrames > 1) and (AIndex < FFrames) then
+
+      if (FFrames > 1) and (AIndex < FFrames) then begin
+       {$ifdef bTrace}
+        TraceBegF('GPImange SetFrame %d...', [AIndex]);
+       {$endif bTrace}
+
         FSrcImage.SelectActiveFrame(FDimID, AIndex);
+
+       {$ifdef bTrace}
+        TraceEnd('  done');
+       {$endif bTrace}
+      end;
 
       FImgSize := FSrcImage.GetImageSize;
       FPixels  := GetPixelFormatSize(FSrcImage.GetPixelFormat);
@@ -485,20 +667,18 @@ interface
   end;
 
 
-  procedure TView.SetThumbnail(AThumb :TMemDC);
+  procedure TGPView.SetThumbnail(AThumb :HBitmap);
   begin
-    if FThumbImage <> AThumb then begin
-      FreeObj(FThumbImage);
-      FThumbImage := AThumb;
-      if AThumb <> nil then begin
-        FThumbSize.cx := AThumb.Width;
-        FThumbSize.cy := AThumb.Height;
-      end;
+    if FThumbBMP <> AThumb then begin
+      WinDeleteObject(FThumbBMP);
+      FThumbBMP := AThumb;
+      if FThumbBMP <> 0 then
+        FThumbSize := GetBitmapSize(FThumbBMP);
     end;
   end;
 
 
-  function TView.InitThumbnail(ADX, ADY :Integer) :Boolean;
+  function TGPView.InitThumbnail(ADX, ADY :Integer) :Boolean;
   var
     vThmImage :TGPImage;
     vGraphics :TGPGraphics;
@@ -532,13 +712,12 @@ interface
           vGraphics.Free;
         end;
 
-        SetThumbnail(vThumb);
+        SetThumbnail(vThumb.ReleaseBitmap);
         FIsThumbnail := True;
         Result := True;
 
-      except
+      finally
         vThumb.Free;
-        raise;
       end;
     finally
       vThmImage.Free;
@@ -550,230 +729,41 @@ interface
   end;
 
 
-  procedure TView.DecodeImage(ADX, ADY :Integer; const ACallback :TDecodeCallback; ACallbackData :Pointer);
+  procedure TGPView.DecodeImage(ADX, ADY :Integer; const ACallback :TDecodeCallback; ACallbackData :Pointer);
   var
     vSize :TSize;
-    vThumb :TMemDC;
+    vThumb :HBitmap;
   begin
     vSize := FImgSize;
     if (ADX > 0) and (ADY > 0) {and optUseWinSize При вызове} then
 //    CorrectBoundEx(vSize, Size(ADX, ADY));
       vSize := Size(ADX, ADY);
 
-    LockGDIPlus;
-    try
-      vThumb := GDIRender(FSrcName, FSrcImage, vSize, ACallback, ACallbackData);
-    finally
-      UnlockGDIPlus;
+    vThumb := 0;
+(*
+   {$ifdef bUseLibJPEG}
+    if optUseLibJPEG and IsEqualGUID(FFmtID, ImageFormatJPEG) and (FSrcBuf <> nil) then
+      vThumb := JPEGRender(FSrcName, FSrcBuf, FSrcSize, vSize, ACallback, ACallbackData);
+   {$endif bUseLibJPEG}
+*)
+    if vThumb = 0 then begin
+      LockGDIPlus;
+      try
+        vThumb := GDIRender(FSrcName, FSrcImage, vSize, ACallback, ACallbackData);
+      finally
+        UnlockGDIPlus;
+      end;
     end;
 
-    if vThumb <> nil then begin
+    if vThumb <> 0 then begin
       SetThumbnail(vThumb);
       FIsThumbnail := False;
     end;
   end;
 
-  
  {-----------------------------------------------------------------------------}
 
-  function GetUniqName(const aName, aExt :TString) :TString;
-  var
-    I :Integer;
-  begin
-    I := 0;
-    Result := ChangeFileExtension(aName, aExt);
-    while WinFileExists(Result) do begin
-      Inc(I);
-      Result := ChangeFileExtension(aName, aExt + Int2Str(I));
-    end;
-  end;
-
-
-  function SetFileTimeName(const aName :TString; aAge :Integer {const aTime :TFileTime}) :Boolean;
-  var
-    vHandle :THandle;
-  begin
-    Result := False;
-    vHandle := FileOpen(aName, fmOpenWrite);
-//  vHandle := CreateFile(PTChar(aName), FILE_WRITE_ATTRIBUTES,  0, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-    if vHandle = INVALID_HANDLE_VALUE then
-      Exit;
-//  Result := SetFileTime(vHandle, nil, nil, @aTime);
-    Result := FileSetDate(vHandle, aAge);
-    FileClose(vHandle);
-  end;
-
-
-
-  function TView.SaveAs({const} ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean;
-  type
-    EncoderParameters3 = packed record
-      Count     :UINT;
-      Parameter :array[0..2] of TEncoderParameter;
-    end;
-  const
-    cTransform :array[0..8] of EncoderValue =
-    (
-      EncoderValue(0),
-      EncoderValue(0),
-      EncoderValueTransformFlipHorizontal,
-      EncoderValueTransformRotate180,
-      EncoderValueTransformFlipVertical,
-      EncoderValueTransformRotate270,  {!!!}
-      EncoderValueTransformRotate90,
-      EncoderValueTransformRotate90, {!!!}
-      EncoderValueTransformRotate270
-    );
-  var
-    vMimeType, vNewName, vBakName :TString;
-    vEncoderID :TGUID;
-    vImage :TGPImage;
-    vTransf :TEncoderValue;
-    vParams :EncoderParameters3;
-    vPParams :PEncoderParameters;
-    vOrient :Integer;
-    vSrcDate :Integer;
-  begin
-    Result := False;
-
-    if AFmtName = '' then
-      AFmtName := FFmtName
-    else
-    if ANewName = '' then
-      ANewName := ChangeFileExtension(FSrcName, AFmtName);
-    if ANewName = '' then
-      ANewName := FSrcName;
-
-    vNewName := '';
-    try
-      if not WinFileExists(FSrcName) then
-        AppErrorFmt(strFileNotFound, [FSrcName]);
-
-      vMimeType := 'image/' + StrLoCase(AFmtName);
-      if GetEncoderClsid(vMimeType, vEncoderID) = -1 then
-        AppErrorFmt(strNoEncoderFor, [AFmtName]);
-
-      LockGDIPlus;
-      try
-        if FFrames = 1 then
-          ReleaseSrcImage;
-
-        vImage := TGPImage.Create(FSrcName);
-        try
-//        GDICheck(vImage.GetLastStatus);
-          if vImage.GetLastStatus <> OK then
-            AppError(strReadImageError);
-
-          if GetFrameCount(vImage, nil, nil, nil) > 1 then
-            AppError(strCantSaveFrames);
-
-          vOrient := 0;
-          if not GetTagValueAsInt(vImage, PropertyTagOrientation, vOrient) or (vOrient < 1) or (vOrient > 8) then
-            vOrient := 0;
-
-          vParams.Count := 0;
-
-          if aQuality <> 0 then begin
-            with vParams.Parameter[vParams.Count] do begin
-              Guid := EncoderQuality;
-              Type_ := EncoderParameterValueTypeLong;
-              NumberOfValues := 1;
-              Value := @aQuality;
-            end;
-            Inc(vParams.Count);
-          end;
-
-          if (soExifRotation in aOptions) and (StrEqual(AFmtName, 'jpeg') or StrEqual(AFmtName, 'tiff')) then begin
-
-            { Поворот путем коррекции EXIF заголовка - loseless }
-            if aOrient <> vOrient then
-              SetTagValueInt(vImage, PropertyTagOrientation, aOrient);
-
-          end else
-          if (soTransformation in aOptions) then begin
-
-            if StrEqual(AFmtName, 'jpeg') then begin
-              { Поворт путем трансформации - может приводить к потерям... }
-
-              vTransf := cTransform[aOrient];
-              if vTransf <> EncoderValue(0) then begin
-                if (((vImage.GetWidth mod 16) <> 0) or ((vImage.GetHeight mod 16) <> 0)) and not (soEnableLossy in aOptions) then
-                  AppError(strLossyRotation);
-
-                with vParams.Parameter[vParams.Count] do begin
-                  Guid := EncoderTransformation;
-                  Type_ := EncoderParameterValueTypeLong;
-                  NumberOfValues := 1;
-                  Value := @vTransf;
-                end;
-                Inc(vParams.Count);
-              end;
-
-            end else
-            begin
-              RotateImage(vImage, aOrient);
-              GDICheck(vImage.GetLastStatus);
-            end;
-
-            if (vOrient <> 0) and (vOrient <> 1) then
-              SetTagValueInt(vImage, PropertyTagOrientation, 1);
-          end else
-            Exit;
-
-         {$ifdef bTrace}
-          TraceBeg('Save...');
-         {$endif bTrace}
-
-          vNewName := GetUniqName(ANewName, '$$$');
-
-          vPParams := nil;
-          if vParams.Count > 0 then
-            vPParams := Pointer(@vParams);
-          vImage.Save(vNewName, vEncoderID, vPParams);
-          GDICheck(vImage.GetLastStatus);
-
-         {$ifdef bTrace}
-          TraceEnd('  Ready');
-         {$endif bTrace}
-
-        finally
-          FreeObj(vImage);
-        end;
-
-        vSrcDate := 0;
-        if optKeepDateOnSave {soKeepDate in aOptions} then
-          vSrcDate := FileAge(FSrcName);
-
-        vBakName := GetUniqName(ANewName, '~' + ExtractFileExtension(ANewName) );
-        if WinFileExists(ANewName) then
-          ApiCheck(RenameFile(ANewName, vBakName));
-
-        ApiCheck(RenameFile(vNewName, ANewName));
-
-        if vSrcDate <> 0 then
-          SetFileTimeName(ANewName, vSrcDate);
-
-        DeleteFile(vBakName);
-
-        Result := True;
-
-      finally
-        UnLockGDIPlus;
-      end;
-
-    except
-      on E :Exception do begin
-        if (vNewName <> '') and WinFileExists(vNewName) then
-          DeleteFile(vNewName);
-        Raise;
-      end;
-    end;
-  end;
-
-
- {-----------------------------------------------------------------------------}
-
-  function TView.TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
+  function TGPView.TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
 
     procedure LocStrTag(AID :ULONG);
     begin
@@ -852,31 +842,6 @@ interface
   end;
 
 
-
- {-----------------------------------------------------------------------------}
- {                                                                             }
- {-----------------------------------------------------------------------------}
-
-  function CreateView(const AName :TString) :TView;
-  var
-    vImage :TGPImageEx;
-  begin
-    Result := nil;
-
-//  TraceF('TGPImageEx.Create: %s...', [AName]);
-    vImage := TGPImageEx.Create(AName);
-//  TraceF('  Done. Status=%d', [Byte(vImage.GetLastStatus)]);
-
-    if vImage.GetLastStatus = Ok then begin
-      Result := TView.Create;
-//    TraceF('%p TView.Create: %s', [Pointer(Result), AName]);
-      Result.SetSrcImage(vImage);
-      Result.FSrcName := AName;
-    end else
-      FreeObj(vImage);
-  end;
-
-
  {-----------------------------------------------------------------------------}
  { TReviewGDIDecoder                                                           }
  {-----------------------------------------------------------------------------}
@@ -887,7 +852,7 @@ interface
     FInitState := 1;
     FName := cDefGDIDecoderName;
     FTitle := cDefGDIDecoderTitle;
-    FPriority := MaxInt;
+    FPriority := MaxInt-1;
     ResetSettings;
   end;
 
@@ -922,21 +887,30 @@ interface
   end;
 
 
+  function TReviewGDIDecoder.CreateView(const AFileName :TString; ABuf :Pointer; ABufSize :Integer) :TGPView; {virtual;}
+  begin
+    Result := TGPView.CreateView(AFileName, ABuf, ABufSize)
+  end;
+
+
  {-----------------------------------------------------------------------------}
 
   function TReviewGDIDecoder.pvdFileOpen(const AFileName :TString; AImage :TReviewImageRec) :Boolean; {override;}
   var
-    vView :TView;
+    vView :TGPView;
   begin
     Result := False;
 
-    vView := CreateView(AFileName);
+    if AImage.FSize <= AImage.FCacheSize then
+      vView := CreateView(AFileName, AImage.FCacheBuf, AImage.FCacheSize)
+    else
+      vView := CreateView(AFileName, nil, 0);
 
     if vView <> nil then begin
       AImage.FFormat := vView.FFmtName;
       AImage.FPages := vView.FFrames;
       AImage.FAnimated := (vView.FFrames > 1) and (vView.FDelays <> nil);
-      AImage.FOrient := vView.FOrient0;
+      AImage.FOrient0 := vView.FOrient0;
 
       AImage.FContext := vView;
       vView._AddRef;
@@ -948,7 +922,7 @@ interface
 
   function TReviewGDIDecoder.pvdGetPageInfo(AImage :TReviewImageRec) :Boolean; {override;}
   begin
-    with TView(AImage.FContext) do begin
+    with TGPView(AImage.FContext) do begin
       SetFrame(AImage.FPage);
 
       AImage.FWidth  := FImgSize.cx;
@@ -970,16 +944,16 @@ interface
   function TReviewGDIDecoder.pvdPageDecode(AImage :TReviewImageRec; AWidth, AHeight :Integer; AMode :TDecodeMode;
     const ACallback :TDecodeCallback = nil; ACallbackData :Pointer = nil) :Boolean; {override;}
   begin
-    with TView(AImage.FContext) do begin
+    with TGPView(AImage.FContext) do begin
       Result := False;
 
       FBkColor  := 0 {ABkColor};
       if AMode <> dmImage then
         InitThumbnail(0, 0 {cThumbSize, cThumbSize} );
-      if (FThumbImage = nil) and (AMode = dmThumbnail) then
+      if (FThumbBMP = 0) and (AMode = dmThumbnail) then
         Exit;
 
-      if FThumbImage = nil then
+      if FThumbBMP = 0 then
         DecodeImage(AWidth, AHeight, ACallback, ACallbackData);
 
       AImage.FWidth := FImgSize.cx;
@@ -987,24 +961,18 @@ interface
       AImage.FBPP := FPixels;
       AImage.FSelfdraw := False;
       AImage.FTransparent := FHasAlpha;
-//    AImage.FOrient := FOrient0;
+//    AImage.FOrient0 := FOrient0;
 
-//    if FFrames = 1 then
-//      { Освобождаем файл. При необходимости повторного декодирования он откроется заново. }
-//      ReleaseSrcImage;
-
-      Result := FThumbImage <> nil;
+      Result := FThumbBMP <> 0;
     end;
   end;
 
 
   function TReviewGDIDecoder.GetBitmapHandle(AImage :TReviewImageRec; var aIsThumbnail :Boolean) :HBitmap; {override;}
   begin
-    with TView(AImage.FContext) do begin
-      Result := 0;
-      if FThumbImage <> nil then
-        Result := FThumbImage.ReleaseBitmap;
-      FreeObj(FThumbImage);
+    with TGPView(AImage.FContext) do begin
+      Result := FThumbBmp;
+      FThumbBmp := 0;
       aIsThumbnail := FIsThumbnail;
       if aIsThumbnail and optCorrectThumb then
         Result := AImage.CorrectThumbnail(Result);
@@ -1020,8 +988,10 @@ interface
 
   procedure TReviewGDIDecoder.pvdFileClose(AImage :TReviewImageRec); {override;}
   begin
-    if AImage.FContext <> nil then
-      TView(AImage.FContext)._Release;
+    if AImage.FContext <> nil then begin
+      TGPView(AImage.FContext)._Release;
+      AImage.FContext := nil;
+    end;
   end;
 
 
@@ -1029,20 +999,10 @@ interface
 
   function TReviewGDIDecoder.pvdTagInfo(AImage :TReviewImageRec; aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean; {override;}
   begin
-    with TView(AImage.FContext) do begin
+    with TGPView(AImage.FContext) do begin
       aType := 0; aValue := nil;
       Result := TagInfo(aCode, aType, aValue);
     end;
-  end;
-
-
- {-----------------------------------------------------------------------------}
-
-  function TReviewGDIDecoder.Save(AImage :TReviewImageRec; const ANewName, AFmtName :TString; aOrient, aQuality :Integer; aOptions :TSaveOptions) :Boolean; {override;}
-  begin
-    if aOrient = 0 then
-      aOrient := AImage.FOrient;
-    Result := TView(AImage.FContext).SaveAs(ANewName, AFmtName, aOrient, aQuality, aOptions);
   end;
 
 

@@ -101,7 +101,11 @@ interface
     with TReviewDecoder(FOwner.Decoders[ARow]) do begin
       case ACol of
         0: Result := StrIf(Enabled, cStates[GetState], '-') + ' ' + StrIf(Title <> '', Title, Name);
-        1: Result := GetInfoStr;
+        1:
+          if GetState <> rdsError then
+            Result := GetMaskAsStr
+          else
+            Result := '-- ' + LastError
       end;
     end;
   end;

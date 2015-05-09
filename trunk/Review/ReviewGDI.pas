@@ -243,7 +243,7 @@ interface
     FInitState := 1;
     FName := 'WMF';
     FTitle := FName;
-    FPriority := MaxInt - 1;
+    FPriority := MaxInt - 2;
     ResetSettings;
   end;
 
