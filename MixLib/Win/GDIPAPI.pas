@@ -2789,7 +2789,7 @@ type
 //---------------------------------------------------------------------------
 
   {$EXTERNALSYM EncoderParameter}
-  EncoderParameter = packed record
+  EncoderParameter = {packed} record
     Guid           : TGUID;   // GUID of the parameter
     NumberOfValues : ULONG;   // Number of the parameter values
     Type_          : ULONG;   // Value type, like ValueTypeLONG  etc.
@@ -2803,9 +2803,9 @@ type
 //---------------------------------------------------------------------------
 
   {$EXTERNALSYM EncoderParameters}
-  EncoderParameters = packed record
+  EncoderParameters = {packed} record
     Count     : UINT;               // Number of parameters in this structure
-    Parameter : array[0..0] of TEncoderParameter;  // Parameter values
+    Parameter : array[0..3] of TEncoderParameter;  // Parameter values
   end;
   TEncoderParameters = EncoderParameters;
   PEncoderParameters = ^TEncoderParameters;
