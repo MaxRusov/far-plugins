@@ -1356,11 +1356,12 @@ interface
       KEY_CTRL5:
         ToggleOption(optShowCRLF);
 
-      KEY_CTRL9: begin
-        ToggleOption(optTextIgnoreExp, True);
-        if optTextIgnoreExp then
-          Beep;
-      end;
+     {$ifdef Debug}
+      KEY_CTRL8:
+        ToggleOption(optOptimization1, True);
+      KEY_CTRL9:
+        ToggleOption(optPostOptimization, True);
+     {$endif Debug}
 
       KEY_CTRLINS, KEY_CTRLC:
         CopySelected;

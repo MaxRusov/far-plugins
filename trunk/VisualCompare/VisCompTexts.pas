@@ -87,6 +87,7 @@ interface
       destructor Destroy; override;
 
       procedure Compare;
+      procedure Optimization;
       procedure ReloadAndCompare;
 
       function GetRowDiff(I :Integer) :TRowDiff;
@@ -555,31 +556,30 @@ interface
           Inc(ARow2, ACount2);
         end else
         begin
-
-          while (ACount1 > 0) and (RowIsEmpty(FText[0].StrPtrs[ARow1])) do begin
-            AppedRows(ARow1, -1, 1, IntIf(optTextIgnoreEmptyLine, 0, 1));
-            Inc(ARow1);
-            Dec(ACount1);
+          if optOptimization1 then begin
+            while (ACount1 > 0) and (RowIsEmpty(FText[0].StrPtrs[ARow1])) do begin
+              AppedRows(ARow1, -1, 1, IntIf(optTextIgnoreEmptyLine, 0, 1));
+              Inc(ARow1);
+              Dec(ACount1);
+            end;
+            while (ACount2 > 0) and (RowIsEmpty(FText[1].StrPtrs[ARow2])) do begin
+              AppedRows(-1, ARow2, 1, IntIf(optTextIgnoreEmptyLine, 0, 1));
+              Inc(ARow2);
+              Dec(ACount2);
+            end;
           end;
 
-          while (ACount2 > 0) and (RowIsEmpty(FText[1].StrPtrs[ARow2])) do begin
-            AppedRows(-1, ARow2, 1, IntIf(optTextIgnoreEmptyLine, 0, 1));
-            Inc(ARow2);
-            Dec(ACount2);
+          vAdd1 := 0; vAdd2 := 0;
+          if optOptimization2 then begin
+            while (ACount1 > 0) and (RowIsEmpty(FText[0].StrPtrs[ARow1 + ACount1 - 1])) do begin
+              Inc(vAdd1);
+              Dec(ACount1);
+            end;
+            while (ACount2 > 0) and (RowIsEmpty(FText[1].StrPtrs[ARow2 + ACount2 - 1])) do begin
+              Inc(vAdd2);
+              Dec(ACount2);
+            end;
           end;
-
-          vAdd1 := 0;
-          while (ACount1 > 0) and (RowIsEmpty(FText[0].StrPtrs[ARow1 + ACount1 - 1])) do begin
-            Inc(vAdd1);
-            Dec(ACount1);
-          end;
-
-          vAdd2 := 0;
-          while (ACount2 > 0) and (RowIsEmpty(FText[1].StrPtrs[ARow2 + ACount2 - 1])) do begin
-            Inc(vAdd2);
-            Dec(ACount2);
-          end;
-
 
           vMinRows := IntMin( ACount1, ACount2 );
 
@@ -597,17 +597,16 @@ interface
             Inc(ARow2, ACount2);
           end;
 
-
-          for I := 0 to vAdd1 - 1 do begin
-            AppedRows(ARow1, -1, 1, IntIf(optTextIgnoreEmptyLine, 0, 1));
-            Inc(ARow1);
+          if optOptimization2 then begin
+            for I := 0 to vAdd1 - 1 do begin
+              AppedRows(ARow1, -1, 1, IntIf(optTextIgnoreEmptyLine, 0, 1));
+              Inc(ARow1);
+            end;
+            for I := 0 to vAdd2 - 1 do begin
+              AppedRows(-1, ARow2, 1, IntIf(optTextIgnoreEmptyLine, 0, 1));
+              Inc(ARow2);
+            end;
           end;
-
-          for I := 0 to vAdd2 - 1 do begin
-            AppedRows(-1, ARow2, 1, IntIf(optTextIgnoreEmptyLine, 0, 1));
-            Inc(ARow2);
-          end;
-
         end;
       end;
 
@@ -788,6 +787,9 @@ interface
     ComparePart(0, 0, FText[0].Count, FText[1].Count, cTextBegFactor);
 //  OptimizeEmptyLines;
 
+    if optPostOptimization then
+      Optimization;
+
    {$ifdef bTrace}
     TraceF('  done: %d compares, %d ms', [FRowCompare, TickCountDiff(GetTickCount, vStart)]);
    {$endif bTrace}
@@ -805,7 +807,7 @@ interface
         Exit;
       vPtr1 := FText[0].StrPtrs[ARow1];
       vPtr2 := FText[1].StrPtrs[ARow2];
-      
+
      {$ifdef bTrace}
       Inc(FRowCompare);
      {$endif bTrace}
@@ -966,6 +968,85 @@ interface
 //  Trace('...done');
   end;
  {$endif bFastCompare}
+
+
+ {-----------------------------------------------------------------------------}
+
+  procedure TTextDiff.Optimization;
+
+
+    function TryMoveForward(aSide :Integer; aIdx1, aIdx2 :Integer) :Integer;
+    var
+      vCmp1, vCmp2 :PCmpTextRow;
+      vPtr1, vPtr2 :PTChar;
+      vRes :TStrCompareRes;
+    begin
+//    TraceF('TryMoveForward: %d, %d-%d', [aSide, aIdx1+1, aIdx2+1]);
+      Result := 0;
+      while aIdx2 < FDiff.Count do begin
+        vCmp1 := FDiff.PItems[aIdx1];
+        vCmp2 := FDiff.PItems[aIdx2];
+        if {(vCmp2.FFlags <> 0) or} (vCmp2.FRow[aSide] = -1) then
+          Break;
+
+        vPtr1 := FText[aSide].StrPtrs[vCmp1.FRow[aSide]];
+        vPtr2 := FText[aSide].StrPtrs[vCmp2.FRow[aSide]];
+
+        vRes := CompareStrEx(vPtr1, vPtr2);
+
+        if vRes <> scrDiff then begin
+          vCmp1.FRow[1-aSide] := vCmp2.FRow[1-aSide];
+          vCmp1.FFlags := IntIf(vRes = scrEqual, 0, 1);
+
+          vCmp2.FRow[1-aSide] := -1;
+          vCmp2.FFlags := 1;
+
+          Inc(aIdx1);
+          Inc(aIdx2);
+          Inc(Result);
+        end else
+          Break;
+      end;
+    end;
+
+
+  var
+    vIdx, vBeg, vCount1, vCount2 :Integer;
+    vCmp :PCmpTextRow;
+  begin
+    vIdx := 0;
+    while vIdx < FDiff.Count do begin
+      vCmp := FDiff.PItems[vIdx];
+      if vCmp.FFlags <> 0 then begin
+        vBeg := vIdx;
+        vCount1 := 0; vCount2 := 0;
+        while vCmp.FFlags <> 0 do begin
+          if vCmp.FRow[0] <> -1 then
+            Inc(vCount1);
+          if vCmp.FRow[1] <> -1 then
+            Inc(vCount2);
+          Inc(vIdx);
+          if vIdx = FDiff.Count then
+            Break;
+          vCmp := FDiff.PItems[vIdx];
+        end;
+
+        if (vCount1 = 0) or (vCount2 = 0) then begin
+          { Вставка }
+          if vIdx < FDiff.Count then
+            Inc(vIdx, TryMoveForward(IntIf(vCount1 <> 0, 0, 1), vBeg, vIdx));
+        end else
+        begin
+          { Правка }
+
+        end;
+
+        if vIdx < FDiff.Count then
+          Inc(vIdx);
+      end else
+        Inc(vIdx);
+    end;
+  end;
 
 
  {-----------------------------------------------------------------------------}

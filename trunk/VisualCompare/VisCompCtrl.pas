@@ -270,7 +270,6 @@ interface
     optTextIgnoreSpace     :Boolean = True;    { Игнорировать пробельные символы }
     optTextIgnoreCase      :Boolean = True;    { Игнорировать регистр }
     optTextIgnoreCRLF      :Boolean = True;    { Игнорировать символы окончания строк }
-    optTextIgnoreExp       :Boolean = False;
 
     optMaximized           :Boolean = False;
 
@@ -284,6 +283,12 @@ interface
     optTextFileSizeLimit   :Integer = 10 * 1024 * 1024;
 
     optDefaultFormat       :TStrFileFormat = sffAnsi;
+
+  var
+    optOptimization1       :Boolean = True;
+    optOptimization2       :Boolean = True;
+
+    optPostOptimization    :Boolean = False;    { Оптимизация сравнения }
 
   var
     optDlgColor            :TFarColor;

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<renewal>
-  <plugin guid="{AF4DAB38-C00A-4653-900E-7A8230308010}">
-    <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=VisualCompare</url>
-    <home arch="any">http://code.google.com/p/far-plugins/wiki/VisualCompare</home>
-    <regex arch="x86">//far-plugins.googlecode.com/files/VisualCompare\.far3lua.(\d+)\.(\d+)\.rar</regex>
-    <regex arch="x64">//far-plugins.googlecode.com/files/VisualCompare\.far3lua.x64.(\d+)\.(\d+)\.rar</regex>
-  </plugin>
-</renewal>
