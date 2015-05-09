@@ -19,6 +19,7 @@ interface
     MixUtils,
     MixFormat,
     MixStrings,
+    MixWinUtils,
 
     Far_API,
     FarCtrl,
@@ -200,17 +201,17 @@ interface
         NewItemApi(DI_Text,      5,  6, 5+vDX1, -1,  0,  PTChar(FPrompts[ppMenuGUID]) ),
        {$endif Far3}
 
-        NewItemApi(DI_Text,      0,  vDY1+1, -1,     -1,  DIF_SEPARATOR, GetMsg(strVersionInfo) ),
+        NewItemApi(DI_Text,      0,  vDY1+1, -1,     -1,  DIF_SEPARATOR or DIF_CENTERTEXT, GetMsg(strVersionInfo) ),
         NewItemApi(DI_Text,      5,  vDY1+2, 5+vDX1, -1,  0,  PTChar(FPrompts[ppVerinfo]  ) ),
         NewItemApi(DI_Text,      5,  vDY1+3, 5+vDX1, -1,  0,  PTChar(FPrompts[ppCopyright]) ),
         NewItemApi(DI_Text,      5,  vDY1+4, 5+vDX1, -1,  0,  PTChar(FPrompts[ppVersion]  ) ),
 
-        NewItemApi(DI_Text,      0,  vDY1+5, -1,     -1,  DIF_SEPARATOR, GetMsg(strFileInfo) ),
+        NewItemApi(DI_Text,      0,  vDY1+5, -1,     -1,  DIF_SEPARATOR or DIF_CENTERTEXT, GetMsg(strFileInfo) ),
         NewItemApi(DI_Text,      5,  vDY1+6, 5+vDX1, -1,  0,  PTChar(FPrompts[ppFileName]) ),
         NewItemApi(DI_Text,      5,  vDY1+7, 5+vDX1, -1,  0,  PTChar(FPrompts[ppFolder]  ) ),
         NewItemApi(DI_Text,      5,  vDY1+8, 5+vDX1, -1,  0,  PTChar(FPrompts[ppModified]) ),
 
-        NewItemApi(DI_Text,      0,  vDY1+9, -1,     -1,  DIF_SEPARATOR, ''),
+        NewItemApi(DI_Text,      0,  vDY1+9, -1,     -1,  DIF_SEPARATOR or DIF_CENTERTEXT, ''),
         NewItemApi(DI_Text,      5,  vDY1+10, 5+vDX1, -1,  0,  PTChar(FPrompts[ppEncoding]) ),
         NewItemApi(DI_Text,      5,  vDY1+11, 5+vDX1, -1,  0,  PTChar(FPrompts[ppFlags]   ) ),
         NewItemApi(DI_Text,      5,  vDY1+12, 5+vDX1, -1,  0,  PTChar(FPrompts[ppPrefixes]) ),
@@ -237,6 +238,7 @@ interface
 
         NewItemApi(DI_Text,      0, DY-4, -1, -1, DIF_SEPARATOR, ''),
         NewItemApi(DI_DefButton, 0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strButClose)),
+        NewItemApi(DI_Button,    0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strButPlugring)),
         NewItemApi(DI_Button,    0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strButProps))
       ],
       @FItemCount
@@ -250,7 +252,7 @@ interface
   var
     I :TPlugProps;
   begin
-    SendMsg(DM_SetFocus, FItemCount - 2, 0);
+    SendMsg(DM_SetFocus, FItemCount - 3, 0);
     for I := Low(TPlugProps) to High(TPlugProps) do
       SetText(IdFirstEdt + byte(I), FDatas[I]);
   end;
@@ -267,6 +269,9 @@ interface
     Result := 1;
     case Msg of
       DN_BTNCLICK:
+        if Param1 = FItemCount-2 {IdButPlugring} then begin
+          FPlugin.GotoPluring
+        end else
         if Param1 = FItemCount-1 {IdButProp} then begin
           ShellOpenEx(hFarWindow, FPlugin.FileName)
         end else

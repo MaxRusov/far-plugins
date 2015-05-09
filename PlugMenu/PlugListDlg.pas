@@ -127,6 +127,7 @@ interface
       procedure CommandMenu(X :Integer = -1; Y :Integer = -1);
 
       procedure PlugInfoDlg;
+      procedure PlugGoPlugring;
       procedure PlugEditDlg;
       procedure PlugHelpOpen;
       procedure PlugConfigOpen;
@@ -1055,6 +1056,18 @@ interface
   end;
 
 
+  procedure TMenuDlg.PlugGoPlugring;
+  var
+    vCommand :TFarPluginCmd;
+  begin
+    vCommand := CurrentCommand;
+    if vCommand = nil then
+      Exit;
+
+    vCommand.Plugin.GotoPluring;
+  end;
+
+
   procedure TMenuDlg.PlugEditDlg;
   begin
     FChoosenCmd := CurrentCommand;
@@ -1228,6 +1241,8 @@ interface
           end else
             Beep;
         end;
+      KEY_CTRLPGUP:
+        PlugGoPlugring;
 
       KEY_CTRLH, KEY_CTRLSHIFTH:
         begin

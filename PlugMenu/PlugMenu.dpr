@@ -6,9 +6,10 @@
 {$endif Debug}
 
 {******************************************************************************}
-{* (c) 2008-2012 Max Rusov                                                    *}
-{*                                                                            *}
+{* (c) 2008-2014 Max Rusov                                                    *}
 {* PlugMenu Far Plugin                                                        *}
+{* License: WTFPL                                                             *}
+{* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
 
 library PlugMenu;
@@ -38,11 +39,7 @@ exports
   ProcessSynchroEventW,
   ExitFARW;
 
- {$ifdef bUnicode}
-  {$R PlugMenuW.res}
- {$else}
-  {$R PlugMenuA.res}
- {$endif bUnicode}
+{$R PlugMenu.res}
 
 begin
   Plug := TPlugMenuPlug.Create;

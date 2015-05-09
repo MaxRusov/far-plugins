@@ -131,7 +131,8 @@ interface
 //  FMinFarVer := MakeVersion(3, 0, 2415);   { PCTL_GETPLUGINS/PCTL_FINDPLUGIN }
 //  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
 //  FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
-    FMinFarVer := MakeVersion(3, 0, 2927);   { Release }
+//  FMinFarVer := MakeVersion(3, 0, 2927);   { Release }
+    FMinFarVer := MakeVersion(3, 0, 3600);   { Instance }
    {$else}
 //  FMinFarVer := MakeVersion(2, 0, 910);    { Новый формат кэша плагинов. }
 //  FMinFarVer := MakeVersion(2, 0, 995);    { Изменена TWindowInfo }
