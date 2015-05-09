@@ -26,6 +26,7 @@ interface
     FarPlug,
 
     MoreHistoryCtrl,
+    MoreHistoryListBase,
     MoreHistoryDlg,
     MoreHistoryEdtDlg,
    {$ifdef bCmdHistory}
@@ -36,6 +37,8 @@ interface
   type
     TMoreHistoryPlug = class(TFarPlug)
     public
+      destructor Destroy; override;
+
       procedure Init; override;
       procedure Startup; override;
       procedure ExitFar; override;
@@ -44,14 +47,32 @@ interface
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
       function OpenCmdLine(AStr :PTChar) :THandle; override;
       function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
+     {$ifdef Far3}
+      function OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; override;
+     {$endif Far3}
       function Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :THandle; override;
       procedure SynchroEvent(AParam :Pointer); override;
       function EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
       function ViewerEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; override;
 
     private
+      FLastFolder  :TString;
      {$ifdef Far3}
-      FModEdtID :Integer;
+      FModEdtID    :Integer;
+     {$endif Far3}
+
+     {$ifdef Far3}
+      FLastUpdate  :DWORD;
+      FHistFilter  :TMyFilter;
+      FIdxWhat     :Integer;
+      FIdxType     :Integer;
+      FIdxRevision :Integer;
+      FIdxHidden   :Integer;
+//    FIdxFilter   :TString;
+     {$endif Far3}
+
+     {$ifdef Far3}
+      function MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :TIntPtr;
      {$endif Far3}
     end;
 
@@ -161,7 +182,6 @@ interface
         end else
         begin
 //        Trace('Go sleep...');
-
           FldHistory.TryLockAndStore;
           EdtHistory.TryLockAndStore;
          {$ifdef bCmdHistory}
@@ -185,6 +205,8 @@ interface
       if vRes = WAIT_OBJECT_0 then
         ResetEvent(FEvent);
     end;
+
+    NOP;
   end;
 
 
@@ -213,6 +235,7 @@ interface
   type
     TPluginCmd = (
       pcFolderHistory,
+      pcActiveHistory,
       pcEditorHistory,
       pcModifyHistory,
      {$ifdef bCmdHistory}
@@ -220,17 +243,19 @@ interface
       pcPrevCommand,
       pcNextCommand,
      {$endif bCmdHistory}
-      pcOptions
+      pcOptions,
+      pcNone
     );
 
-
-  procedure RunCommand(ACmd :TPluginCmd; const AStr :TString = '');
+    
+  procedure RunCommand(ACmd :TPluginCmd; const AFilter :TString = '';
+     AGroup :Integer = MaxInt; ASort :Integer = MaxInt; AHidden :Integer = MaxInt);
 
    {$ifdef bCmdHistory}
     function LocGetCmdStr :TString;
     begin
-      if AStr <> '' then
-        Result := AStr
+      if AFilter <> '' then
+        Result := AFilter
       else
         Result := FarPanelString(PANEL_NONE, FCTL_GETCMDLINE);
     end;
@@ -238,11 +263,12 @@ interface
 
   begin
     case ACmd of
-      pcFolderHistory:  OpenHistoryDlg(GetMsg(strFoldersHistoryTitle), 'Folders', 0, AStr);
-      pcEditorHistory:  OpenEdtHistoryDlg(GetMsg(strViewEditHistoryTitle), 'Files\View', 0, AStr);
-      pcModifyHistory:  OpenEdtHistoryDlg(GetMsg(strModifyHistoryTitle), 'Files\Modify', 1, AStr);
+      pcFolderHistory:  OpenHistoryDlg1(GetMsg(strFoldersHistoryTitle), 'Folders\All', 0, AFilter, AGroup, ASort, AHidden);
+      pcActiveHistory:  OpenHistoryDlg1(GetMsg(strActFoldersHistoryTitle), 'Folders\Active', 1, AFilter, AGroup, ASort, AHidden);
+      pcEditorHistory:  OpenEdtHistoryDlg1(GetMsg(strViewEditHistoryTitle), 'Files\View', 0, AFilter, AGroup, ASort, AHidden);
+      pcModifyHistory:  OpenEdtHistoryDlg1(GetMsg(strModifyHistoryTitle), 'Files\Modify', 1, AFilter, AGroup, ASort, AHidden);
      {$ifdef bCmdHistory}
-      pcCommandHistory: OpenCmdHistoryDlg(GetMsg(strCommandHistoryTitle), 'Commands', CmdHistory.CmdLineFilter(LocGetCmdStr) );
+      pcCommandHistory: OpenCmdHistoryDlg1(GetMsg(strCommandHistoryTitle), 'Commands', CmdHistory.CmdLineFilter(LocGetCmdStr), AGroup, ASort, AHidden );
       pcPrevCommand:    CmdHistory.CmdLineNext(False, LocGetCmdStr);
       pcNextCommand:    CmdHistory.CmdLineNext(True, LocGetCmdStr);
      {$endif bCmdHistory}
@@ -262,6 +288,7 @@ interface
       GetMsg(strTitle),
     [
       GetMsg(strMFoldersHistory),
+      GetMsg(strMActFoldersHistory),
       '',
       GetMsg(strMViewEditHistory),
       GetMsg(strMModifyHistory),
@@ -287,14 +314,15 @@ interface
 
       case vMenu.ResIdx of
         0 : RunCommand(pcFolderHistory);
+        1 : RunCommand(pcActiveHistory);
 
-        2 : RunCommand(pcEditorHistory);
-        3 : RunCommand(pcModifyHistory);
+        3 : RunCommand(pcEditorHistory);
+        4 : RunCommand(pcModifyHistory);
 
        {$ifdef bCmdHistory}
-        5 : RunCommand(pcCommandHistory);
-        6 : RunCommand(pcNextCommand);
-        7 : RunCommand(pcPrevCommand);
+        6 : RunCommand(pcCommandHistory);
+        7 : RunCommand(pcNextCommand);
+        8 : RunCommand(pcPrevCommand);
        {$endif bCmdHistory}
 
       else
@@ -309,6 +337,15 @@ interface
  {-----------------------------------------------------------------------------}
  { TMoreHistoryPlug                                                            }
  {-----------------------------------------------------------------------------}
+
+  destructor TMoreHistoryPlug.Destroy; {override;}
+  begin
+   {$ifdef Far3}
+    FreeObj(FHistFilter);
+   {$endif Far3}
+    inherited Destroy;
+  end;
+
 
   procedure TMoreHistoryPlug.Init; {override;}
   begin
@@ -329,7 +366,8 @@ interface
 //  FMinFarVer := MakeVersion(3, 0, 2343);   { FCTL_GETPANELDIRECTORY/FCTL_SETPANELDIRECTORY }
 //  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
 //  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
-    FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
+//  FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
+    FMinFarVer := MakeVersion(3, 0, 3000);   { Stable }
    {$else}
     FMinFarVer := MakeVersion(2, 0, 1573);   { ACTL_GETFARRECT }
    {$endif Far3}
@@ -356,6 +394,11 @@ interface
    {$ifdef bCmdHistory}
     CmdHistory := TCmdHistory.Create;
    {$endif bCmdHistory}
+
+   {$ifdef Far3}
+    FHistFilter := TMyFilter.Create;
+    FIdxWhat := -1;
+   {$endif Far3}
 
     SetHistoryWatcher(True);
   end;
@@ -390,8 +433,6 @@ interface
     FMenuID  := cMenuID;
     FConfigID  := cConfigID;
    {$endif Far3}
-
-    FldHistory.AddCurrentToHistory;
   end;
 
 
@@ -422,7 +463,7 @@ interface
    {$endif bCmdHistory}
     else
       Exit;
-
+      
     RunCommand(vCmd, ExtractWords(2, MaxInt, vStr, [':']));
   end;
 
@@ -431,15 +472,229 @@ interface
   begin
     Result := INVALID_HANDLE_VALUE;
     if (AInt >= 1) and (AInt <= Byte(High(TPluginCmd))) then begin
-//   {$ifdef Far3}
-//    RunCommand(TPluginCmd(AInt - 1));
-//   {$else}
+     {$ifdef Far3}
+      RunCommand(TPluginCmd(AInt - 1));
+     {$else}
       FarAdvControl(ACTL_SYNCHRO, Pointer(AInt));
-//   {$endif Far3}
+     {$endif Far3}
       Exit;
     end;
     OpenMenu;
   end;
+
+
+ {$ifdef Far3}
+  function TMoreHistoryPlug.OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  begin
+    Result := 0;
+    if (ACount = 0) or ((ACount = 1) and (AParams[0].fType in [FMVT_INTEGER, FMVT_DOUBLE])) then
+      Result := inherited OpenMacroEx(ACount, AParams)
+    else
+    if AParams[0].fType = FMVT_STRING then
+      Result := MacroCommand(AParams[0].Value.fString, ACount, AParams);
+  end;
+
+  const
+    kwShowFolderHist  = 1;
+    kwShowEditorHist  = 2;
+    kwShowCommandHist = 3;
+
+    kwFolderHist      = 4;
+    kwEditorHist      = 5;
+    kwCommandHist     = 6;
+
+    kwNextCommand     = 7;
+    kwPrevCommand     = 8;
+
+    kwGotoFolder      = 9;
+    kwOpenEditor      = 10;
+
+  var
+    CmdWords :TKeywordsList;
+
+  procedure InitKeywords;
+  begin
+    if CmdWords <> nil then
+      Exit;
+
+    CmdWords := TKeywordsList.Create;
+    with CmdWords do begin
+      Add('OpenFolderHistory', kwShowFolderHist);
+      Add('OpenEditorHistory', kwShowEditorHist);
+      Add('OpenCommandHistory', kwShowCommandHist);
+
+      Add('FolderHistory', kwFolderHist);
+      Add('EditorHistory', kwEditorHist);
+      Add('CommandHistory', kwCommandHist);
+
+      Add('NextCommand', kwNextCommand);
+      Add('PrevCommand', kwPrevCommand);
+
+      Add('GotoFolder', kwGotoFolder);
+      Add('OpenEditor', kwOpenEditor);
+    end;
+  end;
+
+
+  function TMoreHistoryPlug.MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :TIntPtr;
+
+    procedure LocIndexHistory(AHist :THistory; AWhat, AType, AHidden :Integer);
+    var
+      I :Integer;
+      vItem :THistoryEntry;
+      vAdd :Boolean;
+    begin
+      if (AWhat = FIdxWhat) and (AType = FIdxType) and (AHist.Revision = FIdxRevision) and (FIdxHidden = AHidden) then
+        Exit;
+
+      FHistFilter.History := AHist;
+      FHistFilter.Clear;
+      for I := AHist.History.Count - 1 downto 0 do begin
+        vItem := AHist[I];
+        vAdd := True;
+        if (AWhat = 0) and (AType = 1) then
+          vAdd := TFldHistoryEntry(vItem).IsActive;
+        if (AWhat = 1) and (AType = 1) then
+          vAdd := TEdtHistoryEntry(vItem).EdtTime <> 0;
+        if vAdd then
+          FHistFilter.Add(I, 0, 0);
+      end;
+      if (AWhat in [0, 1]) and (AType = 1) then
+        FHistFilter.SortList(True, -4 {By ModTime} );
+
+      FIdxRevision := AHist.Revision;
+      FIdxHidden := AHidden;
+      FIdxType := AType;
+      FIdxWhat := AWhat;
+    end;
+
+
+    procedure LocInitFilter(AWhat, AType, AHidden :Integer);
+    var
+      vHist :THistory;
+      vTick :DWORD;
+    begin
+      vHist := nil;
+      case AWhat of
+        0 : vHist := FldHistory;
+        1 : vHist := EdtHistory;
+       {$ifdef bCmdHistory}
+        2 : vHist := CmdHistory;
+       {$endif bCmdHistory}
+      else
+        Wrong;
+      end;
+
+      vTick := GetTickCount;
+      if (FLastUpdate = 0) or (TickCountDiff(vTick, FLastUpdate) > 100) then begin
+        vHist.LoadModifiedHistory;
+       {$ifdef bCmdHistory}
+        if vHist is TCmdHistory then
+          TCmdHistory(vHist).UpdateHistory;
+       {$endif bCmdHistory}
+        FLastUpdate := vTick;
+      end;
+
+      LocIndexHistory(vHist, AWhat, AType, AHidden);
+    end;
+
+
+    function LocHistory(AWhat :Integer) :TIntPtr;
+    var
+      vType, vIdx :Integer;
+    begin
+      Result := 0;
+
+      vType := FarValuesToInt(AParams, ACount, 1, 0);
+      vIdx := FarValuesToInt(AParams, ACount, 2, -1);
+
+      LocInitFilter(AWhat, vType, 0);
+
+      if vIdx = -1 then
+        Result := FarReturnValues([FHistFilter.Count])
+      else begin
+        if (vIdx >= 0) and (vIdx < FHistFilter.Count) then
+          with FHistFilter.History[FHistFilter[vIdx]] do
+            Result := FarReturnValues([Path]);
+      end;
+    end;
+
+
+    procedure GotoFolder;
+    var
+      vType, vIdx :Integer;
+    begin
+      vType := FarValuesToInt(AParams, ACount, 1, 0);
+      vIdx := FarValuesToInt(AParams, ACount, 2, 0);
+      LocInitFilter(0, vType, 0);
+      if (vIdx >= 0) and (vIdx < FHistFilter.Count) then
+        JumpToPathBy( FHistFilter.History[FHistFilter[vIdx]] as TFldHistoryEntry, False, False);
+    end;
+
+
+    procedure OpenEditor;
+    var
+      vType, vIdx :Integer;
+    begin
+      vType := FarValuesToInt(AParams, ACount, 1, 0);
+      vIdx := FarValuesToInt(AParams, ACount, 2, 0);
+      LocInitFilter(1, vType, 0);
+      if (vIdx >= 0) and (vIdx < FHistFilter.Count) then
+        OpenEditorBy( FHistFilter.History[FHistFilter[vIdx]] as TEdtHistoryEntry, vType = 1);
+    end;
+
+
+    procedure LocOpenHistory(AWhat :Integer);
+    const
+      cCommands :array[0..2] of TPluginCmd =
+        (pcFolderHistory, pcEditorHistory, {$ifdef bCmdHistory}pcCommandHistory{$else}pcNone {$endif bCmdHistory});
+    var
+      vFilter :TString;
+      vType, vGroup, vSort, vHidden :Integer;
+      vCmd :TPluginCmd;
+    begin
+      vType := FarValuesToInt(AParams, ACount, 1, 0);
+
+      vFilter := FarValuesToStr(AParams, ACount, 2, #0);
+      vFilter := StrIf(vFilter = #0, '', StrIf(vFilter = '', #0, vFilter));
+
+      vGroup := FarValuesToInt(AParams, ACount, 3, MaxInt);
+      vSort := FarValuesToInt(AParams, ACount, 4, MaxInt);
+      vHidden := FarValuesToInt(AParams, ACount, 5, MaxInt);
+
+      vCmd := cCommands[AWhat];
+      if vType = 1 then
+        Inc(vCmd);
+      RunCommand(vCmd, vFilter, vGroup, vSort, vHidden);
+    end;
+
+
+  var
+    vCmd :Integer;
+  begin
+    Result := 1;
+    InitKeywords;
+    vCmd := CmdWords.GetKeywordStr(ACmd);
+    case vCmd of
+      kwShowFolderHist, kwShowEditorHist, kwShowCommandHist:
+        LocOpenHistory(vCmd - kwShowFolderHist);
+      kwFolderHist, kwEditorHist, kwCommandHist:
+        Result := LocHistory(vCmd - kwFolderHist);
+     {$ifdef bCmdHistory}
+      kwNextCommand:
+        RunCommand(pcNextCommand);
+      kwPrevCommand:
+        RunCommand(pcPrevCommand);
+     {$endif bCmdHistory}
+      kwGotoFolder:
+        GotoFolder;
+      kwOpenEditor:
+        OpenEditor;
+    else
+      Result := 0;
+    end;
+  end;
+ {$endif Far3}
 
 
   procedure TMoreHistoryPlug.Configure; {override;}
@@ -471,11 +726,16 @@ interface
           vStr := GetCurrentPanelPath;
           if vStr <> '' then begin
 //          TraceF('Add: %s', [vStr]);
-            FldHistory.AddHistory(vStr, False);
+            if vStr <> FLastFolder then begin
+              FldHistory.AddHistory(vStr, faEnter);
+              FLastFolder := vStr;
+            end;
           end else
-          if GLastAdded <> '' then begin
-            vStr := GLastAdded;
-            FldHistory.AddHistory(vStr, True);
+          if FLastFolder <> '' then begin
+            { “екущий контекст - не панель (редактор, viewer, dialog): }
+            { считаем активным действием в последнем  каталоге }
+            FldHistory.AddHistory(FLastFolder, faActivity);
+            FldHistory.RememberCurrentPos;
           end;
 
         finally
@@ -499,12 +759,19 @@ interface
 //  TraceF('ProcessEditorEvent: %d, %x', [AEvent, TIntPtr(AParam)]);
     Result := 0;
     case AEvent of
-      EE_READ     : vAction := eaOpenEdit;
+      EE_READ     :
+        begin
+          FarEditorSubscribeChangeEvent(-1{AID}, True);
+          vAction := eaOpenEdit;
+        end;
       EE_SAVE     : vAction := eaSaveEdit;
       EE_GOTFOCUS : vAction := eaGotFocus;
      {$ifdef Far3}
       EE_CHANGE:
-        begin
+        with PEditorChange(AParam)^ do begin
+//        TraceF('EE_CHANGE: Type=%d, Row=%d', [_Type, StringNumber]);
+          { »з событи€ EE_CHANGE нельз€ вызывать EditorControl, да и вообще - }
+          { оно должно быть максимально быстрым, чтобы не замедл€ть модификацию файла... }
           FModEdtID := AID;
           Exit;
         end;
@@ -589,14 +856,20 @@ interface
 
   function TMoreHistoryPlug.Analyse(AName :PTChar; AData :Pointer; ASize :Integer; AMode :Integer) :THandle; {override;}
   begin
-    if (AMode and OPM_FIND = 0) and (GetCurrentThreadID = MainThreadID) then
+    if (AMode and OPM_FIND = 0) and (GetCurrentThreadID = MainThreadID) then begin
       FldHistory.AddCurrentToHistory;
+//    if optCmdExcludeFile then
+//      GSkipFile := AName;
+    end;
     Result := INVALID_HANDLE_VALUE;
   end;
 
 
 initialization
 finalization
+ {$ifdef Far3}
+  FreeObj(CmdWords);
+ {$endif Far3}
   FreeObj(HistThread);
 end.
 

@@ -60,6 +60,7 @@ interface
       function GetItems(AIndex :Integer) :Integer;
 
     public
+      property History :THistory read FHistory write FHistory;
       property Name :TString read FName;
       property Domain :TString read FDomain;
       property Items[AIndex :Integer] :Integer read GetItems; default;
@@ -92,10 +93,10 @@ interface
       procedure ReinitColumns; virtual;
       procedure ReinitGrid; virtual;
 
+      function GroupByDomain :Boolean; virtual;
+      function ItemMarkUnavailable(ACol :Integer; AItem :THistoryEntry) :Boolean; virtual;
       function ItemMarkHidden(AItem :THistoryEntry) :Boolean; virtual;
       function GetEntryStr(AItem :THistoryEntry; AColTag :Integer) :TString; virtual;
-
-      procedure ChangeHierarchMode; virtual;
 
     protected
       FCaption        :TString;
@@ -124,6 +125,10 @@ interface
       FResCmd         :Integer;
 
       FSetChanged     :Boolean;
+      FDrives         :DWORD;
+      FTmpDrives      :DWORD;
+
+      function DriveType(const APath :TString) :Integer;
 
       procedure SelectItem(ACode :Integer);
       procedure DeleteSelected;
@@ -152,7 +157,9 @@ interface
     end;
 
 
-  function Date2StrMode(ADate :TDateTime; AMode :Integer; ATimeGroup :Boolean) :TString;
+  function GetBaseTime(ATime :TDateTime) :TDateTime;
+  function Date2StrBase(ADate :TDateTime; AMode :Integer; ABase :TDateTime) :TString;
+  function Date2StrMode(ADate :TDateTime; AMode :Integer; AOnlyTime :Boolean) :TString;
   function Date2StrLen(AMode :Integer) :Integer;
 
 {******************************************************************************}
@@ -164,11 +171,44 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  function GetBaseTime(ATime :TDateTime) :TDateTime;
+  var
+    vYestaday :TDateTime;
+  begin
+    Result := Trunc(ATime - EncodeTime(optMidnightHour, 0, 0, 0));
+    if opdGroupByPeriod then begin
+      vYestaday := Trunc(Now - EncodeTime(optMidnightHour, 0, 0, 0)) - 1;
+      if (Result < vYestaday) or (Result - vYestaday >= 2) then
+        Result := 0;
+    end;
+    if Result <> 0 then
+      Result := Result + EncodeTime(optMidnightHour, 0, 0, 0);
+  end;
 
-  function Date2StrMode(ADate :TDateTime; AMode :Integer; ATimeGroup :Boolean) :TString;
+
+  function Date2StrBase(ADate :TDateTime; AMode :Integer; ABase :TDateTime) :TString;
   begin
     if AMode = 0 then begin
-      if (Trunc(ADate) = Date) or ATimeGroup then
+      if (ADate >= ABase) and (ADate - ABase < 1) then
+        Result := FormatTime('H:mm', ADate)
+      else begin
+        if ADate > FirstDayOfMonth(Date) then
+          Result := FormatDate('ddd,dd', ADate)
+        else
+          Result := FormatDate('dd/MM', ADate);
+//        Result := FormatDate('dd MMM', ADate);
+      end;
+    end else
+      Result := FormatDate('dd.MM.yy', ADate) + ' ' + FormatTime('HH:mm', ADate); //FormatDateTime('dd/mm/yy hh:nn', ADate);
+    if ADate = 0 then
+      Result := StringOfChar(' ', Length(Result));
+  end;
+
+
+  function Date2StrMode(ADate :TDateTime; AMode :Integer; AOnlyTime :Boolean) :TString;
+  begin
+    if AMode = 0 then begin
+      if AOnlyTime or (Trunc(ADate) = Date) then
         Result := FormatTime('H:mm', ADate)
       else begin
         if ADate > FirstDayOfMonth(Date) then
@@ -297,6 +337,8 @@ interface
   begin
     SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
 
+    FHistory.ClearAvail;
+
     FDomain := #0;
     ReinitGrid;
 
@@ -318,7 +360,7 @@ interface
       
     vStr := GetFilter;
     if vStr <> '' then
-      AddToHistory(cHilterHistName, vStr);
+      FarAddToHistory(cHilterHistName, vStr);
 //  FLastFilter := vStr;
     Result := True;
   end;
@@ -346,9 +388,16 @@ interface
       vTitle := Format('%s [%s] (%d/%d)', [vTitle, vMask, FShowCount, FTotalCount ]);
     end;
 
-    SetText(IdFrame, vTitle);
-  end;
+    if length(vTitle)+2 > FMenuMaxWidth then
+      FMenuMaxWidth := length(vTitle)+2;
 
+    SetText(IdFrame, vTitle);
+
+    vTitle := '';
+    if FSelectedCount > 0 then
+      vTitle := Int2Str(FSelectedCount);
+    SetFooter(vTitle);
+  end;
 
 
   procedure TMenuBaseDlg.GridCellClick(ASender :TFarGrid; ACol, ARow :Integer; AButton :Integer; ADouble :Boolean);
@@ -364,11 +413,16 @@ interface
     case AColTag of
 //    1 : Result := AItem.Path;
       2 :
-        Result := Date2StrMode(AItem.Time, optDateFormat,
-          optHierarchical and (optHierarchyMode = hmDate) {or ...Вчера?} );
+        Result := Date2StrMode(AItem.Time, optDateFormat, False);
     else
       Result := '';
     end;
+  end;
+
+
+  function TMenuBaseDlg.ItemMarkUnavailable(ACol :Integer; AItem :THistoryEntry) :Boolean; {virtual;}
+  begin
+    Result := False;
   end;
 
 
@@ -420,6 +474,9 @@ interface
           if not EqualColor(AColor, FGrid.SelColor) then
             AColor := ChangeFG(AColor, optGroupColor)
         end else
+        if optHilightUnavail and ItemMarkUnavailable(ACol, vItem) then
+          AColor := ChangeFG(AColor, optUnavailColor)
+        else
         if ItemMarkHidden(vItem) {and not vRec.FSel} then
           AColor := ChangeFG(AColor, optHiddenColor)
       end;
@@ -474,7 +531,7 @@ interface
       if FHierarchical then begin
         if vRec.FSel and 2 <> 0 then begin
 
-          vStr := vItem.GetGroup;
+          vStr := vItem.GetGroup(optSortMode);
           FGrid.DrawChr(X, Y, PTChar(vStr), AWidth, AColor);
           Inc(X, length(vStr)); Dec(AWidth, length(vStr));
 
@@ -483,7 +540,7 @@ interface
             FGrid.DrawChr(X, Y, PTChar(vStr), AWidth, ChangeFG(AColor, optCountColor));
 
         end else
-        if optHierarchyMode <> hmDomain then begin
+        if not GroupByDomain then begin
           Inc(X, 1); Dec(AWidth, 1);
           DrawTextEx(X, Y, AWidth, PTChar(vItem.Path), vRec.FPos, vRec.FLen, AColor);
         end else
@@ -510,7 +567,7 @@ interface
   begin
     vLen := Length(AItem.Path);
     if AGroup <> nil then begin
-      if optHierarchyMode = hmDomain then
+      if GroupByDomain then
         vLen := length(AItem.GetNameWithoutDomain(vDelta));
       Inc(vLen); { Отступ в группе }
     end;
@@ -608,7 +665,7 @@ interface
           with PFilterRec(vFilter.PItems[I])^ do begin
             vHist := FHistory[FIdx];
 
-            vGroupName := vHist.GetGroup;
+            vGroupName := vHist.GetGroup(optSortMode);
             if vGroups.FindKey(Pointer(vGroupName), 0, [], J) then
               vGroup := vGroups[J]
             else begin
@@ -647,7 +704,7 @@ interface
             for J := 0 to vGroup.Count - 1 do
               with PFilterRec(vGroup.PItems[J])^ do begin
                 vHist := FHistory[FIdx];
-                if (optHierarchyMode = hmDomain) and False {StrEqual(vGroup.Domain, vHist.Path)} then
+                if GroupByDomain and False {StrEqual(vGroup.Domain, vHist.Path)} then
                   Continue;
                 AcceptItem(vHist, vGroup);
                 FFilter.Add(FIdx, FPos, FLen);
@@ -720,7 +777,7 @@ interface
   var
     vIndex :Integer;
   begin
-//  SendMsg(DM_ENABLEREDRAW, 0, 0);
+    SendMsg(DM_ENABLEREDRAW, 0, 0);
     try
       if AItem = nil then begin
         vIndex := FGrid.CurRow;
@@ -730,7 +787,7 @@ interface
 
       if optHierarchical then begin
         if AItem <> nil then
-          FDomain := AItem.GetGroup
+          FDomain := AItem.GetGroup(optSortMode)
         else
           FDomain := #0;
       end;
@@ -748,7 +805,7 @@ interface
       SetCurrent( vIndex, lmCenter );
 //    UpdateHeader; { Чтобы не стирался SortMark}
     finally
-//    SendMsg(DM_ENABLEREDRAW, 1, 0);
+      SendMsg(DM_ENABLEREDRAW, 1, 0);
     end;
   end;
 
@@ -761,7 +818,7 @@ interface
   begin
     Result := -1;
     for I := 0 to FFilter.Count - 1 do
-      if GetHistoryEntry(I, optHierarchyMode <> hmDomain) = AHist then begin
+      if GetHistoryEntry(I, not GroupByDomain) = AHist then begin
         Result := I;
         Exit;
       end;
@@ -806,6 +863,13 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  function TMenuBaseDlg.GroupByDomain :Boolean; {virtual;}
+  begin
+    Result := False;
+  end;
+
+
+(*
   procedure TMenuBaseDlg.ChangeHierarchMode; {virtual;}
   var
     vMenu :TFarMenu;
@@ -851,7 +915,7 @@ interface
       FreeObj(vMenu);
     end;
   end;
-
+*)
 
   procedure TMenuBaseDlg.SetOrder(AOrder :Integer);
   begin
@@ -859,6 +923,7 @@ interface
       optSortMode := AOrder
     else
       optSortMode := -AOrder;
+    FDomain := #0;
 //  LocReinitAndSaveCurrent;
     ReinitGrid;
     FSetChanged := True;
@@ -960,13 +1025,13 @@ interface
 
       vFlags := DlgItemFlag(FGrid.CurRow);
       if vFlags and 2 <> 0 then begin
-        vStr := vItem.GetGroup;
+        vStr := vItem.GetGroup(optSortMode);
         if (ACode = 1) and (vFlags and 4 = 0) then begin
           FDomain := vStr;
           ReinitAndSaveCurrent;
           Exit;
         end;
-        if optHierarchyMode <> hmDomain then
+        if not GroupByDomain then
           Exit;
       end;
 
@@ -1018,6 +1083,43 @@ interface
 
     ReinitGrid;
     FGrid.GotoLocation(FGrid.CurCol, FGrid.CurRow, lmScroll);
+  end;
+
+
+  function TMenuBaseDlg.DriveType(const APath :TString) :Integer;
+  const
+    cMaxDrives = 26; { a..z }
+  var
+    i :Integer;
+    vDType :UINT;
+    vDrives :DWORD;
+    vDriveStr :array[0..3] of TChar;
+  begin
+    Result := 0;
+    if APath = '' then
+      Exit;
+
+    if FDrives = 0 then begin
+      StrPCopy(@vDriveStr[0], '?:\');
+      FTmpDrives := 0;
+      vDrives := GetLogicalDrives;
+      for I := 0 to cMaxDrives - 1 do
+        if (1 shl I) and vDrives <> 0 then begin
+          FDrives := FDrives or (1 shl I);
+          vDriveStr[0] := TChar(Ord('A') + I);
+          vDType := GetDriveType(@vDriveStr[0]);
+          if vDType in [DRIVE_REMOVABLE, DRIVE_CDROM {, DRIVE_REMOTE} ] then
+            FTmpDrives := FTmpDrives or (1 shl I);
+        end;
+    end;
+
+    i := Ord(CharUpCase(APath[1])) - Ord('A');
+    if (i >= 0) and (i < cMaxDrives) then
+      if (1 shl i) and FDrives <> 0 then
+        if (1 shl i) and FTmpDrives <> 0 then
+          Result := 2 { Не проверяем }
+        else
+          Result := 1;
   end;
 
 
@@ -1083,6 +1185,7 @@ interface
       LocSetCheck(vIndex, -1);
       if vIndex < FGrid.RowCount - 1 then
         SetCurrent(vIndex + 1, lmScroll);
+      UpdateHeader;
     end;
 
 
@@ -1092,6 +1195,23 @@ interface
     begin
       for I := AFrom to FGrid.RowCount - 1 do
         LocSetCheck(I, ASetOn);
+      UpdateHeader;
+      SendMsg(DM_REDRAW, 0, 0);
+    end;
+
+
+    procedure LocSelectUnavail;
+    var
+      I :Integer;
+      vItem :THistoryEntry;
+    begin
+      for I := 0 to FGrid.RowCount - 1 do
+        if DlgItemFlag(I) and 2 = 0 then begin
+          vItem := GetHistoryEntry(I);
+          if (vItem <> nil) and ItemMarkUnavailable(-1, vItem) then
+            LocSetCheck(I, 1);
+        end;
+      UpdateHeader;
       SendMsg(DM_REDRAW, 0, 0);
     end;
 
@@ -1153,7 +1273,7 @@ interface
 
         if vRec.FIdx >= 0 then begin
           vItem := FHistory[vRec.FIdx];
-          if StrEqual(vItem.GetGroup, FDomain) then begin
+          if StrEqual(vItem.GetGroup(optSortMode), FDomain) then begin
             vRow := FGrid.CurRow;
             repeat
               if ANext then
@@ -1164,14 +1284,14 @@ interface
                 Exit;
 
               vItem := GetHistoryEntry(vRow);
-              if (vItem <> nil) and not StrEqual(vItem.GetGroup, FDomain) then begin
+              if (vItem <> nil) and not StrEqual(vItem.GetGroup(optSortMode), FDomain) then begin
                 SetCurrent(vRow, lmSimple);
                 Break;
               end;
             until False;
           end;
 
-          FDomain := vItem.GetGroup;
+          FDomain := vItem.GetGroup(optSortMode);
           ReinitAndSaveCurrent;
 
         end else
@@ -1186,6 +1306,8 @@ interface
       KEY_BS, KEY_ADD, KEY_SUBTRACT, KEY_DIVIDE, KEY_MULTIPLY, 32..$FFFF:
         if not FFilterChanged then begin
           FFilterMask := '';
+          if AKey = KEY_BS then
+            FFilterMask := '?';
           FFilterChanged := True;
         end;
     end;
@@ -1214,6 +1336,10 @@ interface
         LocSelectAll(0, -1);
       KEY_ALTADD:
         LocSelectAll(FGrid.CurRow, 1);
+      KEY_ALTSUBTRACT:
+        LocSelectAll(FGrid.CurRow, 0);
+      KEY_CTRL+KEY_DIVIDE:
+        LocSelectUnavail;
 
       { Операции над выделенными... }
       KEY_CTRLINS:
@@ -1223,10 +1349,11 @@ interface
 
       { Управление отображением }
       KEY_CTRLH:
-        ToggleOption(optShowHidden);
+        ToggleOption(optShowUnavail);
 
       KEY_CTRLG:
-        ChangeHierarchMode;
+//      ChangeHierarchMode;
+        ToggleOption(optHierarchical);
       KEY_CTRLSHIFTG:
         ToggleOption(optHierarchical);
       KEY_CTRLI:

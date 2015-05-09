@@ -37,6 +37,7 @@ interface
       strCancel,
 
       strMFoldersHistory,
+      strMActFoldersHistory,
       strMViewEditHistory,
       strMModifyHistory,
       strMCommandHistory,
@@ -45,6 +46,7 @@ interface
       strMOptions1,
 
       strFoldersHistoryTitle,
+      strActFoldersHistoryTitle,
       strViewEditHistoryTitle,
       strModifyHistoryTitle,
       strCommandHistoryTitle,
@@ -66,8 +68,10 @@ interface
       strHintPath,
       strHintFTP,
       strHintPrefix,
-      strHintLastVisited,
-      strHintVisitCount,
+      strHintAccessTime,
+      strHintActionTime,
+      strHintAccessCount,
+      strHintActionCount,
 
       strHintFile,
       strHintFolder,
@@ -89,15 +93,18 @@ interface
       strMOptions,
 
       strOptionsTitle1,
-      strMShowHidden,
       strMGroupBy,
+      strMShowUnavail,
+      strMShowViewed,
       strMSeparateName,
 
       strMFullPath,
       strMAccessTime,
       strMHitCount,
       strMOpenCount,
+      strMActionTime,
       strMModifyTime,
+      strMActionCount,
       strMSaveCount,
       strMSortBy,
 
@@ -114,13 +121,16 @@ interface
       strMGroupCountColor,
       strMQuickFilter,
       strMSelectedColor,
+      strMUnavailColor,
       strMRestoreDefaults,
 
       strSortByTitle,
       strMByName,
       strMByAccessTime,
       strMByHitCount,
+      strMByActionTime,
       strMByModifyTime,
+      strMByActionCount,
       strMBySaveCount,
       strMUnsorted,
 
@@ -132,14 +142,19 @@ interface
 
       strGeneralOptionsTitle,
       strHistoryLimit,
-      strMHideCurrent,
-      strCaseSensitiveCommands,
-      strVisualizationOptions,
+      strHideCurrent,
+      strCaseSensCmdHist,
+      strExcludeFilesCmdHist,
+
       strWrapMode,
       strFollowMouse,
       strShowHints,
+      strHighlightUnavail,
+
+      strFilterByWord,
       strAutoXLatMask,
       strRememberLastMask,
+      
       strMidnightHour,
       strValidRangeError,
 
@@ -158,6 +173,7 @@ interface
       strThisYear,
       strPastYears,
       strFuture,
+      strNever,
       strDaysAgo,
       strDaysForward,
       strDays1,
@@ -191,14 +207,16 @@ interface
    {$endif bCmdHistory}
 
     cPluginFolder     = 'MoreHistory';
-    cFldHistFileName  = 'Folders.dat';
+    cFldHistFileName  = 'Folders2.dat';
+    cFldHistFileName1 = 'Folders.dat';
     cEdtHistFileName  = 'Editors.dat';
    {$ifdef bCmdHistory}
     cCmdHistFileName  = 'Commands.dat';
    {$endif bCmdHistory}
 
     cSignature :array[0..3] of AnsiChar = 'MHSF';
-    cFldVersion   = 1;
+//  cFldVersion   = 1;
+    cFldVersion   = 2;  { +FActTime }
 //  cEdtVersion   = 2;  { +FSaveCount }
     cEdtVersion   = 3;  { +FModCol }
    {$ifdef bCmdHistory}
@@ -221,9 +239,9 @@ interface
 
 
   const
-    hfFinal   = $00000001;
-    hfEdit    = $00000001;
-    hfDeleted = $80000000;
+    hfFinal_Old = $00000001;
+    hfEdit      = $00000001;
+    hfDeleted   = $80000000;
 
   type
     THierarchyMode = (
@@ -237,43 +255,48 @@ interface
 
   var
     { Настройки, зависящие от режима}
-    optShowHidden      :Boolean = False;
-    optHierarchical    :Boolean = True;
-    optHierarchyMode   :THierarchyMode = hmPeriod;
-    optSortMode        :Integer = 0;
+    optShowUnavail     :Boolean = True;   { Показывать недоступные файлы/каталоги }
+    optShowView        :Boolean = False;  { Показывать просматриваемые файлы }
+    optHierarchical    :Boolean = True;   { Иерархическое представление (зависит от упорядочивания) }
+    optSortMode        :Integer = 0;      {}
 
-    optSeparateName    :Boolean = True;   { Показвать раздельно имя файла и путь }
+    optSeparateName    :Boolean = True;   { Показывать раздельно имя файла и путь }
     optShowFullPath    :Boolean = True;   { Показывать полный путь }
-    optShowDate        :Boolean = True;   { Показвать дату обращения }
+    optShowDate        :Boolean = True;   { Показывать дату обращения }
     optShowHits        :Boolean = False;  { Показывать количество обращений }
     optShowModify      :Boolean = True;   { Показывать дату модификации }
     optShowSaves       :Boolean = False;  { Показывать количество сохранений }
 
-    { Настройки, независящие от режима}
+    { Настройки, не зависящие от режима}
     optShowGrid        :Boolean = False;
     optNewAtTop        :Boolean = True;
-    optHideCurrent     :Boolean = True;
+    optHideCurrent     :Boolean = True;   { Скпывать текущую папку в истории папок }
+    optHilightUnavail  :Boolean = True;   { Подсвечивать недоступные пути }
 
     optShowHints       :Boolean = True;   { Показывать подсказки через FarHints }
     optFollowMouse     :Boolean = False;  { Курсор бегает за мышкой (как в меню) }
     optWrapMode        :Boolean = False;  { Курсор бегает по кругу }
     optXLatMask        :Boolean = True;   { Автоматическое XLAT преобразование при поиске }
+    optMaskByWord      :Boolean = True;   { Поиск с начала слов }
     optSaveMask        :Boolean = False;  { Сохранение старой маски при повторном вызове плагина }
 
     optMidnightHour    :Integer = 0;      { Время (час), начала нового дня (для группировки по времени) }
     optDateFormat      :Integer = 0;
+    opdGroupByPeriod   :Boolean = True;   { Группировка по времени - по периодам (сегодня, вчера ... ), а не по датам }
 
     optHistoryFolder   :TString = '';
     optHistoryLimit    :Integer = cDefHistoryLimit;
-    optSkipTransit     :Boolean = True;
+//  optSkipTransit     :Boolean = True;
     optSkipQuickView   :Boolean = True;
     optCaseSensCmdHist :Integer = 0;      { Регистро-чувствительная история команд (2 - только аргументы)}
+    optCmdExcludeFile  :Boolean = False;  { Исключать из истории файлы, запускаемые по ассоциации }
 
     optFldExclusions   :TString = '';
     optEdtExclusions   :TString = '%TEMP%\*';
     optCmdExclusions   :TString = '';
 
     optHiddenColor     :TFarColor;
+    optUnavailColor    :TFarColor;
     optFoundColor      :TFarColor;
     optSelectedColor   :TFarColor;
     optGroupColor      :TFarColor;
@@ -320,11 +343,9 @@ interface
 //procedure ChangedSettings;
 
   function GetHistoryList(const AHistName :TString) :TStrList;
-  procedure AddToHistory(const AHist, AStr :TString);
+(*rocedure AddToHistory(const AHist, AStr :TString); *)
 
-  function KeyMacro(const AKeys :TString) :TString;
-  function StrMacro(const AStr :TString) :TString;
-
+  
 {******************************************************************************}
 {******************************} implementation {******************************}
 {******************************************************************************}
@@ -374,26 +395,6 @@ interface
     vDosTime := FileTimeToDosFileDate(AFileTime);
     if vDosTime <> -1 then
       Result := FileDateToDateTime(vDosTime);
-  end;
-
-
-  function KeyMacro(const AKeys :TString) :TString;
-  begin
-   {$ifdef Far3}
-    Result := 'Keys("' + AKeys + '")';
-   {$else}
-    Result := AKeys;
-   {$endif Far3}
-  end;
-
-
-  function StrMacro(const AStr :TString) :TString;
-  begin
-   {$ifdef Far3}
-    Result := '"' + FarMaskStr(AStr) + '"';
-   {$else}
-    Result := '@"' + AStr + '"';
-   {$endif Far3}
   end;
 
 
@@ -457,6 +458,7 @@ interface
   procedure RestoreDefColor;
   begin
     optHiddenColor     := MakeColor(clGray, 0);
+    optUnavailColor    := MakeColor(clRed, 0);
     optFoundColor      := MakeColor(clLime, 0);
     optSelectedColor   := MakeColor(0, clGreen);
 
@@ -481,6 +483,7 @@ interface
       GetMsg(strMGroupCountColor),
       GetMsg(strMQuickFilter),
       GetMsg(strMSelectedColor),
+      GetMsg(strMUnavailColor),
       '',
       GetMsg(strMRestoreDefaults)
     ]);
@@ -499,6 +502,7 @@ interface
           2: vOk := ColorDlg('', optCountColor, vBkColor);
           3: vOk := ColorDlg('', optFoundColor, vBkColor);
           4: vOk := ColorDlg('', optSelectedColor);
+          5: vOk := ColorDlg('', optUnavailColor, vBkColor);
         else
           RestoreDefColor;
           vOk := True;
@@ -544,18 +548,23 @@ interface
       try
         if Exists then begin
           LogValue('ShowGrid', optShowGrid);
+          LogValue('NewAtTop', optNewAtTop);
+          LogValue('HideCurrent', optHideCurrent);
+          LogValue('HilightUnavail', optHilightUnavail);
+
           LogValue('ShowHints', optShowHints);
           LogValue('FollowMouse', optFollowMouse);
           LogValue('WrapMode', optWrapMode);
-          LogValue('NewAtTop', optNewAtTop);
-          LogValue('HideCurrent', optHideCurrent);
           LogValue('XLatMask', optXLatMask);
+          LogValue('MaskByWord', optMaskByWord);
           LogValue('SaveMask', optSaveMask);
 
           IntValue('MidnightHour', optMidnightHour);
           IntValue('CaseSensCmdHist', optCaseSensCmdHist);
+          LogValue('CmdExcludeFiles', optCmdExcludeFile);
 
           ColorValue('HiddenColor', optHiddenColor);
+          ColorValue('UnavailColor', optUnavailColor);
           ColorValue('FoundColor', optFoundColor);
           ColorValue('SelectedColor', optSelectedColor);
           ColorValue('GroupColor', optGroupColor);
@@ -571,9 +580,9 @@ interface
 
           if (AMode <> '') and OpenKey('View\' + AMode) then begin
 
-            LogValue('ShowTransit', optShowHidden);
+            LogValue('ShowUnavail', optShowUnavail);
+            LogValue('ShowView', optShowView);
             LogValue('Hierarchical', optHierarchical);
-            Byte(optHierarchyMode) := IntValue1('HierarchyMode', Byte(optHierarchyMode));
             IntValue('SortMode', optSortMode);
 
             LogValue('ShowSeparateName', optSeparateName);
@@ -613,10 +622,12 @@ interface
     Result := nil;
   end;
 
+(*
   procedure AddToHistory(const AHist, AStr :TString);
   begin
     {!!!}
   end;
+*)
 
  {$else}
 
@@ -649,7 +660,7 @@ interface
     end;
   end;
 
-
+(*
   procedure AddToHistory(const AHist, AStr :TString);
   var
     hDlg :THandle;
@@ -663,6 +674,7 @@ interface
       FARAPI.DialogFree(hDlg);
     end;
   end;
+*)
  {$endif Far3}
 
 

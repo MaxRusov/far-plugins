@@ -47,6 +47,7 @@ interface
       procedure ReinitColumns; override;
       procedure ReinitGrid; override;
 
+      function ItemMarkUnavailable(ACol :Integer; AItem :THistoryEntry) :Boolean; override;
       function ItemMarkHidden(AItem :THistoryEntry) :Boolean; override;
       function GetEntryStr(AItem :THistoryEntry; AColTag :Integer) :TString; override;
       procedure GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); override;
@@ -72,9 +73,10 @@ interface
   var
     FFilesLastFilter :TString;
 
+  procedure OpenEditorBy(AItem :TEdtHistoryEntry; AModified :Boolean);
 
-  procedure OpenEdtHistoryDlg(const ACaption, AModeName :TString; AMode :Integer; const AFilter :TString);
-
+  procedure OpenEdtHistoryDlg1(const ACaption, AModeName :TString; AMode :Integer; const AFilter :TString = '';
+    AGroupMode :Integer = MaxInt; ASortMode :Integer = MaxInt; AShowHidden :Integer = MaxInt);
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -119,7 +121,11 @@ interface
   begin
     Result :=
       ((FMode = 0) or ((AItem as TEdtHistoryEntry).EdtTime <> 0)) and
-      ((optShowHidden) or (AItem.Flags and hfEdit <> 0));
+      ((optShowView) or (AItem.Flags and hfEdit <> 0));
+
+    if Result and not optShowUnavail then
+      if ItemMarkUnavailable(-1, AItem) then
+        Result := False;
   end;
 
 
@@ -208,19 +214,56 @@ interface
   end;
 
 
+  function TEdtMenuDlg.ItemMarkUnavailable(ACol :Integer; AItem :THistoryEntry) :Boolean; {override;}
+  var
+    vType :Integer;
+  begin
+    if (ACol = -1) or (FGrid.Column[ACol].Tag in [1, 11]) then begin
+      if AItem.Avail = 0 then begin
+        AItem.Avail := 1;
+        if FileNameIsLocal(AItem.Path) {IsFullFilePath(vItem.Path)} then begin
+          vType := DriveType(AItem.Path);
+          if vType = 0 then
+            { Отсутствует }
+            AItem.Avail := 2
+          else
+          if vType = 2 then
+            { Не проверяем }
+            AItem.Avail := 1
+          else begin
+            if not WinFileExists(AItem.Path) then begin
+//            Trace(AItem.Path);
+              AItem.Avail := 2;
+            end;
+          end;
+        end;
+      end;
+      Result := AItem.Avail = 2;
+    end else
+      Result := False;
+  end;
+
+
   function TEdtMenuDlg.GetEntryStr(AItem :THistoryEntry; AColTag :Integer) :TString; {override;}
+
+    function LocGetBaseTime :TDateTime;
+    begin
+      Result := Date;
+      if optHierarchical then
+        case Abs(optSortMode) of
+          0, 2 : Result := GetBaseTime(AItem.Time);
+          4    : Result := GetBaseTime(TEdtHistoryEntry(AItem).EdtTime);
+        end;
+    end;
+
   begin
     case AColTag of
 //    1: Result := ExtractFileName(AItem.Path);
 //   11: Result := ExtractFilePath(AItem.Path);
 
-      2: Result := Date2StrMode(AItem.Time, optDateFormat,
-          optHierarchical and (FMode = 0) and (optHierarchyMode = hmDate) {or ...Вчера?}  );
+      2: Result := Date2StrBase(AItem.Time, optDateFormat, LocGetBaseTime);
       3: Result := Int2Str((AItem as TEdtHistoryEntry).Hits);
-
-      4: Result := Date2StrMode((AItem as TEdtHistoryEntry).EdtTime, optDateFormat,
-          optHierarchical and (FMode = 1) and (optHierarchyMode = hmDate) {or ...Вчера?}  );
-
+      4: Result := Date2StrBase(TEdtHistoryEntry(AItem).EdtTime, optDateFormat, LocGetBaseTime);
       5: Result := Int2Str((AItem as TEdtHistoryEntry).SaveCount);
 
     else
@@ -228,7 +271,7 @@ interface
     end;
   end;
 
-
+  
   procedure TEdtMenuDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); {override;}
   var
     vRec :PFilterRec;
@@ -283,9 +326,9 @@ interface
     Result := True;
     if not WinFileExists(AFileName) then begin
 
-      vRes := ShowMessage(GetMsgStr(strConfirmation), GetMsgStr(strFileNotFound) + #10 + AFileName + #10 +
-        GetMsgStr(strCreateFileBut) + #10 + GetMsgStr(strDeleteBut) + #10 + GetMsgStr(strCancel),
-        FMSG_WARNING, 3);
+      vRes := ShowMessageBut(GetMsgStr(strConfirmation), GetMsgStr(strFileNotFound) + #10 + AFileName,
+        [GetMsgStr(strCreateFileBut), GetMsgStr(strDeleteBut), GetMsgStr(strCancel)],
+        FMSG_WARNING);
 
       case vRes of
         0: {};
@@ -377,6 +420,8 @@ interface
       GetMsg(strOptionsTitle1),
     [
       GetMsg(strMGroupBy),
+      GetMsg(strMShowUnavail),
+      GetMsg(strMShowViewed),
       GetMsg(strMSeparateName),
       '',
       GetMsg(strMFullPath),
@@ -390,13 +435,15 @@ interface
     try
       while True do begin
         vMenu.Checked[0] := optHierarchical;
-        vMenu.Checked[1] := optSeparateName;
+        vMenu.Checked[1] := optShowUnavail;
+        vMenu.Checked[2] := optShowView;
+        vMenu.Checked[3] := optSeparateName;
 
-        vMenu.Checked[3] := optShowFullPath;
-        vMenu.Checked[4] := optShowDate;
-        vMenu.Checked[5] := optShowHits;
-        vMenu.Checked[6] := optShowModify;
-        vMenu.Checked[7] := optShowSaves;
+        vMenu.Checked[5] := optShowFullPath;
+        vMenu.Checked[6] := optShowDate;
+        vMenu.Checked[7] := optShowHits;
+        vMenu.Checked[8] := optShowModify;
+        vMenu.Checked[9] := optShowSaves;
 
         vMenu.SetSelected(vMenu.ResIdx);
 
@@ -404,16 +451,18 @@ interface
           Exit;
 
         case vMenu.ResIdx of
-          0 : ChangeHierarchMode;
-          1 : ToggleOption(optSeparateName);
+          0 : ToggleOption(optHierarchical);
+          1 : ToggleOption(optShowUnavail);
+          2 : ToggleOption(optShowView);
+          3 : ToggleOption(optSeparateName);
 
-          3 : ToggleOption(optShowFullPath);
-          4 : ToggleOption(optShowDate);
-          5 : ToggleOption(optShowHits);
-          6 : ToggleOption(optShowModify);
-          7 : ToggleOption(optShowSaves);
+          5 : ToggleOption(optShowFullPath);
+          6 : ToggleOption(optShowDate);
+          7 : ToggleOption(optShowHits);
+          8 : ToggleOption(optShowModify);
+          9 : ToggleOption(optShowSaves);
 
-          9 : SortByMenu;
+         11 : SortByMenu;
         end;
       end;
 
@@ -483,6 +532,8 @@ interface
       KEY_F4:
         ViewOrEditCurrent(True);
 
+      KEY_CTRLV:
+        ToggleOption(optShowView);
       KEY_CTRLN:
         ToggleOption(optSeparateName);
       KEY_CTRL1:
@@ -596,8 +647,8 @@ interface
     end;
 
     if vFound then begin
-//    if ARow > 0 then
-//      GotoPosition(ARow, ACol, ATopLine)
+      if ARow > 0 then
+        GotoPosition(ARow, ACol, ATopLine)
     end else
     begin
       {!!!Кодировка???}
@@ -613,12 +664,21 @@ interface
   end;
 
 
+  procedure OpenEditorBy(AItem :TEdtHistoryEntry; AModified :Boolean);
+  begin
+    if AModified then
+      OpenEditor(AItem.Path, True, AItem.ModRow, AItem.ModCol)
+    else
+      OpenEditor(AItem.Path, AItem.Flags and hfEdit <> 0);
+  end;
+
 
   var
     vMenuLock :Integer;
 
 
-  procedure OpenEdtHistoryDlg(const ACaption, AModeName :TString; AMode :Integer; const AFilter :TString);
+  procedure OpenEdtHistoryDlg1(const ACaption, AModeName :TString; AMode :Integer; const AFilter :TString = '';
+    AGroupMode :Integer = MaxInt; ASortMode :Integer = MaxInt; AShowHidden :Integer = MaxInt);
   var
     vDlg :TEdtMenuDlg;
     vFinish :Boolean;
@@ -627,27 +687,24 @@ interface
     if vMenuLock > 0 then
       Exit;
 
-    optShowHidden := False;
+    optShowView     := False;
+    optShowUnavail  := True;
     optSeparateName := True;
     optShowFullPath := True;
     optHierarchical := True;
     if AMode = 0 then begin
-      optHierarchyMode := hmPeriod;
       optShowDate    := True;
-      optShowHits    := True;
-      optShowModify  := False;
+      optShowHits    := False;
+      optShowModify  := True;
       optShowSaves   := False;
       optSortMode    := 0; {Default}
-      GroupByModDate := False;
     end else
     begin
-      optHierarchyMode := hmPeriod;
       optShowDate    := False;
       optShowHits    := False;
       optShowModify  := True;
-      optShowSaves   := True;
+      optShowSaves   := False;
       optSortMode    := -4; {By ModTime}
-      GroupByModDate := True;
     end;
 
     ReadSetup(AModeName);
@@ -667,23 +724,30 @@ interface
         vFilter := AFilter;
         if (vFilter = '') and optSaveMask then
           vFilter := FFilesLastFilter;
+        if vFilter = #0 then
+          vFilter := '';
         vDlg.SetFilter(vFilter);
+
+        if AGroupMode <> MaxInt then begin
+          optHierarchical := AGroupMode in [1..3];
+(*          if optHierarchical then
+            optHierarchyMode := THierarchyMode(AGroupMode - 1);  *)
+        end;
+
+        if ASortMode <> MaxInt then
+          optSortMode := ASortMode;
+
+(*      if AShowHidden <> MaxInt then
+          optShowHidden := AShowHidden <> 0;  *)
 
         vFinish := False;
         while not vFinish do begin
           if vDlg.Run = -1 then
             Exit;
           case vDlg.FResCmd of
-            1:
-            begin
-              if AMode = 1 then begin
-                with vDlg.FResItem as TEdtHistoryEntry do
-                  OpenEditor(vDlg.FResStr, True, ModRow, ModCol);
-              end else
-                OpenEditor(vDlg.FResStr, vDlg.FResItem.Flags and hfEdit <> 0);
-            end;
+            1: OpenEditorBy(vDlg.FResItem as TEdtHistoryEntry, AMode = 1);
             2: InsertText(vDlg.FResStr);
-            3: JumpToPath(ExtractFilePath(vDlg.FResStr), ExtractFileName(vDlg.FResStr), False);
+            3: JumpToPath(RemoveBackSlash(ExtractFilePath(vDlg.FResStr)), ExtractFileName(vDlg.FResStr), False);
           end;
           vFinish := True;
         end;

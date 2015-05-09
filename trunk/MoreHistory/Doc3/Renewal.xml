@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<renewal>
-  <plugin guid="{0AB780BC-36CA-4FDA-B321-70520D875CDE}">
-    <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=MoreHistory</url>
-    <home arch="any">http://code.google.com/p/far-plugins/wiki/MoreHistory</home>
-    <regex arch="x86">//far-plugins.googlecode.com/files/MoreHistory\.far3lua.(\d+)\.(\d+)\.rar</regex>
-    <regex arch="x64">//far-plugins.googlecode.com/files/MoreHistory\.far3lua.x64.(\d+)\.(\d+)\.rar</regex>
-  </plugin>
-</renewal>
