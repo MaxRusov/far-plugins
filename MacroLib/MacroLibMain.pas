@@ -637,6 +637,9 @@ interface
       Exit;
    {$endif bUseInject}
 
+//  Trace('ConsoleInput: EventType=%d, VK=%d, KeyDown=%d',
+//    [ARec.EventType, ARec.Event.KeyEvent.wVirtualKeyCode, Integer(ARec.Event.KeyEvent.bKeyDown)]);
+
 //  if AInfo.Flags and PCIF_FROMMAIN <> 0 then begin
       if (ARec.EventType = KEY_EVENT) and optProcessHotkey and (FarGetMacroState < MACROSTATE_RECORDING) then begin
         if MacroLibrary.CheckHotkey(ARec.Event.KeyEvent) then
