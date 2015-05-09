@@ -4,7 +4,9 @@
  {$E hll}
 {$endif bDelphi}
 
-{$ImageBase $40390000}
+{$ifdef Debug}
+ {$ImageBase $40390000}
+{$endif Debug}
 
 library FarHintsMP3;
 

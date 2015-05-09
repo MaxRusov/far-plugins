@@ -4,7 +4,10 @@
  {$E hll}
 {$endif bDelphi}
 
-{$ImageBase $40360000}
+{$ifdef Debug}
+ {$ImageBase $40360000}
+{$endif Debug}
+
 
 library FarHintsIcons;
 

@@ -4,7 +4,9 @@
  {$E hll}
 {$endif bDelphi}
 
-{$ImageBase $40370000}
+{$ifdef Debug}
+ {$ImageBase $40370000}
+{$endif Debug}
 
 library FarHintsFolders;
 

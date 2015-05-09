@@ -4,8 +4,10 @@
  {$E hll}
 {$endif bDelphi}
 
-{$ImageBase $403A0000}
-
+{$ifdef Debug}
+ {$ImageBase $403A0000}
+{$endif Debug}
+ 
 library FarHintsCursors;
 
 {$I Defines1.inc}

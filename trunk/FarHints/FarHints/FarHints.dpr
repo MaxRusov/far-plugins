@@ -1,7 +1,9 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{$ImageBase $40300000}
+{$ifdef Debug}
+ {$ImageBase $40300000}
+{$endif Debug}
 
 library FarHints;
 
