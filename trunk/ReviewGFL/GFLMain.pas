@@ -656,7 +656,7 @@ const
     FDelay  := 0;
     if FExif <> nil then begin
      {$ifdef bTrace}
-      TraceExif(FExif);
+//    TraceExif(FExif);
      {$endif bTrace}
 
      {$ifdef bExifV2}
@@ -887,7 +887,7 @@ const
     pPluginInfo.pVersion := '1.0';
     pPluginInfo.pComments := '(c) 2014, Maxim Rusov';
     pPluginInfo.Flags := PVD_IP_DECODE
-      or PVD_IP_NEEDFILE;
+      {or PVD_IP_NEEDFILE ???};
     pPluginInfo.Priority := $0F02;
   end;
 
