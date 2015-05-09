@@ -4,7 +4,9 @@
  {$E hll}
 {$endif bDelphi}
 
-{$ImageBase $403B0000}
+{$ifdef Debug}
+ {$ImageBase $403B0000}
+{$endif Debug}
 
 library FarHintsProcess;
 

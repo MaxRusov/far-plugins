@@ -4,7 +4,9 @@
  {$E hll}
 {$endif bDelphi}
 
-{$ImageBase $40350000}
+{$ifdef Debug}
+ {$ImageBase $40350000}
+{$endif Debug}
 
 library FarHintsVerInfo;
 
