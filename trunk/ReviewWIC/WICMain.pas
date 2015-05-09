@@ -117,7 +117,7 @@ interface
     vStr :TString;
     vErr :EWin32Error;
   begin
-//  TraceF('WICError=%d', [ErrorCode]);
+//  Trace('WICError=%d', [ErrorCode]);
     vStr := WICError2Mess(aCode);
     if vStr = '' then
       vStr := SysErrorMessage(aCode);
@@ -427,9 +427,11 @@ interface
     TManager = class(TBasis)
     public
       constructor Create; override;
+      destructor Destroy; override;
       procedure CollectInfo;
 
     private
+      FComInit :Boolean;
       FFactory  :IWICImagingFactory;
       FExts :TString;
 
@@ -440,14 +442,24 @@ interface
   constructor TManager.Create; {override;}
   begin
     inherited Create;
+    FComInit := Succeeded(CoInitialize(nil));
     OleCheck( CoCreateInstance(CLSID_WICImagingFactory, nil, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, FFactory) );
+  end;
+
+
+  destructor TManager.Destroy; {override;}
+  begin
+    FFactory := nil;
+    if FComInit then
+      CoUninitialize;
+    inherited Destroy;
   end;
 
 
   procedure TManager.DecoderCallback(const aDecoderInfo :IWICBitmapDecoderInfo);
   begin
    {$ifdef bTrace}
-    TraceF('Decoder: %s, Types: %s, Exts: %s', [GetFriendlyName(aDecoderInfo), GetMimeTypes(aDecoderInfo), GetFileExtensions(aDecoderInfo)]);
+    Trace('Decoder: %s, Types: %s, Exts: %s', [GetFriendlyName(aDecoderInfo), GetMimeTypes(aDecoderInfo), GetFileExtensions(aDecoderInfo)]);
    {$endif bTrace}
     FExts := AppendStrCh(FExts, StrDeleteChars(GetFileExtensions(aDecoderInfo), ['.']), ',');
   end;
@@ -467,14 +479,16 @@ interface
     public
       destructor Destroy; override;
       class function CreateByFile(AManager :TManager; const AName :TString) :TView;
-      function LoadFile(const AName :TString) :Boolean;
+      function LoadFile :Boolean;
       procedure SetPage(AIndex :Integer);
       procedure DecodePage(ACX, ACY :Integer; AThumbnail :Boolean);
       procedure FreePage;
+      procedure FreeImage;
 
       function TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
 
     private
+      FFileName  :TString;
       FFactory   :IWICImagingFactory;
       FDecoder   :IWICBitmapDecoder;
       FFrame     :IWICBitmapFrameDecode;
@@ -518,6 +532,7 @@ interface
   destructor TView.Destroy; {override;}
   begin
     FreePage;
+    FreeImage;
     inherited Destroy;
   end;
 
@@ -526,14 +541,15 @@ interface
   begin
     Result := TView.Create;
     Result.FFactory := AManager.FFactory;
-    if Result.LoadFile(AName) then
+    Result.FFileName := AName;
+    if Result.LoadFile then
       {}
     else
       FreeObj(Result);
   end;
 
 
-  function TView.LoadFile(const AName :TString) :Boolean;
+  function TView.LoadFile :Boolean;
   var
     vRes :HResult;
     vInfo :IWICBitmapDecoderInfo;
@@ -541,12 +557,12 @@ interface
     Result := False;
 
    {$ifdef bTrace}
-    TraceF('WIC Load: "%s"...', [AName]);
+    Trace('WIC Load: "%s"...', [FFileName]);
    {$endif bTrace}
-    vRes := FFactory.CreateDecoderFromFilename(PTChar(AName), nil{AnyVendor}, GENERIC_READ, WICDecodeMetadataCacheOnDemand, FDecoder);
+    vRes := FFactory.CreateDecoderFromFilename(PTChar(FFileName), nil{AnyVendor}, GENERIC_READ, WICDecodeMetadataCacheOnDemand, FDecoder);
     if vRes <> S_OK then begin
      {$ifdef bTrace}
-      TraceF('  Error, Code=%x', [vRes]);
+      Trace('  Error, Code=%x', [vRes]);
      {$endif bTrace}
       Exit;
     end;
@@ -564,7 +580,7 @@ interface
       FDescr := GetFriendlyName(vInfo);
 
    {$ifdef bTrace}
-    TraceF('  OK, Format=%s, Frames=%d', [FFmtName {GetFriendlyName(FFactory, vFmtID)}, FFrames]);
+    Trace('  OK, Format=%s, Frames=%d', [FFmtName {GetFriendlyName(FFactory, vFmtID)}, FFrames]);
    {$endif bTrace}
 
     FCurFrame := -1;
@@ -575,7 +591,7 @@ interface
  {$ifdef bTrace}
   procedure TView.MetadataCallback(const aName :TString; const aVal :PROPVARIANT; var aMore :Boolean);
   begin
-    TraceF('%s = %s', [aName, VarAsStr(aVal)]);
+    Trace('%s = %s', [aName, VarAsStr(aVal)]);
   end;
  {$endif bTrace}
 
@@ -609,7 +625,7 @@ interface
 
     if FFrame.GetMetadataQueryReader(FMetadata) = S_OK then begin
      {$ifdef bTrace}
-      EnumMetadata(FMetadata, '', MetadataCallback, True);
+//    EnumMetadata(FMetadata, '', MetadataCallback, True);
      {$endif bTrace}
 
       if IsEqualGUID(FFmtID, GUID_ContainerFormatGIF) then begin
@@ -808,20 +824,18 @@ interface
 
       if (FSize2.CX <> FSize.CX) or (FSize2.CY <> FSize.CY) then begin
        {$ifdef bTrace}
-        TraceBeg('Scale image...');
+        Trace('Scale image: %d%%', [ MulDiv(FSize2.CX, 100, FSize.CX) ]);
        {$endif bTrace}
 
         { Create a BitmapScaler }
         WicCheck(FFactory.CreateBitmapScaler(vScaler));
         { Initialize the bitmap scaler from the original bitmap map bits }
+//      WicCheck(vScaler.Initialize(FBitmap, FSize2.CX, FSize2.CY, WICBitmapInterpolationModeLinear));
+//      WicCheck(vScaler.Initialize(FBitmap, FSize2.CX, FSize2.CY, WICBitmapInterpolationModeCubic));
         WicCheck(vScaler.Initialize(FBitmap, FSize2.CX, FSize2.CY, WICBitmapInterpolationModeFant));
 
         { Store the converted bitmap as ppToRenderBitmapSource }
         OleCheck(vScaler.QueryInterface(IID_IWICBitmapSource, FBitmap2));
-
-       {$ifdef bTrace}
-        TraceEnd('  done');
-       {$endif bTrace}
       end;
     end;
 
@@ -844,7 +858,7 @@ interface
         vNewPixFmt := GUID_WICPixelFormat24bppBGR;
 
      {$ifdef bTrace}
-      TraceBegF('ConvertFormat (%s -> %s)...', [GetFriendlyName(FFactory, vPixFmt), GetFriendlyName(FFactory, vNewPixFmt)]);
+      Trace('ConvertFormat: %s -> %s', [GetFriendlyName(FFactory, vPixFmt), GetFriendlyName(FFactory, vNewPixFmt)]);
      {$endif bTrace}
 
       WicCheck(FFactory.CreateFormatConverter(vConverter));
@@ -854,10 +868,6 @@ interface
       OleCheck(vConverter.QueryInterface(IID_IWICBitmapSource, FBitmap2));
 
       WicCheck(FBitmap2.GetPixelFormat(vPixFmt));
-
-     {$ifdef bTrace}
-      TraceEnd('  done');
-     {$endif bTrace}
     end;
 
     FPixBPP2 := PixelsFromFormat(FFactory, vPixFmt);
@@ -889,6 +899,18 @@ interface
     MemFree(FBuffer);
     FreeIntf(FBitmap2);
 //  FreeIntf(FBitmap);
+  end;
+
+
+  procedure TView.FreeImage;
+  begin
+   {$ifdef bTrace}
+    Trace('WIC Close "%s"', [FFileName]);
+   {$endif bTrace}
+    FreeIntf(FMetadata);
+    FreeIntf(FBitmap);
+    FreeIntf(FFrame);
+    FreeIntf(FDecoder);
   end;
 
 
