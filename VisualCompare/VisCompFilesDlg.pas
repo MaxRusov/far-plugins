@@ -1972,7 +1972,7 @@ interface
       vStr := 'Tab Enter'
     else
       vStr := 'Enter';
-    FarPostMacro(vStr);
+    FarPostMacro(FarKeyToMacro(vStr));
   end;
 
 

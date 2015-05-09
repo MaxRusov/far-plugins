@@ -1,7 +1,9 @@
 {$I Defines.inc} 
 
 {$APPTYPE CONSOLE}
-{$ImageBase $40A00000}
+{$ifdef Debug}
+ {$ImageBase $40A00000}
+{$endif Debug}
 
 library VisComp;
 
