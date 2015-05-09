@@ -263,7 +263,7 @@ interface
 //          vDelay := vDelay * (4 - vImpact);
           ApiCheck(SetWaitableTimer(FWTimer, vDelay, 0, nil, nil, False));
 
-//        TraceF('Run... (Impacts=%d, Steps=%s)', [FImpact, vDelta]);
+//        TraceF('Run... (Impacts=%d, Steps=%d)', [FImpact, vDelta]);
 //        PlayScrollSound;
 
           FarAdvControl(ACTL_SYNCHRO, pointer(vDelta * vDir));
@@ -330,7 +330,8 @@ interface
 
    {$ifdef Far3}
 //  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
-    FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+//  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
+    FMinFarVer := MakeVersion(3, 0, 3000);   { Lua stable }
    {$else}
    {$endif Far3}
   end;
@@ -341,7 +342,6 @@ interface
 //  InitScrollSound;
     PluginConfig(False);
   end;
-
 
   procedure TFastWheelPlug.ExitFar; {override;}
   begin
@@ -452,7 +452,6 @@ interface
 
       end else
       if vWinInfo.WindowType = WTYPE_EDITOR then begin
-
         FillZero(vEdtInfo, SizeOf(vEdtInfo));
        {$ifdef Far3}
         vEdtInfo.StructSize := SizeOf(vEdtInfo);
@@ -471,7 +470,6 @@ interface
         vEdtPos.Overtype := -1;
         FarEditorControl(ECTL_SETPOSITION, @vEdtPos);
         FarEditorControl(ECTL_REDRAW, nil);
-
       end else
       if vWinInfo.WindowType = WTYPE_VIEWER then begin
 
@@ -480,9 +478,9 @@ interface
           if vStr <> '' then
             vStr := vStr + ' ';
           if vDelta > 0 then
-            vStr := vStr + 'Down'
+            vStr := vStr + FarKeyToMacro('Down')
           else
-            vStr := vStr + 'Up';
+            vStr := vStr + FarKeyToMacro('Up');
         end;
 
         FarPostMacro(vStr{, KSFLAGS_NOSENDKEYSTOPLUGINS});
@@ -500,7 +498,8 @@ interface
 
   function TFastWheelPlug.EditorEvent(AID :Integer; AEvent :Integer; AParam :Pointer) :Integer; {override;}
   begin
-    if AEvent in [EE_CLOSE, EE_KILLFOCUS, EE_GOTFOCUS] then
+//  TraceF('EditorEvent: %d', [AEvent]);
+    if AEvent in [EE_CLOSE, EE_KILLFOCUS{, EE_GOTFOCUS}] then
       ImmediateStop;
     Result := 0;
   end;
