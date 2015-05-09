@@ -44,6 +44,7 @@ interface
       strFileNotFound,
       strPluginLoadError,
       strPluginUnloadError,
+      strNotFoundOnPlugring,
 
       strCommandsTitle,
       strRunCommand,
@@ -121,6 +122,7 @@ interface
       strVer,
 
       strButClose,
+      strButPlugring,
       strButProps,
 
       strLoadDlgTitle,
@@ -256,8 +258,6 @@ interface
 
   procedure AppErrorId(AMess :TMessages);
   procedure AppErrorIdFmt(AMess :TMessages; const Args: array of const);
-
-  function GUIDToString(const ClassID: TGUID): TString;
 
   procedure ConfigDlg;
   procedure RestoreDefColor;

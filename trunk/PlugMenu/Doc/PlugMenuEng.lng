@@ -21,6 +21,7 @@
 "File not found"
 "Plugin load error"
 "Plugin unload error"
+"Plugin not found on Plugring"
 
 "Commands"
 "&Run command         Enter"
@@ -99,6 +100,7 @@
 "version"
 
 "&Close"
+"Plug&ring"
 "&Properties"
 
 "Load Plugin"

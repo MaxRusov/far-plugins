@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<renewal>
-  <plugin guid="{AB9578B3-3107-4E28-BB00-3C13D47382AC}">
-    <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=PlugMenu</url>
-    <home arch="any">http://code.google.com/p/far-plugins/wiki/PlugMenu</home>
-    <regex arch="x86">//far-plugins.googlecode.com/files/PlugMenu\.far3lua.(\d+)\.(\d+)\.rar</regex>
-    <regex arch="x64">//far-plugins.googlecode.com/files/PlugMenu\.far3lua.x64.(\d+)\.(\d+)\.rar</regex>
-  </plugin>
-</renewal>

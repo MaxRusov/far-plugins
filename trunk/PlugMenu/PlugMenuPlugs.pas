@@ -29,6 +29,7 @@ interface
     FarCtrl,
 
     FarConfig,
+    Plugring,
     PlugMenuCtrl;
 
 
@@ -131,6 +132,7 @@ interface
       function PluginSetup :boolean;
       procedure PluginHelp;
       procedure UpdateVerInfo;
+      procedure GotoPluring;
 
     public
       function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; override;
@@ -1033,8 +1035,10 @@ interface
        vConfigure := GetProcAddress( vHandle, 'ConfigureW' );
        if Assigned(vConfigure) then begin
         {$ifdef Far3}
+         FillZero(vInfo, SizeOf(vInfo));
          vInfo.StructSize := SizeOf(vInfo);
          vInfo.GUID := @FConfGuid;
+         vInfo.Instance := Pointer(vHandle);
          vConfigure(vInfo);
         {$else}
          vConfigure(0);
@@ -1060,6 +1064,23 @@ interface
   begin
     FARAPI.ShowHelp(PTChar(FFileName), nil,  0);
   end;
+
+
+  procedure TFarPlugin.GotoPluring;
+ {$ifdef Far3}
+  var
+    vURL :TString;
+  begin
+    vURL := PlugringFindURL(FGUID);
+    if vURL = '' then
+      AppErrorId(strNotFoundOnPlugring);
+    ShellOpen(vURL);
+ {$else}
+  begin
+    Sorry;
+ {$endif Far3}
+  end;
+
 
  {-----------------------------------------------------------------------------}
 
