@@ -41,10 +41,10 @@ interface
       procedure Startup; override;
       procedure ExitFar; override;
       procedure GetInfo; override;
-//    procedure Configure; override;
       function Open(AFrom :Integer; AParam :TIntPtr) :THandle; override;
       function OpenCmdLine(AStr :PTChar) :THandle; override;
       function OpenMacro(AInt :TIntPtr; AStr :PTChar) :THandle; override;
+      procedure Configure; override;
     end;
 
 
@@ -354,8 +354,10 @@ interface
     vCurPath :TString;
   begin
     if ASetFolder then begin
-      vCurPath := GetCurrentDir;
-      ExecCommand('"/CurPath=' + vCurPath + '"');
+//    vCurPath := GetCurrentDir;
+      vCurPath := FarPanelGetCurrentDirectory;
+      if vCurPath <> '' then
+        ExecCommand('"/CurPath=' + vCurPath + '"');
     end;
     ExecCommand(AStr);
   end;
@@ -526,8 +528,8 @@ interface
     FMenuStr := GetMsg(strTitle);
     FMenuID := cMenuID;
     
-//  FConfigStr := FMenuStr;
-//  FConfigID := cConfigID;
+    FConfigStr := FMenuStr;
+    FConfigID := cConfigID;
 
     FPrefix := cFarPlayPrefix;
   end;
@@ -554,6 +556,13 @@ interface
     Result:= INVALID_HANDLE_VALUE;
     OpenCmdLineEx(AStr);
   end;
+
+
+  procedure TNoisyPlug.Configure; {override;}
+  begin
+    OpenConfig;
+  end;
+
 
 
 initialization
