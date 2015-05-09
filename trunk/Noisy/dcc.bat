@@ -16,3 +16,6 @@ cd ..
 cd GUI
 call _dcc %1 %2 %3
 cd ..
+
+set BinFolder=
+set UnitsFolder=

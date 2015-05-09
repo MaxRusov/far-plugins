@@ -30,6 +30,7 @@ interface
     FarPlayPlaylistDlg;
 
 
+  procedure OpenConfig;
   procedure OpenAboutDialog; 
   procedure OpenInfoDialog;
 
