@@ -1,9 +1,9 @@
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
-{-$ifdef Debug}
+{$ifdef Debug}
  {$ImageBase $41140000}
-{-$endif Debug}
+{$endif Debug}
 
 {$ifdef bDelphi}
  {$E pvd}
