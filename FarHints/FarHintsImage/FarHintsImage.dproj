@@ -3,7 +3,7 @@
         <ProjectGuid>{A0A5F8C0-35D4-41FC-81EC-C641424ABF6F}</ProjectGuid>
         <MainSource>FarHintsImage.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Library</AppType>
         <FrameworkType>None</FrameworkType>
@@ -64,7 +64,7 @@
         <GenDll>true</GenDll>
         <DCC_ImageBase>40380000</DCC_ImageBase>
         <VerInfo_Locale>1049</VerInfo_Locale>
-        <DCC_UnitSearchPath>..\..\FarApi;..\..\FarLib;..\..\FarHints;..\..\MixLib;..\..\MixLib\Win;..\..\MixLib\BDXE;..\..\RTL\BDXE10\$(Platform);$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>..\..\FarApi;..\..\FarLib;..\..\FarHints;..\..\MixLib;..\..\MixLib\Win;..\..\RTL\$(Platform);$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_E>false</DCC_E>
         <VerInfo_Release>17</VerInfo_Release>
         <DCC_K>false</DCC_K>

@@ -3,7 +3,7 @@
         <ProjectGuid>{3FDD748A-992A-44FF-A7C7-22010CC915C5}</ProjectGuid>
         <MainSource>FarHintsCursors.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Library</AppType>
         <FrameworkType>None</FrameworkType>
@@ -65,7 +65,7 @@
         <VerInfo_Locale>1049</VerInfo_Locale>
         <DCC_Alignment>1</DCC_Alignment>
         <DCC_DcuOutput>..\..\xUnits\DCC\FarHints\Cursors\$(Platform)\$(Config)</DCC_DcuOutput>
-        <DCC_UnitSearchPath>..\..\FarApi;..\..\FarLib;..\..\FarHints;..\..\MixLib;..\..\MixLib\Win;..\..\MixLib\BDXE;..\..\RTL\BDXE10\$(Platform);$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>..\..\FarApi;..\..\FarLib;..\..\FarHints;..\..\MixLib;..\..\MixLib\Win;..\..\RTL\$(Platform);$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_E>false</DCC_E>
         <VerInfo_Release>17</VerInfo_Release>
         <DCC_K>false</DCC_K>
