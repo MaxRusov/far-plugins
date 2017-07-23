@@ -1,5 +1,5 @@
 @Echo off
 
 set BinFolder=Review\PVD
-call ..\_fpc.bat GFL %*
+call ..\..\_bld.bat WIC %*
 set BinFolder=

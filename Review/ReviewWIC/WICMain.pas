@@ -303,7 +303,7 @@ interface
         if DetectUTF8(aVar.pszVal) then
           aRes := UTF8ToWide(aVar.pszVal)
         else
-          aRes := aVar.pszVal;
+          aRes := TString(aVar.pszVal);
       VT_LPWSTR :
         aRes := aVar.pwszVal
     else
@@ -326,7 +326,7 @@ interface
       VT_BOOL:
         Result := StrIf(aVar.bVal = 0, 'False', 'True');
       VT_LPSTR:
-        Result := aVar.pszVal;
+        Result := TString(aVar.pszVal);
       VT_LPWSTR:
         Result := aVar.pwszVal;
       VT_BLOB:
@@ -523,7 +523,7 @@ interface
 //    FInterrupt :Boolean;
 
      {$ifdef bTrace}
-      procedure MetadataCallback(const aName :TString; const aVal :PROPVARIANT; var aMore :Boolean);
+//    procedure MetadataCallback(const aName :TString; const aVal :PROPVARIANT; var aMore :Boolean);
      {$endif bTrace}
     end;
 
@@ -589,10 +589,10 @@ interface
 
 
  {$ifdef bTrace}
-  procedure TView.MetadataCallback(const aName :TString; const aVal :PROPVARIANT; var aMore :Boolean);
-  begin
-    Trace('%s = %s', [aName, VarAsStr(aVal)]);
-  end;
+//procedure TView.MetadataCallback(const aName :TString; const aVal :PROPVARIANT; var aMore :Boolean);
+//begin
+//  Trace('%s = %s', [aName, VarAsStr(aVal)]);
+//end;
  {$endif bTrace}
 
 

@@ -3,7 +3,7 @@
         <ProjectGuid>{1889FC5A-178D-45E8-9549-C2AEFFF69A5C}</ProjectGuid>
         <MainSource>Review.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Library</AppType>
         <FrameworkType>None</FrameworkType>

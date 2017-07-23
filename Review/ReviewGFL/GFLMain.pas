@@ -160,7 +160,7 @@ const
       if DetectUTF8(vStr) then
         ARes := UTF8ToWide(vStr)
       else
-        ARes := vStr;
+        ARes := TString(vStr);
       Result := True;
     end;
   end;
