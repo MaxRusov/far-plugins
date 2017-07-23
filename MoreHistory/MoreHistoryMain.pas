@@ -493,6 +493,7 @@ interface
     if AParams[0].fType = FMVT_STRING then
       Result := MacroCommand(AParams[0].Value.fString, ACount, AParams);
   end;
+  
 
   const
     kwShowFolderHist  = 1;

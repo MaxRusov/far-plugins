@@ -2058,8 +2058,8 @@ interface
       Result := AStr
     else
       Result := FLastMask;
-    if Result <> '' then
-      Result := '^' + Result;  
+    if (Result <> '') and (Result[1] <> '^') then
+      Result := '^' + Result;
   end;
 
 
