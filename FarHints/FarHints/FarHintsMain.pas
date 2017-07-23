@@ -56,7 +56,12 @@ interface
     end;
 
     
+ {$ifdef b64}
+ { ִכÿ סמגלוסעטלמסעט ס FreePascal }
+  function GetFarHinstAPI :Pointer; stdcall;
+ {$else}
   function GetFarHinstAPI :IFarHintsAPI; stdcall;
+ {$endif b64}
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -1580,10 +1585,17 @@ interface
  {-----------------------------------------------------------------------------}
  { Embedded plugin support                                                     }
 
+ {$ifdef b64}
+  function GetFarHinstAPI :Pointer; stdcall;
+  begin
+    Result := IFarHintsApi(FarHints);
+  end;
+ {$else}
   function GetFarHinstAPI :IFarHintsAPI; stdcall;
   begin
     Result := FarHints;
   end;
+ {$endif b64}
 
 
 end.

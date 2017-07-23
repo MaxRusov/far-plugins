@@ -230,7 +230,12 @@ interface
 
 
   type
+   {$ifdef b64}
+    { ִכÿ סמגלוסעטלמסעט ס FreePascal }
+    TGetFarHinstAPI = function :Pointer; stdcall;
+   {$else}
     TGetFarHinstAPI = function :IFarHintsApi; stdcall;
+   {$endif b64}
 
 
 {******************************************************************************}
