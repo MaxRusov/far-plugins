@@ -48,6 +48,7 @@ interface
       strSubstring,
       strWholeWords,
       strRegExp,
+      strBracket,
       strReverse,
       strPromptOnReplace,
       strSearchBut,
@@ -196,6 +197,7 @@ interface
     gOptions :TFindOptions = [foPromptOnReplace];
 
     gReverse :Boolean;
+    gBracket :Integer;
 
     gLastIsReplace :Boolean;
     gLastReplEmpty :Boolean;  { Затычка, чтобы диалог замены запоминал пустую строку замены }
@@ -211,7 +213,7 @@ interface
   procedure HandleError(AError :Exception);
 
   procedure SetFindOptions(var AOptions :TFindOptions; AOption :TFindOption; AOn :Boolean);
-  function RegexpQuote(const AExpr :TString) :TString;
+  function RegexpQuote(const AExpr :TString; var ABracket :Integer) :TString;
   function CheckRegexp(const AStr :TString) :Boolean;
   procedure InsertText(const AStr :TString);
 
@@ -265,29 +267,51 @@ interface
   end;
 
 
-  function RegexpQuote(const AExpr :TString) :TString;
+  function RegexpQuote(const AExpr :TString; var ABracket :Integer) :TString;
+  var
+    vLen, vPos, I :Integer;
   begin
+    ABracket := 0;
     if (AExpr <> '') and (AExpr[1] <> '/') then
       Result := '/' + AExpr + '/'
-    else
+    else begin
       Result := AExpr;
+      vLen := length(AExpr);
+      vPos := ChrLastPos('/', AExpr);
+      if (vPos > 1) and (vPos < vLen) then begin
+        I := vPos + 1;
+        while (I <= vLen) and (AExpr[I] <> '$') do
+          Inc(I);
+        if (I <= vLen) then begin
+          Result := Copy(AExpr, 1, I - 1);
+          ABracket := Str2Int(Copy(AExpr, I + 1, MaxInt));
+        end;
+      end;
+    end;
   end;
 
-
+  
   function CheckRegexp(const AStr :TString) :Boolean;
   var
     vRegExp :THandle;
     vStr :TString;
+    vBracket, vRegBrackets :Integer;
   begin
     if FarRegExpControl(0, RECTL_CREATE, @vRegExp) = 0 then
       Wrong;
     try
-      vStr := RegexpQuote(AStr);
+      vStr := RegexpQuote(AStr, vBracket);
       Result := FarRegExpControl(vRegExp, RECTL_COMPILE, PTChar(vStr)) <> 0;
+
+      if Result then begin
+        vRegBrackets := FarRegExpControl(vRegExp, RECTL_BRACKETSCOUNT, nil);
+        Result := (vRegBrackets > 0) and (vBracket < vRegBrackets);
+      end;
     finally
       FarRegExpControl(vRegExp, RECTL_FREE, nil);
     end;
   end;
+
 
 
   procedure InsertText(const AStr :TString);
@@ -385,6 +409,7 @@ interface
         LocOpt('WholeWords', foWholeWords);
         LocOpt('Regexp', foRegexp);
         LocOpt('PromptOnReplace', foPromptOnReplace);
+        IntValue('Bracket', gBracket);
 
         LogValue('SelectFound', optSelectFound);
         LogValue('CursorAtEnd', optCursorAtEnd);

@@ -94,45 +94,45 @@ interface
     FHelpTopic := 'Replace';
     FWidth := DX;
     FHeight := DY;
-    vX2 := DX div 2;
+    vX2 := (DX - 10) div 2;
 
-    FDialog := CreateDialog(
+    DoCreateDialog(
       [
         NewItemApi(DI_DoubleBox, 3,  1,   DX-6, DY-2, 0, GetMsg(strReplace)),
+        DlgSetMargin(5, 2),
 
-//      NewItemApi(DI_Text,     DX-11, 2, -1, -1, 0, GetMsg(strInsRegexp)),
-        NewItemApi(DI_Button,   DX-11, 2, -1, -1, DIF_NOFOCUS or DIF_BTNNOCLOSE or DIF_NOBRACKETS, GetMsg(strInsRegexp)),
+        NewButtonX(DX-16, 0,  GetMsg(strInsRegexp), DIF_NOFOCUS or DIF_BTNNOCLOSE or DIF_NOBRACKETS),
 
-        NewItemApi(DI_Text,     5,   2,  -1,    -1,   0, GetMsg(strSearchFor) ),
-        NewItemApi(DI_Edit,     5,   3,  DX-10, -1,   DIF_HISTORY or DIF_USELASTHISTORY, '', cFindHistory ),
+        NewTextX(0, 0, GetMsg(strSearchFor)),
+        NewEditX(0, 1, DX-10, DIF_HISTORY or DIF_USELASTHISTORY, cFindHistory ),
 
-        NewItemApi(DI_Text,     5,   4,  -1,    -1,   0, GetMsg(strReplaceWith) ),
-        NewItemApi(DI_Edit,     5,   5,  DX-10, -1,   DIF_HISTORY or IntIf(gLastReplEmpty, 0, DIF_USELASTHISTORY), '', cReplHistory ),
+        NewTextX(0, 1, GetMsg(strReplaceWith)),
+        NewEditX(0, 1, DX-10, DIF_HISTORY or IntIf(gLastReplEmpty, 0, DIF_USELASTHISTORY), cReplHistory ),
 
-        NewItemApi(DI_Text,     0,   6,  -1, -1,   DIF_SEPARATOR),
+        NewTextX(0, 1, '', DIF_SEPARATOR),
 
-        NewItemApi(DI_CheckBox,    5,  7, -1, -1, 0, GetMsg(strCaseSens)),
+        NewCheckX(0, 1, GetMsg(strCaseSens)),
 
        {$ifdef bComboMode}
-        NewItemApi(DI_RADIOBUTTON, 5,  8, -1, -1, 0, GetMsg(strSubstring)),
-        NewItemApi(DI_RADIOBUTTON, 5,  9, -1, -1, 0, GetMsg(strWholeWords)),
-        NewItemApi(DI_RADIOBUTTON, 5, 10, -1, -1, 0, GetMsg(strRegExp)),
+        NewRadioX(0, 1, GetMsg(strSubstring)),
+        NewRadioX(0, 1, GetMsg(strWholeWords)),
+        NewRadioX(0, 1, GetMsg(strRegExp)),
        {$else}
-        NewItemApi(DI_CheckBox,    5,  8, -1, -1, 0, GetMsg(strWholeWords)),
-        NewItemApi(DI_CheckBox,    5,  9, -1, -1, 0, GetMsg(strRegExp)),
+        NewCheckX(0, 1, GetMsg(strWholeWords)),
+        NewCheckX(0, 1, GetMsg(strRegExp)),
        {$endif bComboMode}
 
-        NewItemApi(DI_CheckBox, vX2, 7, -1, -1, 0, GetMsg(strReverse)),
-        NewItemApi(DI_CheckBox, vX2, 8, -1, -1, 0, GetMsg(strPromptOnReplace)),
+        DlgSetMargin(vX2, 6),
+        NewCheckX(0, 1, GetMsg(strReverse)),
+        NewCheckX(0, 1, GetMsg(strPromptOnReplace)),
 
-        NewItemApi(DI_Text,     0, DY-4, -1, -1, DIF_SEPARATOR),
-        NewItemApi(DI_DefButton,0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strSearchBut) ),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strEntireBut) ),
-        NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP, GetMsg(strCancelBut) )
-//      NewItemApi(DI_Button,   0, DY-3, -1, -1, DIF_CENTERGROUP or DIF_BTNNOCLOSE, GetMsg(strOptionsBut) )
-      ],
-      @FItemCount
-    );
+        DlgSetMargin(0, DY-4),
+        NewTextX(0, 0, '', DIF_SEPARATOR),
+
+        NewButtonX(0, 1, GetMsg(strSearchBut), DIF_CENTERGROUP or DIF_DEFAULTBUTTON ),
+        NewButtonX(0, 0, GetMsg(strEntireBut), DIF_CENTERGROUP ),
+        NewButtonX(0, 0, GetMsg(strCancelBut), DIF_CENTERGROUP )
+      ]);
   end;
 
 

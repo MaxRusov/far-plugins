@@ -303,10 +303,10 @@ interface
       try
         case vAction of
           1:
-            Result := FindStr(vFindStr, vOpt, vEntire, False, not vReverse,
+            Result := FindStr(vFindStr, vOpt, 0{!!!}, vEntire, False, not vReverse,
               vLoopMode, vHighlightMode, vErrorMode);
           2:
-            GrepStr(vFindStr, vOpt);
+            GrepStr(vFindStr, vOpt, 0{!!!});
           3:
             CountStr(vFindStr, vOpt);
           4:

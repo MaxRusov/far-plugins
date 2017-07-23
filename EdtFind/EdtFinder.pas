@@ -44,10 +44,10 @@ interface
 
     TFinder = class(TBasis)
     public
-      constructor CreateEx(const AExpr :TString; AOpt :TFindOptions);
+      constructor CreateEx(const AExpr :TString; AOpt :TFindOptions; ABracket :Integer);
       destructor Destroy; override;
 
-      function Find(AStr :PTChar; ALen :Integer; AForward :Boolean; var ADelta, AFindLen :Integer) :Boolean;
+      function Find(AStr :PTChar; ALen :Integer; AForward :Boolean; var ADelta, AFindLen, ASelDelta, ASelLen :Integer) :Boolean;
 
       function EdtFind(var ARow, ACol, AFindLen :Integer; AForward :Boolean; AddOpt :TEdtFindOptions;
         ARow1, ARow2 :Integer; AResults :TExList = nil) :Boolean;
@@ -56,28 +56,29 @@ interface
       procedure Replace(ASrcStr :PTChar; ASrcLen :Integer; const ARepStr :TString);
 
     private
-      FOpt       :TFindOptions;
-      FOrig      :TString;
-      FExpr      :TString;
-      FExprLen   :Integer;
+      FOpt        :TFindOptions;
+      FOrig       :TString;
+      FExpr       :TString;
+      FExprLen    :Integer;
+      FResBracket :Integer;    { }
 
-      FTmpBuf    :PTChar;
-      FTmpLen    :Integer;
+      FTmpBuf     :PTChar;
+      FTmpLen     :Integer;
 
-      FRegExp    :THandle;
-      FBrackets  :Integer;
-      FMatches   :array of TRegExpMatch;
+      FRegExp     :THandle;
+      FBrackets   :Integer;
+      FMatches    :array of TRegExpMatch;
 
       { Поддержка замены }
-      FRepExpr   :TString;
-      FRepList   :TExList;
+      FRepExpr    :TString;
+      FRepList    :TExList;
 
-      FRepBeg    :Integer;    { Начальная позиция заменяющего фрагмента }
-      FRepLen    :Integer;    { Длина заменяющего фрагмента }
-      FResStrLen :Integer;    { Длина итоговой строки }
+      FRepBeg     :Integer;    { Начальная позиция заменяющего фрагмента }
+      FRepLen     :Integer;    { Длина заменяющего фрагмента }
+      FResStrLen  :Integer;    { Длина итоговой строки }
 
-      FRepBuf    :PTChar;
-      FRepBufLen :Integer;
+      FRepBuf     :PTChar;
+      FRepBufLen  :Integer;
 
     public
       property RepBuf :PTChar read FRepBuf;
@@ -98,7 +99,7 @@ interface
 
   procedure InitFind(const ATitle, AAddStr :TString);
 
-  function EditorFind(const AStr :TString; AOpt :TFindOptions; var ARow, ACol, AFindLen :Integer; AForward :Boolean; AddOpt :TEdtFindOptions;
+  function EditorFind(const AStr :TString; AOpt :TFindOptions; ABracket :Integer; var ARow, ACol, AFindLen :Integer; AForward :Boolean; AddOpt :TEdtFindOptions;
     ARow1, ARow2 :Integer; AResults :TExList = nil) :Boolean;
 
 
@@ -209,10 +210,12 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  constructor TFinder.CreateEx(const AExpr :TString; AOpt :TFindOptions);
+  constructor TFinder.CreateEx(const AExpr :TString; AOpt :TFindOptions; ABracket :Integer);
+  var
+    vBracket :Integer;
   begin
-//  TRaceF('TFinder.CreateEx: %s', [AExpr]);
-    
+//  TraceF('TFinder.CreateEx: %s', [AExpr]);
+
     FOrig := AExpr;
     FOpt := AOpt;
 
@@ -225,7 +228,7 @@ interface
       FBrackets := 1;
     end else
     begin
-      FExpr := RegexpQuote(AExpr);
+      FExpr := RegexpQuote(AExpr, vBracket);
       if not (foCaseSensitive in AOpt) then
         FExpr := FExpr + 'i';
 
@@ -238,6 +241,10 @@ interface
       FBrackets := FarRegExpControl(FRegExp, RECTL_BRACKETSCOUNT, nil);
       if FBrackets <= 0 then
         Wrong;
+
+      if vBracket <> 0 then
+        ABracket := vBracket;
+      FResBracket := IntMin(ABracket, FBrackets - 1);
     end;
 
     SetLength(FMatches, FBrackets);
@@ -254,10 +261,10 @@ interface
   end;
 
 
-  function TFinder.Find(AStr :PTChar; ALen :Integer; AForward :Boolean; var ADelta, AFindLen :Integer) :Boolean;
+  function TFinder.Find(AStr :PTChar; ALen :Integer; AForward :Boolean; var ADelta, AFindLen, ASelDelta, ASelLen :Integer) :Boolean;
   var
     vStr :PTChar;
-    vExprLen :Integer;
+    vExprLen, ADelta0 :Integer;
     vRegExp :TRegExpSearch;
   begin
     Result := False;
@@ -283,6 +290,8 @@ interface
     if foRegexp in FOpt then begin
       { Поиск по регулярным варажениям }
 
+      ADelta0 := ADelta;
+
       vRegExp.Text := AStr;
       vRegExp.Position := ADelta;
       vRegExp.Length := ALen;
@@ -291,26 +300,38 @@ interface
       vRegExp.Reserved := nil;
 
       if AForward then begin
-        if FarRegExpControl(FRegExp, RECTL_SEARCHEX, @vRegExp) = 1 then begin
-          ADelta := FMatches[0].Start;
-          AFindLen := FMatches[0].EndPos - FMatches[0].Start;
+        if FarRegExpControl(FRegExp, RECTL_SEARCHEX, @vRegExp) = 1 then
           Result := True;
-        end;
       end else
       begin
         while True do begin
           vRegExp.Position := ADelta;
 
           if FarRegExpControl(FRegExp, RECTL_MATCHEX, @vRegExp) = 1 then begin
-            ADelta := FMatches[0].Start;
-            AFindLen := FMatches[0].EndPos - FMatches[0].Start;
-            Result := True;
-            Break;
+            if FResBracket > 0 then begin
+              if FMatches[FResBracket].Start <= ADelta0 then
+                Result := True;
+            end else
+              Result := True;
+            if Result then
+              Break;
           end;
 
           Dec(ADelta);
           if ADelta < 0 then
             Exit;
+        end;
+      end;
+
+      if Result then begin
+        ADelta := FMatches[0].Start;
+        AFindLen := FMatches[0].EndPos - FMatches[0].Start;
+        ASelDelta := FMatches[FResBracket].Start;
+        ASelLen := FMatches[FResBracket].EndPos - FMatches[FResBracket].Start;
+
+        if ASelDelta < 0 then begin
+          ASelDelta := ADelta;
+          ASelLen := 0;
         end;
       end;
 
@@ -375,6 +396,8 @@ interface
         FMatches[0].Start := ADelta;
         FMatches[0].EndPos := ADelta + FExprLen;
         AFindLen := FExprLen;
+        ASelDelta := ADelta;
+        ASelLen :=  AFindLen;
       end;
     end;
   end;
@@ -428,7 +451,7 @@ interface
   var
     vEdtInfo :TEditorInfo;
     vStrInfo :TEditorGetString;
-    vRow, vCol, vLen, vBegRow, vEndRow, vCol1, vCol2, vDelta :Integer;
+    vRow, vCol, vBegRow, vEndRow, vCol1, vCol2, vDelta, vLen, vSelDelta, vSelLen :Integer;
     vSel :TEdtSelection;
     vLocalProgress :Boolean;
   begin
@@ -507,19 +530,19 @@ interface
 
           if vCol2 >= vCol1 then begin
             vDelta := vCol - vCol1; { Может быть меньше 0 и больше (Col2 - Col1) - так и задумано. }
-            if Find(vStrInfo.StringText + vCol1, vCol2 - vCol1, AForward, vDelta, vLen) then begin
+            if Find(vStrInfo.StringText + vCol1, vCol2 - vCol1, AForward, vDelta, vLen, vSelDelta, vSelLen) then begin
               if AResults <> nil then begin
                 if efoCalcCount in AddOpt then
                   Inc(gFoundCount);
                 vSel.FRow := vRow;
-                vSel.FCol := vCol1 + vDelta;
-                vSel.FLen := vLen;
+                vSel.FCol := vCol1 + vSelDelta;
+                vSel.FLen := vSelLen;
                 AResults.AddData(vSel);
                 if efoOnePerRow in AddOpt then begin
                   vCol := 0;
                   Inc(vRow);
                 end else
-                  vCol := vSel.FCol + 1;
+                  vCol := vCol1 + vDelta + 1;
                 Result := True;
                 Continue;
               end else
@@ -531,8 +554,8 @@ interface
               end else
               begin
                 ARow := vRow;
-                ACol := vCol1 + vDelta;
-                AFindLen := vLen;
+                ACol := vCol1 + vSelDelta;
+                AFindLen := vSelLen;
                 Result := True;
                 Break;
               end;
@@ -667,12 +690,12 @@ interface
   end;
 
 
-  function EditorFind(const AStr :TString; AOpt :TFindOptions; var ARow, ACol, AFindLen :Integer; AForward :Boolean; AddOpt :TEdtFindOptions;
+  function EditorFind(const AStr :TString; AOpt :TFindOptions; ABracket :Integer; var ARow, ACol, AFindLen :Integer; AForward :Boolean; AddOpt :TEdtFindOptions;
     ARow1, ARow2 :Integer; AResults :TExList = nil) :Boolean;
   var
     vFinder :TFinder;
   begin
-    vFinder := TFinder.CreateEx(AStr, AOpt);
+    vFinder := TFinder.CreateEx(AStr, AOpt, ABracket);
     try
       Result := vFinder.EdtFind(ARow, ACol, AFindLen, AForward, AddOpt, ARow1, ARow2, AResults);
     finally

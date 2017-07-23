@@ -34,8 +34,9 @@ interface
 
 
   var
-    gLastOpt   :TFindOptions;
-    gMatchStr  :TString;
+    gLastOpt     :TFindOptions;
+    gLastBracket :Integer;
+    gMatchStr    :TString;
 
 
   procedure Find(APickWord :Boolean);
@@ -43,11 +44,11 @@ interface
   procedure RepeatLast(AForward :Boolean);
   procedure PickWord;
 
-  function FindStr(const AStr :TString; AOpt :TFindOptions; AEntire, ANext, AForward :Boolean;
+  function FindStr(const AStr :TString; AOpt :TFindOptions; ABracket :Integer; AEntire, ANext, AForward :Boolean;
     ALoopMode :Integer = -1; AHighlightMode :Integer = -1; AErrorMode :Integer = -1) :Boolean;
   function ReplaceStr(const AFindStr, AReplStr :TString; AOpt :TFindOptions; AEntire, ANext, AForward :Boolean;
     ALoopMode :Integer = -1; AHighlightMode :Integer = -1; AErrorMode :Integer = -1) :Boolean;
-  procedure GrepStr(const AStr :TString; AOpt :TFindOptions);
+  procedure GrepStr(const AStr :TString; AOpt :TFindOptions; ABracket :Integer);
   procedure CountStr(const AStr :TString; AOpt :TFindOptions);
   procedure HighlightStr(const AStr :TString; AOpt :TFindOptions);
   procedure GotoFoundPos(ARow, ACol, ALen :Integer; AForward :Boolean = True; ATopLine :Integer = 0);
@@ -276,7 +277,7 @@ interface
         gMatchRow2 := 0;
 
         vCol := 0;
-        EditorFind(gMatchStr, gMatchOpt, vRow1, vCol, vFindLen, {Forward:}True, [], vRow1, vRow2, gMatches);
+        EditorFind(gMatchStr, gMatchOpt, gBracket, vRow1, vCol, vFindLen, {Forward:}True, [], vRow1, vRow2, gMatches);
 
         gMatchRow1 := vRow1;
         gMatchRow2 := vRow2;
@@ -307,7 +308,7 @@ interface
           { Дополнение снизу }
           vRow := gMatchRow2;
           vCol := 0;
-          EditorFind(gMatchStr, gMatchOpt, vRow, vCol, vFindLen, {Forward:}True, [], gMatchRow2, vRow2, gMatches);
+          EditorFind(gMatchStr, gMatchOpt, gBracket, vRow, vCol, vFindLen, {Forward:}True, [], gMatchRow2, vRow2, gMatches);
           gMatchRow2 := vRow2;
         end;
 
@@ -317,7 +318,7 @@ interface
 
           vRow := vRow1;
           vCol := 0;
-          EditorFind(gMatchStr, gMatchOpt, vRow, vCol, vFindLen, {Forward:}True, [], vRow1, gMatchRow1, gMatches);
+          EditorFind(gMatchStr, gMatchOpt, gBracket, vRow, vCol, vFindLen, {Forward:}True, [], vRow1, gMatchRow1, gMatches);
 
           if gMatches.Count > vCount then
             gMatches.Move(vCount, 0, gMatches.Count - vCount);
@@ -442,7 +443,7 @@ interface
   end;
 
 
-  function FindStr(const AStr :TString; AOpt :TFindOptions; AEntire, ANext, AForward :Boolean;
+  function FindStr(const AStr :TString; AOpt :TFindOptions; ABracket :Integer; AEntire, ANext, AForward :Boolean;
     ALoopMode :Integer = -1; AHighlightMode :Integer = -1; AErrorMode :Integer = -1) :Boolean;
   var
     vEdtInfo :TEditorInfo;
@@ -511,7 +512,7 @@ interface
       vStart := GetTickCount;
      {$endif bTrace}
 
-      vFound := EditorFind(AStr, AOpt, vRow, vCol, vFindLen, AForward, [efoProgress], vRow1, vRow2);
+      vFound := EditorFind(AStr, AOpt, ABracket, vRow, vCol, vFindLen, AForward, [efoProgress], vRow1, vRow2);
 
      {$ifdef bTrace}
       TraceF('  done: %d ms', [TickCountDiff(GetTickCount, vStart)]);
@@ -589,7 +590,7 @@ interface
     InitFind(GetMsgStr(strFind), GetMsgStr(strFoundCount));
 
     vRow := 0; vCol := 0; vLen := 0;
-    vFound := EditorFind(AStr, AOpt, vRow, vCol, vLen, True, [efoProgress, efoCalcCount], 0, 0);
+    vFound := EditorFind(AStr, AOpt, 0, vRow, vCol, vLen, True, [efoProgress, efoCalcCount], 0, 0);
 
    {$ifdef bTrace}
     TraceF('  done: %d ms', [TickCountDiff(GetTickCount, vStart)]);
@@ -602,7 +603,7 @@ interface
   end;
 
 
-  procedure GrepStr(const AStr :TString; AOpt :TFindOptions);
+  procedure GrepStr(const AStr :TString; AOpt :TFindOptions; ABracket :Integer);
   var
     vRow, vCol, vLen :Integer;
     vFound :Boolean;
@@ -621,7 +622,7 @@ interface
       InitFind(GetMsgStr(strFind), GetMsgStr(strFoundCount));
 
       vRow := 0; vCol := 0; vLen := 0;
-      vFound := EditorFind(AStr, AOpt, vRow, vCol, vLen, True, [efoProgress, efoCalcCount, efoOnePerRow], 0, 0, vMatches);
+      vFound := EditorFind(AStr, AOpt, ABracket, vRow, vCol, vLen, True, [efoProgress, efoCalcCount, efoOnePerRow], 0, 0, vMatches);
 
      {$ifdef bTrace}
       TraceF('  done: %d ms', [TickCountDiff(GetTickCount, vStart)]);
@@ -643,7 +644,7 @@ interface
     vFinder :TFinder;
   begin
     { Проверяем валидность регулярного выражения... }
-    vFinder := TFinder.CreateEx(AStr, AOpt);
+    vFinder := TFinder.CreateEx(AStr, AOpt, 0);
     FreeObj(vFinder);
 
    {$ifdef bAdvSelect}
@@ -664,14 +665,15 @@ interface
     EdtClearMark;
    {$endif bAdvSelect}
     gLastOpt := gOptions;
+    gLastBracket := gBracket;
     gLastIsReplace := False;
     if vMode = efmCount then
       CountStr(gStrFind, gLastOpt)
     else
     if vMode = efmGrep then
-      GrepStr(gStrFind, gLastOpt)
+      GrepStr(gStrFind, gLastOpt, gLastBracket)
     else
-      FindStr(gStrFind, gLastOpt, vMode = efmEntire, False, not gReverse);
+      FindStr(gStrFind, gLastOpt, gLastBracket, vMode = efmEntire, False, not gReverse);
   end;
 
 
@@ -688,7 +690,7 @@ interface
       gLastIsReplace := False;
       FarAddToHistory(cFindHistory, gStrFind);
       GotoPosition(-1, -1, -1, vCol, False);
-      FindStr(gStrFind, gLastOpt, False, False, True);
+      FindStr(gStrFind, gLastOpt, 0, False, False, True);
     end else
       Beep;
   end;
@@ -797,7 +799,7 @@ interface
 
     vPrompt := foPromptOnReplace in AOpt;
 
-    vFinder := TFinder.CreateEx(AFindStr, AOpt);
+    vFinder := TFinder.CreateEx(AFindStr, AOpt, 0);
     try
       InitFind(GetMsgStr(strReplace), GetMsgStr(strFoundReplaced));
 
@@ -1016,7 +1018,7 @@ interface
     if gLastIsReplace then
       ReplaceStr(gStrFind, gStrRepl, gLastOpt, False, True, AForward)
     else
-      FindStr(gStrFind, gLastOpt, False, True, AForward);
+      FindStr(gStrFind, gLastOpt, gLastBracket, False, True, AForward);
   end;
 
 

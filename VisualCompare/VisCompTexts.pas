@@ -78,7 +78,7 @@ interface
     TStrCompareRes = (
       scrEqual,      { Строки совпадают }
       scrSimilar,    { Строки различаются только пробелами или регистром }
-      scrDiff        { Строки различаюися }
+      scrDiff        { Строки различаются }
     );
 
     TTextDiff = class(TBasis)
