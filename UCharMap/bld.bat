@@ -1,2 +1,2 @@
 @Echo off
-call ..\_bld4.bat UCharMap
+call ..\_bld.bat UCharMap %*

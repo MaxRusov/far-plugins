@@ -1,2 +1,2 @@
 @Echo off
-call ..\_bld4.bat PlugMenu
+call ..\_bld.bat PlugMenu %*

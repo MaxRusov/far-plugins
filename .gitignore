@@ -1,0 +1,15 @@
+Arc/
+Bin2/
+Bin2x32/
+Bin2x64/
+Bin3/
+Bin3x32/
+Bin3x64
+RTL/
+xUnits/
+*.res
+*.dsk
+*.local
+*.stat
+*.identcache
+*.~*

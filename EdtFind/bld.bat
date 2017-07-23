@@ -1,2 +1,2 @@
 @Echo off
-call ..\_bld4.bat EdtFind
+call ..\_bld.bat EdtFind %*

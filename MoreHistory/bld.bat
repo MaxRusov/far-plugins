@@ -1,2 +1,2 @@
 @Echo off
-call ..\_bld4.bat MoreHistory
+call ..\_bld.bat MoreHistory %*

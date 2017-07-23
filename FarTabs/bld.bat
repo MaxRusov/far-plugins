@@ -1,2 +1,2 @@
 @Echo off
-call ..\_bld4.bat PanelTabs
+call ..\_bld.bat PanelTabs %*

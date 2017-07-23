@@ -1,3 +1,2 @@
 @Echo off
-call ..\_bld4.bat ConCtrl
-
+call ..\_bld.bat ConCtrl %*

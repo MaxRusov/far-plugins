@@ -1,2 +1,2 @@
 @Echo off
-call ..\_bld4.bat MacroLib
+call ..\_bld.bat MacroLib %*
