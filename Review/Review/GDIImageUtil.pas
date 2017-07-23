@@ -1650,7 +1650,7 @@ interface
             if DetectUTF8(PAnsiChar(vItem.value)) then
               AValue := UTF8ToWide(PAnsiChar(vItem.value))
             else
-              AValue := PAnsiChar(vItem.value)
+              AValue := TString(PAnsiChar(vItem.value))
           end else
             Result := False;
         end;

@@ -823,9 +823,9 @@ interface
     FillZero(vRec, SizeOf(vRec));
     FpvdPluginInfo(@vRec);
 
-    FTitle    := vRec.pName;
-    FVersion  := vRec.pVersion;
-    FComment  := vRec.pComments;
+    FTitle    := TString(vRec.pName);
+    FVersion  := TString(vRec.pVersion);
+    FComment  := TString(vRec.pComments);
     FPriority := vRec.Priority;
   end;
 
@@ -841,9 +841,9 @@ interface
     Result := FpvdFileOpen(PAnsiChar(vFileName), AImage.FSize, AImage.FCacheBuf, AImage.FCacheSize, @vInfo, AImage.FContext);
 
     if Result then begin
-      AImage.FFormat := vInfo.pFormatName;
-      AImage.FCompress := vInfo.pCompression;
-      AImage.FDescr := vInfo.pComments;
+      AImage.FFormat := TString(vInfo.pFormatName);
+      AImage.FCompress := TString(vInfo.pCompression);
+      AImage.FDescr := TString(vInfo.pComments);
       AImage.FPages := vInfo.nPages;
       AImage.FAnimated := vInfo.Flags and PVD_IIF_ANIMATED <> 0;
     end;

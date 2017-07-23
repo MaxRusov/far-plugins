@@ -1,5 +1,5 @@
 @Echo off
 
 set BinFolder=Review\PVD
-call ..\_dcc.bat DXVideo %*
+call ..\..\_bld.bat DXVideo %*
 set BinFolder=
