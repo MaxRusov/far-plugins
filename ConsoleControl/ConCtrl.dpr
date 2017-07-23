@@ -39,7 +39,7 @@ exports
   ConfigureW;
 //ExitFARW;
 
-{$R ConCtrl.res}
+{$R ConCtrlW.res}
 
 begin
   Plug := TConCtrlPlug.Create;

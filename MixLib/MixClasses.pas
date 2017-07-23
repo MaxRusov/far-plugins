@@ -2,6 +2,10 @@
 
 unit MixClasses;
 
+{$ifdef bExcludeRTTI}
+ {$RTTI EXPLICIT METHODS([]) PROPERTIES([]) FIELDS([])}
+{$endif bExcludeRTTI}
+
 interface
 
   uses

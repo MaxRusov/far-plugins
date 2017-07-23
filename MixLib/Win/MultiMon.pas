@@ -389,14 +389,14 @@ end;
 procedure InitMultiMonStubs;
 begin
   User32Dll := GetModuleHandle(sUser32);
-  @GetSystemMetrics := @_GetSystemMetrics;
-  @MonitorFromWindow := @xMonitorFromWindow;
-  @MonitorFromRect := @xMonitorFromRect;
-  @MonitorFromPoint := @xMonitorFromPoint;
-  {procedure}@GetMonitorInfoA := @xGetMonitorInfoA;
-  {procedure}@GetMonitorInfoW := @xGetMonitorInfoW;
-  {procedure}@GetMonitorInfo := @xGetMonitorInfo;
-  @EnumDisplayMonitors := @xEnumDisplayMonitors;
+  GetSystemMetrics := _GetSystemMetrics;
+  MonitorFromWindow := xMonitorFromWindow;
+  MonitorFromRect := xMonitorFromRect;
+  MonitorFromPoint := xMonitorFromPoint;
+  {procedure}GetMonitorInfoA := xGetMonitorInfoA;
+  {procedure}GetMonitorInfoW := xGetMonitorInfoW;
+  {procedure}GetMonitorInfo := xGetMonitorInfo;
+  EnumDisplayMonitors := xEnumDisplayMonitors;
 end;
 
 

@@ -106,6 +106,7 @@ interface
     MIF_CHECKED1 = MIF_CHECKED { or Byte(chrCheck)};
 
     DI_DefButton = DI_USERCONTROL - 1;
+    DI_Margin    = $10000000;
 
    {$ifdef Far3}
    {$else}
@@ -174,8 +175,17 @@ interface
   procedure CleanupList(AItem :PFarListItem; ACount :Integer);
  {$endif bUnicodeFar}
 
-  function NewItem(AType :Integer; DX, DY, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
-  function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+  function DlgSetMargin(X, Y :Integer) :TFarDialogItem;
+  function NewItem(AType :Integer; DX, DY, W, H :Integer; AFlags :Int64; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+  function NewItemX(AType :Integer; X, DY, W, H :Integer; AFlags :Int64; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+  function NewItemXY(AType :Integer; X, Y, W, H :Integer; AFlags :Int64; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+  function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :Int64; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+  function NewTextX(X, DY :Integer; AText :PFarChar; AFlags :Int64 = 0) :TFarDialogItem;
+  function NewEditX(X, DY, W :Integer; AFlags :Int64 = 0; AHist :PFarChar = nil) :TFarDialogItem;
+  function NewCheckX(X, DY :Integer; AText :PFarChar; AFlags :Int64 = 0) :TFarDialogItem;
+  function NewRadioX(X, DY :Integer; AText :PFarChar; AFlags :Int64 = 0) :TFarDialogItem;
+  function NewButtonX(X, DY :Integer; AText :PFarChar; AFlags :Int64 = 0) :TFarDialogItem;
+
   function CreateDialog(const AItems :array of TFarDialogItem; AItemCount :PInteger = nil) :PFarDialogItemArray;
   function RunDialog( X1, Y1, DX, DY :Integer; AHelpTopic :PFarChar;
     AItems :PFarDialogItemArray; ACount :Integer; AFlags :DWORD; ADlgProc :TFarApiWindowProc;
@@ -298,6 +308,9 @@ interface
   function MouseEventToFarKeyEx(const AEvent :TMouseEventRecord; AOldState :DWORD; var APress, ADouble :Boolean) :Integer;
   function FarKeyToMouseEvent(AKey :Integer; var AEvent :TMouseEventRecord) :Boolean;
   function FarKeyToInputRecord(AKey :Integer; var ARec :INPUT_RECORD) :Boolean;
+ {$ifdef Far3}
+  function FarInputRecordToName(const ARec :INPUT_RECORD) :TString;
+ {$endif Far3}
 
  {$ifdef Far3}
  {$else}
@@ -536,23 +549,30 @@ interface
  {-----------------------------------------------------------------------------}
 
   var
+    MarginX, MarginY :Integer;
     LastX, LastY :Integer;
 
 
-  function NewItem(AType :Integer; DX, DY, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+  function DlgSetMargin(X, Y :Integer) :TFarDialogItem;
   begin
-    FillChar(Result, SizeOf(Result), 0);
+    FillZero(Result, SizeOf(Result));
+    with Result do begin
+      ItemType := DI_Margin;
+      MarginX := X;
+      MarginY := Y;
+      LastX := X;
+      LastY := Y;
+    end;
+  end;
+
+
+  function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :Int64; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+  begin
+    FillZero(Result, SizeOf(Result));
     with Result do begin
       ItemType := IntIf(AType = DI_DefButton, DI_Button, AType);
-      if DY < 0 then
-        Y1 := -DY
-      else
-        Y1 := LastY + DY;
-
-      if DX < 0 then
-        X1 := -DX
-      else
-        X1 := LastX + DX;
+      X1 := X;
+      Y1 := Y;
 
       if W > 0 then begin
         X2 := X1 + W - 1;
@@ -587,73 +607,82 @@ interface
   end;
 
 
-  function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+  function NewItem(AType :Integer; DX, DY, W, H :Integer; AFlags :Int64; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+  var
+    X, Y :Integer;
   begin
-    LastX := 0; LastY := 0;
-    Result := NewItem(AType, X, Y, W, H, AFlags, AText, AHist);
+    if DX < 0 then
+      X := MarginX - DX
+    else
+      X := LastX + DX;
+
+    if DY < 0 then
+      Y := MarginY - DY
+    else
+      Y := LastY + DY;
+
+    Result := NewItemApi(AType, X, Y, W, H, AFlags, Atext, AHist);
   end;
 
-(*
-  function NewItemApi(AType :Integer; X, Y, W, H :Integer; AFlags :DWORD; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+
+  function NewItemX(AType :Integer; X, DY, W, H :Integer; AFlags :Int64; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
   begin
-    FillChar(Result, SizeOf(Result), 0);
-    with Result do begin
-      ItemType := IntIf(AType = DI_DefButton, DI_Button, AType);
-      X1 := X;
-      Y1 := Y;
-      if W >= 0 then
-        X2 := X + W - 1;
-      if H >= 0 then
-        Y2 := Y + H - 1;
-      Flags := AFlags;
-     {$ifdef Far3}
-      Data := AText;
-      History := AHist;
-      if AType = DI_DefButton then
-        Flags := Flags or DIF_DEFAULTBUTTON;
-     {$else}
-      PtrData := AText;
-      Param.History := AHist;
-      DefaultButton := IntIf(AType = DI_DefButton, 1, 0);
-     {$endif Far3}
-    end;
+    Result := NewItemApi(AType, MarginX + X, LastY + DY, W, H, AFlags, AText, AHist);
   end;
-*)
+
+  function NewItemXY(AType :Integer; X, Y, W, H :Integer; AFlags :Int64; AText :PFarChar = nil; AHist :PFarChar = nil) :TFarDialogItem;
+  begin
+    Result := NewItemApi(AType, MarginX + X, MarginY + Y, W, H, AFlags, Atext, AHist);
+  end;
+
+
+  function NewTextX(X, DY :Integer; AText :PFarChar; AFlags :Int64 = 0) :TFarDialogItem;
+  begin
+    Result := NewItemApi(DI_Text, MarginX + X, LastY + DY, -1, -1, AFlags, AText);
+  end;
+
+  function NewEditX(X, DY, W :Integer; AFlags :Int64 = 0; AHist :PFarChar = nil) :TFarDialogItem;
+  begin
+    Result := NewItemApi(DI_Edit, MarginX + X, LastY + DY, W, -1, AFlags, nil, AHist);
+  end;
+
+  function NewCheckX(X, DY :Integer; AText :PFarChar; AFlags :Int64 = 0) :TFarDialogItem;
+  begin
+    Result := NewItemApi(DI_CheckBox, MarginX + X, LastY + DY, -1, -1, AFlags, AText);
+  end;
+
+  function NewRadioX(X, DY :Integer; AText :PFarChar; AFlags :Int64 = 0) :TFarDialogItem;
+  begin
+    Result := NewItemApi(DI_RadioButton, MarginX + X, LastY + DY, -1, -1, AFlags, AText);
+  end;
+
+  function NewButtonX(X, DY :Integer; AText :PFarChar; AFlags :Int64 = 0) :TFarDialogItem;
+  begin
+    Result := NewItemApi(DI_Button, MarginX + X, LastY + DY, -1, -1, AFlags, AText);
+  end;
+
 
   function CreateDialog(const AItems :array of TFarDialogItem; AItemCount :PInteger = nil) :PFarDialogItemArray;
   var
-    I, vCount :Integer;
+    I, vCount, vItemCount :Integer;
     vItem :PFarDialogItem;
   begin
-    LastX := 0; LastY := 0;
+    LastX := 0; LastY := 0; MarginX := 0; MarginY := 0;
     vCount := High(AItems) + 1;
     Result := MemAllocZero(vCount * SizeOf(TFarDialogItem));
+    vItemCount := 0;
     vItem := @Result[0];
     for I := 0 to vCount - 1 do begin
-      Move(AItems[I], vItem^, SizeOf(TFarDialogItem));
-      Inc(Pointer1(vItem), SizeOf(TFarDialogItem));
+      if AItems[I].ItemType <> DI_Margin then begin
+        Move(AItems[I], vItem^, SizeOf(TFarDialogItem));
+        Inc(Pointer1(vItem), SizeOf(TFarDialogItem));
+        Inc(vItemCount);
+      end;
     end;
     if AItemCount <> nil then
-      AItemCount^ := vCount;
+      AItemCount^ := vItemCount;
   end;
-
-(*
-  function CreateDialog(const AItems :array of TFarDialogItem; AItemCount :PInteger = nil) :PFarDialogItemArray;
-  var
-    I, vCount :Integer;
-    vItem :PFarDialogItem;
-  begin
-    vCount := High(AItems) + 1;
-    Result := MemAllocZero(vCount * SizeOf(TFarDialogItem));
-    vItem := @Result[0];
-    for I := 0 to vCount - 1 do begin
-      Move(AItems[I], vItem^, SizeOf(TFarDialogItem));
-      Inc(Pointer1(vItem), SizeOf(TFarDialogItem));
-    end;
-    if AItemCount <> nil then
-      AItemCount^ := vCount;
-  end;
-*)
+  
 
   function RunDialog( X1, Y1, DX, DY :Integer; AHelpTopic :PFarChar;
     AItems :PFarDialogItemArray; ACount :Integer; AFlags :DWORD; ADlgProc :TFarApiWindowProc;
@@ -1257,12 +1286,18 @@ interface
           end;
           vtAnsiString: begin
             fType := FMVT_STRING;
-            Value.fString := StrNew(AnsiString(Args[I].VAnsiString));
+            Value.fString := StrNew(TString(AnsiString(Args[I].VAnsiString)));
           end;
           vtWideString: begin
             fType := FMVT_STRING;
             Value.fString := StrNew(WideString(Args[I].VWideString));
           end;
+         {$ifdef bUnicodeStr}
+          vtUnicodeString: begin
+            fType := FMVT_STRING;
+            Value.fString := StrNew(UnicodeString(Args[I].VWideString));
+          end;
+         {$endif bUnicodeStr}
         end;
       end;
   end;
@@ -1906,7 +1941,19 @@ interface
       $DE : vKey := $27;              { ' }
 
       VK_SHIFT, VK_CONTROL, VK_MENU:
-        vKey := 0;
+        if AEvent.bKeyDown then
+          vKey := 0
+        else begin
+          if vKey = VK_MENU then
+            Result := IntIf(AEvent.dwControlKeyState and ENHANCED_KEY <> 0, KEY_RALT, KEY_ALT)
+          else
+          if vKey = VK_CONTROL then
+            Result := IntIf(AEvent.dwControlKeyState and ENHANCED_KEY <> 0, KEY_RCTRL, KEY_CTRL)
+          else
+            Result := KEY_SHIFT;
+          Result := Result or ShiftStateToFarKeyState(AEvent.dwControlKeyState);
+          Exit;
+        end;
 
       VK_BACK, VK_TAB, VK_RETURN, VK_ESCAPE, VK_SPACE,
       Byte('0')..Byte('9'),
@@ -1998,7 +2045,7 @@ interface
         if (AKey >= 32) and (AKey < $FFFF) then
           AEvent.UnicodeChar := WChar(AKey);
         AEvent.dwControlKeyState := vShift;
-//      AEvent.wRepeatCount := 1;
+//      AEvent.wRepeatCount := 1; 
         AEvent.bKeyDown := True;
       end else
       if (AKey >= 32) and (AKey < $FFFF) then begin
@@ -2112,6 +2159,20 @@ interface
     Result := True;
   end;
 
+
+ {$ifdef Far3}
+  function FarInputRecordToName(const ARec :INPUT_RECORD) :TString;
+  var
+    vLen :Integer;
+  begin
+    Result := '';
+    vLen := FARSTD.FarInputRecordToName(ARec, nil, 0);
+    if vLen > 0 then begin
+      SetLength(Result, vLen - 1);
+      FARSTD.FarInputRecordToName(ARec, PTChar(Result), vLen);
+    end;
+  end;
+ {$endif Far3}
 
 
  {-----------------------------------------------------------------------------}
@@ -2292,6 +2353,7 @@ interface
     vItems :array[0..0] of TFarDialogItem;
   begin
     vItems[0] := NewItemApi(DI_Edit, 0, 0, 5, -1, DIF_HISTORY, '', PTChar(AHist) );
+    DlgSetMargin(0, 0);
     hDlg := FARAPI.DialogInit(PluginID, GUID_NULL, -1, -1, 9, 2, nil, Pointer(@vItems), 1, 0, 0, HelperDlgProc, TIntPtr(AStr));
     try
       FARAPI.DialogRun(hDlg);

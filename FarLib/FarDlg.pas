@@ -35,6 +35,8 @@ interface
       constructor Create; override;
       destructor Destroy; override;
 
+      procedure DoCreateDialog(const AItems :array of TFarDialogItem);
+
       function Run :Integer;
       procedure Close;
 
@@ -430,6 +432,12 @@ interface
  {$endif Far3}
   end;
 *)
+
+
+  procedure TFarDialog.DoCreateDialog(const AItems :array of TFarDialogItem);
+  begin
+    FDialog := CreateDialog(AItems, @FItemCount);
+  end;
 
 
   function TFarDialog.SendMsg(AMsg, AParam1 :Integer; AParam2 :TIntPtr) :TIntPtr;

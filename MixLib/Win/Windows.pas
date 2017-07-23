@@ -1,5 +1,5 @@
 {******************************************************* }
-{                                                        } 
+{                                                        }
 {       Borland Delphi Run-time Library                  }
 {       Win32 API Interface Unit                         }
 {                                                        }
@@ -17923,7 +17923,9 @@ function ScrollConsoleScreenBuffer(hConsoleOutput: THandle;
   const lpScrollRectangle: TSmallRect; lpClipRectangle: PSmallRect;
   dwDestinationOrigin: TCoord; var lpFill: TCharInfo): BOOL; stdcall;
 function SetConsoleWindowInfo(hConsoleOutput: THandle; bAbsolute: BOOL;
-  const lpConsoleWindow: TSmallRect): BOOL; stdcall;
+  const lpConsoleWindow: TSmallRect): BOOL; stdcall; overload;
+function SetConsoleWindowInfo(hConsoleOutput: THandle; bAbsolute: BOOL;
+  lpConsoleWindow: PSmallRect): BOOL; overload; stdcall;
 function SetConsoleTextAttribute(hConsoleOutput: THandle; wAttributes: Word): BOOL; stdcall;
 function SetConsoleCtrlHandler(HandlerRoutine: TFNHandlerRoutine; Add: BOOL): BOOL; stdcall;
 function GenerateConsoleCtrlEvent(dwCtrlEvent: DWORD; dwProcessGroupId: DWORD): BOOL; stdcall;
@@ -19891,7 +19893,9 @@ function SetConsoleTextAttribute; external kernel32 name 'SetConsoleTextAttribut
 function SetConsoleTitleA; external kernel32 name 'SetConsoleTitleA';
 function SetConsoleTitleW; external kernel32 name 'SetConsoleTitleW';
 function SetConsoleTitle; external kernel32 name 'SetConsoleTitle'+_X;
-function SetConsoleWindowInfo; external kernel32 name 'SetConsoleWindowInfo';
+//function SetConsoleWindowInfo; external kernel32 name 'SetConsoleWindowInfo';
+function SetConsoleWindowInfo(hConsoleOutput: THandle; bAbsolute: BOOL;
+  lpConsoleWindow: PSmallRect): BOOL; external kernel32 name 'SetConsoleWindowInfo';
 function SetCriticalSectionSpinCount; external kernel32 name 'SetCriticalSectionSpinCount';
 function SetCurrentDirectoryA; external kernel32 name 'SetCurrentDirectoryA';
 function SetCurrentDirectoryW; external kernel32 name 'SetCurrentDirectoryW';
@@ -21736,6 +21740,13 @@ begin
   else
     piScrollLines := 3;  // default
 end;
+
+function SetConsoleWindowInfo(hConsoleOutput: THandle; bAbsolute: BOOL; const lpConsoleWindow: TSmallRect): BOOL;
+begin
+  Result := SetConsoleWindowInfo(hConsoleOutput, bAbsolute, @lpConsoleWindow);
+end;
+
+
 
 
 end.

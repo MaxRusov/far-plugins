@@ -1,5 +1,6 @@
+{$I Defines.inc}
 
-{$Align On}
+{-$Align On}
 {$RangeChecks Off}
 
 {$ifdef FPC}

@@ -343,7 +343,7 @@ interface
     if vCount > 0 then begin
       for I := 0 to vCount - 1 do begin
         vChr := ChrCopy(vChr, ' : ', 3);
-        vChr := ChrCopyPtr(vChr, vStack[I]);
+        vChr := StrCopyPtr(vChr, vStack[I]);
       end;
     end else
       vChr := ChrCopy(vChr, ' : !!!', 6);

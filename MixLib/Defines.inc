@@ -1,5 +1,6 @@
 {------------------------------------------------------------------------------}
 
+{$Define Far3}                 { По умолчанию собирается версия для Far3 }
 {$Define Unicode}              { По умолчанию собирается Unicode версия }
 
 {$ifdef Debug}
@@ -108,7 +109,7 @@
    {$Define bDelphi9}
    {$Define bDelphi10}
    {$Define bDelphi11}
-   {$Define bDelphi12}  { D2009 }
+   {$Define bDelphi12}   // Delphi 2009 - первая юникодная версия
   {$endif}
 
   {$ifdef Ver210}
@@ -121,7 +122,7 @@
    {$Define bDelphi10}
    {$Define bDelphi11}
    {$Define bDelphi12}
-   {$Define bDelphi13}  { D2010 }
+   {$Define bDelphi13}  // Delphi 2010
   {$endif}
 
   {$ifdef Ver220}       
@@ -135,7 +136,8 @@
    {$Define bDelphi11}
    {$Define bDelphi12}
    {$Define bDelphi13}
-   {$Define bDelphi14}  { Delphi XE }
+   {$Define bDelphi14}  // Delphi XE
+   {$Define bDelphiXE}
   {$endif}
 
   {$ifdef Ver230}
@@ -149,8 +151,9 @@
    {$Define bDelphi11}
    {$Define bDelphi12}
    {$Define bDelphi13}
-   {$Define bDelphi14} 
-   {$Define bDelphi15}  { Delphi XE2 (Pulsar) - первая версия с 64-х разрядным компилятором }
+   {$Define bDelphi14}
+   {$Define bDelphi15}  // Delphi XE2 (Pulsar) - первая версия с 64-х разрядным компилятором
+   {$Define bDelphiXE}
   {$endif}
 
   {$ifdef Ver240}
@@ -164,10 +167,53 @@
    {$Define bDelphi11}
    {$Define bDelphi12}
    {$Define bDelphi13}
-   {$Define bDelphi14}  
-   {$Define bDelphi15}  
-   {$Define bDelphi16}  { Delphi XE3 }
+   {$Define bDelphi14}
+   {$Define bDelphi15}
+   {$Define bDelphi16}  // Delphi XE3
+   {$Define bDelphiXE}
   {$endif}
+
+  {$ifdef Ver250}
+   !
+  {$endif Ver250}
+
+  {$ifdef Ver260}
+   !
+  {$endif Ver260}
+
+  {$ifdef Ver270}
+   !
+  {$endif Ver270}
+
+  {$ifdef Ver280}
+   !
+  {$endif Ver280}
+
+  {$ifdef Ver290}
+   !
+  {$endif Ver290}
+
+  {$ifdef Ver300}
+   !
+  {$endif Ver300}
+
+  {$ifdef Ver310}       { "Berlin"}
+   {$Define bDelphi4}
+   {$Define bDelphi5}
+   {$Define bDelphi6}
+   {$Define bDelphi7}
+   {$Define bDelphi8}
+   {$Define bDelphi9}
+   {$Define bDelphi10}
+   {$Define bDelphi11}
+   {$Define bDelphi12}
+   {$Define bDelphi13}
+   {$Define bDelphi14}
+   {$Define bDelphi15}
+   {$Define bDelphi16}
+   {$Define bDelphiXE}
+  {$endif Ver310}
+
 
   {$ifdef Win32}
   {$endif}
@@ -235,11 +281,15 @@
   {$AsmMode Intel}
   {$packset 1}
 {$else}
-//{$ifdef bDelphiXE2}
-// {$Align 8}
-//{$else}
+  {$ifdef bDelphiXE}
+   {$ifdef b64}
+     {$A8}
+   {$else}
+     {$A8} //A4?
+   {$endif b64}
+  {$else}
    {$Align On}
-//{$endif bDelphiXE2}
+  {$endif bDelphiXE}
   {$SafeDivide Off}
 {$endif bFreePascal}
 
@@ -286,11 +336,11 @@
 
   {$ifdef bDelphi6}
    {$WARN SYMBOL_PLATFORM OFF}
-   {$WARN SYMBOL_DEPRECATED OFF}
+   {-$WARN SYMBOL_DEPRECATED OFF}
   {$endif bDelphi6}
 
   {$ifdef bDelphi15}
-// {$RTTI EXPLICIT METHODS([]) PROPERTIES([]) FIELDS([])}
+   {$Define bExcludeRTTI}
   {$endif bDelphi15}
 
 {$endif bFreePascal}

@@ -206,6 +206,10 @@ interface
     vStr := vStr + 'DelphiXE3 ';
    {$endif Ver240}
 
+   {$ifdef Ver310}
+    vStr := vStr + 'DelphiXE10.1 ';
+   {$endif Ver310}
+
    {$ifopt O+}
     vStr := vStr + 'Optimize ';
    {$endif O+}

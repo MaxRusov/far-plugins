@@ -529,7 +529,7 @@ interface
         SetOnTop(vInt <> 0);
         FNormOnTop := GetOnTop;
       end;
-      Result := FarReturnValues([GetOnTop]);
+      Result := FarReturnValues([IntIf(GetOnTop, 1, 0)]);
     end else
     if StrEqual(ACmd, 'Transparency') then begin
       vInt := FarValuesToInt(AParams, ACount, 1, -1);

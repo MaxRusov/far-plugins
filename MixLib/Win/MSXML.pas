@@ -41,11 +41,13 @@ unit MSXml;
 //   Hint: Member 'type' of 'IXMLElement' changed to 'type_'
 //   Hint: Member 'type' of 'IXMLElement2' changed to 'type_'
 // ************************************************************************ //
+
 {$TYPEDADDRESS OFF} // Unit must be compiled without type-checked pointers.
+
 interface
 
 uses Windows, ActiveX;
-{$HPPEMIT '#include <msxml.h>"}
+
 
 // *********************************************************************//
 // GUIDS declared in the TypeLibrary. Following prefixes are used:
@@ -95,6 +97,7 @@ const
   IID_IXMLAttribute: TGUID = '{D4D4A0FC-3B73-11D1-B2B4-00C04FB92596}';
   IID_IXMLError: TGUID = '{948C5AD3-C58D-11D0-9C0B-00C04FC99C8E}';
   CLASS_XMLDocument: TGUID = '{CFC399AF-D876-11D0-9C10-00C04FC99C8E}';
+
 
 // *********************************************************************//
 // Declaration of Enumerations defined in Type Library
@@ -151,13 +154,14 @@ const
   XMLELEMTYPE_OTHER = $00000006;
   {$EXTERNALSYM XMLELEMTYPE_OTHER}
 
-type
 
+type
 // *********************************************************************//
 // Forward declaration of types defined in TypeLibrary
 // *********************************************************************//
   IXMLDOMImplementation = interface;
   IXMLDOMImplementationDisp = dispinterface;
+
   IXMLDOMNode = interface;
   IXMLDOMNodeDisp = dispinterface;
   IXMLDOMNodeList = interface;
@@ -213,8 +217,8 @@ type
   IXMLError = interface;
 
 // *********************************************************************//
-// Declaration of CoClasses defined in Type Library                       
-// (NOTE: Here we map each CoClass to its Default Interface)              
+// Declaration of CoClasses defined in Type Library
+// (NOTE: Here we map each CoClass to its Default Interface)
 // *********************************************************************//
   DOMDocument = IXMLDOMDocument;
   DOMFreeThreadedDocument = IXMLDOMDocument;
@@ -243,6 +247,7 @@ type
   end;
   {$EXTERNALSYM _xml_error}
 
+
   XMLELEM_TYPE = tagXMLEMEM_TYPE;
   {$EXTERNALSYM XMLELEM_TYPE}
 
@@ -266,6 +271,7 @@ type
     ['{2933BF8F-7B36-11D2-B20E-00C04F983E60}']
     function  hasFeature(const feature: WideString; const version: WideString): WordBool; dispid 145;
   end;
+
 
 // *********************************************************************//
 // Interface: IXMLDOMNode
@@ -375,6 +381,7 @@ type
     procedure transformNodeToObject(const stylesheet: IXMLDOMNode; outputObject: OleVariant); dispid 35;
   end;
 
+
 // *********************************************************************//
 // Interface: IXMLDOMNodeList
 // Flags:     (4544) Dual NonExtensible OleAutomation Dispatchable
@@ -392,6 +399,7 @@ type
     property _newEnum: IUnknown read Get__newEnum;
   end;
   { EXTERNALSYM IXMLDOMNodeList}
+
 
 // *********************************************************************//
 // DispIntf:  IXMLDOMNodeListDisp
@@ -504,6 +512,7 @@ type
     property ontransformnode: OleVariant write Set_ontransformnode;
   end;
   { EXTERNALSYM IXMLDOMDocument}
+
 
 // *********************************************************************//
 // DispIntf:  IXMLDOMDocumentDisp
@@ -634,6 +643,7 @@ type
     procedure transformNodeToObject(const stylesheet: IXMLDOMNode; outputObject: OleVariant); dispid 35;
   end;
 
+
 // *********************************************************************//
 // Interface: IXMLDOMElement
 // Flags:     (4544) Dual NonExtensible OleAutomation Dispatchable
@@ -703,6 +713,7 @@ type
     property baseName: WideString readonly dispid 34;
     procedure transformNodeToObject(const stylesheet: IXMLDOMNode; outputObject: OleVariant); dispid 35;
   end;
+
 
 // *********************************************************************//
 // Interface: IXMLDOMAttribute
@@ -1654,6 +1665,7 @@ type
   end;
   { EXTERNALSYM IXMLDocument2}
 
+
 // *********************************************************************//
 // Interface: IXMLElement2
 // Flags:     (4432) Hidden Dual OleAutomation Dispatchable
@@ -1682,6 +1694,7 @@ type
     property attributes: IXMLElementCollection read Get_attributes;
   end;
   { EXTERNALSYM IXMLElement2}
+
 
 // *********************************************************************//
 // DispIntf:  IXMLElement2Disp
@@ -1738,6 +1751,7 @@ type
     function  GetErrorInfo(var pErrorReturn: _xml_error): HResult; stdcall;
   end;
   { EXTERNALSYM IXMLError}
+
 
 (*
 // *********************************************************************//

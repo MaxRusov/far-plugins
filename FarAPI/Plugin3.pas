@@ -43,6 +43,14 @@ other possible license with no implications from the above license on them.
 
 {$ifdef FPC}
  {$PACKRECORDS C}
+{$else}
+
+ {$ifdef Win64}
+  {$A8}
+ {$else}
+  {$A8} //A4?
+ {$endif Win64}
+
 {$endif FPC}
 
 Unit Plugin3;
