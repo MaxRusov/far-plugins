@@ -670,41 +670,47 @@ interface
     vKey :Integer;
     vChr :TChar;
     vReady, vActive, vOnPassive :Boolean;
+    vCount :Integer;
+    vRec :Windows.TInputRecord;
   begin
     vActive := True;
     vOnPassive := False;
     repeat
-      vKey := FarAdvControl(ACTL_WAITKEY, nil);
-
       vReady := True;
-      case vKey of
-        KEY_ESC:
-          {};
-        KEY_INS:
-          TabsManager.AddTab(vActive);
-        KEY_DEL:
-          TabsManager.DeleteTab(vActive);
-        KEY_SPACE:
-          TabsManager.ListTab(vActive);
-        KEY_MULTIPLY:
-          TabsManager.FixUnfixTab(vActive);
-        KEY_DIVIDE:
-          begin
-            vOnPassive := not vOnPassive;
-            vReady := False;
-          end;
-        KEY_TAB:
-          begin
-            vActive := not vActive;
-            vReady := False;
-          end;
-      else
-//      TabsManager.SelectTab(True, VKeyToIndex(vKey));
-        if (vKey > 32) and (vKey <= $FFFF) then begin
-          vChr := TChar(vKey);
-          TabsManager.SelectTabByKey(vActive, vOnPassive, vChr);
-        end;
-      end;
+      FarAdvControl(ACTL_WAITKEY, nil);
+      if ReadConsoleInput(hStdin, vRec, 1, DWORD(vCount)) and (vCount = 1)
+        and (vRec.EventType = KEY_EVENT) {and vRec.Event.KeyEvent.bKeyDown} then
+      begin
+       vKey := KeyEventToFarKey(vRec.Event.KeyEvent);
+       case vKey of
+         KEY_ESC:
+           {};
+         KEY_INS:
+           TabsManager.AddTab(vActive);
+         KEY_DEL:
+           TabsManager.DeleteTab(vActive);
+         KEY_SPACE:
+           TabsManager.ListTab(vActive);
+         KEY_MULTIPLY:
+           TabsManager.FixUnfixTab(vActive);
+         KEY_DIVIDE:
+           begin
+             vOnPassive := not vOnPassive;
+             vReady := False;
+           end;
+         KEY_TAB:
+           begin
+             vActive := not vActive;
+             vReady := False;
+           end;
+       else
+ //      TabsManager.SelectTab(True, VKeyToIndex(vKey));
+         if (vKey > 32) and (vKey <= $FFFF) then begin
+           vChr := TChar(vKey);
+           TabsManager.SelectTabByKey(vActive, vOnPassive, vChr);
+         end;
+       end;
+     end;
     until vReady;
   end;
 

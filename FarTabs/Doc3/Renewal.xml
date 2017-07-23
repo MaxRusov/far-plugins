@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<renewal>
-  <plugin guid="{8E6FEAE8-9078-4FB9-81E8-1A58F4746037}">
-    <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=PanelTabs</url>
-    <home arch="any">http://code.google.com/p/far-plugins/wiki/PanelTabs</home>
-    <regex arch="x86">//far-plugins.googlecode.com/files/PanelTabs\.far3.(\d+)\.(\d+)\.rar</regex>
-    <regex arch="x64">//far-plugins.googlecode.com/files/PanelTabs\.far3.x64.(\d+)\.(\d+)\.rar</regex>
-  </plugin>
-</renewal>

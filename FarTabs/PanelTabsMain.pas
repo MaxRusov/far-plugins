@@ -286,7 +286,7 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- { THistThread                                                                 }
+ { TTabsThread                                                                 }
  {-----------------------------------------------------------------------------}
 
   type
@@ -428,7 +428,7 @@ interface
 //        Trace('sleep(10)');
           Sleep(10)
         end else
-        if AlertableSleep(1000{!!!}) then begin
+        if AlertableSleep(100{!!!}) then begin
 //        Trace('Alert!');
         end;
       end;
