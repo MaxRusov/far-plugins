@@ -1,0 +1,72 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{3253E0F5-65BE-4F4E-9845-EE736D93E27A}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="Review\Review.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="ReviewGFL\GFL.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="ReviewWIC\WIC.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="ReviewVideo\DXVideo.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="Review">
+        <MSBuild Projects="Review\Review.dproj"/>
+    </Target>
+    <Target Name="Review:Clean">
+        <MSBuild Projects="Review\Review.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Review:Make">
+        <MSBuild Projects="Review\Review.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="GFL">
+        <MSBuild Projects="ReviewGFL\GFL.dproj"/>
+    </Target>
+    <Target Name="GFL:Clean">
+        <MSBuild Projects="ReviewGFL\GFL.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="GFL:Make">
+        <MSBuild Projects="ReviewGFL\GFL.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="WIC">
+        <MSBuild Projects="ReviewWIC\WIC.dproj"/>
+    </Target>
+    <Target Name="WIC:Clean">
+        <MSBuild Projects="ReviewWIC\WIC.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="WIC:Make">
+        <MSBuild Projects="ReviewWIC\WIC.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="DXVideo">
+        <MSBuild Projects="ReviewVideo\DXVideo.dproj"/>
+    </Target>
+    <Target Name="DXVideo:Clean">
+        <MSBuild Projects="ReviewVideo\DXVideo.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="DXVideo:Make">
+        <MSBuild Projects="ReviewVideo\DXVideo.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="Review;GFL;WIC;DXVideo"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="Review:Clean;GFL:Clean;WIC:Clean;DXVideo:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="Review:Make;GFL:Make;WIC:Make;DXVideo:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
