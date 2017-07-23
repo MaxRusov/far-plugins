@@ -188,7 +188,7 @@ interface
         if not Assigned(vGetApiProc) then
           Exit; {FarHints неподходящей версии }
 
-        vFarHintsApi := vGetApiProc;
+        vFarHintsApi := IFarHintsAPI(vGetApiProc);
         if vFarHintsApi = nil then
           Exit;
 

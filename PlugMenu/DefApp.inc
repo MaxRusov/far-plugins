@@ -3,7 +3,9 @@
 {$ifdef Far3}
  {$Define bLUA}
  {$Define bAccessTime}
+ {$Define bPlugring}
 {$else}
 {$endif Far3}
+
 
 {------------------------------------------------------------------------------}

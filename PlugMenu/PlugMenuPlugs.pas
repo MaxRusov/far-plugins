@@ -29,7 +29,9 @@ interface
     FarCtrl,
 
     FarConfig,
+   {$ifdef bPlugring}
     Plugring,
+   {$endif bPlugring}
     PlugMenuCtrl;
 
 
@@ -1067,7 +1069,7 @@ interface
 
 
   procedure TFarPlugin.GotoPluring;
- {$ifdef Far3}
+ {$ifdef bPlugring}
   var
     vURL :TString;
   begin
@@ -1078,7 +1080,7 @@ interface
  {$else}
   begin
     Sorry;
- {$endif Far3}
+ {$endif bPlugring}
   end;
 
 

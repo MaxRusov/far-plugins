@@ -15,8 +15,8 @@ interface
     Windows,
     ActiveX,
     ShellAPI,
-    MSXML,
     WinINet,
+    MSXML,
 
     MixTypes,
     MixUtils,

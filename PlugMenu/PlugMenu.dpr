@@ -39,7 +39,7 @@ exports
   ProcessSynchroEventW,
   ExitFARW;
 
-{$R PlugMenu.res}
+{$R PlugMenuW.res}
 
 begin
   Plug := TPlugMenuPlug.Create;
