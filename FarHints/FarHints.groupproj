@@ -3,25 +3,25 @@
         <ProjectGuid>{8A063CEE-1A7E-41BA-90F6-F54D04D026E7}</ProjectGuid>
     </PropertyGroup>
     <ItemGroup>
-        <Projects Include="..\FarHints\FarHints\FarHints.dproj">
+        <Projects Include="FarHints\FarHints.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="..\FarHints\FarHintsCursors\FarHintsCursors.dproj">
+        <Projects Include="FarHintsCursors\FarHintsCursors.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="..\FarHints\FarHintsFolders\FarHintsFolders.dproj">
+        <Projects Include="FarHintsFolders\FarHintsFolders.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="..\FarHints\FarHintsImage\FarHintsImage.dproj">
+        <Projects Include="FarHintsImage\FarHintsImage.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="..\FarHints\FarHintsMP3\FarHintsMP3.dproj">
+        <Projects Include="FarHintsMP3\FarHintsMP3.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="..\FarHints\FarHintsProcess\FarHintsProcess.dproj">
+        <Projects Include="FarHintsProcess\FarHintsProcess.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="..\FarHints\FarHintsVerInfo\FarHintsVerInfo.dproj">
+        <Projects Include="FarHintsVerInfo\FarHintsVerInfo.dproj">
             <Dependencies/>
         </Projects>
     </ItemGroup>
@@ -33,67 +33,67 @@
         </BorlandProject>
     </ProjectExtensions>
     <Target Name="FarHints">
-        <MSBuild Projects="..\FarHints\FarHints\FarHints.dproj"/>
+        <MSBuild Projects="FarHints\FarHints.dproj"/>
     </Target>
     <Target Name="FarHints:Clean">
-        <MSBuild Projects="..\FarHints\FarHints\FarHints.dproj" Targets="Clean"/>
+        <MSBuild Projects="FarHints\FarHints.dproj" Targets="Clean"/>
     </Target>
     <Target Name="FarHints:Make">
-        <MSBuild Projects="..\FarHints\FarHints\FarHints.dproj" Targets="Make"/>
+        <MSBuild Projects="FarHints\FarHints.dproj" Targets="Make"/>
     </Target>
     <Target Name="FarHintsCursors">
-        <MSBuild Projects="..\FarHints\FarHintsCursors\FarHintsCursors.dproj"/>
+        <MSBuild Projects="FarHintsCursors\FarHintsCursors.dproj"/>
     </Target>
     <Target Name="FarHintsCursors:Clean">
-        <MSBuild Projects="..\FarHints\FarHintsCursors\FarHintsCursors.dproj" Targets="Clean"/>
+        <MSBuild Projects="FarHintsCursors\FarHintsCursors.dproj" Targets="Clean"/>
     </Target>
     <Target Name="FarHintsCursors:Make">
-        <MSBuild Projects="..\FarHints\FarHintsCursors\FarHintsCursors.dproj" Targets="Make"/>
+        <MSBuild Projects="FarHintsCursors\FarHintsCursors.dproj" Targets="Make"/>
     </Target>
     <Target Name="FarHintsFolders">
-        <MSBuild Projects="..\FarHints\FarHintsFolders\FarHintsFolders.dproj"/>
+        <MSBuild Projects="FarHintsFolders\FarHintsFolders.dproj"/>
     </Target>
     <Target Name="FarHintsFolders:Clean">
-        <MSBuild Projects="..\FarHints\FarHintsFolders\FarHintsFolders.dproj" Targets="Clean"/>
+        <MSBuild Projects="FarHintsFolders\FarHintsFolders.dproj" Targets="Clean"/>
     </Target>
     <Target Name="FarHintsFolders:Make">
-        <MSBuild Projects="..\FarHints\FarHintsFolders\FarHintsFolders.dproj" Targets="Make"/>
+        <MSBuild Projects="FarHintsFolders\FarHintsFolders.dproj" Targets="Make"/>
     </Target>
     <Target Name="FarHintsImage">
-        <MSBuild Projects="..\FarHints\FarHintsImage\FarHintsImage.dproj"/>
+        <MSBuild Projects="FarHintsImage\FarHintsImage.dproj"/>
     </Target>
     <Target Name="FarHintsImage:Clean">
-        <MSBuild Projects="..\FarHints\FarHintsImage\FarHintsImage.dproj" Targets="Clean"/>
+        <MSBuild Projects="FarHintsImage\FarHintsImage.dproj" Targets="Clean"/>
     </Target>
     <Target Name="FarHintsImage:Make">
-        <MSBuild Projects="..\FarHints\FarHintsImage\FarHintsImage.dproj" Targets="Make"/>
+        <MSBuild Projects="FarHintsImage\FarHintsImage.dproj" Targets="Make"/>
     </Target>
     <Target Name="FarHintsMP3">
-        <MSBuild Projects="..\FarHints\FarHintsMP3\FarHintsMP3.dproj"/>
+        <MSBuild Projects="FarHintsMP3\FarHintsMP3.dproj"/>
     </Target>
     <Target Name="FarHintsMP3:Clean">
-        <MSBuild Projects="..\FarHints\FarHintsMP3\FarHintsMP3.dproj" Targets="Clean"/>
+        <MSBuild Projects="FarHintsMP3\FarHintsMP3.dproj" Targets="Clean"/>
     </Target>
     <Target Name="FarHintsMP3:Make">
-        <MSBuild Projects="..\FarHints\FarHintsMP3\FarHintsMP3.dproj" Targets="Make"/>
+        <MSBuild Projects="FarHintsMP3\FarHintsMP3.dproj" Targets="Make"/>
     </Target>
     <Target Name="FarHintsProcess">
-        <MSBuild Projects="..\FarHints\FarHintsProcess\FarHintsProcess.dproj"/>
+        <MSBuild Projects="FarHintsProcess\FarHintsProcess.dproj"/>
     </Target>
     <Target Name="FarHintsProcess:Clean">
-        <MSBuild Projects="..\FarHints\FarHintsProcess\FarHintsProcess.dproj" Targets="Clean"/>
+        <MSBuild Projects="FarHintsProcess\FarHintsProcess.dproj" Targets="Clean"/>
     </Target>
     <Target Name="FarHintsProcess:Make">
-        <MSBuild Projects="..\FarHints\FarHintsProcess\FarHintsProcess.dproj" Targets="Make"/>
+        <MSBuild Projects="FarHintsProcess\FarHintsProcess.dproj" Targets="Make"/>
     </Target>
     <Target Name="FarHintsVerInfo">
-        <MSBuild Projects="..\FarHints\FarHintsVerInfo\FarHintsVerInfo.dproj"/>
+        <MSBuild Projects="FarHintsVerInfo\FarHintsVerInfo.dproj"/>
     </Target>
     <Target Name="FarHintsVerInfo:Clean">
-        <MSBuild Projects="..\FarHints\FarHintsVerInfo\FarHintsVerInfo.dproj" Targets="Clean"/>
+        <MSBuild Projects="FarHintsVerInfo\FarHintsVerInfo.dproj" Targets="Clean"/>
     </Target>
     <Target Name="FarHintsVerInfo:Make">
-        <MSBuild Projects="..\FarHints\FarHintsVerInfo\FarHintsVerInfo.dproj" Targets="Make"/>
+        <MSBuild Projects="FarHintsVerInfo\FarHintsVerInfo.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
         <CallTarget Targets="FarHints;FarHintsCursors;FarHintsFolders;FarHintsImage;FarHintsMP3;FarHintsProcess;FarHintsVerInfo"/>
