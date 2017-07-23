@@ -253,16 +253,28 @@ interface
   function FarKeyToName(AKey :Integer) :TString;
  {$ifdef Far3}
   var
-    vInput :INPUT_RECORD;
-    vLen :Integer;
+    vRec :INPUT_RECORD;
   begin
     Result := '';
-    if FarKeyToInputRecord(AKey, vInput) then begin
-      vLen := FARSTD.FarInputRecordToName(vInput, nil, 0);
-      if vLen > 0 then begin
-        SetLength(Result, vLen - 1);
-        FARSTD.FarInputRecordToName(vInput, PTChar(Result), vLen);
+    if FarKeyToInputRecord(AKey, vRec) then begin
+      Result := FarInputRecordToName(vRec);
+
+      {Какая то лабуда в новых билдах FAR}
+      if (Result = '') and (vRec.Event.KeyEvent.wVirtualKeyCode in [VK_Shift, VK_CONTROL, VK_MENU]) then begin
+        if vRec.Event.KeyEvent.dwControlKeyState and (LEFT_CTRL_PRESSED + RIGHT_CTRL_PRESSED) <> 0 then
+          Result := Result + 'Ctrl';
+        if vRec.Event.KeyEvent.dwControlKeyState and (LEFT_ALT_PRESSED + RIGHT_ALT_PRESSED) <> 0 then
+          Result := Result + 'Alt';
+        if vRec.Event.KeyEvent.dwControlKeyState and SHIFT_PRESSED <> 0 then
+          Result := Result + 'Shift';
       end;
+(*
+      if (Result = '') and (vRec.Event.KeyEvent.wVirtualKeyCode in [VK_Shift, VK_CONTROL, VK_MENU]) then begin
+        vRec.Event.KeyEvent.dwControlKeyState := 0;
+        vRec.Event.KeyEvent.bKeyDown := False;
+        Result := FarInputRecordToName(vRec);
+      end;
+*)
     end;
  {$else}
   var

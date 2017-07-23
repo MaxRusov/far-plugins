@@ -181,10 +181,9 @@ interface
       FRevision    :Integer;
       FSilence     :Boolean;
       FHideError   :Boolean;
-      FLastKey     :Integer;
-      FLastShift   :Integer;
-      FPrevKey     :Integer;
-      FPressTime   :DWORD;
+      FLastKey     :Integer;            { Последняя нажатая клавиша (для отслеживания автоповтора / отпускания) }
+      FPrevKey     :Integer;            { Предыдущая отжатая клавиша (для Double-press) }
+      FPressTime   :DWORD;              { Время нажатия (для Double-press) }
       FMouseState  :DWORD;
       FCancelled   :Boolean;
 
@@ -1117,7 +1116,7 @@ interface
 
   function TMacroLibrary.CheckHotkey(const ARec :TKeyEventRecord) :boolean;
   var
-    vRecKey, vKey :Integer;
+    vRecKey, vKey, vKey2 :Integer;
     vPress :TKeyPress;
     vTick :DWORD;
   begin
@@ -1127,20 +1126,20 @@ interface
 
     vRecKey := KeyEventToFarKey(ARec);
     vKey := vRecKey;
+    vKey2 := 0;
 
 //  if ARec.bKeyDown then
-//    TraceF('CheckHotkey. Down=%d, Ch=%d, VK=%d, State=%x --> FarKey=%x (%s)',
-//      [byte(ARec.bKeyDown), Word(ARec.UnicodeChar), ARec.wVirtualKeyCode, ARec.dwControlKeyState, vKey, FarKeyToName(vKey)]);
+//    TraceF('CheckHotkey. Down=%d, VK=%d, State=%x --> FarKey=%x (%s)',
+//      [byte(ARec.bKeyDown), ARec.wVirtualKeyCode, ARec.dwControlKeyState, vKey, FarKeyToName(vKey)]);
 
     if ARec.bKeyDown then begin
       vTick := GetTickCount;
 
-      if FLastKey <> vKey then begin
+      if vKey <> FLastKey then begin
         { Первое нажатие }
         vPress := kpDown;
         FCancelled := False;
         FLastKey := vKey;
-        FLastShift := vKey and KEY_CTRLMASK;
         if (FLastKey = FPrevKey) and (TickCountDiff(vTick, FPressTime) < optDoubleDelay) then begin
           vPress := kpDouble;
           FPressTime := 0;
@@ -1159,46 +1158,40 @@ interface
     end else
     begin
       vPress := kpUp;
-      if (FLastKey and not KEY_CTRLMASK) = 0 then
-        vKey := 0;
-      if vKey = 0 then
-        vKey := FLastKey
+      if vKey = FLastKey then
+        FPrevKey := vKey
       else
-      if vKey <> FLastKey then
+      if ((vKey and not KEY_CTRLMASK) = 0){-Только префиксы} and ((vKey and KEY_CTRLMASK) = (FLastKey and KEY_CTRLMASK)) then begin
+        { В случае, если префиксная клавиша отпускается раньше значащей, это рассматривается как два события, типа: }
+        { 1. AltX:Release }
+        { 2. Alt:Up }
+        vKey2 := vKey;
+        vKey := FLastKey;
+        FPrevKey := vKey;
+      end else
+      begin
+        vKey2 := vKey;
         vKey := 0;
-
-      FPrevKey := vKey;
-
-      if vKey = 0 then begin
-        vKey := FLastShift;
-        if vKey <> 0 then
-          vPress := kpShiftUp;
+        FPrevKey := 0;
       end;
-
-      FLastShift := vRecKey and KEY_CTRLMASK;
       FLastKey := 0;
     end;
 
-//  if True {and (vKey <> 0)} {and ARec.bKeyDown} then
-//    TraceF('CheckHotkey (Press=%d, Repeat=%d, vChr=%x, vKey=%x -> %x "%s":%d)',
-//      [byte(ARec.bKeyDown), ARec.wRepeatCount, Word(ARec.UnicodeChar), vRecKey, vKey, FarKeyToName(vKey), byte(vPress)]);
-
     if not FCancelled then begin
-
       if vKey <> 0 then
         Result := CheckForRun(vKey, ARec.UnicodeChar, vPress);
-
     end else
-    begin
-      if not ARec.bKeyDown then
-        FCancelled := False;
       Result := True;
-    end;
+
+    if vKey2 <> 0 then
+      Result := CheckForRun(vKey2, #0, kpShiftUp) or Result;
   end;
+
 
 
   procedure TMacroLibrary.CancellPress;
   begin
+//  Trace('Cancell...');
     FCancelled := True;
   end;
 

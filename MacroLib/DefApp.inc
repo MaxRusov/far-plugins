@@ -15,6 +15,8 @@
 
  {$Define bAddLUAMacro}
 
+ {$Define bUseHint}
+
 {$else}
 
  {$Define bUseInject}

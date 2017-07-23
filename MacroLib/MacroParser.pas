@@ -1826,7 +1826,7 @@ interface
     vConst :TMacroConst;
     vArr :PStrArray;
   begin
-    vArr := nil;
+//  vArr := nil;
     while CanExtractNext(APtr, @vBuf[0], high(vBuf), cWordDelims + ['.']) do begin
       if (vBuf[0] = '*') and (vBuf[1] = #0) then
         ARes := [Low(TMacroArea)..High(TMacroArea)]

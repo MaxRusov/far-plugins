@@ -187,7 +187,8 @@ interface
         if not Assigned(vGetApiProc) then
           Exit; {FarHints неподходящей версии }
 
-        vFarHintsApi := vGetApiProc;
+        vFarHintsApi := IFarHintsApi(vGetApiProc);
+        Assert(Assigned(vFarHintsApi), 'vFarHintsApi = nil');
 
         vFarHintsAPI.QueryInterface(IFarHintsIntegrationAPI, FIntegrationAPI);
         if not Assigned(FIntegrationAPI) then

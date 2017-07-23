@@ -246,7 +246,7 @@ interface
     vHandle := GetModuleHandle(nil);
     vImport := FindImport(vHandle, kernel32);
     if vImport <> nil then begin
-      InjectHandler(vHandle, vImport, 'ReadConsoleInputW', ReadConsoleInputPtr, @OldReadConsoleInputW, @MyReadConsoleInputW);
+      InjectHandler(vHandle, vImport, 'ReadConsoleInputW', ReadConsoleInputPtr, Pointer(@OldReadConsoleInputW), @MyReadConsoleInputW);
 //    InjectHandler(vHandle, vImport, 'PeekConsoleInputW', PeekConsoleInputPtr, @OldPeekConsoleInputW, @MyPeekConsoleInputW);
     end;
   end;
@@ -637,19 +637,21 @@ interface
       Exit;
    {$endif bUseInject}
 
-//  Trace('ConsoleInput: EventType=%d, VK=%d, KeyDown=%d',
-//    [ARec.EventType, ARec.Event.KeyEvent.wVirtualKeyCode, Integer(ARec.Event.KeyEvent.bKeyDown)]);
+//  if AInfo.Flags and PCIF_FROMMAIN = 0 then
+//    Exit;
 
-//  if AInfo.Flags and PCIF_FROMMAIN <> 0 then begin
-      if (ARec.EventType = KEY_EVENT) and optProcessHotkey and (FarGetMacroState < MACROSTATE_RECORDING) then begin
-        if MacroLibrary.CheckHotkey(ARec.Event.KeyEvent) then
-          Result := 1;
-      end else
-      if (ARec.EventType = _MOUSE_EVENT) and optProcessMouse and (FarGetMacroState < MACROSTATE_RECORDING) then begin
-        if MacroLibrary.CheckMouse(ARec.Event.MouseEvent) then
-          Result := 1;
-      end;
-//  end;
+//  with ARec.Event.KeyEvent do
+//    Trace('ConsoleInput: ''%s'', EventType=%x, KeyDown=%d, VK=%d, VS=%d, State=%x, RepCount=%d',
+//      [FarInputRecordToName(ARec), ARec.EventType, Integer(bKeyDown), wVirtualKeyCode, wVirtualScanCode, dwControlKeyState, wRepeatCount]);
+
+    if (ARec.EventType = KEY_EVENT) and optProcessHotkey and (FarGetMacroState = MACROSTATE_NOMACRO {< MACROSTATE_RECORDING} ) then begin
+      if MacroLibrary.CheckHotkey(ARec.Event.KeyEvent) then
+        Result := 1;
+    end else
+    if (ARec.EventType = _MOUSE_EVENT) and optProcessMouse and (FarGetMacroState = MACROSTATE_NOMACRO {< MACROSTATE_RECORDING} ) then begin
+      if MacroLibrary.CheckMouse(ARec.Event.MouseEvent) then
+        Result := 1;
+    end;
   end;
  {$endif bUseProcessConsoleInput}
 

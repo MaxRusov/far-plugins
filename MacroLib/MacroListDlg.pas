@@ -90,7 +90,9 @@ interface
 {******************************************************************************}
 
   uses
+   {$ifdef bUseHint}
     MacroLibHints,
+   {$endif bUseHint}
     MixDebug;
 
 
@@ -214,7 +216,9 @@ interface
   constructor TMacroList.Create; {override;}
   begin
     inherited Create;
+   {$ifdef bUseHint}
     RegisterHints(Self);
+   {$endif bUseHint}
     FFilter := TListFilter.Create;
     FFilter.Owner := Self;
   end;
@@ -222,7 +226,9 @@ interface
 
   destructor TMacroList.Destroy; {override;}
   begin
+   {$ifdef bUseHint}
     UnRegisterHints;
+   {$endif bUseHint}
     inherited Destroy;
   end;
 
@@ -742,8 +748,8 @@ interface
     if MacroLock > 0 then
       Exit;
 
-    Inc(MacroLock);
     vDlg := TMacroList.Create;
+    Inc(MacroLock);
     try
       vDlg.FMacroses := AMacroses;
       vDlg.FResInd   := AIndex;
@@ -767,8 +773,8 @@ interface
       end;
 
     finally
-      FreeObj(vDlg);
       Dec(MacroLock);
+      FreeObj(vDlg);
     end;
   end;
 
