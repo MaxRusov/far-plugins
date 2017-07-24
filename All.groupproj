@@ -33,6 +33,12 @@
         <Projects Include="ConsoleControl\ConCtrl.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="FastWheel\FastWheel.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="DlgSelect\DlgSelect.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -131,14 +137,32 @@
     <Target Name="ConCtrl:Make">
         <MSBuild Projects="ConsoleControl\ConCtrl.dproj" Targets="Make"/>
     </Target>
+    <Target Name="FastWheel">
+        <MSBuild Projects="FastWheel\FastWheel.dproj"/>
+    </Target>
+    <Target Name="FastWheel:Clean">
+        <MSBuild Projects="FastWheel\FastWheel.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="FastWheel:Make">
+        <MSBuild Projects="FastWheel\FastWheel.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="DlgSelect">
+        <MSBuild Projects="DlgSelect\DlgSelect.dproj"/>
+    </Target>
+    <Target Name="DlgSelect:Clean">
+        <MSBuild Projects="DlgSelect\DlgSelect.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="DlgSelect:Make">
+        <MSBuild Projects="DlgSelect\DlgSelect.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="HelloWorld;ApiDemo;PlugMenu;MacroLib;EdtFind;PanelTabs;MoreHistory;UCharMap;VisComp;ConCtrl"/>
+        <CallTarget Targets="HelloWorld;ApiDemo;PlugMenu;MacroLib;EdtFind;PanelTabs;MoreHistory;UCharMap;VisComp;ConCtrl;FastWheel;DlgSelect"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="HelloWorld:Clean;ApiDemo:Clean;PlugMenu:Clean;MacroLib:Clean;EdtFind:Clean;PanelTabs:Clean;MoreHistory:Clean;UCharMap:Clean;VisComp:Clean;ConCtrl:Clean"/>
+        <CallTarget Targets="HelloWorld:Clean;ApiDemo:Clean;PlugMenu:Clean;MacroLib:Clean;EdtFind:Clean;PanelTabs:Clean;MoreHistory:Clean;UCharMap:Clean;VisComp:Clean;ConCtrl:Clean;FastWheel:Clean;DlgSelect:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="HelloWorld:Make;ApiDemo:Make;PlugMenu:Make;MacroLib:Make;EdtFind:Make;PanelTabs:Make;MoreHistory:Make;UCharMap:Make;VisComp:Make;ConCtrl:Make"/>
+        <CallTarget Targets="HelloWorld:Make;ApiDemo:Make;PlugMenu:Make;MacroLib:Make;EdtFind:Make;PanelTabs:Make;MoreHistory:Make;UCharMap:Make;VisComp:Make;ConCtrl:Make;FastWheel:Make;DlgSelect:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

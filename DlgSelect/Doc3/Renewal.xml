@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<renewal>
-  <plugin guid="{020B85C2-DB44-45D3-9D25-939499DD7813}">
-    <url arch="any">http://code.google.com/p/far-plugins/downloads/list?q=DlgSelect</url>
-    <regex arch="x86">//far-plugins.googlecode.com/files/DlgSelect\.far3lua.(\d+)\.(\d+)\.rar</regex>
-    <regex arch="x64">//far-plugins.googlecode.com/files/DlgSelect\.far3lua.x64.(\d+)\.(\d+)\.rar</regex>
-  </plugin>
-</renewal>

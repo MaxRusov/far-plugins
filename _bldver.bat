@@ -79,7 +79,7 @@ echo.
 call bld.bat
 
 pushd ..\Bin3\%PrjName% || exit
-rar a -r -s -x*.map %ArcName%.far3.%VerMax%.%VerMin%.rar *.* > nul || exit
+rar a -r -s -x*.map -x*.rsm %ArcName%.far3.%VerMax%.%VerMin%.rar *.* > nul || exit
 move *.rar %Arc% || exit
 popd
 
@@ -91,6 +91,6 @@ echo.
 call bld.bat 64
 
 pushd ..\Bin3x64\%PrjName% || exit
-rar a -r -s -x*.map %ArcName%.far3.x64.%VerMax%.%VerMin%.rar *.* > nul || exit
+rar a -r -s -x*.map -x*.rsm %ArcName%.far3.x64.%VerMax%.%VerMin%.rar *.* > nul || exit
 move *.rar %Arc% || exit
 popd
