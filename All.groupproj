@@ -15,6 +15,24 @@
         <Projects Include="MacroLib\MacroLib.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="EdtFind\EdtFind.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="FarTabs\PanelTabs.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="MoreHistory\MoreHistory.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="UCharMap\UCharMap.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="VisualCompare\VisComp.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="ConsoleControl\ConCtrl.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -59,14 +77,68 @@
     <Target Name="MacroLib:Make">
         <MSBuild Projects="MacroLib\MacroLib.dproj" Targets="Make"/>
     </Target>
+    <Target Name="EdtFind">
+        <MSBuild Projects="EdtFind\EdtFind.dproj"/>
+    </Target>
+    <Target Name="EdtFind:Clean">
+        <MSBuild Projects="EdtFind\EdtFind.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="EdtFind:Make">
+        <MSBuild Projects="EdtFind\EdtFind.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="PanelTabs">
+        <MSBuild Projects="FarTabs\PanelTabs.dproj"/>
+    </Target>
+    <Target Name="PanelTabs:Clean">
+        <MSBuild Projects="FarTabs\PanelTabs.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="PanelTabs:Make">
+        <MSBuild Projects="FarTabs\PanelTabs.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="MoreHistory">
+        <MSBuild Projects="MoreHistory\MoreHistory.dproj"/>
+    </Target>
+    <Target Name="MoreHistory:Clean">
+        <MSBuild Projects="MoreHistory\MoreHistory.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="MoreHistory:Make">
+        <MSBuild Projects="MoreHistory\MoreHistory.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="UCharMap">
+        <MSBuild Projects="UCharMap\UCharMap.dproj"/>
+    </Target>
+    <Target Name="UCharMap:Clean">
+        <MSBuild Projects="UCharMap\UCharMap.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="UCharMap:Make">
+        <MSBuild Projects="UCharMap\UCharMap.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="VisComp">
+        <MSBuild Projects="VisualCompare\VisComp.dproj"/>
+    </Target>
+    <Target Name="VisComp:Clean">
+        <MSBuild Projects="VisualCompare\VisComp.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="VisComp:Make">
+        <MSBuild Projects="VisualCompare\VisComp.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="ConCtrl">
+        <MSBuild Projects="ConsoleControl\ConCtrl.dproj"/>
+    </Target>
+    <Target Name="ConCtrl:Clean">
+        <MSBuild Projects="ConsoleControl\ConCtrl.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="ConCtrl:Make">
+        <MSBuild Projects="ConsoleControl\ConCtrl.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="HelloWorld;ApiDemo;PlugMenu;MacroLib"/>
+        <CallTarget Targets="HelloWorld;ApiDemo;PlugMenu;MacroLib;EdtFind;PanelTabs;MoreHistory;UCharMap;VisComp;ConCtrl"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="HelloWorld:Clean;ApiDemo:Clean;PlugMenu:Clean;MacroLib:Clean"/>
+        <CallTarget Targets="HelloWorld:Clean;ApiDemo:Clean;PlugMenu:Clean;MacroLib:Clean;EdtFind:Clean;PanelTabs:Clean;MoreHistory:Clean;UCharMap:Clean;VisComp:Clean;ConCtrl:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="HelloWorld:Make;ApiDemo:Make;PlugMenu:Make;MacroLib:Make"/>
+        <CallTarget Targets="HelloWorld:Make;ApiDemo:Make;PlugMenu:Make;MacroLib:Make;EdtFind:Make;PanelTabs:Make;MoreHistory:Make;UCharMap:Make;VisComp:Make;ConCtrl:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>
