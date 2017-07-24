@@ -1,7 +1,7 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{88394C90-5BCE-4BE1-87BA-A5043161CBD4}</ProjectGuid>
-        <MainSource>MacroLib.dpr</MainSource>
+        <ProjectGuid>{3DCDEEBB-364F-46AE-AD86-485232D99C98}</ProjectGuid>
+        <MainSource>ApiDemo.dpr</MainSource>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
         <TargetedPlatforms>3</TargetedPlatforms>
@@ -58,66 +58,60 @@
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
-        <DCC_DcuOutput>..\xUnits\DCC\MacroLib\$(Platform)\$(Config)</DCC_DcuOutput>
-        <SanitizedProjectName>MacroLib</SanitizedProjectName>
-        <DCC_UnitSearchPath>..\FarApi;..\FarLib;..\MixLib;..\FarHints;..\MixLib\Win;..\RTL\$(Platform);$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
-        <DCC_N>true</DCC_N>
-        <DebugSourcePath>C:\SrcFAR2\MyPlugins\MixLib\;$(DebugSourcePath)</DebugSourcePath>
-        <VerInfo_MinorVer>20</VerInfo_MinorVer>
-        <DCC_F>false</DCC_F>
-        <GenDll>true</GenDll>
-        <DCC_UsePackage>Vcl50;Vclx50;VclSmp50;dclocx50;$(DCC_UsePackage)</DCC_UsePackage>
-        <VerInfo_Locale>1049</VerInfo_Locale>
-        <DCC_ImageBase>40F00000</DCC_ImageBase>
-        <DCC_E>false</DCC_E>
-        <DCC_WriteableConstants>true</DCC_WriteableConstants>
-        <VerInfo_Keys>CompanyName=Max Rusov;FileDescription=Macro Library Far plugin (Far 3 x64);FileVersion=1.20.0.0;InternalName=MacroLib;LegalCopyright=(c) 2011-2012, Max Rusov;LegalTrademarks=;OriginalFilename=MacroLib.dll;ProductName=MacroLib;ProductVersion=1.0</VerInfo_Keys>
+        <DCC_DcuOutput>..\xUnits\DCC\ApiDemo\$(Platform)\$(Config)</DCC_DcuOutput>
+        <SanitizedProjectName>ApiDemo</SanitizedProjectName>
+        <DCC_MapFile>3</DCC_MapFile>
         <Manifest_File>None</Manifest_File>
-        <DCC_S>false</DCC_S>
+        <DCC_ImageBase>40000000</DCC_ImageBase>
+        <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+        <DCC_UsePackage>Vcl50;Vclx50;VclSmp50;dclocx50;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_UnitSearchPath>..\FarApi;..\MixLib;..\MixLib\Win;..\FarLib;..\RTL\BDXE10\$(Platform);$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_WriteableConstants>true</DCC_WriteableConstants>
+        <DCC_Define>Far3;$(DCC_Define)</DCC_Define>
+        <DCC_N>true</DCC_N>
         <DCC_K>false</DCC_K>
+        <GenDll>true</GenDll>
+        <DCC_S>false</DCC_S>
+        <DCC_F>false</DCC_F>
+        <DCC_E>false</DCC_E>
+        <VerInfo_Locale>1049</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
         <Debugger_HostApplication>C:\FarDeb3\Far.exe</Debugger_HostApplication>
-        <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_MinorVer>0</VerInfo_MinorVer>
+        <DCC_ExeOutput>..\Bin3\ApiDemo</DCC_ExeOutput>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
-        <DCC_ExeOutput>..\Bin3\MacroLib</DCC_ExeOutput>
-        <VerInfo_Keys>CompanyName=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName);FileDescription=$(MSBuildProjectName);ProductName=$(MSBuildProjectName)</VerInfo_Keys>
+        <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
         <Debugger_HostApplication>C:\FarDeb3x64\Far.exe</Debugger_HostApplication>
+        <DCC_RemoteDebug>true</DCC_RemoteDebug>
+        <DCC_ExeOutput>..\Bin3x64\ApiDemo</DCC_ExeOutput>
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName);FileDescription=$(MSBuildProjectName);ProductName=$(MSBuildProjectName)</VerInfo_Keys>
-        <DCC_ExeOutput>..\Bin3x64\MacroLib</DCC_ExeOutput>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1)'!=''">
-        <DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>
+        <DCC_Define>RELEASE;FINAL;$(DCC_Define)</DCC_Define>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
-        <VerInfo_MinorVer>0</VerInfo_MinorVer>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
-        <VerInfo_Keys>CompanyName=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName);FileDescription=$(MSBuildProjectName);ProductName=$(MSBuildProjectName)</VerInfo_Keys>
         <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=;FileVersion=1.20.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName);FileDescription=$(MSBuildProjectName);ProductName=$(MSBuildProjectName)</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
-        <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
         <DCC_Optimize>false</DCC_Optimize>
+        <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
-        <VerInfo_MinorVer>0</VerInfo_MinorVer>
-        <VerInfo_Keys>CompanyName=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName);FileDescription=$(MSBuildProjectName);ProductName=$(MSBuildProjectName)</VerInfo_Keys>
         <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_MinorVer>0</VerInfo_MinorVer>
-        <VerInfo_Keys>CompanyName=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName);FileDescription=$(MSBuildProjectName);ProductName=$(MSBuildProjectName)</VerInfo_Keys>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
@@ -141,13 +135,13 @@
         <BorlandProject>
             <Delphi.Personality>
                 <Source>
-                    <Source Name="MainSource">MacroLib.dpr</Source>
+                    <Source Name="MainSource">ApiDemo.dpr</Source>
                 </Source>
                 <VersionInfo>
-                    <VersionInfo Name="IncludeVerInfo">True</VersionInfo>
+                    <VersionInfo Name="IncludeVerInfo">False</VersionInfo>
                     <VersionInfo Name="AutoIncBuild">False</VersionInfo>
                     <VersionInfo Name="MajorVer">1</VersionInfo>
-                    <VersionInfo Name="MinorVer">20</VersionInfo>
+                    <VersionInfo Name="MinorVer">0</VersionInfo>
                     <VersionInfo Name="Release">0</VersionInfo>
                     <VersionInfo Name="Build">0</VersionInfo>
                     <VersionInfo Name="Debug">False</VersionInfo>
@@ -159,15 +153,16 @@
                     <VersionInfo Name="CodePage">1251</VersionInfo>
                 </VersionInfo>
                 <VersionInfoKeys>
-                    <VersionInfoKeys Name="CompanyName">Max Rusov</VersionInfoKeys>
-                    <VersionInfoKeys Name="FileDescription">Macro Library Far plugin (Far 3 x64)</VersionInfoKeys>
-                    <VersionInfoKeys Name="FileVersion">1.20</VersionInfoKeys>
-                    <VersionInfoKeys Name="InternalName">MacroLib</VersionInfoKeys>
-                    <VersionInfoKeys Name="LegalCopyright">(c) 2011-2012, Max Rusov</VersionInfoKeys>
+                    <VersionInfoKeys Name="CompanyName"/>
+                    <VersionInfoKeys Name="FileDescription"/>
+                    <VersionInfoKeys Name="FileVersion">1.0.0.0</VersionInfoKeys>
+                    <VersionInfoKeys Name="InternalName"/>
+                    <VersionInfoKeys Name="LegalCopyright"/>
                     <VersionInfoKeys Name="LegalTrademarks"/>
-                    <VersionInfoKeys Name="OriginalFilename">MacroLib.dll</VersionInfoKeys>
-                    <VersionInfoKeys Name="ProductName">MacroLib</VersionInfoKeys>
-                    <VersionInfoKeys Name="ProductVersion">1.0</VersionInfoKeys>
+                    <VersionInfoKeys Name="OriginalFilename"/>
+                    <VersionInfoKeys Name="ProductName"/>
+                    <VersionInfoKeys Name="ProductVersion">1.0.0.0</VersionInfoKeys>
+                    <VersionInfoKeys Name="Comments"/>
                 </VersionInfoKeys>
                 <Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dcloffice2k240.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
@@ -181,6 +176,6 @@
         </BorlandProject>
         <ProjectFileVersion>12</ProjectFileVersion>
     </ProjectExtensions>
-    <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')"/>
-    <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
+    <Import Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')" Project="$(BDS)\Bin\CodeGear.Delphi.Targets"/>
+    <Import Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')" Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj"/>
 </Project>

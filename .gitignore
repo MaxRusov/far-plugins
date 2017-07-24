@@ -11,5 +11,6 @@ xUnits/
 *.dsk
 *.local
 *.stat
+*.tvsconfig
 *.identcache
 *.~*

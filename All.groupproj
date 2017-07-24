@@ -1,0 +1,72 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{41DBFCC0-811B-4B44-9FE2-B7CFCC0FAD28}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="TestPlugin1\HelloWorld.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="TestPlugin2\ApiDemo.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="PlugMenu\PlugMenu.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="MacroLib\MacroLib.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="HelloWorld">
+        <MSBuild Projects="TestPlugin1\HelloWorld.dproj"/>
+    </Target>
+    <Target Name="HelloWorld:Clean">
+        <MSBuild Projects="TestPlugin1\HelloWorld.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="HelloWorld:Make">
+        <MSBuild Projects="TestPlugin1\HelloWorld.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="ApiDemo">
+        <MSBuild Projects="TestPlugin2\ApiDemo.dproj"/>
+    </Target>
+    <Target Name="ApiDemo:Clean">
+        <MSBuild Projects="TestPlugin2\ApiDemo.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="ApiDemo:Make">
+        <MSBuild Projects="TestPlugin2\ApiDemo.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="PlugMenu">
+        <MSBuild Projects="PlugMenu\PlugMenu.dproj"/>
+    </Target>
+    <Target Name="PlugMenu:Clean">
+        <MSBuild Projects="PlugMenu\PlugMenu.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="PlugMenu:Make">
+        <MSBuild Projects="PlugMenu\PlugMenu.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="MacroLib">
+        <MSBuild Projects="MacroLib\MacroLib.dproj"/>
+    </Target>
+    <Target Name="MacroLib:Clean">
+        <MSBuild Projects="MacroLib\MacroLib.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="MacroLib:Make">
+        <MSBuild Projects="MacroLib\MacroLib.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="HelloWorld;ApiDemo;PlugMenu;MacroLib"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="HelloWorld:Clean;ApiDemo:Clean;PlugMenu:Clean;MacroLib:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="HelloWorld:Make;ApiDemo:Make;PlugMenu:Make;MacroLib:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
