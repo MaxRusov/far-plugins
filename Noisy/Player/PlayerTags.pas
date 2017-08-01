@@ -26,24 +26,24 @@ interface
 
 
   const
-    cID3v1TagID :array[0..2] of Char = 'TAG';
+    cID3v1TagID :array[0..2] of AnsiChar = 'TAG';
 
   type
     PID3v1Tag = ^TID3v1Tag;
     TID3v1Tag = packed record
-      cID     :array[0..2] of Char;
-      cTitle  :array[0..29] of Char;
-      cArtist :array[0..29] of Char;
-      cAlbum  :array[0..29] of Char;
-      cYear   :array[0..3] of Char;
+      cID     :array[0..2] of AnsiChar;
+      cTitle  :array[0..29] of AnsiChar;
+      cArtist :array[0..29] of AnsiChar;
+      cAlbum  :array[0..29] of AnsiChar;
+      cYear   :array[0..3] of AnsiChar;
       case Byte of
         0: (
-          cComment  :array[0..29] of Char;
+          cComment  :array[0..29] of AnsiChar;
           btGenre   :Byte;
         );
         1: (
-          cComment2 :array[0..27] of Char;
-          cZero     :Char;
+          cComment2 :array[0..27] of AnsiChar;
+          cZero     :AnsiChar;
           btTrack   :Byte;
 //        btGenre   :Byte;
         );
@@ -51,15 +51,15 @@ interface
 
 
   const
-    cID3v2TagID   :array[0..2] of Char = 'ID3';
+    cID3v2TagID   :array[0..2] of AnsiChar = 'ID3';
 
-    cFrameTitle2  :array[0..2] of Char = 'TT2';
-    cFrameArtist2 :array[0..2] of Char = 'TP1';
-    cFrameAlbum2  :array[0..2] of Char = 'TAL';
+    cFrameTitle2  :array[0..2] of AnsiChar = 'TT2';
+    cFrameArtist2 :array[0..2] of AnsiChar = 'TP1';
+    cFrameAlbum2  :array[0..2] of AnsiChar = 'TAL';
 
-    cFrameTitle3  :array[0..3] of Char = 'TIT2';
-    cFrameArtist3 :array[0..3] of Char = 'TPE1';
-    cFrameAlbum3  :array[0..3] of Char = 'TALB';
+    cFrameTitle3  :array[0..3] of AnsiChar = 'TIT2';
+    cFrameArtist3 :array[0..3] of AnsiChar = 'TPE1';
+    cFrameAlbum3  :array[0..3] of AnsiChar = 'TALB';
 
   const
     cIDv2Flag_Unsynchronisation = $80;
@@ -71,7 +71,7 @@ interface
   type
     PID3v2TagHeader = ^TID3v2TagHeader;
     TID3v2TagHeader = packed record
-      cID      :array[0..2] of Char;
+      cID      :array[0..2] of AnsiChar;
       cVersion :Word;
       cFlags   :byte;
       cSize    :DWORD;
@@ -87,13 +87,13 @@ interface
     TSmallSize = array[0..2] of Byte;
     PID3v2_2_FrameHeader = ^TID3v2_2_FrameHeader;
     TID3v2_2_FrameHeader = packed record
-      cID      :array[0..2] of Char;
+      cID      :array[0..2] of AnsiChar;
       cSize    :TSmallSize;
     end;
 
     PID3v2FrameHeader = ^TID3v2FrameHeader;
     TID3v2FrameHeader = packed record
-      cID      :array[0..3] of Char;
+      cID      :array[0..3] of AnsiChar;
       cSize    :DWORD;
       cFlags   :Word;
     end;
@@ -155,7 +155,7 @@ interface
     vCode := Byte(APtr^);
     Inc(APtr);
     if vCode = 0 then
-      Result := StrFromChrA(APtr, ASize - 1)
+      Result := TWideStr(StrFromChrA(APtr, ASize - 1))
     else
     if vCode = 1 then begin
       vWPtr := Pointer(APtr);
@@ -314,9 +314,9 @@ interface
     FTagsDLL :THandle;
 
   var
-    TAGS_Read :function(handle: DWORD; const fmt: PChar): PChar; stdcall;
+    TAGS_Read :function(handle: DWORD; const fmt: PAnsiChar): PAnsiChar; stdcall;
 //  TAGS_GetVersion :function :DWORD; stdcall;
-//  TAGS_GetLastErrorDesc :function : PChar; stdcall;
+//  TAGS_GetLastErrorDesc :function : PAnsiChar; stdcall;
 
 
   procedure LoadTagsDLL;
@@ -341,9 +341,9 @@ interface
     if not Assigned(TAGS_Read) then
       Exit;
 
-    ATitle := TAGS_Read(AHande, '%TITL');
-    AArtist := TAGS_Read(AHande, '%ARTI');
-    AAlbum := TAGS_Read(AHande, '%ALBM');
+    ATitle := TString(TAGS_Read(AHande, '%TITL'));
+    AArtist := TString(TAGS_Read(AHande, '%ARTI'));
+    AAlbum := TString(TAGS_Read(AHande, '%ALBM'));
 
     Result := (ATitle <> '') or (AArtist <> '');
   end;

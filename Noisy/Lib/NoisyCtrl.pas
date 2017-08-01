@@ -218,7 +218,7 @@ interface
   var
     I :Integer;
     vHandle :THandle;
-    vPtr :PChar;
+    vPtr :Pointer1;
     vPluginInfo :PBassPluginInfo;
     vFormatInfo :PAudioFormatInfo;
   begin
@@ -239,16 +239,16 @@ interface
           FPlugins.FreeAll;
           FFormats.FreeAll;
 
-          vPluginInfo := Pointer(PChar(vPtr) + SizeOf(TPlayerInfo));
+          vPluginInfo := Pointer(vPtr + SizeOf(TPlayerInfo));
           for I := 0 to AInfo.FPlugins - 1 do begin
-            FPlugins.Add(TBassPlugin.CreateEx(StrFromChrA(vPluginInfo.FName, cMaxPluginNameSize), vPluginInfo.FVersion));
-            Inc(PChar(vPluginInfo), SizeOf(TBassPluginInfo));
+            FPlugins.Add(TBassPlugin.CreateEx(TString(StrFromChrA(vPluginInfo.FName, cMaxPluginNameSize)), vPluginInfo.FVersion));
+            Inc(Pointer1(vPluginInfo), SizeOf(TBassPluginInfo));
           end;
 
           vFormatInfo := Pointer(vPluginInfo);
           for I := 0 to AInfo.FFormats - 1 do begin
-            FFormats.Add(TBassFormat.CreateEx(StrFromChrA(vFormatInfo.FName, cMaxFormatNameSize), StrFromChrA(vFormatInfo.FExts, cMaxFormatNameSize), vFormatInfo.FCode));
-            Inc(PChar(vFormatInfo), SizeOf(TAudioFormatInfo));
+            FFormats.Add(TBassFormat.CreateEx(TString(StrFromChrA(vFormatInfo.FName, cMaxFormatNameSize)), TString(StrFromChrA(vFormatInfo.FExts, cMaxFormatNameSize)), vFormatInfo.FCode));
+            Inc(Pointer1(vFormatInfo), SizeOf(TAudioFormatInfo));
           end;
         end;
 
@@ -265,7 +265,7 @@ interface
   function GetPlaylist :TString;
   var
     vHandle :THandle;
-    vPtr :PChar;
+    vPtr :Pointer1;
     vLen :Integer;
   begin
     Result := '';
