@@ -3,7 +3,7 @@
         <ProjectGuid>{0733BADB-D74F-41E9-9A99-B4576087FD23}</ProjectGuid>
         <MainSource>FarHintsVerInfo.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Release</Config>
+        <Config Condition="'$(Config)'==''">Debug</Config>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Library</AppType>
         <FrameworkType>None</FrameworkType>
@@ -177,6 +177,7 @@
                 </Excluded_Packages>
             </Delphi.Personality>
             <Platforms>
+                <Platform value="Linux64">False</Platform>
                 <Platform value="Win32">True</Platform>
                 <Platform value="Win64">True</Platform>
             </Platforms>
