@@ -1,19 +1,18 @@
+{******************************************************************************}
+{* (c) 2010 Max Rusov                                                         *}
+{* Editor Whell Extender                                                      *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
+library FastWheel;
+
 {$I Defines.inc} { см. также DefApp.inc }
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
  {$ImageBase $40E00000}
 {$endif Debug}
-
-library FastWheel;
-
-{$I Defines1.inc}
-
-{******************************************************************************}
-{* (c) 2010 Max Rusov                                                         *}
-{*                                                                            *}
-{* Editor Whell Extender                                                      *}
-{******************************************************************************}
 
 uses
   MixErrors,

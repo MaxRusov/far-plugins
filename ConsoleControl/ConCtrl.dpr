@@ -1,13 +1,18 @@
+{******************************************************************************}
+{* (c) Max Rusov                                                              *}
+{* Console Control                                                            *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
+library ConCtrl;
+
 {$I Defines.inc}
 
 {$AppType Console}
 {$ifdef Debug}
  {$ImageBase $40000000}
 {$endif Debug}
-
-library ConCtrl;
-
-{$I Defines1.inc}
 
 uses
 //MixErrors,

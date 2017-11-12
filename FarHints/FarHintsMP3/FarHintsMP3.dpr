@@ -1,3 +1,5 @@
+library FarHintsMP3;
+
 {$I Defines.inc}
 
 {$ifdef bDelphi}
@@ -7,10 +9,6 @@
 {$ifdef Debug}
  {$ImageBase $40390000}
 {$endif Debug}
-
-library FarHintsMP3;
-
-{$I Defines1.inc}
 
 uses
  {$ifdef bTrace}

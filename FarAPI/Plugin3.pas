@@ -45,11 +45,13 @@ other possible license with no implications from the above license on them.
  {$PACKRECORDS C}
 {$else}
 
- {$ifdef Win64}
-  {$A8}
- {$else}
-  {$A8} //A4?
- {$endif Win64}
+ {$ifdef bDelphiXE}
+  {$ifdef Win64}
+   {$A8}
+  {$else}
+   {$A8} //A4?
+  {$endif Win64}
+ {$endif bDelphiXE}
 
 {$endif FPC}
 

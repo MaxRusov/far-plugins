@@ -1,20 +1,18 @@
-{$I Defines.inc} { см. также DefApp.inc }
-
-{$APPTYPE CONSOLE}
-{$ifdef Debug}
- {$ImageBase $41100000}  
-{$endif Debug}
-
-library Review;
-
-{$I Defines1.inc}
-
 {******************************************************************************}
 {* Review - Media viewer plugin for FAR                                       *}
 {* 2013, Max Rusov                                                            *}
 {* License: WTFPL                                                             *}
 {* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
+
+library Review;
+
+{$I Defines.inc} { см. также DefApp.inc }
+
+{$APPTYPE CONSOLE}
+{$ifdef Debug}
+ {$ImageBase $41100000}
+{$endif Debug}
 
 uses
   MixErrors,

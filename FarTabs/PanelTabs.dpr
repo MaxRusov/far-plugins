@@ -1,13 +1,18 @@
+{******************************************************************************}
+{* (c) Max Rusov                                                              *}
+{* PanelTabs                                                                  *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
+library PanelTabs;
+
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
  {$ImageBase $40B00000}
 {$endif Debug}
-
-library PanelTabs;  
-
-{$I Defines1.inc}
 
 uses
   MixErrors,

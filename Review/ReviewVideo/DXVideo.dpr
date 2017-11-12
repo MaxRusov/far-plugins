@@ -1,3 +1,5 @@
+library DXVideo;
+
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
@@ -8,10 +10,6 @@
 {$ifdef bDelphi}
  {$E pvd}
 {$endif bDelphi}
-
-library DXVideo;
-
-{$I Defines1.inc}
 
 uses
   MixErrors,

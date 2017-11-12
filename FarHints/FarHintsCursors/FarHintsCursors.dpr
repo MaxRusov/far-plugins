@@ -1,3 +1,5 @@
+library FarHintsCursors;
+
 {$I Defines.inc}
 
 {$ifdef bDelphi}
@@ -7,10 +9,6 @@
 {$ifdef Debug}
  {$ImageBase $403A0000}
 {$endif Debug}
- 
-library FarHintsCursors;
-
-{$I Defines1.inc}
 
 uses
  {$ifdef bTrace}

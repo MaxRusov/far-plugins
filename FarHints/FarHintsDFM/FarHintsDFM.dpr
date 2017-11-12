@@ -8,8 +8,6 @@
 
 library FarHintsDFM;
 
-{$I Defines1.inc}
-
 uses
   SystemLight,
  {$ifdef bTrace}

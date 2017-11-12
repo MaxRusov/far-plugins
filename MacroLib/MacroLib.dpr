@@ -1,19 +1,18 @@
+{******************************************************************************}
+{* (c) 2011 Max Rusov                                                         *}
+{* MacroLib                                                                   *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
+library MacroLib;
+
 {$I Defines.inc} { см. также DefApp.inc }
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
  {$ImageBase $40F00000}
 {$endif Debug}
-
-library MacroLib;
-
-{$I Defines1.inc}
-
-{******************************************************************************}
-{* (c) 2011 Max Rusov                                                         *}
-{*                                                                            *}
-{* MacroLib                                                                   *}
-{******************************************************************************}
 
 uses
   MixErrors,
