@@ -1581,7 +1581,7 @@ type
        0: (pOleStr: LPWSTR);                    { must be freed by caller of GetDisplayNameOf }
        1: (pStr: LPSTR);                        { NOT USED }
        2: (uOffset: UINT);                      { Offset into SHITEMID (ANSI) }
-       3: (cStr: array[0..MAX_PATH-1] of Char); { Buffer to fill in }
+       3: (cStr: array[0..MAX_PATH-1] of AnsiChar); { Buffer to fill in }
     end;
   TStrRet = _STRRET;
   STRRET = _STRRET;

@@ -21,7 +21,7 @@ unit Messages;
 
 interface
 
-uses Windows;
+uses MixTypes, Windows;
 
 { Window Messages }
 
@@ -617,7 +617,7 @@ type
     Msg: Cardinal;
     NameLen: Word;
     Unused: Word;
-    FormatName: PChar;
+    FormatName: PTChar;
     Result: Longint;
   end;
 
@@ -808,7 +808,7 @@ type
   TWMDevModeChange = packed record
     Msg: Cardinal;
     Unused: Integer;
-    Device: PChar;
+    Device: PTChar;
     Result: Longint;
   end;
 
@@ -885,10 +885,10 @@ type
     Result: Longint;
   end;
 
-  TWMGetText = packed record
+  TWMGetText = record
     Msg: Cardinal;
     TextMax: Integer;
-    Text: PChar;
+    Text: PTChar;
     Result: Longint;
   end;
 
@@ -1294,7 +1294,7 @@ type
   TWMSetText = packed record
     Msg: Cardinal;
     Unused: Longint;
-    Text: PChar;
+    Text: PTChar;
     Result: Longint;
   end;
 
@@ -1434,14 +1434,14 @@ type
   TWMWinIniChange = packed record
     Msg: Cardinal;
     Unused: Integer;
-    Section: PChar;
+    Section: PTChar;
     Result: Longint;
   end;
 
   TWMSettingChange = packed record
     Msg: Cardinal;
     Flag: Integer;
-    Section: PChar;
+    Section: PTChar;
     Result: Longint;
   end;
 

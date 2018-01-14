@@ -1,3 +1,5 @@
+{$I Defines.inc}
+
 {*******************************************************}
 {                                                       }
 {                Delphi Runtime Library                 }
@@ -3549,7 +3551,7 @@ type
   PMCI_Sound_Parms = ^TMCI_Sound_Parms;
   TMCI_Sound_Parms = record
     dwCallback: Longint;
-    lpstrSoundName: PChar;
+    lpstrSoundName: PTChar;
   end;
 
 { parameter block for MCI_SAVE command message }

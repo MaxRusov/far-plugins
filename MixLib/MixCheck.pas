@@ -51,7 +51,9 @@ interface
    {$ifdef bFreePascal}
     vPtr := @move;
    {$else}
+   {$warnings off}
     vPtr := @TextStart;
+   {$warnings on}
    {$endif bFreePascal}
     VirtualQuery(vPtr, vMemInfo, SizeOf(vMemInfo));
     Result := vMemInfo.AllocationBase;

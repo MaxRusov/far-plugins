@@ -1873,7 +1873,7 @@ type
   // and warnings.
 
   {$EXTERNALSYM DebugEventProc}
-  DebugEventProc = procedure(level: DebugEventLevel; message: PChar); stdcall;
+  DebugEventProc = procedure(level: DebugEventLevel; message: PTChar); stdcall;
 
   // Notification functions which the user must call appropriately if
   // "SuppressBackgroundThread" (below) is set.

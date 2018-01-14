@@ -66,154 +66,101 @@
   {$ifdef Ver130}
    {$Define bDelphi4}
    {$Define bDelphi5}
-  {$endif Ver130}
 
-  {$ifdef Ver140}
+  {$else}
+
    {$Define bDelphi4}
    {$Define bDelphi5}
-   {$Define bDelphi6}
-  {$endif Ver140}
 
-  {$ifdef Ver150}
-   {$Define bDelphi4}
-   {$Define bDelphi5}
-   {$Define bDelphi6}
-   {$Define bDelphi7}
-  {$endif Ver150}
+   {$if CompilerVersion >= 14.0}
+     {$Define bDelphi6}
+   {$ifend}
 
-  {$ifdef Ver170}
-   {$Define bDelphi4}
-   {$Define bDelphi5}
-   {$Define bDelphi6}
-   {$Define bDelphi7}
-   {$Define bDelphi8}
-   {$Define bDelphi9}
-  {$endif Ver150}
+   {$if CompilerVersion >= 15.0}
+     {$Define bDelphi7}
+   {$ifend}
 
-  {$ifdef Ver180}
-   {$Define bDelphi4}
-   {$Define bDelphi5}
-   {$Define bDelphi6}
-   {$Define bDelphi7}
-   {$Define bDelphi8}
-   {$Define bDelphi9}
-   {$Define bDelphi10}  { D2006 }
-  {$endif Ver180}
+   {$if CompilerVersion >= 16.0}    
+     {$Define bDelphi8}             { D8 - .Net }
+   {$ifend}
 
-  {$ifdef Ver200}
-   {$Define bDelphi4}
-   {$Define bDelphi5}
-   {$Define bDelphi6}
-   {$Define bDelphi7}
-   {$Define bDelphi8}
-   {$Define bDelphi9}
-   {$Define bDelphi10}
-   {$Define bDelphi11}
-   {$Define bDelphi12}   // Delphi 2009 - первая юникодная версия
+   {$if CompilerVersion >= 17.0}
+     {$Define bDelphi9}             { D2005 }
+   {$ifend}
+
+   {$if CompilerVersion >= 18.0}
+     {$Define bDelphi10}            { D2006 }
+   {$ifend}
+
+   {$if CompilerVersion >= 19.0}    
+     {$Define bDelphi11}            { D2007 - .Net }
+   {$ifend}
+
+   {$if CompilerVersion >= 20.0}
+     {$Define bDelphi12}            { D2009 - +UnicodeString }
+   {$ifend}
+
+   {$if CompilerVersion >= 21.0}
+     {$Define bDelphi14}            { D2010 }
+   {$ifend}
+
+   {$if CompilerVersion >= 22.0}
+     {$Define bDelphi15}            { XE }
+     {$Define bDelphiXE}            
+   {$ifend}
+
+   {$if CompilerVersion >= 23.0}
+     {$Define bDelphi16}            { XE2 (Pulsar) - +x64, +OSX }
+     {$Define bDelphiXE2}            
+   {$ifend}
+
+   {$if CompilerVersion >= 24.0}
+     {$Define bDelphi17}            { XE3 }
+     {$Define bDelphiXE3}            
+   {$ifend}
+
+   {$if CompilerVersion >= 25.0}
+     {$Define bDelphi18}            { XE4 - +iOS}
+     {$Define bDelphiXE4}            
+   {$ifend}
+
+   {$if CompilerVersion >= 26.0}
+     {$Define bDelphi19}            { XE5 - +Android }
+     {$Define bDelphiXE5}            
+   {$ifend}
+
+   {$if CompilerVersion >= 27.0}
+     {$Define bDelphi20}
+     {$Define bDelphiXE6}            
+   {$ifend}
+
+   {$if CompilerVersion >= 28.0}
+     {$Define bDelphi21}
+     {$Define bDelphiXE7}            
+   {$ifend}
+
+   {$if CompilerVersion >= 29.0}
+     {$Define bDelphi22}
+     {$Define bDelphiXE8}            
+   {$ifend}
+
+   {$if CompilerVersion >= 30.0}
+     {$Define bDelphi23}            { 10 - Seattle }
+   {$ifend}
+
+   {$if CompilerVersion >= 31.0}
+     {$Define bDelphi24}            { 10.1 - Berlin }
+   {$ifend}
+
+   {$if CompilerVersion >= 32.0}
+     {$Define bDelphi25}            { 10.2 - Tokyo }
+   {$ifend}
+
+   {$if CompilerVersion >= 33.0}
+     !
+   {$ifend}
+
   {$endif}
-
-  {$ifdef Ver210}
-   {$Define bDelphi4}
-   {$Define bDelphi5}
-   {$Define bDelphi6}
-   {$Define bDelphi7}
-   {$Define bDelphi8}
-   {$Define bDelphi9}
-   {$Define bDelphi10}
-   {$Define bDelphi11}
-   {$Define bDelphi12}
-   {$Define bDelphi13}  // Delphi 2010
-  {$endif}
-
-  {$ifdef Ver220}       
-   {$Define bDelphi4}
-   {$Define bDelphi5}
-   {$Define bDelphi6}
-   {$Define bDelphi7}
-   {$Define bDelphi8}
-   {$Define bDelphi9}
-   {$Define bDelphi10}
-   {$Define bDelphi11}
-   {$Define bDelphi12}
-   {$Define bDelphi13}
-   {$Define bDelphi14}  // Delphi XE
-   {$Define bDelphiXE}
-  {$endif}
-
-  {$ifdef Ver230}
-   {$Define bDelphi4}
-   {$Define bDelphi5}
-   {$Define bDelphi6}
-   {$Define bDelphi7}
-   {$Define bDelphi8}
-   {$Define bDelphi9}
-   {$Define bDelphi10}
-   {$Define bDelphi11}
-   {$Define bDelphi12}
-   {$Define bDelphi13}
-   {$Define bDelphi14}
-   {$Define bDelphi15}  // Delphi XE2 (Pulsar) - первая версия с 64-х разрядным компилятором
-   {$Define bDelphiXE}
-  {$endif}
-
-  {$ifdef Ver240}
-   {$Define bDelphi4}
-   {$Define bDelphi5}
-   {$Define bDelphi6}
-   {$Define bDelphi7}
-   {$Define bDelphi8}
-   {$Define bDelphi9}
-   {$Define bDelphi10}
-   {$Define bDelphi11}
-   {$Define bDelphi12}
-   {$Define bDelphi13}
-   {$Define bDelphi14}
-   {$Define bDelphi15}
-   {$Define bDelphi16}  // Delphi XE3
-   {$Define bDelphiXE}
-  {$endif}
-
-  {$ifdef Ver250}
-   !
-  {$endif Ver250}
-
-  {$ifdef Ver260}
-   !
-  {$endif Ver260}
-
-  {$ifdef Ver270}
-   !
-  {$endif Ver270}
-
-  {$ifdef Ver280}
-   !
-  {$endif Ver280}
-
-  {$ifdef Ver290}
-   !
-  {$endif Ver290}
-
-  {$ifdef Ver300}
-   !
-  {$endif Ver300}
-
-  {$ifdef Ver310}       { "Berlin"}
-   {$Define bDelphi4}
-   {$Define bDelphi5}
-   {$Define bDelphi6}
-   {$Define bDelphi7}
-   {$Define bDelphi8}
-   {$Define bDelphi9}
-   {$Define bDelphi10}
-   {$Define bDelphi11}
-   {$Define bDelphi12}
-   {$Define bDelphi13}
-   {$Define bDelphi14}
-   {$Define bDelphi15}
-   {$Define bDelphi16}
-   {$Define bDelphiXE}
-  {$endif Ver310}
-
 
   {$ifdef Win32}
   {$endif}
@@ -298,6 +245,7 @@
 {$ifdef bDebug}
  {$RangeChecks On}
  {$OverflowChecks On}
+ {$Undef bInline}
 {$else}
  {$RangeChecks Off}
  {$OverflowChecks Off}
@@ -337,7 +285,15 @@
   {$ifdef bDelphi6}
    {$WARN SYMBOL_PLATFORM OFF}
    {-$WARN SYMBOL_DEPRECATED OFF}
+   {$WARN UNSAFE_CAST OFF}
   {$endif bDelphi6}
+
+  {$ifdef bDelphi25}
+   {$WARN EXPLICIT_STRING_CAST OFF}
+   {$WARN EXPLICIT_STRING_CAST_LOSS OFF}
+   {$WARN IMPLICIT_INTEGER_CAST_LOSS OFF}
+   {$WARN IMPLICIT_CONVERSION_LOSS OFF}
+  {$endif bDelphi25}
 
   {$ifdef bDelphi15}
    {$Define bExcludeRTTI}
