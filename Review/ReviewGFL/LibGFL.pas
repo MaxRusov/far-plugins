@@ -267,12 +267,12 @@ type
     ColorUsed: GFL_INT32;
     ColorMap: PGFL_COLORMAP;
     Data: PGFL_UINT8;
-    Comment: PChar;
+    Comment: PAnsiChar;
     MetaData: Pointer;
     XOffset:  GFL_INT32;
     YOffset: GFL_INT32;
-	ExtrasInfo: Pointer;
-    Name: PChar;
+    ExtrasInfo: Pointer;
+    Name: PAnsiChar;
   end;
 
 // Channels Order
@@ -407,7 +407,7 @@ type
     CompressRatio : GFL_UINT16; 
 (*  MaxFileSize : GFL_UINT32;  ???*)
     LutData: PGFL_UINT16; // RRRR.../GGGG..../BBBB.....
-    LutFilename: PChar;
+    LutFilename: PAnsiChar;
 
        // Camera RAW only
     CameraRawUseAutomaticBalance: GFL_UINT8;
@@ -465,7 +465,7 @@ type
 
 	  Reserved3 : GFL_UINT8;
     LutData: PGFL_UINT16; //* RRRR.../GGGG..../BBBB.....
-    LutFilename: PChar;
+    LutFilename: PAnsiChar;
 
         // For RAW/YUV
     Offset: GFL_UINT32;
@@ -501,8 +501,8 @@ type
     Width: GFL_INT32;
     Height: GFL_INT32;
     FormatIndex: GFL_INT32;
-    FormatName: array[0..7] of char;
-    Description: array[0..63] of char;
+    FormatName: array[0..7] of AnsiChar;
+    Description: array[0..63] of AnsiChar;
     Xdpi: GFL_UINT16;
     Ydpi: GFL_UINT16;
     BitsPerComponent: GFL_UINT16;
@@ -511,7 +511,7 @@ type
     FileSize: GFL_UINT32;
     ColorModel: GFL_COLORMODEL;
     Compression: GFL_COMPRESSION;
-    CompressionDescription: array[0..63] of char;
+    CompressionDescription: array[0..63] of AnsiChar;
     XOffset: GFL_INT32;
     YOffset: GFL_INT32;
     ExtraInfos :Pointer;
@@ -526,11 +526,11 @@ type
   PGFL_FORMAT_INFORMATION = ^TGFL_FORMAT_INFORMATION;
   TGFL_FORMAT_INFORMATION = record
     Index: GFL_INT32;
-    Name: array[0..7] of char;
-    Description: array[0..63] of char;
+    Name: array[0..7] of AnsiChar;
+    Description: array[0..63] of AnsiChar;
     Status: GFL_UINT32;
     NumberOfExtension: GFL_UINT32;
-    Extension: array[0..15, 0..7] of char;
+    Extension: array[0..15, 0..7] of AnsiChar;
   end;
 
 //---------------------------------------------------------------------------------------------------
@@ -545,9 +545,9 @@ function gflMemoryRealloc(Ptr: Pointer; size: GFL_UINT32): Pointer; stdcall;
 procedure gflMemoryFree(Ptr: Pointer); stdcall;
 
 // Version Info
-function gflGetVersion: PChar; stdcall;
-function gflGetVersionOfLibformat: PChar; stdcall;
-function gflGetErrorString(error: GFL_ERROR): PChar; stdcall;
+function gflGetVersion: PAnsiChar; stdcall;
+function gflGetVersionOfLibformat: PAnsiChar; stdcall;
+function gflGetErrorString(error: GFL_ERROR): PAnsiChar; stdcall;
 
 // Initialization
 function gflLibraryInit: GFL_ERROR; stdcall;
@@ -570,7 +570,7 @@ var
   gflLibraryExit :procedure; stdcall;
   gflEnableLZW :procedure(value: GFL_BOOL); stdcall;
   gflSetPluginsPathnameW :procedure(const S: PWideChar); stdcall;
-  gflGetErrorString :function(error: GFL_ERROR): PChar; stdcall;
+  gflGetErrorString :function(error: GFL_ERROR): PAnsiChar; stdcall;
 
 {$endif bStaticLink}
 
@@ -589,33 +589,33 @@ const
 
 {$ifdef bStaticLink}
 function gflSaveParamsIsSupportedByIndex(index: GFL_INT32; params_type: GFL_SAVE_PARAMS_TYPE): GFL_Bool; stdcall;
-function gflSaveParamsIsSupportedByName(const name: PChar; params_type: GFL_SAVE_PARAMS_TYPE): GFL_Bool; stdcall;
+function gflSaveParamsIsSupportedByName(const name: PAnsiChar; params_type: GFL_SAVE_PARAMS_TYPE): GFL_Bool; stdcall;
 function gflCompressionIsSupportedByIndex(index: GFL_INT32; comp: GFL_COMPRESSION): GFL_Bool; stdcall;
-function gflCompressionIsSupportedByName(const name: PChar; comp: GFL_COMPRESSION): GFL_Bool; stdcall;
+function gflCompressionIsSupportedByName(const name: PAnsiChar; comp: GFL_COMPRESSION): GFL_Bool; stdcall;
 function gflBitmapIsSupportedByIndex(index: GFL_INT32; const bitmap: PGFL_BITMAP): GFL_Bool; stdcall;
-function gflBitmapIsSupportedByName(const name: PChar; const bitmap: PGFL_BITMAP): GFL_Bool; stdcall;
+function gflBitmapIsSupportedByName(const name: PAnsiChar; const bitmap: PGFL_BITMAP): GFL_Bool; stdcall;
 function gflBitmapTypeIsSupportedByIndex(index:  GFL_INT32; btype: GFL_BITMAP_TYPE; bits_per_component: GFL_UINT16): GFL_Bool; stdcall;
-function gflBitmapTypeIsSupportedByName(const name: PChar; btype: GFL_BITMAP_TYPE; bits_per_component: GFL_UINT16): GFL_Bool; stdcall;
+function gflBitmapTypeIsSupportedByName(const name: PAnsiChar; btype: GFL_BITMAP_TYPE; bits_per_component: GFL_UINT16): GFL_Bool; stdcall;
 
 // Infos of supported Formats
 function gflGetNumberOfFormat: GFL_INT32; stdcall;
-function gflGetFormatIndexByName(const name: PChar): GFL_INT32; stdcall;
-function gflGetFormatNameByIndex(index: GFL_INT32): PChar; stdcall;
-function gflFormatIsSupported(const name: PChar): GFL_BOOL; stdcall;
+function gflGetFormatIndexByName(const name: PAnsiChar): GFL_INT32; stdcall;
+function gflGetFormatNameByIndex(index: GFL_INT32): PAnsiChar; stdcall;
+function gflFormatIsSupported(const name: PAnsiChar): GFL_BOOL; stdcall;
 function gflFormatIsWritableByIndex(index: GFL_INT32): GFL_BOOL; stdcall;
-function gflFormatIsWritableByName(const name: PChar): GFL_BOOL; stdcall;
+function gflFormatIsWritableByName(const name: PAnsiChar): GFL_BOOL; stdcall;
 function gflFormatIsReadableByIndex(index: GFL_INT32): GFL_BOOL; stdcall;
-function gflFormatIsReadableByName(const name: PChar): GFL_BOOL; stdcall;
-function gflGetDefaultFormatSuffixByIndex(index: GFL_INT32): PChar; stdcall;
-function gflGetDefaultFormatSuffixByName(const name: PChar): PChar; stdcall;
-function gflGetFormatDescriptionByIndex(index: GFL_INT32): PChar; stdcall;
-function gflGetFormatDescriptionByName(const name: PChar): PChar; stdcall;
-function gflGetFormatInformationByName(const name: PChar;
+function gflFormatIsReadableByName(const name: PAnsiChar): GFL_BOOL; stdcall;
+function gflGetDefaultFormatSuffixByIndex(index: GFL_INT32): PAnsiChar; stdcall;
+function gflGetDefaultFormatSuffixByName(const name: PAnsiChar): PAnsiChar; stdcall;
+function gflGetFormatDescriptionByIndex(index: GFL_INT32): PAnsiChar; stdcall;
+function gflGetFormatDescriptionByName(const name: PAnsiChar): PAnsiChar; stdcall;
+function gflGetFormatInformationByName(const name: PAnsiChar;
   var info: TGFL_FORMAT_INFORMATION): GFL_ERROR; stdcall;
 function gflGetFormatInformationByIndex(index: GFL_INT32;
   var info: TGFL_FORMAT_INFORMATION): GFL_ERROR; stdcall;
 
-function gflGetLabelForColorModel(color_model: GFL_COLORMODEL): PChar; stdcall;
+function gflGetLabelForColorModel(color_model: GFL_COLORMODEL): PAnsiChar; stdcall;
 
 function gflGetFileInformation(const filename: PAnsiChar; index: GFL_INT32;
   var info: TGFL_FILE_INFORMATION): GFL_ERROR; stdcall;
@@ -624,7 +624,7 @@ function gflGetFileInformationW(const filename: PWideChar; index: GFL_INT32;
   var info: TGFL_FILE_INFORMATION): GFL_ERROR; stdcall;
 {$ENDIF UNICODE_SUPPORT}
 
-//function gflGetFileInformationEx(const filename: PChar; index: GFL_INT32;
+//function gflGetFileInformationEx(const filename: PAnsiChar; index: GFL_INT32;
 //  var info: TGFL_FILE_INFORMATION; load_infos GFL_UINT32): GFL_ERROR; stdcall;
 
 function gflGetFileInformationFromHandle(handle : GFL_HANDLE;
@@ -712,7 +712,7 @@ procedure gflFreeBitmapData(bitmap: PGFL_BITMAP); stdcall;
 
 function gflCloneBitmap(bitmap: PGFL_BITMAP): PGFL_BITMAP; stdcall;
 
-procedure gflBitmapSetName(var bitmap: PGFL_BITMAP; const name: PChar); stdcall;
+procedure gflBitmapSetName(var bitmap: PGFL_BITMAP; const name: PAnsiChar); stdcall;
 
 {$else}
 
@@ -924,8 +924,8 @@ type
   TGFL_EXIF_ENTRY  = {packed} record
     Flag  : GFL_UINT32; // EXIF_...IFD
     Tag   : GFL_UINT32;
-    Name  : PChar;
-    Value : PChar;
+    Name  : PAnsiChar;
+    Value : PAnsiChar;
   end;
 
   PTTabGFL_EXIF_ENTRY = ^TTabGFL_EXIF_ENTRY;
@@ -1004,7 +1004,7 @@ type
 function gflBitmapGetEXIF2(bitmap: PGFL_BITMAP): PGFL_EXIF_DATAEX; stdcall;
 procedure gflFreeEXIF2(exif_data: PGFL_EXIF_DATAEX); stdcall;
 procedure gflBitmapSetEXIF2(bitmap : PGFL_BITMAP; const exif : PGFL_EXIF_DATAEX); stdcall;
-procedure gflBitmapSetEXIFValueString2(exif: PGFL_EXIF_DATAEX; ifd, tag: GFL_UINT16; const value: PChar); stdcall;
+procedure gflBitmapSetEXIFValueString2(exif: PGFL_EXIF_DATAEX; ifd, tag: GFL_UINT16; const value: PAnsiChar); stdcall;
 procedure gflBitmapSetEXIFValueInt2(exif: PGFL_EXIF_DATAEX; ifd,tag: GFL_UINT16; format, value: GFL_UINT32); stdcall;
 procedure gflBitmapSetEXIFValueRational2(exif: PGFL_EXIF_DATAEX; ifd, tag: GFL_UINT16; p,q: GFL_UINT32); stdcall;
 procedure gflBitmapSetEXIFValueRationalArray2(exif: PGFL_EXIF_DATAEX; ifd, tag: GFL_UINT16; const pq: PGFL_UINT32; count: GFL_INT32); stdcall;
@@ -1052,8 +1052,8 @@ type
   PGFL_IPTC_ENTRY = ^TGFL_IPTC_ENTRY;
   TGFL_IPTC_ENTRY  = packed record
     Id  : GFL_UINT32;
-    Name  : PChar;
-    Value : PChar;
+    Name  : PAnsiChar;
+    Value : PAnsiChar;
   end;
 
   PTTabGFL_IPTC_ENTRY = ^TTabGFL_IPTC_ENTRY;
@@ -1072,12 +1072,12 @@ function gflBitmapSetIPTC(src: PGFL_BITMAP; iptc_data: PGFL_IPTC_DATA): GFL_ERRO
 procedure gflFreeIPTC(iptc_data: PGFL_IPTC_DATA); stdcall;
 
 function gflNewIPTC(): PGFL_IPTC_DATA; stdcall;
-function gflBitmapGetIPTCValue(src: PGFL_BITMAP; id: GFL_UINT32; value: PChar; value_length: GFL_INT32): GFL_ERROR; stdcall;
-function gflSetIPTCValue(iptc_data: PGFL_IPTC_DATA; id: GFL_UINT32; value: PChar): GFL_ERROR; stdcall;
+function gflBitmapGetIPTCValue(src: PGFL_BITMAP; id: GFL_UINT32; value: PAnsiChar; value_length: GFL_INT32): GFL_ERROR; stdcall;
+function gflSetIPTCValue(iptc_data: PGFL_IPTC_DATA; id: GFL_UINT32; value: PAnsiChar): GFL_ERROR; stdcall;
 function gflRemoveIPTCValue(iptc_data: PGFL_IPTC_DATA; id: GFL_UINT32): GFL_ERROR; stdcall;
 // from file
-function gflLoadIPTC(filename: PChar): PGFL_IPTC_DATA; stdcall;
-function gflSaveIPTC(filename: PChar; iptc_data: PGFL_IPTC_DATA): GFL_ERROR; stdcall;
+function gflLoadIPTC(filename: PAnsiChar): PGFL_IPTC_DATA; stdcall;
+function gflSaveIPTC(filename: PAnsiChar; iptc_data: PGFL_IPTC_DATA): GFL_ERROR; stdcall;
 
 {$IFDEF UNICODE_SUPPORT} //* UNICODE support */
 function gflLoadIPTCW(const filename: PWideChar): PGFL_IPTC_DATA; stdcall;
@@ -1097,28 +1097,28 @@ function gflBitmapGetXMP(const bitmap: PGFL_BITMAP; var pData: PGFL_UINT8;
 
 procedure gflBitmapRemoveMetaData(src: PGFL_BITMAP); stdcall;
 
-function gflJPEGGetComment(filename: PChar; comment: PChar; max_size: GFL_INT32): GFL_ERROR; stdcall;
-function gflJPEGSetComment(filename: PChar; comment: PChar): GFL_ERROR; stdcall;
-procedure gflBitmapSetComment(src: PGFL_BITMAP; comment: PChar); stdcall;
-function gflPNGGetComment(filename: PChar; comment: PChar; max_size: GFL_INT32): GFL_ERROR; stdcall;
-function gflPNGSetComment(filename: PChar; comment: PChar): GFL_ERROR; stdcall;
+function gflJPEGGetComment(filename: PAnsiChar; comment: PAnsiChar; max_size: GFL_INT32): GFL_ERROR; stdcall;
+function gflJPEGSetComment(filename: PAnsiChar; comment: PAnsiChar): GFL_ERROR; stdcall;
+procedure gflBitmapSetComment(src: PGFL_BITMAP; comment: PAnsiChar); stdcall;
+function gflPNGGetComment(filename: PAnsiChar; comment: PAnsiChar; max_size: GFL_INT32): GFL_ERROR; stdcall;
+function gflPNGSetComment(filename: PAnsiChar; comment: PAnsiChar): GFL_ERROR; stdcall;
 
 {$IFDEF UNICODE_SUPPORT} //* UNICODE support */
-function gflJPEGGetCommentW(const filename: PWideChar; comment: PChar; max_size: Integer): GFL_ERROR; stdcall;
-function gflJPEGSetCommentW(const filename: PWideChar; comment: PChar): GFL_ERROR; stdcall;
-function gflPNGGetCommentW(const filename: PWideChar; comment: PChar; max_size: Integer): GFL_ERROR; stdcall;
-function gflPNGSetCommentW(const filename: PWideChar; comment: PChar): GFL_ERROR; stdcall;
+function gflJPEGGetCommentW(const filename: PWideChar; comment: PAnsiChar; max_size: Integer): GFL_ERROR; stdcall;
+function gflJPEGSetCommentW(const filename: PWideChar; comment: PAnsiChar): GFL_ERROR; stdcall;
+function gflPNGGetCommentW(const filename: PWideChar; comment: PAnsiChar; max_size: Integer): GFL_ERROR; stdcall;
+function gflPNGSetCommentW(const filename: PWideChar; comment: PAnsiChar): GFL_ERROR; stdcall;
 {$ENDIF}
 
 // DPX LUT
-function gflIsLutFile(const filename: PChar): GFL_BOOL; stdcall;
+function gflIsLutFile(const filename: PAnsiChar): GFL_BOOL; stdcall;
 
-function gflIsCompatibleLutFile(const filename: PChar;
+function gflIsCompatibleLutFile(const filename: PAnsiChar;
   const components_per_pixel, bits_per_component: GFL_INT32;
   lut_type: GFL_LUT_TYPE): GFL_BOOL; stdcall;
 
 function gflApplyLutFile(src: PGFL_BITMAP; var dst: PGFL_BITMAP;
-  const filename: PChar; lut_type: GFL_LUT_TYPE): GFL_ERROR; stdcall;
+  const filename: PAnsiChar; lut_type: GFL_LUT_TYPE): GFL_ERROR; stdcall;
 
 
 //------------------------------------------------------------------------------------------------------------------
@@ -1211,7 +1211,7 @@ const
   GFL_LOSSLESS_TRANSFORM_HORIZONTAL_FLIP = 5;
 
 {$ifdef bStaticLink}
-function gflJpegLosslessTransform(filename: PChar; transform: GFL_LOSSLESS_TRANSFORM): GFL_ERROR; stdcall;
+function gflJpegLosslessTransform(filename: PAnsiChar; transform: GFL_LOSSLESS_TRANSFORM): GFL_ERROR; stdcall;
 {$endif bStaticLink}
 
 {$IFDEF MSWINDOWS}
@@ -1224,22 +1224,22 @@ function gflConvertBitmapIntoDDBEx(src: PGFL_BITMAP; var hBitmap: HBITMAP; var b
 function gflConvertDIBIntoBitmap(hDIB: THANDLE; dst: PPGFL_BITMAP): GFL_ERROR; stdcall;
 function gflConvertDDBIntoBitmap(hBitmap: HBITMAP; dst: PPGFL_BITMAP): GFL_ERROR; stdcall;
 
-function gflLoadBitmapIntoDIB(filename: PChar;
+function gflLoadBitmapIntoDIB(filename: PAnsiChar;
   var hDIB: THANDLE;
   var params: TGFL_LOAD_PARAMS;
   var info: TGFL_FILE_INFORMATION): GFL_ERROR; stdcall;
 
-function gflLoadBitmapIntoDIBSection(filename: PChar;
+function gflLoadBitmapIntoDIBSection(filename: PAnsiChar;
   var hDib: HBITMAP;
   var params: TGFL_LOAD_PARAMS;
   var info: TGFL_FILE_INFORMATION): GFL_ERROR; stdcall;
 
-function gflLoadBitmapIntoDDB(filename: PChar;
+function gflLoadBitmapIntoDDB(filename: PAnsiChar;
   var hBitmap: HBITMAP;
   var params: TGFL_LOAD_PARAMS;
   var info: TGFL_FILE_INFORMATION): GFL_ERROR; stdcall;
 
-function gflAddText(src: PGFL_BITMAP; text, font_name: PChar;
+function gflAddText(src: PGFL_BITMAP; text, font_name: PAnsiChar;
   x, y, font_size, orientation: GFL_INT32;
   italic, bold, strike_out, underline, antialias: GFL_BOOL;
   var color: PGFL_COLOR): GFL_ERROR; stdcall;
@@ -1251,7 +1251,7 @@ function gflAddTextW(dst: PGFL_BITMAP; text, font_name: PWideChar;
   var color: PGFL_COLOR): GFL_ERROR; stdcall;
 {$ENDIF}
 
-function gflGetTextExtent(var text, font_name: PChar;
+function gflGetTextExtent(var text, font_name: PAnsiChar;
   var font_size, orientation: GFL_INT32;
   var italic, bold, strike_out, underline, antialias: GFL_BOOL;
   var text_width, text_height: GFL_INT32): GFL_ERROR; stdcall;

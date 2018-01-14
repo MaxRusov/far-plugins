@@ -1605,7 +1605,7 @@ interface
 
           vValue := '';
           if vItem.type_ = PropertyTagTypeASCII then
-            vValue := PChar(vItem.value)
+            vValue := PAnsiChar(vItem.value)
           else
           if vItem.type_ = PropertyTagTypeByte then
             vValue := Int2Str(Byte(vItem.value^))
@@ -1622,7 +1622,7 @@ interface
           if (vName <> '') {and (vValue <> '')} then
             TraceF('Prop%x: %s = %s', [vItem.id, vName, vValue ]);
 
-          Inc(PChar(vItem), SizeOf(TPropertyItem));
+          Inc(Pointer1(vItem), SizeOf(TPropertyItem));
         end;
 
       finally

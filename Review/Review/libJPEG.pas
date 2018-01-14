@@ -833,7 +833,7 @@ Type
     msg_code: integer;
     msg_parm: Record Case integer Of
       1: (i: Array [0 .. 7] Of integer);
-      2: (s: Array [0 .. 79] Of char);
+      2: (s: Array [0 .. 79] Of AnsiChar);
     End;
 
     { Standard state variables for error facility }
