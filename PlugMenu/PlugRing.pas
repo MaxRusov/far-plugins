@@ -242,7 +242,7 @@ interface
       Win32Check( HttpSendRequest(vRequest, 'Content-Type: application/x-www-form-urlencoded', DWORD(-1), PAnsiChar(AData), length(AData) ));
 
 //    Result := UTF8ToWide(HttpReadStr(vRequest));
-      Result := HttpReadStr(vRequest);
+      Result := TString(HttpReadStr(vRequest));
 
     finally
       if vRequest <> nil then
@@ -264,7 +264,7 @@ interface
     vRequest := Format(cFindRequest1, [StrDeleteChars(GUIDToString(AID), ['{','}'])]);
 
 //  vResponse := HTTPGet(cPlugringAPI, vRequest, {Post=}True);
-    vResponse := HTTPGet(cPlugringSrv, cPlugringCmd, vRequest, {Post=}True);
+    vResponse := HTTPGet(cPlugringSrv, cPlugringCmd, TAnsiStr(vRequest), {Post=}True);
    {$ifdef bDebug}
     Trace(vResponse);
    {$endif bDebug}

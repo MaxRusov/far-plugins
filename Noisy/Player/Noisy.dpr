@@ -1,10 +1,8 @@
+program Noisy;
+
 {$I Defines.inc} { см. также DefApp.inc }
 
 {$ImageBase $01000000}
-
-program Noisy;
-
-{$I Defines1.inc}
 
 uses
   MixTypes,

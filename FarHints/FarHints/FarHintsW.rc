@@ -33,7 +33,7 @@ BEGIN
             VALUE "OriginalFilename", "farhints.dll\0"
             VALUE "FileVersion", "1." BuildS "\0"
             VALUE "CompanyName", "Max Rusov\0"
-            VALUE "LegalCopyright", "(c) 2007-2012, Max Rusov\0"
+            VALUE "LegalCopyright", "(c) 2007-2018, Max Rusov\0"
             VALUE "ProductName", "FarHints\0"
             VALUE "ProductVersion", "1.0\0"
         END

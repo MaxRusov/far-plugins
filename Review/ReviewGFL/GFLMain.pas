@@ -63,7 +63,7 @@ interface
     vStr :TString;
     vErr :EGflError;
   begin
-    vStr := gflGetErrorString(aCode);
+    vStr := TString(gflGetErrorString(aCode));
     if vStr = '' then
       vStr := 'GFL Error';
     vErr := EGflError.CreateFmt('%s (code: %x)', [vStr, aCode]);
@@ -337,7 +337,7 @@ const
 //      if gflFormatIsReadableByIndex(i) <> 0 then begin
         if vInfo.Status and GFL_READ <> 0 then begin
           for j := 0 to vInfo.NumberOfExtension - 1 do
-            vList.Add(  vInfo.Extension[j] );
+            vList.Add( TString(vInfo.Extension[j]) );
         end;
       end;
 
@@ -455,10 +455,10 @@ const
     end;
 
     FFmtIndex := vInfo.FormatIndex;
-    FFmtName := StrUpCase(vInfo.FormatName);
+    FFmtName := StrUpCase(TString(vInfo.FormatName));
     if vInfo.Compression <> GFL_NO_COMPRESSION then
-      FCompress := vInfo.CompressionDescription;
-    FDescr := vInfo.Description;
+      FCompress := TString(vInfo.CompressionDescription);
+    FDescr := TString(vInfo.Description);
     FFrames := vInfo.NumberOfImages;
 
     FSize.cx := vInfo.Width;
@@ -631,8 +631,8 @@ const
     FPixBPP := vInfo.BitsPerComponent * vInfo.ComponentsPerPixel;
 
     if vInfo.Compression <> GFL_NO_COMPRESSION then
-      FCompress := vInfo.CompressionDescription;
-    FDescr := vInfo.Description;
+      FCompress := TSTring(vInfo.CompressionDescription);
+    FDescr := TSTring(vInfo.Description);
 
     gflFreeFileInformation(vInfo);
 

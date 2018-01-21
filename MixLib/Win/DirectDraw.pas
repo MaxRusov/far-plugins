@@ -85,7 +85,7 @@ uses
  *
  ***************************************************************************)
 
-function MAKEFOURCC(ch0, ch1, ch2, ch3: Char): DWORD;
+function MAKEFOURCC(ch0, ch1, ch2, ch3: AnsiChar): DWORD;
 {$EXTERNALSYM MAKEFOURCC}
 
 (*
@@ -5672,8 +5672,8 @@ type
   TDDEnumCallbackW = function (lpGUID: PGUID; lpDriverDescription: PWideChar;
       lpDriverName: PWideChar; lpContext: Pointer): BOOL; stdcall;
   {$EXTERNALSYM TDDEnumCallbackW}
-  TDDEnumCallback = function (lpGUID: PGUID; lpDriverDescription: PChar;
-      lpDriverName: PChar; lpContext: Pointer): BOOL; stdcall;
+  TDDEnumCallback = function (lpGUID: PGUID; lpDriverDescription: PTChar;
+      lpDriverName: PTChar; lpContext: Pointer): BOOL; stdcall;
   {$EXTERNALSYM TDDEnumCallback}
 
   TDDEnumCallbackExA = function (lpGUID: PGUID; lpDriverDescription: PAnsiChar;
@@ -5684,8 +5684,8 @@ type
       lpDriverName: PWideChar; lpContext: Pointer; Monitor: HMonitor): BOOL;
       stdcall;
   {$EXTERNALSYM TDDEnumCallbackExW}
-  TDDEnumCallbackEx = function (lpGUID: PGUID; lpDriverDescription: PChar;
-      lpDriverName: PChar; lpContext: Pointer; Monitor: HMonitor): BOOL;
+  TDDEnumCallbackEx = function (lpGUID: PGUID; lpDriverDescription: PTChar;
+      lpDriverName: PTChar; lpContext: Pointer; Monitor: HMonitor): BOOL;
       stdcall;
   {$EXTERNALSYM TDDEnumCallbackEx}
 
@@ -6798,7 +6798,7 @@ begin
 end;
 
 
-function MAKEFOURCC(ch0, ch1, ch2, ch3: Char): DWORD;
+function MAKEFOURCC(ch0, ch1, ch2, ch3: AnsiChar): DWORD;
 begin
   Result := DWORD(Byte(ch0) shl 0) or
             DWORD(Byte(ch1) shl 8) or

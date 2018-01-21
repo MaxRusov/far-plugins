@@ -1,13 +1,18 @@
-{$I Defines.inc} 
+{******************************************************************************}
+{* (c) Max Rusov                                                              *}
+{* Visual Compare                                                             *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
+library VisComp;
+
+{$I Defines.inc}
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
  {$ImageBase $40A00000}
 {$endif Debug}
-
-library VisComp;
-
-{$I Defines1.inc}
 
 uses
   MixErrors,

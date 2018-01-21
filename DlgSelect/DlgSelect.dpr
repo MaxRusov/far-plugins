@@ -1,13 +1,18 @@
+{******************************************************************************}
+{* (c) Max Rusov                                                              *}
+{* DlgSelect                                                                  *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
+library DlgSelect;
+
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
  {$ImageBase $40E00000}
 {$endif Debug}
-
-library DlgSelect;
-
-{$I Defines1.inc}
 
 uses
 //MixErrors,

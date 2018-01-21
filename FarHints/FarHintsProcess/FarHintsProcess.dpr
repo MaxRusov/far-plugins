@@ -1,3 +1,5 @@
+library FarHintsProcess;
+
 {$I Defines.inc}
 
 {$ifdef bDelphi}
@@ -7,10 +9,6 @@
 {$ifdef Debug}
  {$ImageBase $403B0000}
 {$endif Debug}
-
-library FarHintsProcess;
-
-{$I Defines1.inc}
 
 uses
  {$ifdef bTrace}

@@ -275,7 +275,8 @@ interface
         end else
         if IsPluginPanel(vInfo) {and FTP Plugin...} then begin
 
-          vFolder := ExtractWord(1, StrOEMToAnsi(GetConsoleTitleStr), ['{', '}']);
+//        vFolder := ExtractWord(1, StrOEMToAnsi(GetConsoleTitleStr), ['{', '}']);
+          vFolder := ExtractWord(1, GetConsoleTitleStr, ['{', '}']);
 
           if UpCompareSubStr('FTP:', vFolder) = 0 then begin
             vFolder := ExtractWords(2, MaxInt, vFolder, [':']);
@@ -415,7 +416,7 @@ interface
     vRes :Integer;
     vSubList :TStringList;
   begin
-    Result := False;
+//  Result := False;
 
     vRes := 0;
     while True do begin

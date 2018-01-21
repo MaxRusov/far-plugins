@@ -1,3 +1,5 @@
+library GFL;
+
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
@@ -8,10 +10,6 @@
 {$ifdef bDelphi}
  {$E pvd}
 {$endif bDelphi}
-
-library GFL;
-
-{$I Defines1.inc}
 
 uses
   MixErrors,

@@ -1,20 +1,18 @@
-{$I Defines.inc}
-
-{$APPTYPE CONSOLE}
-{$ifdef Debug}
- {$ImageBase $40500000}
-{$endif Debug}
-
-library NoisyFar;
-
-{$I Defines1.inc}
-
 {******************************************************************************}
 {* Noisy - Noisy Player Far plugin                                            *}
 {* 2008-2014, Max Rusov                                                       *}
 {* License: WTFPL                                                             *}
 {* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
+
+library NoisyFar;
+
+{$I Defines.inc}
+
+{$APPTYPE CONSOLE}
+{$ifdef Debug}
+ {$ImageBase $40500000}
+{$endif Debug}
 
 uses
   MixErrors,

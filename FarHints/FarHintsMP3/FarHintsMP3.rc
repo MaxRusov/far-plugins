@@ -21,7 +21,7 @@ BEGIN
             VALUE "OriginalFilename", "farhintsmp3.hll\0"
             VALUE "FileVersion", "1.0." BuildS "\0"
             VALUE "CompanyName", "Max Rusov\0"
-            VALUE "LegalCopyright", "(c) 2007-2009, Max Rusov\0"
+            VALUE "LegalCopyright", "(c) 2007-2018, Max Rusov\0"
             VALUE "ProductName", "FarHints\0"
             VALUE "ProductVersion", "1.0\0"
         END

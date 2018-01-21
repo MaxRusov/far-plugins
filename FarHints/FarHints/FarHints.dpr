@@ -1,13 +1,18 @@
+{******************************************************************************}
+{* Far Hints                                                                  *}
+{* Author: Max Rusov                                                          *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
+library FarHints;
+
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
  {$ImageBase $40300000}
 {$endif Debug}
-
-library FarHints;
-
-{$I Defines1.inc}
 
 uses
   MixErrors,

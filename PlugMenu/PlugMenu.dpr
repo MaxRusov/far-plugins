@@ -1,20 +1,18 @@
+{******************************************************************************}
+{* (c) 2008-2014 Max Rusov                                                    *}
+{* PlugMenu Far Plugin                                                        *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
+library PlugMenu;
+
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
  {$ImageBase $40500000}
 {$endif Debug}
-
-{******************************************************************************}
-{* (c) 2008-2014 Max Rusov                                                    *}
-{* PlugMenu Far Plugin                                                        *}
-{* License: WTFPL                                                             *}
-{* Home: http://code.google.com/p/far-plugins/                                *}
-{******************************************************************************}
-
-library PlugMenu;
-
-{$I Defines1.inc}
 
 uses
   MixErrors,

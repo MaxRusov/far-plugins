@@ -399,8 +399,8 @@ type
 
   // Device info structure
   BASS_DEVICEINFO = record
-    name: PChar;        // description
-    driver: PChar;      // driver
+    name: PAnsiChar;    // description
+    driver: PAnsiChar;  // driver
     flags: DWORD;
   end;
 
@@ -427,7 +427,7 @@ type
     formats: DWORD;     // supported standard formats (WAVE_FORMAT_xxx flags)
     inputs: DWORD;      // number of inputs
     singlein: BOOL;     // only 1 input can be set at a time
-    driver: PChar;      // driver
+    driver: PAnsiChar;  // driver
     freq: DWORD;        // current input rate (OSX only)
   end;
 
@@ -461,13 +461,13 @@ type
     origres: DWORD;     // original resolution
     plugin: HPLUGIN;    // plugin
     sample: HSAMPLE;    // sample
-    filename: PChar;    // filename
+    filename: PAnsiChar;// filename
   end;
 
   BASS_PLUGINFORM = record
     ctype: DWORD;       // channel type
-    name: PChar;        // format description
-    exts: PChar;	    // file extension filter (*.ext1;*.ext2;etc...)
+    name: PAnsiChar;    // format description
+    exts: PAnsiChar;    // file extension filter (*.ext1;*.ext2;etc...)
   end;
   PBASS_PLUGINFORMS = ^TBASS_PLUGINFORMS;
   TBASS_PLUGINFORMS = array[0..maxInt div sizeOf(BASS_PLUGINFORM) - 1] of BASS_PLUGINFORM;
@@ -668,7 +668,7 @@ function BASS_Pause: BOOL; stdcall; external bassdll;
 function BASS_SetVolume(volume: FLOAT): BOOL; stdcall; external bassdll;
 function BASS_GetVolume: FLOAT; stdcall; external bassdll;
 
-function BASS_PluginLoad(filename: PChar; flags: DWORD): HPLUGIN; stdcall; external bassdll;
+function BASS_PluginLoad(filename: PAnsiChar; flags: DWORD): HPLUGIN; stdcall; external bassdll;
 function BASS_PluginFree(handle: HPLUGIN): BOOL; stdcall; external bassdll;
 function BASS_PluginGetInfo(handle: HPLUGIN): PBASS_PLUGININFO; stdcall; external bassdll;
 
@@ -696,7 +696,7 @@ function BASS_SampleStop(handle: HSAMPLE): BOOL; stdcall; external bassdll;
 
 function BASS_StreamCreate(freq, chans, flags: DWORD; proc: STREAMPROC; user: Pointer): HSTREAM; stdcall; external bassdll;
 function BASS_StreamCreateFile(mem: BOOL; f: Pointer; offset, length: QWORD; flags: DWORD): HSTREAM; stdcall; external bassdll;
-function BASS_StreamCreateURL(url: PChar; offset: DWORD; flags: DWORD; proc: DOWNLOADPROC; user: Pointer):HSTREAM; stdcall; external bassdll;
+function BASS_StreamCreateURL(url: PAnsiChar; offset: DWORD; flags: DWORD; proc: DOWNLOADPROC; user: Pointer):HSTREAM; stdcall; external bassdll;
 function BASS_StreamCreateFileUser(system, flags: DWORD; var procs: BASS_FILEPROCS; user: Pointer): HSTREAM; stdcall; external bassdll;
 function BASS_StreamFree(handle: HSTREAM): BOOL; stdcall; external bassdll;
 function BASS_StreamGetFilePosition(handle: HSTREAM; mode: DWORD): QWORD; stdcall; external bassdll;
@@ -709,7 +709,7 @@ function BASS_RecordSetDevice(device: DWORD): BOOL; stdcall; external bassdll;
 function BASS_RecordGetDevice: DWORD; stdcall; external bassdll;
 function BASS_RecordFree: BOOL; stdcall; external bassdll;
 function BASS_RecordGetInfo(var info: BASS_RECORDINFO): BOOL; stdcall; external bassdll;
-function BASS_RecordGetInputName(input: Integer): PChar; stdcall; external bassdll;
+function BASS_RecordGetInputName(input: Integer): PAnsiChar; stdcall; external bassdll;
 function BASS_RecordSetInput(input: Integer; flags: DWORD; volume: FLOAT): BOOL; stdcall; external bassdll;
 function BASS_RecordGetInput(input: Integer; var volume: FLOAT): DWORD; stdcall; external bassdll;
 function BASS_RecordStart(freq, chans, flags: DWORD; proc: RECORDPROC; user: Pointer): HRECORD; stdcall; external bassdll;
@@ -720,7 +720,7 @@ function BASS_ChannelGetDevice(handle: DWORD): DWORD; stdcall; external bassdll;
 function BASS_ChannelSetDevice(handle, device: DWORD): BOOL; stdcall; external bassdll;
 function BASS_ChannelIsActive(handle: DWORD): DWORD; stdcall;external bassdll;
 function BASS_ChannelGetInfo(handle: DWORD; var info: BASS_CHANNELINFO):BOOL;stdcall;external bassdll;
-function BASS_ChannelGetTags(handle: HSTREAM; tags: DWORD): PChar; stdcall; external bassdll;
+function BASS_ChannelGetTags(handle: HSTREAM; tags: DWORD): PAnsiChar; stdcall; external bassdll;
 function BASS_ChannelFlags(handle, flags, mask: DWORD): DWORD; stdcall; external bassdll;
 function BASS_ChannelUpdate(handle, length: DWORD): BOOL; stdcall; external bassdll;
 function BASS_ChannelLock(handle: DWORD; lock: BOOL): BOOL; stdcall; external bassdll;

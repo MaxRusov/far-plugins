@@ -1,13 +1,18 @@
+{******************************************************************************}
+{* (c) Max Rusov                                                              *}
+{* MoreHistory                                                                *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
+library MoreHistory;
+
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
  {$ImageBase $40800000}
 {$endif Debug}
-
-library MoreHistory;
-
-{$I Defines1.inc}
 
 uses
   MixErrors,

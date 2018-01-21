@@ -3,7 +3,7 @@
         <ProjectGuid>{452CB3B2-8EF1-4F82-B371-A2B5077F2C89}</ProjectGuid>
         <MainSource>FarHints.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Release</Config>
+        <Config Condition="'$(Config)'==''">Debug</Config>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Library</AppType>
         <FrameworkType>None</FrameworkType>
@@ -75,14 +75,14 @@
         <DCC_N>true</DCC_N>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
-        <Debugger_RunParams>/p%FarHome%\Plugins,C:\SrcFAR2\MyPlugins\Bin3</Debugger_RunParams>
+        <Debugger_RunParams>/p%FarHome%\Plugins,C:\SrcFAR2\MyPlugins_GH\Bin3</Debugger_RunParams>
         <Debugger_HostApplication>C:\FarDeb3\Far.exe</Debugger_HostApplication>
         <DCC_ExeOutput>..\..\Bin3\FarHints</DCC_ExeOutput>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
-        <Debugger_RunParams>/p%FarHome%\Plugins,C:\SrcFAR2\MyPlugins\Bin3x64</Debugger_RunParams>
+        <Debugger_RunParams>/p%FarHome%\Plugins,C:\SrcFAR2\MyPlugins_GH\Bin3x64</Debugger_RunParams>
         <Debugger_HostApplication>C:\FarDeb3x64\Far.exe</Debugger_HostApplication>
         <DCC_ExeOutput>..\..\Bin3x64\FarHints</DCC_ExeOutput>
         <VerInfo_Locale>1033</VerInfo_Locale>
@@ -112,6 +112,7 @@
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <Debugger_HostApplication>C:\Far3x64\Far.exe</Debugger_HostApplication>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
@@ -170,6 +171,7 @@
                 </Excluded_Packages>
             </Delphi.Personality>
             <Platforms>
+                <Platform value="Linux64">False</Platform>
                 <Platform value="Win32">True</Platform>
                 <Platform value="Win64">True</Platform>
             </Platforms>

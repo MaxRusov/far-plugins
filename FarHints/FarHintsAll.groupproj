@@ -1,0 +1,108 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{B3328F6F-45CB-4C37-895C-9EA42D799738}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="FarHintsVerInfo\FarHintsVerInfo.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="FarHintsFolders\FarHintsFolders.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="FarHintsImage\FarHintsImage.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="FarHintsMP3\FarHintsMP3.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="FarHintsCursors\FarHintsCursors.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="FarHintsProcess\FarHintsProcess.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="FarHints\FarHints.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="FarHintsVerInfo">
+        <MSBuild Projects="FarHintsVerInfo\FarHintsVerInfo.dproj"/>
+    </Target>
+    <Target Name="FarHintsVerInfo:Clean">
+        <MSBuild Projects="FarHintsVerInfo\FarHintsVerInfo.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="FarHintsVerInfo:Make">
+        <MSBuild Projects="FarHintsVerInfo\FarHintsVerInfo.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="FarHintsFolders">
+        <MSBuild Projects="FarHintsFolders\FarHintsFolders.dproj"/>
+    </Target>
+    <Target Name="FarHintsFolders:Clean">
+        <MSBuild Projects="FarHintsFolders\FarHintsFolders.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="FarHintsFolders:Make">
+        <MSBuild Projects="FarHintsFolders\FarHintsFolders.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="FarHintsImage">
+        <MSBuild Projects="FarHintsImage\FarHintsImage.dproj"/>
+    </Target>
+    <Target Name="FarHintsImage:Clean">
+        <MSBuild Projects="FarHintsImage\FarHintsImage.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="FarHintsImage:Make">
+        <MSBuild Projects="FarHintsImage\FarHintsImage.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="FarHintsMP3">
+        <MSBuild Projects="FarHintsMP3\FarHintsMP3.dproj"/>
+    </Target>
+    <Target Name="FarHintsMP3:Clean">
+        <MSBuild Projects="FarHintsMP3\FarHintsMP3.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="FarHintsMP3:Make">
+        <MSBuild Projects="FarHintsMP3\FarHintsMP3.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="FarHintsCursors">
+        <MSBuild Projects="FarHintsCursors\FarHintsCursors.dproj"/>
+    </Target>
+    <Target Name="FarHintsCursors:Clean">
+        <MSBuild Projects="FarHintsCursors\FarHintsCursors.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="FarHintsCursors:Make">
+        <MSBuild Projects="FarHintsCursors\FarHintsCursors.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="FarHintsProcess">
+        <MSBuild Projects="FarHintsProcess\FarHintsProcess.dproj"/>
+    </Target>
+    <Target Name="FarHintsProcess:Clean">
+        <MSBuild Projects="FarHintsProcess\FarHintsProcess.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="FarHintsProcess:Make">
+        <MSBuild Projects="FarHintsProcess\FarHintsProcess.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="FarHints">
+        <MSBuild Projects="FarHints\FarHints.dproj"/>
+    </Target>
+    <Target Name="FarHints:Clean">
+        <MSBuild Projects="FarHints\FarHints.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="FarHints:Make">
+        <MSBuild Projects="FarHints\FarHints.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="FarHintsVerInfo;FarHintsFolders;FarHintsImage;FarHintsMP3;FarHintsCursors;FarHintsProcess;FarHints"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="FarHintsVerInfo:Clean;FarHintsFolders:Clean;FarHintsImage:Clean;FarHintsMP3:Clean;FarHintsCursors:Clean;FarHintsProcess:Clean;FarHints:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="FarHintsVerInfo:Make;FarHintsFolders:Make;FarHintsImage:Make;FarHintsMP3:Make;FarHintsCursors:Make;FarHintsProcess:Make;FarHints:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

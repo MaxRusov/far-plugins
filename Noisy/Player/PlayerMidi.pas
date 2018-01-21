@@ -168,14 +168,14 @@ interface
   function BASS_MIDI_StreamGetEvents(handle:HSTREAM; chan,filter:DWORD; var events:BASS_MIDI_EVENT): DWORD; stdcall; external bassmididll;
   function BASS_MIDI_StreamGetChannel(handle:HSTREAM; chan:DWORD): HSTREAM; stdcall; external bassmididll;
 
-  function BASS_MIDI_FontInit(fname:PChar; flags:DWORD): HSOUNDFONT; stdcall; external bassmididll;
+  function BASS_MIDI_FontInit(fname:PAnsiChar; flags:DWORD): HSOUNDFONT; stdcall; external bassmididll;
   function BASS_MIDI_FontFree(handle:HSOUNDFONT): BOOL; stdcall; external bassmididll;
   function BASS_MIDI_FontGetInfo(handle:HSOUNDFONT; var info:BASS_MIDI_FONTINFO): BOOL; stdcall; external bassmididll;
   function BASS_MIDI_FontGetPreset(handle:HSOUNDFONT; preset,bank:LongInt): PAnsiChar; stdcall; external bassmididll;
   function BASS_MIDI_FontLoad(handle:HSOUNDFONT; preset,bank:LongInt): BOOL; stdcall; external bassmididll;
   function BASS_MIDI_FontCompact(handle:HSOUNDFONT): BOOL; stdcall; external bassmididll;
-  function BASS_MIDI_FontPack(handle:HSOUNDFONT; outfile,encoder:PChar; flags:DWORD): BOOL; stdcall; external bassmididll;
-  function BASS_MIDI_FontUnpack(handle:HSOUNDFONT; outfile:PChar; flags:DWORD): BOOL; stdcall; external bassmididll;
+  function BASS_MIDI_FontPack(handle:HSOUNDFONT; outfile,encoder:PAnsiChar; flags:DWORD): BOOL; stdcall; external bassmididll;
+  function BASS_MIDI_FontUnpack(handle:HSOUNDFONT; outfile:PAnsiChar; flags:DWORD): BOOL; stdcall; external bassmididll;
   function BASS_MIDI_FontSetVolume(handle:HSOUNDFONT; volume:Single): BOOL; stdcall; external bassmididll;
   function BASS_MIDI_FontGetVolume(handle:HSOUNDFONT): Single; stdcall; external bassmididll;
 *)

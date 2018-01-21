@@ -36,6 +36,9 @@ interface
 
 
   type
+    TFarItemAttr = class;
+    TFarItem = class;
+
     THintPluginInfo = class(TComBasis, IHintPluginInfo)
     public
       constructor CreateEx(const AName :TString);
@@ -53,6 +56,7 @@ interface
       FName :TString;
       FCaption :TString;
     end;
+
 
     TFarItemAttr = class(TComBasis, IFarItemAttr)
     public
@@ -73,12 +77,15 @@ interface
       procedure SetAsDateTime(AValue :TDateTime); stdcall;
 
     private
+      FOwner :TFarItem;
       FName :TString;
       FType :TFarAttrType;
       FStrValue :TString;
       FIntValue :Integer;
       FI64Value :TInt64;
       FDateValue :TDateTime;
+
+      procedure InvalidateOwnerWindow;
     end;
 
 
@@ -218,7 +225,6 @@ interface
 
       procedure SetItemToWindow(const APlugin :IHintPlugin; const AItem :IFarItem;
         AContext :THintCallContext; ACallMode :THintCallMode; X, Y :Integer; APeriod :Integer);
-      procedure InvalidateWindow(AFlags :Integer);
 
     public
       property Plugins :TPlugins read FPlugins;
@@ -392,31 +398,38 @@ interface
 
   procedure TFarItemAttr.SetAsStr(const AValue :WideString);
   begin
-    {!!!}
     FStrValue := AValue;
-    FarHints.InvalidateWindow(uhwResize or uhwInvalidateItems);
+    InvalidateOwnerWindow;
   end;
+
 
   procedure TFarItemAttr.SetAsInt(AValue :Integer);
   begin
-    {!!!}
     FIntValue := AValue;
-    FarHints.InvalidateWindow(uhwResize or uhwInvalidateItems);
+    InvalidateOwnerWindow;
   end;
+
 
   procedure TFarItemAttr.SetAsInt64(AValue :TInt64);
   begin
-    {!!!}
     FI64Value := AValue;
-    FarHints.InvalidateWindow(uhwResize or uhwInvalidateItems);
+    InvalidateOwnerWindow;
   end;
+
 
   procedure TFarItemAttr.SetAsDateTime(AValue :TDateTime);
   begin
-    {!!!}
     FDateValue := AValue;
-    FarHints.InvalidateWindow(uhwResize or uhwInvalidateItems);
+    InvalidateOwnerWindow;
   end;
+
+
+  procedure TFarItemAttr.InvalidateOwnerWindow;
+  begin
+    if FOwner <> nil then
+      FOwner.UpdateHintWindow(uhwResize or uhwInvalidateItems)
+  end;
+
 
  {-----------------------------------------------------------------------------}
  { TFarItem                                                                    }
@@ -502,10 +515,14 @@ interface
   destructor TFarItem.Destroy; {override;}
   var
     I :Integer;
+    vAttr :TFarItemAttr;
   begin
     if FAttrs <> nil then
-      for I := 0 to FAttrs.Count - 1 do
-        TFarItemAttr(FAttrs[I])._Release;
+      for I := 0 to FAttrs.Count - 1 do begin
+        vAttr := FAttrs[I];
+        vAttr.FOwner := nil;
+        vAttr._Release;
+      end;
     FreeObj(FAttrs);
     inherited Destroy;
   end;
@@ -520,6 +537,7 @@ interface
   procedure TFarItem.AddAttr(AAttr :TFarItemAttr);
   begin
     FAttrs.Add(AAttr);
+    AAttr.FOwner := Self;
     AAttr._AddRef;
   end;
 
@@ -546,7 +564,8 @@ interface
 
   procedure TFarItem.UpdateHintWindow(AFlags :Integer);
   begin
-    FarHints.InvalidateWindow(AFlags);
+    if FWindow <> nil then
+      FWindow.InvalidateEx(AFlags);
   end;
 
   function TFarItem.GetFullName :WideString;
@@ -997,27 +1016,6 @@ interface
     finally
       FCreateLock.Leave;
     end;
-  end;
-
-
-  procedure TFarHintsMain.InvalidateWindow(AFlags :Integer);
-  const
-    uhwInvalidateAll = uhwInvalidateItems + uhwInvalidateImage;
-  begin
-    if (FWindow <> nil) and (FWindow.Item <> nil) then begin
-      if uhwResize and AFlags <> 0 then begin
-        with FWindow.GetBoundsRect do
-          FWindow.MoveWindowTo(Left, Top, False);
-      end;
-      if uhwInvalidateAll and AFlags = uhwInvalidateAll then
-        FWindow.InvalidateHint
-      else begin
-        if uhwInvalidateItems and AFlags <> 0 then
-          FWindow.InvalidateItems;
-        if uhwInvalidateImage and AFlags <> 0 then
-          FWindow.InvalidateIcon;
-      end;
-    end
   end;
 
 

@@ -318,7 +318,7 @@ uses
 
   type
     PMD5Buffer = ^TMD5Buffer;
-    TMD5Buffer = array[0..(MaxBufSize - 1)] of Char;
+    TMD5Buffer = array[0..(MaxBufSize - 1)] of AnsiChar;
 
 
   { MD5 initialization. Begins an MD5 operation, writing a new context.         }

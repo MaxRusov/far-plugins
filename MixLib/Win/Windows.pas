@@ -94,6 +94,18 @@ type
 
   UInt64 = TUns64;
 
+  PTChar = MixTypes.PTChar;
+
+{------------------------------------------------------------------------------}
+{ Типы, не рекомендуемые к использованию                                       }
+
+  Char = System.Char deprecated;
+  PChar = System.PChar deprecated;
+
+//  string :TUnusedType;
+//  pstring :TUnusedType;
+
+
 const
   MAX_PATH = 260;
 
@@ -2743,10 +2755,10 @@ type
 {$ifdef b64}
 {$ifdef bFreePascal}
 {$else}
-function InterlockedIncrement(var Addend: Integer): Integer;
-function InterlockedDecrement(var Addend: Integer): Integer;
+function InterlockedIncrement(var Addend: Integer): Integer; {$ifdef bInline}inline;{$endif}
+function InterlockedDecrement(var Addend: Integer): Integer; {$ifdef bInline}inline;{$endif}
+function InterlockedExchangePointer(var Target :Pointer; Value :Pointer) :Pointer; {$ifdef bInline}inline;{$endif}
 {$endif bFreePascal}
-function InterlockedExchangePointer(var Target :Pointer; Value :Pointer) :Pointer; 
 {$else}
 function InterlockedIncrement(var Addend: Integer): Integer; stdcall;
 function InterlockedDecrement(var Addend: Integer): Integer; stdcall;
@@ -19505,15 +19517,6 @@ function InterlockedDecrement; external kernel32 name 'InterlockedDecrement';
 function InterlockedExchange; external kernel32 name 'InterlockedExchange';
 function InterlockedCompareExchange; external kernel32 name 'InterlockedCompareExchange';
 function InterlockedExchangeAdd; external kernel32 name 'InterlockedExchangeAdd';
-{$endif b64}
-
-{$ifdef b64}
-function InterlockedExchangePointer(var Target: Pointer; Value: Pointer): Pointer;
-asm
-  LOCK XCHG [RCX],RDX
-  MOV RAX,RDX
-end;
-{$else}
 function InterlockedExchangePointer(var Target :Pointer; Value :Pointer) :Pointer; external kernel32 name 'InterlockedExchange';
 {$endif b64}
 
@@ -21286,13 +21289,24 @@ function SetWindowLongPtrW; external user32 name 'SetWindowLongW';
 {$ifdef bFreePascal}
 {$else}
 function InterlockedIncrement(var Addend: Integer): Integer;
-asm
-  {!!!Pulsar}
+begin
+  Result := AtomicIncrement(Addend);
 end;
 
 function InterlockedDecrement(var Addend: Integer): Integer;
-asm
-  {!!!Pulsar}
+begin
+  Result := AtomicDecrement(Addend);
+end;
+
+//function InterlockedExchangePointer(var Target: Pointer; Value: Pointer): Pointer;
+//asm
+//  LOCK XCHG [RCX],RDX
+//  MOV RAX,RDX
+//end;
+
+function InterlockedExchangePointer(var Target: Pointer; Value: Pointer): Pointer;
+begin
+  Result := AtomicExchange(Target, Value);
 end;
 {$endif bFreePascal}
 {$endif b64}

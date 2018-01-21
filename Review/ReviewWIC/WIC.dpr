@@ -1,3 +1,5 @@
+library WIC;
+
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
@@ -8,10 +10,6 @@
 {$ifdef bDelphi}
  {$E pvd}
 {$endif bDelphi}
-
-library WIC;
-
-{$I Defines1.inc}
 
 uses
   MixErrors,

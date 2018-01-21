@@ -1,0 +1,60 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{BC51B043-E29D-4AF5-87A0-E2F7B164BD75}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="Plugin\NoisyFar.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Player\Noisy.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="GUI\WinNoisy.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="NoisyFar">
+        <MSBuild Projects="Plugin\NoisyFar.dproj"/>
+    </Target>
+    <Target Name="NoisyFar:Clean">
+        <MSBuild Projects="Plugin\NoisyFar.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="NoisyFar:Make">
+        <MSBuild Projects="Plugin\NoisyFar.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Noisy">
+        <MSBuild Projects="Player\Noisy.dproj"/>
+    </Target>
+    <Target Name="Noisy:Clean">
+        <MSBuild Projects="Player\Noisy.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Noisy:Make">
+        <MSBuild Projects="Player\Noisy.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="WinNoisy">
+        <MSBuild Projects="GUI\WinNoisy.dproj"/>
+    </Target>
+    <Target Name="WinNoisy:Clean">
+        <MSBuild Projects="GUI\WinNoisy.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="WinNoisy:Make">
+        <MSBuild Projects="GUI\WinNoisy.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="NoisyFar;Noisy;WinNoisy"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="NoisyFar:Clean;Noisy:Clean;WinNoisy:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="NoisyFar:Make;Noisy:Make;WinNoisy:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

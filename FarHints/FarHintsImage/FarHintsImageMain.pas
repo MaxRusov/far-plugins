@@ -120,7 +120,7 @@ interface
       try
         AImage.GetPropertyItem(AProp, vSize, vItem);
         if vItem.type_ = PropertyTagTypeASCII then
-          Result := PChar(vItem.value);
+          Result := TSTring(PAnsiChar(vItem.value));
       finally
         FreeMem(vItem);
       end;

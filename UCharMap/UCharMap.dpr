@@ -1,13 +1,18 @@
+{******************************************************************************}
+{* (c) Max Rusov                                                              *}
+{* Unicode CharMap                                                            *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
+library UCharMap;
+
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
  {$ImageBase $40900000}
 {$endif Debug}
-
-library UCharMap;
-
-{$I Defines1.inc}
 
 uses
   MixErrors,

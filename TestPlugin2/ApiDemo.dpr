@@ -1,11 +1,12 @@
+
+library ApiDemo;
+
 {$I Defines.inc}
 
 {$AppType Console}
 {$ifdef Debug}
  {$ImageBase $40000000}
 {$endif Debug}
-
-library ApiDemo;
 
 uses
 //MixErrors,
@@ -14,6 +15,7 @@ uses
  {$endif bTrace}
   FarPlug,
   ApiDemoMain;
+
 
 exports
  {$ifdef Far3}

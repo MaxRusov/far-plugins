@@ -1457,6 +1457,7 @@ interface
 
 
  {$ifdef Far3}
+(*
   function MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :Boolean;
 
     procedure LocShowInfo;
@@ -1548,6 +1549,105 @@ interface
       gHintCommand := True;
       if MacroCommand(AParams[0].Value.fString, ACount, AParams) then
         Result := 1{INVALID_HANDLE_VALUE};
+    end;
+  end;
+*)
+  function MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :TIntPtr;
+  var
+    vResult :Boolean;
+
+    procedure LocShowInfo;
+    var
+      vStr :TString;
+      vInt, vDelay :Integer;
+      vConPos, vWinPos :TPoint;
+      vInfo :TConsoleScreenBufferInfo;
+    begin
+      vStr := '';
+      vDelay := InfoHintPeriod;
+      vConPos.X := -1;
+      vConPos.Y := -3;
+
+      if (ACount >= 2) and (AParams[1].fType = FMVT_STRING) then
+        vStr := AParams[1].Value.fString;
+      if (ACount >= 3) and FarValueIsInteger(AParams[2], vInt) then
+        vConPos.X := vInt;
+      if (ACount >= 4) and FarValueIsInteger(AParams[3], vInt) then
+        vConPos.Y := vInt;
+      if (ACount >= 5) and FarValueIsInteger(AParams[4], vInt) then
+        vDelay := vInt;
+
+      if vConPos.y < 0 then begin
+//      vConPos.y := FarGetWindowRect.Bottom + vConPos.y + 1;
+        GetConsoleScreenBufferInfo(hStdOut, vInfo);
+        vConPos.y := vInfo.srWindow.Bottom - vInfo.srWindow.Top + vConPos.y + 1;
+      end;
+      vWinPos := ConsolePosToWindowPos(vConPos.X, vConPos.Y);
+      if vConPos.x = -1 then
+        vWinPos.x := -1;
+
+//    if vStr <> '' then
+        vResult := FarHints.ShowInfo(vStr, vWinPos.X, vWinPos.Y, vDelay)
+//    else begin
+//      if FarHints.CurrentHintMode = hcmInfo then
+//        FarHints.HideHint;
+//    end;
+    end;
+
+  var
+    vMouse :Boolean;
+    vInt :Integer;
+  begin
+    vResult := False;
+    if StrEqual(ACmd, 'Visible') then
+      vResult := FarHints.HintVisible
+    else
+    if StrEqual(ACmd, 'Info') then
+      LocShowInfo
+    else
+    if StrEqual(ACmd, 'Hide') then
+      vResult := FarHints.HideHint
+    else
+    if StrEqual(ACmd, 'Show') then begin
+      vMouse := True;
+      if (ACount >= 2) and FarValueIsInteger(AParams[1], vInt) then
+        vMouse := vInt = 1;
+      vResult := PluginCommand(IntIf(vMouse, 1, 2));
+    end else
+    if StrEqual(ACmd, 'Size') then begin
+      if (ACount >= 2) and FarValueIsInteger(AParams[1], vInt) and (vInt <> 0) then
+        vResult := FarHints.HintCommand(cmhResize, vInt);
+    end else
+    if StrEqual(ACmd, 'Color') then begin
+      if (ACount >= 2) and FarValueIsInteger(AParams[1], vInt) then
+        vResult := FarHints.HintCommand(cmhColor, vInt);
+    end else
+    if StrEqual(ACmd, 'FontSize') then begin
+      if (ACount >= 2) and FarValueIsInteger(AParams[1], vInt) then
+        vResult := FarHints.HintCommand(cmhFontSize, vInt);
+    end else
+    if StrEqual(ACmd, 'FontColor') then begin
+      if (ACount >= 2) and FarValueIsInteger(AParams[1], vInt) then
+        vResult := FarHints.HintCommand(cmhFontColor, vInt);
+    end else
+    if StrEqual(ACmd, 'Transparency') then begin
+      if (ACount >= 2) and FarValueIsInteger(AParams[1], vInt) then
+        vResult := FarHints.HintCommand(cmhTransparent, vInt);
+    end;
+    Result := FarReturnValues([vResult]);
+  end;
+
+
+  function TFarHinstPlug.OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+  begin
+    Result := 0;
+    if (ACount = 0) or ((ACount = 1) and (AParams[0].fType = FMVT_INTEGER)) then
+      Result := inherited OpenMacroEx(ACount, AParams)
+    else
+    if AParams[0].fType = FMVT_STRING then begin
+      InitSubplugins;
+      gHintCommand := True;
+      Result := MacroCommand(AParams[0].Value.fString, ACount, AParams);
     end;
   end;
  {$endif Far3}

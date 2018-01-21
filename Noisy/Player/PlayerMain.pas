@@ -715,7 +715,7 @@ interface
           vFmtInfo := Pointer(vInfo.formats);
           for I := 0 to Integer(vInfo.formatc) - 1 do begin
             LocAddFormat(vFmtInfo.ctype, vFmtInfo.Name, vFmtInfo.exts);
-            Inc(PChar(vFmtInfo), SizeOf(BASS_PLUGINFORM));
+            Inc(Pointer1(vFmtInfo), SizeOf(BASS_PLUGINFORM));
           end;
         end;
 
@@ -1864,12 +1864,12 @@ interface
     FPlayerInfo.FStructSize := SizeOf(TPlayerInfo);
 
     { Сразу публикуем статическую информацию - о плагинах и форматах}
-    vPluginInfo := Pointer(PChar(FPlayerInfo) + SizeOf(TPlayerInfo));
+    vPluginInfo := Pointer(Pointer1(FPlayerInfo) + SizeOf(TPlayerInfo));
     for I := 0 to FPlugins.Count - 1 do begin
       vPlugin := FPlugins.Objects[I] as TBassPlugin;
       vPluginInfo.FVersion := vPlugin.FVersion;
       StrPLCopyA(@vPluginInfo.FName[0], FPlugins[I], cMaxPluginNameSize);
-      Inc(PChar(vPluginInfo), SizeOf(TBassPluginInfo));
+      Inc(Pointer1(vPluginInfo), SizeOf(TBassPluginInfo));
     end;
 
     vFormatInfo := Pointer(vPluginInfo);
@@ -1878,7 +1878,7 @@ interface
       vFormatInfo.FCode := vFormat.FCode;
       StrPLCopyA(@vFormatInfo.FName[0], FFormats[I], cMaxFormatNameSize);
       StrPLCopyA(@vFormatInfo.FExts[0], vFormat.FExts, cMaxFormatNameSize);
-      Inc(PChar(vFormatInfo), SizeOf(TAudioFormatInfo));
+      Inc(Pointer1(vFormatInfo), SizeOf(TAudioFormatInfo));
     end;
   end;
 
