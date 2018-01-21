@@ -90,6 +90,7 @@ interface
       procedure InvalidateIcon;
       procedure InvalidateItems;
       procedure InvalidateHint;
+      procedure InvalidateEx(AFlags :Integer);
 
       procedure SetLayered(ASetOn :Boolean);
 
@@ -108,7 +109,7 @@ interface
       procedure CMSetItem(var Mess :TMessage); message CM_SetItem;
       procedure CMRunCommand(var Mess :TMessage); message CM_RunCommand;
 
-    protected
+    private
       FBrush       :HBrush;
       FFont        :HFont;
       FFont2       :HFont;
@@ -143,6 +144,7 @@ interface
       FColor2      :Integer;
       FDelta1      :Integer;       { Вспом. размер }
 
+      procedure SetItem(const APlugin :IHintPlugin; const AItem :IFarItem);
       procedure UpdateIcon(ANewIcon :Boolean);
       procedure DoneIcon;
       function IdleCall :Boolean;
@@ -349,8 +351,7 @@ interface
   destructor THintWindow.Destroy; {override;}
   begin
     DoneIcon;
-    if FPlugin <> nil then
-      FPlugin.DoneItem(FItem);
+    SetItem(nil, nil);
     if FBrush <> 0 then
       DeleteObject(FBrush);
     if FFont <> 0 then
@@ -462,7 +463,7 @@ interface
   end;
 
 
-  procedure THintWindow.CMSetItem(var Mess :TMessage); {message CM_SetItem;}
+  procedure THintWindow.SetItem(const APlugin :IHintPlugin; const AItem :IFarItem);
 
     procedure LocSetWindow(const AItem :IFarItem; AWindow :THintWindow);
     var
@@ -472,30 +473,30 @@ interface
       vIntf.SetWindow(AWindow);
     end;
 
-    procedure SetItem(const APlugin :IHintPlugin; const AItem :IFarItem);
-    begin
-      if FPlugin <> nil then
-        FPlugin.DoneItem(FItem);
+  begin
+    if FPlugin <> nil then
+      FPlugin.DoneItem(FItem);
 
-      if FItem <> nil then
-        LocSetWindow(FItem, nil);
+    if FItem <> nil then
+      LocSetWindow(FItem, nil);
 
-      FPlugin := APlugin;
-      FItem := AItem;
+    FPlugin := APlugin;
+    FItem := AItem;
 
-      FFolder := False;
-      if FItem <> nil then begin
-        FFolder := FItem.Attr and faDirectory <> 0;
-        LocSetWindow(FItem, Self);
-      end;
+    FFolder := False;
+    if FItem <> nil then begin
+      FFolder := FItem.Attr and faDirectory <> 0;
+      LocSetWindow(FItem, Self);
     end;
+  end;
 
+
+  procedure THintWindow.CMSetItem(var Mess :TMessage); {message CM_SetItem;}
   var
     vVisible :Boolean;
   begin
 //  Trace('THintWindow.CMSetItem');
     with PSetItemRec(Mess.LParam)^ do begin
-
       FContext := Context;
       FCallMode := Mode;
       FInitPosX := PosX;
@@ -1125,6 +1126,25 @@ interface
 
     end else
       Invalidate;
+  end;
+
+
+  procedure THintWindow.InvalidateEx(AFlags :Integer);
+  const
+    uhwInvalidateAll = uhwInvalidateItems + uhwInvalidateImage;
+  begin
+    if uhwResize and AFlags <> 0 then begin
+      with GetBoundsRect do
+        MoveWindowTo(Left, Top, False);
+    end;
+    if uhwInvalidateAll and AFlags = uhwInvalidateAll then
+      InvalidateHint
+    else begin
+      if uhwInvalidateItems and AFlags <> 0 then
+        InvalidateItems;
+      if uhwInvalidateImage and AFlags <> 0 then
+        InvalidateIcon;
+    end;
   end;
 
 

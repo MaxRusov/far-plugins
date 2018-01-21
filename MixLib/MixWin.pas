@@ -435,6 +435,7 @@ interface
 
   function TMSWindow.GetClientRect :TRect;
   begin
+    Assert(ValidInstanceEx(TMSWindow) and (FHandle <> 0));
     Windows.GetClientRect(FHandle, Result);
   end;
 

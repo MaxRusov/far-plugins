@@ -180,10 +180,10 @@ interface
 //  TraceF('ApiDlgProc: hDlg=%d, Msg=%d, Param1=%d, Param2=%d', [hDlg, Msg, Param1, Param2]);
     if Msg = DN_INITDIALOG then begin
       FarSendDlgMessage(hDlg, DM_SETDLGDATA, 0, Param2);
-      TIntPtr(vDialog) := Param2;
+      vDialog := Pointer(Param2);
       vDialog.FHandle := hDlg;
     end else
-      TIntPtr(vDialog) := FarSendDlgMessage(hDlg, DM_GETDLGDATA, 0, 0);
+      vDialog := Pointer(FarSendDlgMessage(hDlg, DM_GETDLGDATA, 0, 0));
     Assert(vDialog.FHandle = hDlg);
     Result := vDialog.DlgProc(Msg, Param1, TIntPtr(Param2));
   end;

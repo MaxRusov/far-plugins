@@ -5,7 +5,7 @@ unit MixConsts;
 interface
 
 const
-  LineEnding = #13;
+  LineEnding = #10;
 
 resourcestring
   SNotImplemented        = 'Feature not implemented';

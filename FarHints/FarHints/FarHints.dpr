@@ -1,3 +1,10 @@
+{******************************************************************************}
+{* Far Hints                                                                  *}
+{* Author: Max Rusov                                                          *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
 library FarHints;
 
 {$I Defines.inc}
