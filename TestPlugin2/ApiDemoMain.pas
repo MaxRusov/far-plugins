@@ -2,6 +2,9 @@
 
 unit ApiDemoMain;
 
+// Hello...
+
+
 interface
 
   uses
@@ -276,6 +279,32 @@ implementation
       end;
     end;
 
+    procedure LocErrorTest();
+    var
+//    E :Extended;
+//    I :Integer;
+      P :Pointer;
+    begin
+//    Set8087CW(Default8087CW);
+//    TraceF('Default8087CW: %x', [Default8087CW]);
+//    TraceF('8087CW: %x', [Get8087CW]);
+
+
+      P := nil;
+      Integer(P^) := 1;
+(*
+      E := 0;
+      E := 1 / E;
+
+//    E := 0;
+//    E := 1 / E;
+
+      Set8087CW(Default8087CW);
+      E := 1.2;
+      I := Trunc(E);
+*)
+    end;
+
   var
     vMenu :TFarMenu;
   begin
@@ -287,6 +316,7 @@ implementation
       GetMsg(sDialog),
       '&Grid based Dialog',
       '&Colors Dialog',
+      '&Exception',
       '',
       GetMsg(sOptions)
     ]);
@@ -302,6 +332,7 @@ implementation
         2: LocDialog;
         3: LocGrid;
         4: LocColorDialog;
+        5: LocErrorTest;
       else
         Sorry;
       end;
@@ -387,10 +418,6 @@ type
 
 
   procedure Test;
-//var
-//  E :Extended;
-//  I :Integer;
-//  P :Pointer;
   begin
     with TD.Create do
       try
@@ -398,28 +425,6 @@ type
       finally
         Destroy;
       end;
-
-
-//    Set8087CW(Default8087CW);
-//  TraceF('Default8087CW: %x', [Default8087CW]);
-//  TraceF('8087CW: %x', [Get8087CW]);
-
-//    Sorry;
-
-//  P := nil;
-//  Integer(P^) := 1;
-
-(*
-    E := 0;
-    E := 1 / E;
-
-//  E := 0;
-//  E := 1 / E;
-
-    Set8087CW(Default8087CW);
-    E := 1.2;
-    I := Trunc(E);
-*)
   end;
 
 
