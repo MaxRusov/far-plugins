@@ -263,6 +263,7 @@ interface
     optShowRightOrphan     :Boolean = True;
 
     optHilightDiff         :Boolean = True;
+    optUnfoldFiles         :Boolean = False;
     optDiffAtTop           :Boolean = True;
     optFileSortMode        :Integer = smByName;
 
@@ -409,6 +410,7 @@ interface
           LogValue('TextHorzDiv', optTextHorzDiv);
 
           LogValue('HilightDiff', optHilightDiff);
+          LogValue('UnfoldFiles', optUnfoldFiles);
           LogValue('DiffAtTop', optDiffAtTop);
           IntValue('SortMode', optFileSortMode);
 

@@ -163,7 +163,8 @@ interface
     RestoreDefFilesColor;
     RestoreDefTextColor;
 
-//  ReadSetup;
+    ReadSetup;
+    ReadSetupColors;
   end;
 
 
@@ -213,7 +214,7 @@ interface
     Inc(FPluginLock);
     try
       ReadSetup;
-      ReadSetupColors; 
+      ReadSetupColors;
 
       if (AStr <> nil) and (AStr^ <> #0) then begin
         vStr1 := FarExpandFileNameEx(ExtractParamStr(AStr));

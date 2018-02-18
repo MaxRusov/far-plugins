@@ -160,6 +160,15 @@ interface
   end;
 
 
+  function FileDate2Str(aTime :Integer; aMode :Integer) :TString;
+  begin
+    if aTime <> 0 then
+      Result := Date2StrMode(FileDateToDateTime(aTime), aMode)
+    else
+      Result := '';
+  end;
+
+
   function AttrToStr(Attr :Word) :TString;
   begin
     Result := '....';
@@ -299,6 +308,8 @@ interface
     FGrid.OnGetCellText := GridGetDlgText;
     FGrid.OnGetCellColor := GridGetCellColor;
     FGrid.OnPaintCell := GridPaintCell;
+
+    FUnfold := optUnfoldFiles;
   end;
 
 
@@ -467,7 +478,7 @@ interface
               Result := Int64ToStr(vItem.Size[vVer]);
           3:
             if (faDirectory and vAttr = 0) or optShowFolderAttrs then
-              Result := Date2StrMode(FileDateToDateTime(vItem.Time[vVer]), 2);
+              Result := FileDate2Str(vItem.Time[vVer], 2);
           4:
             if (faDirectory and vAttr = 0) or optShowFolderAttrs then
               Result := AttrToStr(vItem.Attr[vVer]);
@@ -1142,7 +1153,11 @@ interface
           15: ToggleOption(optShowFolderAttrs);
 
           17: ToggleOption(optHilightDiff);
-          18: ToggleOption(FUnfold);
+          18:
+            begin
+              optUnfoldFiles := not FUnfold;
+              ToggleOption(FUnfold);
+            end;
 
           20: ColorsMenu;
         end;
@@ -1637,8 +1652,10 @@ interface
     procedure LocFoldUnfold;
     begin
       FUnfold := not FUnfold;
+      optUnfoldFiles := FUnfold;
       ReinitGrid;
       SetCurrent( 0, lmScroll );
+      WriteSetup;
     end;
 
 

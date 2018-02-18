@@ -1,0 +1,5 @@
+type
+  TMessages = (
+	strLang,
+	strTitle
+  );

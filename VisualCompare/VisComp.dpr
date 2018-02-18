@@ -20,6 +20,9 @@ uses
   MixCheck,
  {$endif bTrace}
   FarPlug,
+ {$ifdef bIntegrationAPI}
+  VisCompIntegration,
+ {$endif bIntegrationAPI}
   VisCompMain;
 
 exports
@@ -42,6 +45,9 @@ exports
   ConfigureW,
   ExitFARW,
 
+ {$ifdef bIntegrationAPI}
+  GetVisCompAPI,
+ {$endif bIntegrationAPI}
   CompareFiles;
   
  {$ifdef bUnicodeFar}
