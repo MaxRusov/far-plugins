@@ -56,6 +56,13 @@ interface
     chrCheck    = #$FB;
    {$endif bUnicodeFar}
 
+   {$ifdef bUnicode}
+    chrUpMark   = #$18;  {#$1E;}
+    chrDnMark   = #$19;  {#$1F;}
+   {$else}
+    chrUpMark   = #$18; { $1E }
+    chrDnMark   = #$19; { $1F }
+   {$endif bUnicode}
 
   const
     clBlack    = 0;   // Черный

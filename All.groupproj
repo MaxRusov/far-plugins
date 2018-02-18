@@ -27,9 +27,6 @@
         <Projects Include="UCharMap\UCharMap.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="VisualCompare\VisComp.dproj">
-            <Dependencies/>
-        </Projects>
         <Projects Include="ConsoleControl\ConCtrl.dproj">
             <Dependencies/>
         </Projects>
@@ -37,6 +34,12 @@
             <Dependencies/>
         </Projects>
         <Projects Include="DlgSelect\DlgSelect.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="VisualCompare\VisComp.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="GitShell\GitShell.dproj">
             <Dependencies/>
         </Projects>
     </ItemGroup>
@@ -119,15 +122,6 @@
     <Target Name="UCharMap:Make">
         <MSBuild Projects="UCharMap\UCharMap.dproj" Targets="Make"/>
     </Target>
-    <Target Name="VisComp">
-        <MSBuild Projects="VisualCompare\VisComp.dproj"/>
-    </Target>
-    <Target Name="VisComp:Clean">
-        <MSBuild Projects="VisualCompare\VisComp.dproj" Targets="Clean"/>
-    </Target>
-    <Target Name="VisComp:Make">
-        <MSBuild Projects="VisualCompare\VisComp.dproj" Targets="Make"/>
-    </Target>
     <Target Name="ConCtrl">
         <MSBuild Projects="ConsoleControl\ConCtrl.dproj"/>
     </Target>
@@ -155,14 +149,32 @@
     <Target Name="DlgSelect:Make">
         <MSBuild Projects="DlgSelect\DlgSelect.dproj" Targets="Make"/>
     </Target>
+    <Target Name="VisComp">
+        <MSBuild Projects="VisualCompare\VisComp.dproj"/>
+    </Target>
+    <Target Name="VisComp:Clean">
+        <MSBuild Projects="VisualCompare\VisComp.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="VisComp:Make">
+        <MSBuild Projects="VisualCompare\VisComp.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="GitShell">
+        <MSBuild Projects="GitShell\GitShell.dproj"/>
+    </Target>
+    <Target Name="GitShell:Clean">
+        <MSBuild Projects="GitShell\GitShell.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="GitShell:Make">
+        <MSBuild Projects="GitShell\GitShell.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="HelloWorld;ApiDemo;PlugMenu;MacroLib;EdtFind;PanelTabs;MoreHistory;UCharMap;VisComp;ConCtrl;FastWheel;DlgSelect"/>
+        <CallTarget Targets="HelloWorld;ApiDemo;PlugMenu;MacroLib;EdtFind;PanelTabs;MoreHistory;UCharMap;ConCtrl;FastWheel;DlgSelect;VisComp;GitShell"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="HelloWorld:Clean;ApiDemo:Clean;PlugMenu:Clean;MacroLib:Clean;EdtFind:Clean;PanelTabs:Clean;MoreHistory:Clean;UCharMap:Clean;VisComp:Clean;ConCtrl:Clean;FastWheel:Clean;DlgSelect:Clean"/>
+        <CallTarget Targets="HelloWorld:Clean;ApiDemo:Clean;PlugMenu:Clean;MacroLib:Clean;EdtFind:Clean;PanelTabs:Clean;MoreHistory:Clean;UCharMap:Clean;ConCtrl:Clean;FastWheel:Clean;DlgSelect:Clean;VisComp:Clean;GitShell:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="HelloWorld:Make;ApiDemo:Make;PlugMenu:Make;MacroLib:Make;EdtFind:Make;PanelTabs:Make;MoreHistory:Make;UCharMap:Make;VisComp:Make;ConCtrl:Make;FastWheel:Make;DlgSelect:Make"/>
+        <CallTarget Targets="HelloWorld:Make;ApiDemo:Make;PlugMenu:Make;MacroLib:Make;EdtFind:Make;PanelTabs:Make;MoreHistory:Make;UCharMap:Make;ConCtrl:Make;FastWheel:Make;DlgSelect:Make;VisComp:Make;GitShell:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

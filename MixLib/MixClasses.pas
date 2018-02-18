@@ -67,11 +67,18 @@ interface
 
 
   type
+    IBasis = interface
+      ['{F036FECA-E8D4-4084-BFFC-232A1E7F1F2F}']
+      function GetInstance :TBasis; stdcall;
+      property Instance :TBasis read GetInstance;
+    end;
+
     TComBasis = class(TBasis, IUnknown)
     public
       function _AddRef :Integer; virtual; stdcall;
       function _Release :Integer; virtual; stdcall;
       function QueryInterface(const IID: TGUID; out Obj) :HResult; virtual; stdcall;
+      function GetInstance :TBasis; stdcall;
 
     protected
       FRefCount :Integer;
@@ -685,6 +692,13 @@ interface
     else
       Result := E_NoInterface;
   end;
+
+
+  function TComBasis.GetInstance :TBasis;
+  begin
+    Result := Self;
+  end;
+
 
 
  {-----------------------------------------------------------------------------}

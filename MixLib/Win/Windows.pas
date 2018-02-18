@@ -19050,6 +19050,9 @@ function SetWindowLongPtr(hWnd: HWND; nIndex: Integer; dwNewLong: LONG_PTR): LON
 function SetWindowLongPtrA(hWnd: HWND; nIndex: Integer; dwNewLong: LONG_PTR): LONG_PTR; stdcall;
 function SetWindowLongPtrW(hWnd: HWND; nIndex: Integer; dwNewLong: LONG_PTR): LONG_PTR; stdcall;
 
+//BOOL WINAPI SetDllDirectory(_In_opt_  LPCTSTR lpPathName);
+function SetDllDirectory(aPath :PTChar) :BOOL; stdcall;
+
 
 const
   advapi32  = 'advapi32.dll';
@@ -21284,6 +21287,7 @@ function SetWindowLongPtrA; external user32 name 'SetWindowLongA';
 function SetWindowLongPtrW; external user32 name 'SetWindowLongW';
 {$endif b64}
 
+function SetDllDirectory; external kernel32 name 'SetDllDirectory'+_X;
 
 {$ifdef b64}
 {$ifdef bFreePascal}

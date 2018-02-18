@@ -228,6 +228,7 @@ interface
   function HTTPGet(const ASrv, ACmd :TString; const AData :TAnsiStr; APost :Boolean = False) :TString;
   var
     vSession, vConnect, vRequest :HINTERNET;
+    vHeader :TString;
   begin
     vConnect := nil; vRequest := nil;
     vSession := InternetOpen(cPluginName, INTERNET_OPEN_TYPE_PRECONFIG, nil, nil, 0);
@@ -239,7 +240,9 @@ interface
       vRequest := HttpOpenRequest(vConnect, 'POST', PTChar(ACmd), nil{Version}, nil{Referrer}, nil{AcceptTypes}, INTERNET_FLAG_KEEP_CONNECTION, 0);
       Win32Check( vRequest <> nil );
 
-      Win32Check( HttpSendRequest(vRequest, 'Content-Type: application/x-www-form-urlencoded', DWORD(-1), PAnsiChar(AData), length(AData) ));
+//    Win32Check( HttpSendRequest(vRequest, 'Content-Type: application/x-www-form-urlencoded', DWORD(-1), PAnsiChar(AData), length(AData) ));
+      vHeader := 'Content-Type: application/x-www-form-urlencoded';
+      Win32Check( HttpSendRequest(vRequest, PTChar(vHeader), length(vHeader), PAnsiChar(AData), length(AData) ));
 
 //    Result := UTF8ToWide(HttpReadStr(vRequest));
       Result := TString(HttpReadStr(vRequest));

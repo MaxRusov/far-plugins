@@ -334,29 +334,6 @@ interface
   end;
 
 
-  function FolderIsEmpty(const aFolderName :TString) :Boolean; {override;}
-  var
-    vFileName :TString;
-    vHandle :THandle;
-    vData :TWIN32FindData;
-  begin
-    Result := False;
-    vFileName := AddFileName(aFolderName, '*.*');
-    vHandle := FindFirstFile(PTChar(vFileName), vData);
-    if vHandle = INVALID_HANDLE_VALUE then
-      Exit;
-    while True do begin
-      Result := (vData.cFileName[0] = '.') and ((vData.cFileName[1] = #0) or
-        ((vData.cFileName[1] = '.') and (vData.cFileName[2] = #0)));
-      if not Result then
-        Break;
-      if not FindNextFile(vHandle, vData) then
-        Break;
-    end;
-    Windows.FindClose(vHandle);
-  end;
-
-
   procedure DeleteEmptyFolders(const AFromFolder, AToFolder :TString);
   var
     vFolder :TString;

@@ -218,6 +218,8 @@ interface
   function MemCompare(APtr1, APtr2 :Pointer; ASize :Integer) :Integer;
   procedure MemExchange(APtr1, APtr2 :Pointer; ASize :Integer);
 
+  procedure PtrExchange(var APtr1, APtr2 {:Pointer});
+
   function SysErrorMessage(ErrorCode: Integer) :TString;
   function Win32Check(RetVal: BOOL): BOOL;
   procedure RaiseLastWin32Error;
@@ -1146,6 +1148,18 @@ interface
       Dec(ASize);
     end;
   end;
+
+
+  procedure PtrExchange(var APtr1, APtr2 {:Pointer});
+  var
+    vTmp :Pointer;
+  begin
+    vTmp := pointer(APtr2);
+    pointer(APtr2) := pointer(APtr1);
+    pointer(APtr1) := vTmp;
+  end;
+
+
 
  {-----------------------------------------------------------------------------}
 

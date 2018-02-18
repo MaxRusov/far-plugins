@@ -345,12 +345,6 @@ interface
     strUnsupportedFeature = 'Feature not supported';
 
 
-//BOOL WINAPI SetDllDirectory(_In_opt_  LPCTSTR lpPathName);
-
-  function SetDllDirectory(aPath :PTChar) :BOOL; stdcall;
-    external kernel32 name 'SetDllDirectory'+_X;
-
-
  {-----------------------------------------------------------------------------}
  { TReviewImageRec                                                             }
  {-----------------------------------------------------------------------------}

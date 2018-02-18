@@ -174,12 +174,13 @@
    {$Define bUnicodeStr}  { Поддерживается тип UnicodeString }
    {$Define bUnicodeRTL}
 
-   {$Undef bMemCheck}     { Пока не поддерживается }
+   {-$Undef bMemCheck}     { Пока не поддерживается }
   {$endif}
 
   {$ifdef b64}
    {$Define bDelphi64}
    {$Define bStackX64}    { Новая модель стека, без использования RBP }
+   {$Undef bMemCheck}     { Пока не поддерживается }
   {$else}
    {$Define bOldLocalCall}
   {$endif b64}

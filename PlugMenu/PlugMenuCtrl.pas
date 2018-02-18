@@ -186,13 +186,9 @@ interface
    {$ifdef bUnicode}
     chrHiddenMark       :TChar = #$2022;
     chrUnaccessibleMark :TChar = #9632 { $25AC };
-    chrUpMark           :TChar = #$18;  {#$1E;}
-    chrDnMark           :TChar = #$19;  {#$1F;}
    {$else}
     chrHiddenMark       :TChar = #$07;
     chrUnaccessibleMark :TChar = #$16;
-    chrUpMark           :TChar = #$18; { $1E }
-    chrDnMark           :TChar = #$19; { $1F }
    {$endif bUnicode}
 
     chrLoadedMark       :TChar = '*';
