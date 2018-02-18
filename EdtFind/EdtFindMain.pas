@@ -26,7 +26,7 @@ interface
     EdtFindCtrl,
     EdtFindDlg,
    {$ifdef bFileFind}
-    EdtFileFindDlg,
+    EdtFindFiles,
    {$endif bFileFind}
     EdtFindEditor;
 
@@ -61,30 +61,11 @@ interface
     MixDebug;
 
 
- {$ifdef bFileFind}
-  procedure FileFind;
-(*
-  var
-    vMode :TFindMode;
-*)
-  begin
-    if not FileFindDlg then
-      Exit;
-
-(*
-    gLastOpt := gOptions;
-    gLastIsReplace := False;
-    FindStr(gStrFind, gLastOpt, vMode = efmEntire, False, not gReverse);
-*)
-  end;
- {$endif bFileFind}
-
-
  {-----------------------------------------------------------------------------}
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  procedure RunCommand(ACmd :Integer);
+  procedure RunEdtCommand(ACmd :Integer);
   begin
     case ACmd of
       1: Find(False);
@@ -99,6 +80,16 @@ interface
      {$endif bAdvSelect}
     end;
   end;
+
+
+ {$ifdef bFileFind}
+  procedure RunShellCommand(ACmd :Integer);
+  begin
+    case ACmd of
+      1: FindFiles;
+    end;
+  end;
+ {$endif bFileFind}
 
 
   procedure EdtOpenMenu;
@@ -128,7 +119,7 @@ interface
 
       case vMenu.ResIdx of
         0..7:
-          RunCommand(vMenu.ResIdx + 1);
+          RunEdtCommand(vMenu.ResIdx + 1);
         9: OptionsMenu;
       end;
 
@@ -157,7 +148,8 @@ interface
         Exit;
 
       case vMenu.ResIdx of
-        0: FileFind;
+        0..1:
+          RunShellCommand(vMenu.ResIdx + 1);
         2: OptionsMenu;
       end;
 
@@ -633,36 +625,20 @@ interface
       end;
     end else
     begin
-
       if AStr <> nil then
         Result := HandleIf(ParseCommand(AStr), INVALID_HANDLE_VALUE, 0)
       else begin
-
-//      if AInt <= 4 then
-//        FarAdvControl(ACTL_SYNCHRO, Pointer(AInt))
-//      else
-
-          RunCommand(AInt);
+        case vArea of
+          MACROAREA_EDITOR:
+            RunEdtCommand(AInt);
+         {$ifdef bFileFind}
+          MACROAREA_SHELL, MACROAREA_INFOPANEL, MACROAREA_TREEPANEL, MACROAREA_QVIEWPANEL, MACROAREA_SEARCH{, MACROAREA_SHELLAUTOCOMPLETION}:
+            RunShellCommand(AInt);
+         {$endif bFileFind}
+        else
+          Beep;
+        end;
       end;
-(*
-      case vArea of
-        MACROAREA_EDITOR:
-          if AStr <> nil then
-            Result := HandleIf(ParseCommand(AStr), INVALID_HANDLE_VALUE, 0)
-          else begin
-            if AInt <= 4 then
-              FarAdvControl(ACTL_SYNCHRO, Pointer(AInt))
-            else
-              RunCommand(AInt);
-          end;
-       {$ifdef bFileFind}
-        MACROAREA_SHELL, MACROAREA_INFOPANEL, MACROAREA_TREEPANEL, MACROAREA_QVIEWPANEL, MACROAREA_SEARCH{, MACROAREA_SHELLAUTOCOMPLETION}:
-          Sorry;
-       {$endif bFileFind}
-      else
-        Beep;
-      end;
-*)
     end;
   end;
 
@@ -682,7 +658,7 @@ interface
 
   procedure TEdtFindPlug.SynchroEvent(AParam :Pointer); {override;}
   begin
-    RunCommand(TIntPtr(AParam));
+    RunEdtCommand(TIntPtr(AParam));
   end;
 
 
