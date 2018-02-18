@@ -1,19 +1,18 @@
+{******************************************************************************}
+{* (c) 2010 Max Rusov                                                         *}
+{* Edtitor Find Shell                                                         *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
+library EdtFind;
+
 {$I Defines.inc} { см. также DefApp.inc }
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
  {$ImageBase $40C00000}
 {$endif Debug}
-
-library EdtFind;
-
-{$I Defines1.inc}
-
-{******************************************************************************}
-{* (c) 2010 Max Rusov                                                         *}
-{*                                                                            *}
-{* Edtitor Find Shell                                                         *}
-{******************************************************************************}
 
 uses
 //  MixErrors,
