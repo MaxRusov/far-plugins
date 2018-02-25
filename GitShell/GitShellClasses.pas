@@ -140,7 +140,7 @@ interface
       procedure ShowBranches;
       procedure ShowDiff(const ARevisions :TString);
       procedure ShowCommit(const AFolder :TString);
-      procedure ShowCommitDiff(const aOID :TGitOid; aFull :Boolean);
+      procedure ShowCommitDiff(const aOID :TGitOid; aParentIdx :Integer; aFull :Boolean);
       procedure ShowHistory(const AFolder :TString);
 
       function GetWorkdirStatus(const AFolder :TString) :TGitWorkdirStatus;
@@ -156,7 +156,8 @@ interface
       procedure IndexAddAll(const AFileName :TString);
       procedure IndexReset(const AFileName :TString);
 
-      procedure Commit(const aMessage :TString);
+      procedure Commit(const aMessage, aAuthor, aEMail :TString);
+      procedure AmendCommit(const aMessage, aAuthor, aEMail :TString);
 
       function GetCurrentBranchName :TString;
       function GetTempFolder :TString;
@@ -164,10 +165,10 @@ interface
       function GetFileRevision(const aFileRev :TString) :TString;
       procedure DeleteTempFiles;
 
+      function GetShortIdStr(const aOID :TGitOid) :TString;
 
     private
       FRepo    :PGitRepository;
-      FFolder  :TString;
       FWorkDir :TString;
       FTempDir :TString;
 
@@ -182,6 +183,7 @@ interface
       procedure ShowDiffBetweenEx(aWhat1, aWhat2 :TDiffWhat; aOID1, aOID2 :PGitOid; const aCaption1, aCaption2 :TString; aFull :Boolean);
 
     public
+      property Repo :PGitRepository read FRepo;
       property WorkDir :TString read FWorkDir;
     end;
 
@@ -192,6 +194,12 @@ interface
     ShowCommitDlg :function(ARepo :TGitRepository; var ADirStatus :TGitWorkdirStatus) :Boolean;
     ShowInfoDlg :function(ARepo :TGitRepository; const ATitle :TString; const AInfo :array of TString) :Boolean;
 
+
+  const
+    cOIDStrLen = GIT_OID_HEXSZ;
+    cHead = 'HEAD';
+
+  procedure GitCheck(aCode :Integer);
 
   function FindVisualCompareAPI :IVisCompAPI;
   function GetVisualCompareAPI :IVisCompAPI;
@@ -205,9 +213,6 @@ interface
 //  GitShellHistory,
     MixDebug;
 
-
-  const
-    cHead = 'HEAD';
 
 
   procedure GitCheck(aCode :INteger);
@@ -286,7 +291,7 @@ interface
 
   function GetOIDToStr(const aOID :TGitOid) :TString;
   var
-    vBuf :array[0..GIT_OID_HEXSZ] of AnsiChar;
+    vBuf :array[0..cOIDStrLen] of AnsiChar;
   begin
     git_oid_tostr(@vBuf[0], SizeOf(vBuf), @aOID);
     Result := TString(vBuf);
@@ -487,7 +492,7 @@ interface
  { TGitRepository                                                              }
  {-----------------------------------------------------------------------------}
 
-  constructor TGitRepository.Create(const AFolder :TString);
+  constructor TGitRepository.Create(const aFolder :TString);
   var
     vAPath :TAnsiStr;
     vRes :Integer;
@@ -496,11 +501,15 @@ interface
 
     InitLibGit;
 
-    FFolder := AFolder;
-    vAPath := WideToUTF8('\\?\' + FFolder);
-//  GitCheck(git_repository_open(FRep, PGitChar(vAPath)));
-
+    vAPath := WideToUTF8('\\?\' + RemoveBackSlash(aFolder));
     vRes := git_repository_open_ext(FRepo, PGitChar(vAPath), 0, nil);
+
+    if (vRes = GIT_ENOTFOUND) and FileNameIsLocal(aFolder) then begin
+      { ƒополнительно проверим корень диска... }
+      vAPath := WideToUTF8('\\?\' + ExtractFileDrive(aFolder) + '\');
+      vRes := git_repository_open(FRepo, PGitChar(vAPath));
+    end;
+
     if vRes = GIT_ENOTFOUND then
       AppErrorId(strRepositoryNotFound);
     GitCheck(vRes);
@@ -522,6 +531,27 @@ interface
   end;
 
 
+  function TGitRepository.GetShortIdStr(const aOID :TGitOid) :TString;
+  var
+    vObj :PGitObject;
+    vBuf :TGitBuf;
+    vAStr :TAnsiStr;
+  begin
+    Result := '';
+    if git_object_lookup(vObj, FRepo, @aOID, GIT_OBJ_ANY) = 0 then begin
+      FillZero(vBuf, SizeOf(TGitBuf));
+      try
+        GitCheck(git_object_short_id(vBuf, vObj));
+        SetString(vAStr, PAnsiChar(vBuf.ptr), vBuf.size);
+        Result := TString(vAStr);
+      finally
+        git_object_free(vObj);
+        git_buf_free(@vBuf);
+      end;
+    end;
+  end;
+
+
   function TGitRepository.GetCurrentBranchName :TString;
   var
     vHead :PGitReference;
@@ -537,7 +567,6 @@ interface
         Result := 'detached ' + UTF8ToWide(git_reference_name(vHead))
       else
         Result := UTF8ToWide(git_reference_shorthand(vHead))
-
 
 //      if git_reference_is_branch(vHead) <> 0 then
 //        Result := UTF8ToWide(git_reference_shorthand(vHead))
@@ -654,23 +683,15 @@ interface
       git_strarray_free(@vRemotes);
     end;
 
-    GitCheck(git_signature_default(vSign, FRepo));
-    try
-      vAuthorStr := UTF8ToWide(vSign.name);
-      if vSign.email <> '' then
-        vAuthorStr := vAuthorStr + ' (' + UTF8ToWide(vSign.email) + ')';
-    finally
-      git_signature_free(vSign);
+    if git_signature_default(vSign, FRepo) = 0 then begin
+      try
+        vAuthorStr := UTF8ToWide(vSign.name);
+        if vSign.email <> '' then
+          vAuthorStr := vAuthorStr + ' (' + UTF8ToWide(vSign.email) + ')';
+      finally
+        git_signature_free(vSign);
+      end;
     end;
-
-
-//    ShowInfoDlg(FRepo,
-//      'Repository info',
-//    [
-//      'Work dir', RemoveBackSlash(FWorkDir),
-//      'Remotes', vRemotesStr,
-//      'User name', vAuthorStr
-//    ]);
 
     ShowInfoDlg(FRepo,
       GetMsgStr(strRepoInfoTitle),
@@ -1036,7 +1057,8 @@ interface
   end;
 
 
-  procedure TGitRepository.ShowCommitDiff(const aOID :TGitOid; aFull :Boolean);
+(*
+  procedure TGitRepository.ShowCommitDiff(const aOID :TGitOid; aParent :Integer; aFull :Boolean);
   var
     vCommit, vParent :PGitCommit;
     vParents :Integer;
@@ -1055,6 +1077,28 @@ interface
       begin
         Beep;
       end;
+
+    finally
+      if vParent <> nil then
+        git_commit_free(vParent);
+      git_commit_free(vCommit);
+    end;
+  end;
+*)
+  procedure TGitRepository.ShowCommitDiff(const aOID :TGitOid; aParentIdx :Integer; aFull :Boolean);
+  var
+    vCommit, vParent :PGitCommit;
+    vParents :Integer;
+  begin
+    vParent := nil;
+    GitCheck(git_commit_lookup(vCommit, FRepo, @aOID));
+    try
+      vParents := git_commit_parentcount(vCommit);
+      if vParents = 0 then
+        Exit;
+
+      GitCheck(git_commit_parent(vParent, vCommit, aParentIdx));
+      ShowDiffBetween(vParent, vCommit, aFull);
 
     finally
       if vParent <> nil then
@@ -1202,6 +1246,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+(*
   procedure TGitRepository.ShowHistory(const AFolder :TString);
   var
     vOID :TGitOid;
@@ -1243,6 +1288,138 @@ interface
       FreeObj(vHistory);
     end;
   end;
+*)
+
+  procedure TGitRepository.ShowHistory(const AFolder :TString);
+  var
+    vOpts :TGitDiffOptions;
+    vPathSpec :PGitPathspec;
+
+
+    function LocMatchSpec(aCommit :PGitCommit) :Boolean;
+    var
+      vTree :PGitTree;
+    begin
+      GitCheck(git_commit_tree(vTree, aCommit));
+      try
+        Result := git_pathspec_match_tree(nil, vTree, GIT_PATHSPEC_NO_MATCH_ERROR, vPathspec) = 0;
+      finally
+        git_tree_free(vTree);
+      end;
+    end;
+
+
+    function LocMatchWithParents(aCommit :PGitCommit; aParentIdx :Integer) :Boolean;
+    var
+      vParent :PGitCommit;
+      vTreeA, vTreeB :PGitTree;
+      vDiff :PGitDiff;
+    begin
+      vParent := nil; vTreeA := nil; vTreeB := nil; vDiff := nil;
+      try
+        GitCheck(git_commit_parent(vParent, aCommit, aParentIdx));
+        GitCheck(git_commit_tree(vTreeA, vParent));
+        GitCheck(git_commit_tree(vTreeB, aCommit));
+
+        GitCheck(git_diff_tree_to_tree(vDiff, FRepo, vTreeA, vTreeB, @vOpts));
+
+        Result :=  git_diff_num_deltas(vDiff) > 0;
+
+      finally
+        if vDiff <> nil then
+          git_diff_free(vDiff);
+        if vTreeA <> nil then
+          git_tree_free(vTreeA);
+        if vTreeB <> nil then
+          git_tree_free(vTreeB);
+        if vParent <> nil then
+          git_commit_free(vParent);
+      end;
+    end;
+
+
+    function LocMatchPath(aCommit :PGitCommit; aParents :Integer) :Boolean;
+    var
+      i :Integer;
+    begin
+      if aParents = 0 then
+        Result := LocMatchSpec(aCommit)
+      else begin
+        for i := 0 to aParents -1 do
+          if LocMatchWithParents(aCommit, i) then
+            Exit(True);
+        Result := False;
+      end;
+    end;
+
+  var
+    vOID :TGitOid;
+    vWalker :PGitRevwalk;
+    vPath :TString;
+    vAPath :TAnsiStr;
+    vPPath :PAnsiChar;
+    vCommit :PGitCommit;
+    vParents :Integer;
+    vAuthor :PGitSignature;
+    vMessage :TString;
+    vHistory :TObjList;
+  begin
+    vHistory := TObjList.Create;
+    try
+      vWalker := nil; vPathSpec := nil;
+      try
+        FillZero(vOpts, Sizeof(vOpts));
+        vOpts.version := 1;
+        vOpts.ignore_submodules := uint(-1);
+
+        if AFolder <> '' then begin
+          vPath := Copy(AFolder, Length(FWorkDir) + 1, MaxInt);
+          if vPath <> '' then begin
+            vAPath := FileToGIT(vPath);
+            vPPath := PAnsiChar(vAPath);
+            vOpts.pathspec.count := 1;
+            vOpts.pathspec.strings := Pointer(@vPPath);
+            GitCheck(git_pathspec_new(vPathSpec, @vOpts.pathspec));
+          end;
+        end;
+
+        GitCheck(git_revwalk_new(vWalker, FRepo));
+        GitCheck(git_revwalk_push_head(vWalker));
+
+        FillZero(vOID, SizeOf(vOID));
+        while git_revwalk_next(@vOID, vWalker) = 0 do begin
+          GitCheck(git_commit_lookup(vCommit, FRepo, @vOID));
+          try
+            vParents := git_commit_parentcount(vCommit);
+
+            if vPathSpec <> nil then
+              if not LocMatchPath(vCommit, vParents) then
+                Continue;
+
+            vAuthor := git_commit_author(vCommit);
+            vMessage := Trim(UTF8ToWide(git_commit_message(vCommit)));
+
+            vHistory.Add( TGitCommit.Create(vOID, vParents, GitTimeToDateTime(vAuthor.when), UTF8ToWide(vAuthor.name), UTF8ToWide(vAuthor.email), vMessage) );
+          finally
+            git_commit_free(vCommit);
+          end;
+        end;
+
+      finally
+        if vPathSpec <> nil then
+          git_pathspec_free(vPathSpec);
+        if vWalker <> nil then
+          git_revwalk_free(vWalker);
+      end;
+
+      Assert(Assigned(ShowHistDlg));
+      ShowHistDlg(Self, vHistory);
+
+    finally
+      FreeObj(vHistory);
+    end;
+  end;
+
 
  {-----------------------------------------------------------------------------}
 
@@ -1416,9 +1593,9 @@ interface
       vOpts.flags := GIT_STATUS_OPT_INCLUDE_UNTRACKED or GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS {or GIT_STATUS_OPT_INCLUDE_UNMODIFIED};
 
       if AFolder <> '' then begin
-        vPath := Copy(AddBackSlash(AFolder), Length(FWorkDir) + 1, MaxInt);
+        vPath := Copy(AFolder, Length(FWorkDir) + 1, MaxInt);
         if vPath <> '' then begin
-          vAPath := FileToGit(RemoveBackSlash(vPath));
+          vAPath := FileToGit(vPath);
           vPPath := PAnsiChar(vAPath);
           vOpts.pathspec.count := 1;
           vOpts.pathspec.strings := Pointer(@vPPath);
@@ -1540,13 +1717,13 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure TGitRepository.Commit(const aMessage :TString);
+  procedure TGitRepository.Commit(const aMessage, aAuthor, aEMail :TString);
   var
     vIndex :PGitIndex;
     vTree :PGitTree;
     vParent :PGitCommit;
     vSign :PGitSignature;
-    vOID, vParentID, vCommitID :TGitOID;
+    vOID, vParentID, vNewID :TGitOID;
   begin
     vIndex := nil; vTree := nil; vParent := nil; vSign := nil;
     try
@@ -1560,11 +1737,13 @@ interface
       GitCheck(git_reference_name_to_id(vParentID, FRepo, cHead));
       GitCheck(git_commit_lookup(vParent, FRepo, @vParentID));
 
-
-      GitCheck(git_signature_default(vSign, FRepo));
+      if (aAuthor = '') and (aEMail = '') then
+        GitCheck(git_signature_default(vSign, FRepo))
+      else
+        GitCheck(git_signature_now(vSign, PAnsiChar(WideToUTF8(aAuthor)), PAnsiChar(WideToUTF8(aEMail)) ));
 
       GitCheck(git_commit_create(
-        vCommitID,
+        vNewID,
         FRepo,
         cHead,
         vSign,
@@ -1587,6 +1766,56 @@ interface
         git_signature_free(vSign);
     end;
   end;
+
+
+  procedure TGitRepository.AmendCommit(const aMessage, aAuthor, aEMail :TString);
+  var
+    vIndex :PGitIndex;
+    vTree :PGitTree;
+    vCommit :PGitCommit;
+    vSign :PGitSignature;
+    vOID, vCommitID, vNewID :TGitOID;
+  begin
+    vIndex := nil; vTree := nil; vCommit := nil; vSign := nil;
+    try
+      GitCheck(git_repository_index(vIndex, FRepo));
+
+      FillZero(vOID, SizeOf(vOID));
+      GitCheck(git_index_write_tree(vOID, vIndex));
+      GitCheck(git_tree_lookup(vTree, FRepo, @vOID));
+
+      FillZero(vCommitID, SizeOf(vCommitID));
+      GitCheck(git_reference_name_to_id(vCommitID, FRepo, cHead));
+      GitCheck(git_commit_lookup(vCommit, FRepo, @vCommitID));
+
+      if (aAuthor = '') and (aEMail = '') then
+        GitCheck(git_signature_default(vSign, FRepo))
+      else
+        GitCheck(git_signature_now(vSign, PAnsiChar(WideToUTF8(aAuthor)), PAnsiChar(WideToUTF8(aEMail)) ));
+
+      GitCheck(git_commit_amend(
+        vNewID,
+        vCommit,
+        cHead,
+        vSign,
+        vSign,
+        nil,
+        PAnsiChar(WideToUTF8(aMessage)),
+        vTree
+      ));
+
+    finally
+      if vTree <> nil then
+        git_tree_free(vTree);
+      if vCommit <> nil then
+        git_commit_free(vCommit);
+      if vIndex <> nil then
+        git_index_free(vIndex);
+      if vSign <> nil then
+        git_signature_free(vSign);
+    end;
+  end;
+
 
 
 end.

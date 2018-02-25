@@ -63,9 +63,10 @@ interface
 
     PFilterRec = ^TFilterRec;
     TFilterRec = packed record
-      FIdx :Integer;
-      FPos :Word;
-      FLen :Word;
+      FIdx :Integer; { Индекс записи истории (для группы - индекс первой записи группы) }
+      FPos :Word;    { Позиция быстрого фильтра }
+      FLen :Byte;    { Длина быстрого фильтра }
+      FSel :Byte;    { 1 - Selected, 2 - Group, 4 - Expanded Group }
     end;
 
     TListFilter = class(TExList)
@@ -118,6 +119,7 @@ interface
 
       function RowToIdx(ARow :Integer) :Integer;
       function IdxToRow(AIndex :Integer) :Integer;
+      function SelIdxToIdx(ASelIdx :Integer) :Integer;
     end;
 
 
@@ -281,7 +283,8 @@ interface
   begin
     vRec.FIdx := AIndex;
     vRec.FPos := Word(APos);
-    vRec.FLen := Word(ALen);
+    vRec.FLen := Byte(ALen);
+    vRec.FSel := 0;
     AddData(vRec);
   end;
 
@@ -423,6 +426,22 @@ interface
           Exit;
         end;
     end;
+  end;
+
+
+  function TFilteredListDlg.SelIdxToIdx(ASelIdx :Integer) :Integer;
+  var
+    I :Integer;
+  begin
+    if FFilter <> nil then
+      for I := 0 to FFilter.Count - 1 do
+        with PFilterRec(FFilter.PItems[I])^ do
+          if FSel and 1 <> 0 then begin
+            if ASelIdx = 0 then
+              Exit(FIdx);
+            Dec(ASelIdx);
+          end;
+    Result := -1;
   end;
 
 

@@ -54,6 +54,8 @@ interface
     private
       FRepo      :TGitRepository;
       FHistory   :TExList;
+      FSelCount  :Integer;
+      FShortLen  :Integer;
 
       procedure ShowInfo;
       procedure ShowDiff(AFull :Boolean);
@@ -62,6 +64,7 @@ interface
       function GetColumStr(ACommit :TGitCommit; AColTag :Integer) :TString;
       function FindSelItem(AItem :TGitCommit) :Integer;
       function GetCommit(ARow :Integer) :TGitCommit;
+      function GetSelCommit(ASelIdx :Integer) :TGitCommit;
 //    procedure ToggleOption(var AOption :Boolean);
       procedure OptionsMenu;
       procedure SetOrder(AOrder :Integer);
@@ -115,6 +118,8 @@ interface
 
   procedure THistDlg.InitDialog; {override;}
   begin
+    if FHistory.Count > 0 then
+      FShortLen := Length(FRepo.GetShortIdStr( TGitCommit(FHistory[0]).ID ));
     inherited InitDialog;
   end;
 
@@ -125,7 +130,7 @@ interface
   begin
     vTitle := GetMsgStr(strHistoryTitle);
 
-    if FFilter = nil then
+    if FFilterMask = '' then
       vTitle := Format('%s (%d)', [ vTitle, FTotalCount ])
     else
       vTitle := Format('%s [%s] (%d/%d)', [vTitle, FFilterMask, FFilter.Count, FTotalCount ]);
@@ -144,8 +149,12 @@ interface
       2: Result := ACommit.Message1;
       3: Result := ACommit.Author;
       4: Result := ACommit.EMail;
-      5: Result := ACommit.IDStr;
-//    5: Result := Int2Str(ACommit.Parents);
+      5:
+      begin
+        Result := ACommit.IDStr;
+        if (optShowID = 1) and (FShortLen > 0) then
+          Result := Copy(Result, 1, FShortLen);
+      end;
     end;
   end;
 
@@ -200,9 +209,10 @@ interface
     vMaxLen2 := length(GetMsgStr(strMessage));
     vMaxLen3 := length(GetMsgStr(strAuthor));
     vMaxLen4 := length(GetMsgStr(strEmail));
-    vMaxLen5 := length(GetMsgStr(strID));
+    vMaxLen5 := IntMax(length(GetMsgStr(strID)), IntIf((optShowID = 1) and (FShortLen > 0), FShortLen, cOIDStrLen));
 
     FTotalCount := 0;
+    FSelCount := 0;
 
     if FFilterColumn = 1 then
       FFilterColumn := 2;
@@ -231,8 +241,8 @@ interface
         vMaxLen3 := IntMax(vMaxLen3, Length(vCommit.Author));
       if optShowEmail > 0 then
         vMaxLen4 := IntMax(vMaxLen4, Length(vCommit.EMail));
-      if optShowID > 0 then
-        vMaxLen5 := IntMax(vMaxLen5, Length(vCommit.IDStr));
+//    if optShowID > 0 then
+//      vMaxLen5 := IntMax(vMaxLen5, Length(vCommit.IDStr));
 
       Inc(vCount);
     end;
@@ -314,14 +324,15 @@ interface
 
 
   procedure THistDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor); {override;}
-//var
-//  vCommit :TGitCommit;
+  var
+    vRec :PFilterRec;
   begin
     if ARow < FFilter.Count then begin
-//    vCommit := GetCommit(ARow);
-
+      vRec := FFilter.PItems[ARow];
       if ACol = -1 then begin
         AColor := FGrid.NormColor;
+        if vRec.FSel and 1 <> 0 then
+          AColor := optSelectedColor;
         if (FGrid.CurRow = ARow) and (FGrid.CurCol = 0) then
           AColor := FGrid.SelColor;
       end else
@@ -365,6 +376,17 @@ interface
     Result := nil;
     vIdx := RowToIdx(ARow);
     if (vIdx >= 0) and (vIdx < FHistory.Count) then
+      Result := FHistory[vIdx];
+  end;
+
+
+  function THistDlg.GetSelCommit(ASelIdx :Integer) :TGitCommit;
+  var
+    vIdx :Integer;
+  begin
+    Result := nil;
+    vIdx := SelIdxToIdx(ASelIdx);
+    if vIdx <> -1 then
       Result := FHistory[vIdx];
   end;
 
@@ -532,13 +554,24 @@ interface
   procedure THistDlg.ShowDiff(AFull :Boolean);
   var
     vCommit :TGitCommit;
+    vRes :Integer;
   begin
     vCommit := GetCommit(FGrid.CurRow);
-    if vCommit <> nil then
-      FRepo.ShowCommitDiff(vCommit.ID, AFull);
+    if vCommit <> nil then begin
+      if vCommit.Parents = 1 then
+        FRepo.ShowCommitDiff(vCommit.ID, 0, AFull)
+      else begin
+
+        vRes := ShowMessageBut('Compare', Format('Merge commit has %d parents', [vCommit.Parents]), ['Compare 1',  'Compare 2', GetMsgStr(strCancel)]);
+        if (vRes = -1) or (vRes = 2) then
+          Exit;
+
+        FRepo.ShowCommitDiff(vCommit.ID, vRes, AFull)
+
+      end;
+    end;
   end;
-
-
+(*
   procedure THistDlg.ShowDiffWith;
   var
     vCommit :TGitCommit;
@@ -547,7 +580,48 @@ interface
     if vCommit <> nil then
       FRepo.ShowDiff(vCommit.IDStr + ' ' + FRepo.GetCurrentBranchName);
   end;
+  procedure THistDlg.ShowDiffWith;
+  var
+    vCommit1, vCommit2 :TGitCommit;
+  begin
+    if FSelCount > 0 then begin
+      vCommit1 := GetSelCommit(0);
+      vCommit2 := GetSelCommit(1);
+      if vCommit2 <> nil then
+//      FRepo.ShowDiff(vCommit2.IDStr + ' ' + vCommit1.IDStr)
+        FRepo.ShowDiff( FRepo.GetShortIdStr(vCommit2.ID) + ' ' + FRepo.GetShortIdStr(vCommit1.ID) )
+      else
+        Beep;
+    end else
+    begin
+      vCommit1 := GetCommit(FGrid.CurRow);
+      if vCommit1 <> nil then
+//      FRepo.ShowDiff(vCommit1.IDStr + ' ' + FRepo.GetCurrentBranchName);
+        FRepo.ShowDiff( FRepo.GetShortIdStr(vCommit1.ID) + ' ' + FRepo.GetCurrentBranchName);
+    end;
+  end;
+*)
 
+  procedure THistDlg.ShowDiffWith;
+  var
+    vCommit1, vCommit2 :TGitCommit;
+  begin
+    if FSelCount > 0 then begin
+      vCommit1 := GetSelCommit(0);
+      vCommit2 := GetSelCommit(FSelCount - 1);
+      if vCommit2 <> nil then
+//      FRepo.ShowDiff(vCommit2.IDStr + ' ' + vCommit1.IDStr)
+        FRepo.ShowDiff( FRepo.GetShortIdStr(vCommit2.ID) + ' ' + FRepo.GetShortIdStr(vCommit1.ID) )
+      else
+        Beep;
+    end else
+    begin
+      vCommit1 := GetCommit(FGrid.CurRow);
+      if vCommit1 <> nil then
+//      FRepo.ShowDiff(vCommit1.IDStr + ' ' + FRepo.GetCurrentBranchName);
+        FRepo.ShowDiff( FRepo.GetShortIdStr(vCommit1.ID) + ' ' + FRepo.GetCurrentBranchName);
+    end;
+  end;
 
 
   procedure THistDlg.CheckoutCurrent;
@@ -578,12 +652,70 @@ interface
     end;
 
 
+    procedure LocSetCheck(AIndex :Integer; ASetOn :Integer);
+    var
+      vRec :PFilterRec;
+      vOldOn :Boolean;
+    begin
+      vRec := FFilter.PItems[AIndex];
+      if (vRec.FIdx < 0) or (vRec.FSel and 2 <> 0) then
+        Exit;
+
+      vOldOn := vRec.FSel and 1 <> 0;
+      if ASetOn = -1 then
+        ASetOn := IntIf(vOldOn, 0, 1);
+      if ASetOn = 1 then
+        vRec.FSel := vRec.FSel or 1
+      else
+        vRec.FSel := vRec.FSel and not 1;
+      if vOldOn then
+        Dec(FSelCount);
+      if ASetOn = 1 then
+        Inc(FSelCount);
+    end;
+
+
+    procedure LocSelectCurrent;
+    var
+      vIndex :Integer;
+    begin
+      vIndex := FGrid.CurRow;
+      if vIndex = -1 then
+        Exit;
+      LocSetCheck(vIndex, -1);
+      if vIndex < FGrid.RowCount - 1 then
+        SetCurrent(vIndex + 1, lmScroll);
+      UpdateHeader;
+    end;
+
+
+    procedure LocSelectAll(AFrom :Integer; ASetOn :Integer);
+    var
+      I :Integer;
+    begin
+      for I := AFrom to FGrid.RowCount - 1 do
+        LocSetCheck(I, ASetOn);
+      UpdateHeader;
+      SendMsg(DM_REDRAW, 0, 0);
+    end;
+
+
   begin
     Result := True;
     case AKey of
 
       KEY_CTRLENTER:
         ShowDiff(True);
+
+      KEY_INS:
+        LocSelectCurrent;
+      KEY_CTRLADD:
+        LocSelectAll(0, 1);
+      KEY_CTRLSUBTRACT:
+        LocSelectAll(0, 0);
+      KEY_CTRLMULTIPLY:
+        LocSelectAll(0, -1);
+
 
       KEY_F3:
         ShowInfo;

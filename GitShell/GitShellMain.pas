@@ -12,6 +12,7 @@ interface
     MixTypes,
     MixUtils,
     MixStrings,
+    MixClasses,
     Far_API,
     FarCtrl,
     FarPlug,
@@ -29,12 +30,9 @@ interface
 
 { ToDo:
 
-  * Help
+  * Управление через командную строку
 
   * Диалог Commit'а
-    - Большое поле ввода
-    - Указание Author/Commiter
-    - Добавление Commit'а
     - Merge Commit
 
   * Диалог Pre-Commit:
@@ -51,7 +49,6 @@ interface
     - Показ дерева commit'ов
     - Сравнение неск. коммитов
     - Поддержка FarHints
-    - Сокращенные ID
 
   * Диалог Branches
     - Запрос на Checkout
@@ -71,6 +68,8 @@ interface
   -------
   Готово:
 
+  + Help
+
   + Загрузка DLL
   + x64
   + Удаление временных файлов
@@ -80,8 +79,14 @@ interface
     + Простой сommit
     + Выглядит некрасиво при 0 файлов
 
+  * Диалог Commit'а
+    + Большое поле ввода
+    + Указание Author
+    + Добавление Commit'а
+
   + Диалог истории
     + Показ подробной информации
+    + Сокращенные ID
 
   + Информация о репозитории
 
@@ -104,9 +109,11 @@ interface
       function OpenCmdLine(AStr :PTChar) :THandle; override;
 
     private
-      FRepo :TGitRepository;
+      FRepo     :TGitRepository;
+      FCmdWords :TKeywordsList;
 
       procedure InitRepo(const APath :TString);
+      procedure RunCommand(const aCmd :TString);
       procedure ShellMenu;
       procedure OptionsMenu;
       procedure ColorMenu;
@@ -122,6 +129,7 @@ interface
 
 
 
+
  {-----------------------------------------------------------------------------}
  { TGitShellPlug                                                               }
  {-----------------------------------------------------------------------------}
@@ -133,6 +141,7 @@ interface
     FName := cPluginName;
     FDescr := cPluginDescr;
     FAuthor := cPluginAuthor;
+    FVersion := GetSelfVerison; 
 
     FGUID := cPluginID;
     FMinFarVer := MakeVersion(3, 0, 3000);
@@ -149,6 +158,7 @@ interface
 
   procedure TGitShellPlug.ExitFar; {override;}
   begin
+    FreeObj(FCmdWords);
     FreeObj(FRepo);
     inherited ExitFar;
   end;
@@ -194,8 +204,86 @@ interface
   begin
     Result:= INVALID_HANDLE_VALUE;
     ReadSetup;
-    ShellMenu;
+//  ShellMenu;
+    RunCommand(AStr);
   end;
+
+
+
+  procedure TGitShellPlug.RunCommand(const aCmd :TString);
+  const
+    kwBranch  = 1;
+    kwCommit  = 2;
+    kwHist    = 3;
+
+    procedure InitKeywords;
+    begin
+      if FCmdWords <> nil then
+        Exit;
+      FCmdWords := TKeywordsList.Create;
+      with FCmdWords do begin
+        Add('branch', kwBranch);
+        Add('commit', kwCommit);
+        Add('log', kwHist);
+        Add('hist', kwHist);
+      end;
+    end;
+
+    procedure LocInitRepo(var aPath :TString);
+    var
+      vPath :TString;
+    begin
+      if aPath <> '' then begin
+        aPath := FarExpandFileName(aPath);
+        vPath := aPath;
+      end else
+        vPath := FarGetCurrentDirectory;
+      InitRepo(vPath);
+    end;
+
+    procedure LocBranch(aPath :TString);
+    begin
+      LocInitRepo(aPath);
+      FRepo.ShowBranches;
+    end;
+
+    procedure LocCommit(aPath :TString);
+    begin
+      LocInitRepo(aPath);
+      FRepo.PrepareCommit(aPath);
+    end;
+
+    procedure LocHist(aPath :TString);
+    begin
+      LocInitRepo(aPath);
+      FRepo.ShowHistory(aPath);
+    end;
+
+
+  var
+    vPtr :PTChar;
+    vCmd :TString;
+  begin
+    if aCmd = '' then
+      ShellMenu
+    else begin
+      try
+        InitKeywords;
+        vPtr := PTChar(aCmd);
+        vCmd := ExtractNextWord(vPtr, [' '], True);
+        case FCmdWords.GetKeywordStr(vCmd) of
+          kwBranch : LocBranch(vPtr);
+          kwCommit : LocCommit(vPtr);
+          kwHist   : LocHist(vPtr);
+        else
+          Beep;
+        end;
+      finally
+        FreeObj(FRepo);
+      end;
+    end;
+  end;
+
 
 
   procedure TGitShellPlug.ShellMenu;
@@ -242,7 +330,8 @@ interface
       end;
 
     finally
-      FRepo.DeleteTempFiles;
+//    FRepo.DeleteTempFiles;
+      FreeObj(FRepo);
       FreeObj(vMenu);
     end;
   end;

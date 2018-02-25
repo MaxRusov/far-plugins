@@ -1,3 +1,5 @@
+{$I Defines.inc}
+
 unit GitLibAPI;
 
 interface
@@ -44,19 +46,21 @@ const
   // #define GIT_PACK_NAME_MAX (5 + 40 + 1)
   GIT_PACK_NAME_MAX = (5 + 40 + 1);
 
-  // git_otype, enum with integer values
-  //      typedef enum {
-  //      GIT_OBJ_ANY = -2,		/**< Object can be any of the following */
-  //      GIT_OBJ_BAD = -1,       /**< Object is invalid. */
-  //      GIT_OBJ__EXT1 = 0,      /**< Reserved for future use. */
-  //      GIT_OBJ_COMMIT = 1,     /**< A commit object. */
-  //      GIT_OBJ_TREE = 2,       /**< A tree (directory listing) object. */
-  //      GIT_OBJ_BLOB = 3,       /**< A file revision object. */
-  //      GIT_OBJ_TAG = 4,        /**< An annotated tag object. */
-  //      GIT_OBJ__EXT2 = 5,      /**< Reserved for future use. */
-  //      GIT_OBJ_OFS_DELTA = 6,  /**< A delta, base is given by an offset. */
-  //      GIT_OBJ_REF_DELTA = 7,  /**< A delta, base is given by object id. */
-  //   } git_otype;
+
+///** Basic type (loose or packed) of any Git object. */
+//typedef enum {
+//	GIT_OBJ_ANY = -2,		/**< Object can be any of the following */
+//	GIT_OBJ_BAD = -1,		/**< Object is invalid. */
+//	GIT_OBJ__EXT1 = 0,		/**< Reserved for future use. */
+//	GIT_OBJ_COMMIT = 1,		/**< A commit object. */
+//	GIT_OBJ_TREE = 2,		/**< A tree (directory listing) object. */
+//	GIT_OBJ_BLOB = 3,		/**< A file revision object. */
+//	GIT_OBJ_TAG = 4,		/**< An annotated tag object. */
+//	GIT_OBJ__EXT2 = 5,		/**< Reserved for future use. */
+//	GIT_OBJ_OFS_DELTA = 6, /**< A delta, base is given by an offset. */
+//	GIT_OBJ_REF_DELTA = 7, /**< A delta, base is given by object id. */
+//} git_otype;
+
   GIT_OBJ_ANY = -2;
   GIT_OBJ_BAD = -1;
   GIT_OBJ__EXT1 = 0;
@@ -68,6 +72,7 @@ const
   GIT_OBJ_OFS_DELTA = 6;
   GIT_OBJ_REF_DELTA = 7;
 
+///** Generic return codes */
 //typedef enum {
 //	GIT_OK         =  0,		/**< No error */
 //
@@ -107,48 +112,38 @@ const
 //	GIT_EMISMATCH       = -33,	/**< Hashsum mismatch in object */
 //} git_error_code;
 
-   GIT_SUCCESS                = 0;
+   GIT_SUCCESS                =  0;
+
    GIT_ERROR                  = -1;
    GIT_ENOTFOUND              = -3;
    GIT_EEXISTS                = -4;
    GIT_EAMBIGUOUS             = -5;
    GIT_EBUFS                  = -6;
 
+   GIT_EUSER                  = -7;
+
+   GIT_EBAREREPO              =  -8;
+   GIT_EUNBORNBRANCH          =  -9;
+   GIT_EUNMERGED              = -10;
+   GIT_ENONFASTFORWARD        = -11;
    GIT_EINVALIDSPEC           = -12;
    GIT_ECONFLICT              = -13;
+   GIT_ELOCKED                = -14;
+   GIT_EMODIFIED              = -15;
+   GIT_EAUTH                  = -16;
+   GIT_ECERTIFICATE           = -17;
+   GIT_EAPPLIED               = -18;
+   GIT_EPEEL                  = -19;
+   GIT_EEOF                   = -20;
+   GIT_EINVALID               = -21;
+   GIT_EUNCOMMITTED           = -22;
+   GIT_EDIRECTORY             = -23;
+   GIT_EMERGECONFLICT         = -24;
 
+   GIT_PASSTHROUGH            = -30;
    GIT_ITEROVER               = -31;
-
-//   GIT_ENOTOID                = -2;
-//   GIT_ENOMEM                 = -4;
-//   GIT_EOSERR                 = -5;
-//   GIT_EOBJTYPE               = -6;
-//   GIT_ENOTAREPO              = -7;
-//   GIT_EINVALIDTYPE           = -8;
-//   GIT_EMISSINGOBJDATA        = -9;
-//   GIT_EPACKCORRUPTED         = -10;
-//   GIT_EFLOCKFAIL             = -11;
-//   GIT_EZLIB                  = -12;
-//   GIT_EBUSY                  = -13;
-//   GIT_EBAREINDEX             = -14;
-//   GIT_EINVALIDREFNAME        = -15;
-//   GIT_EREFCORRUPTED          = -16;
-//   GIT_ETOONESTEDSYMREF       = -17;
-//   GIT_EPACKEDREFSCORRUPTED   = -18;
-//   GIT_EINVALIDPATH           = -19;
-//   GIT_EREVWALKOVER           = -20;
-//   GIT_EINVALIDREFSTATE       = -21;
-//   GIT_ENOTIMPLEMENTED        = -22;
-//   GIT_EEXISTS                = -23;
-//   GIT_EOVERFLOW              = -24;
-//   GIT_ENOTNUM                = -25;
-//   GIT_ESTREAM                = -26;
-//   GIT_EINVALIDARGS           = -27;
-//   GIT_EOBJCORRUPTED          = -28;
-//   GIT_EAMBIGUOUSOIDPREFIX    = -29;
-//   GIT_EPASSTHROUGH           = -30;
-//   GIT_ENOMATCH               = -31;
-//   GIT_ESHORTBUFFER           = -32;
+   GIT_RETRY                  = -32;
+   GIT_EMISMATCH              = -33;
 
 //
 //   /**
@@ -302,13 +297,23 @@ type
    TStrArray = array[0 .. MaxInt div SizeOf(PAnsiChar) - 1] of PAnsiChar;
    PStrArray = ^TStrArray;
 
-//   typedef struct {
-//      char **strings;
-//      size_t count;
-//   } git_strarray;
+// typedef struct {
+//    char **strings;
+//    size_t count;
+// } git_strarray;
    git_strarray = record
       strings :PStrArray;
       count :size_t;
+   end;
+
+// typedef struct {
+//   char   *ptr;
+//   size_t asize, size;
+// } git_buf;
+   git_buf = record
+     ptr :PAnsiChar;
+     asize :size_t;
+     size :size_t;
    end;
 
 
@@ -368,6 +373,7 @@ type
    PGitTree          = Pointer;
    PGitIndex         = Pointer;
    PGitDiff          = Pointer;
+   PGitPathspec      = Pointer;
 
    PGitBranchIterator = pointer;
 
@@ -377,6 +383,8 @@ type
    TGitStrArray      = git_strarray;
    PGitStrArray      = ^TGitStrArray;
 
+   TGitBuf           = git_buf;
+   PGitBuf           = ^TGitBuf;
 
 //   typedef int (*git_vector_cmp)(const void *, const void *);
    git_vector_cmp = Pointer;
@@ -1484,6 +1492,49 @@ const
   GIT_BRANCH_REMOTE = 2;
   GIT_BRANCH_ALL = GIT_BRANCH_LOCAL or GIT_BRANCH_REMOTE;
 
+
+(*
+/**
+ * Options controlling how pathspec match should be executed
+ *
+ * - GIT_PATHSPEC_IGNORE_CASE forces match to ignore case; otherwise
+ *   match will use native case sensitivity of platform filesystem
+ * - GIT_PATHSPEC_USE_CASE forces case sensitive match; otherwise
+ *   match will use native case sensitivity of platform filesystem
+ * - GIT_PATHSPEC_NO_GLOB disables glob patterns and just uses simple
+ *   string comparison for matching
+ * - GIT_PATHSPEC_NO_MATCH_ERROR means the match functions return error
+ *   code GIT_ENOTFOUND if no matches are found; otherwise no matches is
+ *   still success (return 0) but `git_pathspec_match_list_entrycount`
+ *   will indicate 0 matches.
+ * - GIT_PATHSPEC_FIND_FAILURES means that the `git_pathspec_match_list`
+ *   should track which patterns matched which files so that at the end of
+ *   the match we can identify patterns that did not match any files.
+ * - GIT_PATHSPEC_FAILURES_ONLY means that the `git_pathspec_match_list`
+ *   does not need to keep the actual matching filenames.  Use this to
+ *   just test if there were any matches at all or in combination with
+ *   GIT_PATHSPEC_FIND_FAILURES to validate a pathspec.
+ */
+typedef enum {
+	GIT_PATHSPEC_DEFAULT        = 0,
+	GIT_PATHSPEC_IGNORE_CASE    = (1u << 0),
+	GIT_PATHSPEC_USE_CASE       = (1u << 1),
+	GIT_PATHSPEC_NO_GLOB        = (1u << 2),
+	GIT_PATHSPEC_NO_MATCH_ERROR = (1u << 3),
+	GIT_PATHSPEC_FIND_FAILURES  = (1u << 4),
+	GIT_PATHSPEC_FAILURES_ONLY  = (1u << 5),
+} git_pathspec_flag_t;
+*)
+const
+  GIT_PATHSPEC_DEFAULT        = 0;
+  GIT_PATHSPEC_IGNORE_CASE    = 1 shl 0;
+  GIT_PATHSPEC_USE_CASE       = 1 shl 1;
+  GIT_PATHSPEC_NO_GLOB        = 1 shl 2;
+  GIT_PATHSPEC_NO_MATCH_ERROR = 1 shl 3;
+  GIT_PATHSPEC_FIND_FAILURES  = 1 shl 4;
+  GIT_PATHSPEC_FAILURES_ONLY  = 1 shl 5;
+
+
 (*
 /**
  * When iterating over a diff, callback that will be made per text diff
@@ -1613,14 +1664,20 @@ var
   //int git_revparse_single(git_object **out, git_repository *repo, const char *spec);
   git_revparse_single :function(var obj_out :PGitObject; repo: PGitRepository; spec :PAnsiChar) :Integer; cdecl;
 
+  //int git_object_lookup(git_object **object, git_repository *repo, const git_oid *id, git_otype type);
+  git_object_lookup :function(var obj_out :PGitObject; repo: PGitRepository; id :PGitOid; objtype :git_otype) :Integer; cdecl;
+
   // git_otype git_object_type(const git_object *obj);
   git_object_type :function(obj :PGitObject) :git_otype; cdecl;
 
   //const git_oid * git_object_id(const git_object *obj);
   git_object_id :function(obj :PGitObject) :PGitOid; cdecl;
 
+  //int git_object_short_id(git_buf *out, const git_object *obj);
+  git_object_short_id :function(var buf :TGitBuf; obj :PGitObject) :Integer; cdecl;
+
   //void git_object_free(git_object *object);
-  git_object_free :procedure(ref :PGitObject); cdecl;
+  git_object_free :procedure(obj :PGitObject); cdecl;
 
 
   // GIT_EXTERN(const void *) git_blob_rawcontent(git_blob *blob);
@@ -1655,7 +1712,18 @@ var
     message_text :PAnsiChar;
     tree :PGitTree;
     parent_count :size_t;
-    parents :PGitCommitArray): Integer; cdecl;
+    parents :PGitCommitArray) :Integer; cdecl;
+
+  //int git_commit_amend(git_oid *id, const git_commit *commit_to_amend, const char *update_ref, const git_signature *author, const git_signature *committer, const char *message_encoding, const char *message, const git_tree *tree);
+  git_commit_amend :function(
+    var oid :TGitOID;
+    commit_to_amend :PGitCommit;
+    update_ref :PAnsiChar;
+    author :PGitSignature;
+    committer :PGitSignature;
+    message_encoding :PAnsiChar;
+    message_text :PAnsiChar;
+    tree :PGitTree) :Integer; cdecl;
 
 
   // int git_commit_lookup(git_commit **commit, git_repository *repo, const git_oid *id);
@@ -1707,6 +1775,9 @@ var
 
   //int git_diff_tree_to_workdir(git_diff **diff, git_repository *repo, git_tree *old_tree, const git_diff_options *opts);
   git_diff_tree_to_workdir :function(var diff :PGitDiff; repo :PGitRepository; old_tree :PGitTree; opts :PGitDiffOptions) :Integer; cdecl;
+
+  // size_t git_diff_num_deltas(const git_diff *diff);
+  git_diff_num_deltas :function(diff :PGitDiff) :size_t; cdecl;
 
   // int git_diff_print(git_diff *diff, git_diff_format_t format, git_diff_line_cb print_cb, void *payload);
   git_diff_print :function(
@@ -1815,6 +1886,9 @@ var
   //int git_signature_default(git_signature **out, git_repository *repo);
   git_signature_default :function(var sig :PGitSignature; repo: PGitRepository) :integer; cdecl;
 
+  //int git_signature_now(git_signature **out, const char *name, const char *email);
+  git_signature_now :function(var sig :PGitSignature; name, email :PAnsiChar) :integer; cdecl;
+
   //void git_signature_free(git_signature *sig);
   git_signature_free :procedure(sig :PGitSignature); cdecl;
 
@@ -1834,8 +1908,25 @@ var
   //void git_remote_free(git_remote *remote);
   git_remote_free :procedure(remote :PGitRemote); cdecl;
 
+
+  //---------------------------------------------------------------------------
+  // Pathspec
+
+  // int git_pathspec_new(git_pathspec **out, const git_strarray *pathspec);
+  git_pathspec_new :function(var out_ps :PGitPathspec; pathspec: PGitStrArray) :integer; cdecl;
+
+  // int git_pathspec_match_tree(git_pathspec_match_list **out, git_tree *tree, uint32_t flags, git_pathspec *ps);
+  git_pathspec_match_tree :function(pout :pointer; tree :PGitTree; flags :uint32_t; ps :PGitPathspec) :integer; cdecl;
+
+  // void git_pathspec_free(git_pathspec *ps);
+  git_pathspec_free :procedure(ps :PGitPathspec); cdecl;
+
+
   //void git_strarray_free(git_strarray *array);
   git_strarray_free :procedure(arr :PGitStrArray); cdecl;
+
+  //void git_buf_free(git_buf *buffer);
+  git_buf_free :procedure(buf :PGitBuf); cdecl;
 
   //char * git_oid_tostr(char *out, size_t n, const git_oid *id);
   git_oid_tostr :function(buf :PAnsiChar; size :size_t; id :PGitOid) :PAnsiChar; cdecl;
@@ -1883,14 +1974,10 @@ var
 //   git_commit_tree_oid:                function (commit: Pgit_commit): Pgit_oid; stdcall;
 //   // GIT_EXTERN(const git_oid *) git_commit_parent_oid(git_commit *commit, unsigned int n);
 //   git_commit_parent_oid:              function (commit: Pgit_commit; n: UInt): Pgit_oid; stdcall;
-//   // GIT_EXTERN(int) git_commit_create_v(git_oid *oid, git_repository *repo, const char *update_ref, const git_signature *author, const git_signature *committer, const char *message_encoding, const char *message, const git_tree *tree, int parent_count, ...);
-//   git_commit_create_v:                function (oid: Pgit_oid; repo: PGitRepository; const update_ref: PAnsiChar; const author, committer: Pgit_signature; const message_encoding, message_: PAnsiChar; const tree: Pgit_tree; parent_count: Integer): Integer; cdecl varargs; // varargs has to be cdecl
 //
 //   /// common.h
 //   ///
 //
-//   // GIT_EXTERN(void) git_strarray_free(git_strarray *array);
-//   git_strarray_free:                  procedure (array_: Pgit_strarray); stdcall;
 //   // GIT_EXTERN(void) git_libgit2_version(int *major, int *minor, int *rev);
 //   git_libgit2_version:                procedure (out major, minor, rev: Integer); stdcall;
 //
@@ -1997,8 +2084,6 @@ var
 //   /// object.h
 //   ///
 //
-//   // GIT_EXTERN(int) git_object_lookup(git_object **object, git_repository *repo, const git_oid *id, git_otype type);
-//   git_object_lookup:                  function (var object_: Pgit_object; repo: PGitRepository; const id: Pgit_oid; type_: git_otype): Integer; stdcall;
 //   // GIT_EXTERN(int) git_object_lookup_prefix(git_object **object_out, git_repository *repo, const git_oid *id, unsigned int len, git_otype type);
 //   git_object_lookup_prefix:           function (var object_out: Pgit_object; repo: PGitRepository; const id: Pgit_oid; len: UInt; type_: git_otype): Integer; stdcall;
 //   // GIT_EXTERN(git_repository *) git_object_owner(const git_object *obj);
@@ -2225,8 +2310,6 @@ var
 //
 //   // GIT_EXTERN(int) git_signature_new(git_signature **sig_out, const char *name, const char *email, git_time_t time, int offset);
 //   git_signature_new:                  function (var sig_out: Pgit_signature; const name, email: PAnsiChar; time: git_time_t; offset: Integer): Integer; stdcall;
-//   // GIT_EXTERN(int) git_signature_now(git_signature **sig_out, const char *name, const char *email);
-//   git_signature_now:                  function (var sig_out: Pgit_signature; const name, email: PAnsiChar): Integer; stdcall;
 //   // GIT_EXTERN(git_signature *) git_signature_dup(const git_signature *sig);
 //   git_signature_dup:                  function (const sig: Pgit_signature): Pgit_signature; stdcall;
 //   // GIT_EXTERN(void) git_signature_free(git_signature *sig);
@@ -2452,8 +2535,10 @@ begin
    git_reference_free               := Bind('git_reference_free');
 
    git_revparse_single              := Bind('git_revparse_single');
+   git_object_lookup                := Bind('git_object_lookup');
    git_object_type                  := Bind('git_object_type');
    git_object_id                    := Bind('git_object_id');
+   git_object_short_id              := Bind('git_object_short_id');
    git_object_free                  := Bind('git_object_free');
 
    git_blob_rawcontent              := Bind('git_blob_rawcontent');
@@ -2465,6 +2550,7 @@ begin
    git_revwalk_free                 := Bind('git_revwalk_free');
 
    git_commit_create                := Bind('git_commit_create');
+   git_commit_amend                 := Bind('git_commit_amend');
    git_commit_lookup                := Bind('git_commit_lookup');
    git_commit_free                  := Bind('git_commit_free');
    git_commit_id                    := Bind('git_commit_id');
@@ -2482,6 +2568,7 @@ begin
 
    git_diff_tree_to_tree            := Bind('git_diff_tree_to_tree');
    git_diff_tree_to_workdir         := Bind('git_diff_tree_to_workdir');
+   git_diff_num_deltas              := Bind('git_diff_num_deltas');
    git_diff_foreach                 := Bind('git_diff_foreach');
    git_diff_print                   := Bind('git_diff_print');
    git_diff_free                    := Bind('git_diff_free');
@@ -2513,6 +2600,7 @@ begin
    git_reset_default                := Bind('git_reset_default');
 
    git_signature_default            := Bind('git_signature_default');
+   git_signature_now                := Bind('git_signature_now');
    git_signature_free               := Bind('git_signature_free');
 
    git_remote_list                  := Bind('git_remote_list');
@@ -2520,7 +2608,12 @@ begin
    git_remote_url                   := Bind('git_remote_url');
    git_remote_free                  := Bind('git_remote_free');
 
+   git_pathspec_new                 := Bind('git_pathspec_new');
+   git_pathspec_match_tree          := Bind('git_pathspec_match_tree');
+   git_pathspec_free                := Bind('git_pathspec_free');
+
    git_strarray_free                := Bind('git_strarray_free');
+   git_buf_free                     := Bind('git_buf_free');
 
    git_oid_tostr                    := Bind('git_oid_tostr');
 
@@ -2540,7 +2633,6 @@ begin
 //// git_commit_tree_oid              := Bind('git_commit_tree_oid', '4');
 //// git_commit_parent_oid            := Bind('git_commit_parent_oid', '8');
 //
-//   git_strarray_free                := Bind('git_strarray_free', '4');
 //   git_libgit2_version              := Bind('git_libgit2_version', '12');
 //
 //   git_config_find_global           := Bind('git_config_find_global', '4');
@@ -2590,7 +2682,6 @@ begin
 //   git_indexer_hash                 := Bind('git_indexer_hash', '4');
 //   git_indexer_free                 := Bind('git_indexer_free', '4');
 //
-//   git_object_lookup                := Bind('git_object_lookup', '16');
 //   git_object_lookup_prefix         := Bind('git_object_lookup_prefix', '20');
 //   git_object_owner                 := Bind('git_object_owner', '4');
 //   git_object_free                  := Bind('git_object_free', '4');
@@ -2695,7 +2786,6 @@ begin
 //   git_revwalk_repository           := Bind('git_revwalk_repository', '4');
 //
 //   git_signature_new                := Bind('git_signature_new', '24');
-//   git_signature_now                := Bind('git_signature_now', '12');
 //   git_signature_dup                := Bind('git_signature_dup', '4');
 //   git_signature_free               := Bind('git_signature_free', '4');
 //

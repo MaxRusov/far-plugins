@@ -24,12 +24,13 @@ interface
     VisCompAPI,
 
     GitLibAPI,
+    GitShellCtrl,
     GitShellClasses,
-    GitShellCtrl;
+    GitShellCommitDlg;
 
 
   type
-    TCommitDlg = class(TFarDialog)
+    TCommitListDlg = class(TFarDialog)
     public
       constructor Create; override;
       destructor Destroy; override;
@@ -104,10 +105,10 @@ interface
 
 
  {-----------------------------------------------------------------------------}
- { TCommitDlg                                                                  }
+ { TCommitListDlg                                                                  }
  {-----------------------------------------------------------------------------}
 
-  constructor TCommitDlg.Create; {override;}
+  constructor TCommitListDlg.Create; {override;}
   begin
     inherited Create;
     FFilter1 := TListFilter.Create;
@@ -115,7 +116,7 @@ interface
   end;
 
 
-  destructor TCommitDlg.Destroy; {override;}
+  destructor TCommitListDlg.Destroy; {override;}
   begin
     FreeObj(FGrid1);
     FreeObj(FGrid2);
@@ -125,7 +126,7 @@ interface
   end;
 
 
-  procedure TCommitDlg.Prepare; {override;}
+  procedure TCommitListDlg.Prepare; {override;}
   const
     DX = 20;
     DY = 10;
@@ -160,7 +161,7 @@ interface
   end;
 
 
-  procedure TCommitDlg.InitDialog; {override;}
+  procedure TCommitListDlg.InitDialog; {override;}
   begin
     SendMsg(DM_SETMOUSEEVENTNOTIFY, 1, 0);
 
@@ -173,7 +174,7 @@ interface
   end;
 
 
-  procedure TCommitDlg.ResizeDialog;
+  procedure TCommitListDlg.ResizeDialog;
   var
     vWidth, vHeight, vCenter :Integer;
     vRect, vRect1 :TSmallRect;
@@ -221,7 +222,7 @@ interface
   end;
 
 
-  procedure TCommitDlg.UpdateHeader; {override;}
+  procedure TCommitListDlg.UpdateHeader; {override;}
   var
     vTitle, vStatus1, vStatus2 :TFarStr;
   begin
@@ -246,7 +247,7 @@ interface
   end;
 
 
-  function TCommitDlg.GetColumStr(ADiff :TGitDiffFile; AColTag :Integer) :TString;
+  function TCommitListDlg.GetColumStr(ADiff :TGitDiffFile; AColTag :Integer) :TString;
   begin
     case AColTag of
       1:
@@ -259,7 +260,7 @@ interface
   end;
 
 
-  procedure TCommitDlg.ReInitGrid; {virtual;}
+  procedure TCommitListDlg.ReInitGrid; {virtual;}
   var
     vMaxLen1 :Integer;
 
@@ -370,7 +371,7 @@ interface
 
 
 
-  procedure TCommitDlg.ReinitAndSaveCurrent; {override;}
+  procedure TCommitListDlg.ReinitAndSaveCurrent; {override;}
 //  var
 //    vSel :TGitBranch;
   begin
@@ -381,7 +382,7 @@ interface
   end;
 
 
-  function TCommitDlg.GetCurGrid :TFarGrid;
+  function TCommitListDlg.GetCurGrid :TFarGrid;
   begin
     Result := nil;
     case SendMsg(DM_GETFOCUS, 0, 0) of
@@ -391,7 +392,7 @@ interface
   end;
 
 
-  function TCommitDlg.GetDiff(ASender :TFarGrid; ARow :Integer; IsGroup :PBoolean = nil; aRaise :boolean = False) :TGitDiffFile;
+  function TCommitListDlg.GetDiff(ASender :TFarGrid; ARow :Integer; IsGroup :PBoolean = nil; aRaise :boolean = False) :TGitDiffFile;
   var
     vRec :PFilterRec;
     vIsGroup :Boolean;
@@ -421,7 +422,7 @@ interface
   end;
 
 
-  function TCommitDlg.GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; {override;}
+  function TCommitListDlg.GridGetDlgText(ASender :TFarGrid; ACol, ARow :Integer) :TString; {override;}
   var
     vDiff :TGitDiffFile;
   begin
@@ -432,7 +433,7 @@ interface
   end;
 
 
-  procedure TCommitDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor); {override;}
+  procedure TCommitListDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor); {override;}
   begin
     if ASender = GetCurGrid then
       {}
@@ -441,7 +442,7 @@ interface
   end;
 
 
-  procedure TCommitDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); {override;}
+  procedure TCommitListDlg.GridPaintCell(ASender :TFarGrid; X, Y, AWidth :Integer; ACol, ARow :Integer; AColor :TFarColor); {override;}
   var
     vDiff :TGitDiffFile;
     vTag :Integer;
@@ -497,7 +498,7 @@ interface
   end;
 
 
-//  function TCommitDlg.FindSelItem(AItem :TGitBranch) :Integer;
+//  function TCommitListDlg.FindSelItem(AItem :TGitBranch) :Integer;
 //  var
 //    i :Integer;
 //    vRec :PFilterRec;
@@ -513,7 +514,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure TCommitDlg.ToggleOption(var AOption :Boolean);
+  procedure TCommitListDlg.ToggleOption(var AOption :Boolean);
   begin
     AOption := not AOption;
     FMenuMaxHeight := 0;
@@ -522,29 +523,33 @@ interface
   end;
 
 
-  procedure TCommitDlg.OptionsMenu;
+  procedure TCommitListDlg.OptionsMenu;
   begin
   end;
 
 
  {-----------------------------------------------------------------------------}
 
-  procedure TCommitDlg.Commit;
+  procedure TCommitListDlg.Commit;
   var
-    vMessage :TString;
+    vMessage, vAuthor, vEmail :TString;
+    vAmend :Boolean;
   begin
     if FStatus.Staged.Count = 0 then
       AppErrorId(strNothingToCommit);
 
-    vMessage := '';
-    if FarInputBox(GetMsg(strCommitTitle), GetMsg(strCommitMessage), vMessage, FIB_BUTTONS or FIB_NOUSELASTHISTORY or FIB_ENABLEEMPTY, cCommitMessageHistory) then begin
-      FRepo.Commit(vMessage);
+    if CommitDlg(FRepo, vMessage, vAuthor, vEmail, vAmend) then begin
+      if vAmend then
+        FRepo.AmendCommit(vMessage, vAuthor, vEmail)
+      else
+        FRepo.Commit(vMessage, vAuthor, vEmail);
       ReRead;
     end;
   end;
 
 
-  procedure TCommitDlg.ShowDiff(AEdit :Boolean);
+
+  procedure TCommitListDlg.ShowDiff(AEdit :Boolean);
   var
     vGrid :TFarGrid;
     vDiff :TGitDiffFile;
@@ -582,7 +587,7 @@ interface
   end;
 
 
-  procedure TCommitDlg.StageUnstage;
+  procedure TCommitListDlg.StageUnstage;
   var
     vGrid :TFarGrid;
     vDiff :TGitDiffFile;
@@ -608,7 +613,7 @@ interface
   end;
 
 
-  procedure TCommitDlg.ReRead;
+  procedure TCommitListDlg.ReRead;
   var
     vDirStatus :TGitWorkdirStatus;
   begin
@@ -622,7 +627,7 @@ interface
   end;
 
 
-  function TCommitDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
+  function TCommitListDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
   begin
     Result := True;
     try
@@ -662,7 +667,7 @@ interface
   end;
 
 
-  function TCommitDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
+  function TCommitListDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
   begin
     Result := 1;
     case Msg of
@@ -696,10 +701,10 @@ interface
 
   function CommitDlg(ARepo :TGitRepository; var ADirStatus :TGitWorkdirStatus) :Boolean;
   var
-    vDlg :TCommitDlg;
+    vDlg :TCommitListDlg;
   begin
     Result := False;
-    vDlg := TCommitDlg.Create;
+    vDlg := TCommitListDlg.Create;
     try
       vDlg.FRepo := ARepo;
       vDlg.FStatus := ADirStatus;

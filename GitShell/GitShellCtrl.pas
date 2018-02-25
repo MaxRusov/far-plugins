@@ -38,6 +38,7 @@ interface
     cHistDlgID     :TGUID = '{51ECCEBF-D6F4-4B9F-9DAC-CDF69F74175F}';
     cBranchesDlgID :TGUID = '{6204962D-3F32-4D81-A39C-79D0E9315328}';
     cChangesDlgID  :TGUID = '{5CA77CA6-0BF6-4CE2-985A-452B723B3C7D}';
+    cCommitDlgID   :TGUID = '{12932964-B147-49ED-8E24-BCDEB8BDB769}';
 
   const
     cGitRoot = 'GIT:';
@@ -47,6 +48,8 @@ interface
     cBranchNameHistory = 'GitShell.BranchName';
     cDiffNamesHistory = 'GitShell.DiffNames';
     cCommitMessageHistory = 'GitShell.CommitMessage';
+    cUserNameHistory = 'GitShell.UserName';
+    cEmailHistory = 'GitShell.Email';
 
   var
     optHistSortMode  :Integer = 0;
@@ -145,7 +148,7 @@ interface
 //  optHiddenColor   := MakeColor(clGray, 0);
     optFoundColor    := MakeColor(clLime, 0);
     optGroupColor    := MakeColor(clYellow, 0);
-    optSelectedColor := UndefColor;
+    optSelectedColor := MakeColor(0, clGreen);
 
     optModColor      := MakeColor(clMaroon, 0);
     optAddColor      := MakeColor(clLime, 0);
@@ -175,7 +178,7 @@ interface
 
         ColorValue('TitleColor', optTitleColor);
         ColorValue('GroupColor', optGroupColor);
-        ColorValue('SelectedColor', optSelectedColor);
+        ColorValue('SelColor', optSelectedColor);
         ColorValue('FoundColor', optFoundColor);
         ColorValue('ModifiedfColor', optModColor);
         ColorValue('AddedColor', optAddColor);
