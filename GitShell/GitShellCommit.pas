@@ -10,6 +10,7 @@ interface
     MixUtils,
     MixStrings,
     MixClasses,
+    MixWinUtils,
     MixFormat,
 
     Far_API,
@@ -54,11 +55,8 @@ interface
       function DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; override;
 
     private
-      FGrid1      :TFarGrid;
-      FGrid2      :TFarGrid;
-
-      FFilter1    :TListFilter;
-      FFilter2    :TListFilter;
+      FGrid       :array[1..2] of TFarGrid;
+      FFilter     :array[1..2] of TListFilter;
 
       FRepo       :TGitRepository;
       FStatus     :TGitWorkdirStatus;
@@ -70,6 +68,7 @@ interface
 
       procedure ResizeDialog;
 
+      function GetCurGridN :Integer;
       function GetCurGrid :TFarGrid;
       function GetColumStr(ADiff :TGitDiffFile; AColTag :Integer) :TString;
       function GetDiff(ASender :TFarGrid; ARow :Integer; IsGroup :PBoolean = nil; aRaise :boolean = False) :TGitDiffFile;
@@ -78,8 +77,10 @@ interface
       procedure OptionsMenu;
 
       procedure Commit;
+      procedure GotoFile(aClose :Boolean);
       procedure ShowDiff(AEdit :Boolean);
       procedure StageUnstage;
+      procedure Revert;
       procedure ReRead;
     end;
 
@@ -111,17 +112,17 @@ interface
   constructor TCommitListDlg.Create; {override;}
   begin
     inherited Create;
-    FFilter1 := TListFilter.Create;
-    FFilter2 := TListFilter.Create;
+    FFilter[1] := TListFilter.Create;
+    FFilter[2] := TListFilter.Create;
   end;
 
 
   destructor TCommitListDlg.Destroy; {override;}
   begin
-    FreeObj(FGrid1);
-    FreeObj(FGrid2);
-    FreeObj(FFilter1);
-    FreeObj(FFilter2);
+    FreeObj(FGrid[1]);
+    FreeObj(FGrid[2]);
+    FreeObj(FFilter[1]);
+    FreeObj(FFilter[2]);
     inherited Destroy;
   end;
 
@@ -147,17 +148,17 @@ interface
       @FItemCount
     );
 
-    FGrid1 := TFarGrid.CreateEx(Self, IdList1);
-    FGrid1.Options := [goRowSelect {, goFollowMouse} {,goWheelMovePos} ];
-    FGrid1.OnGetCellText := GridGetDlgText;
-    FGrid1.OnGetCellColor := GridGetCellColor;
-    FGrid1.OnPaintCell := GridPaintCell;
+    FGrid[1] := TFarGrid.CreateEx(Self, IdList1);
+    FGrid[1].Options := [goRowSelect {, goFollowMouse} {,goWheelMovePos} ];
+    FGrid[1].OnGetCellText := GridGetDlgText;
+    FGrid[1].OnGetCellColor := GridGetCellColor;
+    FGrid[1].OnPaintCell := GridPaintCell;
 
-    FGrid2 := TFarGrid.CreateEx(Self, IdList2);
-    FGrid2.Options := [goRowSelect {, goFollowMouse} {,goWheelMovePos} ];
-    FGrid2.OnGetCellText := GridGetDlgText;
-    FGrid2.OnGetCellColor := GridGetCellColor;
-    FGrid2.OnPaintCell := GridPaintCell;
+    FGrid[2] := TFarGrid.CreateEx(Self, IdList2);
+    FGrid[2].Options := [goRowSelect {, goFollowMouse} {,goWheelMovePos} ];
+    FGrid[2].OnGetCellText := GridGetDlgText;
+    FGrid[2].OnGetCellColor := GridGetCellColor;
+    FGrid[2].OnPaintCell := GridPaintCell;
   end;
 
 
@@ -187,7 +188,7 @@ interface
       vWidth := vSize.CX - 4;
     vWidth := IntMax(vWidth, cDlgMinWidth);
 
-    FMenuMaxHeight := IntMax(FMenuMaxHeight, IntMax(FGrid1.RowCount, FGrid2.RowCount));
+    FMenuMaxHeight := IntMax(FMenuMaxHeight, IntMax(FGrid[1].RowCount, FGrid[2].RowCount));
 
     vHeight := IntMax(FMenuMaxHeight, 1) + 5;
     if vHeight > vSize.CY - 2 then
@@ -209,11 +210,11 @@ interface
 
     vRect1 := SRect(vRect.Left, vRect.Top + 1, vCenter - 1, vRect.Bottom);
     SendMsg(DM_SETITEMPOSITION, IdList1, @vRect1);
-    FGrid1.UpdateSize(vRect1.Left, vRect1.Top, vRect1.Right - vRect1.Left + 1, vRect1.Bottom - vRect1.Top + 1);
+    FGrid[1].UpdateSize(vRect1.Left, vRect1.Top, vRect1.Right - vRect1.Left + 1, vRect1.Bottom - vRect1.Top + 1);
 
     vRect1 := SRect(vCenter + 1, vRect.Top + 1, vRect.Right, vRect1.Bottom);
     SendMsg(DM_SETITEMPOSITION, IdList2, @vRect1);
-    FGrid2.UpdateSize(vRect1.Left, vRect1.Top, vRect1.Right - vRect1.Left + 1, vRect1.Bottom - vRect1.Top + 1);
+    FGrid[2].UpdateSize(vRect1.Left, vRect1.Top, vRect1.Right - vRect1.Left + 1, vRect1.Bottom - vRect1.Top + 1);
 
     vRect1 := SRect(vCenter, vRect.Top + 1, vCenter, vRect1.Bottom);
     SendMsg(DM_SETITEMPOSITION, IdLineV, @vRect1);
@@ -286,7 +287,7 @@ interface
         if optCommitGroups then
           if (vDiff.Path <> vLastFolder) or (vCount = 0) then begin
             vMaxLen1 := IntMax(vMaxLen1, Length(vDiff.Path));
-            aFilter.Add(I, $FFFF, 0);
+            aFilter.Add(I, 0, 0, cSelGroup);
             vLastFolder := vDiff.Path;
             Inc(vCount);
           end;
@@ -311,21 +312,21 @@ interface
   begin
     vMaxLen1 := 0;
 
-    LocFilter(FFilter1, FStatus.Unstaged);
-    LocFilter(FFilter2, FStatus.Staged);
+    LocFilter(FFilter[1], FStatus.Unstaged);
+    LocFilter(FFilter[2], FStatus.Staged);
 
 //    if optHistSortMode <> 0 then
 //      FFilter.SortList(True, optHistSortMode);
 
-    FGrid1.ResetSize;
-    FGrid1.Columns.FreeAll;
+    FGrid[1].ResetSize;
+    FGrid[1].Columns.FreeAll;
     if True then
-      FGrid1.Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(strName), 0{vMaxLen1+2}, taLeftJustify, [coColMargin, coOwnerDraw], 1) );
+      FGrid[1].Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(strName), 0{vMaxLen1+2}, taLeftJustify, [coColMargin, coOwnerDraw], 1) );
 
-    FGrid2.ResetSize;
-    FGrid2.Columns.FreeAll;
+    FGrid[2].ResetSize;
+    FGrid[2].Columns.FreeAll;
     if True then
-      FGrid2.Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(strName), 0{vMaxLen1+2}, taLeftJustify, [coColMargin, coOwnerDraw], 1) );
+      FGrid[2].Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(strName), 0{vMaxLen1+2}, taLeftJustify, [coColMargin, coOwnerDraw], 1) );
 
 ////  FGrid.Column[0].MinWidth := IntMin(vMaxLen2, 15);
 //    for I := 0 to FGrid.Columns.Count - 1 do
@@ -353,11 +354,11 @@ interface
 
     FMenuMaxWidth := (vMaxLen1 + 2) * 2  + 1;
 
-    FGrid1.RowCount := FFilter1.Count;
-    FGrid1.GotoLocation(FGrid1.CurCol, FGrid1.CurRow, lmScroll);
+    FGrid[1].RowCount := FFilter[1].Count;
+    FGrid[1].GotoLocation(FGrid[1].CurCol, FGrid[1].CurRow, lmScroll);
 
-    FGrid2.RowCount := FFilter2.Count;
-    FGrid2.GotoLocation(FGrid2.CurCol, FGrid2.CurRow, lmScroll);
+    FGrid[2].RowCount := FFilter[2].Count;
+    FGrid[2].GotoLocation(FGrid[2].CurCol, FGrid[2].CurRow, lmScroll);
 
     SendMsg(DM_ENABLEREDRAW, 0, 0);
     try
@@ -382,13 +383,18 @@ interface
   end;
 
 
+  function TCommitListDlg.GetCurGridN :Integer;
+  begin
+    if SendMsg(DM_GETFOCUS, 0, 0) = IDList1 then
+      Result := 1
+    else
+      Result := 2;
+  end;
+
+
   function TCommitListDlg.GetCurGrid :TFarGrid;
   begin
-    Result := nil;
-    case SendMsg(DM_GETFOCUS, 0, 0) of
-      IDList1: Result := FGrid1;
-      IDList2: Result := FGrid2;
-    end;
+    Result := FGrid[GetCurGridN];
   end;
 
 
@@ -399,19 +405,19 @@ interface
     vList :TObjList;
     vFilter :TListFilter;
   begin
-    if ASender = FGrid1 then begin
+    if ASender = FGrid[1] then begin
       vList := FStatus.Unstaged;
-      vFilter := FFilter1;
+      vFilter := FFilter[1];
     end else
     begin
       vList := FStatus.Staged;
-      vFilter := FFilter2;
+      vFilter := FFilter[2];
     end;
 
     Result := nil;
     if (ARow >= 0) and (ARow < vFilter.Count) then begin
       vRec := PFilterRec(vFilter.PItems[ARow]);
-      vIsGroup := vRec.FPos = $FFFF;
+      vIsGroup := vRec.FSel and cSelGroup <> 0;
       if not vIsGroup or (IsGroup <> nil) then
         Result := vList[vRec.FIdx];
       if IsGroup <> nil then
@@ -434,10 +440,23 @@ interface
 
 
   procedure TCommitListDlg.GridGetCellColor(ASender :TFarGrid; ACol, ARow :Integer; var AColor :TFarColor); {override;}
+  var
+    vGrid :Integer;
+    vRec :PFilterRec;
   begin
-    if ASender = GetCurGrid then
-      {}
-    else
+    if ASender = GetCurGrid then begin
+      vGrid := IntIf(ASender = FGrid[1], 1, 2);
+      if ARow < FFilter[vGrid].Count then begin
+        vRec := FFilter[vGrid].PItems[ARow];
+        if ACol = -1 then begin
+          AColor := ASender.NormColor;
+          if vRec.FSel and cSelSeleted <> 0 then
+            AColor := optSelectedColor;
+          if (ASender.CurRow = ARow) and (ASender.CurCol = 0) then
+            AColor := ASender.SelColor;
+        end;
+      end;
+    end else
       AColor := ASender.NormColor;
   end;
 
@@ -548,6 +567,33 @@ interface
   end;
 
 
+  procedure TCommitListDlg.GotoFile(aClose :Boolean);
+  var
+    vGrid :TFarGrid;
+    vDiff :TGitDiffFile;
+    vIsGroup :Boolean;
+    vName, vPath :TString;
+  begin
+    vGrid := GetCurGrid;
+    vDiff := GetDiff(vGrid, vGrid.CurRow, @vIsGroup);
+    if vDiff <> nil then begin
+      vName := AddFileName(FRepo.WorkDir, vDiff.FileName);
+      vPath := ExtractFilePath(vName, True);
+      if WinFolderExists(vPath) then begin
+        FarPanelJumpToPath(True, vPath);
+        if not vIsGroup and (vDiff.Status <> dfDeleted) then
+          FarPanelSetCurrentItem(True, ExtractFileName(vName));
+        if aClose then begin
+          CloseMainMenu := True;
+          Close;
+        end;
+      end else
+        Beep;
+    end else
+      Beep;
+  end;
+
+
 
   procedure TCommitListDlg.ShowDiff(AEdit :Boolean);
   var
@@ -564,19 +610,19 @@ interface
         if vDiff.Status = dfChanged then begin
           vVCAPI := GetVisualCompareAPI;
 
-          vFileName1 := AddFileName(AddFileName('HEAD:', vDiff.Path), vDiff.Name);
+          vFileName1 := AddFileName('HEAD:', vDiff.FileName);
           vFileName1 := FRepo.GetFileRevision(vFileName1);
 
-          vFileName2 := AddFileName(AddFileName(FRepo.WorkDir, vDiff.Path), vDiff.Name);
+          vFileName2 := AddFileName(FRepo.WorkDir, vDiff.FileName);
 
           vVCAPI.CompareFiles(PWideChar(vFileName1), PWideChar(vFileName2), 0);
         end else
         if vDiff.Status = dfAdded then begin
-          vFileName2 := AddFileName(AddFileName(FRepo.WorkDir, vDiff.Path), vDiff.Name);
+          vFileName2 := AddFileName(FRepo.WorkDir, vDiff.FileName);
           FarEditOrView(vFileName2, AEdit);
         end else
         if vDiff.Status = dfDeleted then begin
-          vFileName1 := AddFileName(AddFileName('HEAD:', vDiff.Path), vDiff.Name);
+          vFileName1 := AddFileName('HEAD:', vDiff.FileName);
           vFileName1 := FRepo.GetFileRevision(vFileName1);
           FarEditOrView(vFileName1, AEdit);
         end else
@@ -603,13 +649,56 @@ interface
       else
         vName := vDiff.FileName;
 
-      if vGrid = FGrid1 then
+      if vGrid = FGrid[1] then
         FRepo.IndexAddAll(vName)
       else
         FRepo.IndexReset(vName);
 
       ReRead;
     end;
+  end;
+
+
+
+  procedure TCommitListDlg.Revert;
+  var
+    vGrid :TFarGrid;
+    vDiff :TGitDiffFile;
+    vIsGroup :Boolean;
+    vRevName, vName :TString;
+  begin
+    vGrid := GetCurGrid;
+    vDiff := GetDiff(vGrid, vGrid.CurRow, @vIsGroup);
+    if (vDiff <> nil) and (vGrid = FGrid[1]) then begin
+      if vIsGroup then
+        Sorry;
+
+      if vDiff.Status = dfAdded then begin
+        if ShowMessageBut(GetMsgStr(strDeleteTitle), Format(GetMsgStr(strDeleteFile), [vDiff.FileName]), [GetMsgStr(strDeleteBut),  GetMsgStr(strCancel)], FMSG_WARNING) <> 0 then
+          Exit;
+
+        vName := AddFileName(FRepo.WorkDir, vDiff.FileName);
+        DeleteFile(vName, True);
+      end else
+      if vDiff.Status = dfChanged then begin
+        if ShowMessageBut(GetMsgStr(strRestoreTitle), Format(GetMsgStr(strRestoreFile), [vDiff.FileName]), [GetMsgStr(strRestoreBut),  GetMsgStr(strCancel)], FMSG_WARNING) <> 0 then
+          Exit;
+
+        vRevName := AddFileName('HEAD:', vDiff.FileName);
+        vName := AddFileName(FRepo.WorkDir, vDiff.FileName);
+        FRepo.WriteFileRevisionTo(vRevName, vName, False);
+      end else
+      if vDiff.Status = dfDeleted then begin
+        if ShowMessageBut(GetMsgStr(strRestoreTitle), Format(GetMsgStr(strRestoreFile), [vDiff.FileName]), [GetMsgStr(strRestoreBut),  GetMsgStr(strCancel)], FMSG_WARNING) <> 0 then
+          Exit;
+
+        vRevName := AddFileName('HEAD:', vDiff.FileName);
+        vName := AddFileName(FRepo.WorkDir, vDiff.FileName);
+        FRepo.WriteFileRevisionTo(vRevName, vName, True);
+      end;
+      ReRead;
+    end else
+      Beep;
   end;
 
 
@@ -628,12 +717,77 @@ interface
 
 
   function TCommitListDlg.KeyDown(AID :Integer; AKey :Integer) :Boolean; {override;}
+
+    procedure LocSetCheck(aGrid, aIndex :Integer; ASetOn :Integer);
+    var
+      vRec :PFilterRec;
+      vOldOn :Boolean;
+    begin
+      vRec := FFilter[aGrid].PItems[AIndex];
+      if (vRec.FIdx < 0) or (vRec.FSel and cSelGroup <> 0) then
+        Exit;
+
+      vOldOn := vRec.FSel and cSelSeleted <> 0;
+      if ASetOn = -1 then
+        ASetOn := IntIf(vOldOn, 0, 1);
+      if ASetOn = 1 then
+        vRec.FSel := vRec.FSel or cSelSeleted
+      else
+        vRec.FSel := vRec.FSel and not cSelSeleted;
+(*    if vOldOn then
+        Dec(FSelCount);
+      if ASetOn = 1 then
+        Inc(FSelCount); *)
+    end;
+
+
+    procedure LocSelectCurrent;
+    var
+      vGrid, vIndex :Integer;
+    begin
+      vGrid := GetCurGridN;
+      vIndex := FGrid[vGrid].CurRow;
+      if vIndex = -1 then
+        Exit;
+      LocSetCheck(vGrid, vIndex, -1);
+      if vIndex < FGrid[vGrid].RowCount - 1 then
+        FGrid[vGrid].GotoLocation(FGrid[vGrid].CurCol, vIndex + 1, lmScroll);
+      UpdateHeader;
+    end;
+
+
+    procedure LocSelectAll(AFrom :Integer; ASetOn :Integer);
+    var
+      I, vGrid :Integer;
+    begin
+      vGrid := GetCurGridN;
+      for I := AFrom to FGrid[vGrid].RowCount - 1 do
+        LocSetCheck(vGrid, I, ASetOn);
+      UpdateHeader;
+      SendMsg(DM_REDRAW, 0, 0);
+    end;
+
+
   begin
     Result := True;
     try
       case AKey of
         KEY_ENTER:
           Commit;
+
+        KEY_INS:
+          LocSelectCurrent;
+        KEY_CTRLADD, KEY_CTRLA:
+          LocSelectAll(0, 1);
+        KEY_CTRLSUBTRACT:
+          LocSelectAll(0, 0);
+        KEY_CTRLMULTIPLY:
+          LocSelectAll(0, -1);
+
+        KEY_CTRLPGDN:
+          GotoFile(True);
+        KEY_CTRLSHIFTPGDN:
+          GotoFile(False);
 
         KEY_CTRLR:
           ReRead;
@@ -646,13 +800,8 @@ interface
           ShowDiff(True);
         KEY_F5:
           StageUnstage;
-
-  //      KEY_F6:
-  //        RenameBranch;
-  //      KEY_F7:
-  //        CreateBranch;
-  //      KEY_F8:
-  //        DeleteBranch;
+        KEY_F8:
+          Revert;
 
         KEY_F9:
           OptionsMenu;
@@ -685,8 +834,8 @@ interface
 
       DN_RESIZECONSOLE: begin
         ResizeDialog;
-        FGrid1.GotoLocation(FGrid1.CurCol, FGrid1.CurRow, lmScroll);
-        FGrid2.GotoLocation(FGrid2.CurCol, FGrid2.CurRow, lmScroll);
+        FGrid[1].GotoLocation(FGrid[1].CurCol, FGrid[1].CurRow, lmScroll);
+        FGrid[2].GotoLocation(FGrid[2].CurCol, FGrid[2].CurRow, lmScroll);
       end;
 
     else

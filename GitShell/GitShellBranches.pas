@@ -234,7 +234,7 @@ interface
       FFilter.Add(I, vPos, vFndLen);
 
       vMaxLen1 := IntMax(vMaxLen1, Length(vBranch.Name) + 2);
-      if optShowID > 0 then
+      if optBranchShowID > 0 then
         vMaxLen2 := IntMax(vMaxLen2, Length(vBranch.IDStr));
 
       Inc(vCount);
@@ -248,7 +248,7 @@ interface
     FGrid.Columns.FreeAll;
     if True then
       FGrid.Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(strName), vMaxLen1+2, taLeftJustify, [coColMargin, coOwnerDraw], 1) );
-    if optShowID > 0 then
+    if optBranchShowID > 0 then
       FGrid.Columns.Add( TColumnFormat.CreateEx('', GetMsgStr(strID), vMaxLen2+2, taLeftJustify, [coColMargin, coOwnerDraw], 2) );
 
 //  FGrid.Column[0].MinWidth := IntMin(vMaxLen2, 15);
@@ -586,7 +586,7 @@ interface
         DeleteBranch;
 
       KEY_CTRL2:
-        LocToggleOptionInt(optShowID, IntIf(optShowID < 2, optShowID + 1, 0));
+        LocToggleOptionInt(optBranchShowID, IntIf(optBranchShowID < 2, optBranchShowID + 1, 0));
 
 //    KEY_CTRLF1, KEY_CTRLSHIFTF1:
 //      SetOrder(1);

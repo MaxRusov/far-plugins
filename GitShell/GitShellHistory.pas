@@ -709,7 +709,7 @@ interface
 
       KEY_INS:
         LocSelectCurrent;
-      KEY_CTRLADD:
+      KEY_CTRLADD, KEY_CTRLA:
         LocSelectAll(0, 1);
       KEY_CTRLSUBTRACT:
         LocSelectAll(0, 0);

@@ -62,6 +62,8 @@ interface
     optShowEmail     :Integer = 0;
     optShowID        :Integer = 0;
 
+    optBranchShowID  :Integer = 0;
+
     optCommitGroups  :boolean = True;
 
 //  optDlgColor      :TFarColor;

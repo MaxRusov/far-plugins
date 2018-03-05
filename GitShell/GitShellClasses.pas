@@ -162,6 +162,7 @@ interface
       function GetCurrentBranchName :TString;
       function GetTempFolder :TString;
 
+      function WriteFileRevisionTo(const aFileRev, aFileName :TString; aMakeFolder :Boolean) :Boolean;
       function GetFileRevision(const aFileRev :TString) :TString;
       procedure DeleteTempFiles;
 
@@ -194,6 +195,8 @@ interface
     ShowCommitDlg :function(ARepo :TGitRepository; var ADirStatus :TGitWorkdirStatus) :Boolean;
     ShowInfoDlg :function(ARepo :TGitRepository; const ATitle :TString; const AInfo :array of TString) :Boolean;
 
+  var
+    CloseMainMenu :Boolean;
 
   const
     cOIDStrLen = GIT_OID_HEXSZ;
@@ -227,9 +230,9 @@ interface
       GIT_EAMBIGUOUS    : vMess := 'More than one object matches';
       GIT_EINVALIDSPEC  : vMess := 'Name/ref spec was not in a valid format';
       GIT_ECONFLICT     : vMess := 'Checkout conflicts prevented operation';
-    else
-      vMess := 'GIT Error ' + Int2Str(aCode);
+      GIT_EINVALID      : vMess := 'Invalid operation or input';
     end;
+    vMess := AppendStrCh('GIT Error ' + Int2Str(aCode), vMess, ':'#10);
     AppError(vMess);
   end;
 
@@ -239,7 +242,7 @@ interface
     vPath :TString;
   begin
     try
-      vPath := ExtractFilePath(FARAPI.ModuleName);
+      vPath := ExtractFilePath(FARAPI.ModuleName, True);
       SetDllDirectory(PTChar(vPath));
       try
         InitLibgit2;
@@ -264,6 +267,15 @@ interface
 //      Result := buf;
 //    end;
 //  end;
+
+
+//  procedure FolderNeeded(const aPath :TString);
+//  begin
+//    if not WinFolderExists(aPath) then
+//      if not CreateDir(aPath) then
+//        RaiseLastWin32Error;
+//  end;
+
 
 
   procedure SaveBuffer(const AFileName :TString; const ABuf; BufSize :TInt64);
@@ -538,6 +550,7 @@ interface
     vAStr :TAnsiStr;
   begin
     Result := '';
+    vObj := nil;
     if git_object_lookup(vObj, FRepo, @aOID, GIT_OBJ_ANY) = 0 then begin
       FillZero(vBuf, SizeOf(TGitBuf));
       try
@@ -594,48 +607,9 @@ interface
   begin
     if FTempDir = '' then begin
       FTempDir := AddFileName(StrGetTempPath, cTmpFolder);
-      if not WinFolderExists(FTempDir) then
-        if not CreateDir(FTempDir) then
-          RaiseLastWin32Error;
+      CreateFolders(FTempDir, True);
     end;
     Result := FTempDir;
-  end;
-
-
-  function TGitRepository.GetFileRevision(const aFileRev :TString) :TString;
-  var
-    vName :TString;
-    vObj :PGitObject;
-    vObjType :Integer;
-    vSize :TInt64;
-    vContent :PAnsiChar;
-  begin
-    Result := '';
-    vName := StrReplaceChars(aFileRev, ['\'], '/');
-    if git_revparse_single(vObj, FRepo, PAnsiChar(WideToUTF8(vName))) <> 0 then
-      Exit;
-    try
-      vObjType := git_object_type(vObj);
-      if vObjType <> GIT_OBJ_BLOB then
-        Exit;
-
-      vSize := git_blob_rawsize(vObj);
-      vContent := pointer(git_blob_rawcontent(vObj));
-
-      vName := AddFilename(GetTempFolder, ExtractWord(1, aFileRev, [':']));
-      if not WinFolderExists(vName) then
-        if not CreateDir(vName) then
-          RaiseLastWin32Error;
-
-      vName := AddFilename(vName, ExtractFileName(aFileRev));
-      SaveBuffer(vName, vContent^, vSize);
-
-      FTempFiles.AddSorted(vName, 0, dupIgnore);
-
-      Result := vName;
-    finally
-      git_object_free(vObj);
-    end;
   end;
 
 
@@ -647,12 +621,66 @@ interface
     for i := 0 to FTempFiles.Count - 1 do begin
       vName := FTempFiles[i];
       if DeleteFile(vName) then begin
-        vName := RemoveBackSlash(ExtractFilePath(vName));
+        vName := ExtractFilePath(vName, True);
         if FolderIsEmpty(vName) then
           RemoveDir(vName);
       end;
     end;
     FTempFiles.Clear;
+
+    if FTempDir <> '' then begin
+      if FolderIsEmpty(FTempDir) then begin
+        RemoveDir(FTempDir);
+        FTempDir := '';
+      end;
+    end;
+  end;
+
+
+  function TGitRepository.WriteFileRevisionTo(const aFileRev, aFileName :TString; aMakeFolder :Boolean) :Boolean;
+  var
+    vRes :Integer;
+    vObj :PGitObject;
+    vObjType :Integer;
+    vSize :TInt64;
+    vContent :PAnsiChar;
+  begin
+    vRes := git_revparse_single(vObj, FRepo, PAnsiChar(FileToGit(aFileRev)));
+    GitCheck(vRes);
+//  if vRes <> 0 then
+//    Exit;
+    try
+      vObjType := git_object_type(vObj);
+      if vObjType <> GIT_OBJ_BLOB then
+        GitCheck(GIT_ENOTFOUND);
+//      Exit;
+
+      vSize := git_blob_rawsize(vObj);
+      vContent := pointer(git_blob_rawcontent(vObj));
+
+      if aMakeFolder then
+        CreateFolders( ExtractFilePath(aFileName, True), True );
+
+      SaveBuffer(aFileName, vContent^, vSize);
+      Result := True;
+    finally
+      git_object_free(vObj);
+    end;
+  end;
+
+
+  function TGitRepository.GetFileRevision(const aFileRev :TString) :TString;
+  var
+    vName :TString;
+  begin
+    Result := '';
+
+    vName := AddFilename(AddFilename(GetTempFolder, ExtractWord(1, aFileRev, [':'])), ExtractFileName(aFileRev));
+
+    if WriteFileRevisionTo(aFileRev, vName, True) then begin
+      FTempFiles.AddSorted(vName, 0, dupIgnore);
+      Result := vName;
+    end;
   end;
 
 
@@ -1370,7 +1398,9 @@ interface
       try
         FillZero(vOpts, Sizeof(vOpts));
         vOpts.version := 1;
+        vOpts.flags := GIT_DIFF_IGNORE_CASE;
         vOpts.ignore_submodules := uint(-1);
+        vOpts.context_lines := 3;
 
         if AFolder <> '' then begin
           vPath := Copy(AFolder, Length(FWorkDir) + 1, MaxInt);

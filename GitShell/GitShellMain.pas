@@ -32,16 +32,15 @@ interface
 
   * Управление через командную строку
 
-  * Диалог Commit'а
-    - Merge Commit
-
   * Диалог Pre-Commit:
+    * Revert changes
+    * Групповые действия
+      + Выделение
+      - Stage/Unstage
+      - Revert changes
     - Сравнение веток через VC
-    - Revert changes
-    - Переход в файлу
     - Столбец размера
     - Фильтрация
-    - Групповые действия
     - Улучшить позиционированпе при Stage/Unstage
 
   * Диалог истории
@@ -60,6 +59,8 @@ interface
     - Убрать лишние имена в дереве сравнения
     - Сравнение без создания файлов?
 
+  - Merge Commit
+
   - Callback'и для длительных операций
 
   - Диалог General Settings
@@ -75,6 +76,7 @@ interface
   + Удаление временных файлов
 
   * Диалог Pre-Commit:
+    + Переход в файлу
     + Строки в ресурсы
     + Простой сommit
     + Выглядит некрасиво при 0 файлов
@@ -205,7 +207,7 @@ interface
     Result:= INVALID_HANDLE_VALUE;
     ReadSetup;
 //  ShellMenu;
-    RunCommand(AStr);
+    RunCommand(Trim(AStr));
   end;
 
 
@@ -285,54 +287,67 @@ interface
   end;
 
 
-
   procedure TGitShellPlug.ShellMenu;
   var
     vPath :TString;
     vMenu :TFarMenu;
+    vRes :Integer;
   begin
     vPath := FarGetCurrentDirectory;
     InitRepo(vPath);
-
-    vMenu := TFarMenu.CreateEx(
-      GetMsg(strTitle),
-    [
-      PTChar(GetMsg(strMBranch) + ': ' + FRepo.GetCurrentBranchName),
-      GetMsg(strMDiff),
-      GetMsg(strMHistory),
-      GetMsg(strMCommit),
-      GetMsg(strMPush),
-      GetMsg(strMPull),
-      GetMsg(strMInfo),
-      '',
-      GetMsg(strMOptions)
-    ]);
     try
-      vMenu.Help := 'MainMenu';
-      vMenu.SetSelected(vMenu.ResIdx);
 
-      vMenu.Enabled[4] := False;
-      vMenu.Enabled[5] := False;
+      vRes := 0;
+      CloseMainMenu := False;
+      while not CloseMainMenu do begin
 
-      if not vMenu.Run then
-        Exit;
+        vMenu := TFarMenu.CreateEx(
+          GetMsg(strTitle),
+        [
+          PTChar(GetMsg(strMBranch) + ': ' + FRepo.GetCurrentBranchName),
+          GetMsg(strMDiff),
+          GetMsg(strMHistory),
+          GetMsg(strMCommit),
+          GetMsg(strMPush),
+          GetMsg(strMPull),
+          GetMsg(strMInfo),
+          '',
+          GetMsg(strMOptions)
+        ]);
+        try
+          vMenu.Help := 'MainMenu';
+          vMenu.SetSelected(vMenu.ResIdx);
 
-      case vMenu.ResIdx of
-        0: FRepo.ShowBranches;
-        1: FRepo.ShowDiff('');
-        2: FRepo.ShowHistory(vPath);
-        3: FRepo.PrepareCommit(vPath);
-        4: Sorry;
-        5: Sorry;
-        6: FRepo.ShowInfo;
-        7: {---};
-        8: OptionsMenu;
+          vMenu.Enabled[4] := False;
+          vMenu.Enabled[5] := False;
+
+          vMenu.SetSelected(vRes);
+
+          if not vMenu.Run then
+            Exit;
+
+          vRes := vMenu.ResIdx;
+          case vRes of
+            0: FRepo.ShowBranches;
+            1: FRepo.ShowDiff('');
+            2: FRepo.ShowHistory(vPath);
+            3: FRepo.PrepareCommit(vPath);
+            4: Sorry;
+            5: Sorry;
+            6: FRepo.ShowInfo;
+            7: {---};
+            8: OptionsMenu;
+          end;
+
+        finally
+          FreeObj(vMenu);
+        end;
+
       end;
 
     finally
-//    FRepo.DeleteTempFiles;
+      FRepo.DeleteTempFiles;
       FreeObj(FRepo);
-      FreeObj(vMenu);
     end;
   end;
 

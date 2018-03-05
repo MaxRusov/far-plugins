@@ -3,7 +3,7 @@
         <ProjectGuid>{f2359fd4-f768-4b44-9e88-7100fa5b926b}</ProjectGuid>
         <MainSource>GitShell.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Library</AppType>
         <FrameworkType>None</FrameworkType>

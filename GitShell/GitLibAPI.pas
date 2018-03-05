@@ -1,5 +1,7 @@
 {$I Defines.inc}
 
+{$ALIGN ON}
+
 unit GitLibAPI;
 
 interface
@@ -15,7 +17,7 @@ type
    int        = integer;
    uint32_t   = uint;
    uint16_t   = SHORT;
-   size_t     = LongWord;
+   size_t     = UIntPtr; //LongWord;
    time_t     = Int64;
    off_t      = Int64;
    git_off_t  = Int64;  //typedef __int64 git_off_t;
