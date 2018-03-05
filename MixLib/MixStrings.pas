@@ -137,7 +137,7 @@ interface
   function ExtractFileTitle(const FileName :TString) :TString;
   function ExtractFileExtension(const FileName :TString) :TString;
   function ExtractFileName(const FileName :TString) :TString;
-  function ExtractFilePath(const FileName :TString) :TString;
+  function ExtractFilePath(const FileName :TString; aRemoveBackSlash :Boolean = False) :TString;
   function ExtractFileDrive(const FileName :TString) :TString;
   function ChangeFileExtension(const FileName, Extension :TString) :TString;
   function SafeChangeFileExtension(const FileName, Extension :TString) :TString;
@@ -1593,11 +1593,13 @@ interface
   end;
 
 
-  function ExtractFilePath(const FileName :TString) :TString;
+  function ExtractFilePath(const FileName :TString; aRemoveBackSlash :Boolean = False) :TString;
   var
     I: Integer;
   begin
     I := LastDelimiter('\:', FileName);
+    if aRemoveBackSlash and (I > 0) and (I < length(FileName)) and (FileName[I] = '\') then
+      Dec(I);
     Result := Copy(FileName, 1, I);
   end;
 

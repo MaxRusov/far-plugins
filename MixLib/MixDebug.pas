@@ -1,5 +1,10 @@
 {$I Defines.inc}
 
+{$ifdef bDelphi}
+ {-$Define DebugInfo}
+ {$ifdef DebugInfo} {$D+,L+,Y+} {$else} {$D-} {$endif}
+{$endif bDelphi}
+
 unit MixDebug;
 
 interface

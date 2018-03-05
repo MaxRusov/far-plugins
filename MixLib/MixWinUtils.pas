@@ -52,6 +52,7 @@ interface
   function WinFolderExists(const AFolderName :TString) :Boolean;
   function WinFolderNotEmpty(const aFolderName :TString) :Boolean;
 
+  function CreateFolders(const APath :TString; aRaise :Boolean = False) :Boolean;
 
  {-----------------------------------------------------------------------------}
 
@@ -373,6 +374,31 @@ interface
         end;
       end;
     end;
+  end;
+
+
+
+  function CreateFolders(const APath :TString; aRaise :Boolean = False) :Boolean;
+  var
+    vDrive :TString;
+
+    function LocCreate(const APath :TString) :Boolean;
+    begin
+      Result := True;
+      if (APath = '') or (vDrive = APath) or WinFolderExists(APath) then
+        Exit;
+      Result := LocCreate(ExtractFilePath(APath, True));
+      if Result then
+        Result := CreateDir(APath, aRaise);
+    end;
+
+  begin
+    Result := False;
+    vDrive := ExtractFileDrive(APath);
+    if FileNameIsLocal(APath) then
+      vDrive := AddBackSlash(vDrive);
+    if (vDrive = '') or WinFolderExists(vDrive) then
+      Result := LocCreate(APath);
   end;
 
 

@@ -57,6 +57,10 @@ interface
       property Grid :TFarGrid read FGrid;
     end;
 
+  const
+    cSelSeleted  = 1;
+    cSelGroup    = 2;
+    cSelExpanded = 4;
 
   type
     TFilteredListDlg = class;
@@ -73,7 +77,7 @@ interface
     public
       constructor Create; override;
 
-      procedure Add(AIndex, APos, ALen :Integer);
+      procedure Add(AIndex, APos, ALen :Integer; ASel :Integer = 0);
 
       function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
 
@@ -277,14 +281,14 @@ interface
   end;
 
 
-  procedure TListFilter.Add(AIndex, APos, ALen :Integer);
+  procedure TListFilter.Add(AIndex, APos, ALen :Integer; ASel :Integer = 0);
   var
     vRec :TFilterRec;
   begin
     vRec.FIdx := AIndex;
     vRec.FPos := Word(APos);
     vRec.FLen := Byte(ALen);
-    vRec.FSel := 0;
+    vRec.FSel := Byte(ASel);
     AddData(vRec);
   end;
 

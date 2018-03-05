@@ -239,9 +239,9 @@ interface
   function FileSetDate(Handle :THandle; Age: Integer) :Boolean;
   function FileGetAttr(const FileName :TString): Integer;
   function FileSetAttr(const FileName :TString; Attr: Integer) :Boolean;
-  function DeleteFile(const FileName :TString): Boolean;
+  function DeleteFile(const FileName :TString; aRaise :Boolean = False): Boolean;
   function RenameFile(const OldName, NewName :TString): Boolean;
-  function CreateDir(const Dir :TString): Boolean;
+  function CreateDir(const Dir :TString ; aRaise :Boolean = False): Boolean;
   function RemoveDir(const Dir :TString): Boolean;
   function GetCurrentDir :TString;
   function SetCurrentDir(const Dir :TString): Boolean;
@@ -1340,9 +1340,11 @@ interface
   end;
 
 
-  function DeleteFile(const FileName :TString): Boolean;
+  function DeleteFile(const FileName :TString; aRaise :Boolean = False): Boolean;
   begin
     Result := Windows.DeleteFile(PTChar(FileName));
+    if not Result and aRaise then
+      RaiseLastWin32Error;
   end;
 
   function RenameFile(const OldName, NewName :TString): Boolean;
@@ -1351,9 +1353,11 @@ interface
   end;
 
 
-  function CreateDir(const Dir :TString): Boolean;
+  function CreateDir(const Dir :TString; aRaise :Boolean = False) :Boolean;
   begin
     Result := CreateDirectory(PTChar(Dir), nil);
+    if not Result and aRaise then
+      RaiseLastWin32Error;
   end;
 
   function RemoveDir(const Dir :TString): Boolean;
