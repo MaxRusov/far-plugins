@@ -18,8 +18,13 @@ interface
   type
     TNotifyEvent = procedure(Sender: TObject) of object;
 
+  const
+    { TFileStream create mode }
+    fmCreate = $FF00;
+
   type
     TBasisClass = class of TBasis;
+    TStream = class;
 
     PBasis = ^TBasis;
     TBasis = class(TObject)
@@ -63,6 +68,84 @@ interface
 
     public
       property ValidInstance :Boolean read GetValidInstance;
+    end;
+
+
+    TSeekOrigin = (soBeginning, soCurrent, soEnd);
+
+    TStream = class(TBasis)
+    public
+      function Read(var Buffer; Count :Integer) :Integer; overload; virtual; abstract;
+      function Write(const Buffer; Count :Integer) :Integer; overload; virtual; abstract;
+      function Seek(const Offset :Int64; Origin :TSeekOrigin) :Int64; overload; virtual; abstract;
+
+      procedure ReadBuffer(var Buffer; Count :Integer);
+      procedure WriteBuffer(const Buffer; Count :Integer);
+
+    private
+      function GetPosition :Int64;
+      procedure SetPosition(const Pos :Int64);
+
+    protected
+      function GetSize :Int64; virtual;
+      procedure SetSize(const NewSize :Int64); virtual;
+
+    public
+      property Position :Int64 read GetPosition write SetPosition;
+      property Size :Int64 read GetSize write SetSize;
+    end;
+
+
+    TFileStream = class(TStream)
+    public
+      constructor Create(const AFileName :TString; aMode :Word);
+
+      function Read(var Buffer; Count :Integer) :Integer; override;
+      function Write(const Buffer; Count :Integer) :Integer; override;
+      function Seek(const Offset :Int64; Origin :TSeekOrigin) :Int64; override;
+
+    private
+      FHandle   :THandle;
+      FFileName :TString;
+
+    public
+      property FileName :TString read FFileName;
+    end;
+
+
+    TMemStream = class(TStream)
+    public
+      constructor Create(aMem :Pointer; aSize :TIntPtr); overload;
+      destructor Destroy; override;
+
+      procedure Clear;
+
+      function Read(var Buffer; Count :Integer) :Integer; override;
+      function Write(const Buffer; Count :Integer) :Integer; override;
+      function Seek(const Offset :Int64; Origin :TSeekOrigin) :Int64; override;
+
+      procedure SaveToStream(aStream: TStream);
+      procedure LoadFromStream(aStream: TStream);
+      procedure SaveToFile(const aFileName :TString);
+      procedure LoadFromFile(const aFileName :TString);
+
+    protected
+      function GetSize :Int64; override;
+      procedure SetSize(const NewSize :Int64); override;
+      procedure Grow(NewCapacity :TIntPtr); virtual;
+
+    private
+      FMemory   :Pointer;
+      FCapacity :TIntPtr;
+      FSize     :TIntPtr;
+      FPosition :TIntPtr;
+      FReadOnly :Boolean;
+
+      procedure SetCapacity(NewCapacity :TIntPtr);
+
+    public
+      property Memory :Pointer read FMemory;
+      property Capacity :TIntPtr read FCapacity write SetCapacity;
     end;
 
 
@@ -334,9 +417,13 @@ interface
       FObject :TObject;
     end;
 
-    TStringList = class(TObjList)
+    TStringList = class(TExList)
     public
       constructor Create; override;
+
+     {$ifdef bUseAssign}
+      procedure Assign(Source :TBasis); override;
+     {$endif bUseAssign}
 
       function Add(const S :TString) :Integer;
       procedure Insert(AIndex :Integer; const S :TString);
@@ -697,6 +784,265 @@ interface
   function TComBasis.GetInstance :TBasis;
   begin
     Result := Self;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TStream                                                                     }
+ {-----------------------------------------------------------------------------}
+
+  function TStream.GetPosition :Int64;
+  begin
+    Result := Seek(0, soCurrent);
+  end;
+
+
+  procedure TStream.SetPosition(const Pos: Int64);
+  begin
+    Seek(Pos, soBeginning);
+  end;
+
+
+  function TStream.GetSize: Int64; {virtual;}
+  var
+    vPos :Int64;
+  begin
+    vPos := Seek(0, soCurrent);
+    Result := Seek(0, soEnd);
+    Seek(vPos, soBeginning);
+  end;
+
+
+  procedure TStream.SetSize(const NewSize: Int64); {virtual;}
+  begin
+  end;
+
+
+  procedure TStream.ReadBuffer(var Buffer; Count :Integer);
+  begin
+    if (Count <> 0) and (Read(Buffer, Count) <> Count) then
+      AppErrorRes(@SReadError);
+  end;
+
+
+  procedure TStream.WriteBuffer(const Buffer; Count :Integer);
+  begin
+    if (Count <> 0) and (Write(Buffer, Count) <> Count) then
+      AppErrorRes(@SWriteError);
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TFileStream                                                                 }
+ {-----------------------------------------------------------------------------}
+
+  constructor TFileStream.Create(const aFileName :TString; aMode: Word);
+//var
+//  vShareMode: Word;
+  begin
+    if (aMode and fmCreate = fmCreate) then begin
+//    vShareMode := aMode and $FF;
+//    if vShareMode = $FF then
+//      vShareMode := fmShareExclusive; // For compat in case $FFFF passed as aMode
+      FHandle := FileCreate(aFileName {,vShareMode} );
+      if FHandle = INVALID_HANDLE_VALUE then
+        ApiCheck(False); // raise EFCreateError.CreateResFmt(@SFCreateErrorEx, [ExpandFileName(aFileName), SysErrorMessage(GetLastError)]);
+    end else
+    begin
+      FHandle := FileOpen(aFileName, aMode);
+      if FHandle = INVALID_HANDLE_VALUE then
+        ApiCheck(False); // raise EFOpenError.CreateResFmt(@SFOpenErrorEx, [ExpandFileName(aFileName), SysErrorMessage(GetLastError)]);
+    end;
+    FFileName := aFileName;
+  end;
+
+
+  function TFileStream.Read(var Buffer; Count :Integer) :Integer;
+  begin
+    Result := FileRead(FHandle, Buffer, Count);
+    if Result = -1 then
+      Result := 0;
+  end;
+
+
+  function TFileStream.Write(const Buffer; Count :Integer) :Integer;
+  begin
+    Result := FileWrite(FHandle, Buffer, Count);
+    if Result = -1 then
+      Result := 0;
+  end;
+
+
+  function TFileStream.Seek(const Offset :Int64; Origin :TSeekOrigin) :Int64;
+  begin
+    Result := FileSeek(FHandle, Offset, Byte(Origin));
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TMemStream                                                                  }
+ {-----------------------------------------------------------------------------}
+
+  constructor TMemStream.Create(aMem :Pointer; aSize :TIntPtr);
+  begin
+    inherited Create;
+    FMemory   := aMem;
+    FCapacity := aSize;
+    FSize     := aSize;
+    FReadOnly := True;
+  end;
+
+
+  destructor TMemStream.Destroy; {override;}
+  begin
+    Clear;
+    inherited Destroy;
+  end;
+
+
+  procedure TMemStream.Clear;
+  begin
+    if not FReadOnly then
+      MemFree(FMemory);
+    FCapacity := 0;
+    FSize     := 0;
+    FPosition := 0;
+  end;
+
+
+  function TMemStream.Read(var Buffer; Count :Integer) :Integer; {override;}
+  begin
+    Result := 0;
+    if (Count > 0) and (fPosition < fSize) then begin
+      if Count < fSize - fPosition then
+        Result := Count
+      else
+        Result := fSize - fPosition;
+      Move((Pointer1(FMemory) + FPosition)^, Buffer, Result);
+      Inc(fPosition, Result);
+    end;
+  end;
+
+
+  function TMemStream.Write(const Buffer; Count :Integer) :Integer; {override;}
+  begin
+    Result := 0;
+    if Count > 0 then begin
+      if FPosition + Count > FCapacity then
+        Grow(FPosition + Count);
+      Move(Buffer, (Pointer1(FMemory) + FPosition)^, Count);
+      Inc(FPosition, Count);
+      if FPosition > FSize then
+        FSize := FPosition;
+      Result := Count;
+    end;
+  end;
+
+
+  function TMemStream.Seek(const Offset :Int64; Origin :TSeekOrigin) :Int64; {override;}
+  var
+    vNewPos :Int64;
+  begin
+    vNewPos := 0;
+    case Origin of
+      soBeginning : vNewPos := Offset;
+      soCurrent   : vNewPos := FPosition + Offset;
+      soEnd       : vNewPos := FSize + Offset;
+    end;
+    if vNewPos < 0 then
+      vNewPos := 0
+    else
+    if vNewPos > FSize then
+      vNewPos := FSize;
+    FPosition := vNewPos;
+    Result := FPosition;
+  end;
+
+
+  procedure TMemStream.Grow(NewCapacity :TIntPtr); {virtual;}
+  const
+    cGrowDelta = 1024;
+    cSmartStep = 8;
+  begin
+    if NewCapacity > 0 then begin
+      if FCapacity >= cSmartStep * cGrowDelta then
+        NewCapacity := IntMax(FCapacity + FCapacity div cSmartStep, NewCapacity);
+      NewCapacity := (NewCapacity + (cGrowDelta - 1)) and not (cGrowDelta - 1);
+    end;
+    SetCapacity(NewCapacity);
+  end;
+
+
+  procedure TMemStream.SetCapacity(NewCapacity :TIntPtr);
+  begin
+    if NewCapacity <> FCapacity then begin
+      if FReadOnly then
+        Wrong; {raise EStreamError.CreateRes(@SMemoryStreamError)}
+      ReallocMem(FMemory, NewCapacity);
+      FCapacity := NewCapacity;
+    end;
+  end;
+
+
+  function TMemStream.GetSize :Int64; {override;}
+  begin
+    Result := FSize;
+  end;
+
+
+  procedure TMemStream.SetSize(const NewSize :Int64); {override;}
+  begin
+    if NewSize > FCapacity then
+      Grow(NewSize);
+    FSize := NewSize;
+    if FPosition > FSize then
+      FPosition := FSize;
+  end;
+
+
+
+  procedure TMemStream.SaveToStream(aStream: TStream);
+  begin
+    if FSize > 0 then
+      aStream.WriteBuffer(FMemory^, FSize);
+  end;
+
+
+  procedure TMemStream.LoadFromStream(aStream: TStream);
+  var
+    vCount :TIntPtr;
+  begin
+    aStream.Position := 0;
+    vCount := aStream.Size;
+    SetSize(vCount);
+    if vCount > 0 then
+      aStream.ReadBuffer(FMemory^, vCount);
+  end;
+
+  
+  procedure TMemStream.SaveToFile(const aFileName :TString);
+  var
+    vStream :TStream;
+  begin
+    vStream := TFileStream.Create(aFileName, fmCreate);
+    try
+      SaveToStream(vStream);
+    finally
+      vStream.Free;
+    end;
+  end;
+
+  
+  procedure TMemStream.LoadFromFile(const aFileName :TString);
+  var
+    vStream: TStream;
+  begin
+    vStream := TFileStream.Create(aFileName, fmOpenRead or fmShareDenyWrite);
+    try
+      LoadFromStream(vStream);
+    finally
+      vStream.Free;
+    end;
   end;
 
 
@@ -1127,17 +1473,6 @@ interface
           if C = 0 then
             Result := True;
         end;
-(*
-        if C = 0 then begin
-          Result := True;
-          Index := I;
-          Exit;
-        end;
-        if C < 0 then
-          L := I + 1
-        else
-          H := I - 1;
-*)
       end;
 
       Index := L;
@@ -1631,6 +1966,22 @@ interface
     FOptions := [loItemFree];
   end;
 
+ {$ifdef bUseAssign}
+  procedure TStringList.Assign(Source :TBasis); {override;}
+  var
+    I :Integer;
+    vSrc :TStringList;
+  begin
+    if Source is TStringList then begin
+      Clear;
+      vSrc := TStringList(Source);
+      for i := 0 to vSrc.Count - 1 do
+        Add( vSrc[i] );
+    end else
+      inherited Assign(Source);
+  end;
+ {$endif bUseAssign}
+
 
   procedure TStringList.ItemFree(Item :Pointer); {override;}
   begin
@@ -1785,6 +2136,7 @@ interface
   begin
     StrToFile(AFileName, GetTextStr, AMode);
   end;
+
 
   procedure TStringList.LoadFromFile(const AFileName :TString; AMode :TStrFileFormat = sffAuto);
   begin

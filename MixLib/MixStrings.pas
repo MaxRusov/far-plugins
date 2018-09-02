@@ -97,8 +97,10 @@ interface
   function Int2StrLen(Num :Integer) :Integer;
 
   function TryStrToInt(const Str :TString; var Num :Integer) :Boolean;
+  function TryStrToInt64(const Str :TString; var Num :Int64) :Boolean;
   function Str2IntDef(const Str :TString; Def :Integer) :Integer;
   function Str2Int(const Str :TString) :Integer;
+  function Str2Int64(const Str :TString) :Int64;
   function TryHex2Uns(const AHexStr :TString; var Num :Cardinal) :Boolean;
   function TryHex2Int64(const AHexStr :TString; var Num :TInt64) :Boolean;
   function Hex2Int64(const AHexStr :TString) :TInt64;
@@ -107,6 +109,7 @@ interface
   function TryPCharToFloat(Str :PTChar; var Value :TFloat) :Boolean;
   function TryStrToFloat(const Str :TString; var Value :TFloat) :Boolean;
   function StrToFloatDef(const Str :TString; const Def :TFloat) :TFloat;
+  function Str2Float(const Str :TString) :TFloat;
 
   function AppendStrCh(const AStr, AAdd, ADel :TString) :TString;
   function StrRightAjust(const AStr :TString; ALen :Integer) :TString;
@@ -947,6 +950,15 @@ interface
   end;
 
 
+  function TryStrToInt64(const Str :TString; var Num :Int64) :Boolean;
+  var
+    vErr :Integer;
+  begin
+    Val(Str, Num, vErr);
+    Result := vErr = 0;
+  end;
+
+
   function Str2IntDef(const Str :TString; Def :Integer) :Integer;
   begin
     if not TryStrToInt(Str, Result) then
@@ -957,6 +969,13 @@ interface
   function Str2Int(const Str :TString) :Integer;
   begin
     if not TryStrToInt(Str, Result) then
+      AppErrorResFmt(@SInvalidInteger, [Str]);
+  end;
+
+
+  function Str2Int64(const Str :TString) :Int64;
+  begin
+    if not TryStrToInt64(Str, Result) then
       AppErrorResFmt(@SInvalidInteger, [Str]);
   end;
 
@@ -1245,6 +1264,14 @@ interface
     if not TryStrToFloat(Str, Result) then
       Result := Def;
   end;
+
+
+  function Str2Float(const Str :TString) :TFloat;
+  begin
+    if not TryStrToFloat(Str, Result) then
+      AppErrorResFmt(@SInvalidFloat, [Str]);
+  end;
+
 
 
  {-----------------------------------------------------------------------------}

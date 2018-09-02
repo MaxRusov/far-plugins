@@ -1877,7 +1877,8 @@ interface
       C := AStr[I];
       if (Ord(C) < $20) or (C = '"') or (C = '\') then
        {$ifdef Far3}
-        Result := Result + '\' + C
+//      Result := Result + '\' + C
+        Result := Result  + '\0' + IntToStr(Ord(C))
        {$else}
 //      Result := Result + '\' + Int2Str(Ord(c))
         Result := Result + '\x' + Format('%.2x', [Ord(c)])

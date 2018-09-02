@@ -148,7 +148,7 @@ interface
   function LoadStr(Ident: Integer) :TString;
   function FmtLoadStr(Ident: Integer; const Args: array of const) :TString;
 
-  function StrLen(const Str: PTChar) :Integer;
+  function StrLen(const Str: PTChar) :Integer; {$ifdef bInline} inline; {$endif bInline}
   function StrLenA(const Str: PAnsiChar) :Integer;
   function StrLenW(const Str: PWideChar) :Integer;
 
@@ -160,7 +160,7 @@ interface
   function StrECopyA(Dest :PAnsiChar; const Source :PAnsiChar) :PAnsiChar;
   function StrECopyW(Dest :PWideChar; const Source :PWideChar) :PWideChar;
 
-  function StrLCopy(Dest: PTChar; Source: PTChar; MaxLen :Integer): PTChar;
+  function StrLCopy(Dest: PTChar; Source: PTChar; MaxLen :Integer): PTChar; {$ifdef bInline} inline; {$endif bInline}
   function StrLCopyA(Dest: PAnsiChar; Source: PAnsiChar; MaxLen :Integer): PAnsiChar;
   function StrLCopyW(Dest: PWideChar; Source: PWideChar; MaxLen :Integer): PWideChar;
 
@@ -172,23 +172,27 @@ interface
   function StrPLCopyA(Dest :PAnsiChar; const Source :TAnsiStr; MaxLen :Integer) :PAnsiChar;
   function StrPLCopyW(Dest :PWideChar; const Source :TWideStr; MaxLen :Integer) :PWideChar;
 
-  function StrMove(Dest: PTChar; const Source: PTChar; Count: Cardinal): PTChar;
+  function StrMove(Dest: PTChar; const Source: PTChar; Count: Cardinal): PTChar; {$ifdef bInline} inline; {$endif bInline}
   function StrMoveA(Dest: PAnsiChar; const Source: PAnsiChar; Count: Cardinal): PAnsiChar;
   function StrMoveW(Dest: PWideChar; const Source: PWideChar; Count: Cardinal): PWideChar;
 
-  function StrScan(const Str :PTChar; Chr :TChar) :PTChar;
+  function StrScan(const Str :PTChar; Chr :TChar) :PTChar; {$ifdef bInline} inline; {$endif bInline}
   function StrScanA(const Str :PAnsiChar; Chr :AnsiChar) :PAnsiChar;
   function StrScanW(const Str :PWideChar; Chr :WideChar) :PWideChar;
 
-  function StrEnd(const Str: PTChar): PTChar;
+  function StrEnd(const Str: PTChar): PTChar; {$ifdef bInline} inline; {$endif bInline}
   function StrEndA(const Str: PAnsiChar): PAnsiChar;
   function StrEndW(const Str: PWideChar): PWideChar;
 
-  function StrLIComp(const Str1, Str2 :PTChar; MaxLen :Cardinal) :Integer;
+  function StrLComp(const Str1, Str2 :PTChar; MaxLen :Cardinal) :Integer; {$ifdef bInline} inline; {$endif bInline}
+  function StrLCompA(const Str1, Str2: PAnsiChar; MaxLen: Cardinal): Integer;
+  function StrLCompW(const Str1, Str2: PWideChar; MaxLen: Cardinal): Integer;
+
+  function StrLIComp(const Str1, Str2 :PTChar; MaxLen :Cardinal) :Integer; {$ifdef bInline} inline; {$endif bInline}
   function StrLICompA(const Str1, Str2 :PAnsiChar; MaxLen :Cardinal) :Integer;
   function StrLICompW(const Str1, Str2 :PWideChar; MaxLen :Cardinal) :Integer;
 
-  function StrAlloc(Size: Cardinal) :PTChar;
+  function StrAlloc(Size: Cardinal) :PTChar; {$ifdef bInline} inline; {$endif bInline}
   function StrAllocA(Size: Cardinal) :PAnsiChar;
   function StrAllocW(Size: Cardinal): PWideChar;
 
@@ -223,6 +227,8 @@ interface
   function SysErrorMessage(ErrorCode: Integer) :TString;
   function Win32Check(RetVal: BOOL): BOOL;
   procedure RaiseLastWin32Error;
+  procedure OleError(ErrorCode: HResult);
+  procedure OleCheck(Result: HResult);
 
   function FileOpen(const FileName :TString; Mode: LongWord) :THandle;
   function FileCreate(const FileName :TString) :THandle;
@@ -425,8 +431,6 @@ interface
    {$endif bTraceError}
     raise EAbort.CreateRes(@SAbortError) at ReturnAddr;
   end;
-
-
 
 
 
@@ -765,7 +769,49 @@ interface
   end;
  {$endif b64}
 
- 
+
+  function StrLComp(const Str1, Str2 :PTChar; MaxLen :Cardinal) :Integer;
+  begin
+   {$ifdef bUnicode}
+    Result := StrLComp(Str1, Str2, MaxLen);
+   {$else}
+    Result := StrLComp(Str1, Str2, MaxLen);
+   {$endif bUnicode}
+  end;
+
+
+  function StrLCompA(const Str1, Str2: PAnsiChar; MaxLen: Cardinal): Integer;
+  var
+    P1, P2 :PAnsiChar;
+  begin
+    P1 := Str1;
+    P2 := Str2;
+    while True do begin
+      if (P1^ <> P2^) or (P1^ = #0) then
+        Exit(Ord(P1^) - Ord(P2^));
+      Inc(P1);
+      Inc(P2);
+    end;
+    Result := 0;
+  end;
+
+
+  function StrLCompW(const Str1, Str2: PWideChar; MaxLen: Cardinal): Integer;
+  var
+    P1, P2 :PWideChar;
+  begin
+    P1 := Str1;
+    P2 := Str2;
+    while True do begin
+      if (P1^ <> P2^) or (P1^ = #0) then
+        Exit(Ord(P1^) - Ord(P2^));
+      Inc(P1);
+      Inc(P2);
+    end;
+    Result := 0;
+  end;
+
+
   function StrLIComp(const Str1, Str2 :PTChar; MaxLen :Cardinal) :Integer;
   begin
    {$ifdef bUnicode}
@@ -774,6 +820,7 @@ interface
     Result := StrLICompA(Str1, Str2, MaxLen);
    {$endif bUnicode}
   end;
+
 
  {$ifdef b64}
   function StrLICompA(const Str1, Str2 :PAnsiChar; MaxLen :Cardinal) :Integer;
@@ -1203,6 +1250,19 @@ interface
   end;
 
 
+  procedure OleError(ErrorCode: HResult);
+  begin
+    raise EOleSysError.Create('', ErrorCode, 0);
+  end;
+
+
+  procedure OleCheck(Result: HResult);
+  begin
+    if not Succeeded(Result) then
+      OleError(Result);
+  end;
+
+
   procedure Beep;
   begin
     MessageBeep(0);
@@ -1223,15 +1283,18 @@ interface
       FILE_SHARE_WRITE,
       FILE_SHARE_READ or FILE_SHARE_WRITE);
   begin
-    Result := CreateFile(PTChar(FileName), AccessMode[Mode and 3],
-      ShareMode[(Mode and $F0) shr 4], nil, OPEN_EXISTING,
-      FILE_ATTRIBUTE_NORMAL, 0);
+    Result := CreateFile(PTChar(FileName),
+      AccessMode[Mode and 3],
+      ShareMode[(Mode and $F0) shr 4],
+      nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
   end;
 
   function FileCreate(const FileName :TString) :THandle;
   begin
-    Result := CreateFile(PTChar(FileName), GENERIC_READ or GENERIC_WRITE,
-      0, nil, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+    Result := CreateFile(PTChar(FileName),
+      GENERIC_READ or GENERIC_WRITE,
+      0,
+      nil, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
   end;
 
   function FileRead(Handle :THandle; var Buffer; Count: LongWord): Integer;
@@ -1254,8 +1317,7 @@ interface
   function FileSeek(Handle :THandle; const Offset: Int64; Origin: Integer): Int64;
   begin
     Result := Offset;
-    Int64Rec(Result).Lo := SetFilePointer(Handle, Int64Rec(Result).Lo,
-      @Int64Rec(Result).Hi, Origin);
+    Int64Rec(Result).Lo := SetFilePointer(Handle, Int64Rec(Result).Lo, @Int64Rec(Result).Hi, Origin);
   end;
 
   procedure FileClose(Handle :THandle);

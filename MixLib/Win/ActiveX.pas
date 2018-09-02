@@ -1304,29 +1304,42 @@ type
   TStatStg = tagSTATSTG;
   STATSTG = TStatStg;
 
+//  ISequentialStream = interface(IUnknown)
+//    ['{0c733a30-2a1c-11ce-ade5-00aa0044773d}']
+//    function Read(pv: Pointer; cb: Longint; pcbRead: PLongint): HResult; stdcall;
+//    function Write(pv: Pointer; cb: Longint; pcbWritten: PLongint): HResult; stdcall;
+//  end;
+
   ISequentialStream = interface(IUnknown)
     ['{0c733a30-2a1c-11ce-ade5-00aa0044773d}']
-    function Read(pv: Pointer; cb: Longint; pcbRead: PLongint): HResult;
-      stdcall;
-    function Write(pv: Pointer; cb: Longint; pcbWritten: PLongint): HResult;
-      stdcall;
+    function Read(pv: Pointer; cb: FixedUInt; pcbRead: PFixedUInt): HResult; stdcall;
+    function Write(pv: Pointer; cb: FixedUInt; pcbWritten: PFixedUInt): HResult; stdcall;
   end;
+
+
+//  IStream = interface(ISequentialStream)
+//    ['{0000000C-0000-0000-C000-000000000046}']
+//    function Seek(dlibMove: Largeint; dwOrigin: Longint; out libNewPosition: Largeint): HResult; stdcall;
+//    function SetSize(libNewSize: Largeint): HResult; stdcall;
+//    function CopyTo(stm: IStream; cb: Largeint; out cbRead: Largeint; out cbWritten: Largeint): HResult; stdcall;
+//    function Commit(grfCommitFlags: Longint): HResult; stdcall;
+//    function Revert: HResult; stdcall;
+//    function LockRegion(libOffset: Largeint; cb: Largeint; dwLockType: Longint): HResult; stdcall;
+//    function UnlockRegion(libOffset: Largeint; cb: Largeint; dwLockType: Longint): HResult; stdcall;
+//    function Stat(out statstg: TStatStg; grfStatFlag: Longint): HResult; stdcall;
+//    function Clone(out stm: IStream): HResult; stdcall;
+//  end;
 
   IStream = interface(ISequentialStream)
     ['{0000000C-0000-0000-C000-000000000046}']
-    function Seek(dlibMove: Largeint; dwOrigin: Longint;
-      out libNewPosition: Largeint): HResult; stdcall;
-    function SetSize(libNewSize: Largeint): HResult; stdcall;
-    function CopyTo(stm: IStream; cb: Largeint; out cbRead: Largeint;
-      out cbWritten: Largeint): HResult; stdcall;
-    function Commit(grfCommitFlags: Longint): HResult; stdcall;
+    function Seek(dlibMove: Largeint; dwOrigin: DWORD; out libNewPosition: LargeUInt): HResult; stdcall;
+    function SetSize(libNewSize: LargeUInt): HResult; stdcall;
+    function CopyTo(stm: IStream; cb: LargeUInt; out cbRead: LargeUInt; out cbWritten: LargeUInt): HResult; stdcall;
+    function Commit(grfCommitFlags: DWORD): HResult; stdcall;
     function Revert: HResult; stdcall;
-    function LockRegion(libOffset: Largeint; cb: Largeint;
-      dwLockType: Longint): HResult; stdcall;
-    function UnlockRegion(libOffset: Largeint; cb: Largeint;
-      dwLockType: Longint): HResult; stdcall;
-    function Stat(out statstg: TStatStg; grfStatFlag: Longint): HResult;
-      stdcall;
+    function LockRegion(libOffset: LargeUInt; cb: LargeUInt; dwLockType: DWORD): HResult; stdcall;
+    function UnlockRegion(libOffset: LargeUInt; cb: LargeUInt; dwLockType: DWORD): HResult; stdcall;
+    function Stat(out statstg: TStatStg; grfStatFlag: DWORD): HResult; stdcall;
     function Clone(out stm: IStream): HResult; stdcall;
   end;
 
@@ -3232,6 +3245,51 @@ type
     function GetPredefinedValue(dispid: TDispID; dwCookie: Longint;
       out varOut: _OleVariant): HResult; stdcall;
   end;
+
+
+{ IPropertyBag2 interface }
+
+  tagPROPBAG2 = record
+    dwType: DWORD;
+    vt: TVarType;
+    cfType: TClipFormat;
+    dwHint: DWORD;
+    pstrName: POleStr;
+    clsid: TCLSID;
+  end;
+  TPropBag2 = tagPROPBAG2;
+  PPropBag2 = ^TPropBag2;
+
+  IPropertyBag2 = interface(IUnknown)
+    ['{22F55882-280B-11d0-A8A9-00A0C90C2004}']
+    function Read(pPropBag: PPropBag2; pErrLog: IErrorLog;
+      pvarValue: PVariant; phrError: PHResult): HRESULT; stdcall;
+
+    function Write(cProperties: ULONG; pPropBag: PPropBag2;
+      pvarValue: PVariant): HRESULT; stdcall;
+    function CountProperties(var pcProperties: ULONG): HRESULT; stdcall;
+
+    function GetPropertyInfo(iProperty, cProperties: ULONG;
+      pPropBag: PPropBag2; var pcProperties: ULONG): HRESULT; stdcall;
+
+    function LoadObject(pstrName:POleStr; dwHint: DWORD; pUnkObject: IUnknown;
+      pErrLog: IErrorLog): HRESULT; stdcall;
+  end;
+
+{ IPersistPropertyBag2 interface }
+
+  IPersistPropertyBag2 = interface(IPersist)
+    ['{22F55881-280B-11d0-A8A9-00A0C90C2004}']
+    function InitNew: HRESULT; stdcall;
+
+    function Load(pPropBag: IPropertyBag2; pErrLog: IErrorLog): HRESULT; stdcall;
+
+    function Save(pPropBag: IPropertyBag2;
+      fClearDirty, fSaveAllProperties: BOOL): HRESULT; stdcall;
+
+    function IsDirty: HRESULT; stdcall;
+  end;
+
 
 { IPropertyPageSite interface }
 
