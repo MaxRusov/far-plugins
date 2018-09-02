@@ -15,6 +15,9 @@
         <Projects Include="ReviewVideo\DXVideo.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="D:\SrcFAR2\MyPlugins_GH\Review\ReviewSVG\SVG.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -59,14 +62,23 @@
     <Target Name="DXVideo:Make">
         <MSBuild Projects="ReviewVideo\DXVideo.dproj" Targets="Make"/>
     </Target>
+    <Target Name="SVG">
+        <MSBuild Projects="D:\SrcFAR2\MyPlugins_GH\Review\ReviewSVG\SVG.dproj"/>
+    </Target>
+    <Target Name="SVG:Clean">
+        <MSBuild Projects="D:\SrcFAR2\MyPlugins_GH\Review\ReviewSVG\SVG.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="SVG:Make">
+        <MSBuild Projects="D:\SrcFAR2\MyPlugins_GH\Review\ReviewSVG\SVG.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="Review;GFL;WIC;DXVideo"/>
+        <CallTarget Targets="Review;GFL;WIC;DXVideo;SVG"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="Review:Clean;GFL:Clean;WIC:Clean;DXVideo:Clean"/>
+        <CallTarget Targets="Review:Clean;GFL:Clean;WIC:Clean;DXVideo:Clean;SVG:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="Review:Make;GFL:Make;WIC:Make;DXVideo:Make"/>
+        <CallTarget Targets="Review:Make;GFL:Make;WIC:Make;DXVideo:Make;SVG:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

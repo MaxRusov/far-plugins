@@ -110,19 +110,6 @@ implementation
   end;
 
 
-  procedure OleError(ErrorCode: HResult);
-  begin
-    raise EOleSysError.Create('', ErrorCode, 0);
-  end;
-
-
-  procedure OleCheck(Result: HResult);
-  begin
-    if not Succeeded(Result) then
-      OleError(Result);
-  end;
-
-
   function AddFilterByCLSID(const aGraph :IGraphBuilder; const clsid :TGUID; var aFilter :IBaseFilter; const aName :PWideChar) :HResult;
   begin
     Result := CoCreateInstance(clsid, nil, CLSCTX_INPROC_SERVER, IID_IBaseFilter, aFilter);

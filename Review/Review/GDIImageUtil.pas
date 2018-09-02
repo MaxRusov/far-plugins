@@ -1605,7 +1605,7 @@ interface
 
           vValue := '';
           if vItem.type_ = PropertyTagTypeASCII then
-            vValue := PAnsiChar(vItem.value)
+            vValue := TString(PAnsiChar(vItem.value))
           else
           if vItem.type_ = PropertyTagTypeByte then
             vValue := Int2Str(Byte(vItem.value^))

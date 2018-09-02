@@ -2650,6 +2650,12 @@ interface
     if FImage.FAsyncTask <> nil then
       Result := FImage.CheckAsyncTask
     else begin
+      if FImage.FVector then begin
+        vBestSize := Size(
+          Round(FImage.FWidth * FScale),
+          Round(FImage.FHeight * FScale)
+        );
+      end else
       if FUseWinSize then begin
         vBestSize := Size(
           Round(FImage.FWidth * FloatMin(FScale, 1.0)),

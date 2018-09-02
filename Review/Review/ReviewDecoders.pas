@@ -57,6 +57,7 @@ interface
       FTransparent :Boolean;           { Полупрозрачное изображение }
       FAnimated    :Boolean;           { Анимированное изображение }
       FMovie       :Boolean;           { Видео-файл }
+      FVector      :Boolean;           { Векторный формат }
       FLength      :Integer;           { Длительность видео в MS }
       FDelay       :Integer;           { Задержка текущей страницы при анимации }
       FOrient0     :Integer;           { Начальная ориентация (по EXIF) }
@@ -1112,6 +1113,7 @@ interface
       AImage.FDescr := vInfo.pComments;
       AImage.FAnimated := vInfo.Flags and PVD_IIF_ANIMATED <> 0;
       AImage.FMovie := vInfo.Flags and PVD_IIF_MOVIE <> 0;
+      AImage.FVector := vInfo.Flags and PVD_IIF_VECTOR <> 0;
       if AImage.FMovie then
         AImage.FLength := vInfo.nPages
       else
@@ -1227,10 +1229,14 @@ interface
     Result := 0; aIsThumbnail := False;
     if AImage.FDecodeInfo <> nil then
       with PPVDInfoDecode2(AImage.FDecodeInfo)^ do begin
-        vTranspColor := nTransparentColor;
-        if Flags and (PVD_IDF_TRANSPARENT + PVD_IDF_TRANSPARENT_INDEX) = 0 then
-          vTranspColor := DWORD(-1);
-        Result := CreateBitmapAs(lWidth, lHeight, nBPP, lImagePitch, pImage, pPalette, ColorModel, vTranspColor);
+        if PVD_IDF_RETURN_BITMAP and Flags <> 0 then
+          Result := HBitmap(lParam)
+        else begin
+          vTranspColor := nTransparentColor;
+          if Flags and (PVD_IDF_TRANSPARENT + PVD_IDF_TRANSPARENT_INDEX) = 0 then
+            vTranspColor := DWORD(-1);
+          Result := CreateBitmapAs(lWidth, lHeight, nBPP, lImagePitch, pImage, pPalette, ColorModel, vTranspColor);
+        end;
         aIsThumbnail := PVD_IDF_THUMBNAIL and Flags <> 0;
         if aIsThumbnail and optCorrectThumb then
           Result := AImage.CorrectThumbnail(Result);

@@ -50,19 +50,6 @@ interface
     MixDebug;
 
 
-  procedure OleError(ErrorCode: HResult);
-  begin
-    raise EOleSysError.Create('', ErrorCode, 0);
-  end;
-
-
-  procedure OleCheck(Result: HResult);
-  begin
-    if not Succeeded(Result) then
-      OleError(Result);
-  end;
-
-
   function WICError2Mess(aCode :HResult) :TString;
   begin
     Result := '';

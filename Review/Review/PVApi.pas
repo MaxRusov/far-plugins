@@ -59,7 +59,8 @@ const
   PVD_IIF_MAGAZINE = $100;
 
   // Review:
-  PVD_IIF_MOVIE = $1000;         // Видео файл. nPages содержит длительность файла в мс.
+  PVD_IIF_MOVIE  = $1000;         // Видео файл. nPages содержит длительность файла в мс.
+  PVD_IIF_VECTOR = $2000;         //
 
 
 { Флаги получаемые или возвращаемые pvdPageDecode/pvdPageDecode2 }
@@ -76,6 +77,9 @@ const
   PVD_IDF_PRIVATE_DISPLAY   = 32;  // "Внутреннее" представление, которое может быть использовано для вывода
                                    // только этим же субплагином (у плагина должен быть флаг PVD_IP_DISPLAY)
   PVD_IDF_COMPAT_MODE       = 64;  // Плагин второй версии вызван в режиме совместимости с первой (через PVD1Helper.cpp)
+
+  // Review:
+  PVD_IDF_RETURN_BITMAP     = 128; // OUT: Плагин фозвращает HBitmap (в lParam)
 
   // Review:
   PVD_IDF_THUMBONLY         = $1000;  // IN: Извлекать эскиз, если есть, иначе вернуть 0
