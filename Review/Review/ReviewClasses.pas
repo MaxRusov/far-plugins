@@ -191,6 +191,7 @@ interface
 
 //    procedure WMNCHitTest(var Mess :TWMNCHitTest); message WM_NCHitTest;
       procedure WMMouseActivate(var Mess :TWMMouseActivate); message WM_MouseActivate;
+      procedure WMMouseWheel(var Mess :TWMMouseWheel); message WM_MouseWheel;
       procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
       procedure WMPaint(var Mess :TWMPaint); message WM_Paint;
       procedure CMSetMode(var Mess :TMessage); message CM_SetMode;
@@ -418,6 +419,7 @@ interface
       function ProcessCommand :Boolean;
       procedure PluginSetup;
 
+      function MouseWheel(ADelta :Integer) :Boolean;
       procedure SetScale(aSetMode :TScaleSetMode; aScaleMode :TScaleMode; AValue :TFloat);
 
       procedure SetForceFile(const aName :TString; aMode :Integer);
@@ -1368,6 +1370,16 @@ interface
     end;
 
     Mess.Result := MA_NoActivate;
+  end;
+
+
+
+  procedure TReviewWindow.WMMouseWheel(var Mess :TWMMouseWheel); {message WM_MouseWheel;}
+  begin
+    inherited;
+   {$ifdef bWinWheel}
+    Review.MouseWheel(IntIf(Mess.WheelDelta > 0, 1, -1));
+   {$endif bWinWheel}
   end;
 
 
@@ -3958,6 +3970,29 @@ interface
   end;
 
 
+  function TReviewManager.MouseWheel(ADelta :Integer) :Boolean; {override;}
+  var
+    vImage :TReviewImage;
+  begin
+    Result := False;
+    vImage := CurImage;
+    if vImage <> nil then begin
+//    TraceF('ProcessWheel: %d', [ADelta]);
+      if GetKeyState(VK_Control) < 0 then
+        Navigate(0, ADelta < 0, optEffectOnManual)
+      else
+      if vImage.FMovie then
+        ChangeVolume(ADelta * 5, 0)
+      else begin
+        if not (GetKeyState(VK_Shift) < 0) then
+          ADelta := ADelta * 5;
+        SetScale( smDeltaScaleMouse, smExact, ADelta );
+      end;
+      Result := True;
+    end;
+  end;
+
+
   procedure TReviewManager.SetScale(aSetMode :TScaleSetMode; aScaleMode :TScaleMode; AValue :TFloat);
   begin
     if FWinThread <> nil then
@@ -4689,38 +4724,17 @@ interface
 
 
   function TViewModalDlg.MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; {override;}
-
-    function LocProcessWheel(ADelta :Integer) :Boolean;
-    var
-      vImage :TReviewImage;
-    begin
-      Result := False;
-      vImage := Review.CurImage;
-      if vImage <> nil then begin
-//      TraceF('ProcessWheel: %d', [ADelta]);
-        if GetKeyState(VK_Control) < 0 then
-          Review.Navigate(0, ADelta < 0, optEffectOnManual)
-        else
-        if vImage.FMovie then
-          Review.ChangeVolume(ADelta * 5, 0)
-        else begin
-          if not (GetKeyState(VK_Shift) < 0) then
-            ADelta := ADelta * 5;
-          Review.SetScale( smDeltaScaleMouse, smExact, ADelta );
-        end;
-        Result := True;
-      end;
-    end;
-
   begin
+   {$ifdef bWinWheel}
+   {$else}
     if AMouse.dwEventFlags and MOUSE_HWHEELED <> 0 then
       Review.Rotate(IntIf(Smallint(LongRec(AMouse.dwButtonState).Hi) > 0, 1, 2))
     else
     if AMouse.dwEventFlags and MOUSE_WHEELED <> 0 then
-      LocProcessWheel(IntIf(Smallint(LongRec(AMouse.dwButtonState).Hi) > 0, 1, -1));
+      Review.MouseWheel(IntIf(Smallint(LongRec(AMouse.dwButtonState).Hi) > 0, 1, -1));
+   {$endif bWinWheel}
     Result := inherited MouseEvent(AID, AMouse);
   end;
-
 
 
   function ViewModalState(AView, AQuick :Boolean) :Boolean;

@@ -267,6 +267,7 @@ interface
       procedure WMRButtonDown(var Mess :TWMLButtonDown); message WM_RButtonDown;
       procedure WMRButtonUp(var Mess :TWMLButtonUp); message WM_RButtonUp;
       procedure WMMouseMove(var Mess :TWMMouseMove); message WM_MouseMove;
+      procedure WMMouseWheel(var Mess :TWMMouseWheel); message WM_MouseWheel;
       procedure WMHScroll(var Mess :TWMHScroll); message WM_HScroll;
       procedure WMVScroll(var Mess :TWMVScroll); message WM_VScroll;
       procedure WMSize(var Mess :TWMSize); message WM_Size;
@@ -1464,6 +1465,15 @@ interface
   end;
 
 
+  procedure TThumbsWindow.WMMouseWheel(var Mess :TWMMouseWheel); {message WM_MouseWheel;}
+  begin
+    inherited;
+   {$ifdef bWinWheel}
+    SmoothScroll( IntIf(Mess.WheelDelta > 0, -1, 1) * FLineSize );
+   {$endif bWinWheel}
+  end;
+
+
   procedure TThumbsWindow.WMLButtonDblClk(var Mess :TWMLButtonDblClk); {message WM_LButtonDblClk;}
   var
     vIdx :Integer;
@@ -1770,7 +1780,7 @@ interface
         IntSwap(vDX, vDY);
       ScrollWindowEx(Handle, vDX, vDY, @vRect, @vRect, 0, nil,
         SW_Erase or SW_Invalidate {or SW_ScrollChildren} {or Flags});
-      UpdateWindow(Handle);  
+      UpdateWindow(Handle);
     end;
 
     SetScroller(IntIf(optVerticalScroll, SB_Vert, SB_Horz), 0, FLineSize * FLineCount, FWinLen, FDelta);
@@ -2768,6 +2778,9 @@ interface
 
 
   function TThumbModalDlg.MouseEvent(AID :Integer; const AMouse :TMouseEventRecord) :Boolean; {override;}
+ {$ifdef bWinWheel}
+  begin
+ {$else}
   var
     vWin :TThumbsWindow;
   begin
@@ -2778,6 +2791,7 @@ interface
       vWin := Review.ThumbWindow as TThumbsWindow;
       SendMessage(vWin.Handle, CM_Move, cmMoveScroll, IntIf(Smallint(LongRec(AMouse.dwButtonState).Hi) > 0, -1, 1) );
     end;
+ {$endif bWinWheel}
     Result := inherited MouseEvent(AID, AMouse);
   end;
 

@@ -28,13 +28,13 @@ BEGIN
     BEGIN
         BLOCK "041904E3"
         BEGIN
-            VALUE "FileDescription", "DirectX Video PVD Decoder\0"
-            VALUE "InternalName", "DXVideo\0"
-            VALUE "OriginalFilename", "DXVideo.pvd\0"
+            VALUE "FileDescription", "SVG PVD Decoder\0"
+            VALUE "InternalName", "SVG\0"
+            VALUE "OriginalFilename", "SVG.pvd\0"
             VALUE "FileVersion", "1." BuildS "\0"
             VALUE "CompanyName", "Max Rusov\0"
             VALUE "LegalCopyright", "(c) 2013-2021, Max Rusov\0"
-            VALUE "ProductName", "DXVideo\0"
+            VALUE "ProductName", "SVG\0"
             VALUE "ProductVersion", "1.0\0"
         END
     END
@@ -43,5 +43,3 @@ BEGIN
         VALUE "Translation", 0x419, 1251
     END
 END
-
-Buttons  BITMAP  "Buttons.bmp"

@@ -11,6 +11,10 @@ unit GDIImageUtil;
 {* Home: http://code.google.com/p/far-plugins/                                *}
 {******************************************************************************}
 
+{$ifdef bExcludeRTTI}
+ {$RTTI EXPLICIT METHODS([]) PROPERTIES([]) FIELDS([])}
+{$endif bExcludeRTTI}
+
 interface
 
   uses
@@ -381,7 +385,7 @@ interface
  { TReviewBitmap                                                               }
  {-----------------------------------------------------------------------------}
 
-  constructor TReviewBitmap.Create1(aBMP :THandle; AOwn :Boolean);
+  constructor TReviewBitmap.Create1(aBMP :HBitmap; AOwn :Boolean);
   begin
     FBMP := aBMP;
     FOwn := AOwn;

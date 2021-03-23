@@ -15,7 +15,7 @@
         <Projects Include="ReviewVideo\DXVideo.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="D:\SrcFAR2\MyPlugins_GH\Review\ReviewSVG\SVG.dproj">
+        <Projects Include="ReviewSVG\SVG.dproj">
             <Dependencies/>
         </Projects>
     </ItemGroup>
@@ -63,13 +63,13 @@
         <MSBuild Projects="ReviewVideo\DXVideo.dproj" Targets="Make"/>
     </Target>
     <Target Name="SVG">
-        <MSBuild Projects="D:\SrcFAR2\MyPlugins_GH\Review\ReviewSVG\SVG.dproj"/>
+        <MSBuild Projects="ReviewSVG\SVG.dproj"/>
     </Target>
     <Target Name="SVG:Clean">
-        <MSBuild Projects="D:\SrcFAR2\MyPlugins_GH\Review\ReviewSVG\SVG.dproj" Targets="Clean"/>
+        <MSBuild Projects="ReviewSVG\SVG.dproj" Targets="Clean"/>
     </Target>
     <Target Name="SVG:Make">
-        <MSBuild Projects="D:\SrcFAR2\MyPlugins_GH\Review\ReviewSVG\SVG.dproj" Targets="Make"/>
+        <MSBuild Projects="ReviewSVG\SVG.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
         <CallTarget Targets="Review;GFL;WIC;DXVideo;SVG"/>

@@ -153,7 +153,7 @@ interface
     optThumbFontSize   :Integer = 8;
     optThumbFontName   :TString = '';
 
-    optHandlesLimit    :Integer = 1000;    { Макс кол-во GDI Handles }
+    optHandlesLimit    :Integer = 100;    { Макс кол-во GDI Handles }
    {$endif bThumbs}
 
   var
