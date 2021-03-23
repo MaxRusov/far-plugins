@@ -96,6 +96,9 @@ type
 
   PTChar = MixTypes.PTChar;
 
+  FixedUInt = LongWord;
+  PFixedUInt = ^FixedUInt;
+
 {------------------------------------------------------------------------------}
 { Типы, не рекомендуемые к использованию                                       }
 
@@ -3226,8 +3229,8 @@ function CreateMailslot(lpName: PTChar; nMaxMessageSize: DWORD;
 function GetMailslotInfo(hMailslot: THandle; lpMaxMessageSize: Pointer;
   var lpNextSize: DWORD; lpMessageCount, lpReadTimeout: Pointer): BOOL; stdcall;
 function SetMailslotInfo(hMailslot: THandle; lReadTimeout: DWORD): BOOL; stdcall;
-function MapViewOfFile(hFileMappingObject: THandle; dwDesiredAccess: DWORD;
-  dwFileOffsetHigh, dwFileOffsetLow, dwNumberOfBytesToMap: DWORD): Pointer; stdcall;
+function MapViewOfFile(hFileMappingObject: THandle; dwDesiredAccess :DWORD;
+  dwFileOffsetHigh, dwFileOffsetLow :DWORD; dwNumberOfBytesToMap :SIZE_T): Pointer; stdcall;
 function FlushViewOfFile(const lpBaseAddress: Pointer; dwNumberOfBytesToFlush: DWORD): BOOL; stdcall;
 function UnmapViewOfFile(lpBaseAddress: Pointer): BOOL; stdcall;
 function EncryptFileA(lpFilename: PAnsiChar): BOOL; stdcall;

@@ -12,7 +12,6 @@ interface
 
   uses
     Windows,
-    ActiveX,
     MixTypes,
     MixUtils,
     MixWinUtils,

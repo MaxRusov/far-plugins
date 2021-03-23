@@ -76,6 +76,8 @@
 {$I Defines.inc}
 { I DirectX.inc}
 
+{-$Define bUseOleVariant}
+
 {$ifdef bDelphi15}
  {$Define bAlign}
 {$endif}
@@ -93,6 +95,7 @@
 {-$DEFINE SUPPORTS_EXPL_ENUMS}
 
 unit DirectShow9;
+
 {$HPPEMIT '#if(DIRECT3D_VERSION > 0x0700)'}
 {$HPPEMIT 'typedef struct IDirect3D            *LPDIRECT3D;'}
 {$HPPEMIT 'typedef struct IDirect3DDevice      *LPDIRECT3DDEVICE;'}
@@ -174,6 +177,15 @@ uses
   DirectSound,
   Direct3D9,
   ActiveX;
+
+
+type
+ {$ifdef bUseOleVariant}
+  _OleVariant = OleVariant;
+ {$else}
+  _OleVariant = Pointer;
+ {$endif bUseOleVariant}
+
 
 (*==========================================================================;
  *
@@ -2287,7 +2299,7 @@ type
     ['{6025A880-C0D5-11D0-BD4E-00A0C911CE86}']
     (*** IMediaPropertyBag methods ***)
     function EnumProperty(iProperty: ULONG; var pvarPropertyName,
-        pvarPropertyValue: OleVariant): HResult; stdcall;
+        pvarPropertyValue: _OleVariant): HResult; stdcall;
   end;
 
   {$HPPEMIT 'typedef System::DelphiInterface<IPersistMediaPropertyBag> _di_IPersistMediaPropertyBag;'}
@@ -2976,7 +2988,7 @@ type
     // If the range has no stepping delta (any delta will do), the Stepping
     // delta will be empty (VT_EMPTY).
     function GetParameterRange(const Api: TGUID; out ValueMin, ValueMax,
-      SteppingDelta: OleVariant): HResult; stdcall;
+      SteppingDelta: _OleVariant): HResult; stdcall;
     // Returns the list of values supported by the given parameter as a
     // COM allocated array.  The total number of values will be placed in
     // the ValuesCount parameter and the Values array will contain the
@@ -2986,11 +2998,11 @@ type
       out ValuesCount: ULONG): HResult; stdcall;
     // Get the default value for a parameter, if one exists.  Otherwise,
     // an error will be returned.
-    function GetDefaultValue(const Aoi: TGUID; out Value: OleVariant): HResult; stdcall;
+    function GetDefaultValue(const Aoi: TGUID; out Value: _OleVariant): HResult; stdcall;
     // Get the current value of a parameter.
-    function GetValue(const Api: TGUID; out Value: OleVariant): HResult;
+    function GetValue(const Api: TGUID; out Value: _OleVariant): HResult;
     // Set the current value of a parameter.
-    function SetValue(const Api: TGUID; var Value: OleVariant): HResult; stdcall;
+    function SetValue(const Api: TGUID; var Value: _OleVariant): HResult; stdcall;
     // new methods beyond IEncoderAPI
 
     // Enable events to be reported for the given event GUID.  For DShow
@@ -3029,7 +3041,7 @@ type
     //  The secondary arguments return back a list of other settings
     //  that changed as a result of the SetValue() call (for UI updates etc)
     //  The client must free the buffer.
-    function SetValueWithNotify(const Api: TGUID; var Value: Olevariant;
+    function SetValueWithNotify(const Api: TGUID; var Value: _OleVariant;
         out ChangedParam: PGUID; out ChangedParamCount: ULONG): HResult; stdcall;
     function SetAllDefaultsWithNotify(out ChangedParam: PGUID;
       out ChangedParamCount: ULONG): HResult; stdcall;
@@ -3061,12 +3073,12 @@ type
     function IsSupported(const Api: TGUID): HResult; stdcall;
     function IsAvailable(const Api: TGUID): HResult; stdcall;
     function GetParameterRange(const Api: TGUID; out ValueMin, ValueMax,
-      SteppingDelta: OleVariant): HResult; stdcall;
+      SteppingDelta: _OleVariant): HResult; stdcall;
     function GetParameterValues(const Api: TGUID; out Values: POleVariant;
       out ValuesCount: ULONG): HResult; stdcall;
-    function GetDefaultValue (const Api: TGUID; out Value: OleVariant): HResult; stdcall;
-    function GetValue(const Api: TGUID; out Value: OleVariant): HResult; stdcall;
-    function SetValue(const Api: TGUID; var Value: OleVariant): HResult; stdcall;
+    function GetDefaultValue (const Api: TGUID; out Value: _OleVariant): HResult; stdcall;
+    function GetValue(const Api: TGUID; out Value: _OleVariant): HResult; stdcall;
+    function SetValue(const Api: TGUID; var Value: _OleVariant): HResult; stdcall;
   end;
 
   {$HPPEMIT 'typedef System::DelphiInterface<IVideoEncoder> _di_IVideoEncoder;'}
@@ -6087,12 +6099,12 @@ type
     (*** IQueueCommand methods ***)
     function InvokeAtStreamTime(out pCmd: IDeferredCommand; time: TRefTime;
         const iid: TGUID; dispidMethod: Longint; wFlags: SmallInt;
-        cArgs: Longint; const pDispParams: OleVariant; var pvarResult: OleVariant;
+        cArgs: Longint; const pDispParams: _OleVariant; var pvarResult: _OleVariant;
         out puArgErr: SmallInt):  HResult; stdcall;
     function InvokeAtPresentationTime(out pCmd: IDeferredCommand;
         time: TRefTime; const iid: TGUID; dispidMethod: Longint;
-        wFlags: SmallInt; cArgs: Longint; const pDispParams: OleVariant;
-        var pvarResult: OleVariant; out puArgErr: SmallInt): HResult; stdcall;
+        wFlags: SmallInt; cArgs: Longint; const pDispParams: _OleVariant;
+        var pvarResult: _OleVariant; out puArgErr: SmallInt): HResult; stdcall;
   end;
 
   {$HPPEMIT 'typedef System::DelphiInterface<IFilterInfo> _di_IFilterInfo;'}
@@ -15077,7 +15089,7 @@ type
     (*** ITuningSpaces methods ***)
     function get_Count(out Count: longint): HResult; stdcall;
     function get__NewEnum(out NewEnum: IEnumVARIANT): HResult; stdcall;
-    function get_Item(varIndex: OLEVARIANT; out TuningSpace: ITuningSpace): HResult; stdcall;
+    function get_Item(varIndex: _OleVariant; out TuningSpace: ITuningSpace): HResult; stdcall;
     function get_EnumTuningSpaces(out NewEnum: IEnumTuningSpaces): HResult; stdcall;
   end;
 
@@ -15088,15 +15100,15 @@ type
     (*** ITuningSpaceContainer methods ***)
     function get_Count(out Count: longint): HResult; stdcall;
     function get__NewEnum(out NewEnum: IEnumVARIANT): HResult; stdcall;
-    function get_Item(varIndex: OLEVARIANT; out TuningSpace: ITuningSpace): HResult; stdcall;
-    function put_Item(varIndex: OLEVARIANT; TuningSpace: ITuningSpace): HResult; stdcall;
+    function get_Item(varIndex: _OleVariant; out TuningSpace: ITuningSpace): HResult; stdcall;
+    function put_Item(varIndex: _OleVariant; TuningSpace: ITuningSpace): HResult; stdcall;
     function TuningSpacesForCLSID(SpaceCLSID: widestring; out NewColl: ITuningSpaces): HResult; stdcall;
     function _TuningSpacesForCLSID(const SpaceCLSID: TGUID; out NewColl: ITuningSpaces): HResult; stdcall;
     function TuningSpacesForName(Name: WideString; out NewColl: ITuningSpaces): HResult; stdcall;
     function FindID(TuningSpace: ITuningSpace; out ID: longint): HResult; stdcall;
-    function Add(TuningSpace: ITuningSpace; out NewIndex: OLEVARIANT): HResult; stdcall;
+    function Add(TuningSpace: ITuningSpace; out NewIndex: _OleVariant): HResult; stdcall;
     function get_EnumTuningSpaces(out ppEnum: IEnumTuningSpaces): HResult; stdcall;
-    function Remove(Index: OLEVARIANT): HResult; stdcall;
+    function Remove(Index: _OleVariant): HResult; stdcall;
     function get_MaxCount(out MaxCount: longint): HResult; stdcall;
     function put_MaxCount(MaxCount: longint): HResult; stdcall;
    end;
@@ -15411,10 +15423,10 @@ type
     function get_Count(out Count: longint): HResult; stdcall;
     function get__NewEnum(out ppNewEnum: IEnumVARIANT): HResult; stdcall;
     function EnumComponentTypes(out ppNewEnum: IEnumComponentTypes): HResult; stdcall;
-    function get_Item(Index: OLEVARIANT; out ComponentType: IComponentType): HResult; stdcall;
-    function put_Item(Index: OLEVARIANT; ComponentType: IComponentType): HResult; stdcall;
-    function Add(ComponentType: IComponentType; out NewIndex: OLEVARIANT): HResult; stdcall;
-    function Remove(Index: OLEVARIANT): HResult; stdcall;
+    function get_Item(Index: _OleVariant; out ComponentType: IComponentType): HResult; stdcall;
+    function put_Item(Index: _OleVariant; ComponentType: IComponentType): HResult; stdcall;
+    function Add(ComponentType: IComponentType; out NewIndex: _OleVariant): HResult; stdcall;
+    function Remove(Index: _OleVariant): HResult; stdcall;
     function Clone(out NewList: IComponentTypes): HResult; stdcall;
    end;
 
@@ -15466,9 +15478,9 @@ type
     function get_Count(out Count: longint): HResult; stdcall;
     function get__NewEnum(out ppNewEnum: IEnumVARIANT): HResult; stdcall;
     function EnumComponents(out ppNewEnum: IEnumComponents): HResult; stdcall;
-    function get_Item(Index: OLEVARIANT; out ppComponent: IComponent): HResult; stdcall;
-    function Add(Component: IComponent; out NewIndex: OLEVARIANT): HResult; stdcall;
-    function Remove(Index: OLEVARIANT): HResult; stdcall;
+    function get_Item(Index: _OleVariant; out ppComponent: IComponent): HResult; stdcall;
+    function Add(Component: IComponent; out NewIndex: _OleVariant): HResult; stdcall;
+    function Remove(Index: _OleVariant): HResult; stdcall;
     function Clone(out NewList: IComponents): HResult; stdcall;
    end;
 
@@ -16497,7 +16509,7 @@ type
   // used to set values on the property setter
   PDexterValue = ^TDexterValue;
   DEXTER_VALUE = record
-    v        : OLEVARIANT ;
+    v        : _OleVariant ;
     rt       : TReferenceTime ;
     dwInterp : DWORD ;
   end;
@@ -17468,7 +17480,7 @@ type
     ['{E43E73A2-0EFA-11D3-9601-00A0C9441E20}']
     (*** IAMErrorLog methods ***)
     function LogError(Severity: longint; const pErrorString: WideString; ErrorCode: longint;
-                       HResult: longint; var pExtraInfo: OleVariant): HResult; stdcall;
+                       HResult: longint; var pExtraInfo: _OleVariant): HResult; stdcall;
   end;
 
   {$HPPEMIT 'typedef System::DelphiInterface<IAMSetErrorLog> _di_IAMSetErrorLog;'}
@@ -27264,7 +27276,7 @@ type
     //  MANDATORY - If a transport analyzer supports IGuideDataEvent then
     //              it must supply this event.
     //
-    function ProgramChanged(varProgramDescriptionID: OLEVARIANT): HResult; stdcall;
+    function ProgramChanged(varProgramDescriptionID: _OleVariant): HResult; stdcall;
     //  Indicates that information about one or more services changed.
     //
     //  If varServiceDescriptionID is NULL then the consumer
@@ -27274,7 +27286,7 @@ type
     //  MANDATORY - If a transport analyzer supports IGuideDataEvent then
     //              it must supply this event.
     //
-    function ServiceChanged(varServiceDescriptionID: OLEVARIANT): HResult; stdcall;
+    function ServiceChanged(varServiceDescriptionID: _OleVariant): HResult; stdcall;
     //  Indicates that information about one or more schedule entries
     //  changed.
     //
@@ -27285,7 +27297,7 @@ type
     //  MANDATORY - If a transport analyzer supports IGuideDataEvent then
     //              it must supply this event.
     //
-    function ScheduleEntryChanged(varScheduleEntryDescriptionID: OLEVARIANT): HResult; stdcall;
+    function ScheduleEntryChanged(varScheduleEntryDescriptionID: _OleVariant): HResult; stdcall;
     //  Indicates that the program with the given Description.ID
     //  has been deleted.
     //
@@ -27293,7 +27305,7 @@ type
     //  Optional - Transport analyzer may supply this event.  Consumer
     //             may return E_NOTIMPL.
     //
-    function ProgramDeleted(varProgramDescriptionID: OLEVARIANT): HResult; stdcall;
+    function ProgramDeleted(varProgramDescriptionID: _OleVariant): HResult; stdcall;
     //  Indicates that the service with the given Description.ID
     //  has been deleted.
     //
@@ -27301,7 +27313,7 @@ type
     //  Optional - Transport analyzer may supply this event.  Consumer
     //             may return E_NOTIMPL.
     //
-    function ServiceDeleted(varServiceDescriptionID: OLEVARIANT): HResult; stdcall;
+    function ServiceDeleted(varServiceDescriptionID: _OleVariant): HResult; stdcall;
     //  Indicates that the schedule entry with the given Description.ID
     //  has been deleted.
     //
@@ -27309,7 +27321,7 @@ type
     //  Optional - Transport analyzer may supply this event.  Consumer
     //             may return E_NOTIMPL.
     //
-    function ScheduleDeleted(varScheduleEntryDescriptionID: OLEVARIANT): HResult; stdcall;
+    function ScheduleDeleted(varScheduleEntryDescriptionID: _OleVariant): HResult; stdcall;
   end;
 
 //******************************************************************************
@@ -27327,7 +27339,7 @@ type
     (*** IGuideDataProperty methods ***)
     function Name(out pbstrName: TBSTR): HResult; stdcall;
     function Language(out idLang: longint): HResult; stdcall;
-    function Value(out pvar: OLEVARIANT): HResult; stdcall;
+    function Value(out pvar: _OleVariant): HResult; stdcall;
   end;
 
 //******************************************************************************
@@ -27513,7 +27525,7 @@ type
     // Returns an enumeration of all guide data properties for the program with
     // the given Description.ID.
 
-    function GetProgramProperties(varProgramDescriptionID: OLEVARIANT;
+    function GetProgramProperties(varProgramDescriptionID: _OleVariant;
         out ppEnumProperties: IEnumGuideDataProperties): HResult; stdcall;
 
     //-------------------------------------------------------------------------
@@ -27587,7 +27599,7 @@ type
     //
     // Returns an enumeration of all guide data properties for the schedule
     // entry with the given Description.ID.")]
-    function GetScheduleEntryProperties(varScheduleEntryDescriptionID: OLEVARIANT;
+    function GetScheduleEntryProperties(varScheduleEntryDescriptionID: _OleVariant;
        out ppEnumProperties: IEnumGuideDataProperties): HResult; stdcall;
   end;
 

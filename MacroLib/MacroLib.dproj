@@ -3,7 +3,7 @@
         <ProjectGuid>{88394C90-5BCE-4BE1-87BA-A5043161CBD4}</ProjectGuid>
         <MainSource>MacroLib.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Library</AppType>
         <FrameworkType>None</FrameworkType>
@@ -58,6 +58,7 @@
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
+        <DCC_Namespace>System;System.Win;WinApi;$(DCC_Namespace)</DCC_Namespace>
         <DCC_DcuOutput>..\xUnits\DCC\MacroLib\$(Platform)\$(Config)</DCC_DcuOutput>
         <SanitizedProjectName>MacroLib</SanitizedProjectName>
         <DCC_UnitSearchPath>..\FarApi;..\FarLib;..\MixLib;..\FarHints;..\MixLib\Win;..\RTL\$(Platform);$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
@@ -77,6 +78,8 @@
         <DCC_K>false</DCC_K>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
+        <Debugger_RunParams>/p%FarHome%\Plugins;C:\SrcFarPlug\Bin3</Debugger_RunParams>
+        <DCC_MapFile>1</DCC_MapFile>
         <Debugger_HostApplication>C:\FarDeb3\Far.exe</Debugger_HostApplication>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_MinorVer>0</VerInfo_MinorVer>
@@ -85,6 +88,8 @@
         <VerInfo_Keys>CompanyName=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName);FileDescription=$(MSBuildProjectName);ProductName=$(MSBuildProjectName)</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
+        <Debugger_RunParams>/p%FarHome%\Plugins;C:\SrcFarPlug\Bin3x64</Debugger_RunParams>
+        <DCC_MapFile>1</DCC_MapFile>
         <Debugger_HostApplication>C:\FarDeb3x64\Far.exe</Debugger_HostApplication>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName);FileDescription=$(MSBuildProjectName);ProductName=$(MSBuildProjectName)</VerInfo_Keys>
@@ -170,12 +175,14 @@
                     <VersionInfoKeys Name="ProductVersion">1.0</VersionInfoKeys>
                 </VersionInfoKeys>
                 <Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k240.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp240.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclfmxstd210.bpl">Embarcadero FMX Standard Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclbindcompfmx210.bpl">Embarcadero LiveBindings Components FireMonkey</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclDataSnapFireDAC210.bpl">Embarcadero DataSnap FireDAC</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k210.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp210.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
                 </Excluded_Packages>
             </Delphi.Personality>
             <Platforms>
-                <Platform value="Linux64">False</Platform>
                 <Platform value="Win32">True</Platform>
                 <Platform value="Win64">True</Platform>
             </Platforms>

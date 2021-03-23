@@ -76,24 +76,10 @@ type
   TFarChar = WideChar;
   PFarChar = PWideChar;
 
- {$ifdef CPUX86_64}
-  INT_PTR = PtrInt;
-  LONG_PTR = PtrInt;
-  DWORD_PTR = PtrUInt;
-  SIZE_T = PtrUInt;
- {$else}
- {$ifdef Win64}
   INT_PTR = IntPtr;
   LONG_PTR = IntPtr;
-  DWORD_PTR = UIntPtr;
-  SIZE_T = UIntPtr;
- {$else}
-  INT_PTR = Integer;
-  LONG_PTR = Integer;
-  DWORD_PTR = Cardinal;
-  SIZE_T = Cardinal;
- {$endif CPUX86_64}
- {$endif Win64}
+  DWORD_PTR =  UIntPtr;
+  SIZE_T =  UIntPtr;
 
   PIntPtr = ^TIntPtr;
   TIntPtr = INT_PTR;

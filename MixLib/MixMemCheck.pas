@@ -1063,7 +1063,7 @@ interface
   end;
 
 
-  function NewFreeMem(DataPtr :Pointer) :TIntPtr;
+  function NewFreeMem(DataPtr :Pointer) :TMResult;
   var
     AllocPtr  :PAllocFrame;
     DataSize  :TIntPtr;

@@ -1,5 +1,9 @@
 {$I Defines.inc}
 
+{$ifdef bDelphiXE7}
+ {$TypedAddress Off}
+{$endif}
+
 unit MixWinUtils;
 
 interface
@@ -185,7 +189,7 @@ interface
 
   procedure RegOpenWrite(ARoot :HKEY; const APath :TString; var AKey :HKey);
   var
-    vDisposition :TUns32;
+    vDisposition :DWORD;
   begin
     ApiCheckCode( RegCreateKeyEx(ARoot, PTChar(APath), 0, '', REG_OPTION_NON_VOLATILE, KEY_READ or KEY_WRITE, nil, AKey, @vDisposition) );
   end;

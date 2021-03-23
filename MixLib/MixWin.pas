@@ -190,7 +190,7 @@ interface
 
   function ColorToRGB(AColor :TColor) :TColor;
   function WinCreateFont(const AName :TString; ASize :Integer; AStyle :TFontStyles) :HFont;
-  procedure WinDeleteObject(var AHandle :HGDIOBJ);
+  procedure WinDeleteObject(var AHandle {:HGDIOBJ});
   function TextSize(AFont :HFont; const AText :TString) :TSize;
 
   const
@@ -675,11 +675,11 @@ interface
   end;
 
 
-  procedure WinDeleteObject(var AHandle :HGDIOBJ);
+  procedure WinDeleteObject(var AHandle {:HGDIOBJ});
   begin
-    if AHandle <> 0 then begin
-      DeleteObject(AHandle);
-      AHandle := 0;
+    if HGDIOBJ(AHandle) <> 0 then begin
+      DeleteObject(HGDIOBJ(AHandle));
+      HGDIOBJ(AHandle) := 0;
     end;
   end;
 

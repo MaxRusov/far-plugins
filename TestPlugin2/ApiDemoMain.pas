@@ -2,8 +2,6 @@
 
 unit ApiDemoMain;
 
-// Hello...
-
 
 interface
 
@@ -376,64 +374,14 @@ implementation
   end;
 
 
-type
-  TA = Class (TObject)
-  public
-    procedure my;virtual;abstract;
-  End;
-
-type
-  TB = Class (TA)
-  public
-    procedure my;override;
-  End;
-
-type
-  TC = Class (TB)
-  protected
-    procedure my;override;
-  End;
-
-type
-  TD = Class (TC)
-  public
-    procedure my;override;
-  End;
-
-
-  procedure TB.my;
-  begin
-  end;
-
-  procedure TC.my;
-  begin
-    inherited My;
-  end;
-
-  procedure TD.my;
-  begin
-    inherited My;
-  end;
-
-
-
-  procedure Test;
-  begin
-    with TD.Create do
-      try
-        My;
-      finally
-        Destroy;
-      end;
-  end;
-
-
   function TDemoPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
+  var
+    V :TVarData;
   begin
-    Test;
     MainMenu;
     Result := INVALID_HANDLE_VALUE;
   end;
+
 
 
 initialization

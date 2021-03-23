@@ -3,12 +3,12 @@
         <ProjectGuid>{A7BC5023-003E-4541-A6E7-9D742CFC301B}</ProjectGuid>
         <MainSource>EdtFind.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Library</AppType>
         <FrameworkType>None</FrameworkType>
         <ProjectVersion>18.2</ProjectVersion>
-        <Platform Condition="'$(Platform)'==''">Win32</Platform>
+        <Platform Condition="'$(Platform)'==''">Win64</Platform>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
         <Base>true</Base>
@@ -77,7 +77,7 @@
         <DCC_UsePackage>Vcl50;Vclx50;VclSmp50;dclocx50;$(DCC_UsePackage)</DCC_UsePackage>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
-        <Debugger_RunParams>/p%FarHome%\Plugins,C:\SrcFAR2\MyPlugins_GH\Bin3</Debugger_RunParams>
+        <Debugger_RunParams>/p%FarHome%\Plugins;C:\SrcFarPlug\Bin3</Debugger_RunParams>
         <Manifest_File>(None)</Manifest_File>
         <DCC_ExeOutput>..\Bin3\EdtFind</DCC_ExeOutput>
         <Debugger_HostApplication>C:\FarDeb3\Far.exe</Debugger_HostApplication>
@@ -87,6 +87,7 @@
         <BT_BuildType>Debug</BT_BuildType>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
+        <Debugger_RunParams>/p%FarHome%\Plugins;C:\SrcFarPlug\Bin3x64</Debugger_RunParams>
         <Manifest_File>(None)</Manifest_File>
         <DCC_ExeOutput>..\Bin3x64\EdtFind</DCC_ExeOutput>
         <Debugger_HostApplication>C:\FarDeb3x64\Far.exe</Debugger_HostApplication>
@@ -156,7 +157,6 @@
                 </Excluded_Packages>
             </Delphi.Personality>
             <Platforms>
-                <Platform value="Linux64">False</Platform>
                 <Platform value="Win32">True</Platform>
                 <Platform value="Win64">True</Platform>
             </Platforms>
