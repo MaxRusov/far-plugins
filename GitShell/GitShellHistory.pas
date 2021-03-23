@@ -54,6 +54,7 @@ interface
     private
       FRepo      :TGitRepository;
       FHistory   :TExList;
+      FPath      :TString;
       FSelCount  :Integer;
       FShortLen  :Integer;
 
@@ -129,6 +130,9 @@ interface
     vTitle :TFarStr;
   begin
     vTitle := GetMsgStr(strHistoryTitle);
+
+    if FPath <> '' then
+      vTitle := vTitle + ' ' + FPath;
 
     if FFilterMask = '' then
       vTitle := Format('%s (%d)', [ vTitle, FTotalCount ])
@@ -555,52 +559,26 @@ interface
   var
     vCommit :TGitCommit;
     vRes :Integer;
+    vPath :TString;
   begin
     vCommit := GetCommit(FGrid.CurRow);
     if vCommit <> nil then begin
-      if vCommit.Parents = 1 then
-        FRepo.ShowCommitDiff(vCommit.ID, 0, AFull)
-      else begin
+      vPath := FPath;
+      if AFull then
+        vPath := '';
 
+      if vCommit.Parents <= 1 then
+        FRepo.ShowCommitDiff(vCommit.ID, 0, vPath, AFull)
+      else begin
         vRes := ShowMessageBut('Compare', Format('Merge commit has %d parents', [vCommit.Parents]), ['Compare 1',  'Compare 2', GetMsgStr(strCancel)]);
         if (vRes = -1) or (vRes = 2) then
           Exit;
 
-        FRepo.ShowCommitDiff(vCommit.ID, vRes, AFull)
-
+        FRepo.ShowCommitDiff(vCommit.ID, vRes, vPath, AFull)
       end;
     end;
   end;
-(*
-  procedure THistDlg.ShowDiffWith;
-  var
-    vCommit :TGitCommit;
-  begin
-    vCommit := GetCommit(FGrid.CurRow);
-    if vCommit <> nil then
-      FRepo.ShowDiff(vCommit.IDStr + ' ' + FRepo.GetCurrentBranchName);
-  end;
-  procedure THistDlg.ShowDiffWith;
-  var
-    vCommit1, vCommit2 :TGitCommit;
-  begin
-    if FSelCount > 0 then begin
-      vCommit1 := GetSelCommit(0);
-      vCommit2 := GetSelCommit(1);
-      if vCommit2 <> nil then
-//      FRepo.ShowDiff(vCommit2.IDStr + ' ' + vCommit1.IDStr)
-        FRepo.ShowDiff( FRepo.GetShortIdStr(vCommit2.ID) + ' ' + FRepo.GetShortIdStr(vCommit1.ID) )
-      else
-        Beep;
-    end else
-    begin
-      vCommit1 := GetCommit(FGrid.CurRow);
-      if vCommit1 <> nil then
-//      FRepo.ShowDiff(vCommit1.IDStr + ' ' + FRepo.GetCurrentBranchName);
-        FRepo.ShowDiff( FRepo.GetShortIdStr(vCommit1.ID) + ' ' + FRepo.GetCurrentBranchName);
-    end;
-  end;
-*)
+
 
   procedure THistDlg.ShowDiffWith;
   var
@@ -775,7 +753,7 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  function HistDlg(ARepo :TGitRepository; AHistory :TExList) :Boolean;
+  function HistDlg(ARepo :TGitRepository; const aPath :TString; AHistory :TExList) :Boolean;
   var
     vDlg :THistDlg;
   begin
@@ -784,6 +762,7 @@ interface
     try
       vDlg.FRepo := ARepo;
       vDlg.FHistory := AHistory;
+      vDlg.FPath := aPath;
       if vDlg.Run = -1 then
         Exit;
       Result := True;

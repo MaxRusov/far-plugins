@@ -17,6 +17,7 @@ interface
 
     Far_API,
     FarCtrl,
+    FarMatch,
 
     GitLibAPI,
     VisCompAPI,
@@ -38,6 +39,19 @@ interface
       bkRemote,
       bkTag
     );
+
+
+    TWildcard = class(TBasis)
+    public
+      constructor Create(const aRoot, aMask :TString);
+      function Match(const aFilename :TString) :Boolean;
+
+    private
+      FMask :TString;
+      FIsFile :Boolean;
+      FIsWildcard :Boolean;
+    end;
+
 
     TGitBranch = class(TBasis)
     public
@@ -139,9 +153,9 @@ interface
       procedure ShowInfo;
       procedure ShowBranches;
       procedure ShowDiff(const ARevisions :TString);
-      procedure ShowCommit(const AFolder :TString);
-      procedure ShowCommitDiff(const aOID :TGitOid; aParentIdx :Integer; aFull :Boolean);
-      procedure ShowHistory(const AFolder :TString);
+//    procedure ShowCommit(const AFolder :TString);
+      procedure ShowCommitDiff(const aOID :TGitOid; aParentIdx :Integer; const aPath :TString; aFull :Boolean);
+      procedure ShowHistory(const aPath :TString);
 
       function GetWorkdirStatus(const AFolder :TString) :TGitWorkdirStatus;
       procedure PrepareCommit(const AFolder :TString);
@@ -169,19 +183,22 @@ interface
       function GetShortIdStr(const aOID :TGitOid) :TString;
 
     private
-      FRepo    :PGitRepository;
-      FWorkDir :TString;
-      FTempDir :TString;
+      FRepo      :PGitRepository;
+      FWorkDir   :TString;
+      FTempDir   :TString;
 
-      FList1   :IVCFileList;
-      FList2   :IVCFileList;
+      FDiffList1 :IVCFileList;
+      FDiffList2 :IVCFileList;
+      FDiffMask  :TWildcard;
+      FDiffCount :Integer;
+      FDiffFile  :TString;
 
       FTempFiles :TStrList;
 
       procedure AddFileDelta(aDelta :PGitDiffDelta; const aList1, aList2 :IVCFileList; const aRootPath :TString);
 //    procedure ShowDiffBetween(const aOID1, aOID2 :TGitOid; aFull :Boolean); overload;
-      procedure ShowDiffBetween(aCommit1, aCommit2 :PGitCommit; aFull :Boolean); overload;
-      procedure ShowDiffBetweenEx(aWhat1, aWhat2 :TDiffWhat; aOID1, aOID2 :PGitOid; const aCaption1, aCaption2 :TString; aFull :Boolean);
+      procedure ShowDiffBetween(aCommit1, aCommit2 :PGitCommit; const aPath :TString; aFull :Boolean); overload;
+      procedure ShowDiffBetweenEx(aWhat1, aWhat2 :TDiffWhat; aOID1, aOID2 :PGitOid; const aCaption1, aCaption2 :TString; const aPath :TString; aFull :Boolean);
 
     public
       property Repo :PGitRepository read FRepo;
@@ -191,7 +208,7 @@ interface
 
   var
     ShowBranchesDlg :function(ARepo :TGitRepository; ABranches :TExList; aCur :Integer) :Boolean;
-    ShowHistDlg :function(ARepo :TGitRepository; AHistory :TExList) :Boolean;
+    ShowHistDlg :function(ARepo :TGitRepository; const aPath :TString; AHistory :TExList) :Boolean;
     ShowCommitDlg :function(ARepo :TGitRepository; var ADirStatus :TGitWorkdirStatus) :Boolean;
     ShowInfoDlg :function(ARepo :TGitRepository; const ATitle :TString; const AInfo :array of TString) :Boolean;
 
@@ -352,6 +369,28 @@ interface
     Result := FindVisualCompareAPI;
     if Result = nil then
       AppErrorId(strVisualCompareNotFound);
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TWildcard                                                                   }
+ {-----------------------------------------------------------------------------}
+
+  constructor TWildcard.Create(const aRoot, aMask :TString);
+  begin
+    FMask := aMask;
+    FIsWildcard := FileNameHasMask(aMask);
+  end;
+
+
+  function TWildcard.Match(const aFilename :TString) :Boolean;
+  var
+    vPos, vLen :Integer;
+  begin
+    if FIsWildcard then
+      Result := StringMatch(FMask, '', PTChar(aFileName), vPos, vLen)
+    else
+      Result := UpCompareSubStr(FMask, aFilename) = 0
   end;
 
 
@@ -637,6 +676,7 @@ interface
   end;
 
 
+(*
   function TGitRepository.WriteFileRevisionTo(const aFileRev, aFileName :TString; aMakeFolder :Boolean) :Boolean;
   var
     vRes :Integer;
@@ -665,6 +705,35 @@ interface
       Result := True;
     finally
       git_object_free(vObj);
+    end;
+  end;
+*)
+  function TGitRepository.WriteFileRevisionTo(const aFileRev, aFileName :TString; aMakeFolder :Boolean) :Boolean;
+  var
+    vRes :Integer;
+    vBuf :TGitBuf;
+    vObj :PGitObject;
+    vObjType :Integer;
+  begin
+    FillZero(vBuf, SizeOf(TGitBuf));
+    vRes := git_revparse_single(vObj, FRepo, PAnsiChar(FileToGit(aFileRev)));
+    GitCheck(vRes);
+    try
+      vObjType := git_object_type(vObj);
+      if vObjType <> GIT_OBJ_BLOB then
+        GitCheck(GIT_ENOTFOUND);
+
+      vRes := git_blob_filtered_content(vBuf, vObj, PAnsiChar(FileToGit(aFileName)), 1);
+      GitCheck(vRes);
+
+      if aMakeFolder then
+        CreateFolders( ExtractFilePath(aFileName, True), True );
+
+      SaveBuffer(aFileName, vBuf.ptr^, vBuf.size);
+      Result := True;
+    finally
+      git_object_free(vObj);
+      git_buf_free(@vBuf);
     end;
   end;
 
@@ -1017,7 +1086,7 @@ interface
     if not LocFind(vName1, vOID1, vWhat1) or not LocFind(vName2, vOID2, vWhat2) then
       Exit;
 
-    ShowDiffBetweenEx( vWhat1, vWhat2, @vOID1, @vOID2, vName1, vName2, vShowAll );
+    ShowDiffBetweenEx( vWhat1, vWhat2, @vOID1, @vOID2, vName1, vName2, '', vShowAll );
   end;
 
 
@@ -1039,9 +1108,13 @@ interface
     if vFileName1 = '' then
       Exit;
 
+    if FDiffMask <> nil then
+      if not FDiffMask.Match(vFilename1) then
+        Exit;
+
     if aRootPath <> '' then begin
       if not UpCompareSubStr(aRootPath, vFileName1) = 0 then
-        {“акого не должно бытьб прверка на вс€кий случай... }
+        {“акого не должно быть, прверка на вс€кий случай... }
         Exit;
       vFileName1 := Copy(vFileName1, Length(aRootPath) + 1, MaxInt)
     end;
@@ -1053,20 +1126,27 @@ interface
         vFileSize2 := vFileSize1;
     end;
 
+    FDiffFile := '';
+
     if aDelta.status in [GIT_DELTA_ADDED, GIT_DELTA_UNTRACKED] then begin
-      FList2.AddFile(PWideChar(vFileName1), 0, vFileSize2, 0, 0);
+      aList2.AddFile(PWideChar(vFileName1), 0, vFileSize2, 0, 0);
     end else
     if aDelta.status = GIT_DELTA_DELETED then begin
-      FList1.AddFile(PWideChar(vFileName1), 0, vFileSize1, 0, 0);
+      aList1.AddFile(PWideChar(vFileName1), 0, vFileSize1, 0, 0);
     end else
     if aDelta.status = GIT_DELTA_RENAMED then begin
       {!!!}
       NOP;
     end else
     begin
-      FList1.AddFile(PWideChar(vFileName1), 0, vFileSize1, 0, 0);
-      FList2.AddFile(PWideChar(vFileName1), 0, vFileSize2, 0, IntIf(aDelta.status = GIT_DELTA_UNMODIFIED, 0, 1) );
+      aList1.AddFile(PWideChar(vFileName1), 0, vFileSize1, 0, 0);
+      aList2.AddFile(PWideChar(vFileName1), 0, vFileSize2, 0, IntIf(aDelta.status = GIT_DELTA_UNMODIFIED, 0, 1) );
+
+      if FDiffCount = 0 then
+        FDiffFile := vFileName1;
     end;
+
+    Inc(FDiffCount);
   end; {AddFileDelta}
 
 
@@ -1080,40 +1160,12 @@ interface
   function GitDiffFileCallback(aDelta :PGitDiffDelta; aProgress :float; aPayload :pointer) :integer; cdecl;
   begin
     with TGitRepository(aPayload) do
-      AddFileDelta(aDelta, FList1, FList2, '');
+      AddFileDelta(aDelta, FDiffList1, FDiffList2, '');
     Result := 0;
   end;
 
-
 (*
-  procedure TGitRepository.ShowCommitDiff(const aOID :TGitOid; aParent :Integer; aFull :Boolean);
-  var
-    vCommit, vParent :PGitCommit;
-    vParents :Integer;
-  begin
-    vParent := nil;
-    GitCheck(git_commit_lookup(vCommit, FRepo, @aOID));
-    try
-      vParents := git_commit_parentcount(vCommit);
-      if vParents = 0 then
-        Exit;
-
-      if vParents = 1 then begin
-        GitCheck(git_commit_parent(vParent, vCommit, 0));
-        ShowDiffBetween(vParent, vCommit, aFull);
-      end else
-      begin
-        Beep;
-      end;
-
-    finally
-      if vParent <> nil then
-        git_commit_free(vParent);
-      git_commit_free(vCommit);
-    end;
-  end;
-*)
-  procedure TGitRepository.ShowCommitDiff(const aOID :TGitOid; aParentIdx :Integer; aFull :Boolean);
+  procedure TGitRepository.ShowCommitDiff(const aOID :TGitOid; aParentIdx :Integer; const aPath :TString; aFull :Boolean);
   var
     vCommit, vParent :PGitCommit;
     vParents :Integer;
@@ -1126,7 +1178,32 @@ interface
         Exit;
 
       GitCheck(git_commit_parent(vParent, vCommit, aParentIdx));
-      ShowDiffBetween(vParent, vCommit, aFull);
+      ShowDiffBetween(vParent, vCommit, aPath, aFull);
+
+    finally
+      if vParent <> nil then
+        git_commit_free(vParent);
+      git_commit_free(vCommit);
+    end;
+  end;
+*)
+
+  procedure TGitRepository.ShowCommitDiff(const aOID :TGitOid; aParentIdx :Integer; const aPath :TString; aFull :Boolean);
+  var
+    vCommit, vParent :PGitCommit;
+    vParents :Integer;
+  begin
+    vParent := nil;
+    GitCheck(git_commit_lookup(vCommit, FRepo, @aOID));
+    try
+      vParents := git_commit_parentcount(vCommit);
+
+      if vParents = 0 then
+        ShowDiffBetweenEx(dwCommit, dwCommit, nil, git_commit_id(vCommit), '', '', aPath, aFull)
+      else begin
+        GitCheck(git_commit_parent(vParent, vCommit, aParentIdx));
+        ShowDiffBetweenEx(dwCommit, dwCommit, git_commit_id(vParent), git_commit_id(vCommit), '', '', aPath, aFull)
+      end;
 
     finally
       if vParent <> nil then
@@ -1136,21 +1213,14 @@ interface
   end;
 
 
-
-//  procedure TGitRepository.ShowDiffBetween(const aOID1, aOID2 :TGitOid; aFull :Boolean);
-//  begin
-//    ShowDiffBetweenEx(dwCommit, dwCommit, @aOID1, @aOID1, '', '', aFull);
-//  end;
-
-
-  procedure TGitRepository.ShowDiffBetween(aCommit1, aCommit2 :PGitCommit; aFull :Boolean);
+  procedure TGitRepository.ShowDiffBetween(aCommit1, aCommit2 :PGitCommit; const aPath :TString; aFull :Boolean);
   begin
-    ShowDiffBetweenEx(dwCommit, dwCommit, git_commit_id(aCommit1), git_commit_id(aCommit2), '', '', aFull);
+    ShowDiffBetweenEx(dwCommit, dwCommit, git_commit_id(aCommit1), git_commit_id(aCommit2), '', '', aPath, aFull);
   end;
 
 
 
-  procedure TGitRepository.ShowDiffBetweenEx(aWhat1, aWhat2 :TDiffWhat; aOID1, aOID2 :PGitOid; const aCaption1, aCaption2 :TString; aFull :Boolean);
+  procedure TGitRepository.ShowDiffBetweenEx(aWhat1, aWhat2 :TDiffWhat; aOID1, aOID2 :PGitOid; const aCaption1, aCaption2 :TString; const aPath :TString; aFull :Boolean);
   var
     vExchanged :Boolean;
 
@@ -1177,12 +1247,12 @@ interface
   begin
     vVCAPI := GetVisualCompareAPI;
 
-    FList1 := vVCAPI.CreateFileList;
-    FList2 := vVCAPI.CreateFileList;
+    FDiffList1 := vVCAPI.CreateFileList;
+    FDiffList2 := vVCAPI.CreateFileList;
 
     vContentCallback := TContentCallback.Create(Self);
-    FList1.SetContentCallback(vContentCallback);
-    FList2.SetContentCallback(vContentCallback);
+    FDiffList1.SetContentCallback(vContentCallback);
+    FDiffList2.SetContentCallback(vContentCallback);
 
     vExchanged := False;
     vCom1 := nil; vCom2 := nil; vTreeA := nil; vTreeB := nil; vDiff := nil;
@@ -1205,8 +1275,8 @@ interface
 
           GitCheck(git_diff_tree_to_workdir(vDiff, FRepo, vTreeA, @vOpts));
 
-          FList1.SetTag(PWideChar(GetOIDToStr(aOID1^)));
-          FList2.SetTag('');
+          FDiffList1.SetTag(PWideChar(GetOIDToStr(aOID1^)));
+          FDiffList2.SetTag('');
         end else
         begin
           { Index <> Workdir }
@@ -1230,20 +1300,33 @@ interface
       end else
       begin
         { Commit <> Commit }
-        GitCheck(git_commit_lookup(vCom1, FRepo, aOID1));
-        GitCheck(git_commit_tree(vTreeA, vCom1));
+        if aOID1 <> nil then begin
+          GitCheck(git_commit_lookup(vCom1, FRepo, aOID1));
+          GitCheck(git_commit_tree(vTreeA, vCom1));
+        end;
 
-        GitCheck(git_commit_lookup(vCom2, FRepo, aOID2));
-        GitCheck(git_commit_tree(vTreeB, vCom2));
+        if aOID2 <> nil then begin
+          GitCheck(git_commit_lookup(vCom2, FRepo, aOID2));
+          GitCheck(git_commit_tree(vTreeB, vCom2));
+        end;
 
         GitCheck(git_diff_tree_to_tree(vDiff, FRepo, vTreeA, vTreeB, @vOpts));
 
-        FList1.SetTag(PWideChar(GetOIDToStr(aOID1^)));
-        FList2.SetTag(PWideChar(GetOIDToStr(aOID2^)));
+        FDiffList1.SetTag(PWideChar(GetOIDToStr(aOID1^)));
+        FDiffList2.SetTag(PWideChar(GetOIDToStr(aOID2^)));
       end;
 
-//    GitCheck(git_diff_print(vDiff, GIT_DIFF_FORMAT_PATCH_HEADER, GitDiffLineCallback, Self));
-      GitCheck(git_diff_foreach(vDiff, GitDiffFileCallback, nil, nil, nil, Self));
+      FDiffMask := TWildcard.Create('', aPath);
+      try
+        FDiffCount := 0;
+        FDiffFile := '';
+
+//      GitCheck(git_diff_print(vDiff, GIT_DIFF_FORMAT_PATCH_HEADER, GitDiffLineCallback, Self));
+        GitCheck(git_diff_foreach(vDiff, GitDiffFileCallback, nil, nil, nil, Self));
+
+      finally
+        FreeObj(FDiffMask);
+      end;
 
     finally
       if vDiff <> nil then
@@ -1259,17 +1342,20 @@ interface
     end;
 
     if vExchanged then
-      PtrExchange(FList1, FList2);
+      PtrExchange(FDiffList1, FDiffList2);
 
     if aCaption1 <> '' then
-      FList1.SetRoot(PWideChar(aCaption1 + ':'));
+      FDiffList1.SetRoot(PWideChar(aCaption1 + ':'));
     if aCaption2 <> '' then
-      FList2.SetRoot(PWideChar(aCaption2 + ':'));
+      FDiffList2.SetRoot(PWideChar(aCaption2 + ':'));
 
-    vVCAPI.CompareFileLists(FList1, FList2, 0);
+    if (aPath <> '') and (FDiffFile <> '') then
+      vVCAPI.CompareFiles( vContentCallback.GetRealFileName(FDiffList1, '', PTChar(FDiffFile)), vContentCallback.GetRealFileName(FDiffList2, '', PTChar(FDiffFile)), 0 )
+    else
+      vVCAPI.CompareFileLists(FDiffList1, FDiffList2, 0);
 
-    FList1 := nil;
-    FList2 := nil;
+    FDiffList1 := nil;
+    FDiffList2 := nil;
   end;
 
  {-----------------------------------------------------------------------------}
@@ -1318,7 +1404,7 @@ interface
   end;
 *)
 
-  procedure TGitRepository.ShowHistory(const AFolder :TString);
+  procedure TGitRepository.ShowHistory(const aPath :TString);
   var
     vOpts :TGitDiffOptions;
     vPathSpec :PGitPathspec;
@@ -1402,8 +1488,8 @@ interface
         vOpts.ignore_submodules := uint(-1);
         vOpts.context_lines := 3;
 
-        if AFolder <> '' then begin
-          vPath := Copy(AFolder, Length(FWorkDir) + 1, MaxInt);
+        if aPath <> '' then begin
+          vPath := Copy(aPath, Length(FWorkDir) + 1, MaxInt);
           if vPath <> '' then begin
             vAPath := FileToGIT(vPath);
             vPPath := PAnsiChar(vAPath);
@@ -1443,7 +1529,7 @@ interface
       end;
 
       Assert(Assigned(ShowHistDlg));
-      ShowHistDlg(Self, vHistory);
+      ShowHistDlg(Self, vPath, vHistory);
 
     finally
       FreeObj(vHistory);
@@ -1453,69 +1539,71 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure TGitRepository.ShowCommit(const AFolder :TString);
-    { ѕоказывает разницу между Head и рабочим каталогом (git status) }
-  var
-    i, n :Integer;
-    vVCAPI :IVisCompAPI;
-    vStatusList :Pointer;
-    vOpts :git_status_options;
-    vPath :TString;
-    vAPath :TAnsiStr;
-    vPPath :PAnsiChar;
-    vItem :PGitStatusEntry;
-    vContentCallback :IVCContentCallback;
-  begin
-    vVCAPI := GetVisualCompareAPI;
-
-    FList1 := vVCAPI.CreateFileList;
-    FList2 := vVCAPI.CreateFileList;
-
-    vContentCallback := TContentCallback.Create(Self);
-    FList1.SetContentCallback(vContentCallback);
-    FList2.SetContentCallback(vContentCallback);
-
-    FillZero(vOpts, SizeOf(vOpts));
-    vOpts.version := 1;
-//  vOpts.show := GIT_STATUS_SHOW_INDEX_ONLY; {GIT_STATUS_SHOW_INDEX_ONLY;}
-    vOpts.flags := GIT_STATUS_OPT_INCLUDE_UNTRACKED or GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS or GIT_STATUS_OPT_INCLUDE_UNMODIFIED;
-
-    if AFolder <> '' then begin
-      vPath := Copy(AddBackSlash(AFolder), Length(FWorkDir) + 1, MaxInt);
-      if vPath <> '' then begin
-        vAPath := FileToGIT(RemoveBackSlash(vPath));
-        vPPath := PAnsiChar(vAPath);
-        vOpts.pathspec.count := 1;
-        vOpts.pathspec.strings := Pointer(@vPPath);
-      end;
-    end;
-
-    FList1.SetRoot(PTChar(cGitRoot + vPath));
-    FList2.SetRoot(PTChar(cWorkRoot + vPath));
-
-    FList1.SetTag(cHead);
-    FList2.SetTag('');
-
-    GitCheck(git_status_list_new(vStatusList, FRepo, @vOpts));
-    try
-      n := git_status_list_entrycount(vStatusList);
-      for i := 0 to n - 1 do begin
-        vItem := git_status_byindex(vStatusList, i);
-        if (vItem.head_to_index <> nil) and (vItem.head_to_index.status <> GIT_DELTA_UNMODIFIED) then
-          AddFileDelta(vItem.head_to_index, FList1, FList2, vPath)
-        else
-        if vItem.index_to_workdir <> nil then
-          AddFileDelta(vItem.index_to_workdir, FList1, FList2, vPath);
-      end;
-    finally
-      git_status_list_free(vStatusList);
-    end;
-
-    vVCAPI.CompareFileLists(FList1, FList2, 0);
-
-    FList1 := nil;
-    FList2 := nil;
-  end;
+//  procedure TGitRepository.ShowCommit(const AFolder :TString);
+//    { ѕоказывает разницу между Head и рабочим каталогом (git status) }
+//  var
+//    i, n :Integer;
+//    vVCAPI :IVisCompAPI;
+//    vList1 :IVCFileList;
+//    vList2 :IVCFileList;
+//    vStatusList :Pointer;
+//    vOpts :git_status_options;
+//    vPath :TString;
+//    vAPath :TAnsiStr;
+//    vPPath :PAnsiChar;
+//    vItem :PGitStatusEntry;
+//    vContentCallback :IVCContentCallback;
+//  begin
+//    vVCAPI := GetVisualCompareAPI;
+//
+//    vList1 := vVCAPI.CreateFileList;
+//    vList2 := vVCAPI.CreateFileList;
+//
+//    vContentCallback := TContentCallback.Create(Self);
+//    vList1.SetContentCallback(vContentCallback);
+//    vList2.SetContentCallback(vContentCallback);
+//
+//    FillZero(vOpts, SizeOf(vOpts));
+//    vOpts.version := 1;
+////  vOpts.show := GIT_STATUS_SHOW_INDEX_ONLY; {GIT_STATUS_SHOW_INDEX_ONLY;}
+//    vOpts.flags := GIT_STATUS_OPT_INCLUDE_UNTRACKED or GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS or GIT_STATUS_OPT_INCLUDE_UNMODIFIED;
+//
+//    if AFolder <> '' then begin
+//      vPath := Copy(AddBackSlash(AFolder), Length(FWorkDir) + 1, MaxInt);
+//      if vPath <> '' then begin
+//        vAPath := FileToGIT(RemoveBackSlash(vPath));
+//        vPPath := PAnsiChar(vAPath);
+//        vOpts.pathspec.count := 1;
+//        vOpts.pathspec.strings := Pointer(@vPPath);
+//      end;
+//    end;
+//
+//    vList1.SetRoot(PTChar(cGitRoot + vPath));
+//    vList2.SetRoot(PTChar(cWorkRoot + vPath));
+//
+//    vList1.SetTag(cHead);
+//    vList2.SetTag('');
+//
+//    GitCheck(git_status_list_new(vStatusList, FRepo, @vOpts));
+//    try
+//      n := git_status_list_entrycount(vStatusList);
+//      for i := 0 to n - 1 do begin
+//        vItem := git_status_byindex(vStatusList, i);
+//        if (vItem.head_to_index <> nil) and (vItem.head_to_index.status <> GIT_DELTA_UNMODIFIED) then
+//          AddFileDelta(vItem.head_to_index, vList1, vList2, vPath)
+//        else
+//        if vItem.index_to_workdir <> nil then
+//          AddFileDelta(vItem.index_to_workdir, vList1, vList2, vPath);
+//      end;
+//    finally
+//      git_status_list_free(vStatusList);
+//    end;
+//
+//    vVCAPI.CompareFileLists(vList1, vList2, 0);
+//
+//    vList1 := nil;
+//    vList2 := nil;
+//  end;
 
 
  {-----------------------------------------------------------------------------}

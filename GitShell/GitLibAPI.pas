@@ -1495,9 +1495,12 @@ const
   GIT_BRANCH_ALL = GIT_BRANCH_LOCAL or GIT_BRANCH_REMOTE;
 
 
-(*
-/**
- * Options controlling how pathspec match should be executed
+
+(*
+
+/**
+
+ * Options controlling how pathspec match should be executed
  *
  * - GIT_PATHSPEC_IGNORE_CASE forces match to ignore case; otherwise
  *   match will use native case sensitivity of platform filesystem
@@ -1527,9 +1530,12 @@ typedef enum {
 	GIT_PATHSPEC_FAILURES_ONLY  = (1u << 5),
 } git_pathspec_flag_t;
 *)
-const
-  GIT_PATHSPEC_DEFAULT        = 0;
-  GIT_PATHSPEC_IGNORE_CASE    = 1 shl 0;
+
+const
+
+  GIT_PATHSPEC_DEFAULT        = 0;
+
+  GIT_PATHSPEC_IGNORE_CASE    = 1 shl 0;
   GIT_PATHSPEC_USE_CASE       = 1 shl 1;
   GIT_PATHSPEC_NO_GLOB        = 1 shl 2;
   GIT_PATHSPEC_NO_MATCH_ERROR = 1 shl 3;
@@ -1681,12 +1687,14 @@ var
   //void git_object_free(git_object *object);
   git_object_free :procedure(obj :PGitObject); cdecl;
 
+  // GIT_EXTERN(size_t) git_blob_rawsize(git_blob *blob);
+  git_blob_rawsize :function(blob :PGitBlob) :size_t; cdecl;
 
   // GIT_EXTERN(const void *) git_blob_rawcontent(git_blob *blob);
   git_blob_rawcontent :function(blob :PGitBlob) :PByte; cdecl;
 
-  // GIT_EXTERN(size_t) git_blob_rawsize(git_blob *blob);
-  git_blob_rawsize :function(blob :PGitBlob) :size_t; cdecl;
+  //int git_blob_filtered_content(git_buf *out, git_blob *blob, const char *as_path, int check_for_binary_data);
+  git_blob_filtered_content :function(var buf :TGitBuf; blob :PGitBlob; AsPath :PAnsiChar; check_for_binary_data :Integer) :Integer; cdecl;
 
   // int git_revwalk_new(git_revwalk **out, git_repository *repo);
   git_revwalk_new :function(var walker :PGitRevwalk; repo :PGitRepository) :Integer; cdecl;
@@ -2543,8 +2551,9 @@ begin
    git_object_short_id              := Bind('git_object_short_id');
    git_object_free                  := Bind('git_object_free');
 
-   git_blob_rawcontent              := Bind('git_blob_rawcontent');
    git_blob_rawsize                 := Bind('git_blob_rawsize');
+   git_blob_rawcontent              := Bind('git_blob_rawcontent');
+   git_blob_filtered_content        := Bind('git_blob_filtered_content');
 
    git_revwalk_new                  := Bind('git_revwalk_new');
    git_revwalk_push_head            := Bind('git_revwalk_push_head');
