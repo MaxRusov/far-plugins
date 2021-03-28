@@ -19,6 +19,7 @@ interface
     cTrue :Boolean = True;
 
   procedure NOP;
+  procedure DEB; deprecated;
 
  {$ifdef bStackX64}
   function CaptureStackBackTrace(FramesToSkip :TUns32{ULONG}; FramesToCapture :TUns32{ULONG}; BackTrace :Pointer; BackTraceHash :PUns32{PULONG}) :Word{USHORT}; stdcall;
@@ -67,8 +68,8 @@ interface
   procedure TraceFA(const AMsg :TAnsiStr; const Args: array of const);
   procedure TraceFW(const AMsg :TWideStr; const Args: array of const);
 
-  procedure TraceBeg(const AMsg :TString);
-  procedure TraceBegF(const AMsg :TString; const Args: array of const);
+  procedure TraceBeg(const AMsg :TString); overload;
+  procedure TraceBeg(const AMsg :TString; const Args: array of const); overload;
   procedure TraceEnd(const AMsg :TString);
  {$endif bTrace}
 
@@ -90,6 +91,11 @@ interface
 
 
   procedure NOP;
+  begin
+  end;
+
+
+  procedure DEB;
   begin
   end;
 
@@ -589,7 +595,7 @@ interface
     gStart := GetTickCount;
   end;
 
-  procedure TraceBegF(const AMsg :TString; const Args: array of const);
+  procedure TraceBeg(const AMsg :TString; const Args: array of const);
   begin
     TraceF(AMsg, Args);
     gStart1 := gStart;

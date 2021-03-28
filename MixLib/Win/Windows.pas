@@ -58,6 +58,8 @@ type
   UCHAR = Byte;
   PUCHAR = ^Byte;
   SHORT = Smallint;
+  USHORT = Word;
+  PUShort = ^USHORT;
   UINT = LongWord;
   PUINT = ^UINT;
   ULONG = Cardinal;
@@ -93,6 +95,8 @@ type
   HANDLE_PTR = TUnsPtr;
 
   UInt64 = TUns64;
+  ULONG64 = UInt64;
+  PULONG64 = ^ULONG64;
 
   PTChar = MixTypes.PTChar;
 
@@ -723,6 +727,17 @@ type
   end;
   TGenericMapping = _GENERIC_MAPPING;
   GENERIC_MAPPING = _GENERIC_MAPPING;
+
+//
+// Locally Unique Identifier
+//
+  PLUID = ^TLUID;
+  _LUID = record
+    LowPart: DWORD;
+    HighPart: INT32;
+  end;
+  TLUID = _LUID;
+  LUID = _LUID;
 
   PLUIDAndAttributes = ^TLUIDAndAttributes;
   _LUID_AND_ATTRIBUTES = packed record
@@ -1835,6 +1850,9 @@ type
   HKL = THandle;
 
   HFILE = THandle;
+
+  VARIANT_BOOL = SHORT;
+
   HCURSOR = HICON;              { HICONs & HCURSORs are polymorphic }
 
   COLORREF = DWORD;

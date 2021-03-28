@@ -260,6 +260,19 @@ type
   PPropID = ^TPropID;
   TPropID = PROPID;
 
+  _tagpropertykey = record
+    fmtid: TGUID;
+    pid: DWORD;
+//  class operator Equal(const Left, Right: _tagpropertykey): Boolean; inline;
+//  class operator NotEqual(const Left, Right: _tagpropertykey): Boolean; inline;
+  end;
+  PROPERTYKEY = _tagpropertykey;
+  PPropertyKey = ^TPropertyKey;
+  TPropertyKey = _tagpropertykey;
+
+//function IsEqualPropertyKey(const a, b: TPropertyKey): Boolean; inline;
+
+
 { from OAIDL.H }
 
 const
