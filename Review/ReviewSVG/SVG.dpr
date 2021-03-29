@@ -4,7 +4,7 @@ library SVG;
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
- {$ImageBase $41150000}
+ {$ImageBase $41160000}
 {$endif Debug}
 
 {$ifdef bDelphi}

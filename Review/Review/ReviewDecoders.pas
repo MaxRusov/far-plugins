@@ -36,6 +36,8 @@ interface
   type
     TReviewDecoder = class;
 
+    { Базовый класс для TReviewImage и TReviewThumb }
+
     TReviewImageRec = class(TComBasis)
     public
       FName        :TString;           { Имя файла (не обязательно с путем) }

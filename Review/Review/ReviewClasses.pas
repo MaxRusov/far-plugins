@@ -40,6 +40,9 @@ interface
     GDIPAPI,
     GDIImageUtil,
     ReviewConst,
+   {$ifdef bVideoOSD}
+    ReviewVideo,
+   {$endif bVideoOSD}
     ReviewDecoders,
     ReviewGDIPlus;
 
@@ -140,6 +143,7 @@ interface
       procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
     end;
 
+    { Базовый класс для TImageWindow и TThumbsWindow}
 
     TReviewWindow = class(TMSWindow)
     public
@@ -210,6 +214,15 @@ interface
       constructor Create; override;
       destructor Destroy; override;
 
+      procedure PlayPause;
+      function GetMediaIsVideo :Boolean;
+      function GetMediaState :Integer;
+      function GetMediaLen :Integer;
+      function GetMediaPos :Integer;
+      procedure SetMediaPos(aMS :Integer);
+      function GetMediaVolume :Integer;
+      procedure SetMediaVolume(aVal :Integer);
+
     protected
       procedure PaintWindow(DC :HDC); override;
       function Idle :Boolean; override;
@@ -267,6 +280,11 @@ interface
 
       FUseWinSize   :Boolean;
 
+     {$ifdef bVideoOSD}
+      FVideoWin     :TVideoWindow;
+      FControlWin   :TControlWindow;
+     {$endif bVideoOSD}
+
       procedure RecalcRects;
       procedure MoveImage(DX, DY :Integer);
       procedure SetScale(aMode :TScaleMode; aLnScale, aScale :TFloat);
@@ -277,8 +295,13 @@ interface
 
       procedure ReleaseDecoder;
       procedure ReleaseImage;
-      procedure AttachDecoder(ADecoder :TReviewDecoder);
+      procedure AttachDecoder(ADecoder :TReviewDecoder; aHandle :THandle);
       function AsyncDecode :Boolean;
+
+     {$ifdef bVideoOSD}
+      procedure SetOSD(aOn :Boolean);
+      procedure RealignOSD;
+     {$endif bVideoOSD}
 
     public
       property Scale :TFloat read FScale;
@@ -492,7 +515,7 @@ interface
      {$ifdef bThumbs}
       property ThumbWindow :TReviewWindow read FThumbsWindow;
      {$endif bThumbs}
-    end;
+    end; {TReviewManager}
 
 
   var Review :TReviewManager;
@@ -1535,6 +1558,10 @@ interface
 
   destructor TImageWindow.Destroy; {override;}
   begin
+   {$ifdef bVideoOSD}
+    FreeObj(FControlWin);
+    FreeObj(FVideoWin);
+   {$endif bVideoOSD}
     ReleaseImage;
     ReleaseDecoder;
     inherited Destroy;
@@ -1562,11 +1589,11 @@ interface
   end;
 
 
-  procedure TImageWindow.AttachDecoder(ADecoder :TReviewDecoder);
+  procedure TImageWindow.AttachDecoder(ADecoder :TReviewDecoder; aHandle :THandle);
   begin
     if FDecoder <> ADecoder then begin
       ReleaseDecoder;
-      if ADecoder.pvdDisplayInit(FHandle) then
+      if ADecoder.pvdDisplayInit(aHandle) then
         FDecoder := ADecoder;
     end;
   end;
@@ -1591,6 +1618,7 @@ interface
   var
     vOldImage :TReviewImage;
     vOldSrcRect, vOldDstRect :TRect;
+    vAttachWnd :THandle;
   begin
     with PSetImageRec(Mess.LParam)^ do begin
 //    Trace('CMSetImage...');
@@ -1609,7 +1637,18 @@ interface
       end;
 
       try
-        AttachDecoder(Image.FDecoder);
+       {$ifdef bVideoOSD}
+        SetOSD(Image.FMovie);
+       {$endif bVideoOSD}
+
+       {$ifdef bVideoOSD}
+        if FVideoWin <> nil then
+          vAttachWnd := FVideoWin.Handle
+        else
+       {$endif bVideoOSD}
+          vAttachWnd := FHandle;
+
+        AttachDecoder(Image.FDecoder, vAttachWnd);
 
         if WinMode <> -1 then begin
           if WinMode = 1 then
@@ -1629,7 +1668,7 @@ interface
         FImage._AddRef;
 
         if FImage.FSelfdraw then
-          FImageOk := (FDecoder <> nil) and FDecoder.pvdDisplayShow(FHandle, FImage)
+          FImageOk := (FDecoder <> nil) and FDecoder.pvdDisplayShow(vAttachWnd, FImage)
         else
           FImageOk := FImage.FBitmap <> nil;
 
@@ -1677,6 +1716,8 @@ interface
           Invalidate;
 
         FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
+
+        SetMediaVolume(optVolume);
 
       finally
         if vOldImage <> nil then
@@ -1943,6 +1984,10 @@ interface
     inherited;
     if FImage <> nil then
       RecalcRects;
+   {$ifdef bVideoOSD}
+    if FVideoWin <> nil then
+      RealignOSD;
+   {$endif bVideoOSD}
 //  Invalidate;
   end;
 
@@ -2651,6 +2696,11 @@ interface
         Invalidate;
       end;
     end;
+
+   {$ifdef bVideoOSD}
+    if FControlWin <> nil then
+      FControlWin.Idle;
+   {$endif bVideoOSD}
   end;
 
 
@@ -2701,6 +2751,116 @@ interface
 
       Result := False;
     end;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bVideoOSD}
+  procedure TImageWindow.SetOSD(aOn :Boolean);
+  begin
+    if (FVideoWin <> nil) = aOn then
+      Exit;
+
+    if aOn then begin
+      FVideoWin := TVideoWindow.CreateEx(Self);
+      FControlWin := TControlWindow.CreateEx(Self);
+      RealignOSD;
+    end else
+    begin
+      FreeObj(FControlWin);
+      FreeObj(FVideoWin);
+    end;
+  end;
+
+
+  procedure TImageWindow.RealignOSD;
+  var
+    vRect :TRect;
+    Y :Integer;
+  begin
+    vRect := ClientRect;
+
+    Y := vRect.Bottom;
+    if True {FShowOSD} then
+      Y := Y - cPanHeight;
+
+    FVideoWin.SetBounds(Rect(vRect.Left, vRect.Top, vRect.Right, Y), 0);
+    FControlWin.SetBounds(Rect(vRect.Left, Y, vRect.Right, vRect.Bottom), 0);
+  end;
+ {$endif bVideoOSD}
+
+
+  procedure TImageWindow.PlayPause;
+  var
+    vState :Integer;
+  begin
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+      with TReviewDllDecoder2(FImage.Decoder) do begin
+        vState := pvdPlayControl(FImage, PVD_PC_GetState, 0);
+        if vState = 1 then
+          pvdPlayControl(FImage, PVD_PC_Pause, 0)
+        else
+          pvdPlayControl(FImage, PVD_PC_Play, 0)
+      end;
+  end;
+
+
+  function TImageWindow.GetMediaIsVideo :Boolean;
+  begin
+    Result := (FImage <> nil) and FImage.FMovie; {!!!}
+  end;
+
+
+  function TImageWindow.GetMediaState :Integer;
+  begin
+    Result := 0;
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+      with TReviewDllDecoder2(FImage.Decoder) do
+        Result := pvdPlayControl(FImage, PVD_PC_GetState, 0);
+  end;
+
+
+  function TImageWindow.GetMediaLen :Integer;
+  begin
+    Result := 0;
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+      with TReviewDllDecoder2(FImage.Decoder) do
+        Result := pvdPlayControl(FImage, PVD_PC_GetLen, 0);
+  end;
+
+
+  function TImageWindow.GetMediaPos :Integer;
+  begin
+    Result := 0;
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+      with TReviewDllDecoder2(FImage.Decoder) do
+        Result := pvdPlayControl(FImage, PVD_PC_GetPos, 0);
+  end;
+
+
+  procedure TImageWindow.SetMediaPos(aMS :Integer);
+  begin
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+      with TReviewDllDecoder2(FImage.Decoder) do
+        pvdPlayControl(FImage, PVD_PC_SetPos, aMS);
+  end;
+
+
+  function TImageWindow.GetMediaVolume :Integer;
+  begin
+    Result := 0;
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+      with TReviewDllDecoder2(FImage.Decoder) do
+        Result := pvdPlayControl(FImage, PVD_PC_GetVolume, 0);
+  end;
+
+
+  procedure TImageWindow.SetMediaVolume(aVal :Integer);
+  begin
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+      with TReviewDllDecoder2(FImage.Decoder) do
+        pvdPlayControl(FImage, PVD_PC_SetVolume, aVal);
   end;
 
 
@@ -4517,21 +4677,6 @@ interface
     end;
 
 
-    procedure LocPlayPause;
-    var
-      vState :Integer;
-    begin
-      if vImage.Decoder is TReviewDllDecoder2 then
-        with TReviewDllDecoder2(vImage.Decoder) do begin
-          vState := pvdPlayControl(vImage, PVD_PC_GetState, 0);
-          if vState = 1 then
-            pvdPlayControl(vImage, PVD_PC_Pause, 0)
-          else
-            pvdPlayControl(vImage, PVD_PC_Play, 0)
-        end;
-    end;
-
-
     function LocStep(aStep :Integer) :Integer;
     begin
       if Key_Shift and AKey = 0 then
@@ -4710,7 +4855,7 @@ interface
         Key_AltF2   : Review.Save('', '', 0, 0, [soExifRotation]);
         Key_ShiftF2 : LocSaveAs;
 
-        Key_Space   : LocPlayPause;
+        Key_Space   : Review.Window.PlayPause;
 
        {$ifdef bDebug}
         KEY_AltX : Sorry;

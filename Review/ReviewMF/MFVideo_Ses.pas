@@ -126,11 +126,13 @@ uses
 
     private
       FPlayer   :TPlayer;
+      FVolume   :Double;
 
       function GetIsVideo :Boolean;
 
     public
       property IsVideo :Boolean read GetIsVideo;
+      property Volume :Double read FVolume;
     end;
 
 
@@ -734,6 +736,7 @@ uses
   begin
     inherited Create;
     FPlayer := TPlayer.Create;
+    FVolume := 100;
   end;
 
 
@@ -818,6 +821,7 @@ uses
   procedure TMedia.SetVolume(aValue :Double);
   begin
     FPlayer.SetVolume(aValue);
+    FVolume := aValue;
   end;
 
 

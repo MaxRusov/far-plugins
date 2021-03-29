@@ -70,6 +70,7 @@ interface
 
   procedure TraceBeg(const AMsg :TString); overload;
   procedure TraceBeg(const AMsg :TString; const Args: array of const); overload;
+  procedure TraceBegF(const AMsg :TString; const Args: array of const);
   procedure TraceEnd(const AMsg :TString);
  {$endif bTrace}
 
@@ -597,10 +598,16 @@ interface
 
   procedure TraceBeg(const AMsg :TString; const Args: array of const);
   begin
+    TraceBegF(AMsg, Args);
+  end;
+
+  procedure TraceBegF(const AMsg :TString; const Args: array of const);
+  begin
     TraceF(AMsg, Args);
     gStart1 := gStart;
     gStart := GetTickCount;
   end;
+
 
   procedure TraceEnd(const AMsg :TString);
   begin

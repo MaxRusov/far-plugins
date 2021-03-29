@@ -41,6 +41,6 @@ exports
 
   pvdPlayControl;
 
-{$R DXVideo.res}
+{$R DXVideoW.res}
 
 end.

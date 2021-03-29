@@ -43,5 +43,3 @@ BEGIN
         VALUE "Translation", 0x419, 1251
     END
 END
-
-Buttons  BITMAP  "Buttons.bmp"

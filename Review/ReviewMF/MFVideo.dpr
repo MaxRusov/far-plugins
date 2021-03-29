@@ -4,7 +4,7 @@ library MFVideo;
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
- {$ImageBase $41120000}
+ {$ImageBase $41150000}
 {$endif Debug}
 
 {$ifdef bDelphi}
