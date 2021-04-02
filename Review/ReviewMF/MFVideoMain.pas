@@ -88,7 +88,6 @@ interface
       procedure CreateParams(var AParams :TCreateParams); override;
       procedure ErrorHandler(E :Exception); override;
 
-//    procedure WMSysCommand(var Mess :TMessage); message WM_SYSCOMMAND;
       procedure WMAppPlayerEvent(var Mess :TMessage); message WM_APP_PLAYER_EVENT;
       procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
       procedure WMPaint(var Mess :TWMPaint); message WM_Paint;
@@ -200,23 +199,6 @@ interface
       end;
     inherited;
   end;
-
-
-//  procedure TPlayerWindow.WMSysCommand(var Mess :TMessage); {message WM_SYSCOMMAND;}
-//  begin
-//    case Mess.WParam of
-//      SC_SCREENSAVE: begin
-//        Trace('SC_SCREENSAVE...');
-//        Mess.Result := 0;
-//      end;
-//      SC_MONITORPOWER: begin
-//        Trace('SC_MONITORPOWER...');
-//        Mess.Result := 0;
-//      end
-//    else
-//      inherited;
-//    end;
-//  end;
 
 
   procedure TPlayerWindow.WMAppPlayerEvent(var Mess :TMessage); {message WM_APP_PLAYER_EVENT;}

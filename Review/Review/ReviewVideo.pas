@@ -109,6 +109,8 @@ interface
       FHideTime   :DWORD;
       FLastAction :DWORD;
 
+      FLastAlive  :DWORD;
+
       procedure WMSize(var Mess :TWMSize); message WM_Size;
       procedure WMCtlColorStatic(var Mess :TWMCtlColorStatic); message WM_CtlColorStatic;
       procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
@@ -185,6 +187,34 @@ interface
     IdVolume    = 11;
 
     cButPlay    = 1;
+
+
+ {-----------------------------------------------------------------------------}
+
+  type
+    EXECUTION_STATE = dword;
+
+  const
+    ES_SYSTEM_REQUIRED   = $00000001;
+    ES_DISPLAY_REQUIRED  = $00000002;
+    ES_USER_PRESENT      = $00000004;
+    ES_AWAYMODE_REQUIRED = $00000040;
+    ES_CONTINUOUS        = $80000000;
+
+//  function SetThreadExecutionState(esFlags :EXECUTION_STATE) :EXECUTION_STATE; stdcall;
+//    external 'kernel32.dll' name 'SetThreadExecutionState';
+
+  var
+    SetThreadExecutionState :function(esFlags :EXECUTION_STATE) :EXECUTION_STATE; stdcall;
+
+  procedure InitAPI;
+  var
+    vKernel :THandle;
+  begin
+    vKernel := GetModuleHandle(Windows.Kernel32);
+    if vKernel <> 0 then
+      @SetThreadExecutionState := GetProcAddress(vKernel, 'SetThreadExecutionState');
+  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -446,6 +476,12 @@ interface
       FLastVolume := vVol;
     end;
 
+    if (vState = 1) and (TickCountDiff(GetTickCount, FLastAlive) > 1000) and Assigned(SetThreadExecutionState) then begin
+//    Trace('SetThreadExecutionState......');
+      SetThreadExecutionState(ES_DISPLAY_REQUIRED);
+      FLastAlive := GetTickCount;
+    end;
+
     if (vState = 1) and (vOwner.WinMode = wmFullscreen) and vOwner.GetMediaIsVideo then begin
       if MouseInMyBounds then
         ActiveAction;
@@ -465,7 +501,6 @@ interface
   begin
     if FHidden <> aHidden then begin
 //    Trace('SetHidden: %d', [byte(aHidden)]);
-
       FHidden := aHidden;
       if FHidden then
         FHideTime := GetTickCount
@@ -621,5 +656,6 @@ interface
   end;
 
 
-
+initialization
+  InitAPI;
 end.
