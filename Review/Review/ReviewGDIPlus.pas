@@ -740,12 +740,12 @@ interface
       vSize := Size(ADX, ADY);
 
     vThumb := 0;
-(*
-   {$ifdef bUseLibJPEG}
-    if optUseLibJPEG and IsEqualGUID(FFmtID, ImageFormatJPEG) and (FSrcBuf <> nil) then
-      vThumb := JPEGRender(FSrcName, FSrcBuf, FSrcSize, vSize, ACallback, ACallbackData);
-   {$endif bUseLibJPEG}
-*)
+
+//   {$ifdef bUseLibJPEG}
+//    if optUseLibJPEG and IsEqualGUID(FFmtID, ImageFormatJPEG) and (FSrcBuf <> nil) then
+//      vThumb := JPEGRender(FSrcName, FSrcBuf, FSrcSize, vSize, ACallback, ACallbackData);
+//   {$endif bUseLibJPEG}
+
     if vThumb = 0 then begin
       LockGDIPlus;
       try
@@ -1004,7 +1004,6 @@ interface
       Result := TagInfo(aCode, aType, aValue);
     end;
   end;
-
 
 
 initialization

@@ -63,7 +63,7 @@ uses
 
       function GetPosition(out aPos :Double) :HResult;
       function SetPosition(aPos :Double) :HResult;
-      function SetVolume(aVal :Double) :HResult;
+      function SetVolume(aVal :Integer) :HResult;
 
       function ResizeVideo(aWidth, aHeight :Integer) :HResult;
       function Repaint :HResult;
@@ -87,7 +87,10 @@ uses
       FSeekTo     :Double;
       FNewSeekTo  :Double;
 
+      FVideoSize  :TSize;
+
       FPlayRequest :Boolean;
+      FVolumeRequest :Integer;
 
       procedure CreateSession;
       function CloseSession :HResult;
@@ -120,19 +123,19 @@ uses
       procedure Stop;
       procedure Pause;
 
-      procedure SetVolume(aValue :Double);
+      procedure SetVolume(aValue :Integer);
 
       procedure HandleEvents(aWParam :WParam);
 
     private
       FPlayer   :TPlayer;
-      FVolume   :Double;
+      FVolume   :Integer;
 
       function GetIsVideo :Boolean;
 
     public
       property IsVideo :Boolean read GetIsVideo;
-      property Volume :Double read FVolume;
+      property Volume :Integer read FVolume;
     end;
 
 
@@ -382,6 +385,7 @@ uses
   begin
     inherited Create;
     FCloseEvent := CreateEvent(nil, False, False, nil);
+    FVolumeRequest := -1;
   end;
 
 
@@ -602,9 +606,14 @@ uses
       MFGetService(FSession, MR_VIDEO_RENDER_SERVICE, IMFVideoDisplayControl, Pointer(FDisplay));
       MFGetService(FSession, MR_POLICY_VOLUME_SERVICE, IMFSimpleAudioVolume, Pointer(FVolCtrl));
 
+      FDisplay.GetNativeVideoSize(@FVideoSize, nil);
+
       FState := Stopped;
       if FPlayRequest then
         Result := StartPlayback;
+      if FVolumeRequest > 0 then
+        SetVolume(FVolumeRequest);
+      FVolumeRequest := -1;
     end;
   end;
 
@@ -693,7 +702,6 @@ uses
   end;
 
 
-
   function TPlayer.SetPosition(aPos :Double) :HResult;
   var
     vStartPos :TPropVariant;
@@ -718,14 +726,32 @@ uses
   end;
 
 
-  function TPlayer.SetVolume(aVal :Double) :HResult;
+  function TPlayer.SetVolume(aVal :Integer) :HResult;
   begin
-    if FVolCtrl = nil then
+    if (FSession = nil) or (FSource = nil) then
       Exit(MF_E_INVALIDREQUEST);
-    FVolCtrl.SetMasterVolume(aVal / 100);
     Result := S_OK;
+    if FState = OpenPending then
+      FVolumeRequest := aVal
+    else begin
+      if FVolCtrl = nil then
+        Exit(MF_E_INVALIDREQUEST);
+      Result := FVolCtrl.SetMasterVolume(aVal / 100);
+    end;
   end;
 
+//  function TPlayer.Play :HResult;
+//  begin
+////  Trace('Play...');
+//    if (FSession = nil) or (FSource = nil) then
+//      Exit(E_UNEXPECTED);
+//    Result := S_OK;
+//    if FState = OpenPending then
+//      FPlayRequest := True
+//    else
+//    if FState in [Paused, Stopped] then
+//      Result := StartPlayback;
+//  end;
 
 
  {-----------------------------------------------------------------------------}
@@ -778,6 +804,8 @@ uses
 
   procedure TMedia.GetVideoSize(var aWidth, aHeight :Integer);
   begin
+    aWidth := FPlayer.FVideoSize.cx;
+    aHeight := FPlayer.FVideoSize.cy;
   end;
 
 
@@ -818,7 +846,7 @@ uses
   end;
 
 
-  procedure TMedia.SetVolume(aValue :Double);
+  procedure TMedia.SetVolume(aValue :Integer);
   begin
     FPlayer.SetVolume(aValue);
     FVolume := aValue;

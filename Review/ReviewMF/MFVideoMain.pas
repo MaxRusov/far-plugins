@@ -82,13 +82,14 @@ interface
       constructor CreateEx(AOwner :TView);
       destructor Destroy; override;
 
+      procedure DefaultHandler(var Mess); override;
+
     protected
       procedure CreateParams(var AParams :TCreateParams); override;
       procedure ErrorHandler(E :Exception); override;
 
+//    procedure WMSysCommand(var Mess :TMessage); message WM_SYSCOMMAND;
       procedure WMAppPlayerEvent(var Mess :TMessage); message WM_APP_PLAYER_EVENT;
-      procedure WMNCHitTest(var Mess :TWMNCHitTest); message WM_NCHitTest;
-      procedure WMLButtonDblClk(var Mess :TMessage); message WM_LButtonDblClk;
       procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
       procedure WMPaint(var Mess :TWMPaint); message WM_Paint;
       procedure WMWindowPosChanged(var Mess :TWMWindowPosChanged); message WM_WindowPosChanged;
@@ -97,7 +98,6 @@ interface
       procedure CMSetVolume(var Mess :TMessage); message CM_SetVolume;
       procedure CMCommand(var Mess :TMessage); message CM_Command;
 
-
     private
       FOwner      :TView;
 
@@ -105,6 +105,7 @@ interface
       FLastLen    :Integer;
       FLastTime   :Integer;
       FLastVolume :Integer;
+      FLastSize   :TSize;
 
       function Idle :Boolean;
     end;
@@ -148,7 +149,7 @@ interface
       FRefCount    :Integer;
       FSrcName     :TString;
       FMedia       :TMedia;
-      FImgSize     :TSize;
+//    FImgSize     :TSize;
       FLength      :Double;
       FState       :Integer;
       FColor       :DWORD;
@@ -190,23 +191,38 @@ interface
   end;
 
 
+  procedure TPlayerWindow.DefaultHandler(var Mess); {override;}
+  begin
+    with TMessage(Mess) do
+      if (Msg >= WM_MOUSEFIRST) and (Msg <= WM_MOUSELAST) then begin
+        Result := SendMessage(ReviewWindow, Msg, WParam, LParam);
+        Exit;
+      end;
+    inherited;
+  end;
+
+
+//  procedure TPlayerWindow.WMSysCommand(var Mess :TMessage); {message WM_SYSCOMMAND;}
+//  begin
+//    case Mess.WParam of
+//      SC_SCREENSAVE: begin
+//        Trace('SC_SCREENSAVE...');
+//        Mess.Result := 0;
+//      end;
+//      SC_MONITORPOWER: begin
+//        Trace('SC_MONITORPOWER...');
+//        Mess.Result := 0;
+//      end
+//    else
+//      inherited;
+//    end;
+//  end;
+
+
   procedure TPlayerWindow.WMAppPlayerEvent(var Mess :TMessage); {message WM_APP_PLAYER_EVENT;}
   begin
     if FOwner.FMedia <> nil then
       FOwner.FMedia.HandleEvents(Mess.wParam);
-  end;
-
-
-  procedure TPlayerWindow.WMNCHitTest(var Mess :TWMNCHitTest); {message WM_NCHitTest;}
-  begin
-    inherited;
-//  Mess.Result := HTTRANSPARENT;
-  end;
-
-
-  procedure TPlayerWindow.WMLButtonDblClk(var Mess :TMessage); {message WM_LButtonDblClk;}
-  begin
-    Mess.Result := SendMessage(ReviewWindow, Mess.Msg, Mess.WParam, Mess.LParam);
   end;
 
 
@@ -289,9 +305,13 @@ interface
   function TPlayerWindow.Idle :Boolean;
   begin
     FLastState := FOwner.FState;
-    FLastLen := FOwner.GetLenMS;
     FLastTime := FOwner.GetPosMS;
     FLastVolume := FOwner.GetVolume;
+
+    FLastLen := FOwner.GetLenMS;
+    if FOwner.FMedia <> nil then
+      FOwner.FMedia.GetVideoSize(FLastSize.cx, FLastSize.cy);
+
     Result := True;
   end;
 
@@ -387,8 +407,7 @@ interface
     FMedia := OpenMediaFile(PWideChar(FSrcName), FWindow.Handle, FWindow.Handle);
     if FMedia = nil then
       Exit;
-
-    FMedia.GetVideoSize(FImgSize.CX, FImgSize.CY);
+//  FMedia.GetVideoSize(FImgSize.CX, FImgSize.CY);
     FLength := FMedia.GetLength;
   end;
 
@@ -466,7 +485,7 @@ interface
   begin
     Result := 0;
     if FMedia <> nil then
-      Result := Round(FMedia.Volume);
+      Result := FMedia.Volume;
   end;
 
   procedure TView.SetVolume(aVolume :Integer);
@@ -634,7 +653,7 @@ interface
     pPluginInfo.pVersion := '1.0';
     pPluginInfo.pComments := '(c) 2021, Maxim Rusov';
     pPluginInfo.Flags := PVD_IP_DECODE or PVD_IP_DISPLAY or PVD_IP_PRIVATE or PVD_IP_NEEDFILE;
-    pPluginInfo.Priority := $0F01;
+    pPluginInfo.Priority := $0F02;
   end;
 
 
@@ -685,15 +704,11 @@ interface
 
   function pvdPageInfo2(pContext :Pointer; pImageContext :Pointer; pPageInfo :PPVDInfoPage2) :BOOL; stdcall;
   begin
-   {$ifdef bTracePvd}
-    TraceF('pvdPageInfo2: ImageContext=%p, Frame=%d', [pImageContext, pPageInfo.iPage]);
-   {$endif bTracePvd}
     with TView(pImageContext) do begin
+      { Ширина/высота видео в данный момент еще не известны. Они будут запрошены позже, через PVD_PC_GetSize  }
 
-      pPageInfo.lWidth := FImgSize.cx;
-      pPageInfo.lHeight := FImgSize.cy;
-//    pPageInfo.nBPP := FPixels;
-//    TraceF('  pvdPageInfo2 result: Page=%d, Size=%d %d', [pPageInfo.iPage, FImgSize.cx, FImgSize.cy]);
+      pPageInfo.lWidth := 0; //FImgSize.cx;
+      pPageInfo.lHeight := 0; //FImgSize.cy;
 
       Result := True;
     end;
@@ -709,8 +724,8 @@ interface
       //pDecodeInfo.iPage;
       FColor := pDecodeInfo.nBackgroundColor;
 
-      pDecodeInfo.lWidth := FImgSize.cx;
-      pDecodeInfo.lHeight := FImgSize.cy;
+      pDecodeInfo.lWidth := 0; // FImgSize.cx;
+      pDecodeInfo.lHeight := 0; // FImgSize.cy;
 //    pDecodeInfo.nBPP := FPixels;
       pDecodeInfo.ColorModel := PVD_CM_PRIVATE;
 
@@ -818,28 +833,36 @@ interface
  {-----------------------------------------------------------------------------}
 
   function pvdPlayControl(pContext :Pointer; pImageContext :Pointer; aCmd :Integer; pInfo :Pointer) :Integer; stdcall;
+  var
+    vView :TView;
   begin
     Result := 0;
-    if pImageContext = ActiveView then begin
-      case aCmd of
-        PVD_PC_Play, PVD_PC_Pause, PVD_PC_Stop:
-          SendMessage(ActiveView.FWindow.Handle, CM_Command, aCmd, 0);
-        PVD_PC_GetState:
-          Result := ActiveView.FWindow.FLastState;
-        PVD_PC_GetLen:
-          Result := ActiveView.FWindow.FLastLen;
-        PVD_PC_GetPos:
-          Result := ActiveView.FWindow.FLastTime;
-        PVD_PC_SetPos:
-          SendMessage(ActiveView.FWindow.Handle, CM_GotoPos, TIntPtr(pInfo), 0);
-        PVD_PC_GetVolume:
-          Result := ActiveView.FWindow.FLastVolume;
-        PVD_PC_SetVolume:
-          SendMessage(ActiveView.FWindow.Handle, CM_SetVolume, TIntPtr(pInfo), 0);
-//      PVD_PC_Mute      = 9;
-      end;
+    if pImageContext = nil then
+      Exit;
+    vView := pImageContext;
+    case aCmd of
+      PVD_PC_Play, PVD_PC_Pause, PVD_PC_Stop:
+        SendMessage(vView.FWindow.Handle, CM_Command, aCmd, 0);
+      PVD_PC_GetState:
+        Result := vView.FWindow.FLastState;
+      PVD_PC_GetLen:
+        Result := vView.FWindow.FLastLen;
+      PVD_PC_GetPos:
+        Result := vView.FWindow.FLastTime;
+      PVD_PC_SetPos:
+        SendMessage(vView.FWindow.Handle, CM_GotoPos, TIntPtr(pInfo), 0);
+      PVD_PC_GetVolume:
+        Result := vView.FWindow.FLastVolume;
+      PVD_PC_SetVolume:
+        SendMessage(vView.FWindow.Handle, CM_SetVolume, TIntPtr(pInfo), 0);
+      PVD_PC_GetBounds:
+        if pInfo <> nil then begin
+          PSize(pInfo)^ := vView.FWindow.FLastSize;
+          Result := 1;
+        end;
     end;
   end;
+
 
 
   function pvdTranslateError2(nErrNumber :DWORD; pErrInfo :PWideChar; nBufLen :Integer) :Boolean; stdcall;

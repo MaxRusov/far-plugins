@@ -52,6 +52,10 @@ interface
     TMyVolume = class;
     TMyToolbar = class;
 
+    TVideoWindow = class;
+    TControlWindow = class;
+
+
     TVideoWindow = class(TMSWindow)
     public
       constructor CreateEx(AOwner :TMSWindow);
@@ -60,11 +64,16 @@ interface
       procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
       procedure WMLButtonDblClk(var Mess :TMessage); message WM_LButtonDblClk;
 //    procedure WMNCHitTest(var Mess :TWMNCHitTest); message WM_NCHitTest;
+//    procedure WMSYSCOMMAND(var Mess :TMessage); message WM_SYSCOMMAND;
 
       procedure DefaultHandler(var Mess); override;
 
     private
       FOwner :TMSWindow;
+      FCtrl  :TControlWindow;
+
+    public
+      property Ctrl :TControlWindow read FCtrl write FCtrl;
     end;
 
 
@@ -75,6 +84,9 @@ interface
       procedure AfterConstruction; override;
 
       procedure CreateParams(var AParams :TCreateParams); override;
+
+      procedure SetHidden(aHidden :Boolean);
+      procedure ActiveAction;
 
       procedure Idle;
 
@@ -93,11 +105,18 @@ interface
       FLastTime   :Integer;
       FLastVolume :Integer;
 
+      FHidden     :Boolean;
+      FHideTime   :DWORD;
+      FLastAction :DWORD;
+
       procedure WMSize(var Mess :TWMSize); message WM_Size;
       procedure WMCtlColorStatic(var Mess :TWMCtlColorStatic); message WM_CtlColorStatic;
       procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
       procedure WMCommand(var Mess :TWMCommand); message WM_COMMAND;
       procedure Realign;
+
+    public
+      property Hidden :Boolean read FHidden;
     end;
 
 
@@ -207,20 +226,36 @@ interface
   end;
 
 
+//  procedure TVideoWindow.WMSysCommand(var Mess :TMessage); {message WM_SYSCOMMAND;}
+//  begin
+//    case Mess.WParam of
+//      SC_SCREENSAVE: begin
+//        Trace('SC_SCREENSAVE...');
+//        Mess.Result := 0;
+//      end;
+//      SC_MONITORPOWER: begin
+//        Trace('SC_MONITORPOWER...');
+//        Mess.Result := 0;
+//      end
+//    else
+//      inherited;
+//    end;
+//  end;
+
+
+
 //procedure TVideoWindow.WMNCHitTest(var Mess :TWMNCHitTest); {message WM_NCHitTest;}
 //begin
 //  Mess.Result := HTTRANSPARENT;
 //end;
 
+
   procedure TVideoWindow.DefaultHandler(var Mess ); {override;}
   begin
     with TMessage(Mess) do
-      if (Msg >= WM_MOUSEFIRST) and (Msg <= WM_MOUSELAST) then begin
-        Trace('Mouse event: %d', [Msg]);
-//      if (FHideTime = 0) or (TickCountDiff(GetTickCount, FHideTime) > 500) then
-//        FMouseTime := GetTickCount;
-      end;
-
+      if (Msg >= WM_MOUSEFIRST) and (Msg <= WM_MOUSELAST) then
+        if FCtrl <> nil then
+          FCtrl.ActiveAction;
     inherited;
   end;
 
@@ -366,13 +401,25 @@ interface
 
 
   procedure TControlWindow.Idle;
+
+    function MouseInMyBounds :Boolean;
+    var
+      vPoint :TPoint;
+    begin
+      Windows.GetCursorPos(vPoint);
+      ScreenToClient(Handle, vPoint);
+      Result := RectContainsXY(ClientRect, vPoint.X, vPoint.Y);
+    end;
+
   var
     vLen, vPos, vState, vVol :Integer;
-    vTick :DWORD;
+    vOwner :TImageWindow;
   begin
-    vState := TImageWindow(FOwner).GetMediaState;
-    vLen := TImageWindow(FOwner).GetMediaLen;
-    vPos := TImageWindow(FOwner).GetMediaPos;
+    vOwner := TImageWindow(FOwner);
+
+    vState := vOwner .GetMediaState;
+    vLen := vOwner.GetMediaLen;
+    vPos := vOwner.GetMediaPos;
 
     if (vState = 1) and (vPos = vLen) then
       vState := 3;
@@ -390,7 +437,7 @@ interface
     end;
 
     if not FTracker.FDragged then
-      vVol := TImageWindow(FOwner).GetMediaVolume
+      vVol := vOwner.GetMediaVolume
     else
       vVol := FLastVolume;
 
@@ -399,79 +446,43 @@ interface
       FLastVolume := vVol;
     end;
 
-
-    vTick := GetTickCount;
-(*
-    if (optHideOSDDelay <> 0) and (vState = 1) {and IsFullScreen} and TImageWindow(FOwner).GetMediaIsVideo then begin
-//    TraceF('%d', [TickCountDiff(vTick, FMouseTime)]);
-      vOldShow := FShowOSD;
-      ShowOSD( not (TickCountDiff(vTick, FMouseTime) > optHideOSDDelay) );
-      if vOldShow and not FShowOSD then
-        FHideTime := vTick;
+    if (vState = 1) and (vOwner.WinMode = wmFullscreen) and vOwner.GetMediaIsVideo then begin
+      if MouseInMyBounds then
+        ActiveAction;
+      if (FLastAction <> 0) and (TickCountDiff(GetTickCount, FLastAction) > optHideOSDDelay) then begin
+        SetHidden(True);
+        FLastAction := 0;
+      end;
     end else
     begin
-      ShowOSD(True);
-      FMouseTime := vTick;
+      SetHidden(False);
+      FLastAction := 0;
     end;
-*)
-
   end;
 
 
-(*
-  function TPlayerWindow.Idle :Boolean;
-  var
-    vLen, vPos, vState :Integer;
-   {$ifdef bOSD}
-    vOldShow :Boolean;
-    vTick :DWORD;
-   {$endif bOSD}
+  procedure TControlWindow.SetHidden(aHidden :Boolean);
   begin
-    vLen := FOwner.GetLenMS;
-    vPos := FOwner.GetPosMS;
+    if FHidden <> aHidden then begin
+//    Trace('SetHidden: %d', [byte(aHidden)]);
 
-    vState := FOwner.FState;
-    if (vState = 1) and (vPos = vLen) then
-      vState := 3;
-
-   {$ifdef bOSD}
-    if vState <> FLastState then begin
-      FToolbar.SetButtonInfo(cButPlay, IntIf(vState = 1, 1, 0), '');
-      FLastState := vState;
+      FHidden := aHidden;
+      if FHidden then
+        FHideTime := GetTickCount
+      else
+        FHideTime := 0;
+      TImageWindow(FOwner).RealignOSD;
     end;
-
-    if vPos <> FLastTime then begin
-      FTracker.SetLimit(vLen);
-      FTracker.SetPos(vPos);
-      FLastTime := vPos;
-    end;
-
-    if optVolume <> FLastVolume then begin
-      FVolCtrl.SetPos(optVolume);
-      FLastVolume := optVolume;
-    end;
-
-    vTick := GetTickCount;
-    if (optHideOSDDelay <> 0) and (vState = 1) and IsFullScreen and (FOwner.FMedia <> nil) and FOwner.FMedia.IsVideo then begin
-//    TraceF('%d', [TickCountDiff(vTick, FMouseTime)]);
-      vOldShow := FShowOSD;
-      ShowOSD( not (TickCountDiff(vTick, FMouseTime) > optHideOSDDelay) );
-      if vOldShow and not FShowOSD then
-        FHideTime := vTick;
-    end else
-    begin
-      ShowOSD(True);
-      FMouseTime := vTick;
-    end;
-   {$else}
-    FLastState := vState;
-    FLastTime := vPos;
-    FLastVolume := optVolume;
-   {$endif bOSD}
-
-    Result := True;
   end;
-*)
+
+
+  procedure TControlWindow.ActiveAction;
+  begin
+    if (FHideTime <> 0) and (TickCountDiff(GetTickCount, FHideTime) < 100) then
+      Exit;
+    SetHidden(False);
+    FLastAction := GetTickCount;
+  end;
 
 
  {-----------------------------------------------------------------------------}

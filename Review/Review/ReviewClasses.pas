@@ -222,6 +222,12 @@ interface
       procedure SetMediaPos(aMS :Integer);
       function GetMediaVolume :Integer;
       procedure SetMediaVolume(aVal :Integer);
+      function SetMediaSize :TSize;
+
+     {$ifdef bVideoOSD}
+      procedure SetOSD(aOn :Boolean);
+      procedure RealignOSD;
+     {$endif bVideoOSD}
 
     protected
       procedure PaintWindow(DC :HDC); override;
@@ -297,11 +303,6 @@ interface
       procedure ReleaseImage;
       procedure AttachDecoder(ADecoder :TReviewDecoder; aHandle :THandle);
       function AsyncDecode :Boolean;
-
-     {$ifdef bVideoOSD}
-      procedure SetOSD(aOn :Boolean);
-      procedure RealignOSD;
-     {$endif bVideoOSD}
 
     public
       property Scale :TFloat read FScale;
@@ -2644,6 +2645,7 @@ interface
   function TImageWindow.Idle :Boolean;
   var
     vDelay :Integer;
+    vSize :TSize;
   begin
     Result := inherited Idle;
 
@@ -2694,6 +2696,16 @@ interface
         if FImage.FDecodeError <> '' then
           SetTempMsg(FImage.FDecodeError, False);
         Invalidate;
+      end;
+    end;
+
+    if (FImage <> nil) and ((FImage.FWidth = 0) or (FImage.FHeight = 0)) and FImage.FMovie then begin
+      { Размеры Video не всегда могут быть определены сразу при открытии... }
+      vSize := SetMediaSize;
+      if (vSize.CX > 0) and (vSize.CY > 0) then begin
+        FImage.FWidth := vSize.CX;
+        FImage.FHeight := vSize.CY;
+        FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
       end;
     end;
 
@@ -2765,6 +2777,7 @@ interface
     if aOn then begin
       FVideoWin := TVideoWindow.CreateEx(Self);
       FControlWin := TControlWindow.CreateEx(Self);
+      FVideoWin.Ctrl := FControlWin;
       RealignOSD;
     end else
     begin
@@ -2782,11 +2795,15 @@ interface
     vRect := ClientRect;
 
     Y := vRect.Bottom;
-    if True {FShowOSD} then
+    if not FControlWin.Hidden then begin
       Y := Y - cPanHeight;
-
-    FVideoWin.SetBounds(Rect(vRect.Left, vRect.Top, vRect.Right, Y), 0);
-    FControlWin.SetBounds(Rect(vRect.Left, Y, vRect.Right, vRect.Bottom), 0);
+      FVideoWin.SetBounds(Rect(vRect.Left, vRect.Top, vRect.Right, Y), 0);
+      FControlWin.SetBounds(Rect(vRect.Left, Y, vRect.Right, Y + cPanHeight), 0);
+    end else
+    begin
+      FControlWin.SetBounds(Rect(vRect.Left, Y, vRect.Right, Y + cPanHeight), 0);
+      FVideoWin.SetBounds(Rect(vRect.Left, vRect.Top, vRect.Right, Y), 0);
+    end;
   end;
  {$endif bVideoOSD}
 
@@ -2801,7 +2818,10 @@ interface
         if vState = 1 then
           pvdPlayControl(FImage, PVD_PC_Pause, 0)
         else
-          pvdPlayControl(FImage, PVD_PC_Play, 0)
+          pvdPlayControl(FImage, PVD_PC_Play, 0);
+
+        if (FControlWin <> nil) and (vState <> 1) then
+          FControlWin.ActiveAction;
       end;
   end;
 
@@ -2841,9 +2861,12 @@ interface
 
   procedure TImageWindow.SetMediaPos(aMS :Integer);
   begin
-    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then begin
       with TReviewDllDecoder2(FImage.Decoder) do
         pvdPlayControl(FImage, PVD_PC_SetPos, aMS);
+     if FControlWin <> nil then
+       FControlWin.ActiveAction;
+    end;
   end;
 
 
@@ -2861,6 +2884,15 @@ interface
     if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
       with TReviewDllDecoder2(FImage.Decoder) do
         pvdPlayControl(FImage, PVD_PC_SetVolume, aVal);
+  end;
+
+
+  function TImageWindow.SetMediaSize :TSize;
+  begin
+    Result := Size(0, 0);
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+      with TReviewDllDecoder2(FImage.Decoder) do
+        pvdPlayControl(FImage, PVD_PC_GetBounds, TIntPtr(@Result));
   end;
 
 
@@ -4666,14 +4698,11 @@ interface
 
     procedure LocGotoPos(aDeltaSec, aPosMS :Integer);
     begin
-      if vImage.Decoder is TReviewDllDecoder2 then
-        with TReviewDllDecoder2(vImage.Decoder) do begin
-          if aDeltaSec <> 0 then begin
-            aPosMS := pvdPlayControl(vImage, PVD_PC_GetPos, 0);
-            Dec(aPosMS, ADeltaSec * 1000);
-          end;
-          pvdPlayControl(vImage, PVD_PC_SetPos, aPosMS);
-        end;
+      if aDeltaSec <> 0 then begin
+        aPosMS := Review.Window.GetMediaPos;
+        Dec(aPosMS, ADeltaSec * 1000);
+      end;
+      Review.Window.SetMediaPos(aPosMS);
     end;
 
 

@@ -786,6 +786,7 @@ const
   PVD_PC_SetVolume = 8;
   PVD_PC_Mute      = 9;
   PVD_PC_GetLen    = 10;
+  PVD_PC_GetBounds = 11;
 
 type
   TpvdPlayControl = function(pContext :Pointer; pImageContext :Pointer; aCmd :Integer; pInfo :Pointer) :Integer; stdcall;

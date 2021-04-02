@@ -82,11 +82,12 @@ interface
       constructor CreateEx(AOwner :TView);
       destructor Destroy; override;
 
+      procedure DefaultHandler(var Mess); override;
+
     protected
       procedure CreateParams(var AParams :TCreateParams); override;
       procedure ErrorHandler(E :Exception); override;
 
-      procedure WMLButtonDblClk(var Mess :TMessage); message WM_LButtonDblClk;
       procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
       procedure WMWindowPosChanged(var Mess :TWMWindowPosChanged); message WM_WindowPosChanged;
       procedure CMLoadVideo(var Mess :TMessage); message CM_LoadVideo;
@@ -187,6 +188,17 @@ interface
   end;
 
 
+  procedure TPlayerWindow.DefaultHandler(var Mess); {override;}
+  begin
+    with TMessage(Mess) do
+      if (Msg >= WM_MOUSEFIRST) and (Msg <= WM_MOUSELAST) then begin
+        Result := SendMessage(ReviewWindow, Msg, WParam, LParam);
+        Exit;
+      end;
+    inherited;
+  end;
+
+
   procedure TPlayerWindow.WMWindowPosChanged(var Mess :TWMWindowPosChanged); {message WM_WindowPosChanged;}
   var
     vRect :TRect;
@@ -195,12 +207,6 @@ interface
     vRect := ClientRect;
     if FOwner <> nil then
       FOwner.DoResize(vRect);
-  end;
-
-
-  procedure TPlayerWindow.WMLButtonDblClk(var Mess :TMessage); {message WM_LButtonDblClk;}
-  begin
-    Mess.Result := SendMessage(ReviewWindow, Mess.Msg, Mess.WParam, Mess.LParam);
   end;
 
 
