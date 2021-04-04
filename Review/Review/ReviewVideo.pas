@@ -482,7 +482,7 @@ interface
       FLastAlive := GetTickCount;
     end;
 
-    if (vState = 1) and (vOwner.WinMode = wmFullscreen) and vOwner.GetMediaIsVideo then begin
+    if (vState = 1) and (vOwner.WinMode = wmFullscreen) and vOwner.IsVideo then begin
       if MouseInMyBounds then
         ActiveAction;
       if (FLastAction <> 0) and (TickCountDiff(GetTickCount, FLastAction) > optHideOSDDelay) then begin
@@ -612,7 +612,6 @@ interface
   begin
     TImageWindow(FOwner).SetMediaVolume(optVolume);
   end;
-
 
   procedure TMySeeker.ChangePos(aValue :Integer); {override;}
   begin

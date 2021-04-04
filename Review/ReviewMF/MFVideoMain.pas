@@ -122,35 +122,33 @@ interface
     end;
 
 
-    TView = class(TBasis)
+    TView = class(TComBasis)
     public
       constructor Create; override;
       destructor Destroy; override;
-
-      function _AddRef :Integer;
-      function _Release :Integer;
 
       function LoadFile(const AName :TString) :Boolean;
       procedure FreeStream;
       procedure Play;
       procedure Stop;
       procedure Pause;
+      function GetState :Integer;
       function GetLenMS :Integer;
       function GetPosMS :Integer;
       procedure GotoPosMS(aPos :Integer);
       function GetVolume :Integer;
       procedure SetVolume(aVolume :Integer);
+      procedure SetAudioStream(aIndex :Integer);
+//      procedure NextAudioStream;
 
       procedure Activate;
       procedure Deactivate;
 
     private
-      FRefCount    :Integer;
       FSrcName     :TString;
-      FMedia       :TMedia;
-//    FImgSize     :TSize;
-      FLength      :Double;
-      FState       :Integer;
+      FPlayer      :TPlayer;
+      FLength      :Integer;
+      FVolume      :Integer;
       FColor       :DWORD;
 
       FFormThrd    :TPlayerThread;
@@ -195,6 +193,10 @@ interface
     with TMessage(Mess) do
       if (Msg >= WM_MOUSEFIRST) and (Msg <= WM_MOUSELAST) then begin
         Result := SendMessage(ReviewWindow, Msg, WParam, LParam);
+
+//      if Msg = WM_LBUTTONDBLCLK then
+//        FOwner.NextAudioStream;
+
         Exit;
       end;
     inherited;
@@ -203,14 +205,14 @@ interface
 
   procedure TPlayerWindow.WMAppPlayerEvent(var Mess :TMessage); {message WM_APP_PLAYER_EVENT;}
   begin
-    if FOwner.FMedia <> nil then
-      FOwner.FMedia.HandleEvents(Mess.wParam);
+    if FOwner.FPlayer <> nil then
+      FOwner.FPlayer.HandleEvent(Mess.wParam);
   end;
 
 
   procedure TPlayerWindow.WMEraseBkgnd(var Mess :TWMEraseBkgnd); {message WM_EraseBkgnd;}
   begin
-    if (FOwner = nil) or (FOwner.FMedia = nil) or not FOwner.FMedia.IsVideo then
+    if (FOwner = nil) or (FOwner.FPlayer = nil) or not FOwner.FPlayer.IsVideo then
       FillRect(Mess.DC, ClientRect, COLOR_WINDOWTEXT + 1);
     Mess.Result := 1;
   end;
@@ -225,8 +227,8 @@ interface
     if DC = 0 then
       DC := BeginPaint(Handle, PS);
     try
-      if (FOwner = nil) or (FOwner.FMedia = nil) or
-        not FOwner.FMedia.Repaint(Handle, DC)
+      if (FOwner = nil) or (FOwner.FPlayer = nil) or
+        (FOwner.FPlayer.Repaint <> S_OK)   // Не Failed, т.к. если не Video - возвращает S_False
       then
         FillRect(DC, ClientRect, COLOR_WINDOWTEXT + 1);
     finally
@@ -274,6 +276,8 @@ interface
         FOwner.Pause;
       PVD_PC_Stop:
         FOwner.Stop;
+      PVD_PC_SetAudioStream:
+        FOwner.SetAudioStream(Mess.LParam);
     end;
   end;
 
@@ -286,13 +290,13 @@ interface
 
   function TPlayerWindow.Idle :Boolean;
   begin
-    FLastState := FOwner.FState;
+    FLastState := FOwner.GetState;
     FLastTime := FOwner.GetPosMS;
     FLastVolume := FOwner.GetVolume;
 
     FLastLen := FOwner.GetLenMS;
-    if FOwner.FMedia <> nil then
-      FOwner.FMedia.GetVideoSize(FLastSize.cx, FLastSize.cy);
+    if FOwner.FPlayer <> nil then
+      FLastSize := FOwner.FPlayer.VideoSize;
 
     Result := True;
   end;
@@ -351,6 +355,7 @@ interface
     FWindow := FFormThrd.FWindow;
   end;
 
+
   destructor TView.Destroy; {override;}
   begin
     FreeStream;
@@ -359,38 +364,36 @@ interface
   end;
 
 
-  function TView._AddRef :Integer;
-  begin
-    Result := InterlockedIncrement(FRefCount);
-  end;
-
-  function TView._Release :Integer;
-  begin
-    Result := InterlockedDecrement(FRefCount);
-    if Result = 0 then
-      Destroy;
-  end;
-
-
   procedure TView.FreeStream;
   var
-    vMedia :TMedia;
+    vPLayer :TPlayer;
   begin
-    if FMedia <> nil then begin
-      vMedia := FMedia;
-      FMedia := nil;
-      vMedia.Free;
+    if FPlayer <> nil then begin
+      vPLayer := FPlayer;
+      FPlayer := nil;
+      vPLayer.Destroy;
     end;
   end;
 
 
   procedure TView.DoLoadFile;
   begin
-    FMedia := OpenMediaFile(PWideChar(FSrcName), FWindow.Handle, FWindow.Handle);
-    if FMedia = nil then
-      Exit;
-//  FMedia.GetVideoSize(FImgSize.CX, FImgSize.CY);
-    FLength := FMedia.GetLength;
+    FPlayer := TPlayer.Create(FWindow.Handle);
+    try
+     {$ifdef bTrace}
+      TraceBeg('OpenFile %s...', [FSrcName]);
+     {$endif bTrace}
+
+      FPlayer.OpenFile(FSrcName);
+
+     {$ifdef bTrace}
+      TraceEnd('  done');
+     {$endif bTrace}
+
+      GetLenMS;
+    except
+      FreeObj(FPlayer);
+    end;
   end;
 
 
@@ -398,91 +401,118 @@ interface
   begin
     FSrcName := AName;
     SendMessage(FWindow.Handle, CM_LoadVideo, 0, 0);
-    Result := FMedia <> nil;
+    Result := FPlayer <> nil;
   end;
 
 
   procedure TView.DoResize({const} ARect :TRect);
   begin
-    if FMedia <> nil then
-      FMedia.ResizeWindow(0, aRect);
+    if FPlayer <> nil then
+      FPlayer.ResizeVideo(aRect.Right - aRect.Left, aRect.Bottom - aRect.Top);
   end;
 
 
   procedure TView.Play;
   begin
-    FMedia.Play;
-    FState := 1;
+    FPlayer.Play;
   end;
 
 
   procedure TView.Stop;
   begin
-    FMedia.Stop;
-    FState := 0;
+    FPlayer.Stop;
   end;
 
 
   procedure TView.Pause;
-  begin
-    if GetLenMS = GetPosMS then begin
+   begin
+    if GetLenMS = GetPosMS then
       GotoPosMS(0)
-    end else
-    if FState = 1 then begin
-      FMedia.Pause;
-      FState := 2;
-    end else
-    begin
-      FMedia.Play;
-      FState := 1;
+    else
+    if GetState = 1 then
+      FPlayer.Pause
+    else
+      FPlayer.Play;
+  end;
+
+
+  function TView.GetState :Integer;
+  begin
+    Result := 0;
+    if FPlayer <> nil then begin
+      case FPlayer.State of
+        StartPending, Started : Result := 1;
+        PausePending, Paused  : Result := 2;
+      end;
     end;
   end;
 
 
   function TView.GetLenMS :Integer;
   begin
-    if (FLength = 0) and (FMedia <> nil) then
-      FLength := FMedia.GetLength;
-    Result := Round(FLength * 1000)
+    if (FLength = 0) and (FPlayer <> nil) then
+      FLength := Round(FPlayer.Length * 1000);
+    Result := FLength;
   end;
 
 
   function TView.GetPosMS :Integer;
+  var
+    vPos :Double;
   begin
     Result := 0;
-    if FMedia = nil then
+    if FPlayer = nil then
       Exit;
-    Result := Round(FMedia.GetPosition * 1000);
+    vPos := 0;
+    FPlayer.GetPosition(vPos);
+    Result := Round(vPos * 1000);
   end;
 
 
   procedure TView.GotoPosMS(aPos :Integer);
   begin
     aPos := RangeLimit(aPos, 0, GetLenMS);
-    FMedia.SetPosition(aPos / 1000);
+    FPlayer.SetPosition(aPos / 1000);
   end;
 
 
   function TView.GetVolume :Integer;
   begin
-    Result := 0;
-    if FMedia <> nil then
-      Result := FMedia.Volume;
+    Result := FVolume;
   end;
 
   procedure TView.SetVolume(aVolume :Integer);
   begin
     aVolume := RangeLimit(aVolume, 0, 100);
-    FMedia.SetVolume(aVolume);
+    FPlayer.SetVolume(aVolume);
+    FVolume := aVolume;
   end;
+
+
+  procedure TView.SetAudioStream(aIndex :Integer);
+  begin
+    FPlayer.SelectAudioStream(aIndex)
+  end;
+
+
+//  procedure TView.NextAudioStream;
+//  var
+//    vIdx :Integer;
+//  begin
+//    vIdx := FPlayer.AudioStreamIdx + 1;
+//    if vIdx >= FPlayer.AudioStreams.Count then
+//      vIdx := 0;
+//    if vIdx <> -1 then
+//      FPlayer.SelectAudioStream(vIdx)
+//  end;
+
 
 
   procedure TView.Activate;
   var
     vRect :TRect;
   begin
-//  TraceF('TView.Activate. Visible=%d, Src=%s', [Byte(IsWindowVisible(ReviewWindow)), FSrcName]);
-    if FMedia = nil then
+    if FPlayer = nil then
       SendMessage(FWindow.Handle, CM_LoadVideo, 0, 0);
 
     SetParent(FWindow.Handle, ReviewWindow);
@@ -492,11 +522,8 @@ interface
 
     FWindow.Show(SW_SHOWNA);
 
-//  FWindow.FScreen.Invalidate;
-//  UpdateWindow(FWindow.FScreen.Handle);
-//  UpdateWindow(FWindow.Handle);
-
     try
+      { В потоке Player'а?... }
       Play;
     except
     end;
@@ -672,7 +699,7 @@ interface
 
     if vView <> nil then begin
       pImageInfo.Flags := PVD_IIF_MOVIE;
-      pImageInfo.nPages := Round(vView.FLength * 1000);
+      pImageInfo.nPages := vView.FLength;
 //    if vView.FFmtName <> '' then
 //      pImageInfo.pFormatName := PTChar(vView.FFmtName);
 
@@ -842,6 +869,12 @@ interface
           PSize(pInfo)^ := vView.FWindow.FLastSize;
           Result := 1;
         end;
+      PVD_PC_GetAudioStreamCount:
+        Result := vView.FPlayer.AudioStreams.Count;
+      PVD_PC_GetAudioStream:
+        Result := vView.FPlayer.AudioStreamIdx;
+      PVD_PC_SetAudioStream:
+        SendMessage(vView.FWindow.Handle, CM_Command, PVD_PC_SetAudioStream, TIntPtr(pInfo));
     end;
   end;
 

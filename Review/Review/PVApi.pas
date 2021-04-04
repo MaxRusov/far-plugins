@@ -776,17 +776,20 @@ type
 { PVD_IIF_MOVIE                                                                }
 
 const
-  PVD_PC_Play      = 1;
-  PVD_PC_Pause     = 2;
-  PVD_PC_Stop      = 3;
-  PVD_PC_GetState  = 4;
-  PVD_PC_GetPos    = 5;
-  PVD_PC_SetPos    = 6;
-  PVD_PC_GetVolume = 7;
-  PVD_PC_SetVolume = 8;
-  PVD_PC_Mute      = 9;
-  PVD_PC_GetLen    = 10;
-  PVD_PC_GetBounds = 11;
+  PVD_PC_Play                = 1;
+  PVD_PC_Pause               = 2;
+  PVD_PC_Stop                = 3;
+  PVD_PC_GetState            = 4;
+  PVD_PC_GetPos              = 5;
+  PVD_PC_SetPos              = 6;
+  PVD_PC_GetVolume           = 7;
+  PVD_PC_SetVolume           = 8;
+  PVD_PC_Mute                = 9;
+  PVD_PC_GetLen              = 10;
+  PVD_PC_GetBounds           = 11;
+  PVD_PC_GetAudioStreamCount = 12;
+  PVD_PC_GetAudioStream      = 13;
+  PVD_PC_SetAudioStream      = 14;
 
 type
   TpvdPlayControl = function(pContext :Pointer; pImageContext :Pointer; aCmd :Integer; pInfo :Pointer) :Integer; stdcall;

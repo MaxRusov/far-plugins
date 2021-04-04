@@ -377,51 +377,64 @@ interface
   end;
 
   
-  const
-    kwIsQuickView     = 1;
-    kwUpdate          = 2;
-    kwGoto            = 3;
-    kwPage            = 4;
-    kwScale           = 5;
-    kwDecoder         = 6;
-    kwRotate          = 7;
-    kwSave            = 8;
-    kwFullscreen      = 9;
-    kwSlideShow       = 10;
-   {$ifdef bThumbs}
-    kwThumbs          = 11;
-    kwSize            = 12;
-   {$endif bThumbs}
 
+  type
+    TKeywordCode = (
+      kwUpdate,
+      kwGoto,
+      kwPage,
+      kwScale,
+      kwDecoder,
+      kwRotate,
+      kwSave,
+      kwFullscreen,
+      kwSlideShow,
+     {$ifdef bThumbs}
+      kwThumbs,
+      kwSize,
+     {$endif bThumbs}
+      kwVolume,
+      kwSeek,
+      kwAudio,
+      kwIsMedia,
+      kwIsQuickView
+    );
 
 
   function TReviewPlug.MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :TIntPtr;
 
     procedure InitKeywords;
+
+      procedure Add(const aKeyword :TString; aCode :TKeywordCode);
+      begin
+        FCmdWords.Add(aKeyword, byte(aCode));
+      end;
+
     begin
       if FCmdWords <> nil then
         Exit;
-
       FCmdWords := TKeywordsList.Create;
-      with FCmdWords do begin
-        Add('IsQuickView', kwIsQuickView);
-        Add('Update', kwUpdate);
-        Add('Goto', kwGoto);
-        Add('Page', kwPage);
-        Add('Scale', kwScale);
-        Add('Decoder', kwDecoder);
-        Add('Rotate', kwRotate);
-        Add('Save', kwSave);
-        Add('Fullscreen', kwFullscreen);
-        Add('SlideShow', kwSlideShow);
-       {$ifdef bThumbs}
-        Add('Thumbs', kwThumbs);
-        Add('Size', kwSize);
-       {$endif bThumbs}
-      end;
+      Add('Update', kwUpdate);
+      Add('Goto', kwGoto);
+      Add('Page', kwPage);
+      Add('Scale', kwScale);
+      Add('Decoder', kwDecoder);
+      Add('Rotate', kwRotate);
+      Add('Save', kwSave);
+      Add('Fullscreen', kwFullscreen);
+      Add('SlideShow', kwSlideShow);
+     {$ifdef bThumbs}
+      Add('Thumbs', kwThumbs);
+      Add('Size', kwSize);
+     {$endif bThumbs}
+      Add('Seek', kwSeek);
+      Add('Volume', kwVolume);
+      Add('Audio', kwAudio);
+      Add('IsMedia', kwIsMedia);
+      Add('IsQuickView', kwIsQuickView);
     end;
 
-    
+
     function LocGoto :TIntPtr;
     var
       vOrig, vDir :Integer;
@@ -544,6 +557,50 @@ interface
       end;
     end;
 
+
+    function LocVolume :TIntPtr;
+    var
+      vValue :Integer;
+    begin
+      Result := 0;
+      if Review.Window <> nil then begin
+        vValue := FarValuesToInt(AParams, ACount, 1, -1);
+        if vValue <> -1 then
+          Review.Window.SetMediaVolume(vValue);
+        vValue := Review.Window.GetMediaVolume;
+        Result := FarReturnValues([vValue]);
+      end;
+    end;
+
+
+    function LocSeek :TIntPtr;
+    var
+      vMode, vValue :Integer;
+    begin
+      Result := 0;
+      vMode := FarValuesToInt(AParams, ACount, 1, -1);
+      vValue := FarValuesToInt(AParams, ACount, 2, 0);
+      if (vMode >= 0) and (vMode <= 2) then
+        Review.MediaSeek(TSeekOrigin(vMode), vValue);
+      if Review.Window <> nil then
+        Result := FarReturnValues([Review.Window.GetMediaPos, Review.Window.GetMediaLen]);
+    end;
+
+
+    function LocAudio :TIntPtr;
+    var
+      vMode, vValue :Integer;
+    begin
+      Result := 0;
+      vMode := FarValuesToInt(AParams, ACount, 1, -1);
+      vValue := FarValuesToInt(AParams, ACount, 2, 0);
+      if (vMode >= 0) and (vMode <= 2) then
+        Review.ChangeAudioStream(TSeekOrigin(vMode), vValue);
+      if Review.Window <> nil then
+        Result := FarReturnValues([Review.Window.GetAudioStream, Review.Window.GetAudioStreamCount]);
+    end;
+
+
    {$ifdef bThumbs}
     function LocShowThumbs :TIntPtr;
     begin
@@ -565,15 +622,13 @@ interface
    {$endif bThumbs}
 
   var
-    vCmd :Integer;
+    vCmd :TKeywordCode;
   begin
     Result := 0;
     try
       InitKeywords;
-      vCmd := FCmdWords.GetKeywordStr(ACmd);
+      vCmd := TKeywordCode(FCmdWords.GetKeywordStr(ACmd));
       case vCmd of
-        kwIsQuickView:
-          Result := FarReturnValues([Review.IsQViewMode]);
         kwUpdate:
           Review.SyncDelayed(SyncCmdUpdateWin, FarValuesToInt(AParams, ACount, 1, optSyncDelay));
         kwGoto:
@@ -592,16 +647,26 @@ interface
           Result := LocFullscreen;
         kwSlideShow:
           Result := LocSlideShow;
+        kwSeek:
+          Result := LocSeek;
+        kwVolume:
+          Result := LocVolume;
+        kwAudio:
+          Result := LocAudio;
        {$ifdef bThumbs}
         kwThumbs:
           Result := LocShowThumbs;
         kwSize:
           Result := LocSetSize;
        {$endif bThumbs}
+        kwIsMedia:
+          Result := FarReturnValues([(Review.Window <> nil) and Review.Window.IsMedia]);
+        kwIsQuickView:
+          Result := FarReturnValues([Review.IsQViewMode]);
       end;
     except
       on E :Exception do
-        if ModalDlg <> nil then 
+        if ModalDlg <> nil then
           ModalDlg.SetError( E.Message )
         else
           raise;
@@ -718,4 +783,3 @@ interface
 initialization
 finalization
 end.
-

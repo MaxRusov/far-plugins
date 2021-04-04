@@ -300,6 +300,21 @@ interface
 
   function LocalAddr(Proc :Pointer) :TMethod;
 
+
+  type
+    TTickCount = object
+    public
+      FTime :DWORD;
+
+    public
+      procedure Start; {$ifdef bInline}inline;{$endif bInline}
+      procedure Reset; {$ifdef bInline}inline;{$endif bInline}
+      function Period :Integer;
+      function PeriodISec :Integer;
+      function PeriodSec :TFloat;
+      function Pass(aPeriodMS :Integer) :Boolean;
+    end;
+
   function TickCountDiff(AValue1, AValue2 :DWORD) :Integer;
 
 
@@ -1705,6 +1720,41 @@ interface
    {$endif b64}
     Result := vTmp;
   end;
+
+ {-----------------------------------------------------------------------------}
+
+  procedure TTickCount.Start;
+  begin
+    FTime := GetTickCount;
+  end;
+
+  procedure TTickCount.Reset;
+  begin
+    FTime := 0;
+  end;
+
+  function TTickCount.Period :Integer;
+  begin
+    Result := TickCountDiff(GetTickCount, FTime);
+  end;
+
+  function TTickCount.PeriodISec :Integer;
+  begin
+    Result := Period div 1000;
+  end;
+
+  function TTickCount.PeriodSec :TFloat;
+  begin
+    Result := Period / 1000;
+  end;
+
+  function TTickCount.Pass(aPeriodMS :Integer) :Boolean;
+  begin
+    Result := Period > aPeriodMS;
+    if Result then
+      Start;
+  end;
+
 
 
 {$ifdef bFreePascal}

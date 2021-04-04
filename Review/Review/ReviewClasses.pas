@@ -215,14 +215,18 @@ interface
       destructor Destroy; override;
 
       procedure PlayPause;
-      function GetMediaIsVideo :Boolean;
+      function IsMedia :Boolean;
+      function IsVideo :Boolean;
       function GetMediaState :Integer;
       function GetMediaLen :Integer;
       function GetMediaPos :Integer;
       procedure SetMediaPos(aMS :Integer);
       function GetMediaVolume :Integer;
       procedure SetMediaVolume(aVal :Integer);
-      function SetMediaSize :TSize;
+      function GetAudioStream :Integer;
+      function GetAudioStreamCount :Integer;
+      procedure SetAudioStream(aVal :Integer);
+      function GetMediaSize :TSize;
 
      {$ifdef bVideoOSD}
       procedure SetOSD(aOn :Boolean);
@@ -458,6 +462,9 @@ interface
       function ThumbRedecode(AMode :TRedecodeMode; ADecoder :TReviewDecoder; const AFileName :TString) :Boolean;
       procedure ThumbSetSize(aSize :Integer);
      {$endif bThumbs}
+
+      procedure MediaSeek(aOrigin :TSeekOrigin; aValue :Integer);
+      procedure ChangeAudioStream(aOrigin :TSeekOrigin; aValue :Integer);
 
     private
       FDecoders     :TObjList;           { —писок декодеров }
@@ -2701,7 +2708,7 @@ interface
 
     if (FImage <> nil) and ((FImage.FWidth = 0) or (FImage.FHeight = 0)) and FImage.FMovie then begin
       { –азмеры Video не всегда могут быть определены сразу при открытии... }
-      vSize := SetMediaSize;
+      vSize := GetMediaSize;
       if (vSize.CX > 0) and (vSize.CY > 0) then begin
         FImage.FWidth := vSize.CX;
         FImage.FHeight := vSize.CY;
@@ -2808,6 +2815,18 @@ interface
  {$endif bVideoOSD}
 
 
+  function TImageWindow.IsMedia :Boolean;
+  begin
+    Result := (FImage <> nil) and FImage.FMovie;
+  end;
+
+
+  function TImageWindow.IsVideo :Boolean;
+  begin
+    Result := IsMedia {and ... }
+  end;
+
+
   procedure TImageWindow.PlayPause;
   var
     vState :Integer;
@@ -2823,12 +2842,6 @@ interface
         if (FControlWin <> nil) and (vState <> 1) then
           FControlWin.ActiveAction;
       end;
-  end;
-
-
-  function TImageWindow.GetMediaIsVideo :Boolean;
-  begin
-    Result := (FImage <> nil) and FImage.FMovie; {!!!}
   end;
 
 
@@ -2887,7 +2900,32 @@ interface
   end;
 
 
-  function TImageWindow.SetMediaSize :TSize;
+  function TImageWindow.GetAudioStreamCount :Integer;
+  begin
+    Result := 0;
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+      with TReviewDllDecoder2(FImage.Decoder) do
+        Result := pvdPlayControl(FImage, PVD_PC_GetAudioStreamCount, 0);
+  end;
+
+
+  function TImageWindow.GetAudioStream :Integer;
+  begin
+    Result := 0;
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+      with TReviewDllDecoder2(FImage.Decoder) do
+        Result := pvdPlayControl(FImage, PVD_PC_GetAudioStream, 0);
+  end;
+
+  procedure TImageWindow.SetAudioStream(aVal :Integer);
+  begin
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+      with TReviewDllDecoder2(FImage.Decoder) do
+        pvdPlayControl(FImage, PVD_PC_SetAudioStream, aVal);
+  end;
+
+
+  function TImageWindow.GetMediaSize :TSize;
   begin
     Result := Size(0, 0);
     if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
@@ -4509,6 +4547,53 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  procedure TReviewManager.MediaSeek(aOrigin :TSeekOrigin; aValue :Integer);
+  var
+    vPos :Integer;
+  begin
+    if FWindow = nil then
+      Exit;
+    case aOrigin of
+      soBeginning:
+        vPos := aValue;
+      soCurrent:
+        vPos := FWindow.GetMediaPos + aValue;
+      soEnd:
+        vPos := FWindow.GetMediaLen + aValue;
+    end;
+    FWindow.SetMediaPos(vPos);
+  end;
+
+
+  procedure TReviewManager.ChangeAudioStream(aOrigin :TSeekOrigin; aValue :Integer);
+  var
+    vCount, vIdx :Integer;
+  begin
+    if FWindow = nil then
+      Exit;
+    vCount := FWindow.GetAudioStreamCount;
+    vIdx := FWindow.GetAudioStream;
+    case aOrigin of
+      soBeginning:
+        vIdx := aValue;
+      soCurrent: begin
+        vIdx := vIdx + aValue;
+        if vIdx >= vCount then
+          vIdx := 0
+        else
+        if vIdx < 0 then
+          vIdx := vCount -1;
+      end;
+      soEnd:
+        vIdx := vCount + aValue;
+    end;
+    if (vIdx >= 0) and (vIdx < vCount) then
+      FWindow.SetAudioStream(vIdx);
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
   procedure TReviewManager.PluginSetup;
   var
     vMenu :TFarMenu;
@@ -4696,22 +4781,13 @@ interface
     end;
 
 
-    procedure LocGotoPos(aDeltaSec, aPosMS :Integer);
-    begin
-      if aDeltaSec <> 0 then begin
-        aPosMS := Review.Window.GetMediaPos;
-        Dec(aPosMS, ADeltaSec * 1000);
-      end;
-      Review.Window.SetMediaPos(aPosMS);
-    end;
-
-
     function LocStep(aStep :Integer) :Integer;
     begin
       if Key_Shift and AKey = 0 then
         Result := aStep
       else
         Result := IntIf(aStep > 0, 1, -1);
+      Result := Result * 1000;
     end;
 
 
@@ -4779,13 +4855,13 @@ interface
           if not vImage.FMovie then
             LocMove(LocStep(+cMoveStep),  0)
           else
-            LocGotoPos(LocStep(+cMoveStepSec), 0);
+            Review.MediaSeek(soCurrent, LocStep(-cMoveStepSec));
 
         Key_Right, Key_ShiftRight, Key_NumPad6, Key_ShiftNumPad6:
           if not vImage.FMovie then
             LocMove(LocStep(-cMoveStep),  0)
           else
-            LocGotoPos(LocStep(-cMoveStepSec), 0);
+            Review.MediaSeek(soCurrent, LocStep(+cMoveStepSec));
 
         Key_Up, Key_ShiftUp, Key_NumPad8, Key_ShiftNumPad8:
           if not vImage.FMovie then
@@ -4803,13 +4879,13 @@ interface
           if not vImage.FMovie then
             LocMove(+MaxInt,  0)
           else
-            LocGotoPos(0, 0);
+            Review.MediaSeek(soBeginning, 0);
 
         Key_CtrlRight, Key_CtrlNumPad6:
           if not vImage.FMovie then
             LocMove(-MaxInt,  0)
           else
-            LocGotoPos(0, MaxInt);
+            Review.MediaSeek(soEnd, 0);
 
         Key_CtrlUp, Key_CtrlNumPad8:
           if not vImage.FMovie then
@@ -4866,6 +4942,9 @@ interface
         KEY_CtrlW, Byte('w') : LocSwitchWinSize;
         KEY_AltQ             : LocSwitchSmoothMode;
         KEY_ALT0..KEY_ALT7   : LocSetSmoothMode(AKey - KEY_ALT0);
+
+        KEY_CtrlA, Byte('a') : Review.ChangeAudioStream(soCurrent, 1);
+        KEY_CtrlShiftA       : Review.ChangeAudioStream(soCurrent, -1);
 
         KEY_CtrlF, Byte('f') :
 //        Review.SetFullscreen(Review.Window.FWinMode = wmNormal);
