@@ -537,10 +537,13 @@ uses
   var
     vTopology :IMFTopology;
     vDuration :UINT64;
+//  vMDP :IMFMetadataProvider;
   begin
     CreateSession;
     OleCheck(CreateMediaSource(aFileName, FSource));
     OleCheck(FSource.CreatePresentationDescriptor(FPresent));
+
+//  OleCheck( MFGetService(FSource, MF_METADATA_PROVIDER_SERVICE, IMFMetadataProvider, Pointer(vMDP)) );
 
     FillStreamsInfo;
 

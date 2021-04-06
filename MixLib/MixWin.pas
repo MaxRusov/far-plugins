@@ -118,6 +118,14 @@ interface
     end;
 
 
+    TCustomWindow = class(TMSWindow)
+    protected
+      procedure PaintWindow(DC :HDC); virtual;
+    private
+      procedure WMPaint(var Mess :TWMPaint); message WM_Paint;
+    end;
+
+
     TFont = class(TBasis)
     public
       destructor Destroy; override;
@@ -457,6 +465,32 @@ interface
   begin
     if Value <> GetText then
       SetWindowText(Handle, PTChar(Value));
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TCustomWindow                                                               }
+ {-----------------------------------------------------------------------------}
+
+  procedure TCustomWindow.PaintWindow(DC :HDC); {virtual;}
+  begin
+  end;
+
+
+  procedure TCustomWindow.WMPaint(var Mess :TWMPaint); {message WM_Paint;}
+  var
+    DC :HDC;
+    PS :TPaintStruct;
+  begin
+    DC := Mess.DC;
+    if DC = 0 then
+      DC := BeginPaint(Handle, PS);
+    try
+      PaintWindow(DC);
+    finally
+      if Mess.DC = 0 then
+        EndPaint(Handle, PS);
+    end;
   end;
 
 

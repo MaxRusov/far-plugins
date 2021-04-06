@@ -49,6 +49,7 @@ interface
   procedure pvdDisplayClose2(pContext :Pointer; pDisplayContext :Pointer); stdcall;
   procedure pvdDisplayExit2(pContext :Pointer); stdcall;
 
+  function pvdTagInfo(pContext :Pointer; pImageContext :Pointer; aCmd, aCode :Integer; var aType :Integer; var aValue :Pointer) :BOOL; stdcall;
   function pvdPlayControl(pContext :Pointer; pImageContext :Pointer; aCmd :Integer; pInfo :Pointer) :Integer; stdcall;
 
   function pvdTranslateError2(nErrNumber :DWORD; pErrInfo :PWideChar; nBufLen :Integer) :Boolean; stdcall;
@@ -139,7 +140,8 @@ interface
       function GetVolume :Integer;
       procedure SetVolume(aVolume :Integer);
       procedure SetAudioStream(aIndex :Integer);
-//      procedure NextAudioStream;
+
+      function TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
 
       procedure Activate;
       procedure Deactivate;
@@ -147,12 +149,16 @@ interface
     private
       FSrcName     :TString;
       FPlayer      :TPlayer;
+      FFmtName     :TString;
       FLength      :Integer;
       FVolume      :Integer;
       FColor       :DWORD;
 
       FFormThrd    :TPlayerThread;
       FWindow      :TPlayerWindow;
+
+      FStrTag      :TString;
+//    FInt64Tag    :Int64;
 
       procedure DoLoadFile;
       procedure DoResize({const} ARect :TRect);
@@ -193,10 +199,6 @@ interface
     with TMessage(Mess) do
       if (Msg >= WM_MOUSEFIRST) and (Msg <= WM_MOUSELAST) then begin
         Result := SendMessage(ReviewWindow, Msg, WParam, LParam);
-
-//      if Msg = WM_LBUTTONDBLCLK then
-//        FOwner.NextAudioStream;
-
         Exit;
       end;
     inherited;
@@ -390,6 +392,8 @@ interface
       TraceEnd('  done');
      {$endif bTrace}
 
+//    FFmtName := 'Video?';
+
       GetLenMS;
     except
       FreeObj(FPlayer);
@@ -495,19 +499,6 @@ interface
   end;
 
 
-//  procedure TView.NextAudioStream;
-//  var
-//    vIdx :Integer;
-//  begin
-//    vIdx := FPlayer.AudioStreamIdx + 1;
-//    if vIdx >= FPlayer.AudioStreams.Count then
-//      vIdx := 0;
-//    if vIdx <> -1 then
-//      FPlayer.SelectAudioStream(vIdx)
-//  end;
-
-
-
   procedure TView.Activate;
   var
     vRect :TRect;
@@ -536,6 +527,69 @@ interface
     FWindow.Show(SW_HIDE);
     SetParent(FWindow.Handle, GetDesktopWindow);
     FreeStream;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+
+  function TView.TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
+
+//    procedure LocIntTag(const aName :TString);
+//    var
+//      vIntTag :Integer;
+//    begin
+//      Result := MetaQueryInt(FMetadata, aName, vIntTag);
+//      if Result then begin
+//        aValue := Pointer(TIntPtr(vIntTag));
+//        aType := PVD_TagType_Int;
+//      end;
+//    end;
+//
+//    procedure LocInt64Tag(const aName :TString);
+//    begin
+//      Result := MetaQueryInt64(FMetadata, aName, FInt64Tag);
+//      if Result then begin
+//        aValue := @FInt64Tag;
+//        aType := PVD_TagType_Int64;
+//      end;
+//    end;
+
+    procedure LocStrTag(const aVal :TString);
+    begin
+      FStrTag := aVal;
+      aValue := PTChar(FStrTag);
+      aType := PVD_TagType_Str;
+      Result := True;
+    end;
+
+  begin
+    Result := False;
+//    if FMetadata = nil then
+//      Exit;
+//
+//    if IsEqualGUID(FFmtID, GUID_ContainerFormatJpeg) then
+//      vIFD := '/app1/ifd/'
+//    else
+//      vIFD := '/ifd/';
+
+    case aCode of
+      PVD_Tag_Description  : LocStrTag('');
+//      PVD_Tag_Time         : LocStrTag(vIFD + 'exif/{ushort=36867}');  // '{ushort=36867}'
+//      PVD_Tag_EquipMake    : LocStrTag(vIFD + '{ushort=271}');
+//      PVD_Tag_EquipModel   : LocStrTag(vIFD + '{ushort=272}');
+//      PVD_Tag_Software     : LocStrTag(vIFD + '{ushort=305}');
+//      PVD_Tag_Author       : LocStrTag(vIFD + '{ushort=315}');
+//      PVD_Tag_Copyright    : LocStrTag(vIFD + '{ushort=33432}');
+//
+//      PVD_Tag_ExposureTime : LocInt64Tag(vIFD + 'exif/{ushort=33434}');
+//      PVD_Tag_FNumber      : LocInt64Tag(vIFD + 'exif/{ushort=33437}');
+//      PVD_Tag_FocalLength  : LocInt64Tag(vIFD + 'exif/{ushort=37386}');
+//      PVD_Tag_ISO          : LocIntTag(vIFD + 'exif/{ushort=34855}');
+//      PVD_Tag_Flash        : LocIntTag(vIFD + 'exif/{ushort=37385}');
+//
+//      PVD_Tag_XResolution  : LocResolutionTag(vIFD + '{ushort=282}', '/app0/{ushort=2}');
+//      PVD_Tag_YResolution  : LocResolutionTag(vIFD + '{ushort=283}', '/app0/{ushort=3}');
+    end;
   end;
 
 
@@ -700,8 +754,8 @@ interface
     if vView <> nil then begin
       pImageInfo.Flags := PVD_IIF_MOVIE;
       pImageInfo.nPages := vView.FLength;
-//    if vView.FFmtName <> '' then
-//      pImageInfo.pFormatName := PTChar(vView.FFmtName);
+      if vView.FFmtName <> '' then
+        pImageInfo.pFormatName := PTChar(vView.FFmtName);
 
       pImageInfo.pImageContext := vView;
       vView._AddRef;
@@ -841,6 +895,22 @@ interface
 
  {-----------------------------------------------------------------------------}
 
+  function pvdTagInfo(pContext :Pointer; pImageContext :Pointer; aCmd, aCode :Integer; var aType :Integer; var aValue :Pointer) :BOOL; stdcall;
+  begin
+    Result := False;
+    try
+      with TView(pImageContext) do
+        if aCmd = PVD_TagCmd_Get then begin
+          aType := 0; aValue := nil;
+          Result := TagInfo(aCode, aType, aValue);
+        end;
+    except
+      on E :Exception do
+        FLastError := E.Message;
+    end;
+  end;
+
+
   function pvdPlayControl(pContext :Pointer; pImageContext :Pointer; aCmd :Integer; pInfo :Pointer) :Integer; stdcall;
   var
     vView :TView;
@@ -877,7 +947,6 @@ interface
         SendMessage(vView.FWindow.Handle, CM_Command, PVD_PC_SetAudioStream, TIntPtr(pInfo));
     end;
   end;
-
 
 
   function pvdTranslateError2(nErrNumber :DWORD; pErrInfo :PWideChar; nBufLen :Integer) :Boolean; stdcall;

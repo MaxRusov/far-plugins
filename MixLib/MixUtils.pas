@@ -300,6 +300,12 @@ interface
 
   function LocalAddr(Proc :Pointer) :TMethod;
 
+  type
+    TRectHelper = record helper for TRect
+    public
+      function Width :Integer; {$ifdef bInline} inline; {$endif bInline}
+      function Height :Integer; {$ifdef bInline} inline; {$endif bInline}
+    end;
 
   type
     TTickCount = object
@@ -1705,6 +1711,21 @@ interface
   end;
  {$endif b64}
 
+ {-----------------------------------------------------------------------------}
+
+  function TRectHelper.Width :Integer;
+  begin
+    Result := Right - Left;
+  end;
+
+
+  function TRectHelper.Height :Integer;
+  begin
+    Result := Bottom - Top;
+  end;
+
+
+ {-----------------------------------------------------------------------------}
 
   function TickCountDiff(AValue1, AValue2 :DWORD) :Integer;
   var
@@ -1721,7 +1742,6 @@ interface
     Result := vTmp;
   end;
 
- {-----------------------------------------------------------------------------}
 
   procedure TTickCount.Start;
   begin

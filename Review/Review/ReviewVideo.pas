@@ -29,7 +29,10 @@ interface
     FarColorDlg,
 
     FarCtrl,
-    FarConfig;
+    FarConfig,
+
+    GDIImageUtil,
+    ReviewTags;
 
 
   var
@@ -41,6 +44,8 @@ interface
     cColor1  :Integer = $FADAC4; // $E4DAAF;
     cColor2  :Integer = $F5BE9E; // $D6C583;
     cColor3  :Integer = $FEECDD; // $F0EBD5;
+
+    cInfoAlpha :Integer = 196;
 
 
   const
@@ -56,17 +61,36 @@ interface
     TControlWindow = class;
 
 
+    TInfoWindow = class(TCustomWindow)
+    public
+      constructor CreateEx(AOwner :TMSWindow);
+
+      procedure Show;
+      procedure Hide;
+
+    protected
+      procedure CreateParams(var AParams :TCreateParams); override;
+      procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
+      procedure PaintWindow(DC :HDC); override;
+      procedure SetAlpha(aAlpha :Integer);
+
+    private
+      FOwner :TMSWindow;
+    end;
+
+
     TVideoWindow = class(TMSWindow)
     public
       constructor CreateEx(AOwner :TMSWindow);
-      destructor Destroy; override;
+
+      procedure DefaultHandler(var Mess); override;
+
+    protected
       procedure CreateParams(var AParams :TCreateParams); override;
       procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
       procedure WMLButtonDblClk(var Mess :TMessage); message WM_LButtonDblClk;
 //    procedure WMNCHitTest(var Mess :TWMNCHitTest); message WM_NCHitTest;
 //    procedure WMSYSCOMMAND(var Mess :TMessage); message WM_SYSCOMMAND;
-
-      procedure DefaultHandler(var Mess); override;
 
     private
       FOwner :TMSWindow;
@@ -218,6 +242,70 @@ interface
 
 
  {-----------------------------------------------------------------------------}
+ { TInfoWindow                                                                 }
+ {-----------------------------------------------------------------------------}
+
+  constructor TInfoWindow.CreateEx(AOwner :TMSWindow);
+  begin
+    Create;
+    FOwner := AOwner;
+  end;
+
+
+  procedure TInfoWindow.CreateParams(var AParams :TCreateParams); {override;}
+  begin
+    inherited CreateParams(AParams);
+    AParams.Style := WS_CHILD {or WS_VISIBLE or WS_CLIPCHILDREN};
+    AParams.WndParent := FOwner.Handle;
+  end;
+
+
+  procedure TInfoWindow.WMEraseBkgnd(var Mess :TWMEraseBkgnd); {message WM_EraseBkgnd}
+  begin
+    GdiFillRect(Mess.DC, ClientRect, clBlack);
+    Mess.Result := 1;
+  end;
+
+
+  procedure TInfoWindow.PaintWindow(DC :HDC); {override;}
+  var
+    vImage :TReviewImage;
+  begin
+    vImage := TImageWindow(FOwner).Image;
+    if vImage = nil then
+      Exit;
+
+    DrawInfoOn(DC, vImage, ClientRect.Width, True);
+  end;
+
+
+  procedure TInfoWindow.SetAlpha(aAlpha :Integer);
+  var
+    vStyle: Integer;
+  begin
+    if not Assigned(SetLayeredWindowAttributes) then
+      Exit;
+    vStyle := GetWindowLong(Handle, GWL_EXSTYLE);
+    if vStyle and WS_EX_LAYERED = 0 then
+      SetWindowLong(Handle, GWL_EXSTYLE, vStyle or WS_EX_LAYERED);
+    SetLayeredWindowAttributes(Handle, 0, cInfoAlpha, LWA_ALPHA);
+  end;
+
+
+  procedure TInfoWindow.Show;
+  begin
+    SetAlpha(cInfoAlpha);
+    ShowWindow(FHandle, SW_SHOW);
+  end;
+
+
+  procedure TInfoWindow.Hide;
+  begin
+    ShowWindow(FHandle, SW_HIDE);
+  end;
+
+
+ {-----------------------------------------------------------------------------}
  { TVideoWindow                                                                }
  {-----------------------------------------------------------------------------}
 
@@ -228,17 +316,10 @@ interface
   end;
 
 
-  destructor TVideoWindow.Destroy; {override;}
-  begin
-    DestroyHandle;
-    inherited Destroy;
-  end;
-
-
   procedure TVideoWindow.CreateParams(var AParams :TCreateParams); {override;}
   begin
     inherited CreateParams(AParams);
-    AParams.Style := WS_CHILD or WS_VISIBLE or WS_CLIPCHILDREN;
+    AParams.Style := WS_CHILD or WS_VISIBLE or WS_CLIPCHILDREN or WS_CLIPSIBLINGS;
     AParams.WndParent := FOwner.Handle;
   end;
 
@@ -256,6 +337,12 @@ interface
   end;
 
 
+//  procedure TVideoWindow.WMNCHitTest(var Mess :TWMNCHitTest); {message WM_NCHitTest;}
+//  begin
+//    Mess.Result := HTTRANSPARENT;
+//  end;
+
+
 //  procedure TVideoWindow.WMSysCommand(var Mess :TMessage); {message WM_SYSCOMMAND;}
 //  begin
 //    case Mess.WParam of
@@ -271,13 +358,6 @@ interface
 //      inherited;
 //    end;
 //  end;
-
-
-
-//procedure TVideoWindow.WMNCHitTest(var Mess :TWMNCHitTest); {message WM_NCHitTest;}
-//begin
-//  Mess.Result := HTTRANSPARENT;
-//end;
 
 
   procedure TVideoWindow.DefaultHandler(var Mess ); {override;}
@@ -656,5 +736,6 @@ interface
 
 
 initialization
+  InitLayeredWindow;
   InitAPI;
 end.

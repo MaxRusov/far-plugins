@@ -40,6 +40,7 @@ exports
   pvdDisplayExit2,
   pvdTranslateError2,
 
+  pvdTagInfo,
   pvdPlayControl;
 
 {$R MFVideoW.res}

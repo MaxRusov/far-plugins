@@ -40,9 +40,8 @@ interface
     GDIPAPI,
     GDIImageUtil,
     ReviewConst,
-   {$ifdef bVideoOSD}
+    ReviewTags,
     ReviewVideo,
-   {$endif bVideoOSD}
     ReviewDecoders,
     ReviewGDIPlus;
 
@@ -61,6 +60,7 @@ interface
     CM_ReleaseImage = $B00B;
     CM_RenderImage  = $B00C;  {Thumbs: Завершено извлечение эскиза (ThumbThread -> ThumbsWindow) }
     CM_Select       = $B00D;  {Thumbs: Выделение изображений}
+    CM_ShowInfo     = $B00E;
 
   const
     cScaleStep   = 1.01;
@@ -145,7 +145,7 @@ interface
 
     { Базовый класс для TImageWindow и TThumbsWindow}
 
-    TReviewWindow = class(TMSWindow)
+    TReviewWindow = class(TCustomWindow)
     public
       destructor Destroy; override;
 
@@ -155,7 +155,6 @@ interface
 
     protected
       procedure CreateParams(var AParams :TCreateParams); override;
-      procedure PaintWindow(DC :HDC); virtual; abstract;
       function Idle :Boolean; virtual;
       function WndIdle :Boolean;
       procedure ErrorHandler(E :Exception); override;
@@ -197,7 +196,6 @@ interface
       procedure WMMouseActivate(var Mess :TWMMouseActivate); message WM_MouseActivate;
       procedure WMMouseWheel(var Mess :TWMMouseWheel); message WM_MouseWheel;
       procedure WMEraseBkgnd(var Mess :TWMEraseBkgnd); message WM_EraseBkgnd;
-      procedure WMPaint(var Mess :TWMPaint); message WM_Paint;
       procedure CMSetMode(var Mess :TMessage); message CM_SetMode;
       procedure CMSetWinPos(var Mess :TMessage); message CM_SetWinPos;
       procedure CMSetVisible(var Mess :TMessage); message CM_SetVisible;
@@ -228,10 +226,7 @@ interface
       procedure SetAudioStream(aVal :Integer);
       function GetMediaSize :TSize;
 
-     {$ifdef bVideoOSD}
-      procedure SetOSD(aOn :Boolean);
       procedure RealignOSD;
-     {$endif bVideoOSD}
 
     protected
       procedure PaintWindow(DC :HDC); override;
@@ -244,6 +239,7 @@ interface
       procedure CMMove(var Mess :TMessage); message CM_Move;
       procedure CMScale(var Mess :TMessage); message CM_Scale;
       procedure CMSlideShow(var Mess :TMessage); message CM_SlideShow;
+      procedure CMShowInfo(var Mess :TMessage); message CM_ShowInfo;
       procedure WMShowWindow(var Mess :TWMShowWindow); message WM_ShowWindow;
       procedure WMSize(var Mess :TWMSize); message WM_Size;
       procedure WMKeyDown(var Mess :TWMKeyDown); message WM_KeyDown;
@@ -290,10 +286,9 @@ interface
 
       FUseWinSize   :Boolean;
 
-     {$ifdef bVideoOSD}
       FVideoWin     :TVideoWindow;
       FControlWin   :TControlWindow;
-     {$endif bVideoOSD}
+      FInfoWin      :TInfoWindow;
 
       procedure RecalcRects;
       procedure MoveImage(DX, DY :Integer);
@@ -308,36 +303,16 @@ interface
       procedure AttachDecoder(ADecoder :TReviewDecoder; aHandle :THandle);
       function AsyncDecode :Boolean;
 
+      procedure SetOSD(aOn :Boolean);
+      procedure UpdateInfoWin;
+
     public
+      property Image :TReviewImage read FImage;
       property Scale :TFloat read FScale;
       property ScaleMode :TScaleMode read FMode;
       property SlideDelay :Integer read FSlideDelay;
     end;
 
-
-    TReviewTags = record
-      Time         :TString;
-      Description  :TString;
-      EquipMake    :TString;
-      EquipModel   :TString;
-      Software     :TString;
-      Author       :TString;
-      Copyright    :TString;
-
-      ExposureTime :Int64;
-      FNumber      :Int64;
-      FocalLength  :Int64;
-      ISO          :Integer;
-      Flash        :Integer;
-      XResolution  :Integer;
-      YResolution  :Integer;
-
-//    Title        :TString;
-//    Artist       :TString;
-//    Album        :TString;
-//    Year         :TString;
-//    Genre        :TString;
-    end;
 
     TTaskState = (
       tsNew,
@@ -366,6 +341,7 @@ interface
       FOnTask     :TNotifyEvent;
       FNext       :TTask;
     end;
+
 
     TReviewImage = class(TReviewImageRec)
     public
@@ -405,10 +381,13 @@ interface
       procedure CollectInfo;
 
     public
+      property Tags :TReviewTags read FTags;
       property Page :Integer read FPage;
       property Pages :Integer read FPages;
       property Orient :Integer read FOrient;
       property Decoder :TReviewDecoder read FDecoder;
+      property OpenTime :Integer read FOpenTime;
+      property DecodeTime  :Integer read FDecodeTime;
     end;
 
 
@@ -595,10 +574,6 @@ interface
     hConsoleTopWnd :THandle;
 
     GLockSync :Integer;
-
-  const
-    cOrients :array[0..8] of TString =
-      ('0', '1', 'H', '180'#176, 'V', 'H-90'#176, '90'#176, 'H+90'#176, '-90'#176);
 
 
   procedure FreeImage(var aImage :TReviewImage);
@@ -1421,23 +1396,6 @@ interface
   end;
 
 
-  procedure TReviewWindow.WMPaint(var Mess :TWMPaint); {message WM_Paint;}
-  var
-    DC :HDC;
-    PS :TPaintStruct;
-  begin
-    DC := Mess.DC;
-    if DC = 0 then
-      DC := BeginPaint(Handle, PS);
-    try
-      PaintWindow(DC);
-    finally
-      if Mess.DC = 0 then
-        EndPaint(Handle, PS);
-    end;
-  end;
-
-
   procedure TReviewWindow.CMSetMode(var Mess :TMessage); {message CM_SetMode;}
   begin
     if FWinMode <> wmQuickView then
@@ -1566,10 +1524,10 @@ interface
 
   destructor TImageWindow.Destroy; {override;}
   begin
-   {$ifdef bVideoOSD}
     FreeObj(FControlWin);
     FreeObj(FVideoWin);
-   {$endif bVideoOSD}
+    FreeObj(FInfoWin);
+
     ReleaseImage;
     ReleaseDecoder;
     inherited Destroy;
@@ -1645,15 +1603,11 @@ interface
       end;
 
       try
-       {$ifdef bVideoOSD}
         SetOSD(Image.FMovie);
-       {$endif bVideoOSD}
 
-       {$ifdef bVideoOSD}
         if FVideoWin <> nil then
           vAttachWnd := FVideoWin.Handle
         else
-       {$endif bVideoOSD}
           vAttachWnd := FHandle;
 
         AttachDecoder(Image.FDecoder, vAttachWnd);
@@ -1702,6 +1656,9 @@ interface
         FResizeStart := 0;
         FResizeSize := Size(0, 0);
 
+        if optShowInfo <> 0 then
+          FImage.CollectInfo;
+
         FThumbStart := 0;
         if FImage.FIsThumbnail then
           FThumbStart := GetTickCount;
@@ -1722,6 +1679,9 @@ interface
           SlideEffect(vOldImage, vOldSrcRect, vOldDstRect, Direct)
         else
           Invalidate;
+
+        if FVideoWin <> nil then
+          UpdateInfoWin;
 
         FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
 
@@ -1823,6 +1783,19 @@ interface
     begin
       FSlideStart := 0;
       FSlideDelay := 0;
+    end;
+  end;
+
+
+  procedure TImageWindow.CMShowInfo(var Mess :TMessage); {message CM_ShowInfo;}
+  begin
+    if optShowInfo <> 0 then
+      FImage.CollectInfo;
+    if FVideoWin <> nil then
+      UpdateInfoWin
+    else begin
+      FHiQual := True;
+      Invalidate;
     end;
   end;
 
@@ -1992,10 +1965,8 @@ interface
     inherited;
     if FImage <> nil then
       RecalcRects;
-   {$ifdef bVideoOSD}
     if FVideoWin <> nil then
       RealignOSD;
-   {$endif bVideoOSD}
 //  Invalidate;
   end;
 
@@ -2214,8 +2185,8 @@ interface
     begin
       if optTranspBack and (Review.FBackBmp <> nil) then begin
         with Review.FBackBmp.Size do begin
-          MI := (aRect.Right - aRect.Left + cx - 1) div cx;
-          MJ := (aRect.Bottom - aRect.Top + cy - 1) div cy;
+          MI := (aRect.Width + cx - 1) div cx;
+          MJ := (aRect.Height + cy - 1) div cy;
           Y := aRect.Top;
           for J := 0 to MJ - 1 do begin
             X := aRect.Left;
@@ -2357,229 +2328,8 @@ interface
 
 
   procedure TImageWindow.DrawAddInfo(DC :HDC);
-  const
-    cDeltaL = 5;
-    cDeltaT = 5;
-    cDeltaR = 5;
-    cDeltaB = 5;
-  const
-    cNameWidth = 80;
-  var
-    vStrs :TStrList;
-
-    function GrayColor(aColor :COLORREF) :Byte;
-    begin
-      with RGBRec(aColor) do
-        Result := (Red + Green + Blue) div 3;
-    end;
-
-    function TranspBetween(aColor1, aColor2 :COLORREF) :Integer;
-    var
-      vColor1, vColor2 :Byte;
-    begin
-      vColor1 := GrayColor(aColor1);
-      vColor2 := GrayColor(aColor2);
-      Result := Abs(vColor1 - vColor2);
-    end;
-
-
-    function Div2Str(aVal :Int64; aPrec :Integer) :TString;
-    begin
-      with Int64Rec(aVal) do
-        Result := FloatToStrF(Lo / Hi, ffGeneral, 0, aPrec);
-    end;
-
-    function Frac2Str(aVal :Int64) :TString;
-    begin
-      with Int64Rec(aVal) do
-        Result := '1/' + FloatToStrF(Hi / Lo, ffGeneral, 0, 0);
-    end;
-
-    procedure Add1(const APrompt, AValue :TString);
-    begin
-      vStrs.Add(APrompt);
-      vStrs.Add(AValue);
-    end;
-
-    procedure Add(APrompt :TMessages; const AValue :TString);
-    begin
-      vStrs.Add(GetMsg(APrompt));
-      vStrs.Add(AValue);
-    end;
-
-  var
-    I, X, Y, CY, CX1, CX2, vHeight, vMaxWidth2 :Integer;
-    vFont, vOldFont :HFont;
-    vSize :TSize;
-    vRect :TRect;
-    vStr :TString;
-    vColor1, vColor2, vPromptColor1, vPromptColor2 :COLORREF;
   begin
-    vStrs := TStrList.Create;
-    try
-      FImage.CollectInfo;
-
-      Add(strIName,   ExtractFileName(FImage.FName));
-      if FImage.FSize <> 0 then
-        Add(strISize,   Int64ToStrEx(FImage.FSize));
-      if FImage.FTime <> 0 then
-        Add(strITime,   DateTimeToStr(FileDateToDateTime(FImage.FTime)));
-
-      Add1('', '');
-
-//    Add(strIFormat,      FImage.FFormat);
-      vStr := FImage.FFormat;
-      if FImage.FCompress <> '' then
-        vStr := vStr + ' / ' + FImage.FCompress;
-      Add(strIFormat,      vStr);
-
-      if FImage.FDescr <> '' then
-        Add(strIDescription, FImage.FDescr);
-
-      Add(strIDimension,   IntToStr(FImage.FWidth) + ' x ' + IntToStr(FImage.FHeight));
-      Add(strIColors,      IntToStr(FImage.FBPP) + ' ' + GetMsg(strBPP));
-
-      if (FImage.FTags.XResolution <> 0) or (FImage.FTags.YResolution <> 0) then
-        if FImage.FTags.XResolution = FImage.FTags.YResolution then
-          Add(strIDensity, Int2Str(FImage.FTags.XResolution) + ' ' + GetMsg(strDPI))
-        else
-          Add(strIDensity, Int2Str(FImage.FTags.XResolution) + ' x ' + Int2Str(FImage.FTags.YResolution) + ' ' + GetMsg(strDPI));
-
-      if FImage.FPages > 1 then
-        Add(strIPages, IntToStr(FImage.FPage + 1) + ' / ' + IntToStr(FImage.FPages));
-      if FImage.FAnimated then
-        Add(strIDelay, IntToStr(FImage.FDelay) + ' ' + GetMsg(strMS) );
-      if FImage.FOrient > 1 then
-        Add(strIOrientation, cOrients[FImage.FOrient]);
-
-      Add1('', '');
-
-      Add(strIDecoder,     FImage.FDecoder.Title);
-      Add(strIDecodeTime,  IntToStr(FImage.FOpenTime + FImage.FDecodeTime) + ' ' + GetMsg(strMS));
-
-      Add1('', '');
-
-      if FImage.FTags.Time <> '' then
-        Add(strIImageTime,  FImage.FTags.Time);
-      if FImage.FTags.Description <> '' then
-        Add(strIDescription,  FImage.FTags.Description);
-      if FImage.FTags.EquipModel <> '' then
-        Add(strICamera,  FImage.FTags.EquipModel);
-      if FImage.FTags.EquipMake <> '' then
-        Add(strIManufacturer,  FImage.FTags.EquipMake);
-      if FImage.FTags.Software <> '' then
-        Add(strISoftware,  FImage.FTags.Software);
-      if FImage.FTags.Author <> '' then
-        Add(strIAuthor,  FImage.FTags.Author);
-      if FImage.FTags.Copyright <> '' then
-        Add(strICopyright,  FImage.FTags.Copyright);
-
-      Add1('', '');
-
-      if FImage.FTags.ExposureTime <> 0 then
-        Add(strIExposureTime,  Frac2Str(FImage.FTags.ExposureTime) + ' ' + GetMsg(strSec1));
-      if FImage.FTags.FNumber <> 0 then
-        Add(strIFNumber,  Div2Str(FImage.FTags.FNumber, 1));
-      if FImage.FTags.FocalLength <> 0 then
-        Add(strIFocalLength,  Div2Str(FImage.FTags.FocalLength, 0) + ' ' + GetMsg(strMM));
-      if FImage.FTags.ISO <> 0 then
-        Add(strIISO,  Int2Str(FImage.FTags.ISO));
-      if FImage.FTags.Flash <> 0 then
-        Add(strIFlash,  Int2Str(FImage.FTags.Flash));
-
-      vFont := GetStockObject(DEFAULT_GUI_FONT);
-      vOldFont := SelectObject(DC, vFont);
-      if vOldFont = 0 then
-        Exit;
-      try
-        GetTextExtentPoint32(DC, '1', 1, vSize);
-
-        for I := (vStrs.Count div 2) - 1 downto 0 do
-          if vStrs[I * 2] = '' then
-            vStrs.DeleteRange(I * 2, 2)
-          else
-            Break;
-
-        vMaxWidth2 := IntMax(cNameWidth, ClientRect.Right div 2 - cNameWidth);
-
-        CY  := 0;
-        CX1 := cNameWidth;
-        CX2 := 0;
-        for I := 0 to (vStrs.Count div 2) - 1 do begin
-          vStr := vStrs[I * 2];
-          if vStr = '' then
-            Inc(CY, vSize.cy div 2)
-          else begin
-            vStr := vStrs[I * 2 + 1];
-            if vStr = '' then
-              Inc(CY, vSize.cy + 2)
-            else begin
-              vRect := Bounds(0, 0, vMaxWidth2, 0);
-              vHeight := DrawText(DC, PTChar(vStr), Length(vStr), vRect, DT_LEFT or DT_TOP or DT_NOCLIP or DT_WORDBREAK or DT_CALCRECT);
-
-              CX2 := IntMax(CX2, vRect.Right - vRect.Left);
-              Inc(CY, vHeight + 2);
-            end;
-          end;
-        end;
-
-        vRect := Bounds(0, 0, CX1 + CX2 + cDeltaL + cDeltaR, CY + cDeltaT + cDeltaB);
-
-        vColor1 := FarAttrToCOLORREF(GetColorBG(optPanelColor));  // On black
-        vColor2 := FarAttrToCOLORREF(GetColorFG(optPanelColor));
-
-        GDIFillRectTransp(DC, vRect, vColor1, optPanelTransp);
-        GDIFillRectTransp(DC, vRect, vColor2, optPanelTransp);
-
-        vPromptColor1 := FarAttrToCOLORREF(GetColorBG(optPromptColor));
-        vPromptColor2 := FarAttrToCOLORREF(GetColorFG(optPromptColor));
-        vColor1 := FarAttrToCOLORREF(GetColorBG(optInfoColor));
-        vColor2 := FarAttrToCOLORREF(GetColorFG(optInfoColor));
-
-        SetBkMode(DC, TRANSPARENT);
-
-        X  := cDeltaL; Y := cDeltaT;
-        for I := 0 to (vStrs.Count div 2) - 1 do begin
-          vStr := vStrs[I * 2];
-          if vStr = '' then
-            Inc(Y, vSize.cy div 2)
-          else begin
-            if vPromptColor1 <> vPromptColor2 then begin
-              SetTextColor(DC, vPromptColor1);
-              TextOut(DC, X+1, Y+1, PTChar(vStr), Length(vStr));
-            end;
-
-            SetTextColor(DC, vPromptColor2);
-            TextOut(DC, X, Y, PTChar(vStr), Length(vStr));
-
-            vStr := vStrs[I * 2 + 1];
-            if vStr = '' then
-              Inc(Y, vSize.cy + 2)
-            else begin
-              vRect := Bounds(X + CX1, Y, CX2, 0);
-
-              if vColor1 <> vColor2 then begin
-                SetTextColor(DC, vColor1);
-                RectMove(vRect, +1, +1);
-                {vHeight :=} DrawText(DC, PTChar(vStr), Length(vStr), vRect, DT_LEFT or DT_TOP or DT_NOCLIP or DT_WORDBREAK);
-                RectMove(vRect, -1, -1);
-              end;
-
-              SetTextColor(DC, vColor2);
-              vHeight := DrawText(DC, PTChar(vStr), Length(vStr), vRect, DT_LEFT or DT_TOP or DT_NOCLIP or DT_WORDBREAK);
-
-              Inc(Y, vHeight + 2);
-            end;
-          end;
-        end;
-
-      finally
-        SelectObject(DC, vOldFont);
-      end;
-
-    finally
-      FreeObj(vStrs);
-    end;
+    DrawInfoOn(DC, FImage, ClientRect.Width div 2);
   end;
 
 
@@ -2712,14 +2462,13 @@ interface
       if (vSize.CX > 0) and (vSize.CY > 0) then begin
         FImage.FWidth := vSize.CX;
         FImage.FHeight := vSize.CY;
+        UpdateInfoWin;
         FarAdvControl(ACTL_SYNCHRO, SyncCmdUpdateTitle);
       end;
     end;
 
-   {$ifdef bVideoOSD}
     if FControlWin <> nil then
       FControlWin.Idle;
-   {$endif bVideoOSD}
   end;
 
 
@@ -2775,7 +2524,6 @@ interface
 
  {-----------------------------------------------------------------------------}
 
- {$ifdef bVideoOSD}
   procedure TImageWindow.SetOSD(aOn :Boolean);
   begin
     if (FVideoWin <> nil) = aOn then
@@ -2788,6 +2536,7 @@ interface
       RealignOSD;
     end else
     begin
+      FreeObj(FInfoWin);
       FreeObj(FControlWin);
       FreeObj(FVideoWin);
     end;
@@ -2811,8 +2560,34 @@ interface
       FControlWin.SetBounds(Rect(vRect.Left, Y, vRect.Right, Y + cPanHeight), 0);
       FVideoWin.SetBounds(Rect(vRect.Left, vRect.Top, vRect.Right, Y), 0);
     end;
+
+    if FInfoWin <> nil then begin
+      vRect := FInfoWin.GetBoundsRect;
+      FInfoWin.SetBounds(Bounds(0, 0, vRect.Width, vRect.Height), 0);
+//    Windows.SetWindowPos(FInfoWin.Handle, HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE);
+    end;
   end;
- {$endif bVideoOSD}
+
+
+  procedure TImageWindow.UpdateInfoWin;
+  var
+    vSize :TSize;
+  begin
+    if (FImage <> nil) and (FVideoWin <> nil) and (optShowInfo <> 0) then begin
+      if FInfoWin = nil then
+        FInfoWin := TInfoWindow.CreateEx(Self);
+      CalcInfoBounds(FImage, ClientRect.Width div 2, vSize);
+      Inc(vSize.CX, cDeltaH*2);
+      Inc(vSize.CY, cDeltaV*2);
+      FInfoWin.SetBounds(Bounds(0, 0, vSize.CX, vSize.CY), 0);
+//    Windows.SetWindowPos(FInfoWin.Handle, HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE);
+      if not IsWindowVisible(FInfoWin.Handle) then
+        FInfoWin.Show
+      else
+        FInfoWin.Invalidate;
+    end else
+      FreeObj(FInfoWin);
+  end;
 
 
   function TImageWindow.IsMedia :Boolean;
@@ -3765,24 +3540,6 @@ interface
   function TReviewManager.GetWindowTitle :TString;
   const
     vDelim = $2022;
-
-    function LengthToStr(ASec :Integer) :TString;
-    var
-      H, M, S :Integer;
-    begin
-      M := ASec div 60;
-      S := ASec mod 60;
-      H := M div 60;
-      M := M mod 60;
-      if H > 0 then
-        Result := IntToStr(H) + ' hour ' + IntToStr(M) + ' min'
-      else
-      if M > 0 then
-        Result := IntToStr(M) + ' min ' + IntToStr(S) + ' sec'
-      else
-        Result := IntToStr(S) + ' sec'
-    end;
-
   var
     vFmt :TString;
     vScale :Integer;
@@ -4553,9 +4310,10 @@ interface
   begin
     if FWindow = nil then
       Exit;
+    vPos := aValue;
     case aOrigin of
-      soBeginning:
-        vPos := aValue;
+//    soBeginning:
+//      vPos := aValue;
       soCurrent:
         vPos := FWindow.GetMediaPos + aValue;
       soEnd:
@@ -4703,9 +4461,8 @@ interface
     procedure LocShowInfo;
     begin
       optShowInfo := 1 - optShowInfo;
-//    ShowDecoderInfo;
-      Review.InvalidateImage;
       InterlockedIncrement(OptionsRevision);
+      SendMessage(Review.Window.Handle, CM_ShowInfo, 0, 0);
     end;
 
     procedure LocSwitchBack;
