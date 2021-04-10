@@ -19,10 +19,12 @@ uses
   Win32.MFAPI,
   Win32.MFIdl,
   Win32.MFError,
+  Win32.KSUUIDs,
   CMC.EVR,
 
   MixTypes,
   MixUtils,
+  MixWinUtils,
   MixClasses,
   MixStrings;
 
@@ -63,12 +65,15 @@ uses
 
 
     TStreamInfo = class(TBasis)
-    private
-      FIdx   :Integer;
-      FID    :DWORD;
-      FType  :TStreamType;
-      FName  :TString;
-      FLang  :TString;
+    public
+      FIdx       :Integer;
+      FID        :DWORD;
+      FType      :TStreamType;
+      FName      :TString;
+      FLang      :TString;
+      FFmt       :TString;
+      FBitrate   :UINT;
+      FFramerate :Double;
     end;
 
 
@@ -126,6 +131,7 @@ uses
       FVideoStreams :TObjList;
       FAudioStreams :TObjList;
 
+      FVideoStreamIdx :Integer;
       FAudioStreamIdx :Integer;
 
       procedure CreateSession;
@@ -148,6 +154,7 @@ uses
 
       property VideoStreams :TObjList read FVideoStreams;
       property AudioStreams :TObjList read FAudioStreams;
+      property VideoStreamIdx :Integer read FVideoStreamIdx;
       property AudioStreamIdx :Integer read FAudioStreamIdx;
     end;
 
@@ -221,6 +228,177 @@ uses
       MESourceRateChangeRequested : Result := 'MESourceRateChangeRequested';
       MESourceMetadataChanged : Result := 'MESourceMetadataChanged';
     end;
+  end;
+
+
+  function MajorTypeToStreamType(const aMajorType :TGUID) :TStreamType;
+  begin
+   if aMajorType = MFMediaType_Video then
+     Result := VideoStream
+   else
+   if aMajorType = MFMediaType_Audio then
+     Result := AudioStream
+   else
+     Result := OtherStream
+  end;
+
+
+
+ {-----------------------------------------------------------------------------}
+ { https://docs.microsoft.com/en-us/windows/win32/medfound/video-subtype-guids }
+
+   type
+     TMediaType = class(TBasis)
+     public
+       constructor Create(const aID :TGUID; const aName :TString);
+
+      function CompareObj(Another :TBasis; Context :TIntPtr) :Integer; override;
+      function CompareKey(Key :Pointer; Context :TIntPtr) :Integer; override;
+
+     private
+       FGUID :TGUID;
+       FName :TString;
+     end;
+
+     TMediaTypeList = class(TObjList)
+     public
+       procedure Add(const aID :TGUID; const aName :TString);
+     end;
+
+
+  constructor TMediaType.Create(const aID :TGUID; const aName :TString);
+  begin
+    FGUID := aID;
+    FName := aName;
+  end;
+
+  function TMediaType.CompareObj(Another :TBasis; Context :TIntPtr) :Integer; {override;}
+  begin
+    Result := CompareMem(@FGUID, @TMediaType(Another).FGUID, SizeOf(TGUID));
+  end;
+
+  function TMediaType.CompareKey(Key :Pointer; Context :TIntPtr) :Integer; {override;}
+  begin
+    Result := CompareMem(@FGUID, Key, SizeOf(TGUID));
+  end;
+
+
+  procedure TMediaTypeList.Add(const aID :TGUID; const aName :TString);
+  begin
+    AddSorted(TMediaType.Create(aID, aName), 0, dupError);
+  end;
+
+
+  var
+    FVideoTypes :TMediaTypeList;
+    FAudioTypes :TMediaTypeList;
+
+
+  procedure InitVideoTypes;
+  begin
+    if FVideoTypes = nil then
+      FVideoTypes := TMediaTypeList.Create;
+    with FVideoTypes do begin
+      Add(MFVideoFormat_H263,   'H.263');
+      Add(MFVideoFormat_H264,   'H.264 (AVC)');
+      Add(MFVideoFormat_H264_ES,'H.264 ES');
+      Add(MFVideoFormat_H265,  	'H.265');
+      Add(MFVideoFormat_HEVC,	  'H.265 (HEVC)');
+      Add(MFVideoFormat_HEVC_ES,'H.265 (HEVS)');
+      Add(MFVideoFormat_MPG1,		'MPEG-1');
+      Add(MFVideoFormat_MPEG2, 	'MPEG-2');
+      Add(MFVideoFormat_MP4V,		'MPEG-4');
+      Add(MFVideoFormat_M4S2,		'MPEG-4');
+      Add(MFVideoFormat_MP43,		'Microsoft MPEG 4 (MP43)');
+      Add(MFVideoFormat_MP4S,		'ISO MPEG 4 (MP4S)');
+      Add(MFVideoFormat_MJPG,		'Motion JPEG (MJPG)');
+      Add(MFVideoFormat_MSS1,		'Windows Media Screen (MSS1)');
+      Add(MFVideoFormat_MSS2,		'Windows Media Screen (MSS2)');
+      Add(MFVideoFormat_WMV1,		'Windows Media Video (WMV1)');
+      Add(MFVideoFormat_WMV2,		'Windows Media Video (WMV2)');
+      Add(MFVideoFormat_WMV3,		'Windows Media Video (WMV3)');
+      Add(MFVideoFormat_VP80,		'VP8');
+      Add(MFVideoFormat_VP90,		'VP9');
+      Add(MFVideoFormat_DV25,   'DVCPRO 25');
+      Add(MFVideoFormat_DV50,   'DVCPRO 50');
+      Add(MFVideoFormat_DVC,    'DVC/DV Video');
+      Add(MFVideoFormat_DVH1,   'DVCPRO 100');
+      Add(MFVideoFormat_DVHD,   'HD-DVCR');
+      Add(MFVideoFormat_DVSD,   'SDL-DVCR');
+      Add(MFVideoFormat_DVSL,   'SD-DVCR');
+      Add(MFVideoFormat_WVC1,		'VC-1');
+      Add(MFVideoFormat_420O,		'420O');
+      Add(MFVideoFormat_AV1,   	'AV1');
+    end;
+  end;
+
+
+  procedure InitAudioTypes;
+  begin
+    if FAudioTypes = nil then
+      FAudioTypes := TMediaTypeList.Create;
+    with FAudioTypes do begin
+      Add(MFAudioFormat_AAC,             'Advanced Audio Coding (AAC)');
+      Add(MFAudioFormat_ALAC,            'Apple Lossless Audio Codec (ALAC)');
+      Add(MFAudioFormat_MP3,             'MPEG Audio Layer-3 (MP3)');
+      Add(MFAudioFormat_Dolby_AC3,       'Dolby Digital (AC-3)');
+      Add(MFAudioFormat_Dolby_AC3_SPDIF, 'Dolby Digital (AC-3)');
+      Add(MFAudioFormat_Dolby_DDPlus,    'Dolby Digital Plus (DD+)');
+      Add(MFAudioFormat_AMR_NB,          'Adaptative Multi-Rate audio');
+      Add(MFAudioFormat_AMR_WB,          'Adaptative Multi-Rate Wideband audio');
+      Add(MFAudioFormat_DRM,             'Encrypted audio data');
+      Add(MFAudioFormat_DTS,             'Digital Theater Systems (DTS)');
+      Add(MFAudioFormat_FLAC, 	         'Free Lossless Audio Codec (FLAC)');
+      Add(MFAudioFormat_Float,           'Uncompressed IEEE floating-point audio');
+      Add(MFAudioFormat_MPEG,            'MPEG-1 audio');
+      Add(MFAudioFormat_PCM,             'Uncompressed PCM audio');
+      Add(MFAudioFormat_WMAudioV8,       'Windows Media Audio (WMA)');
+      Add(MFAudioFormat_WMAudioV9,       'Windows Media Audio 9 Professional');
+      Add(MFAudioFormat_WMASPDIF,        'Windows Media Audio 9 Professional');
+      Add(MFAudioFormat_WMAudio_Lossless,'Windows Media Audio 9 Lossless');
+      Add(MFAudioFormat_MSP1,            'Windows Media Audio 9 Voice');
+      Add(MEDIASUBTYPE_TRUESPEECH,       'Truespeech');
+//    Add(MFAudioFormat_Opus,            'Opus');
+//    Add(MFAudioFormat_QCELP,           'QCELP');
+//    MFAudioFormat_ADTS
+//    MFAudioFormat_AMR_WP
+    end;
+  end;
+
+
+//  function VideoTypeFourCC(const aType :TGUID) :TString;
+//  var
+//    vFourCC :array[0..4] of AnsiChar;
+//  begin
+//    if True then begin
+//      Move(aType, vFourCC, 4);
+//      vFourCC[4] := #0;
+//      Result := Trim(vFourCC);
+//    end;
+//  end;
+
+
+  function VideoTypeName(const aType :TGUID) :TString;
+  var
+    vIdx :Integer;
+  begin
+//  Trace('Video: ' + GUIDToString(aType));
+    Result := '';
+    if FVideoTypes.FindKey(@aType, 0, [foBinary], vIdx) then
+      Result := TMediaType(FVideoTypes[vIdx]).FName;
+//  if Result = '' then
+//    Result := VideoTypeFourCC(aType);
+  end;
+
+
+  function AudioTypeName(const aType :TGUID) :TString;
+  var
+    vIdx :Integer;
+  begin
+//  Trace('AUdio: ' + GUIDToString(aType));
+    Result := '';
+    if FAudioTypes.FindKey(@aType, 0, [foBinary], vIdx) then
+      Result := TMediaType(FAudioTypes[vIdx]).FName;
   end;
 
 
@@ -466,6 +644,7 @@ uses
     FAudioStreams := TObjList.Create;
 
     FAudioStreamIdx := -1;
+    FVideoStreamIdx := -1;
   end;
 
 
@@ -832,19 +1011,8 @@ uses
       Result := FDisplay.RepaintVideo;
   end;
 
+
  {-----------------------------------------------------------------------------}
-
-  function MajorTypeToStreamType(const aMajorType :TGUID) :TStreamType;
-  begin
-   if aMajorType = MFMediaType_Video then
-     Result := VideoStream
-   else
-   if aMajorType = MFMediaType_Audio then
-     Result := AudioStream
-   else
-     Result := OtherStream
-  end;
-
 
   procedure TPlayer.FillStreamsInfo;
   var
@@ -853,10 +1021,14 @@ uses
     vSelected :BOOL;
     vStream :IMFStreamDescriptor;
     vHandler :IMFMediaTypeHandler;
-    vMajorType :TGUID;
+    vMediaType :IMFMediaType;
+    vMajorType, vSubType :TGUID;
     vInfo :TStreamInfo;
+    vBitRate, vNum, vDen :UINT32;
+//  vFrameRate :UINT64;
   begin
     FAudioStreamIdx := -1;
+    FVideoStreamIdx := -1;
     OleCheck(FPresent.GetStreamDescriptorCount(vStreamCount));
     for i := 0 to Integer(vStreamCount) - 1 do begin
       vInfo := TStreamInfo.Create;
@@ -870,18 +1042,34 @@ uses
 
         OleCheck(vStream.GetMediaTypeHandler(vHandler));
         OleCheck(vHandler.GetMajorType(vMajorType));
-
         vInfo.FType := MajorTypeToStreamType(vMajorType);
 
         if vInfo.FType = AudioStream then begin
+          if Succeeded(vHandler.GetCurrentMediaType(vMediaType)) then begin
+            if Succeeded(vMediaType.GetGUID(MF_MT_SUBTYPE, vSubType)) then
+              vInfo.FFmt := AudioTypeName(vSubType);
+            if Succeeded(vMediaType.GetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, vBitRate)) then
+              vInfo.FBitrate := vBitRate;
+          end;
+
           FAudioStreams.Add(vInfo);
           if vSelected then
             FAudioStreamIdx := FAudioStreams.Count - 1;
         end else
         if vInfo.FType = VideoStream then begin
+          if Succeeded(vHandler.GetCurrentMediaType(vMediaType)) then begin
+            if Succeeded(vMediaType.GetGUID(MF_MT_SUBTYPE, vSubType)) then
+              vInfo.FFmt := VideoTypeName(vSubType);
+//          if Succeeded(vMediaType.GetUINT64(MF_MT_FRAME_RATE, vFrameRate)) then begin
+            if Succeeded(MFGetAttributeRatio(vMediaType, MF_MT_FRAME_RATE, vNum, vDen)) and (vDen <> 0) then
+              vInfo.FFramerate := vNum / vDen;
+//          if Succeeded(vMediaType.GetUINT32(MF_MT_AVG_BITRATE, vBitRate)) then
+//            vInfo.FBitrate := vBitRate;
+          end;
+
           FVideoStreams.Add(vInfo);
-//        if vSelected then
-//           FVideoStreamIdx := FVideoStreams.Count - 1;
+          if vSelected then
+             FVideoStreamIdx := FVideoStreams.Count - 1;
         end else
           FreeObj(vInfo);
 
@@ -959,5 +1147,11 @@ uses
   end;
 
 
+initialization
+  InitVideoTypes;
+  InitAudioTypes;
 
+finalization
+  FreeObj(FVideoTypes);
+  FreeObj(FAudioTypes);
 end.

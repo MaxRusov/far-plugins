@@ -93,8 +93,9 @@ interface
 //    procedure WMSYSCOMMAND(var Mess :TMessage); message WM_SYSCOMMAND;
 
     private
-      FOwner :TMSWindow;
-      FCtrl  :TControlWindow;
+      FOwner   :TMSWindow;
+      FCtrl    :TControlWindow;
+      FHidePos :TPoint;
 
     public
       property Ctrl :TControlWindow read FCtrl write FCtrl;
@@ -116,6 +117,7 @@ interface
 
     private
       FOwner    :TMSWindow; {TImageWindow}
+      FVideo    :TVideoWindow;
 
       FToolbar  :TMyToolbar;
       FTracker  :TMySeeker;
@@ -130,10 +132,10 @@ interface
       FLastVolume :Integer;
 
       FHidden     :Boolean;
-      FHideTime   :DWORD;
-      FLastAction :DWORD;
+      FLastAction :TTickCount;
+      FHideLock   :Integer;
 
-      FLastAlive  :DWORD;
+      FLastAlive  :TTickCount;
 
       procedure WMSize(var Mess :TWMSize); message WM_Size;
       procedure WMCtlColorStatic(var Mess :TWMCtlColorStatic); message WM_CtlColorStatic;
@@ -142,6 +144,7 @@ interface
       procedure Realign;
 
     public
+      property Video :TVideoWindow read FVideo write FVideo;
       property Hidden :Boolean read FHidden;
     end;
 
@@ -361,11 +364,20 @@ interface
 
 
   procedure TVideoWindow.DefaultHandler(var Mess ); {override;}
+  var
+    vActive :Boolean;
   begin
     with TMessage(Mess) do
-      if (Msg >= WM_MOUSEFIRST) and (Msg <= WM_MOUSELAST) then
-        if FCtrl <> nil then
-          FCtrl.ActiveAction;
+      if (Msg = WM_MOUSEFIRST) and (Msg <= WM_MOUSELAST) then begin
+        if Msg = WM_MOUSEMOVE then begin
+          with GetLocalMousePos do
+            vActive := (Abs(X - FHidePos.X) + Abs(Y - FHidePos.Y)) > 5
+        end else
+          vActive := True;
+        if vActive then
+          if FCtrl <> nil then
+            FCtrl.ActiveAction;
+      end;
     inherited;
   end;
 
@@ -513,12 +525,9 @@ interface
   procedure TControlWindow.Idle;
 
     function MouseInMyBounds :Boolean;
-    var
-      vPoint :TPoint;
     begin
-      Windows.GetCursorPos(vPoint);
-      ScreenToClient(Handle, vPoint);
-      Result := RectContainsXY(ClientRect, vPoint.X, vPoint.Y);
+      with GetLocalMousePos do
+        Result := RectContainsXY(ClientRect, X, Y);
     end;
 
   var
@@ -556,23 +565,29 @@ interface
       FLastVolume := vVol;
     end;
 
-    if (vState = 1) and (TickCountDiff(GetTickCount, FLastAlive) > 1000) and Assigned(SetThreadExecutionState) then begin
+    if (vState = 1) and (FLastAlive.Period > 1000) and Assigned(SetThreadExecutionState) then begin
 //    Trace('SetThreadExecutionState......');
       SetThreadExecutionState(ES_DISPLAY_REQUIRED);
-      FLastAlive := GetTickCount;
+      FLastAlive.Start;
     end;
 
-    if (vState = 1) and (vOwner.WinMode = wmFullscreen) and vOwner.IsVideo then begin
+    if (vState = 1) and (vOwner.WinMode = wmFullscreen) and (FVideo <> nil) then begin
       if MouseInMyBounds then
         ActiveAction;
-      if (FLastAction <> 0) and (TickCountDiff(GetTickCount, FLastAction) > optHideOSDDelay) then begin
-        SetHidden(True);
-        FLastAction := 0;
+      if (FLastAction.FTime <> 0) and (FLastAction.Period > optHideOSDDelay) then begin
+        Inc(FHideLock);
+        try
+          SetHidden(True);
+          FVideo.FHidePos := FVideo.GetLocalMousePos;
+          FLastAction.Reset;
+        finally
+          Dec(FHideLock);
+        end;
       end;
     end else
     begin
       SetHidden(False);
-      FLastAction := 0;
+      FLastAction.Reset;
     end;
   end;
 
@@ -582,10 +597,6 @@ interface
     if FHidden <> aHidden then begin
 //    Trace('SetHidden: %d', [byte(aHidden)]);
       FHidden := aHidden;
-      if FHidden then
-        FHideTime := GetTickCount
-      else
-        FHideTime := 0;
       TImageWindow(FOwner).RealignOSD;
     end;
   end;
@@ -593,10 +604,10 @@ interface
 
   procedure TControlWindow.ActiveAction;
   begin
-    if (FHideTime <> 0) and (TickCountDiff(GetTickCount, FHideTime) < 100) then
+    if FHideLock <> 0 then
       Exit;
     SetHidden(False);
-    FLastAction := GetTickCount;
+    FLastAction.Start;
   end;
 
 

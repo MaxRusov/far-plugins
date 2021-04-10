@@ -105,7 +105,7 @@ interface
   function TryHex2Int64(const AHexStr :TString; var Num :TInt64) :Boolean;
   function Hex2Int64(const AHexStr :TString) :TInt64;
 
-  function Float2Str(Value :TFloat) :TString;
+  function Float2Str(Value :TFloat; aDec :Integer = 0) :TString;
   function TryPCharToFloat(Str :PTChar; var Value :TFloat) :Boolean;
   function TryStrToFloat(const Str :TString; var Value :TFloat) :Boolean;
   function StrToFloatDef(const Str :TString; const Def :TFloat) :TFloat;
@@ -1006,11 +1006,11 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function Float2Str(Value :TFloat) :TString;
+  function Float2Str(Value :TFloat; aDec :Integer = 0) :TString;
   var
     vStr :Shortstring;
   begin
-    Str(Value, vStr);
+    Str(Value:0:aDec, vStr);
     Result := TString(vStr);
   end;
 

@@ -222,6 +222,8 @@ interface
   function MemCompare(APtr1, APtr2 :Pointer; ASize :Integer) :Integer;
   procedure MemExchange(APtr1, APtr2 :Pointer; ASize :Integer);
 
+  function CompareMem(APtr1, APtr2 :Pointer; ASize :Integer) :Integer;
+
   procedure PtrExchange(var APtr1, APtr2 {:Pointer});
 
   function SysErrorMessage(ErrorCode: Integer) :TString;
@@ -1225,6 +1227,19 @@ interface
     vTmp := pointer(APtr2);
     pointer(APtr2) := pointer(APtr1);
     pointer(APtr1) := vTmp;
+  end;
+
+
+  function CompareMem(APtr1, APtr2 :Pointer; ASize :Integer) :Integer;
+  var
+    i :Integer;
+  begin
+    Result := 0;
+    for i := 0 to aSize - 1 do begin
+      Result := byte((PAnsiChar(aPtr1) + i)^) - byte((PAnsiChar(aPtr2) + i)^);
+      if Result <> 0  then
+        Exit;
+    end;
   end;
 
 

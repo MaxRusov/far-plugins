@@ -627,7 +627,7 @@ interface
       vView := CreateView(pFileName);
 
     if vView <> nil then begin
-      pImageInfo.Flags := PVD_IIF_MOVIE;
+      pImageInfo.Flags := PVD_IIF_MEDIA;
       pImageInfo.nPages := Round(vView.FLength * 1000);
 //    if vView.FFmtName <> '' then
 //      pImageInfo.pFormatName := PTChar(vView.FFmtName);

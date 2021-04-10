@@ -58,12 +58,17 @@ interface
       FBPP         :Integer;           { Цветность }
       FTransparent :Boolean;           { Полупрозрачное изображение }
       FAnimated    :Boolean;           { Анимированное изображение }
-      FMovie       :Boolean;           { Видео-файл }
       FVector      :Boolean;           { Векторный формат }
-      FLength      :Integer;           { Длительность видео в MS }
       FDelay       :Integer;           { Задержка текущей страницы при анимации }
       FOrient0     :Integer;           { Начальная ориентация (по EXIF) }
       FOrient      :Integer;           { Текущая ориентация (дополнительный поворот после декодирования) }
+
+      FMedia       :Boolean;           { Медиа-файл }
+      FLength      :Integer;           { Длительность видео в MS }
+      FVideoCount  :Integer;           { Количество Video-потоков }
+      FVideoIndex  :Integer;           { Текщий Video-поток }
+      FAudioCount  :Integer;           { Количество Audio-потоков }
+      FAudioIndex  :Integer;           { Текщий Audio-поток }
 
       FSelfdraw    :Boolean;
       FSelfPaint   :Boolean;
@@ -1114,11 +1119,13 @@ interface
       AImage.FCompress := vInfo.pCompression;
       AImage.FDescr := vInfo.pComments;
       AImage.FAnimated := vInfo.Flags and PVD_IIF_ANIMATED <> 0;
-      AImage.FMovie := vInfo.Flags and PVD_IIF_MOVIE <> 0;
       AImage.FVector := vInfo.Flags and PVD_IIF_VECTOR <> 0;
-      if AImage.FMovie then
-        AImage.FLength := vInfo.nPages
-      else
+      AImage.FMedia := vInfo.Flags and PVD_IIF_MEDIA <> 0;
+      if AImage.FMedia then begin
+        AImage.FLength := vInfo.nPages;
+        AImage.FVideoCount := vInfo.nVideoCount;
+        AImage.FAudioCount := vInfo.nAudioCount;
+      end else
         AImage.FPages := vInfo.nPages;
     end else
       FLastError := pvdTranslateError(vInfo.nErrNumber);

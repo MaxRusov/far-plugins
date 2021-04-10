@@ -59,7 +59,7 @@ const
   PVD_IIF_MAGAZINE = $100;
 
   // Review:
-  PVD_IIF_MOVIE  = $1000;         // Видео файл. nPages содержит длительность файла в мс.
+  PVD_IIF_MEDIA  = $1000;         // Медиа файл. nPages содержит длительность файла в мс.
   PVD_IIF_VECTOR = $2000;         //
 
 
@@ -326,7 +326,8 @@ type
     pCompression :PWideChar;
     pComments :PWideChar;
     nErrNumber :DWORD;
-    nReserverd, nReserverd2 :DWORD;
+//  nReserverd, nReserverd2 :DWORD;
+    nVideoCount, nAudioCount :DWORD;
   end;
 
 
@@ -787,9 +788,10 @@ const
   PVD_PC_Mute                = 9;
   PVD_PC_GetLen              = 10;
   PVD_PC_GetBounds           = 11;
-  PVD_PC_GetAudioStreamCount = 12;
-  PVD_PC_GetAudioStream      = 13;
-  PVD_PC_SetAudioStream      = 14;
+  PVD_PC_GetAudioStream      = 12;
+  PVD_PC_SetAudioStream      = 13;
+  PVD_PC_GetVideoStream      = 14;
+  PVD_PC_SetVideoStream      = 15;
 
 type
   TpvdPlayControl = function(pContext :Pointer; pImageContext :Pointer; aCmd :Integer; pInfo :Pointer) :Integer; stdcall;
@@ -966,6 +968,17 @@ const
   PVD_Tag_XResolution  = 306;  // Разрешение (dpi)
   PVD_Tag_YResolution  = 307;  // Разрешение (dpi)
 //PVD_Tag_ResolutionUnit = 308;  // ResolutionUnit (2 = Inches, 3 = Centimeters)
+
+  PVD_Tag_Video_Name      = 400;
+  PVD_Tag_Video_Lang      = 401;
+  PVD_Tag_Video_Format    = 402;
+  PVD_Tag_Video_Bitrate   = 403;
+  PVD_Tag_Video_FrameRate = 404;
+
+  PVD_Tag_Audio_Name      = 450;
+  PVD_Tag_Audio_Lang      = 451;
+  PVD_Tag_Audio_Format    = 452;
+  PVD_Tag_Audio_Bitrate   = 453;
 
 const
   PVD_TagCmd_Get   = 1;

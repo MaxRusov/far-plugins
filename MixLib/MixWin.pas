@@ -85,6 +85,7 @@ interface
       procedure SetWindowPos(X, Y :Integer);
       procedure SetWindowSize(CX, CY :Integer);
       function GetBoundsRect :TRect;
+      function GetLocalMousePos :TPoint;
 
       function Perform(Msg :UINT; WParam :WPARAM; LParam :LPARAM) :LRESULT;
       procedure DefaultHandler(var Mess); override;
@@ -445,6 +446,13 @@ interface
   begin
     Assert(ValidInstanceEx(TMSWindow) and (FHandle <> 0));
     Windows.GetClientRect(FHandle, Result);
+  end;
+
+
+  function TMSWindow.GetLocalMousePos :TPoint;
+  begin
+    Windows.GetCursorPos(Result);
+    ScreenToClient(FHandle, Result);
   end;
 
 

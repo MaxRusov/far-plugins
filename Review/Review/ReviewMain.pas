@@ -596,8 +596,8 @@ interface
       vValue := FarValuesToInt(AParams, ACount, 2, 0);
       if (vMode >= 0) and (vMode <= 2) then
         Review.ChangeAudioStream(TSeekOrigin(vMode), vValue);
-      if Review.Window <> nil then
-        Result := FarReturnValues([Review.Window.GetAudioStream, Review.Window.GetAudioStreamCount]);
+      if Review.CurImage <> nil then
+        Result := FarReturnValues([Review.Window.GetAudioStream, Review.CurImage.FAudioCount]);
     end;
 
 
@@ -683,7 +683,7 @@ interface
     vInfo :TPanelInfo;
     vName :TString;
   begin
-//  TraceF('Event=%d, AParam=%d, AID=%d', [AEvent, TIntPtr(AParam), AID]);
+//  Trace('ViewerEvent: Event=%d, AParam=%d, AID=%d', [AEvent, TIntPtr(AParam), AID);
 
     if AEvent = VE_Read then begin
       vForce := 0;

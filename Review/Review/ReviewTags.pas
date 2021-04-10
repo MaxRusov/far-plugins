@@ -60,6 +60,17 @@ interface
 //    Album        :TString;
 //    Year         :TString;
 //    Genre        :TString;
+
+      FVideoName      :TString;
+      FVideoLang      :TString;
+      FVideoFormat    :TString;
+      FVideoBitrate   :Integer;
+      FVideoFramerate :Double;
+
+      FAudioName      :TString;
+      FAudioLang      :TString;
+      FAudioFormat    :TString;
+      FAudioBitrate   :Integer;
     end;
 
 
@@ -125,9 +136,9 @@ interface
       Add(strIDescription, aImage.FDescr);
 
     if aImage.FLength <> 0 then
-      Add1('Length',     LengthToStr(aImage.FLength div 1000));
-
-    Add(strIDimension,   IntToStr(aImage.FWidth) + ' x ' + IntToStr(aImage.FHeight));
+      Add1('Length',       LengthToStr(aImage.FLength div 1000));
+    if (aImage.FWidth <> 0) or (aImage.FHeight <> 0) then
+      Add(strIDimension,   IntToStr(aImage.FWidth) + ' x ' + IntToStr(aImage.FHeight));
 
     if aImage.FBPP <> 0 then
       Add(strIColors,    IntToStr(aImage.FBPP) + ' ' + GetMsg(strBPP));
@@ -167,18 +178,52 @@ interface
     if aTags.Copyright <> '' then
       Add(strICopyright,  aTags.Copyright);
 
-    Add1('', '');
+    if not aImage.FMedia then begin
+      Add1('', '');
+      if aTags.ExposureTime <> 0 then
+        Add(strIExposureTime,  Frac2Str(aTags.ExposureTime) + ' ' + GetMsg(strSec1));
+      if aTags.FNumber <> 0 then
+        Add(strIFNumber,  Div2Str(aTags.FNumber, 1));
+      if aTags.FocalLength <> 0 then
+        Add(strIFocalLength,  Div2Str(aTags.FocalLength, 0) + ' ' + GetMsg(strMM));
+      if aTags.ISO <> 0 then
+        Add(strIISO,  Int2Str(aTags.ISO));
+      if aTags.Flash <> 0 then
+        Add(strIFlash,  Int2Str(aTags.Flash));
+    end;
 
-    if aTags.ExposureTime <> 0 then
-      Add(strIExposureTime,  Frac2Str(aTags.ExposureTime) + ' ' + GetMsg(strSec1));
-    if aTags.FNumber <> 0 then
-      Add(strIFNumber,  Div2Str(aTags.FNumber, 1));
-    if aTags.FocalLength <> 0 then
-      Add(strIFocalLength,  Div2Str(aTags.FocalLength, 0) + ' ' + GetMsg(strMM));
-    if aTags.ISO <> 0 then
-      Add(strIISO,  Int2Str(aTags.ISO));
-    if aTags.Flash <> 0 then
-      Add(strIFlash,  Int2Str(aTags.Flash));
+    if aImage.FVideoCount > 0 then begin
+      Add1('', '');
+      if aImage.FVideoCount > 1 then
+        Add1('Audio', Int2Str(aImage.FVideoIndex + 1) + ' / ' + Int2Str(aImage.FVideoCount));
+
+      if aTags.FVideoName <> '' then
+        Add1('Video name', aTags.FVideoName);
+      if aTags.FVideoLang <> '' then
+        Add1('Video lang', aTags.FVideoLang);
+      if aTags.FVideoFormat <> '' then
+        Add1('Video format', aTags.FVideoFormat);
+      if aTags.FVideoBitrate <> 0 then
+        Add1('Video bitrate', Int2Str(aTags.FVideoBitrate) + '  kb/s');
+      if aTags.FVideoFramerate <> 0 then
+        Add1('Framerate', Float2Str(aTags.FVideoFramerate, 2) + '  fps');
+    end;
+
+    if aImage.FAudioCount > 0 then begin
+      Add1('', '');
+      if aImage.FAudioCount > 1 then
+        Add1('Audio', Int2Str(aImage.FAudioIndex + 1) + ' / ' + Int2Str(aImage.FAudioCount));
+      if aTags.FAudioName <> '' then
+        Add1('Audio name', aTags.FAudioName);
+      if aTags.FAudioLang <> '' then
+        Add1('Audio lang', aTags.FAudioLang);
+      if aTags.FAudioFormat <> '' then
+        Add1('Audio format', aTags.FAudioFormat);
+      if aTags.FAudioBitrate <> 0 then
+        Add1('Audio bitrate', Int2Str(aTags.FAudioBitrate * 8 div 1000) + '  kb/s');
+    end;
+
+
   end;
 
 

@@ -61,6 +61,7 @@ interface
     CM_RenderImage  = $B00C;  {Thumbs: Завершено извлечение эскиза (ThumbThread -> ThumbsWindow) }
     CM_Select       = $B00D;  {Thumbs: Выделение изображений}
     CM_ShowInfo     = $B00E;
+    CM_SetAudio     = $B00F;
 
   const
     cScaleStep   = 1.01;
@@ -222,8 +223,6 @@ interface
       function GetMediaVolume :Integer;
       procedure SetMediaVolume(aVal :Integer);
       function GetAudioStream :Integer;
-      function GetAudioStreamCount :Integer;
-      procedure SetAudioStream(aVal :Integer);
       function GetMediaSize :TSize;
 
       procedure RealignOSD;
@@ -240,6 +239,7 @@ interface
       procedure CMScale(var Mess :TMessage); message CM_Scale;
       procedure CMSlideShow(var Mess :TMessage); message CM_SlideShow;
       procedure CMShowInfo(var Mess :TMessage); message CM_ShowInfo;
+      procedure CMSetAudio(var Mess :TMessage); message CM_SetAudio;
       procedure WMShowWindow(var Mess :TWMShowWindow); message WM_ShowWindow;
       procedure WMSize(var Mess :TWMSize); message WM_Size;
       procedure WMKeyDown(var Mess :TWMKeyDown); message WM_KeyDown;
@@ -1603,7 +1603,7 @@ interface
       end;
 
       try
-        SetOSD(Image.FMovie);
+        SetOSD(Image.FMedia);
 
         if FVideoWin <> nil then
           vAttachWnd := FVideoWin.Handle
@@ -2386,7 +2386,7 @@ interface
 
   procedure TImageWindow.WMLButtonDblClk(var Mess :TWMLButtonDblClk); {message WM_LButtonDblClk;}
   begin
-    if (GetKeyState(VK_Control) < 0) or FImage.FMovie then begin
+    if (GetKeyState(VK_Control) < 0) or FImage.FMedia then begin
       if FWinMode <> wmQuickView then
 //      SetFullscreen( FWinMode = wmNormal )
         FarAdvControl(ACTL_SYNCHRO, SyncCmdFullscreen);
@@ -2456,7 +2456,7 @@ interface
       end;
     end;
 
-    if (FImage <> nil) and ((FImage.FWidth = 0) or (FImage.FHeight = 0)) and FImage.FMovie then begin
+    if (FImage <> nil) and ((FImage.FWidth = 0) or (FImage.FHeight = 0)) and FImage.FMedia then begin
       { Размеры Video не всегда могут быть определены сразу при открытии... }
       vSize := GetMediaSize;
       if (vSize.CX > 0) and (vSize.CY > 0) then begin
@@ -2533,6 +2533,7 @@ interface
       FVideoWin := TVideoWindow.CreateEx(Self);
       FControlWin := TControlWindow.CreateEx(Self);
       FVideoWin.Ctrl := FControlWin;
+      FControlWin.Video := FVideoWin;
       RealignOSD;
     end else
     begin
@@ -2592,7 +2593,7 @@ interface
 
   function TImageWindow.IsMedia :Boolean;
   begin
-    Result := (FImage <> nil) and FImage.FMovie;
+    Result := (FImage <> nil) and FImage.FMedia;
   end;
 
 
@@ -2617,6 +2618,15 @@ interface
         if (FControlWin <> nil) and (vState <> 1) then
           FControlWin.ActiveAction;
       end;
+  end;
+
+
+  function TImageWindow.GetMediaSize :TSize;
+  begin
+    Result := Size(0, 0);
+    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
+      with TReviewDllDecoder2(FImage.Decoder) do
+        pvdPlayControl(FImage, PVD_PC_GetBounds, TIntPtr(@Result));
   end;
 
 
@@ -2675,15 +2685,6 @@ interface
   end;
 
 
-  function TImageWindow.GetAudioStreamCount :Integer;
-  begin
-    Result := 0;
-    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
-      with TReviewDllDecoder2(FImage.Decoder) do
-        Result := pvdPlayControl(FImage, PVD_PC_GetAudioStreamCount, 0);
-  end;
-
-
   function TImageWindow.GetAudioStream :Integer;
   begin
     Result := 0;
@@ -2692,20 +2693,18 @@ interface
         Result := pvdPlayControl(FImage, PVD_PC_GetAudioStream, 0);
   end;
 
-  procedure TImageWindow.SetAudioStream(aVal :Integer);
+
+  procedure TImageWindow.CMSetAudio(var Mess :TMessage); {message CM_SetAudio;}
   begin
     if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
-      with TReviewDllDecoder2(FImage.Decoder) do
-        pvdPlayControl(FImage, PVD_PC_SetAudioStream, aVal);
-  end;
+      with TReviewDllDecoder2(FImage.Decoder) do begin
+        pvdPlayControl(FImage, PVD_PC_SetAudioStream, Mess.WParam);
+        FImage.FAudioIndex := GetAudioStream;
 
-
-  function TImageWindow.GetMediaSize :TSize;
-  begin
-    Result := Size(0, 0);
-    if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then
-      with TReviewDllDecoder2(FImage.Decoder) do
-        pvdPlayControl(FImage, PVD_PC_GetBounds, TIntPtr(@Result));
+        FImage.FInfoInited := False;
+        FImage.CollectInfo;
+        UpdateInfoWin;
+      end;
   end;
 
 
@@ -2766,11 +2765,17 @@ interface
       vType :Integer;
       vValue :Pointer;
     begin
-      if FDecoder.pvdTagInfo(Self, aCode, vType, vValue) and (vType = PVD_TagType_Int64) then begin
+      if FDecoder.pvdTagInfo(Self, aCode, vType, vValue) and (vType = PVD_TagType_Int64) then
         aValue := PInt64(vValue)^;
-//      with Int64Rec(aValue) do
-//        Trace('Code=%d, aValue=%x:%x', [aCode, Lo, Hi]);
-      end;
+    end;
+
+    procedure LocGetDouble(aCode :Integer; var aValue :Double);
+    var
+      vType :Integer;
+      vValue :Pointer;
+    begin
+      if FDecoder.pvdTagInfo(Self, aCode, vType, vValue) and (vType = PVD_TagType_Double) then
+        aValue := PDouble(vValue)^;
     end;
 
     procedure LocGetStr(aCode :Integer; var aValue :TString);
@@ -2820,6 +2825,21 @@ interface
         vTime := YMDStrToDateTime(FTags.Time);
         if vTime <> 0 then
           FTags.Time := DateTimeToStr(vTime);
+
+        if FVideoCount > 0 then begin
+          LocGetStr(PVD_Tag_Video_Name, FTags.FVideoName);
+          LocGetStr(PVD_Tag_Video_Lang, FTags.FVideoLang);
+          LocGetStr(PVD_Tag_Video_Format, FTags.FVideoFormat);
+          LocGetInt(PVD_Tag_Video_Bitrate, FTags.FVideoBitrate);
+          LocGetDouble(PVD_Tag_Video_Framerate, FTags.FVideoFramerate);
+        end;
+
+        if FAudioCount > 0 then begin
+          LocGetStr(PVD_Tag_Audio_Name, FTags.FAudioName);
+          LocGetStr(PVD_Tag_Audio_Lang, FTags.FAudioLang);
+          LocGetStr(PVD_Tag_Audio_Format, FTags.FAudioFormat);
+          LocGetInt(PVD_Tag_Audio_Bitrate, FTags.FAudioBitrate);
+        end;
 
         FInfoInited := True;
 
@@ -2904,6 +2924,7 @@ interface
 
       if not FDecoder.pvdGetPageInfo(Self) then
         LocDecodeError;
+
       if AFirstOpen and optRotateOnEXIF then
         FOrient := FOrient0;
 
@@ -3072,7 +3093,7 @@ interface
 
   function TReviewImage.CanReleaseSource :Boolean;
   begin
-    Result := not (FAnimated or FMovie or FSelfPaint) and (FPages = 1);
+    Result := not (FAnimated or FMedia or FSelfPaint) and (FPages = 1);
   end;
 
 
@@ -3558,7 +3579,7 @@ interface
           else
             vFmt := vFmt + Format(', %d/%d', [FPage + 1, FPages]);
 
-        if FMovie then
+        if FMedia then
           vFmt := vFmt + ', ' + LengthToStr(FLength div 1000);
 
 //      Result := Format('%s - %s (%s)', [ExtractFileName(FName), FDecoder.pvdName, vFmt]);
@@ -3573,7 +3594,7 @@ interface
           Result := Result + ', ' + cOrients[FOrient];
 
         vScale := Round(100 * FWindow.FScale);
-        if (vScale <> 100) and not FMovie then
+        if (vScale <> 100) and not FMedia then
           Result := Result + ' ' + TChar(vDelim) + ' ' + Int2Str(vScale) + '%';
       end;
   end;
@@ -3968,7 +3989,7 @@ interface
       if GetKeyState(VK_Control) < 0 then
         Navigate(0, ADelta < 0, optEffectOnManual)
       else
-      if vImage.FMovie then
+      if vImage.FMedia then
         ChangeVolume(ADelta * 5, 0)
       else begin
         if not (GetKeyState(VK_Shift) < 0) then
@@ -4329,7 +4350,7 @@ interface
   begin
     if FWindow = nil then
       Exit;
-    vCount := FWindow.GetAudioStreamCount;
+    vCount := FWindow.FImage.FAudioCount;
     vIdx := FWindow.GetAudioStream;
     case aOrigin of
       soBeginning:
@@ -4346,7 +4367,7 @@ interface
         vIdx := vCount + aValue;
     end;
     if (vIdx >= 0) and (vIdx < vCount) then
-      FWindow.SetAudioStream(vIdx);
+      SendMessage(FWindow.Handle, CM_SetAudio, vIdx, 0);
   end;
 
 
@@ -4449,7 +4470,7 @@ interface
 
     procedure LocMovePage(ADX, ADY :Integer);
     begin
-      if not vImage.FMovie then begin
+      if not vImage.FMedia then begin
         with Review.Window.ClientRect do begin
           ADX := ADX * (Right - Left);
           ADY := ADY * (Bottom - Top);
@@ -4609,49 +4630,49 @@ interface
 
         { Смещение }
         Key_Left, Key_ShiftLeft, Key_NumPad4, Key_ShiftNumPad4:
-          if not vImage.FMovie then
+          if not vImage.FMedia then
             LocMove(LocStep(+cMoveStep),  0)
           else
             Review.MediaSeek(soCurrent, LocStep(-cMoveStepSec));
 
         Key_Right, Key_ShiftRight, Key_NumPad6, Key_ShiftNumPad6:
-          if not vImage.FMovie then
+          if not vImage.FMedia then
             LocMove(LocStep(-cMoveStep),  0)
           else
             Review.MediaSeek(soCurrent, LocStep(+cMoveStepSec));
 
         Key_Up, Key_ShiftUp, Key_NumPad8, Key_ShiftNumPad8:
-          if not vImage.FMovie then
+          if not vImage.FMedia then
             LocMove( 0, LocStep(+cMoveStep))
           else
             Review.ChangeVolume(LocStep(+10), 0);
 
         Key_Down, Key_ShiftDown, Key_NumPad2, Key_ShiftNumPad2:
-          if not vImage.FMovie then
+          if not vImage.FMedia then
             LocMove( 0, LocStep(-cMoveStep))
           else
             Review.ChangeVolume(LocStep(-10), 0);
 
         Key_CtrlLeft, Key_CtrlNumPad4:
-          if not vImage.FMovie then
+          if not vImage.FMedia then
             LocMove(+MaxInt,  0)
           else
             Review.MediaSeek(soBeginning, 0);
 
         Key_CtrlRight, Key_CtrlNumPad6:
-          if not vImage.FMovie then
+          if not vImage.FMedia then
             LocMove(-MaxInt,  0)
           else
             Review.MediaSeek(soEnd, 0);
 
         Key_CtrlUp, Key_CtrlNumPad8:
-          if not vImage.FMovie then
+          if not vImage.FMedia then
             LocMove( 0, +MaxInt)
           else
             Review.ChangeVolume(0, 100);
 
         Key_CtrlDown, Key_CtrlNumPad2:
-          if not vImage.FMovie then
+          if not vImage.FMedia then
             LocMove( 0, -MaxInt)
           else
             Review.ChangeVolume(0, 0);

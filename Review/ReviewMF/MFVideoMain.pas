@@ -158,7 +158,7 @@ interface
       FWindow      :TPlayerWindow;
 
       FStrTag      :TString;
-//    FInt64Tag    :Int64;
+      FDblTag      :Double;
 
       procedure DoLoadFile;
       procedure DoResize({const} ARect :TRect);
@@ -534,25 +534,20 @@ interface
 
   function TView.TagInfo(aCode :Integer; var aType :Integer; var aValue :Pointer) :Boolean;
 
-//    procedure LocIntTag(const aName :TString);
-//    var
-//      vIntTag :Integer;
-//    begin
-//      Result := MetaQueryInt(FMetadata, aName, vIntTag);
-//      if Result then begin
-//        aValue := Pointer(TIntPtr(vIntTag));
-//        aType := PVD_TagType_Int;
-//      end;
-//    end;
-//
-//    procedure LocInt64Tag(const aName :TString);
-//    begin
-//      Result := MetaQueryInt64(FMetadata, aName, FInt64Tag);
-//      if Result then begin
-//        aValue := @FInt64Tag;
-//        aType := PVD_TagType_Int64;
-//      end;
-//    end;
+    procedure LocIntTag(aVal :Integer);
+    begin
+      aValue := Pointer(TIntPtr(aVal));
+      aType := PVD_TagType_Int;
+      Result := True;
+    end;
+
+    procedure LocDblTag(const aVal :Double);
+    begin
+      FDblTag := aVal;
+      aValue := Pointer(@FDblTag);
+      aType := PVD_TagType_Double;
+      Result := True;
+    end;
 
     procedure LocStrTag(const aVal :TString);
     begin
@@ -562,33 +557,48 @@ interface
       Result := True;
     end;
 
+  var
+    vAStream :TStreamInfo;
+    vVStream :TStreamInfo;
   begin
     Result := False;
-//    if FMetadata = nil then
-//      Exit;
-//
-//    if IsEqualGUID(FFmtID, GUID_ContainerFormatJpeg) then
-//      vIFD := '/app1/ifd/'
-//    else
-//      vIFD := '/ifd/';
 
     case aCode of
       PVD_Tag_Description  : LocStrTag('');
+
 //      PVD_Tag_Time         : LocStrTag(vIFD + 'exif/{ushort=36867}');  // '{ushort=36867}'
 //      PVD_Tag_EquipMake    : LocStrTag(vIFD + '{ushort=271}');
 //      PVD_Tag_EquipModel   : LocStrTag(vIFD + '{ushort=272}');
 //      PVD_Tag_Software     : LocStrTag(vIFD + '{ushort=305}');
 //      PVD_Tag_Author       : LocStrTag(vIFD + '{ushort=315}');
 //      PVD_Tag_Copyright    : LocStrTag(vIFD + '{ushort=33432}');
-//
-//      PVD_Tag_ExposureTime : LocInt64Tag(vIFD + 'exif/{ushort=33434}');
-//      PVD_Tag_FNumber      : LocInt64Tag(vIFD + 'exif/{ushort=33437}');
-//      PVD_Tag_FocalLength  : LocInt64Tag(vIFD + 'exif/{ushort=37386}');
-//      PVD_Tag_ISO          : LocIntTag(vIFD + 'exif/{ushort=34855}');
-//      PVD_Tag_Flash        : LocIntTag(vIFD + 'exif/{ushort=37385}');
-//
-//      PVD_Tag_XResolution  : LocResolutionTag(vIFD + '{ushort=282}', '/app0/{ushort=2}');
-//      PVD_Tag_YResolution  : LocResolutionTag(vIFD + '{ushort=283}', '/app0/{ushort=3}');
+    end;
+
+    vVStream := nil;
+    if (FPlayer.VideoStreamIdx >= 0) and (FPlayer.VideoStreamIdx < FPlayer.VideoStreams.Count) then
+      vVStream := FPlayer.VideoStreams[FPlayer.VideoStreamIdx];
+
+    if vVStream <> nil then begin
+      case aCode of
+        PVD_Tag_Video_Name      : LocStrTag(vVStream.FName);
+        PVD_Tag_Video_Lang      : LocStrTag(vVStream.FLang);
+        PVD_Tag_Video_Format    : LocStrTag(vVStream.FFmt);
+        PVD_Tag_Video_Bitrate   : LocIntTag(vVStream.FBitrate);
+        PVD_Tag_Video_FrameRate : LocDblTag(vVStream.FFRamerate);
+      end;
+    end;
+
+    vAStream := nil;
+    if (FPlayer.AudioStreamIdx >= 0) and (FPlayer.AudioStreamIdx < FPlayer.AudioStreams.Count) then
+      vAStream := FPlayer.AudioStreams[FPlayer.AudioStreamIdx];
+
+    if vAStream <> nil then begin
+      case aCode of
+        PVD_Tag_Audio_Name    : LocStrTag(vAStream.FName);
+        PVD_Tag_Audio_Lang    : LocStrTag(vAStream.FLang);
+        PVD_Tag_Audio_Format  : LocStrTag(vAStream.FFmt);
+        PVD_Tag_Audio_Bitrate : LocIntTag(vAStream.FBitrate);
+      end;
     end;
   end;
 
@@ -752,8 +762,10 @@ interface
       vView := CreateView(pFileName);
 
     if vView <> nil then begin
-      pImageInfo.Flags := PVD_IIF_MOVIE;
+      pImageInfo.Flags := PVD_IIF_MEDIA;
       pImageInfo.nPages := vView.FLength;
+      pImageInfo.nVideoCount := vView.FPlayer.VideoStreams.Count;
+      pImageInfo.nAudioCount := vView.FPlayer.AudioStreams.Count;
       if vView.FFmtName <> '' then
         pImageInfo.pFormatName := PTChar(vView.FFmtName);
 
@@ -939,12 +951,14 @@ interface
           PSize(pInfo)^ := vView.FWindow.FLastSize;
           Result := 1;
         end;
-      PVD_PC_GetAudioStreamCount:
-        Result := vView.FPlayer.AudioStreams.Count;
       PVD_PC_GetAudioStream:
         Result := vView.FPlayer.AudioStreamIdx;
       PVD_PC_SetAudioStream:
         SendMessage(vView.FWindow.Handle, CM_Command, PVD_PC_SetAudioStream, TIntPtr(pInfo));
+      PVD_PC_GetVideoStream:
+        Result := vView.FPlayer.VideoStreamIdx;
+      PVD_PC_SetVideoStream:
+        {Sorry};
     end;
   end;
 
