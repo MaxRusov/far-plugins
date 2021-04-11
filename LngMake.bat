@@ -7,7 +7,7 @@ if "%1" == "" (
   exit
 )
 
-..\LngGen -nc -ol Doc -oh . %1
+%~dp0LngGen -nc -ol Doc -oh . %1
 
 if not %ERRORLEVEL%==0 (
   set /p S="Error code=%ERRORLEVEL%"

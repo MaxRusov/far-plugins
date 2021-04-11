@@ -130,13 +130,14 @@ interface
     vStr := aImage.FFormat;
     if aImage.FCompress <> '' then
       vStr := vStr + ' / ' + aImage.FCompress;
-    Add(strIFormat,      vStr);
+    if vStr <> '' then
+      Add(strIFormat,      vStr);
 
     if aImage.FDescr <> '' then
       Add(strIDescription, aImage.FDescr);
 
     if aImage.FLength <> 0 then
-      Add1('Length',       LengthToStr(aImage.FLength div 1000));
+      Add(strILength,     LengthToStr(aImage.FLength div 1000));
     if (aImage.FWidth <> 0) or (aImage.FHeight <> 0) then
       Add(strIDimension,   IntToStr(aImage.FWidth) + ' x ' + IntToStr(aImage.FHeight));
 
@@ -195,44 +196,48 @@ interface
     if aImage.FVideoCount > 0 then begin
       Add1('', '');
       if aImage.FVideoCount > 1 then
-        Add1('Audio', Int2Str(aImage.FVideoIndex + 1) + ' / ' + Int2Str(aImage.FVideoCount));
+        Add(strIVideo, Int2Str(aImage.FVideoIndex + 1) + ' / ' + Int2Str(aImage.FVideoCount))
+      else
+        Add(strIVideo, '');
 
       if aTags.FVideoName <> '' then
-        Add1('Video name', aTags.FVideoName);
+        Add(strIVideoName, aTags.FVideoName);
       if aTags.FVideoLang <> '' then
-        Add1('Video lang', aTags.FVideoLang);
+        Add(strIVideoLang, aTags.FVideoLang);
       if aTags.FVideoFormat <> '' then
-        Add1('Video format', aTags.FVideoFormat);
+        Add(strIVideoFormat, aTags.FVideoFormat);
       if aTags.FVideoBitrate <> 0 then
-        Add1('Video bitrate', Int2Str(aTags.FVideoBitrate) + '  kb/s');
+        Add(strIVideoBitrate, Int2Str(aTags.FVideoBitrate) + '  kb/s');
       if aTags.FVideoFramerate <> 0 then
-        Add1('Framerate', Float2Str(aTags.FVideoFramerate, 2) + '  fps');
+        Add(strIVideoFramerate, Float2Str(aTags.FVideoFramerate, 2) + '  fps');
     end;
 
     if aImage.FAudioCount > 0 then begin
       Add1('', '');
       if aImage.FAudioCount > 1 then
-        Add1('Audio', Int2Str(aImage.FAudioIndex + 1) + ' / ' + Int2Str(aImage.FAudioCount));
+        Add(strIAudio, Int2Str(aImage.FAudioIndex + 1) + ' / ' + Int2Str(aImage.FAudioCount))
+      else
+        Add(strIAudio, '');
+
       if aTags.FAudioName <> '' then
-        Add1('Audio name', aTags.FAudioName);
+        Add(strIAudioName, aTags.FAudioName);
       if aTags.FAudioLang <> '' then
-        Add1('Audio lang', aTags.FAudioLang);
+        Add(strIAudioLang, aTags.FAudioLang);
       if aTags.FAudioFormat <> '' then
-        Add1('Audio format', aTags.FAudioFormat);
+        Add(strIAudioFormat, aTags.FAudioFormat);
       if aTags.FAudioBitrate <> 0 then
-        Add1('Audio bitrate', Int2Str(aTags.FAudioBitrate * 8 div 1000) + '  kb/s');
+        Add(strIAudioBitrate, Int2Str(aTags.FAudioBitrate * 8 div 1000) + '  kb/s');
     end;
-
-
   end;
 
 
 
-  procedure CalcInfoRect(aStrs :TStrList; DC :HDC; AMaxWidth :Integer; var aPromptWidth :Integer; var aRect :TRect);
+  procedure CalcInfoRect(aStrs :TStrList; DC :HDC; aMaxWidth :Integer; var aPromptWidth :Integer; var aRect :TRect);
   const
-    cNameWidth = 80;
+    cPromptWidth = 80;
+    cPromptSplit = 5;
   var
-    I, CY, CX1, CX2, vHeight, vMaxWidth2 :Integer;
+    I, CY, vHeight, vTextWidth, vMaxWidth2 :Integer;
     vSize :TSize;
     vRect :TRect;
     vStr :TString;
@@ -240,16 +245,27 @@ interface
     GetTextExtentPoint32(DC, '1', 1, vSize);
 
     for I := (aStrs.Count div 2) - 1 downto 0 do
-      if aStrs[I * 2] = '' then
+      if aStrs[I * 2 + 1] = '' then
         aStrs.DeleteRange(I * 2, 2)
       else
         Break;
 
-    vMaxWidth2 := IntMax(cNameWidth, AMaxWidth - cNameWidth);
+    aPromptWidth := cPromptWidth;
 
-    CY  := 0;
-    CX1 := cNameWidth;
-    CX2 := 0;
+    for I := 0 to (aStrs.Count div 2) - 1 do begin
+      vStr := aStrs[I * 2];
+      if vStr <> '' then begin
+        vRect := Bounds(0, 0, 0, 0);
+        if DrawText(DC, PTChar(vStr), Length(vStr), vRect, DT_LEFT or DT_TOP or DT_NOCLIP or DT_CALCRECT) > 0 then
+          aPromptWidth := IntMax(aPromptWidth, vRect.Width);
+      end;
+    end;
+
+    aPromptWidth := IntMin(aPromptWidth, aMaxWidth div 2) + cPromptSplit;
+    vMaxWidth2 := aMaxWidth - aPromptWidth;
+
+    CY := 0;
+    vTextWidth := 0;
     for I := 0 to (aStrs.Count div 2) - 1 do begin
       vStr := aStrs[I * 2];
       if vStr = '' then
@@ -262,14 +278,13 @@ interface
           vRect := Bounds(0, 0, vMaxWidth2, 0);
           vHeight := DrawText(DC, PTChar(vStr), Length(vStr), vRect, DT_LEFT or DT_TOP or DT_NOCLIP or DT_WORDBREAK or DT_CALCRECT);
 
-          CX2 := IntMax(CX2, vRect.Right - vRect.Left);
+          vTextWidth := IntMax(vTextWidth, vRect.Width);
           Inc(CY, vHeight + 2);
         end;
       end;
     end;
 
-    aPromptWidth := CX1;
-    aRect := Bounds(0, 0, CX1 + CX2, CY);
+    aRect := Bounds(0, 0, aPromptWidth + vTextWidth, CY);
   end;
 
 
