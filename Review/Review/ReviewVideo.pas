@@ -467,8 +467,10 @@ interface
     else
       Y := aRect.Bottom;
 
-    FToolbar.SetBounds(Bounds(X, Y, cTbrWidth, cTbrHeight), 0);
-    Inc(X, cTbrWidth);
+    if FToolbar <> nil then begin
+      FToolbar.SetBounds(Bounds(X, Y, cTbrWidth, cTbrHeight), 0);
+      Inc(X, cTbrWidth);
+    end;
 
     Y := aRect.Bottom - ((cPanHeight + cTrkHeight) div 2);
     W := aRect.Right - X - cVolWidth - cDeltaX;
@@ -491,14 +493,14 @@ interface
   begin
     if (Mess.ChildWnd = FTracker.Handle) or (Mess.ChildWnd = FVolCtrl.Handle) then begin
       if FBrush1 <> 0 then
-        Mess.Result := Integer(FBrush1)
+        Mess.Result := LRESULT(FBrush1)
       else
         inherited;
     end else
     begin
       if FBrush2 <> 0 then begin
         SetBkMode(Mess.ChildDC, Transparent);
-        Mess.Result := Integer(FBrush2);
+        Mess.Result := LRESULT(FBrush2);
       end else
         inherited;
     end;
@@ -544,7 +546,8 @@ interface
       vState := 3;
 
     if vState <> FLastState then begin
-      FToolbar.SetButtonInfo(cButPlay, IntIf(vState = 1, 1, 0), '');
+      if FToolbar <> nil then
+        FToolbar.SetButtonInfo(cButPlay, IntIf(vState = 1, 1, 0), '');
       FLastState := vState;
     end;
 
@@ -725,6 +728,10 @@ interface
  { TMyToolbar                                                                   }
  {-----------------------------------------------------------------------------}
 
+
+  var
+    FImages :HIMAGELIST;
+
   procedure TMyToolbar.AfterConstruction; {override;}
   const
     cButSize = 16;
@@ -734,13 +741,13 @@ interface
 //    (iBitmap:2; idCommand:cButStop; fsState:TBSTATE_ENABLED; fsStyle:TBSTYLE_BUTTON),
 //    (fsStyle:TBSTYLE_SEP),
     );
-  var
-    vImages  :HImagelist;
   begin
     inherited AfterConstruction;
 
-    vImages := ImageList_LoadBitmap(HInstance, 'Buttons', cButSize, 0, RGB(255,255,255));
-    SendMessage(FHandle, TB_SETIMAGELIST, 0, vImages);
+    if FImages = 0 then
+      FImages := ImageList_LoadBitmap(HInstance, 'Buttons', cButSize, 0, RGB(255,255,255));
+
+    SendMessage(FHandle, TB_SETIMAGELIST, 0, FImages);
     SendMessage(FHandle, TB_BUTTONSTRUCTSIZE, sizeof(TTBButton), 0);
     SendMessage(FHandle, TB_ADDBUTTONS, cButtonCount, TIntPtr(@cButtons));
   end;

@@ -287,8 +287,10 @@ interface
       FUseWinSize   :Boolean;
 
       FVideoWin     :TVideoWindow;
-      FControlWin   :TControlWindow;
       FInfoWin      :TInfoWindow;
+     {$ifdef bVideoOSD}
+      FControlWin   :TControlWindow;
+     {$endif bVideoOSD}
 
       procedure RecalcRects;
       procedure MoveImage(DX, DY :Integer);
@@ -1524,7 +1526,9 @@ interface
 
   destructor TImageWindow.Destroy; {override;}
   begin
+   {$ifdef bVideoOSD}
     FreeObj(FControlWin);
+   {$endif bVideoOSD}
     FreeObj(FVideoWin);
     FreeObj(FInfoWin);
 
@@ -2467,8 +2471,10 @@ interface
       end;
     end;
 
+   {$ifdef bVideoOSD}
     if FControlWin <> nil then
       FControlWin.Idle;
+   {$endif bVideoOSD}
   end;
 
 
@@ -2531,14 +2537,19 @@ interface
 
     if aOn then begin
       FVideoWin := TVideoWindow.CreateEx(Self);
+     {$ifdef bVideoOSD}
       FControlWin := TControlWindow.CreateEx(Self);
       FVideoWin.Ctrl := FControlWin;
       FControlWin.Video := FVideoWin;
+     {$endif bVideoOSD}
       RealignOSD;
     end else
     begin
       FreeObj(FInfoWin);
+     {$ifdef bVideoOSD}
+      FVideoWin.Ctrl := nil;
       FreeObj(FControlWin);
+     {$endif bVideoOSD}
       FreeObj(FVideoWin);
     end;
   end;
@@ -2552,6 +2563,7 @@ interface
     vRect := ClientRect;
 
     Y := vRect.Bottom;
+   {$ifdef bVideoOSD}
     if not FControlWin.Hidden then begin
       Y := Y - cPanHeight;
       FVideoWin.SetBounds(Rect(vRect.Left, vRect.Top, vRect.Right, Y), 0);
@@ -2561,6 +2573,9 @@ interface
       FControlWin.SetBounds(Rect(vRect.Left, Y, vRect.Right, Y + cPanHeight), 0);
       FVideoWin.SetBounds(Rect(vRect.Left, vRect.Top, vRect.Right, Y), 0);
     end;
+   {$else}
+    FVideoWin.SetBounds(Rect(vRect.Left, vRect.Top, vRect.Right, Y), 0);
+   {$endif bVideoOSD}
 
     if FInfoWin <> nil then begin
       vRect := FInfoWin.GetBoundsRect;
@@ -2615,8 +2630,10 @@ interface
         else
           pvdPlayControl(FImage, PVD_PC_Play, 0);
 
+       {$ifdef bVideoOSD}
         if (FControlWin <> nil) and (vState <> 1) then
           FControlWin.ActiveAction;
+       {$endif bVideoOSD}
       end;
   end;
 
@@ -2662,8 +2679,10 @@ interface
     if (FImage <> nil) and (FImage.Decoder is TReviewDllDecoder2) then begin
       with TReviewDllDecoder2(FImage.Decoder) do
         pvdPlayControl(FImage, PVD_PC_SetPos, aMS);
+    {$ifdef bVideoOSD}
      if FControlWin <> nil then
        FControlWin.ActiveAction;
+    {$endif bVideoOSD}
     end;
   end;
 

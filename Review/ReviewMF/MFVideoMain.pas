@@ -1,6 +1,8 @@
 {$I Defines.inc}
 
 {-$Define bTracePVD}
+{-$Define bAsyncClose}
+{$Define bShowAlt}
 
 unit MFVideoMain;
 
@@ -69,6 +71,12 @@ interface
     CM_GotoPos    = $B001;
     CM_SetVolume  = $B002;
     CM_Command    = $B003;
+   {$ifdef bShowAlt}
+    CM_ShowHide   = $B004;
+   {$endif bShowAlt}
+   {$ifdef bAsyncClose}
+    CM_Release    = $B005;
+   {$endif bAsyncClose}
 
 
  {-----------------------------------------------------------------------------}
@@ -97,6 +105,12 @@ interface
       procedure CMGotoPos(var Mess :TMessage); message CM_GotoPos;
       procedure CMSetVolume(var Mess :TMessage); message CM_SetVolume;
       procedure CMCommand(var Mess :TMessage); message CM_Command;
+     {$ifdef bShowAlt}
+      procedure CMShowHide(var Mess :TMessage); message CM_ShowHide;
+     {$endif bShowAlt}
+     {$ifdef bAsyncClose}
+      procedure CMRelease(var Mess :TMessage); message CM_Release;
+     {$endif bAsyncClose}
 
     private
       FOwner      :TView;
@@ -163,6 +177,52 @@ interface
       procedure DoLoadFile;
       procedure DoResize({const} ARect :TRect);
     end;
+
+
+ {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bAsyncClose}
+  var
+    FCloseLock  :TCriticalSection;
+    FCloseQueue :TObjList;
+
+
+  procedure AddToCloseQueue(aView :TView);
+  begin
+    FCloseLock.Enter;
+    try
+      FCloseQueue.Add(aView);
+    finally
+      FCloseLock.Leave;
+    end;
+  end;
+
+
+  procedure FinalizeCloseQueue(aForce :Boolean);
+  var
+    i :Integer;
+    vView :TView;
+  begin
+    FCloseLock.Enter;
+    try
+      TraceBeg('FinalizeCloseQueue: %d, Force=%d...', [FCloseQueue.Count, byte(aForce)]);
+
+      repeat
+        for i := FCloseQueue.Count - 1 downto 0 do begin
+          vView := FCloseQueue[i];
+          if vView.FFormThrd.Finished and (vView.FRefCount = 1) then
+            FCloseQueue.FreeAt(i);
+        end;
+      until (FCloseQueue.Count = 0) or not aForce;
+
+      TraceEnd('  Finalize done: ' + Int2Str(FCloseQueue.Count));
+    finally
+      FCloseLock.Leave;
+    end;
+  end;
+ {$endif bAsyncClose}
 
 
  {-----------------------------------------------------------------------------}
@@ -282,6 +342,46 @@ interface
         FOwner.SetAudioStream(Mess.LParam);
     end;
   end;
+
+
+ {$ifdef bShowAlt}
+  procedure TPlayerWindow.CMShowHide(var Mess :TMessage); {message CM_ShowHide;}
+  var
+    vRect :TRect;
+  begin
+    if Mess.WParam = 1 then begin
+      SetParent(FHandle, ReviewWindow);
+
+      Windows.GetClientRect(ReviewWindow, vRect);
+      SetBounds(vRect, 0);
+
+      Show(SW_SHOWNA);
+
+      FOwner.Play;
+    end else
+    begin
+      FOwner.Stop;
+      Show(SW_HIDE);
+      SetParent(FHandle, GetDesktopWindow);
+      FOwner.FreeStream;
+    end;
+  end;
+ {$endif bShowAlt}
+
+
+ {$ifdef bAsyncClose}
+  procedure TPlayerWindow.CMRelease(var Mess :TMessage); {message CM_Release;}
+  begin
+    TraceBeg('CMRelease...');
+
+//  FOwner.Stop;
+    FOwner.FreeStream;
+    DestroyHandle;
+    { После уничтожения окна - завершается поток }
+
+    TraceEnd('  CMRelease done...');
+  end;
+ {$endif bAsyncClose}
 
 
   procedure TPlayerWindow.ErrorHandler(E :Exception); {override;}
@@ -500,12 +600,18 @@ interface
 
 
   procedure TView.Activate;
+ {$ifdef bShowAlt}
+ {$else}
   var
     vRect :TRect;
+ {$endif bShowAlt}
   begin
     if FPlayer = nil then
       SendMessage(FWindow.Handle, CM_LoadVideo, 0, 0);
 
+   {$ifdef bShowAlt}
+    SendMessage(FWindow.Handle, CM_ShowHide, 1, 0);
+   {$else}
     SetParent(FWindow.Handle, ReviewWindow);
 
     GetClientRect(ReviewWindow, vRect);
@@ -513,20 +619,21 @@ interface
 
     FWindow.Show(SW_SHOWNA);
 
-    try
-      { В потоке Player'а?... }
-      Play;
-    except
-    end;
+    SendMessage(FWindow.Handle, CM_Command, PVD_PC_Play, 0);
+   {$endif bShowAlt}
   end;
 
 
   procedure TView.Deactivate;
   begin
-    Stop;
+   {$ifdef bShowAlt}
+    SendMessage(FWindow.Handle, CM_ShowHide, 0, 0);
+   {$else}
+    SendMessage(FWindow.Handle, CM_Command, PVD_PC_Stop, 0);
     FWindow.Show(SW_HIDE);
     SetParent(FWindow.Handle, GetDesktopWindow);
     FreeStream;
+   {$endif bAsyncClose}
   end;
 
 
@@ -717,6 +824,9 @@ interface
   begin
     if pContext <> nil then
       FreeObj(pContext);
+   {$ifdef bAsyncClose}
+    FinalizeCloseQueue(True);
+   {$endif bAsyncClose}
   end;
 
 
@@ -821,12 +931,26 @@ interface
 
 
   procedure pvdFileClose2(pContext :Pointer; pImageContext :Pointer); stdcall;
+  var
+    vView :TView;
   begin
    {$ifdef bTracePvd}
     Trace('pvdFileClose2');
    {$endif bTracePvd}
-    if pImageContext <> nil then
-      TView(pImageContext)._Release;
+    if pImageContext <> nil then begin
+      vView := pImageContext;
+//    Trace('pvdFileClose: %s', [vView.FSrcName]);
+     {$ifdef bAsyncClose}
+      if vView.FRefCount = 1 then begin
+        PostMessage(vView.FWindow.Handle, CM_Release, 0, 0);
+        AddToCloseQueue(vView);
+      end else
+     {$endif bAsyncClose}
+        vView._Release;
+    end;
+   {$ifdef bAsyncClose}
+    FinalizeCloseQueue(False);
+   {$endif bAsyncClose}
   end;
 
 
@@ -902,6 +1026,9 @@ interface
     Trace('pvdDisplayExit2');
    {$endif bTracePvd}
     ReleaseWindowHook;
+   {$ifdef bAsyncClose}
+    FinalizeCloseQueue(False);
+   {$endif bAsyncClose}
   end;
 
 
@@ -970,5 +1097,14 @@ interface
   end;
 
 
+{$ifdef bAsyncClose}
+initialization
+  FCloseLock  := TCriticalSection.Create;
+  FCloseQueue := TObjList.Create;
+
+finalization
+  FreeObj(FCloseLock);
+  FreeObj(FCloseQueue);
+{$endif bAsyncClose}
 end.
 

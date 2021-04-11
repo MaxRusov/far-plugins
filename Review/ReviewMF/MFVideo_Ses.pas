@@ -340,7 +340,7 @@ uses
     with FAudioTypes do begin
       Add(MFAudioFormat_AAC,             'Advanced Audio Coding (AAC)');
       Add(MFAudioFormat_ALAC,            'Apple Lossless Audio Codec (ALAC)');
-      Add(MFAudioFormat_MP3,             'MPEG Audio Layer-3 (MP3)');
+      Add(MFAudioFormat_MP3,             'MPEG Audio Layer 3 (MP3)');
       Add(MFAudioFormat_Dolby_AC3,       'Dolby Digital (AC-3)');
       Add(MFAudioFormat_Dolby_AC3_SPDIF, 'Dolby Digital (AC-3)');
       Add(MFAudioFormat_Dolby_DDPlus,    'Dolby Digital Plus (DD+)');
@@ -691,7 +691,7 @@ uses
       // Wait for the close operation to complete
       if Succeeded(Result) then begin
         if WaitForSingleObject(FCloseEvent, 5000) = WAIT_TIMEOUT then
-          Assert(False);{???}
+          NOP{Assert(False)};
         // Now there will be no more events from this session.
       end;
     end;
@@ -1025,7 +1025,11 @@ uses
     vMajorType, vSubType :TGUID;
     vInfo :TStreamInfo;
     vBitRate, vNum, vDen :UINT32;
-//  vFrameRate :UINT64;
+//    vFrameRate :UINT64;
+
+//    vSourceEx :IMFMediaSourceEx;
+//    vAttrs :IMFAttributes;
+//    vCount :UINT32;
   begin
     FAudioStreamIdx := -1;
     FVideoStreamIdx := -1;
@@ -1078,6 +1082,13 @@ uses
         raise;
       end;
     end;
+
+//    if Succeeded(FSource.QueryInterface(IMFMediaSourceEx, vSourceEx)) then begin
+//      if Succeeded(vSourceEx.GetSourceAttributes(vAttrs)) then begin
+//        OleCheck(vAttrs.GetCount(vCount));
+//        Trace('Attrs count=%d', [vCount]);
+//      end;
+//    end;
   end;
 
 

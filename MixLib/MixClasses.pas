@@ -551,6 +551,7 @@ interface
       property Suspended: Boolean read FSuspended write SetSuspended;
       property FreeOnTerminate: Boolean read FFreeOnTerminate write FFreeOnTerminate;
       property Terminated: Boolean read FTerminated;
+      property Finished: Boolean read FFinished;
       property ReturnValue: Integer read FReturnValue write FReturnValue;
 //    property OnTerminate: TNotifyEvent read FOnTerminate write FOnTerminate;
     end;
