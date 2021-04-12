@@ -3,7 +3,7 @@
 -- Размещается в каталоге Macro\scripts
 --
 
-require "Review"
+Review = require "Review"
 
 Macro 
 { 
