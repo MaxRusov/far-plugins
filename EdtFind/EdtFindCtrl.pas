@@ -151,6 +151,8 @@ interface
     cReplHistory   = 'ReplaceText';
     cFileHistory   = 'Masks';
 
+    SyncCmdSyncGrep  = -1;
+
 
   var
     optSelectFound    :Boolean = True;
@@ -201,6 +203,8 @@ interface
 
     gLastIsReplace :Boolean;
     gLastReplEmpty :Boolean;  { Затычка, чтобы диалог замены запоминал пустую строку замены }
+
+    gLockLostFocus :Integer;
 
   var
     FRegRoot :TString;

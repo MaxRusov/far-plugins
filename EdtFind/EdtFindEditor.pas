@@ -629,7 +629,7 @@ interface
      {$endif bTrace}
 
       if vFound then
-        GrepDlg(vMatches)
+        ShowGrepDlg(vMatches)
       else
         ShowMessage(gProgressTitle, GetMsgStr(strNotFound) + #10 + AStr, FMSG_WARNING or FMSG_MB_OK);
 
@@ -866,9 +866,14 @@ interface
             SetString(vStr1, vStrInfo.StringText + vCol, vFindLen); { Искомая строка }
             SetString(vStr2, vFinder.RepBuf + vFinder.RepBeg, vFinder.RepLen); {Заменяющая строка}
 
-            vRes := ShowMessage(GetMsgStr(strConfirm), Format(GetMsgStr(strReplaceWith1), [vStr1, vStr2]) + #10 +
-              GetMsgStr(strReplaceBut) + #10 + GetMsgStr(strAllBut) + #10 + GetMsgStr(strSkipBut) + #10 + GetMsgStr(strCancelBut1),
-              0 {FMSG_WARNING} {or FMSG_MB_OK}, 4);
+            inc(gLockLostFocus);
+            try
+              vRes := ShowMessage(GetMsgStr(strConfirm), Format(GetMsgStr(strReplaceWith1), [vStr1, vStr2]) + #10 +
+                GetMsgStr(strReplaceBut) + #10 + GetMsgStr(strAllBut) + #10 + GetMsgStr(strSkipBut) + #10 + GetMsgStr(strCancelBut1),
+                0 {FMSG_WARNING} {or FMSG_MB_OK}, 4);
+            finally
+              Dec(gLockLostFocus);
+            end;
 
             case vRes of
               0: {};

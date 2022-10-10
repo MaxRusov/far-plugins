@@ -1,5 +1,7 @@
 {$I Defines.inc}
 
+{$Define bUseAsync}
+
 unit EdtFindGrep;
 
 {******************************************************************************}
@@ -33,7 +35,7 @@ interface
 
 
   type
-(*  TValidStates = set of (vsRowCache, vsFilter, vsSort); *) 
+(*  TValidStates = set of (vsRowCache, vsFilter, vsSort); *)
 
     TGrepDlg = class(TFilteredListDlg)
     public
@@ -41,6 +43,7 @@ interface
       destructor Destroy; override;
 
       function GetStringForHint(ARow :Integer; var AEdtRow :Integer) :TString;
+      procedure IdleSyncEditor;
 
     protected
       procedure Prepare; override;
@@ -68,6 +71,7 @@ interface
 (*    FLensCache  :TIntList;
       FValid      :TValidStates; *)
 
+      procedure SetNeedSync;
       procedure SyncEditor;
       function RowToIdx(ARow :Integer) :Integer;
       function FindSelItem(AItem :PEdtSelection) :Integer;
@@ -84,7 +88,10 @@ interface
     end;
 
 
-  function GrepDlg(AMatches :TExList) :Boolean;
+  var
+    GrepDlg :TGrepDlg;
+
+  function ShowGrepDlg(AMatches :TExList) :Boolean;
 
 {******************************************************************************}
 {******************************} implementation {******************************}
@@ -94,207 +101,39 @@ interface
     EdtFindEditor,
     MixDebug;
 
-(*
-type
-  TFloatValue = (fvExtended, fvCurrency);
 
-//var
-//  DecimalSeparator: Char;
-
-const
-// 8087 status word masks
-  mIE = $0001;
-  mDE = $0002;
-  mZE = $0004;
-  mOE = $0008;
-  mUE = $0010;
-  mPE = $0020;
-  mC0 = $0100;
-  mC1 = $0200;
-  mC2 = $0400;
-  mC3 = $4000;
-
-const
-  // 1E18 as a 64-bit integer
-  Const1E18Lo = $0A7640000;
-  Const1E18Hi = $00DE0B6B3;
-  FCon1E18: Extended = 1E18;
-  DCon10: Integer = 10;
+//  function Str2Float(AStr :PTChar; ALen :Integer) :TFloat;
+//  const
+//    cMaxLen = 64;
+//  var
+//    vLen :Integer;
+//    vStr :array[0..cMaxLen] of TChar;
+//  begin
+//    vLen := 0;
+//    while (vLen < cMaxLen) and (ALen > 0) do begin
+//      if (AStr^ < #$FF) and (AnsiChar(AStr^) in ['0'..'9', '.', '-']) then begin
+//        vStr[vLen] := AStr^;
+//        Inc(vLen);
+//      end;
+//      Inc(AStr);
+//      Dec(ALen);
+//    end;
+//    vStr[vLen] := #0;
+//    if not TryPCharToFloat(vStr, Result) then
+//      Result := -1e99;
+//  end;
 
 
-function TextToFloat(Buffer: PChar; var Value; ValueType: TFloatValue): Boolean;
-const
-// 8087 control word
-// Infinity control  = 1 Affine
-// Rounding Control  = 0 Round to nearest or even
-// Precision Control = 3 64 bits
-// All interrupts masked
-  CWNear: Word = $133F;
-var
-  Temp: Integer;
-  CtrlWord: Word;
-  DecimalSep: Char;
-  SaveGOT: Integer;
-asm
-        PUSH    EDI
-        PUSH    ESI
-        PUSH    EBX
-        MOV     ESI,EAX
-        MOV     EDI,EDX
-
-        MOV     SaveGOT,0
-        MOV     AL,'.' // DecimalSeparator
-        MOV     DecimalSep,AL
-        MOV     EBX,ECX
-
-        FSTCW   CtrlWord
-        FCLEX
-        FLDCW   CWNear
-
-        FLDZ
-        CALL    @@SkipBlanks
-        MOV     BH, byte ptr [ESI]
-        CMP     BH,'+'
-        JE      @@1
-        CMP     BH,'-'
-        JNE     @@2
-@@1:    INC     ESI
-@@2:    MOV     ECX,ESI
-        CALL    @@GetDigitStr
-        XOR     EDX,EDX
-        MOV     AL,[ESI]
-        CMP     AL,DecimalSep
-        JNE     @@3
-        INC     ESI
-        CALL    @@GetDigitStr
-        NEG     EDX
-@@3:    CMP     ECX,ESI
-        JE      @@9
-        MOV     AL, byte ptr [ESI]
-        AND     AL,0DFH
-        CMP     AL,'E'
-        JNE     @@4
-        INC     ESI
-        PUSH    EDX
-        CALL    @@GetExponent
-        POP     EAX
-        ADD     EDX,EAX
-@@4:    CALL    @@SkipBlanks
-        CMP     BYTE PTR [ESI],0
-        JNE     @@9
-        MOV     EAX,EDX
-        CMP     BL,fvCurrency
-        JNE     @@5
-        ADD     EAX,4
-@@5:    PUSH    EBX
-        MOV     EBX,SaveGOT
-        CALL    FPower10
-        POP     EBX
-        CMP     BH,'-'
-        JNE     @@6
-        FCHS
-@@6:    CMP     BL,fvExtended
-        JE      @@7
-        FISTP   QWORD PTR [EDI]
-        JMP     @@8
-@@7:    FSTP    TBYTE PTR [EDI]
-@@8:    FSTSW   AX
-        TEST    AX,mIE+mOE
-        JNE     @@10
-        MOV     AL,1
-        JMP     @@11
-@@9:    FSTP    ST(0)
-@@10:   XOR     EAX,EAX
-@@11:   FCLEX
-        FLDCW   CtrlWord
-        FWAIT
-        JMP     @@Exit
-
-@@SkipBlanks:
-
-@@21:   LODSB
-        OR      AL,AL
-        JE      @@22
-        CMP     AL,' '
-        JE      @@21
-@@22:   DEC     ESI
-        RET
-
-// Process string of digits
-// Out EDX = Digit count
-
-@@GetDigitStr:
-
-        XOR     EAX,EAX
-        XOR     EDX,EDX
-@@31:   LODSB
-        SUB     AL,'0'+10
-        ADD     AL,10
-        JNC     @@32
-
-        FIMUL   DCon10
-        MOV     Temp,EAX
-        FIADD   Temp
-        INC     EDX
-        JMP     @@31
-@@32:   DEC     ESI
-        RET
-
-// Get exponent
-// Out EDX = Exponent (-4999..4999)
-
-@@GetExponent:
-
-        XOR     EAX,EAX
-        XOR     EDX,EDX
-        MOV     CL, byte ptr [ESI]
-        CMP     CL,'+'
-        JE      @@41
-        CMP     CL,'-'
-        JNE     @@42
-@@41:   INC     ESI
-@@42:   MOV     AL, byte ptr [ESI]
-        SUB     AL,'0'+10
-        ADD     AL,10
-        JNC     @@43
-        INC     ESI
-        IMUL    EDX,10
-        ADD     EDX,EAX
-        CMP     EDX,500
-        JB      @@42
-@@43:   CMP     CL,'-'
-        JNE     @@44
-        NEG     EDX
-@@44:   RET
-
-@@Exit:
-        POP     EBX
-        POP     ESI
-        POP     EDI
-end;
-
-  function Str2Float(AStr :PTChar; ALen :Integer) :TFloat;
-  const
-    cMaxLen = 64;
   var
-    vLen :Integer;
-    vStr :array[0..cMaxLen] of AnsiChar;
-  begin
-    vLen := 0;
-    while (vLen < cMaxLen) and (ALen > 0) do begin
-      if (AStr^ < #$FF) and (AnsiChar(AStr^) in ['0'..'9', '.', '-']) then begin
-        vStr[vLen] := AnsiChar(AStr^);
-        Inc(vLen);
-      end;
-      Inc(AStr);
-      Dec(ALen);
-    end;
-    vStr[vLen] := #0;
+    gTmpStrs :array[0..15] of TString;
 
-    if not TextToFloat(vStr, Result, fvExtended) then
-      Result := -1e99;
+  procedure InitCache;
+  var
+    i :Integer;
+  begin
+    for i := 0 to High(gTmpStrs) do
+      SetLength(gTmpStrs[i], i);
   end;
-*)
 
 
   function Str2Float(AStr :PTChar; ALen :Integer) :TFloat;
@@ -302,19 +141,33 @@ end;
     cMaxLen = 64;
   var
     vLen :Integer;
-    vStr :array[0..cMaxLen] of TChar;
+    vBuf :array[0..cMaxLen] of TChar;
+    vStr :PTSTring;
+    vTmp :TString;
   begin
     vLen := 0;
     while (vLen < cMaxLen) and (ALen > 0) do begin
       if (AStr^ < #$FF) and (AnsiChar(AStr^) in ['0'..'9', '.', '-']) then begin
-        vStr[vLen] := AStr^;
+        vBuf[vLen] := AStr^;
         Inc(vLen);
       end;
       Inc(AStr);
       Dec(ALen);
     end;
-    vStr[vLen] := #0;
-    if not TryPCharToFloat(vStr, Result) then
+    vBuf[vLen] := #0;
+
+    if vLen <= High(gTmpStrs) then begin
+      if gTmpStrs[1] = '' then
+        InitCache;
+      vStr := @gTmpStrs[vLen];
+      StrMove(PTChar(vStr^), vBuf, vLen);
+    end else
+    begin
+      SetString(vTmp, vBuf, vLen);
+      vStr := @vTmp;
+    end;
+
+    if not TryStrToFloat(vStr^, Result) then
       Result := -1e99;
   end;
 
@@ -368,7 +221,7 @@ end;
   procedure TGrepDlg.InitDialog; {override;}
   begin
     inherited InitDialog;
-    FNeedSync := True;
+    SetNeedSync;
   end;
 
 
@@ -606,8 +459,32 @@ end;
     ReinitGrid;
     if vSel <> nil then
       SetCurrent(FindSelItem(vSel), lmCenter);
-    FNeedSync := True;
+    SetNeedSync;
   end;
+
+
+  procedure TGrepDlg.SetNeedSync;
+  begin
+//  if optGrepAutoSync then
+//    SyncEditor;
+    if not FNeedSync then begin
+      FNeedSync := True;
+     {$ifdef bUseAsync}
+      FarAdvControl(ACTL_SYNCHRO, SyncCmdSyncGrep);
+     {$endif bUseAsync}
+    end;
+  end;
+
+
+  procedure TGrepDlg.IdleSyncEditor;
+  begin
+    if FNeedSync then begin
+      if optGrepAutoSync then
+        SyncEditor;
+      FNeedSync := False;
+    end;
+  end;
+
 
 
   procedure TGrepDlg.SyncEditor;
@@ -634,9 +511,7 @@ end;
 
   procedure TGrepDlg.GridPosChange(ASender :TFarGrid); {override;}
   begin
-//  if optGrepAutoSync then
-//    SyncEditor;
-    FNeedSync := True;
+    SetNeedSync;
   end;
 
 
@@ -996,12 +871,12 @@ end;
   begin
     Result := 1;
     case Msg of
+      0: {};
+     {$ifdef bUseAsync}
+     {$else}
       DN_ENTERIDLE:
-        if FNeedSync then begin
-          if optGrepAutoSync then
-            SyncEditor;
-          FNeedSync := False;
-        end;
+        IdleSyncEditor;
+     {$endif bUseAsync}
     else
       Result := inherited DialogHandler(Msg, Param1, Param2);
     end;
@@ -1012,19 +887,17 @@ end;
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
-  function GrepDlg(AMatches :TExList) :Boolean;
-  var
-    vDlg :TGrepDlg;
+  function ShowGrepDlg(AMatches :TExList) :Boolean;
   begin
     Result := False;
-    vDlg := TGrepDlg.Create;
+    GrepDlg := TGrepDlg.Create;
     try
-      vDlg.FMatches := AMatches;
-      if vDlg.Run = -1 then
+      GrepDlg.FMatches := AMatches;
+      if GrepDlg.Run = -1 then
         Exit;
       Result := True;
     finally
-      FreeObj(vDlg);
+      FreeObj(GrepDlg);
     end;
   end;
 

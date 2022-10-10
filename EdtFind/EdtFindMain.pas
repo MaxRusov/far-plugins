@@ -25,6 +25,7 @@ interface
 
     EdtFindCtrl,
     EdtFindDlg,
+    EdtFindGrep,
    {$ifdef bFileFind}
     EdtFindFiles,
    {$endif bFileFind}
@@ -65,18 +66,29 @@ interface
  {                                                                             }
  {-----------------------------------------------------------------------------}
 
+ const
+   cmFind          = 1;
+   cmFindWord      = 2;
+   cmReplace       = 3;
+   cmReplaceWord   = 4;
+   cmRepeat        = 5;
+   cmRepeatBack    = 6;
+   cmPickWord      = 7;
+   cmRemoveHilight = 8;
+
+
   procedure RunEdtCommand(ACmd :Integer);
   begin
     case ACmd of
-      1: Find(False);
-      2: Find(True);
-      3: Replace(False);
-      4: Replace(True);
-      5: RepeatLast(True);
-      6: RepeatLast(False);
-      7: PickWord;
+      cmFind          : Find(False);
+      cmFIndWord      : Find(True);
+      cmReplace       : Replace(False);
+      cmReplaceWord   : Replace(True);
+      cmRepeat        : RepeatLast(True);
+      cmRepeatBack    : RepeatLast(False);
+      cmPickWord      : PickWord;
      {$ifdef bAdvSelect}
-      8: EdtClearMark;
+      cmRemoveHilight : EdtClearMark;
      {$endif bAdvSelect}
     end;
   end;
@@ -350,175 +362,52 @@ interface
       Add('Grep',    kwGrep);
       Add('Count',   kwCount);
       Add('Mark',    kwMark);
-      Add('Set ',    kwSet);
+      Add('Set',     kwSet);
     end;
   end;
 
 
-  function MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :TIntPtr;
-(*
-    procedure LocIndexHistory(AHist :THistory; AWhat, AType, AHidden :Integer);
+  function MacroCommand(const ACmd :TString; ACount :Integer; AParams :PFarMacroValueArray) :THandle;
+
+    procedure LocMark;
     var
-      I :Integer;
-      vItem :THistoryEntry;
-      vAdd :Boolean;
+      vStr :TString;
+      vOpt :TFindOptions;
     begin
-      if (AWhat = FIdxWhat) and (AType = FIdxType) and (AHist.Revision = FIdxRevision) and (FIdxHidden = AHidden) then
-        Exit;
-
-      FHistFilter.History := AHist;
-      FHistFilter.Clear;
-      for I := AHist.History.Count - 1 downto 0 do begin
-        vItem := AHist[I];
-        vAdd := True;
-        if (AWhat = 0) and (AType = 1) then
-          vAdd := TFldHistoryEntry(vItem).IsActive;
-        if (AWhat = 1) and (AType = 1) then
-          vAdd := TEdtHistoryEntry(vItem).EdtTime <> 0;
-        if vAdd then
-          FHistFilter.Add(I, 0, 0);
-      end;
-      if (AWhat in [0, 1]) and (AType = 1) then
-        FHistFilter.SortList(True, -4 {By ModTime} );
-
-      FIdxRevision := AHist.Revision;
-      FIdxHidden := AHidden;
-      FIdxType := AType;
-      FIdxWhat := AWhat;
+      if aCount > 1 then begin
+        vStr := FarValuesToStr(AParams, ACount, 1, '');
+        if vStr <> '' then begin
+          vOpt := TFindOptions(Byte(FarValuesToInt(AParams, ACount, 2, 0)));
+          HighlightStr(vStr, vOpt);
+        end else
+          EdtClearMark;
+      end else
+        Result := FarReturnValues([gMatchStr <> '']);
     end;
 
 
-    procedure LocInitFilter(AWhat, AType, AHidden :Integer);
-    var
-      vHist :THistory;
-      vTick :DWORD;
+    procedure LocSet;
     begin
-      vHist := nil;
-      case AWhat of
-        0 : vHist := FldHistory;
-        1 : vHist := EdtHistory;
-       {$ifdef bCmdHistory}
-        2 : vHist := CmdHistory;
-       {$endif bCmdHistory}
-      else
-        Wrong;
-      end;
-
-      vTick := GetTickCount;
-      if (FLastUpdate = 0) or (TickCountDiff(vTick, FLastUpdate) > 100) then begin
-        vHist.LoadModifiedHistory;
-       {$ifdef bCmdHistory}
-        if vHist is TCmdHistory then
-          TCmdHistory(vHist).UpdateHistory;
-       {$endif bCmdHistory}
-        FLastUpdate := vTick;
-      end;
-
-      LocIndexHistory(vHist, AWhat, AType, AHidden);
+      gStrFind := FarValuesToStr(AParams, ACount, 1, '');
+      gLastOpt := TFindOptions(Byte(FarValuesToInt(AParams, ACount, 2, 0))) + ([foPromptOnReplace] * gLastOpt);
+      gLastIsReplace := False;
     end;
-
-
-    function LocHistory(AWhat :Integer) :TIntPtr;
-    var
-      vType, vIdx :Integer;
-    begin
-      Result := 0;
-
-      vType := FarValuesToInt(AParams, ACount, 1, 0);
-      vIdx := FarValuesToInt(AParams, ACount, 2, -1);
-
-      LocInitFilter(AWhat, vType, 0);
-
-      if vIdx = -1 then
-        Result := FarReturnValues([FHistFilter.Count])
-      else begin
-        if (vIdx >= 0) and (vIdx < FHistFilter.Count) then
-          with FHistFilter.History[FHistFilter[vIdx]] do
-            Result := FarReturnValues([Path]);
-      end;
-    end;
-
-
-    procedure GotoFolder;
-    var
-      vType, vIdx :Integer;
-    begin
-      vType := FarValuesToInt(AParams, ACount, 1, 0);
-      vIdx := FarValuesToInt(AParams, ACount, 2, 0);
-      LocInitFilter(0, vType, 0);
-      if (vIdx >= 0) and (vIdx < FHistFilter.Count) then
-        JumpToPathBy( FHistFilter.History[FHistFilter[vIdx]] as TFldHistoryEntry, False, False);
-    end;
-
-
-    procedure OpenEditor;
-    var
-      vType, vIdx :Integer;
-    begin
-      vType := FarValuesToInt(AParams, ACount, 1, 0);
-      vIdx := FarValuesToInt(AParams, ACount, 2, 0);
-      LocInitFilter(1, vType, 0);
-      if (vIdx >= 0) and (vIdx < FHistFilter.Count) then
-        OpenEditorBy( FHistFilter.History[FHistFilter[vIdx]] as TEdtHistoryEntry, vType = 1);
-    end;
-
-
-    procedure LocOpenHistory(AWhat :Integer);
-    const
-      cCommands :array[0..2] of TPluginCmd =
-        (pcFolderHistory, pcEditorHistory, {$ifdef bCmdHistory}pcCommandHistory{$else}pcNone {$endif bCmdHistory});
-    var
-      vFilter :TString;
-      vType, vGroup, vSort, vHidden :Integer;
-      vCmd :TPluginCmd;
-    begin
-      vType := FarValuesToInt(AParams, ACount, 1, 0);
-
-      vFilter := FarValuesToStr(AParams, ACount, 2, #0);
-      vFilter := StrIf(vFilter = #0, '', StrIf(vFilter = '', #0, vFilter));
-
-      vGroup := FarValuesToInt(AParams, ACount, 3, MaxInt);
-      vSort := FarValuesToInt(AParams, ACount, 4, MaxInt);
-      vHidden := FarValuesToInt(AParams, ACount, 5, MaxInt);
-
-      vCmd := cCommands[AWhat];
-      if vType = 1 then
-        Inc(vCmd);
-      RunCommand(vCmd, vFilter, vGroup, vSort, vHidden);
-    end;
-*)
 
   var
     vCmd :Integer;
   begin
-    Result := 1;
+    Result := INVALID_HANDLE_VALUE;
     InitKeywords;
     vCmd := CmdWords.GetKeywordStr(ACmd);
     case vCmd of
-      kwFind    : Sorry;
-      kwReplace : Sorry;
+      kwFind    : RunEdtCommand(cmFind);
+      kwReplace : RunEdtCommand(cmReplace);
       kwGrep    : Sorry;
       kwCount   : Sorry;
-      kwMark    : Sorry;
-      kwSet     : Sorry;
-(*
-      kwShowFolderHist, kwShowEditorHist, kwShowCommandHist:
-        LocOpenHistory(vCmd - kwShowFolderHist);
-      kwFolderHist, kwEditorHist, kwCommandHist:
-        Result := LocHistory(vCmd - kwFolderHist);
-     {$ifdef bCmdHistory}
-      kwNextCommand:
-        RunCommand(pcNextCommand);
-      kwPrevCommand:
-        RunCommand(pcPrevCommand);
-     {$endif bCmdHistory}
-      kwGotoFolder:
-        GotoFolder;
-      kwOpenEditor:
-        OpenEditor;
-*)
+      kwMark    : LocMark;
+      kwSet     : LocSet;
     else
-      Result := 0;
+      Result := HandleIf(ParseCommand(PWideChar(ACmd)), INVALID_HANDLE_VALUE, 0);
     end;
   end;
  {$endif Far3}
@@ -544,9 +433,7 @@ interface
    {$endif Far3}
 
    {$ifdef Far3}
-//  FMinFarVer := MakeVersion(3, 0, 2460);   { OPEN_FROMMACRO }
-//  FMinFarVer := MakeVersion(3, 0, 2572);   { Api changes }
-    FMinFarVer := MakeVersion(3, 0, 2851);   { LUA }
+    FMinFarVer := MakeVersion(3, 0, 3000);
    {$else}
     FMinFarVer := MakeVersion(2, 0, 1800);   { OPEN_FROMMACROSTRING }
    {$endif Far3}
@@ -644,21 +531,39 @@ interface
 
 
  {$ifdef Far3}
+//  function TEdtFindPlug.OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
+//  begin
+//    Result := 0;
+//    if (ACount = 0) or (AParams[0].fType <> FMVT_STRING) then
+//      Result := inherited OpenMacroEx(ACount, AParams)
+//    else
+//    if AParams[0].fType = FMVT_STRING then
+//      Result := MacroCommand(AParams[0].Value.fString, ACount, AParams);
+//  end;
+
   function TEdtFindPlug.OpenMacroEx(ACount :Integer; AParams :PFarMacroValueArray) :THandle; {override;}
   begin
-    Result := 0;
-    if ACount <= 1 then
-      Result := inherited OpenMacroEx(ACount, AParams)
+    if (ACount >= 1) and (AParams[0].fType = FMVT_STRING) then
+      Result := MacroCommand(AParams[0].Value.fString, ACount, AParams)
     else
-    if AParams[0].fType = FMVT_STRING then
-      Result := MacroCommand(AParams[0].Value.fString, ACount, AParams);
+      Result := inherited OpenMacroEx(ACount, AParams)
   end;
+
  {$endif Far3}
 
 
   procedure TEdtFindPlug.SynchroEvent(AParam :Pointer); {override;}
+  var
+    vCmd :TIntPtr;
   begin
-    RunEdtCommand(TIntPtr(AParam));
+    vCmd := TIntPtr(aParam);
+    case vCmd of
+      SyncCmdSyncGrep :
+        if GrepDlg <> nil then
+          GrepDlg.IdleSyncEditor;
+    else
+      RunEdtCommand(TIntPtr(AParam));
+    end;
   end;
 
 
@@ -716,7 +621,8 @@ interface
       end;
 
       EE_KILLFOCUS:
-        EdtClearMark;
+        if gLockLostFocus = 0 then
+          EdtClearMark;
 
      {$ifdef Far3}
       EE_CHANGE:
@@ -748,4 +654,7 @@ interface
  {$endif bAdvSelect}
 
 
+initialization
+finalization
+  FreeObj(CmdWords);
 end.
