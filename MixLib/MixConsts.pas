@@ -33,6 +33,12 @@ resourcestring
 
   SBitsIndexError        = 'Bits index out of range';
   SInvalidInteger        = '"%s" is an invalid integer';
+  SInvalidFloat          = '"%s" is an invalid float';
+
+  SReadError             = 'Stream read error';
+  SWriteError            = 'Stream write error';
+
+  SOutOfMemory           = 'Out of memory';
 
 (*
   SAccessDenied          = 'Access denied';
@@ -68,7 +74,6 @@ resourcestring
   SInvalidDateTime       = '%f is not a valid date/time value.';
   SInvalidDrive          = 'Invalid drive specified';
   SInvalidFileHandle     = 'Invalid file handle';
-  SInvalidFloat          = '"%s" is an invalid float';
   SInvalidGUID           = '"%s" is not a valid GUID value';
   SInvalidInput          = 'Invalid input';
   SInvalidOp             = 'Invalid floating point operation';
@@ -83,7 +88,6 @@ resourcestring
   SNoThreadSupport       = 'Threads not supported. Recompile program with thread driver.';
   SMissingWStringManager = 'Widestring manager not available. Recompile program with appropriate manager.';
   SSigQuit               = 'SIGQUIT signal received.';
-  SOutOfMemory           = 'Out of memory';
   SOverflow              = 'Floating point overflow';
   SPrivilege             = 'Privileged instruction';
   SRangeError            = 'Range check error';

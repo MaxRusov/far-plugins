@@ -156,8 +156,10 @@
      {$Define bDelphi25}            { 10.2 - Tokyo }
    {$ifend}
 
-   {$if CompilerVersion >= 33.0}
-     !
+   {$if CompilerVersion >= 33.0}    { 10.3 - RIO }
+   {$ifend}
+
+   {$if CompilerVersion >= 34.0}    { 10.4 - Sidney }
    {$ifend}
 
   {$endif}
@@ -174,12 +176,13 @@
    {$Define bUnicodeStr}  { Поддерживается тип UnicodeString }
    {$Define bUnicodeRTL}
 
-   {$Undef bMemCheck}     { Пока не поддерживается }
+   {-$Undef bMemCheck}     { Пока не поддерживается }
   {$endif}
 
   {$ifdef b64}
    {$Define bDelphi64}
    {$Define bStackX64}    { Новая модель стека, без использования RBP }
+   {$Undef bMemCheck}     { Пока не поддерживается }
   {$else}
    {$Define bOldLocalCall}
   {$endif b64}

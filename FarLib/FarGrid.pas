@@ -1145,7 +1145,7 @@ interface
     try
       for I := 0 to AWidths.Count - 1 do
         vIndex.Add(I);
-      vIndex.SortList(False, Integer(AWidths));
+      vIndex.SortList(False, TIntPtr(AWidths));
 
       LocReduce(0);
 

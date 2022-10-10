@@ -115,15 +115,6 @@ interface
     cAKeyMacroVar = '%_AK_';
    {$endif bLUA}
 
-   {$ifdef bUnicode}
-    chrUpMark           :TChar = #$18;  {#$1E;}
-    chrDnMark           :TChar = #$19;  {#$1F;}
-   {$else}
-    chrUpMark           :TChar = #$18; { $1E }
-    chrDnMark           :TChar = #$19; { $1F }
-   {$endif bUnicode}
-
-
   var
     optProcessHotkey :Boolean = True;   { ќбрабатывать нажати€ гор€чих клавиш }
     optProcessMouse  :Boolean = True;   { ќбрабатывать событи€ мыши }

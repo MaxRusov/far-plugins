@@ -60,7 +60,7 @@ uses
       procedure Stop;
       procedure Pause;
 
-      procedure SetVolume(aValue :Double);
+      procedure SetVolume(aValue :Integer);
 
       procedure HandleEvents(aCallback :Pointer);
 
@@ -79,11 +79,14 @@ uses
       FIsVideo  :Boolean;
 //    FState    :TPlaybackState;
 
+      FVolume   :Integer;
+
       procedure RenderStream(const aSrc :IBaseFilter; aWnd :HWND);
       procedure CreateVideoRenderer;
 
     public
       property IsVideo :Boolean read FIsVideo;
+      property Volume :Integer read FVolume;
     end;
 
 
@@ -107,19 +110,6 @@ implementation
   begin
     LastResult := aRes;
     Result := Succeeded(aRes);
-  end;
-
-
-  procedure OleError(ErrorCode: HResult);
-  begin
-    raise EOleSysError.Create('', ErrorCode, 0);
-  end;
-
-
-  procedure OleCheck(Result: HResult);
-  begin
-    if not Succeeded(Result) then
-      OleError(Result);
   end;
 
 
@@ -510,6 +500,7 @@ implementation
     Result := FLoaded;
   end;
 
+
   procedure TMedia.RenderStream(const aSrc :IBaseFilter; aWnd :HWND);
   var
     vGraph2 :IFilterGraph2;
@@ -547,6 +538,7 @@ implementation
       { Remove the audio renderer, if not used. }
       RemoveUnconnectedRenderer(FGraph, vAudio);
   end;
+
 
   procedure TMedia.CreateVideoRenderer;
   begin
@@ -618,13 +610,14 @@ implementation
     OleCheck(FControl.Pause);
   end;
 
-  procedure TMedia.SetVolume(aValue :Double);
+  procedure TMedia.SetVolume(aValue :Integer);
   var
     vVol :Integer;
   begin
     { Vol: -10000 - 0 }
-    vVol := -Round(sqr(100 - RangeLimitF(aValue, 0, 100)));
+    vVol := -Round(sqr(100 - RangeLimit(aValue, 0, 100)));
     OleCheck(FBA.put_Volume( vVol ));
+    FVolume := aValue;
   end;
 
 

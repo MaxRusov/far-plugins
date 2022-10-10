@@ -250,8 +250,8 @@ interface
   begin
    {$ifdef bTrace}
 //  if Msg <> DN_ENTERIDLE then
-//  if Msg = DN_KEY then
-//    TraceF('TFarDialog.DialogHandler: %d, Param1=%x, Param2=%x', [Msg, Param1, Param2]);
+//    if Msg <> DN_INPUT then
+//      TraceF('TFarDialog.DialogHandler: %d, Param1=%x, Param2=%x', [Msg, Param1, Param2]);
    {$endif bTrace}
 
     Result := 1;

@@ -97,16 +97,20 @@ interface
   function Int2StrLen(Num :Integer) :Integer;
 
   function TryStrToInt(const Str :TString; var Num :Integer) :Boolean;
+  function TryStrToInt64(const Str :TString; var Num :Int64) :Boolean;
   function Str2IntDef(const Str :TString; Def :Integer) :Integer;
   function Str2Int(const Str :TString) :Integer;
+  function Str2Int64(const Str :TString) :Int64;
   function TryHex2Uns(const AHexStr :TString; var Num :Cardinal) :Boolean;
   function TryHex2Int64(const AHexStr :TString; var Num :TInt64) :Boolean;
   function Hex2Int64(const AHexStr :TString) :TInt64;
 
-  function Float2Str(Value :TFloat) :TString;
-  function TryPCharToFloat(Str :PTChar; var Value :TFloat) :Boolean;
+  function Float2Str(Value :TFloat; aDec :Integer = 0) :TString;
+//function TryPCharToFloat(Str :PAnsiChar; var Value :TFloat) :Boolean; overload;
+  function TryPCharToFloat(Str :PWideChar; var Value :TFloat) :Boolean; overload;
   function TryStrToFloat(const Str :TString; var Value :TFloat) :Boolean;
   function StrToFloatDef(const Str :TString; const Def :TFloat) :TFloat;
+  function Str2Float(const Str :TString) :TFloat;
 
   function AppendStrCh(const AStr, AAdd, ADel :TString) :TString;
   function StrRightAjust(const AStr :TString; ALen :Integer) :TString;
@@ -137,7 +141,7 @@ interface
   function ExtractFileTitle(const FileName :TString) :TString;
   function ExtractFileExtension(const FileName :TString) :TString;
   function ExtractFileName(const FileName :TString) :TString;
-  function ExtractFilePath(const FileName :TString) :TString;
+  function ExtractFilePath(const FileName :TString; aRemoveBackSlash :Boolean = False) :TString;
   function ExtractFileDrive(const FileName :TString) :TString;
   function ChangeFileExtension(const FileName, Extension :TString) :TString;
   function SafeChangeFileExtension(const FileName, Extension :TString) :TString;
@@ -947,6 +951,15 @@ interface
   end;
 
 
+  function TryStrToInt64(const Str :TString; var Num :Int64) :Boolean;
+  var
+    vErr :Integer;
+  begin
+    Val(Str, Num, vErr);
+    Result := vErr = 0;
+  end;
+
+
   function Str2IntDef(const Str :TString; Def :Integer) :Integer;
   begin
     if not TryStrToInt(Str, Result) then
@@ -957,6 +970,13 @@ interface
   function Str2Int(const Str :TString) :Integer;
   begin
     if not TryStrToInt(Str, Result) then
+      AppErrorResFmt(@SInvalidInteger, [Str]);
+  end;
+
+
+  function Str2Int64(const Str :TString) :Int64;
+  begin
+    if not TryStrToInt64(Str, Result) then
       AppErrorResFmt(@SInvalidInteger, [Str]);
   end;
 
@@ -987,11 +1007,11 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function Float2Str(Value :TFloat) :TString;
+  function Float2Str(Value :TFloat; aDec :Integer = 0) :TString;
   var
     vStr :Shortstring;
   begin
-    Str(Value, vStr);
+    Str(Value:0:aDec, vStr);
     Result := TString(vStr);
   end;
 
@@ -1221,8 +1241,16 @@ interface
   end;
 *)
 
+//  function TryPCharToFloat(Str :PAnsiChar; var Value :TFloat) :Boolean; overload;
+//  var
+//    vErr :Integer;
+//  begin
+//    Val(Str, Value, vErr);
+//    Result := vErr = 0;
+//  end;
 
-  function TryPCharToFloat(Str :PTChar; var Value :TFloat) :Boolean;
+
+  function TryPCharToFloat(Str :PWideChar; var Value :TFloat) :Boolean; overload;
   var
     vErr :Integer;
   begin
@@ -1245,6 +1273,14 @@ interface
     if not TryStrToFloat(Str, Result) then
       Result := Def;
   end;
+
+
+  function Str2Float(const Str :TString) :TFloat;
+  begin
+    if not TryStrToFloat(Str, Result) then
+      AppErrorResFmt(@SInvalidFloat, [Str]);
+  end;
+
 
 
  {-----------------------------------------------------------------------------}
@@ -1593,11 +1629,13 @@ interface
   end;
 
 
-  function ExtractFilePath(const FileName :TString) :TString;
+  function ExtractFilePath(const FileName :TString; aRemoveBackSlash :Boolean = False) :TString;
   var
     I: Integer;
   begin
     I := LastDelimiter('\:', FileName);
+    if aRemoveBackSlash and (I > 0) and (I < length(FileName)) and (FileName[I] = '\') then
+      Dec(I);
     Result := Copy(FileName, 1, I);
   end;
 

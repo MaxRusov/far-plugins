@@ -34,6 +34,7 @@ function EncodeTime(Hour, Min, Sec, MSec: Word) :TDateTime;
 procedure DecodeDate(Date: TDateTime; var Year, Month, Day: Word);
 procedure DecodeTime(Time: TDateTime; var Hour, Min, Sec, MSec: Word);
 function DateTimeToFileDate(DateTime: TDateTime): Integer;
+function TryFileDateToDateTime(FileDate :Integer; var aDateTime :TDateTime) :Boolean;
 function FileDateToDateTime(FileDate: Integer): TDateTime;
 
 function FormatDate(const Format :TString; DateTime: TDateTime) :TString;
@@ -197,17 +198,31 @@ begin
 end;
 
 
+function TryFileDateToDateTime(FileDate :Integer; var aDateTime :TDateTime) :Boolean;
+var
+  vDate, vTime :TDateTime;
+begin
+  with LongRec(FileDate) do
+    Result :=
+      TryEncodeDate(
+        Hi shr 9 + 1980,
+        Hi shr 5 and 15,
+        Hi and 31,
+        vDate) and
+      TryEncodeTime(
+        Lo shr 11,
+        Lo shr 5 and 63,
+        Lo and 31 shl 1, 0,
+        vTime);
+  if Result then
+    aDateTime := vDate + vTime;
+end;
+
+
 function FileDateToDateTime(FileDate :Integer): TDateTime;
 begin
-  Result :=
-    EncodeDate(
-      LongRec(FileDate).Hi shr 9 + 1980,
-      LongRec(FileDate).Hi shr 5 and 15,
-      LongRec(FileDate).Hi and 31) +
-    EncodeTime(
-      LongRec(FileDate).Lo shr 11,
-      LongRec(FileDate).Lo shr 5 and 63,
-      LongRec(FileDate).Lo and 31 shl 1, 0);
+  if not TryFileDateToDateTime(FileDate, Result) then
+    ConvertError(@SDateEncodeError);
 end;
 
 

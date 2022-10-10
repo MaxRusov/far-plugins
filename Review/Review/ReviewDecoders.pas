@@ -36,6 +36,8 @@ interface
   type
     TReviewDecoder = class;
 
+    { Базовый класс для TReviewImage и TReviewThumb }
+
     TReviewImageRec = class(TComBasis)
     public
       FName        :TString;           { Имя файла (не обязательно с путем) }
@@ -56,11 +58,17 @@ interface
       FBPP         :Integer;           { Цветность }
       FTransparent :Boolean;           { Полупрозрачное изображение }
       FAnimated    :Boolean;           { Анимированное изображение }
-      FMovie       :Boolean;           { Видео-файл }
-      FLength      :Integer;           { Длительность видео в MS }
+      FVector      :Boolean;           { Векторный формат }
       FDelay       :Integer;           { Задержка текущей страницы при анимации }
       FOrient0     :Integer;           { Начальная ориентация (по EXIF) }
       FOrient      :Integer;           { Текущая ориентация (дополнительный поворот после декодирования) }
+
+      FMedia       :Boolean;           { Медиа-файл }
+      FLength      :Integer;           { Длительность видео в MS }
+      FVideoCount  :Integer;           { Количество Video-потоков }
+      FVideoIndex  :Integer;           { Текщий Video-поток }
+      FAudioCount  :Integer;           { Количество Audio-потоков }
+      FAudioIndex  :Integer;           { Текщий Audio-поток }
 
       FSelfdraw    :Boolean;
       FSelfPaint   :Boolean;
@@ -343,12 +351,6 @@ interface
     strPluginInitError    = 'Plugin init error (%x)';
     strUnsupportedPlugin  = 'Unsupported plugin version (%d)';
     strUnsupportedFeature = 'Feature not supported';
-
-
-//BOOL WINAPI SetDllDirectory(_In_opt_  LPCTSTR lpPathName);
-
-  function SetDllDirectory(aPath :PTChar) :BOOL; stdcall;
-    external kernel32 name 'SetDllDirectory'+_X;
 
 
  {-----------------------------------------------------------------------------}
@@ -1117,10 +1119,13 @@ interface
       AImage.FCompress := vInfo.pCompression;
       AImage.FDescr := vInfo.pComments;
       AImage.FAnimated := vInfo.Flags and PVD_IIF_ANIMATED <> 0;
-      AImage.FMovie := vInfo.Flags and PVD_IIF_MOVIE <> 0;
-      if AImage.FMovie then
-        AImage.FLength := vInfo.nPages
-      else
+      AImage.FVector := vInfo.Flags and PVD_IIF_VECTOR <> 0;
+      AImage.FMedia := vInfo.Flags and PVD_IIF_MEDIA <> 0;
+      if AImage.FMedia then begin
+        AImage.FLength := vInfo.nPages;
+        AImage.FVideoCount := vInfo.nVideoCount;
+        AImage.FAudioCount := vInfo.nAudioCount;
+      end else
         AImage.FPages := vInfo.nPages;
     end else
       FLastError := pvdTranslateError(vInfo.nErrNumber);
@@ -1233,10 +1238,14 @@ interface
     Result := 0; aIsThumbnail := False;
     if AImage.FDecodeInfo <> nil then
       with PPVDInfoDecode2(AImage.FDecodeInfo)^ do begin
-        vTranspColor := nTransparentColor;
-        if Flags and (PVD_IDF_TRANSPARENT + PVD_IDF_TRANSPARENT_INDEX) = 0 then
-          vTranspColor := DWORD(-1);
-        Result := CreateBitmapAs(lWidth, lHeight, nBPP, lImagePitch, pImage, pPalette, ColorModel, vTranspColor);
+        if PVD_IDF_RETURN_BITMAP and Flags <> 0 then
+          Result := HBitmap(lParam)
+        else begin
+          vTranspColor := nTransparentColor;
+          if Flags and (PVD_IDF_TRANSPARENT + PVD_IDF_TRANSPARENT_INDEX) = 0 then
+            vTranspColor := DWORD(-1);
+          Result := CreateBitmapAs(lWidth, lHeight, nBPP, lImagePitch, pImage, pPalette, ColorModel, vTranspColor);
+        end;
         aIsThumbnail := PVD_IDF_THUMBNAIL and Flags <> 0;
         if aIsThumbnail and optCorrectThumb then
           Result := AImage.CorrectThumbnail(Result);

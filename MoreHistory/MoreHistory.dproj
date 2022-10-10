@@ -3,12 +3,12 @@
         <ProjectGuid>{B9F6858B-905A-4E93-AAA7-655671545907}</ProjectGuid>
         <MainSource>MoreHistory.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Library</AppType>
         <FrameworkType>None</FrameworkType>
-        <ProjectVersion>18.2</ProjectVersion>
-        <Platform Condition="'$(Platform)'==''">Win32</Platform>
+        <ProjectVersion>19.2</ProjectVersion>
+        <Platform Condition="'$(Platform)'==''">Win64</Platform>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
         <Base>true</Base>
@@ -75,12 +75,14 @@
         <DCC_WriteableConstants>true</DCC_WriteableConstants>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
+        <Debugger_RunParams>/p%FarHome%\Plugins;C:\SrcFarPlug\Bin3</Debugger_RunParams>
         <Debugger_HostApplication>C:\FarDeb3\Far.exe</Debugger_HostApplication>
         <DCC_ExeOutput>..\Bin3\MoreHistory</DCC_ExeOutput>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
+        <Debugger_RunParams>/p%FarHome%\Plugins;C:\SrcFarPlug\Bin3x64</Debugger_RunParams>
         <Debugger_HostApplication>C:\FarDeb3x64\Far.exe</Debugger_HostApplication>
         <DCC_RemoteDebug>true</DCC_RemoteDebug>
         <DCC_ExeOutput>..\Bin3x64\MoreHistory</DCC_ExeOutput>

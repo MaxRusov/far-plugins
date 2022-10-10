@@ -1,11 +1,16 @@
 {------------------------------------------------------------------------------}
 
-{$Define bUnicodeFar}  
+{$Define bUnicodeFar}
 {$Define bUnicode}
 
-{$Define bThumbs}
+{-$Define bThumbs}
 {-$Define bXPSupport}
 
 {$Define bUseLibJPEG}
+
+{$Define bWinWheel}     { События колеса мыши обрабатывает окно, а не консоль.
+                          Почему то события перестали приходить в консоль при Full-Screen просмотре... }
+
+{$Define bVideoOSD}
 
 {------------------------------------------------------------------------------}

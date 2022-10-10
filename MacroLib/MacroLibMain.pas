@@ -254,7 +254,7 @@ interface
 
   procedure RemoveHandlers;
   begin
-    RemoveHandler(ReadConsoleInputPtr, @OldReadConsoleInputW, @MyReadConsoleInputW);
+    RemoveHandler(ReadConsoleInputPtr, Pointer(@OldReadConsoleInputW), @MyReadConsoleInputW);
 //  RemoveHandler(PeekConsoleInputPtr, @OldPeekConsoleInputW, @MyPeekConsoleInputW);
   end;
  {$endif bUseInject}

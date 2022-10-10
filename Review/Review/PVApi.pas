@@ -59,7 +59,8 @@ const
   PVD_IIF_MAGAZINE = $100;
 
   // Review:
-  PVD_IIF_MOVIE = $1000;         // Видео файл. nPages содержит длительность файла в мс.
+  PVD_IIF_MEDIA  = $1000;         // Медиа файл. nPages содержит длительность файла в мс.
+  PVD_IIF_VECTOR = $2000;         //
 
 
 { Флаги получаемые или возвращаемые pvdPageDecode/pvdPageDecode2 }
@@ -76,6 +77,9 @@ const
   PVD_IDF_PRIVATE_DISPLAY   = 32;  // "Внутреннее" представление, которое может быть использовано для вывода
                                    // только этим же субплагином (у плагина должен быть флаг PVD_IP_DISPLAY)
   PVD_IDF_COMPAT_MODE       = 64;  // Плагин второй версии вызван в режиме совместимости с первой (через PVD1Helper.cpp)
+
+  // Review:
+  PVD_IDF_RETURN_BITMAP     = 128; // OUT: Плагин фозвращает HBitmap (в lParam)
 
   // Review:
   PVD_IDF_THUMBONLY         = $1000;  // IN: Извлекать эскиз, если есть, иначе вернуть 0
@@ -322,7 +326,8 @@ type
     pCompression :PWideChar;
     pComments :PWideChar;
     nErrNumber :DWORD;
-    nReserverd, nReserverd2 :DWORD;
+//  nReserverd, nReserverd2 :DWORD;
+    nVideoCount, nAudioCount :DWORD;
   end;
 
 
@@ -772,15 +777,21 @@ type
 { PVD_IIF_MOVIE                                                                }
 
 const
-  PVD_PC_Play      = 1;
-  PVD_PC_Pause     = 2;
-  PVD_PC_Stop      = 3;
-  PVD_PC_GetState  = 4;
-  PVD_PC_GetPos    = 5;
-  PVD_PC_SetPos    = 6;
-  PVD_PC_GetVolume = 7;
-  PVD_PC_SetVolume = 8;
-  PVD_PC_Mute      = 9;
+  PVD_PC_Play                = 1;
+  PVD_PC_Pause               = 2;
+  PVD_PC_Stop                = 3;
+  PVD_PC_GetState            = 4;
+  PVD_PC_GetPos              = 5;
+  PVD_PC_SetPos              = 6;
+  PVD_PC_GetVolume           = 7;
+  PVD_PC_SetVolume           = 8;
+  PVD_PC_Mute                = 9;
+  PVD_PC_GetLen              = 10;
+  PVD_PC_GetBounds           = 11;
+  PVD_PC_GetAudioStream      = 12;
+  PVD_PC_SetAudioStream      = 13;
+  PVD_PC_GetVideoStream      = 14;
+  PVD_PC_SetVideoStream      = 15;
 
 type
   TpvdPlayControl = function(pContext :Pointer; pImageContext :Pointer; aCmd :Integer; pInfo :Pointer) :Integer; stdcall;
@@ -957,6 +968,17 @@ const
   PVD_Tag_XResolution  = 306;  // Разрешение (dpi)
   PVD_Tag_YResolution  = 307;  // Разрешение (dpi)
 //PVD_Tag_ResolutionUnit = 308;  // ResolutionUnit (2 = Inches, 3 = Centimeters)
+
+  PVD_Tag_Video_Name      = 400;
+  PVD_Tag_Video_Lang      = 401;
+  PVD_Tag_Video_Format    = 402;
+  PVD_Tag_Video_Bitrate   = 403;
+  PVD_Tag_Video_FrameRate = 404;
+
+  PVD_Tag_Audio_Name      = 450;
+  PVD_Tag_Audio_Lang      = 451;
+  PVD_Tag_Audio_Format    = 452;
+  PVD_Tag_Audio_Bitrate   = 453;
 
 const
   PVD_TagCmd_Get   = 1;

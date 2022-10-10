@@ -16,6 +16,8 @@
  {$Define bMemCallstack}
 {$endif bFreePascal}
 
+{$WARN SYMBOL_DEPRECATED OFF}
+
 unit MixMemCheck;
 
 interface
@@ -34,8 +36,8 @@ interface
     );
 
   const
-    EmptyFiller = #$11;
-    GuardFiller = #$FF;
+    EmptyFiller = $11;
+    GuardFiller = $FF;
 
    {$ifdef b64}
     EmptyFillerPtr = Pointer($1111111111111111);
@@ -739,8 +741,8 @@ interface
 
   function GuardCheck(P :Pointer; Size :Integer) :Boolean;
   var
-    PC :Pointer1;
     I  :Integer;
+    PC :Pointer1;
   begin
     PC := Pointer1(P);
     for I := 0 to Size - 1 do begin
@@ -1061,7 +1063,7 @@ interface
   end;
 
 
-  function NewFreeMem(DataPtr :Pointer) :TIntPtr;
+  function NewFreeMem(DataPtr :Pointer) :TMResult;
   var
     AllocPtr  :PAllocFrame;
     DataSize  :TIntPtr;
@@ -1111,7 +1113,7 @@ interface
   end;
 
 
-  function NewReallocMem(DataPtr :Pointer; DataSize :TIntPtr): Pointer;
+  function NewReallocMem(DataPtr :Pointer; DataSize :TMInteger): Pointer;
   begin
 //  TraceStr('NewReallocMem...');
 

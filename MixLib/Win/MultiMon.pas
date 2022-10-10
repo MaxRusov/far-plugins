@@ -20,6 +20,8 @@ unit MultiMon;
  * here for older Win32 OS systems.
 *)
 
+{$TypedAddress Off}
+
 interface
 
 uses MixTypes, Windows;

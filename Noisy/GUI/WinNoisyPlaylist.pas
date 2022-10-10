@@ -190,7 +190,7 @@ interface
   var
     vInfo :TPlayerInfo;
   begin
-    FPlaylist.FreeAll;
+    FPlaylist.Clear;
     if GetPlayerInfo(vInfo, False) and (vInfo.FTrackCount > 0) then begin
       FPlaylist.Text := GetPlaylist;
       FPlaylistRevision := vInfo.FPlaylistRev;

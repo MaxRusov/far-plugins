@@ -84,12 +84,13 @@ interface
       Size    :Array[0..1] of Int64;
       Time    :Array[0..1] of Integer;
       Attr    :Array[0..1] of Word;
+      CRCs    :Array[0..1] of TCRC;
 
       Content :TCompareContent;
 
     public
       destructor Destroy; override;
-      procedure SetInfo(AVer :Integer; AAttr :Word; ASize :Int64; ATime :Integer);
+      procedure SetInfo(AVer :Integer; AAttr :Word; ASize :Int64; ATime :Integer; aCRC :TCRC);
 
       function HasAttr(A :Word) :boolean;
       function BothAttr(A :Word) :boolean;
@@ -130,8 +131,9 @@ interface
 
       function CanRecurse :Boolean; virtual;
       function CanGetFile :Boolean; virtual;
+      function CanGetCRC :Boolean; virtual;
 
-    private
+    protected
       FFolder     :TString;
       FComparator :TComparator;
     end;
@@ -190,8 +192,11 @@ interface
       function ViewFileName(const AFolder, AName :TString; AVer :Integer) :TString; overload;
       function PanelTitle(const AFolder :TString; AVer :Integer) :TString;
 
+      function CanCompareCRC :Boolean;
       function CanCompareContents :Boolean;
       function CanGetFile(ASide :Integer) :Boolean;
+
+      procedure AddItem(const AName :TString; Attr :Word; ASize :Int64; ATime :Integer; ACRC :TCRC = 0);
 
     private
       FSources   :array[0..1] of TDataProvider;
@@ -221,7 +226,6 @@ interface
       procedure DoneProgress;
       procedure ShowProgress(const AMess :TString; APerc :Integer);
       procedure UpdateProgress2(AddSize :Int64);
-      procedure AddItem(const AName :TString; Attr :Word; ASize :Int64; ATime :Integer);
 
     public
       property Results :TCmpFolder read FResults;
@@ -378,11 +382,12 @@ interface
   end;
 
 
-  procedure TCmpFileItem.SetInfo(AVer :Integer; AAttr :Word; ASize :Int64; ATime :Integer);
+  procedure TCmpFileItem.SetInfo(AVer :Integer; AAttr :Word; ASize :Int64; ATime :Integer; aCRC :TCRC);
   begin
     Attr[AVer] := AAttr or faPresent;
     Size[AVer] := ASize;
     Time[AVer] := ATime;
+    CRCs[AVer] := aCRC;
   end;
 
 
@@ -513,6 +518,12 @@ interface
   function TDataProvider.CanGetFile :Boolean; {virtual;}
   begin
     Result := True;
+  end;
+
+
+  function TDataProvider.CanGetCRC :Boolean; {virtual;}
+  begin
+    Result := False;
   end;
 
 
@@ -792,7 +803,7 @@ interface
   end;
 
 
-  procedure TComparator.AddItem(const AName :TString; Attr :Word; ASize :Int64; ATime :Integer);
+  procedure TComparator.AddItem(const AName :TString; Attr :Word; ASize :Int64; ATime :Integer; ACRC :TCRC = 0);
   var
     vName :TString;
     vNeedPoint :Boolean;
@@ -833,7 +844,7 @@ interface
       vItem.ParentGroup := FCurList;
       FCurList.Insert(vIndex, vItem);
     end;
-    vItem.SetInfo(FCurVer, Attr, ASize, ATime);
+    vItem.SetInfo(FCurVer, Attr, ASize, ATime, ACRC);
   end;
 
 
@@ -910,8 +921,10 @@ interface
       try
         LocCompare(FResults, '', '');
 
-        if optScanContents and CanCompareContents then
-          CompareFolderContents(FResults);
+        if optScanContents then begin
+          if CanCompareContents or CanCompareCRC then
+            CompareFolderContents(FResults);
+        end;
 
       except
         on E :ECtrlBreak do
@@ -935,6 +948,12 @@ interface
   function TComparator.CanCompareContents :Boolean;
   begin
     Result := FSources[0].CanGetFile and FSources[1].CanGetFile;
+  end;
+
+
+  function TComparator.CanCompareCRC :Boolean;
+  begin
+    Result := FSources[0].CanGetCRC and FSources[1].CanGetCRC;
   end;
 
 
@@ -974,6 +993,7 @@ interface
 
   procedure TComparator.CompareFilesContents(const ABaseFolder :TString; AList :TStringList);
   var
+    vCompareCRC :Boolean;
     vBaseLen :Integer;
 
     procedure CompareFile(AItem :TCmpFileItem);
@@ -988,7 +1008,14 @@ interface
         if not NeedCompareFiles(AItem) then
           { Ќе совпадает размер - незачем сравнивать }
           AItem.Content := ccDiff
-        else begin
+        else
+        if vCompareCRC then begin
+          if AItem.CRCs[0] = AItem.CRCs[1] then
+            AItem.Content := ccSame
+          else
+            AItem.Content := ccDiff;
+        end else
+        begin
           {!!!}
           if ABaseFolder = '' then
             FCurFile := AItem.FName
@@ -1038,6 +1065,8 @@ interface
     InitProgress;
     try
       FStart := GetTickCount;
+
+      vCompareCRC := CanCompareCRC;
 
       vBaseLen := Length(ABaseFolder);
       if (vBaseLen > 0) and (ABaseFolder[vBaseLen] <> '\') then
@@ -1297,9 +1326,9 @@ interface
       vPath := AItem.ParentGroup.GetFolder(AVer);
       if vPath <> '' then
         if FSources[AVer].GetInfo(vPath, AItem.Name, vAttr, vSize, vTime) then
-          AItem.SetInfo(AVer, vAttr, vSize, vTime)
+          AItem.SetInfo(AVer, vAttr, vSize, vTime, 0)
         else begin
-          AItem.SetInfo(AVer, 0, 0, 0);
+          AItem.SetInfo(AVer, 0, 0, 0, 0);
           AItem.Attr[AVer] := 0;
         end;
     end;

@@ -15,6 +15,12 @@
         <Projects Include="ReviewVideo\DXVideo.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="ReviewMF\MFVideo.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="ReviewSVG\SVG.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -59,14 +65,32 @@
     <Target Name="DXVideo:Make">
         <MSBuild Projects="ReviewVideo\DXVideo.dproj" Targets="Make"/>
     </Target>
+    <Target Name="MFVideo">
+        <MSBuild Projects="ReviewMF\MFVideo.dproj"/>
+    </Target>
+    <Target Name="MFVideo:Clean">
+        <MSBuild Projects="ReviewMF\MFVideo.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="MFVideo:Make">
+        <MSBuild Projects="ReviewMF\MFVideo.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="SVG">
+        <MSBuild Projects="ReviewSVG\SVG.dproj"/>
+    </Target>
+    <Target Name="SVG:Clean">
+        <MSBuild Projects="ReviewSVG\SVG.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="SVG:Make">
+        <MSBuild Projects="ReviewSVG\SVG.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="Review;GFL;WIC;DXVideo"/>
+        <CallTarget Targets="Review;GFL;WIC;DXVideo;MFVideo;SVG"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="Review:Clean;GFL:Clean;WIC:Clean;DXVideo:Clean"/>
+        <CallTarget Targets="Review:Clean;GFL:Clean;WIC:Clean;DXVideo:Clean;MFVideo:Clean;SVG:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="Review:Make;GFL:Make;WIC:Make;DXVideo:Make"/>
+        <CallTarget Targets="Review:Make;GFL:Make;WIC:Make;DXVideo:Make;MFVideo:Make;SVG:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

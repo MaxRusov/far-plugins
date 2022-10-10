@@ -16,4 +16,13 @@ cd ReviewVideo
 call _bld %1 %2 %3
 cd ..
 
+cd ReviewMF
+call _bld %1 %2 %3
+cd ..
+
+cd ReviewSVG
+call _bld %1 %2 %3
+cd ..
+
+
 set PrjName=Review

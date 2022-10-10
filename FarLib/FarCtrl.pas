@@ -56,6 +56,13 @@ interface
     chrCheck    = #$FB;
    {$endif bUnicodeFar}
 
+   {$ifdef bUnicode}
+    chrUpMark   = #$18;  {#$1E;}
+    chrDnMark   = #$19;  {#$1F;}
+   {$else}
+    chrUpMark   = #$18; { $1E }
+    chrDnMark   = #$19; { $1F }
+   {$endif bUnicode}
 
   const
     clBlack    = 0;   // Черный
@@ -1636,6 +1643,10 @@ interface
     vColor.EndPos := ACol + ALen - 1;
     vColor.ColorItem := 0;
     vColor.Color := AColor;
+
+    TRGBQuad(vColor.Color.ForegroundColor).rgbReserved := 255;
+    TRGBQuad(vColor.Color.BackgroundColor).rgbReserved := 255;
+
     vColor.Owner := PluginID;
     vColor.Priority := EDITOR_COLOR_NORMAL_PRIORITY;
     vColor.Flags := IntIf(AWholeTab, 0, ECF_TABMARKFIRST);
@@ -1870,7 +1881,8 @@ interface
       C := AStr[I];
       if (Ord(C) < $20) or (C = '"') or (C = '\') then
        {$ifdef Far3}
-        Result := Result + '\' + C
+//      Result := Result + '\' + C
+        Result := Result  + '\0' + IntToStr(Ord(C))
        {$else}
 //      Result := Result + '\' + Int2Str(Ord(c))
         Result := Result + '\x' + Format('%.2x', [Ord(c)])

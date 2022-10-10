@@ -76,24 +76,10 @@ type
   TFarChar = WideChar;
   PFarChar = PWideChar;
 
- {$ifdef CPUX86_64}
-  INT_PTR = PtrInt;
-  LONG_PTR = PtrInt;
-  DWORD_PTR = PtrUInt;
-  SIZE_T = PtrUInt;
- {$else}
- {$ifdef Win64}
   INT_PTR = IntPtr;
   LONG_PTR = IntPtr;
-  DWORD_PTR = UIntPtr;
-  SIZE_T = UIntPtr;
- {$else}
-  INT_PTR = Integer;
-  LONG_PTR = Integer;
-  DWORD_PTR = Cardinal;
-  SIZE_T = Cardinal;
- {$endif CPUX86_64}
- {$endif Win64}
+  DWORD_PTR =  UIntPtr;
+  SIZE_T =  UIntPtr;
 
   PIntPtr = ^TIntPtr;
   TIntPtr = INT_PTR;
@@ -390,7 +376,7 @@ const
   DN_DRAWDIALOG           = 4101;
   DN_DRAWDLGITEM          = 4102;
   DN_EDITCHANGE           = 4103;
-  DN_ENTERIDLE            = 4104;
+  DN_ENTERIDLE            = 4104 deprecated;
   DN_GOTFOCUS             = 4105;
   DN_HELP                 = 4106;
   DN_HOTKEY               = 4107;

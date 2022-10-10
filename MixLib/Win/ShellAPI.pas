@@ -462,11 +462,11 @@ const
   SHGFI_USEFILEATTRIBUTES = $000000010;     { use passed dwFileAttribute }
 
 function SHGetFileInfoA(pszPath: PAnsiChar; dwFileAttributes: DWORD;
-  var psfi: TSHFileInfoA; cbFileInfo, uFlags: UINT): DWORD; stdcall;
+  var psfi: TSHFileInfoA; cbFileInfo, uFlags: UINT): THandle; stdcall;
 function SHGetFileInfoW(pszPath: PAnsiChar; dwFileAttributes: DWORD;
-  var psfi: TSHFileInfoW; cbFileInfo, uFlags: UINT): DWORD; stdcall;
+  var psfi: TSHFileInfoW; cbFileInfo, uFlags: UINT): THandle; stdcall;
 function SHGetFileInfo(pszPath: PTChar; dwFileAttributes: DWORD;
-  var psfi: TSHFileInfo; cbFileInfo, uFlags: UINT): DWORD; stdcall;
+  var psfi: TSHFileInfo; cbFileInfo, uFlags: UINT): THandle; stdcall;
 
 const
   SHGNLI_PIDL             = $000000001;     { pszLinkTo is a pidl }

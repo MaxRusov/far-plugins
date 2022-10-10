@@ -160,7 +160,7 @@ interface
     if StrEqual(vLang, FMenuLang) then
       Exit;
 
-    FMenuConfig.FreeAll;
+    FMenuConfig.Clear;
 
     if not LocLoadLang(vLang) then
       if not LocLoadLang(cDefaultLang) then

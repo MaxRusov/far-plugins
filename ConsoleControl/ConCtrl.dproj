@@ -3,12 +3,12 @@
         <ProjectGuid>{CDBF9BCC-95FF-4C50-B779-CCC1EBB70FF4}</ProjectGuid>
         <MainSource>ConCtrl.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Library</AppType>
         <FrameworkType>None</FrameworkType>
-        <ProjectVersion>18.2</ProjectVersion>
-        <Platform Condition="'$(Platform)'==''">Win32</Platform>
+        <ProjectVersion>19.2</ProjectVersion>
+        <Platform Condition="'$(Platform)'==''">Win64</Platform>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
         <Base>true</Base>
@@ -58,6 +58,8 @@
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
+        <DCC_Namespace>System;System.Win;WinApi;$(DCC_Namespace)</DCC_Namespace>
+        <Manifest_File>(None)</Manifest_File>
         <GenDll>true</GenDll>
         <SanitizedProjectName>ConCtrl</SanitizedProjectName>
         <DCC_ImageBase>40000000</DCC_ImageBase>
@@ -78,19 +80,19 @@
         <VerInfo_Keys>CompanyName=Max Rusov;FileDescription=Console Control Far plugin (Far 3 x64);FileVersion=1.4.0.0;InternalName=ConCtrl;LegalCopyright=(c) 2012, Max Rusov;LegalTrademarks=;OriginalFilename=ConCtrl.dll;ProductName=FastWheel;ProductVersion=1.0</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
+        <Debugger_RunParams>/p%FarHome%\Plugins;C:\SrcFarPlug\Bin3</Debugger_RunParams>
         <Debugger_HostApplication>C:\FarDeb3\Far.exe</Debugger_HostApplication>
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_MinorVer>0</VerInfo_MinorVer>
-        <Manifest_File>(None)</Manifest_File>
         <DCC_ExeOutput>..\Bin3\ConCtrl</DCC_ExeOutput>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName)</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
+        <Debugger_RunParams>/p%FarHome%\Plugins;C:\SrcFarPlug\Bin3x64</Debugger_RunParams>
         <BT_BuildType>Debug</BT_BuildType>
         <Debugger_HostApplication>C:\FarDeb3x64\Far.exe</Debugger_HostApplication>
-        <Manifest_File>(None)</Manifest_File>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <DCC_ExeOutput>..\Bin3x64\ConCtrl</DCC_ExeOutput>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
@@ -152,8 +154,8 @@
                     <Source Name="MainSource">ConCtrl.dpr</Source>
                 </Source>
                 <Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k240.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp240.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k270.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp270.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
                 </Excluded_Packages>
             </Delphi.Personality>
             <Platforms>

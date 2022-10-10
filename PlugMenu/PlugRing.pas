@@ -1,5 +1,7 @@
 {$I Defines.inc}
 
+{-$Define bUseWinHTTP}
+
 unit PlugRing;
 
 {******************************************************************************}
@@ -16,6 +18,7 @@ interface
     ActiveX,
     ShellAPI,
     WinINet,
+//  WinHTTP,
     MSXML,
 
     MixTypes,
@@ -31,6 +34,7 @@ interface
 
   const
     cPluginURL    = 'http://plugring.farmanager.com/plugin.php?pid=';
+//  cPlugringSrv  = 'https://plugring.farmanager.com';
     cPlugringSrv  = 'plugring.farmanager.com';
     cPlugringCmd  = 'command.php';
 //  cPlugringAPI  = 'http://plugring.farmanager.com/command.php';
@@ -53,17 +57,6 @@ interface
   uses
     MixDebug;
 
-
-  procedure OleError(ErrorCode: HResult);
-  begin
-    raise EOleSysError.Create('', ErrorCode, 0);
-  end;
-
-  procedure OleCheck(Result: HResult);
-  begin
-    if not Succeeded(Result) then
-      OleError(Result);
-  end;
 
   function CreateComObject(const ClassID :TGUID) :IUnknown;
   begin
@@ -141,6 +134,70 @@ interface
 *)
 
  {-----------------------------------------------------------------------------}
+ {                                                                             }
+ {-----------------------------------------------------------------------------}
+
+ {$ifdef bUseWinHTTP}
+
+  function HTTPGet(const ASrv, ACmd :TString; const AData :TAnsiStr; APost :Boolean = False) :TString;
+  const
+    cHTTPVer = 'HTTP/1.1';
+    cRequestFlags = INTERNET_FLAG_SECURE
+      or INTERNET_FLAG_IGNORE_CERT_DATE_INVALID or INTERNET_FLAG_IGNORE_CERT_CN_INVALID
+      or INTERNET_FLAG_IGNORE_REDIRECT_TO_HTTP or INTERNET_FLAG_IGNORE_REDIRECT_TO_HTTPS
+      or INTERNET_FLAG_KEEP_CONNECTION
+      or INTERNET_FLAG_NO_CACHE_WRITE
+      or INTERNET_FLAG_RELOAD
+      or INTERNET_FLAG_PRAGMA_NOCACHE
+    ;
+  var
+    vSession, vConnect, vRequest :HINTERNET;
+    vHeader :TString;
+  begin
+    vConnect := nil; vRequest := nil;
+    vSession := WinHttpOpen(cPluginName, WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, nil, nil, 0);
+    Win32Check( vSession <> nil );
+    try
+//      vConnect := InternetConnect(vSession, PTChar(ASrv), INTERNET_DEFAULT_HTTPS_PORT, nil, nil, INTERNET_SERVICE_HTTP, 0, 1);
+//      Win32Check( vConnect <> nil );
+
+      vConnect := WinHttpConnect(vSession, PTChar(ASrv), INTERNET_DEFAULT_HTTPS_PORT, 0);
+      Win32Check( vConnect <> nil);
+
+
+//      vRequest := HttpOpenRequest(vConnect, 'POST', PTChar(ACmd), cHTTPVer, nil{Referrer}, nil{AcceptTypes}, cRequestFlags, 1);
+//      Win32Check( vRequest <> nil );
+
+      vRequest := WinHttpOpenRequest(vConnect, 'POST', PTChar(ACmd), nil{Version}, nil{Referrer}, nil{AcceptTypes}, WINHTTP_FLAG_REFRESH or WINHTTP_FLAG_SECURE);
+      Win32Check( vRequest <> nil);
+
+(*
+//    Win32Check( HttpSendRequest(vRequest, 'Content-Type: application/x-www-form-urlencoded', DWORD(-1), PAnsiChar(AData), length(AData) ));
+//    Win32Check( HttpSendRequest(vRequest, nil, DWORD(-1), PAnsiChar(AData), length(AData) ));
+
+      vHeader := 'Content-Type: application/x-www-form-urlencoded';
+      Win32Check( HttpSendRequest(vRequest, PTChar(vHeader), length(vHeader), PAnsiChar(AData), length(AData) ));
+*)
+
+      vHeader := 'Content-Type: application/x-www-form-urlencoded';
+      Win32Check(WinHttpSendRequest(vRequest, PTChar(vHeader), length(vHeader), Pointer(AData), length(AData), 0, 0 ));
+//      Check(WinHttpReceiveResponse( vRequest, nil));
+
+
+
+
+    finally
+      if vRequest <> nil then
+        WinHttpCloseHandle(vRequest);
+      if vConnect <> nil then
+        WinHttpCloseHandle(vConnect);
+      WinHTTPCloseHandle(vSession);
+    end;
+  end;
+
+
+ {$else} {---------------------------------------------------------------------}
+
 
   procedure HTTPError(ACode :Integer; const AResponse :TString);
 
@@ -211,8 +268,8 @@ interface
     vRead := SizeOf(vCode);
     if not HttpQueryInfo(ARequest, HTTP_QUERY_STATUS_CODE or HTTP_QUERY_FLAG_NUMBER, @vCode, vRead, vDummy) then
       RaiseLastWin32Error;
-    if vCode <> HTTP_STATUS_OK then
-      HTTPError(vCode, '');
+(*  if vCode <> HTTP_STATUS_OK then
+      HTTPError(vCode, '');  *)
 
     while True do begin
       if not InternetReadFile(ARequest, @vBuffer, cBufSize, vRead) then
@@ -226,20 +283,32 @@ interface
 
 
   function HTTPGet(const ASrv, ACmd :TString; const AData :TAnsiStr; APost :Boolean = False) :TString;
+  const
+    cHTTPVer = 'HTTP/1.1';
+    cRequestFlags = INTERNET_FLAG_SECURE
+      or INTERNET_FLAG_IGNORE_CERT_DATE_INVALID or INTERNET_FLAG_IGNORE_CERT_CN_INVALID
+      or INTERNET_FLAG_IGNORE_REDIRECT_TO_HTTP or INTERNET_FLAG_IGNORE_REDIRECT_TO_HTTPS
+      or INTERNET_FLAG_KEEP_CONNECTION
+      or INTERNET_FLAG_NO_CACHE_WRITE
+      or INTERNET_FLAG_RELOAD
+      or INTERNET_FLAG_PRAGMA_NOCACHE
+    ;
   var
     vSession, vConnect, vRequest :HINTERNET;
+    vHeader :TString;
   begin
     vConnect := nil; vRequest := nil;
     vSession := InternetOpen(cPluginName, INTERNET_OPEN_TYPE_PRECONFIG, nil, nil, 0);
     Win32Check( vSession <> nil );
     try
-      vConnect := InternetConnect(vSession, PTChar(ASrv), INTERNET_DEFAULT_HTTP_PORT, nil, nil, INTERNET_SERVICE_HTTP, 0, 0);
+      vConnect := InternetConnect(vSession, PTChar(ASrv), INTERNET_DEFAULT_HTTPS_PORT, nil, nil, INTERNET_SERVICE_HTTP, 0, 1);
       Win32Check( vConnect <> nil );
 
-      vRequest := HttpOpenRequest(vConnect, 'POST', PTChar(ACmd), nil{Version}, nil{Referrer}, nil{AcceptTypes}, INTERNET_FLAG_KEEP_CONNECTION, 0);
+      vRequest := HttpOpenRequest(vConnect, 'POST', PTChar(ACmd), cHTTPVer, nil{Referrer}, nil{AcceptTypes}, cRequestFlags, 1);
       Win32Check( vRequest <> nil );
 
-      Win32Check( HttpSendRequest(vRequest, 'Content-Type: application/x-www-form-urlencoded', DWORD(-1), PAnsiChar(AData), length(AData) ));
+      vHeader := 'Content-Type: application/x-www-form-urlencoded';
+      Win32Check( HttpSendRequest(vRequest, PTChar(vHeader), length(vHeader), PAnsiChar(AData), length(AData) ));
 
 //    Result := UTF8ToWide(HttpReadStr(vRequest));
       Result := TString(HttpReadStr(vRequest));
@@ -252,7 +321,10 @@ interface
       InternetCloseHandle(vSession);
     end;
   end;
+ {$endif bUseWinHTTP}
 
+
+ {-----------------------------------------------------------------------------}
 
   function PlugringFindURL(const AID :TGUID) :TString;
   var

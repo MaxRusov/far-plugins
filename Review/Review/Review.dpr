@@ -44,7 +44,7 @@ exports
   ConfigureW,
   ExitFARW;
 
-{$R Review.res}
+{$R ReviewW.res}
 
 begin
   Plug := TReviewPlug.Create;

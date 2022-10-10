@@ -60,7 +60,7 @@ interface
       FOrig       :TString;
       FExpr       :TString;
       FExprLen    :Integer;
-      FResBracket :Integer;    { }
+      FResBracket :Integer;    { Группа n, считающаяся результатом: /...expr.../$n  }
 
       FTmpBuf     :PTChar;
       FTmpLen     :Integer;
@@ -236,7 +236,7 @@ interface
         Wrong;
       if FarRegExpControl(FRegExp, RECTL_COMPILE, PTChar(FExpr)) = 0 then
         AppErrorId(strBadRegexp);
-      FarRegExpControl(FRegExp, RECTL_OPTIMIZE, nil);
+//    FarRegExpControl(FRegExp, RECTL_OPTIMIZE, nil);
 
       FBrackets := FarRegExpControl(FRegExp, RECTL_BRACKETSCOUNT, nil);
       if FBrackets <= 0 then
@@ -630,6 +630,7 @@ interface
   end;
 
 
+(*
   procedure TFinder.Replace(ASrcStr :PTChar; ASrcLen :Integer; const ARepStr :TString);
 
     procedure LocAdd(AStr :PTChar; ALen :Integer);
@@ -672,6 +673,50 @@ interface
     end;
 
     LocAdd(ASrcStr + FMatches[0].EndPos, ASrcLen - FMatches[0].EndPos);
+  end;
+*)
+  procedure TFinder.Replace(ASrcStr :PTChar; ASrcLen :Integer; const ARepStr :TString);
+
+    procedure LocAdd(AStr :PTChar; ALen :Integer);
+    begin
+      if ALen > 0 then begin
+        if FResStrLen + ALen > FRepBufLen then begin
+          ReallocMem(FRepBuf, (FResStrLen + ALen) * SizeOf(TChar));
+          FRepBufLen := FResStrLen + ALen;
+        end;
+
+        StrMove(FRepBuf + FResStrLen, AStr, ALen);
+        Inc(FResStrLen, ALen);
+      end;
+    end;
+
+  var
+    I :Integer;
+  begin
+    Assert(FResBracket < Length(FMatches));
+    Assert(FMatches[FResBracket].EndPos <= ASrcLen);
+
+    FResStrLen := 0;
+
+    LocAdd(ASrcStr, FMatches[FResBracket].Start);
+    FRepBeg := FResStrLen;
+
+    if foRegexp in FOpt then begin
+      for I := 0 to FRepList.Count - 1 do
+        with PRepPart(FRepList.PItems[I])^ do
+          if FStr = nil then begin
+            if FLen < FBrackets then
+              LocAdd(ASrcStr + FMatches[FLen].Start, FMatches[FLen].EndPos - FMatches[FLen].Start);
+          end else
+            LocAdd(FStr, FLen);
+      FRepLen := FResStrLen - FRepBeg;
+    end else
+    begin
+      FRepLen := length(ARepStr);
+      LocAdd(PTChar(ARepStr), FRepLen);
+    end;
+
+    LocAdd(ASrcStr + FMatches[FResBracket].EndPos, ASrcLen - FMatches[FResBracket].EndPos);
   end;
 
 

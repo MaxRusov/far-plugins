@@ -7,7 +7,7 @@ interface
   type
     { Платформонезависимые целые }
 
-    TInt32 = longint;
+    TInt32 = integer;
     PInt32 = ^TInt32;
 
     TUns32 = LongWord;
@@ -29,15 +29,8 @@ interface
     TIntPtr = PtrInt;
     TUnsPtr = PtrUInt;
    {$else}
-
-   {$ifdef b64}
     TIntPtr = IntPtr;
     TUnsPtr = UIntPtr;
-   {$else}
-    TIntPtr = Integer;
-    TUnsPtr = Cardinal;
-   {$endif b64}
-
    {$endif bFreePascal}
 
     PIntPtr = ^TIntPtr;
@@ -108,6 +101,28 @@ interface
 
 
   type
+    { Для менеджера памяти }
+   {$ifdef bFreePascal}
+   {$ifdef bFPC23}
+    TMInteger = TUnsPtr;
+    TMResult = TUnsPtr;
+   {$else} { Ранее }
+    TMInteger = TIntPtr;
+    TMResult = TIntPtr;
+   {$endif bFPC23}
+
+   {$else}
+
+   {$ifdef bDelphi15}
+    TMInteger = NativeInt;
+   {$else}
+    TMInteger = TInt32;
+   {$endif bDelphi15}
+    TMResult = TInt32;
+   {$endif bFreePascal}
+
+
+  type
    {$ifdef bDelphi15}
     Pointer1 = PByte;
    {$else}
@@ -127,6 +142,8 @@ interface
 
 
 end.
+
+
 
 
 

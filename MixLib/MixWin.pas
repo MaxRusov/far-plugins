@@ -85,6 +85,7 @@ interface
       procedure SetWindowPos(X, Y :Integer);
       procedure SetWindowSize(CX, CY :Integer);
       function GetBoundsRect :TRect;
+      function GetLocalMousePos :TPoint;
 
       function Perform(Msg :UINT; WParam :WPARAM; LParam :LPARAM) :LRESULT;
       procedure DefaultHandler(var Mess); override;
@@ -115,6 +116,14 @@ interface
       property Handle :THandle read FHandle;
       property ClientRect :TRect read GetClientRect;
       property Text :TString read GetText write SetText;
+    end;
+
+
+    TCustomWindow = class(TMSWindow)
+    protected
+      procedure PaintWindow(DC :HDC); virtual;
+    private
+      procedure WMPaint(var Mess :TWMPaint); message WM_Paint;
     end;
 
 
@@ -190,7 +199,7 @@ interface
 
   function ColorToRGB(AColor :TColor) :TColor;
   function WinCreateFont(const AName :TString; ASize :Integer; AStyle :TFontStyles) :HFont;
-  procedure WinDeleteObject(var AHandle :HGDIOBJ);
+  procedure WinDeleteObject(var AHandle {:HGDIOBJ});
   function TextSize(AFont :HFont; const AText :TString) :TSize;
 
   const
@@ -440,6 +449,13 @@ interface
   end;
 
 
+  function TMSWindow.GetLocalMousePos :TPoint;
+  begin
+    Windows.GetCursorPos(Result);
+    ScreenToClient(FHandle, Result);
+  end;
+
+
   function TMSWindow.GetText :TString;
   var
     vLen :Integer;
@@ -457,6 +473,32 @@ interface
   begin
     if Value <> GetText then
       SetWindowText(Handle, PTChar(Value));
+  end;
+
+
+ {-----------------------------------------------------------------------------}
+ { TCustomWindow                                                               }
+ {-----------------------------------------------------------------------------}
+
+  procedure TCustomWindow.PaintWindow(DC :HDC); {virtual;}
+  begin
+  end;
+
+
+  procedure TCustomWindow.WMPaint(var Mess :TWMPaint); {message WM_Paint;}
+  var
+    DC :HDC;
+    PS :TPaintStruct;
+  begin
+    DC := Mess.DC;
+    if DC = 0 then
+      DC := BeginPaint(Handle, PS);
+    try
+      PaintWindow(DC);
+    finally
+      if Mess.DC = 0 then
+        EndPaint(Handle, PS);
+    end;
   end;
 
 
@@ -675,11 +717,11 @@ interface
   end;
 
 
-  procedure WinDeleteObject(var AHandle :HGDIOBJ);
+  procedure WinDeleteObject(var AHandle {:HGDIOBJ});
   begin
-    if AHandle <> 0 then begin
-      DeleteObject(AHandle);
-      AHandle := 0;
+    if HGDIOBJ(AHandle) <> 0 then begin
+      DeleteObject(HGDIOBJ(AHandle));
+      HGDIOBJ(AHandle) := 0;
     end;
   end;
 

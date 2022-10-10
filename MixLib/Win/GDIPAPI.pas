@@ -21,6 +21,8 @@
       {                                                                  }
       { *****************************************************************}
 
+{$WEAKPACKAGEUNIT}
+
 unit GDIPAPI;
 
 {$ALIGN ON}
@@ -29,6 +31,8 @@ unit GDIPAPI;
 {$ifdef bFreePascal}
  {$PACKRECORDS C} 
 {$endif bFreePascal}
+
+{-$DEFINE DELPHI6_UP}
 
 interface
 
@@ -48,7 +52,6 @@ type
   UINT16  = type Word;
   PUINT16 = ^UINT16;
   UINT32  = type Cardinal;
-  TSingleDynArray = array of Single;
 
 (**************************************************************************\
 *
@@ -62,9 +65,7 @@ const WINGDIPDLL = 'gdiplus.dll';
 // Memory Allocation APIs
 //----------------------------------------------------------------------------
 
-{$EXTERNALSYM GdipAlloc}
 function GdipAlloc(size: ULONG): pointer; stdcall;
-{$EXTERNALSYM GdipFree}
 procedure GdipFree(ptr: pointer); stdcall;
 
 (**************************************************************************\
@@ -91,23 +92,19 @@ type
 //--------------------------------------------------------------------------
 
 const
-  {$EXTERNALSYM FlatnessDefault}
   FlatnessDefault = 0.25;
 
 //--------------------------------------------------------------------------
 // Graphics and Container State cookies
 //--------------------------------------------------------------------------
 type
-  {$EXTERNALSYM GraphicsState}
   GraphicsState     = UINT;
-  {$EXTERNALSYM GraphicsContainer}
   GraphicsContainer = UINT;
 
 //--------------------------------------------------------------------------
 // Fill mode constants
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM FillMode}
   FillMode = (
     FillModeAlternate,        // 0
     FillModeWinding           // 1
@@ -119,7 +116,6 @@ type
 //--------------------------------------------------------------------------
 
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM QualityMode}
   QualityMode = (
     QualityModeInvalid   = -1,
     QualityModeDefault   =  0,
@@ -128,7 +124,6 @@ type
   );
   TQualityMode = QualityMode;
 {$ELSE}
-  {$EXTERNALSYM QualityMode}
   QualityMode = Integer;
   const
     QualityModeInvalid   = -1;
@@ -141,7 +136,6 @@ type
 // Alpha Compositing mode constants
 //--------------------------------------------------------------------------
 type
-  {$EXTERNALSYM CompositingMode}
   CompositingMode = (
     CompositingModeSourceOver,    // 0
     CompositingModeSourceCopy     // 1
@@ -152,7 +146,6 @@ type
 // Alpha Compositing quality constants
 //--------------------------------------------------------------------------
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM CompositingQuality}
   CompositingQuality = (
     CompositingQualityInvalid          = ord(QualityModeInvalid),
     CompositingQualityDefault          = ord(QualityModeDefault),
@@ -163,7 +156,6 @@ type
   );
   TCompositingQuality = CompositingQuality;
 {$ELSE}
-  {$EXTERNALSYM CompositingQuality}
   CompositingQuality = Integer;
   const
     CompositingQualityInvalid          = QualityModeInvalid;
@@ -181,7 +173,6 @@ type
 // Unit constants
 //--------------------------------------------------------------------------
 
- // {$EXTERNALSYM Unit}
   Unit_ = (
     UnitWorld,      // 0 -- World coordinate (non-physical unit)
     UnitDisplay,    // 1 -- Variable -- for PageTransform only
@@ -203,7 +194,6 @@ type
 // as defined by GDI.
 //--------------------------------------------------------------------------
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM MetafileFrameUnit}
   MetafileFrameUnit = (
     MetafileFrameUnitPixel      = ord(UnitPixel),
     MetafileFrameUnitPoint      = ord(UnitPoint),
@@ -214,7 +204,6 @@ type
   );
   TMetafileFrameUnit = MetafileFrameUnit;
 {$ELSE}
-  {$EXTERNALSYM MetafileFrameUnit}
   MetafileFrameUnit = Integer;
   const
     MetafileFrameUnitPixel      = 2;
@@ -231,7 +220,6 @@ type
 // Coordinate space identifiers
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM CoordinateSpace}
   CoordinateSpace = (
     CoordinateSpaceWorld,     // 0
     CoordinateSpacePage,      // 1
@@ -243,7 +231,6 @@ type
 // Various wrap modes for brushes
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM WrapMode}
   WrapMode = (
     WrapModeTile,        // 0
     WrapModeTileFlipX,   // 1
@@ -257,7 +244,6 @@ type
 // Various hatch styles
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM HatchStyle}
   HatchStyle = (
     HatchStyleHorizontal,                  // = 0,
     HatchStyleVertical,                    // = 1,
@@ -328,7 +314,6 @@ type
 // Dash style constants
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM DashStyle}
   DashStyle = (
     DashStyleSolid,          // 0
     DashStyleDash,           // 1
@@ -343,7 +328,6 @@ type
 // Dash cap constants
 //--------------------------------------------------------------------------
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM DashCap}
   DashCap = (
     DashCapFlat             = 0,
     DashCapRound            = 2,
@@ -351,7 +335,6 @@ type
   );
   TDashCap = DashCap;
 {$ELSE}
-  {$EXTERNALSYM DashCap}
   DashCap = Integer;
   const
     DashCapFlat             = 0;
@@ -366,7 +349,6 @@ type
 // Line cap constants (only the lowest 8 bits are used).
 //--------------------------------------------------------------------------
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM LineCap}
   LineCap = (
     LineCapFlat             = 0,
     LineCapSquare           = 1,
@@ -385,7 +367,6 @@ type
   );
   TLineCap = LineCap;
 {$ELSE}
-  {$EXTERNALSYM LineCap}
   LineCap = Integer;
   const
     LineCapFlat             = 0;
@@ -411,7 +392,6 @@ type
 // Custom Line cap type constants
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM CustomLineCapType}
   CustomLineCapType = (
     CustomLineCapTypeDefault,
     CustomLineCapTypeAdjustableArrow
@@ -422,7 +402,6 @@ type
 // Line join constants
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM LineJoin}
   LineJoin = (
     LineJoinMiter,
     LineJoinBevel,
@@ -439,7 +418,6 @@ type
 
 {$IFDEF DELPHI6_UP}
   {$Z1}
-  {$EXTERNALSYM PathPointType}
   PathPointType = (
     PathPointTypeStart           = $00, // move
     PathPointTypeLine            = $01, // line
@@ -455,7 +433,6 @@ type
   TPathPointType = PathPointType;
   {$Z4}
 {$ELSE}
-  {$EXTERNALSYM PathPointType}
   PathPointType = Byte;
   const
     PathPointTypeStart          : Byte = $00; // move
@@ -477,7 +454,6 @@ type
 // WarpMode constants
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM WarpMode}
   WarpMode = (
     WarpModePerspective,    // 0
     WarpModeBilinear        // 1
@@ -488,7 +464,6 @@ type
 // LineGradient Mode
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM LinearGradientMode}
   LinearGradientMode = (
     LinearGradientModeHorizontal,         // 0
     LinearGradientModeVertical,           // 1
@@ -501,7 +476,6 @@ type
 // Region Comine Modes
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM CombineMode}
   CombineMode = (
     CombineModeReplace,     // 0
     CombineModeIntersect,   // 1
@@ -516,7 +490,6 @@ type
  // Image types
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM ImageType}
   ImageType = (
     ImageTypeUnknown,   // 0
     ImageTypeBitmap,    // 1
@@ -528,7 +501,6 @@ type
 // Interpolation modes
 //--------------------------------------------------------------------------
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM InterpolationMode}
   InterpolationMode = (
     InterpolationModeInvalid          = ord(QualityModeInvalid),
     InterpolationModeDefault          = ord(QualityModeDefault),
@@ -542,7 +514,6 @@ type
   );
   TInterpolationMode = InterpolationMode;
 {$ELSE}
-  {$EXTERNALSYM InterpolationMode}
   InterpolationMode = Integer;
   const
     InterpolationModeInvalid             = QualityModeInvalid;
@@ -563,7 +534,6 @@ type
 // Pen types
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM PenAlignment}
   PenAlignment = (
     PenAlignmentCenter,
     PenAlignmentInset
@@ -574,7 +544,6 @@ type
 // Brush types
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM BrushType}
   BrushType = (
    BrushTypeSolidColor,
    BrushTypeHatchFill,
@@ -588,7 +557,6 @@ type
 // Pen's Fill types
 //--------------------------------------------------------------------------
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM PenType}
   PenType = (
    PenTypeSolidColor       =  ord(BrushTypeSolidColor),
    PenTypeHatchFill        =  ord(BrushTypeHatchFill),
@@ -599,7 +567,6 @@ type
   );
   TPenType = PenType;
 {$ELSE}
-  {$EXTERNALSYM PenType}
   PenType = Integer;
   const
     PenTypeSolidColor       =  0;
@@ -617,7 +584,6 @@ type
 // Matrix Order
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM MatrixOrder}
   MatrixOrder = (
     MatrixOrderPrepend,
     MatrixOrderAppend
@@ -628,7 +594,6 @@ type
 // Generic font families
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM GenericFontFamily}
   GenericFontFamily = (
     GenericFontFamilySerif,
     GenericFontFamilySansSerif,
@@ -640,7 +605,6 @@ type
 // FontStyle: face types and common styles
 //--------------------------------------------------------------------------
 type
-  {$EXTERNALSYM FontStyle}
   FontStyle = Integer;
   const
     FontStyleRegular    = Integer(0);
@@ -656,18 +620,17 @@ type
 // Smoothing Mode
 //---------------------------------------------------------------------------
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM SmoothingMode}
   SmoothingMode = (
     SmoothingModeInvalid     = ord(QualityModeInvalid),
     SmoothingModeDefault     = ord(QualityModeDefault),
     SmoothingModeHighSpeed   = ord(QualityModeLow),
     SmoothingModeHighQuality = ord(QualityModeHigh),
     SmoothingModeNone,
-    SmoothingModeAntiAlias
-  );
+    SmoothingModeAntiAlias8x4,
+    SmoothingModeAntiAlias   = SmoothingModeAntiAlias8x4,
+    SmoothingModeAntiAlias8x8);
   TSmoothingMode = SmoothingMode;
 {$ELSE}
-  {$EXTERNALSYM SmoothingMode}
   SmoothingMode = Integer;
   const
     SmoothingModeInvalid     = QualityModeInvalid;
@@ -685,7 +648,6 @@ type
 // Pixel Format Mode
 //---------------------------------------------------------------------------
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM PixelOffsetMode}
   PixelOffsetMode = (
     PixelOffsetModeInvalid     = Ord(QualityModeInvalid),
     PixelOffsetModeDefault     = Ord(QualityModeDefault),
@@ -696,7 +658,6 @@ type
   );
   TPixelOffsetMode = PixelOffsetMode;
 {$ELSE}
-  {$EXTERNALSYM PixelOffsetMode}
   PixelOffsetMode = Integer;
   const
     PixelOffsetModeInvalid     = QualityModeInvalid;
@@ -714,7 +675,6 @@ type
 // Text Rendering Hint
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM TextRenderingHint}
   TextRenderingHint = (
     TextRenderingHintSystemDefault,                // Glyph with system default rendering hint
     TextRenderingHintSingleBitPerPixelGridFit,     // Glyph bitmap with hinting
@@ -729,7 +689,6 @@ type
 // Metafile Types
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM MetafileType}
   MetafileType = (
     MetafileTypeInvalid,            // Invalid metafile
     MetafileTypeWmf,                // Standard WMF
@@ -744,7 +703,6 @@ type
 // Specifies the type of EMF to record
 //---------------------------------------------------------------------------
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM EmfType}
   EmfType = (
     EmfTypeEmfOnly     = Ord(MetafileTypeEmf),          // no EMF+, only EMF
     EmfTypeEmfPlusOnly = Ord(MetafileTypeEmfPlusOnly),  // no EMF, only EMF+
@@ -752,7 +710,6 @@ type
   );
   TEmfType = EmfType;
 {$ELSE}
-  {$EXTERNALSYM EmfType}
   EmfType = Integer;
   const
     EmfTypeEmfOnly     = Ord(MetafileTypeEmf);          // no EMF+, only EMF
@@ -767,7 +724,6 @@ type
 // EMF+ Persistent object types
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM ObjectType}
   ObjectType = (
     ObjectTypeInvalid,
     ObjectTypeBrush,
@@ -797,9 +753,7 @@ function ObjectTypeIsValid(type_: ObjectType): BOOL;
 
 const
   GDIP_EMFPLUS_RECORD_BASE      = $00004000;
-  {$EXTERNALSYM GDIP_EMFPLUS_RECORD_BASE}
   GDIP_WMF_RECORD_BASE          = $00010000;
-  {$EXTERNALSYM GDIP_WMF_RECORD_BASE}
 
 // macros
 function GDIP_WMF_RECORD_TO_EMFPLUS(n: integer): Integer;
@@ -809,7 +763,6 @@ function GDIP_IS_WMF_RECORDTYPE(n: integer): BOOL;
 
 {$IFDEF DELPHI6_UP}
 type
-  {$EXTERNALSYM EmfPlusRecordType}
   EmfPlusRecordType = (
    // Since we have to enumerate GDI records right along with GDI+ records,
    // We list all the GDI records here so that they can be part of the
@@ -1103,7 +1056,6 @@ type
   TEmfPlusRecordType = EmfPlusRecordType;
 {$ELSE}
 type
-  {$EXTERNALSYM EmfPlusRecordType}
   EmfPlusRecordType = Integer;
   // Since we have to enumerate GDI records right along with GDI+ records,
   // We list all the GDI records here so that they can be part of the
@@ -1469,7 +1421,6 @@ type
 
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM StringFormatFlags}
   StringFormatFlags = Integer;
   const
     StringFormatFlagsDirectionRightToLeft        = $00000001;
@@ -1490,7 +1441,6 @@ Type
 // StringTrimming
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM StringTrimming}
   StringTrimming = (
     StringTrimmingNone,
     StringTrimmingCharacter,
@@ -1505,7 +1455,6 @@ Type
 // National language digit substitution
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM StringDigitSubstitute}
   StringDigitSubstitute = (
     StringDigitSubstituteUser,          // As NLS setting
     StringDigitSubstituteNone,
@@ -1519,7 +1468,6 @@ Type
 // Hotkey prefix interpretation
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM HotkeyPrefix}
   HotkeyPrefix = (
     HotkeyPrefixNone,
     HotkeyPrefixShow,
@@ -1531,7 +1479,6 @@ Type
 // String alignment flags
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM StringAlignment}
   StringAlignment = (
     // Left edge for left-to-right text,
     // right for right-to-left text,
@@ -1546,7 +1493,6 @@ Type
 // DriverStringOptions
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM DriverStringOptions}
   DriverStringOptions = Integer;
   const
     DriverStringOptionsCmapLookup             = 1;
@@ -1561,7 +1507,6 @@ type
 // Flush Intention flags
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM FlushIntention}
   FlushIntention = (
     FlushIntentionFlush,  // Flush all batched rendering operations
     FlushIntentionSync    // Flush all batched rendering operations
@@ -1573,7 +1518,6 @@ type
 // Image encoder parameter related types
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM EncoderParameterValueType}
   EncoderParameterValueType = Integer;
   const
     EncoderParameterValueTypeByte          : Integer = 1;    // 8-bit unsigned int
@@ -1602,7 +1546,6 @@ type
 // Image encoder value types
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM EncoderValue}
   EncoderValue = (
     EncoderValueColorTypeCMYK,
     EncoderValueColorTypeYCCK,
@@ -1635,7 +1578,6 @@ type
 // Conversion of Emf To WMF Bits flags
 //---------------------------------------------------------------------------
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM EmfToWmfBitsFlags}
   EmfToWmfBitsFlags = (
     EmfToWmfBitsFlagsDefault          = $00000000,
     EmfToWmfBitsFlagsEmbedEmf         = $00000001,
@@ -1644,7 +1586,6 @@ type
   );
   TEmfToWmfBitsFlags = EmfToWmfBitsFlags;
 {$ELSE}
-  {$EXTERNALSYM EmfToWmfBitsFlags}
   EmfToWmfBitsFlags = Integer;
   const
     EmfToWmfBitsFlagsDefault          = $00000000;
@@ -1665,11 +1606,9 @@ type
 // Callback functions
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM ImageAbort}
+//ImageAbort = function: BOOL; stdcall; ???
   ImageAbort = function(AData :Pointer): BOOL; stdcall;
-  {$EXTERNALSYM DrawImageAbort}
   DrawImageAbort         = ImageAbort;
-  {$EXTERNALSYM GetThumbnailImageAbort}
   GetThumbnailImageAbort = ImageAbort;
 
 
@@ -1685,7 +1624,6 @@ type
   // record that was just enumerated.  If this method  returns
   // FALSE, the enumeration process is aborted.  Otherwise, it continues.
 
-  {$EXTERNALSYM EnumerateMetafileProc}
   EnumerateMetafileProc = function(recordType: EmfPlusRecordType; flags: UINT;
     dataSize: UINT; data: PBYTE; callbackData: pointer): BOOL; stdcall;
 
@@ -1715,19 +1653,14 @@ const
   FLT_MIN =  1.175494351e-38; // min positive value
 
   REAL_MAX           = FLT_MAX;
-  {$EXTERNALSYM REAL_MAX}
   REAL_MIN           = FLT_MIN;
-  {$EXTERNALSYM REAL_MIN}
   REAL_TOLERANCE     = (FLT_MIN * 100);
-  {$EXTERNALSYM REAL_TOLERANCE}
   REAL_EPSILON       = 1.192092896e-07;        // FLT_EPSILON
-  {$EXTERNALSYM REAL_EPSILON}
 
 //--------------------------------------------------------------------------
 // Status return values from GDI+ methods
 //--------------------------------------------------------------------------
 type
-  {$EXTERNALSYM Status}
   Status = (
     Ok,
     GenericError,
@@ -1759,7 +1692,7 @@ type
 
 type
   PGPSizeF = ^TGPSizeF;
-  TGPSizeF = packed record
+  TGPSizeF = record
     Width  : Single;
     Height : Single;
   end;
@@ -1772,7 +1705,7 @@ type
 
 type
   PGPSize = ^TGPSize;
-  TGPSize = packed record
+  TGPSize = record
     Width  : Integer;
     Height : Integer;
   end;
@@ -1785,7 +1718,7 @@ type
 
 type
   PGPPointF = ^TGPPointF;
-  TGPPointF = packed record
+  TGPPointF = record
     X : Single;
     Y : Single;
   end;
@@ -1799,7 +1732,7 @@ type
 
 type
   PGPPoint = ^TGPPoint;
-  TGPPoint = packed record
+  TGPPoint = record
     X : Integer;
     Y : Integer;
   end;
@@ -1813,7 +1746,7 @@ type
 
 type
   PGPRectF = ^TGPRectF;
-  TGPRectF = packed record
+  TGPRectF = record
     X     : Single;
     Y     : Single;
     Width : Single;
@@ -1826,7 +1759,7 @@ type
 
 type
   PGPRect = ^TGPRect;
-  TGPRect = packed record
+  TGPRect = record
     X     : Integer;
     Y     : Integer;
     Width : Integer;
@@ -1839,7 +1772,7 @@ type
   function MakeRect(const Rect: TRect): TGPRect; overload;
 
 type
-  TPathData = packed class
+  TPathData = class
   public
     Count  : Integer;
     Points : PGPPointF;
@@ -1849,7 +1782,7 @@ type
   end;
 
   PCharacterRange = ^TCharacterRange;
-  TCharacterRange = packed record
+  TCharacterRange = record
     First  : Integer;
     Length : Integer;
   end;
@@ -1862,7 +1795,6 @@ type
 *
 **************************************************************************)
 type
-  {$EXTERNALSYM DebugEventLevel}
   DebugEventLevel = (
     DebugEventLevelFatal,
     DebugEventLevelWarning
@@ -1872,21 +1804,18 @@ type
   // Callback function that GDI+ can call, on debug builds, for assertions
   // and warnings.
 
-  {$EXTERNALSYM DebugEventProc}
-  DebugEventProc = procedure(level: DebugEventLevel; message: PTChar); stdcall;
+  DebugEventProc = procedure(level: DebugEventLevel; message: PWideChar); stdcall;
 
   // Notification functions which the user must call appropriately if
   // "SuppressBackgroundThread" (below) is set.
 
-  {$EXTERNALSYM NotificationHookProc}
   NotificationHookProc = function(out token: ULONG): Status; stdcall;
-  {$EXTERNALSYM NotificationUnhookProc}
   NotificationUnhookProc = procedure(token: ULONG); stdcall;
 
   // Input structure for GdiplusStartup
 
-  {$EXTERNALSYM GdiplusStartupInput}
-  GdiplusStartupInput = packed record
+{$ALIGN 8}
+  GdiplusStartupInput = record
     GdiplusVersion          : Cardinal;       // Must be 1
     DebugEventCallback      : DebugEventProc; // Ignored on free builds
     SuppressBackgroundThread: BOOL;           // FALSE unless you're prepared to call
@@ -1895,11 +1824,11 @@ type
   end;                                        // its internal image codecs.
   TGdiplusStartupInput = GdiplusStartupInput;
   PGdiplusStartupInput = ^TGdiplusStartupInput;
+{$ALIGN ON}
 
   // Output structure for GdiplusStartup()
 
-  {$EXTERNALSYM GdiplusStartupOutput}
-  GdiplusStartupOutput = packed record
+  GdiplusStartupOutput = record
     // The following 2 fields are NULL if SuppressBackgroundThread is FALSE.
     // Otherwise, they are functions which must be called appropriately to
     // replace the background thread.
@@ -1924,7 +1853,6 @@ type
   // input  - may not be NULL
   // output - may be NULL only if input->SuppressBackgroundThread is FALSE.
 
-  {$EXTERNALSYM GdiplusStartup}
  function GdiplusStartup(out token: ULONG; input: PGdiplusStartupInput;
    output: PGdiplusStartupOutput): Status; stdcall;
 
@@ -1934,7 +1862,6 @@ type
   // GDI+ API's may not be called after GdiplusShutdown. Pay careful attention
   // to GDI+ object destructors.
 
-  {$EXTERNALSYM GdiplusShutdown}
   procedure GdiplusShutdown(token: ULONG); stdcall;
 
 
@@ -1951,21 +1878,14 @@ type
 type
   PARGB  = ^ARGB;
   ARGB   = DWORD;
-  {$EXTERNALSYM ARGB}
   ARGB64 = Int64;
-  {$EXTERNALSYM ARGB64}
 
 const
   ALPHA_SHIFT = 24;
-  {$EXTERNALSYM ALPHA_SHIFT}
   RED_SHIFT   = 16;
-  {$EXTERNALSYM RED_SHIFT}
   GREEN_SHIFT = 8;
-  {$EXTERNALSYM GREEN_SHIFT}
   BLUE_SHIFT  = 0;
-  {$EXTERNALSYM BLUE_SHIFT}
   ALPHA_MASK  = (ARGB($ff) shl ALPHA_SHIFT);
-  {$EXTERNALSYM ALPHA_MASK}
 
   // In-memory pixel data formats:
   // bits 0-7 = format index
@@ -1975,66 +1895,38 @@ const
 
 type
   PixelFormat = Integer;
-  {$EXTERNALSYM PixelFormat}
   TPixelFormat = PixelFormat;
 
 const
   PixelFormatIndexed     = $00010000; // Indexes into a palette
-  {$EXTERNALSYM PixelFormatIndexed}
   PixelFormatGDI         = $00020000; // Is a GDI-supported format
-  {$EXTERNALSYM PixelFormatGDI}
   PixelFormatAlpha       = $00040000; // Has an alpha component
-  {$EXTERNALSYM PixelFormatAlpha}
   PixelFormatPAlpha      = $00080000; // Pre-multiplied alpha
-  {$EXTERNALSYM PixelFormatPAlpha}
   PixelFormatExtended    = $00100000; // Extended color 16 bits/channel
-  {$EXTERNALSYM PixelFormatExtended}
   PixelFormatCanonical   = $00200000;
-  {$EXTERNALSYM PixelFormatCanonical}
 
   PixelFormatUndefined      = 0;
-  {$EXTERNALSYM PixelFormatUndefined}
   PixelFormatDontCare       = 0;
-  {$EXTERNALSYM PixelFormatDontCare}
 
   PixelFormat1bppIndexed    = (1  or ( 1 shl 8) or PixelFormatIndexed or PixelFormatGDI);
-  {$EXTERNALSYM PixelFormat1bppIndexed}
   PixelFormat4bppIndexed    = (2  or ( 4 shl 8) or PixelFormatIndexed or PixelFormatGDI);
-  {$EXTERNALSYM PixelFormat4bppIndexed}
   PixelFormat8bppIndexed    = (3  or ( 8 shl 8) or PixelFormatIndexed or PixelFormatGDI);
-  {$EXTERNALSYM PixelFormat8bppIndexed}
   PixelFormat16bppGrayScale = (4  or (16 shl 8) or PixelFormatExtended);
-  {$EXTERNALSYM PixelFormat16bppGrayScale}
   PixelFormat16bppRGB555    = (5  or (16 shl 8) or PixelFormatGDI);
-  {$EXTERNALSYM PixelFormat16bppRGB555}
   PixelFormat16bppRGB565    = (6  or (16 shl 8) or PixelFormatGDI);
-  {$EXTERNALSYM PixelFormat16bppRGB565}
   PixelFormat16bppARGB1555  = (7  or (16 shl 8) or PixelFormatAlpha or PixelFormatGDI);
-  {$EXTERNALSYM PixelFormat16bppARGB1555}
   PixelFormat24bppRGB       = (8  or (24 shl 8) or PixelFormatGDI);
-  {$EXTERNALSYM PixelFormat24bppRGB}
   PixelFormat32bppRGB       = (9  or (32 shl 8) or PixelFormatGDI);
-  {$EXTERNALSYM PixelFormat32bppRGB}
   PixelFormat32bppARGB      = (10 or (32 shl 8) or PixelFormatAlpha or PixelFormatGDI or PixelFormatCanonical);
-  {$EXTERNALSYM PixelFormat32bppARGB}
   PixelFormat32bppPARGB     = (11 or (32 shl 8) or PixelFormatAlpha or PixelFormatPAlpha or PixelFormatGDI);
-  {$EXTERNALSYM PixelFormat32bppPARGB}
   PixelFormat48bppRGB       = (12 or (48 shl 8) or PixelFormatExtended);
-  {$EXTERNALSYM PixelFormat48bppRGB}
   PixelFormat64bppARGB      = (13 or (64 shl 8) or PixelFormatAlpha  or PixelFormatCanonical or PixelFormatExtended);
-  {$EXTERNALSYM PixelFormat64bppARGB}
   PixelFormat64bppPARGB     = (14 or (64 shl 8) or PixelFormatAlpha  or PixelFormatPAlpha or PixelFormatExtended);
-  {$EXTERNALSYM PixelFormat64bppPARGB}
   PixelFormatMax            = 15;
-  {$EXTERNALSYM PixelFormatMax}
 
-{$EXTERNALSYM GetPixelFormatSize}
 function GetPixelFormatSize(pixfmt: PixelFormat): UINT;
-{$EXTERNALSYM IsIndexedPixelFormat}
 function IsIndexedPixelFormat(pixfmt: PixelFormat): BOOL;
-{$EXTERNALSYM IsAlphaPixelFormat}
 function IsAlphaPixelFormat(pixfmt: PixelFormat): BOOL;
-{$EXTERNALSYM IsExtendedPixelFormat}
 function IsExtendedPixelFormat(pixfmt: PixelFormat): BOOL;
 
 //--------------------------------------------------------------------------
@@ -2045,12 +1937,10 @@ function IsExtendedPixelFormat(pixfmt: PixelFormat): BOOL;
 //   PixelFormat64bppPARGB
 //--------------------------------------------------------------------------
 
-{$EXTERNALSYM IsCanonicalPixelFormat}
 function IsCanonicalPixelFormat(pixfmt: PixelFormat): BOOL;
 
 {$IFDEF DELPHI6_UP}
 type
-  {$EXTERNALSYM PaletteFlags}
   PaletteFlags = (
     PaletteFlagsHasAlpha    = $0001,
     PaletteFlagsGrayScale   = $0002,
@@ -2059,7 +1949,6 @@ type
   TPaletteFlags = PaletteFlags;
 {$ELSE}
 type
-  {$EXTERNALSYM PaletteFlags}
   PaletteFlags = Integer;
   const
     PaletteFlagsHasAlpha    = $0001;
@@ -2070,8 +1959,7 @@ type
   TPaletteFlags = PaletteFlags;
 {$ENDIF}
 
-  {$EXTERNALSYM ColorPalette}
-  ColorPalette = packed record
+  ColorPalette = record
     Flags  : UINT ;                 // Palette flags
     Count  : UINT ;                 // Number of color entries
     Entries: array [0..0] of ARGB ; // Palette color entries
@@ -2090,7 +1978,6 @@ type
 // Color mode
 //----------------------------------------------------------------------------
 
-  {$EXTERNALSYM ColorMode}
   ColorMode = (
     ColorModeARGB32,
     ColorModeARGB64
@@ -2101,7 +1988,6 @@ type
 // Color Channel flags 
 //----------------------------------------------------------------------------
 
-  {$EXTERNALSYM ColorChannelFlags}
   ColorChannelFlags = (
     ColorChannelFlagsC,
     ColorChannelFlagsM,
@@ -2261,22 +2147,14 @@ const
 
   // Shift count and bit mask for A, R, G, B components
   AlphaShift  = 24;
-  {$EXTERNALSYM AlphaShift}
   RedShift    = 16;
-  {$EXTERNALSYM RedShift}
   GreenShift  = 8;
-  {$EXTERNALSYM GreenShift}
   BlueShift   = 0;
-  {$EXTERNALSYM BlueShift}
 
   AlphaMask   = $ff000000;
-  {$EXTERNALSYM AlphaMask}
   RedMask     = $00ff0000;
-  {$EXTERNALSYM RedMask}
   GreenMask   = $0000ff00;
-  {$EXTERNALSYM GreenMask}
   BlueMask    = $000000ff;
-  {$EXTERNALSYM BlueMask}
 
 
 type
@@ -2307,14 +2185,14 @@ type
   TGPColor = ARGB;
   TColorDynArray = array of TGPColor;
 
-  function MakeColor(r, g, b: Byte): ARGB; overload;
-  function MakeColor(a, r, g, b: Byte): ARGB; overload;
-  function GetAlpha(color: ARGB): BYTE;
-  function GetRed(color: ARGB): BYTE;
-  function GetGreen(color: ARGB): BYTE;
-  function GetBlue(color: ARGB): BYTE;
-  function ColorRefToARGB(rgb: COLORREF): ARGB;
-  function ARGBToColorRef(Color: ARGB): COLORREF;
+function MakeColor(r, g, b: Byte): ARGB; overload; inline;
+function MakeColor(a, r, g, b: Byte): ARGB; overload; inline;
+function GetAlpha(color: ARGB): BYTE; inline;
+function GetRed(color: ARGB): BYTE; inline;
+function GetGreen(color: ARGB): BYTE; inline;
+function GetBlue(color: ARGB): BYTE; inline;
+function ColorRefToARGB(rgb: COLORREF): ARGB; inline;
+function ARGBToColorRef(Color: ARGB): COLORREF; inline;
 
 
 (**************************************************************************\
@@ -2328,8 +2206,7 @@ type
   RECTL = Windows.TRect;
   SIZEL = Windows.TSize;
 
-  {$EXTERNALSYM ENHMETAHEADER3}
-  ENHMETAHEADER3 = packed record
+  ENHMETAHEADER3 = record
     iType          : DWORD;  // Record type EMR_HEADER
     nSize          : DWORD;  // Record size in bytes.  This may be greater
                              // than the sizeof(ENHMETAHEADER).
@@ -2349,6 +2226,15 @@ type
     nPalEntries    : DWORD;  // Number of entries in the metafile palette.
     szlDevice      : SIZEL;  // Size of the reference device in pels
     szlMillimeters : SIZEL;  // Size of the reference device in millimeters
+
+    cbPixelFormat  : DWORD;  // Size of PIXELFORMATDESCRIPTOR information
+                             // This is 0 if no pixel format is set
+    offPixelFormat : DWORD;  // Offset to PIXELFORMATDESCRIPTOR
+                             // This is 0 if no pixel format is set
+    bOpenGL        : DWORD;  // TRUE if OpenGL commands are present in
+                             // the metafile, otherwise FALSE
+
+    szlMicrometers : SIZEL;  // Size of the reference device in micrometers
   end;
   TENHMETAHEADER3 = ENHMETAHEADER3;
   PENHMETAHEADER3 = ^TENHMETAHEADER3;
@@ -2368,8 +2254,7 @@ type
   // Each placeable metafile begins with a 22-byte header,
   //  followed by a standard metafile:
 
-  {$EXTERNALSYM PWMFRect16}
-  PWMFRect16 = packed record
+  PWMFRect16 = record
     Left   : INT16;
     Top    : INT16;
     Right  : INT16;
@@ -2377,9 +2262,8 @@ type
   end;
   TPWMFRect16 = PWMFRect16;
   PPWMFRect16 = ^TPWMFRect16;
-
-  {$EXTERNALSYM WmfPlaceableFileHeader}
-  WmfPlaceableFileHeader = packed record
+{$ALIGN 1}
+  WmfPlaceableFileHeader = record
     Key         : UINT32;      // GDIP_WMF_PLACEABLEKEY
     Hmf         : INT16;       // Metafile HANDLE number (always 0)
     BoundingBox : PWMFRect16;  // Coordinates in metafile units
@@ -2389,7 +2273,7 @@ type
   end;
   TWmfPlaceableFileHeader = WmfPlaceableFileHeader;
   PWmfPlaceableFileHeader = ^TWmfPlaceableFileHeader;
-
+{$ALIGN ON}
   // Key contains a special identification value that indicates the presence
   // of a placeable metafile header and is always 0x9AC6CDD7.
 
@@ -2423,10 +2307,9 @@ type
 
 const
   GDIP_EMFPLUSFLAGS_DISPLAY      = $00000001;
-  {$EXTERNALSYM GDIP_EMFPLUSFLAGS_DISPLAY}
 
 type
-  TMetafileHeader = packed class
+  TMetafileHeader = class
   public
     Type_        : TMetafileType;
     Size         : UINT;           // Size of the metafile (in bytes)
@@ -2490,78 +2373,50 @@ type
 
 const
   ImageFormatUndefined : TGUID = '{b96b3ca9-0728-11d3-9d7b-0000f81ef32e}';
-  {$EXTERNALSYM ImageFormatUndefined}
   ImageFormatMemoryBMP : TGUID = '{b96b3caa-0728-11d3-9d7b-0000f81ef32e}';
-  {$EXTERNALSYM ImageFormatMemoryBMP}
   ImageFormatBMP       : TGUID = '{b96b3cab-0728-11d3-9d7b-0000f81ef32e}';
-  {$EXTERNALSYM ImageFormatBMP}
   ImageFormatEMF       : TGUID = '{b96b3cac-0728-11d3-9d7b-0000f81ef32e}';
-  {$EXTERNALSYM ImageFormatEMF}
   ImageFormatWMF       : TGUID = '{b96b3cad-0728-11d3-9d7b-0000f81ef32e}';
-  {$EXTERNALSYM ImageFormatWMF}
   ImageFormatJPEG      : TGUID = '{b96b3cae-0728-11d3-9d7b-0000f81ef32e}';
-  {$EXTERNALSYM ImageFormatJPEG}
   ImageFormatPNG       : TGUID = '{b96b3caf-0728-11d3-9d7b-0000f81ef32e}';
-  {$EXTERNALSYM ImageFormatPNG}
   ImageFormatGIF       : TGUID = '{b96b3cb0-0728-11d3-9d7b-0000f81ef32e}';
-  {$EXTERNALSYM ImageFormatGIF}
   ImageFormatTIFF      : TGUID = '{b96b3cb1-0728-11d3-9d7b-0000f81ef32e}';
-  {$EXTERNALSYM ImageFormatTIFF}
   ImageFormatEXIF      : TGUID = '{b96b3cb2-0728-11d3-9d7b-0000f81ef32e}';
-  {$EXTERNALSYM ImageFormatEXIF}
   ImageFormatIcon      : TGUID = '{b96b3cb5-0728-11d3-9d7b-0000f81ef32e}';
-  {$EXTERNALSYM ImageFormatIcon}
 
 //---------------------------------------------------------------------------
 // Predefined multi-frame dimension IDs
 //---------------------------------------------------------------------------
 
   FrameDimensionTime       : TGUID = '{6aedbd6d-3fb5-418a-83a6-7f45229dc872}';
-  {$EXTERNALSYM FrameDimensionTime}
   FrameDimensionResolution : TGUID = '{84236f7b-3bd3-428f-8dab-4ea1439ca315}';
-  {$EXTERNALSYM FrameDimensionResolution}
   FrameDimensionPage       : TGUID = '{7462dc86-6180-4c7e-8e3f-ee7333a7a483}';
-  {$EXTERNALSYM FrameDimensionPage}
 
 //---------------------------------------------------------------------------
 // Property sets
 //---------------------------------------------------------------------------
 
   FormatIDImageInformation : TGUID = '{e5836cbe-5eef-4f1d-acde-ae4c43b608ce}';
-  {$EXTERNALSYM FormatIDImageInformation}
   FormatIDJpegAppHeaders   : TGUID = '{1c4afdcd-6177-43cf-abc7-5f51af39ee85}';
-  {$EXTERNALSYM FormatIDJpegAppHeaders}
 
 //---------------------------------------------------------------------------
 // Encoder parameter sets
 //---------------------------------------------------------------------------
 
   EncoderCompression      : TGUID = '{e09d739d-ccd4-44ee-8eba-3fbf8be4fc58}';
-  {$EXTERNALSYM EncoderCompression}
   EncoderColorDepth       : TGUID = '{66087055-ad66-4c7c-9a18-38a2310b8337}';
-  {$EXTERNALSYM EncoderColorDepth}
   EncoderScanMethod       : TGUID = '{3a4e2661-3109-4e56-8536-42c156e7dcfa}';
-  {$EXTERNALSYM EncoderScanMethod}
   EncoderVersion          : TGUID = '{24d18c76-814a-41a4-bf53-1c219cccf797}';
-  {$EXTERNALSYM EncoderVersion}
   EncoderRenderMethod     : TGUID = '{6d42c53a-229a-4825-8bb7-5c99e2b9a8b8}';
-  {$EXTERNALSYM EncoderRenderMethod}
   EncoderQuality          : TGUID = '{1d5be4b5-fa4a-452d-9cdd-5db35105e7eb}';
-  {$EXTERNALSYM EncoderQuality}
   EncoderTransformation   : TGUID = '{8d0eb2d1-a58e-4ea8-aa14-108074b7b6f9}';
-  {$EXTERNALSYM EncoderTransformation}
   EncoderLuminanceTable   : TGUID = '{edb33bce-0266-4a77-b904-27216099e717}';
-  {$EXTERNALSYM EncoderLuminanceTable}
   EncoderChrominanceTable : TGUID = '{f2e455dc-09b3-4316-8260-676ada32481c}';
-  {$EXTERNALSYM EncoderChrominanceTable}
   EncoderSaveFlag         : TGUID = '{292266fc-ac40-47bf-8cfc-a85b89a655de}';
-  {$EXTERNALSYM EncoderSaveFlag}
 
   CodecIImageBytes : TGUID = '{025d1823-6c7d-447b-bbdb-a3cbc3dfa2fc}';
-  {$EXTERNALSYM CodecIImageBytes}
 
 type
-  {$EXTERNALSYM IImageBytes}
   IImageBytes = Interface(IUnknown)
     ['{025D1823-6C7D-447B-BBDB-A3CBC3DFA2FC}']
     // Return total number of bytes in the IStream
@@ -2578,8 +2433,7 @@ type
 // ImageCodecInfo structure
 //--------------------------------------------------------------------------
 
-  {$EXTERNALSYM ImageCodecInfo}
-  ImageCodecInfo = packed record
+  ImageCodecInfo = record
     Clsid             : TGUID;
     FormatID          : TGUID;
     CodecName         : PWCHAR;
@@ -2601,7 +2455,6 @@ type
 // Information flags about image codecs
 //--------------------------------------------------------------------------
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM ImageCodecFlags}
   ImageCodecFlags = (
     ImageCodecFlagsEncoder            = $00000001,
     ImageCodecFlagsDecoder            = $00000002,
@@ -2616,7 +2469,6 @@ type
   );
   TImageCodecFlags = ImageCodecFlags;
 {$ELSE}
-  {$EXTERNALSYM ImageCodecFlags}
   ImageCodecFlags = Integer;
   const
     ImageCodecFlagsEncoder            = $00000001;
@@ -2637,7 +2489,6 @@ type
 // Access modes used when calling Image::LockBits
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM ImageLockMode}
   ImageLockMode = Integer;
   const
     ImageLockModeRead         = $0001;
@@ -2650,23 +2501,23 @@ type
 // Information about image pixel data
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM BitmapData}
-  BitmapData = packed record
+{$ALIGN 1}
+  BitmapData = record
     Width       : UINT;
     Height      : UINT;
     Stride      : Integer;
     PixelFormat : PixelFormat;
     Scan0       : Pointer;
-    Reserved    : UINT;
+    Reserved    : UINT_PTR;
   end;
   TBitmapData = BitmapData;
   PBitmapData = ^TBitmapData;
+{$ALIGN ON}
 
 //---------------------------------------------------------------------------
 // Image flags
 //---------------------------------------------------------------------------
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM ImageFlags}
   ImageFlags = (
     ImageFlagsNone                = 0,
 
@@ -2697,7 +2548,6 @@ type
   );
   TImageFlags = ImageFlags;
 {$ELSE}
-  {$EXTERNALSYM ImageFlags}
   ImageFlags = Integer;
   const
     ImageFlagsNone                = 0;
@@ -2733,7 +2583,6 @@ type
 
 
 {$IFDEF DELPHI6_UP}
-  {$EXTERNALSYM RotateFlipType}
   RotateFlipType = (
     RotateNoneFlipNone = 0,
     Rotate90FlipNone   = 1,
@@ -2757,7 +2606,6 @@ type
   );
   TRotateFlipType = RotateFlipType;
 {$ELSE}
-  {$EXTERNALSYM RotateFlipType}
   RotateFlipType = (
     RotateNoneFlipNone, // = 0,
     Rotate90FlipNone,   // = 1,
@@ -2788,8 +2636,7 @@ type
 // Encoder Parameter structure
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM EncoderParameter}
-  EncoderParameter = {packed} record
+  EncoderParameter = record
     Guid           : TGUID;   // GUID of the parameter
     NumberOfValues : ULONG;   // Number of the parameter values
     Type_          : ULONG;   // Value type, like ValueTypeLONG  etc.
@@ -2802,19 +2649,19 @@ type
 // Encoder Parameters structure
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM EncoderParameters}
-  EncoderParameters = {packed} record
+{$ALIGN 8}
+  EncoderParameters = record
     Count     : UINT;               // Number of parameters in this structure
-    Parameter : array[0..3] of TEncoderParameter;  // Parameter values
+    Parameter : array[0..0] of TEncoderParameter;  // Parameter values
   end;
   TEncoderParameters = EncoderParameters;
   PEncoderParameters = ^TEncoderParameters;
+{$ALIGN ON}
 
 //---------------------------------------------------------------------------
 // Property Item
 //---------------------------------------------------------------------------
 
-  {$EXTERNALSYM PropertyItem}
   PropertyItem = record // NOT PACKED !!
     id       : PROPID;  // ID of this property
     length   : ULONG;   // Length of the property value, in bytes
@@ -2830,251 +2677,135 @@ type
 
 const
   PropertyTagTypeByte      : Integer =  1;
-  {$EXTERNALSYM PropertyTagTypeByte}
   PropertyTagTypeASCII     : Integer =  2;
-  {$EXTERNALSYM PropertyTagTypeASCII}
   PropertyTagTypeShort     : Integer =  3;
-  {$EXTERNALSYM PropertyTagTypeShort}
   PropertyTagTypeLong      : Integer =  4;
-  {$EXTERNALSYM PropertyTagTypeLong}
   PropertyTagTypeRational  : Integer =  5;
-  {$EXTERNALSYM PropertyTagTypeRational}
   PropertyTagTypeUndefined : Integer =  7;
-  {$EXTERNALSYM PropertyTagTypeUndefined}
   PropertyTagTypeSLONG     : Integer =  9;
-  {$EXTERNALSYM PropertyTagTypeSLONG}
   PropertyTagTypeSRational : Integer = 10;
-  {$EXTERNALSYM PropertyTagTypeSRational}
 
 //---------------------------------------------------------------------------
 // Image property ID tags
 //---------------------------------------------------------------------------
 
   PropertyTagExifIFD            = $8769;
-  {$EXTERNALSYM PropertyTagExifIFD}
   PropertyTagGpsIFD             = $8825;
-  {$EXTERNALSYM PropertyTagGpsIFD}
 
   PropertyTagNewSubfileType     = $00FE;
-  {$EXTERNALSYM PropertyTagNewSubfileType}
   PropertyTagSubfileType        = $00FF;
-  {$EXTERNALSYM PropertyTagSubfileType}
   PropertyTagImageWidth         = $0100;
-  {$EXTERNALSYM PropertyTagImageWidth}
   PropertyTagImageHeight        = $0101;
-  {$EXTERNALSYM PropertyTagImageHeight}
   PropertyTagBitsPerSample      = $0102;
-  {$EXTERNALSYM PropertyTagBitsPerSample}
   PropertyTagCompression        = $0103;
-  {$EXTERNALSYM PropertyTagCompression}
   PropertyTagPhotometricInterp  = $0106;
-  {$EXTERNALSYM PropertyTagPhotometricInterp}
   PropertyTagThreshHolding      = $0107;
-  {$EXTERNALSYM PropertyTagThreshHolding}
   PropertyTagCellWidth          = $0108;
-  {$EXTERNALSYM PropertyTagCellWidth}
   PropertyTagCellHeight         = $0109;
-  {$EXTERNALSYM PropertyTagCellHeight}
   PropertyTagFillOrder          = $010A;
-  {$EXTERNALSYM PropertyTagFillOrder}
   PropertyTagDocumentName       = $010D;
-  {$EXTERNALSYM PropertyTagDocumentName}
   PropertyTagImageDescription   = $010E;
-  {$EXTERNALSYM PropertyTagImageDescription}
   PropertyTagEquipMake          = $010F;
-  {$EXTERNALSYM PropertyTagEquipMake}
   PropertyTagEquipModel         = $0110;
-  {$EXTERNALSYM PropertyTagEquipModel}
   PropertyTagStripOffsets       = $0111;
-  {$EXTERNALSYM PropertyTagStripOffsets}
   PropertyTagOrientation        = $0112;
-  {$EXTERNALSYM PropertyTagOrientation}
   PropertyTagSamplesPerPixel    = $0115;
-  {$EXTERNALSYM PropertyTagSamplesPerPixel}
   PropertyTagRowsPerStrip       = $0116;
-  {$EXTERNALSYM PropertyTagRowsPerStrip}
   PropertyTagStripBytesCount    = $0117;
-  {$EXTERNALSYM PropertyTagStripBytesCount}
   PropertyTagMinSampleValue     = $0118;
-  {$EXTERNALSYM PropertyTagMinSampleValue}
   PropertyTagMaxSampleValue     = $0119;
-  {$EXTERNALSYM PropertyTagMaxSampleValue}
   PropertyTagXResolution        = $011A;   // Image resolution in width direction
-  {$EXTERNALSYM PropertyTagXResolution}
   PropertyTagYResolution        = $011B;   // Image resolution in height direction
-  {$EXTERNALSYM PropertyTagYResolution}
   PropertyTagPlanarConfig       = $011C;   // Image data arrangement
-  {$EXTERNALSYM PropertyTagPlanarConfig}
   PropertyTagPageName           = $011D;
-  {$EXTERNALSYM PropertyTagPageName}
   PropertyTagXPosition          = $011E;
-  {$EXTERNALSYM PropertyTagXPosition}
   PropertyTagYPosition          = $011F;
-  {$EXTERNALSYM PropertyTagYPosition}
   PropertyTagFreeOffset         = $0120;
-  {$EXTERNALSYM PropertyTagFreeOffset}
   PropertyTagFreeByteCounts     = $0121;
-  {$EXTERNALSYM PropertyTagFreeByteCounts}
   PropertyTagGrayResponseUnit   = $0122;
-  {$EXTERNALSYM PropertyTagGrayResponseUnit}
   PropertyTagGrayResponseCurve  = $0123;
-  {$EXTERNALSYM PropertyTagGrayResponseCurve}
   PropertyTagT4Option           = $0124;
-  {$EXTERNALSYM PropertyTagT4Option}
   PropertyTagT6Option           = $0125;
-  {$EXTERNALSYM PropertyTagT6Option}
   PropertyTagResolutionUnit     = $0128;   // Unit of X and Y resolution
-  {$EXTERNALSYM PropertyTagResolutionUnit}
   PropertyTagPageNumber         = $0129;
-  {$EXTERNALSYM PropertyTagPageNumber}
   PropertyTagTransferFuncition  = $012D;
-  {$EXTERNALSYM PropertyTagTransferFuncition}
   PropertyTagSoftwareUsed       = $0131;
-  {$EXTERNALSYM PropertyTagSoftwareUsed}
   PropertyTagDateTime           = $0132;
-  {$EXTERNALSYM PropertyTagDateTime}
   PropertyTagArtist             = $013B;
-  {$EXTERNALSYM PropertyTagArtist}
   PropertyTagHostComputer       = $013C;
-  {$EXTERNALSYM PropertyTagHostComputer}
   PropertyTagPredictor          = $013D;
-  {$EXTERNALSYM PropertyTagPredictor}
   PropertyTagWhitePoint         = $013E;
-  {$EXTERNALSYM PropertyTagWhitePoint}
   PropertyTagPrimaryChromaticities = $013F;
-  {$EXTERNALSYM PropertyTagPrimaryChromaticities}
   PropertyTagColorMap           = $0140;
-  {$EXTERNALSYM PropertyTagColorMap}
   PropertyTagHalftoneHints      = $0141;
-  {$EXTERNALSYM PropertyTagHalftoneHints}
   PropertyTagTileWidth          = $0142;
-  {$EXTERNALSYM PropertyTagTileWidth}
   PropertyTagTileLength         = $0143;
-  {$EXTERNALSYM PropertyTagTileLength}
   PropertyTagTileOffset         = $0144;
-  {$EXTERNALSYM PropertyTagTileOffset}
   PropertyTagTileByteCounts     = $0145;
-  {$EXTERNALSYM PropertyTagTileByteCounts}
   PropertyTagInkSet             = $014C;
-  {$EXTERNALSYM PropertyTagInkSet}
   PropertyTagInkNames           = $014D;
-  {$EXTERNALSYM PropertyTagInkNames}
   PropertyTagNumberOfInks       = $014E;
-  {$EXTERNALSYM PropertyTagNumberOfInks}
   PropertyTagDotRange           = $0150;
-  {$EXTERNALSYM PropertyTagDotRange}
   PropertyTagTargetPrinter      = $0151;
-  {$EXTERNALSYM PropertyTagTargetPrinter}
   PropertyTagExtraSamples       = $0152;
-  {$EXTERNALSYM PropertyTagExtraSamples}
   PropertyTagSampleFormat       = $0153;
-  {$EXTERNALSYM PropertyTagSampleFormat}
   PropertyTagSMinSampleValue    = $0154;
-  {$EXTERNALSYM PropertyTagSMinSampleValue}
   PropertyTagSMaxSampleValue    = $0155;
-  {$EXTERNALSYM PropertyTagSMaxSampleValue}
   PropertyTagTransferRange      = $0156;
-  {$EXTERNALSYM PropertyTagTransferRange}
 
   PropertyTagJPEGProc               = $0200;
-  {$EXTERNALSYM PropertyTagJPEGProc}
   PropertyTagJPEGInterFormat        = $0201;
-  {$EXTERNALSYM PropertyTagJPEGInterFormat}
   PropertyTagJPEGInterLength        = $0202;
-  {$EXTERNALSYM PropertyTagJPEGInterLength}
   PropertyTagJPEGRestartInterval    = $0203;
-  {$EXTERNALSYM PropertyTagJPEGRestartInterval}
   PropertyTagJPEGLosslessPredictors = $0205;
-  {$EXTERNALSYM PropertyTagJPEGLosslessPredictors}
   PropertyTagJPEGPointTransforms    = $0206;
-  {$EXTERNALSYM PropertyTagJPEGPointTransforms}
   PropertyTagJPEGQTables            = $0207;
-  {$EXTERNALSYM PropertyTagJPEGQTables}
   PropertyTagJPEGDCTables           = $0208;
-  {$EXTERNALSYM PropertyTagJPEGDCTables}
   PropertyTagJPEGACTables           = $0209;
-  {$EXTERNALSYM PropertyTagJPEGACTables}
 
   PropertyTagYCbCrCoefficients  = $0211;
-  {$EXTERNALSYM PropertyTagYCbCrCoefficients}
   PropertyTagYCbCrSubsampling   = $0212;
-  {$EXTERNALSYM PropertyTagYCbCrSubsampling}
   PropertyTagYCbCrPositioning   = $0213;
-  {$EXTERNALSYM PropertyTagYCbCrPositioning}
   PropertyTagREFBlackWhite      = $0214;
-  {$EXTERNALSYM PropertyTagREFBlackWhite}
 
   PropertyTagICCProfile         = $8773;   // This TAG is defined by ICC
-  {$EXTERNALSYM PropertyTagICCProfile}
                                            // for embedded ICC in TIFF
   PropertyTagGamma                = $0301;
-  {$EXTERNALSYM PropertyTagGamma}
   PropertyTagICCProfileDescriptor = $0302;
-  {$EXTERNALSYM PropertyTagICCProfileDescriptor}
   PropertyTagSRGBRenderingIntent  = $0303;
-  {$EXTERNALSYM PropertyTagSRGBRenderingIntent}
 
   PropertyTagImageTitle         = $0320;
-  {$EXTERNALSYM PropertyTagImageTitle}
   PropertyTagCopyright          = $8298;
-  {$EXTERNALSYM PropertyTagCopyright}
 
 // Extra TAGs (Like Adobe Image Information tags etc.)
 
   PropertyTagResolutionXUnit           = $5001;
-  {$EXTERNALSYM PropertyTagResolutionXUnit}
   PropertyTagResolutionYUnit           = $5002;
-  {$EXTERNALSYM PropertyTagResolutionYUnit}
   PropertyTagResolutionXLengthUnit     = $5003;
-  {$EXTERNALSYM PropertyTagResolutionXLengthUnit}
   PropertyTagResolutionYLengthUnit     = $5004;
-  {$EXTERNALSYM PropertyTagResolutionYLengthUnit}
   PropertyTagPrintFlags                = $5005;
-  {$EXTERNALSYM PropertyTagPrintFlags}
   PropertyTagPrintFlagsVersion         = $5006;
-  {$EXTERNALSYM PropertyTagPrintFlagsVersion}
   PropertyTagPrintFlagsCrop            = $5007;
-  {$EXTERNALSYM PropertyTagPrintFlagsCrop}
   PropertyTagPrintFlagsBleedWidth      = $5008;
-  {$EXTERNALSYM PropertyTagPrintFlagsBleedWidth}
   PropertyTagPrintFlagsBleedWidthScale = $5009;
-  {$EXTERNALSYM PropertyTagPrintFlagsBleedWidthScale}
   PropertyTagHalftoneLPI               = $500A;
-  {$EXTERNALSYM PropertyTagHalftoneLPI}
   PropertyTagHalftoneLPIUnit           = $500B;
-  {$EXTERNALSYM PropertyTagHalftoneLPIUnit}
   PropertyTagHalftoneDegree            = $500C;
-  {$EXTERNALSYM PropertyTagHalftoneDegree}
   PropertyTagHalftoneShape             = $500D;
-  {$EXTERNALSYM PropertyTagHalftoneShape}
   PropertyTagHalftoneMisc              = $500E;
-  {$EXTERNALSYM PropertyTagHalftoneMisc}
   PropertyTagHalftoneScreen            = $500F;
-  {$EXTERNALSYM PropertyTagHalftoneScreen}
   PropertyTagJPEGQuality               = $5010;
-  {$EXTERNALSYM PropertyTagJPEGQuality}
   PropertyTagGridSize                  = $5011;
-  {$EXTERNALSYM PropertyTagGridSize}
   PropertyTagThumbnailFormat           = $5012;  // 1 = JPEG, 0 = RAW RGB
-  {$EXTERNALSYM PropertyTagThumbnailFormat}
   PropertyTagThumbnailWidth            = $5013;
-  {$EXTERNALSYM PropertyTagThumbnailWidth}
   PropertyTagThumbnailHeight           = $5014;
-  {$EXTERNALSYM PropertyTagThumbnailHeight}
   PropertyTagThumbnailColorDepth       = $5015;
-  {$EXTERNALSYM PropertyTagThumbnailColorDepth}
   PropertyTagThumbnailPlanes           = $5016;
-  {$EXTERNALSYM PropertyTagThumbnailPlanes}
   PropertyTagThumbnailRawBytes         = $5017;
-  {$EXTERNALSYM PropertyTagThumbnailRawBytes}
   PropertyTagThumbnailSize             = $5018;
-  {$EXTERNALSYM PropertyTagThumbnailSize}
   PropertyTagThumbnailCompressedSize   = $5019;
-  {$EXTERNALSYM PropertyTagThumbnailCompressedSize}
   PropertyTagColorTransferFunction     = $501A;
-  {$EXTERNALSYM PropertyTagColorTransferFunction}
   PropertyTagThumbnailData             = $501B;    // RAW thumbnail bits in
-  {$EXTERNALSYM PropertyTagThumbnailData}
                                                    // JPEG format or RGB format
                                                    // depends on
                                                    // PropertyTagThumbnailFormat
@@ -3082,243 +2813,137 @@ const
   // Thumbnail related TAGs
 
   PropertyTagThumbnailImageWidth        = $5020;   // Thumbnail width
-  {$EXTERNALSYM PropertyTagThumbnailImageWidth}
   PropertyTagThumbnailImageHeight       = $5021;   // Thumbnail height
-  {$EXTERNALSYM PropertyTagThumbnailImageHeight}
   PropertyTagThumbnailBitsPerSample     = $5022;   // Number of bits per
-  {$EXTERNALSYM PropertyTagThumbnailBitsPerSample}
                                                    // component
   PropertyTagThumbnailCompression       = $5023;   // Compression Scheme
-  {$EXTERNALSYM PropertyTagThumbnailCompression}
   PropertyTagThumbnailPhotometricInterp = $5024;   // Pixel composition
-  {$EXTERNALSYM PropertyTagThumbnailPhotometricInterp}
   PropertyTagThumbnailImageDescription  = $5025;   // Image Tile
-  {$EXTERNALSYM PropertyTagThumbnailImageDescription}
   PropertyTagThumbnailEquipMake         = $5026;   // Manufacturer of Image
-  {$EXTERNALSYM PropertyTagThumbnailEquipMake}
                                                    // Input equipment
   PropertyTagThumbnailEquipModel        = $5027;   // Model of Image input
-  {$EXTERNALSYM PropertyTagThumbnailEquipModel}
                                                    // equipment
   PropertyTagThumbnailStripOffsets    = $5028;  // Image data location
-  {$EXTERNALSYM PropertyTagThumbnailStripOffsets}
   PropertyTagThumbnailOrientation     = $5029;  // Orientation of image
-  {$EXTERNALSYM PropertyTagThumbnailOrientation}
   PropertyTagThumbnailSamplesPerPixel = $502A;  // Number of components
-  {$EXTERNALSYM PropertyTagThumbnailSamplesPerPixel}
   PropertyTagThumbnailRowsPerStrip    = $502B;  // Number of rows per strip
-  {$EXTERNALSYM PropertyTagThumbnailRowsPerStrip}
   PropertyTagThumbnailStripBytesCount = $502C;  // Bytes per compressed
-  {$EXTERNALSYM PropertyTagThumbnailStripBytesCount}
                                                 // strip
   PropertyTagThumbnailResolutionX     = $502D;  // Resolution in width
-  {$EXTERNALSYM PropertyTagThumbnailResolutionX}
                                                 // direction
   PropertyTagThumbnailResolutionY     = $502E;  // Resolution in height
-  {$EXTERNALSYM PropertyTagThumbnailResolutionY}
                                                 // direction
   PropertyTagThumbnailPlanarConfig    = $502F;  // Image data arrangement
-  {$EXTERNALSYM PropertyTagThumbnailPlanarConfig}
   PropertyTagThumbnailResolutionUnit  = $5030;  // Unit of X and Y
-  {$EXTERNALSYM PropertyTagThumbnailResolutionUnit}
                                                 // Resolution
   PropertyTagThumbnailTransferFunction = $5031;  // Transfer function
-  {$EXTERNALSYM PropertyTagThumbnailTransferFunction}
   PropertyTagThumbnailSoftwareUsed     = $5032;  // Software used
-  {$EXTERNALSYM PropertyTagThumbnailSoftwareUsed}
   PropertyTagThumbnailDateTime         = $5033;  // File change date and
-  {$EXTERNALSYM PropertyTagThumbnailDateTime}
                                                  // time
   PropertyTagThumbnailArtist          = $5034;  // Person who created the
-  {$EXTERNALSYM PropertyTagThumbnailArtist}
                                                 // image
   PropertyTagThumbnailWhitePoint      = $5035;  // White point chromaticity
-  {$EXTERNALSYM PropertyTagThumbnailWhitePoint}
   PropertyTagThumbnailPrimaryChromaticities = $5036;
-  {$EXTERNALSYM PropertyTagThumbnailPrimaryChromaticities}
                                                     // Chromaticities of
                                                     // primaries
   PropertyTagThumbnailYCbCrCoefficients = $5037; // Color space transforma-
-  {$EXTERNALSYM PropertyTagThumbnailYCbCrCoefficients}
                                                  // tion coefficients
   PropertyTagThumbnailYCbCrSubsampling = $5038;  // Subsampling ratio of Y
-  {$EXTERNALSYM PropertyTagThumbnailYCbCrSubsampling}
                                                  // to C
   PropertyTagThumbnailYCbCrPositioning = $5039;  // Y and C position
-  {$EXTERNALSYM PropertyTagThumbnailYCbCrPositioning}
   PropertyTagThumbnailRefBlackWhite    = $503A;  // Pair of black and white
-  {$EXTERNALSYM PropertyTagThumbnailRefBlackWhite}
                                                  // reference values
   PropertyTagThumbnailCopyRight       = $503B;   // CopyRight holder
-  {$EXTERNALSYM PropertyTagThumbnailCopyRight}
 
   PropertyTagLuminanceTable           = $5090;
-  {$EXTERNALSYM PropertyTagLuminanceTable}
   PropertyTagChrominanceTable         = $5091;
-  {$EXTERNALSYM PropertyTagChrominanceTable}
 
   PropertyTagFrameDelay               = $5100;
-  {$EXTERNALSYM PropertyTagFrameDelay}
   PropertyTagLoopCount                = $5101;
-  {$EXTERNALSYM PropertyTagLoopCount}
 
   PropertyTagPixelUnit         = $5110;  // Unit specifier for pixel/unit
-  {$EXTERNALSYM PropertyTagPixelUnit}
   PropertyTagPixelPerUnitX     = $5111;  // Pixels per unit in X
-  {$EXTERNALSYM PropertyTagPixelPerUnitX}
   PropertyTagPixelPerUnitY     = $5112;  // Pixels per unit in Y
-  {$EXTERNALSYM PropertyTagPixelPerUnitY}
   PropertyTagPaletteHistogram  = $5113;  // Palette histogram
-  {$EXTERNALSYM PropertyTagPaletteHistogram}
 
   // EXIF specific tag
 
   PropertyTagExifExposureTime  = $829A;
-  {$EXTERNALSYM PropertyTagExifExposureTime}
   PropertyTagExifFNumber       = $829D;
-  {$EXTERNALSYM PropertyTagExifFNumber}
 
   PropertyTagExifExposureProg  = $8822;
-  {$EXTERNALSYM PropertyTagExifExposureProg}
   PropertyTagExifSpectralSense = $8824;
-  {$EXTERNALSYM PropertyTagExifSpectralSense}
   PropertyTagExifISOSpeed      = $8827;
-  {$EXTERNALSYM PropertyTagExifISOSpeed}
   PropertyTagExifOECF          = $8828;
-  {$EXTERNALSYM PropertyTagExifOECF}
 
   PropertyTagExifVer           = $9000;
-  {$EXTERNALSYM PropertyTagExifVer}
   PropertyTagExifDTOrig        = $9003; // Date & time of original
-  {$EXTERNALSYM PropertyTagExifDTOrig}
   PropertyTagExifDTDigitized   = $9004; // Date & time of digital data generation
-  {$EXTERNALSYM PropertyTagExifDTDigitized}
 
   PropertyTagExifCompConfig    = $9101;
-  {$EXTERNALSYM PropertyTagExifCompConfig}
   PropertyTagExifCompBPP       = $9102;
-  {$EXTERNALSYM PropertyTagExifCompBPP}
 
   PropertyTagExifShutterSpeed  = $9201;
-  {$EXTERNALSYM PropertyTagExifShutterSpeed}
   PropertyTagExifAperture      = $9202;
-  {$EXTERNALSYM PropertyTagExifAperture}
   PropertyTagExifBrightness    = $9203;
-  {$EXTERNALSYM PropertyTagExifBrightness}
   PropertyTagExifExposureBias  = $9204;
-  {$EXTERNALSYM PropertyTagExifExposureBias}
   PropertyTagExifMaxAperture   = $9205;
-  {$EXTERNALSYM PropertyTagExifMaxAperture}
   PropertyTagExifSubjectDist   = $9206;
-  {$EXTERNALSYM PropertyTagExifSubjectDist}
   PropertyTagExifMeteringMode  = $9207;
-  {$EXTERNALSYM PropertyTagExifMeteringMode}
   PropertyTagExifLightSource   = $9208;
-  {$EXTERNALSYM PropertyTagExifLightSource}
   PropertyTagExifFlash         = $9209;
-  {$EXTERNALSYM PropertyTagExifFlash}
   PropertyTagExifFocalLength   = $920A;
-  {$EXTERNALSYM PropertyTagExifFocalLength}
   PropertyTagExifMakerNote     = $927C;
-  {$EXTERNALSYM PropertyTagExifMakerNote}
   PropertyTagExifUserComment   = $9286;
-  {$EXTERNALSYM PropertyTagExifUserComment}
   PropertyTagExifDTSubsec      = $9290;  // Date & Time subseconds
-  {$EXTERNALSYM PropertyTagExifDTSubsec}
   PropertyTagExifDTOrigSS      = $9291;  // Date & Time original subseconds
-  {$EXTERNALSYM PropertyTagExifDTOrigSS}
   PropertyTagExifDTDigSS       = $9292;  // Date & TIme digitized subseconds
-  {$EXTERNALSYM PropertyTagExifDTDigSS}
 
   PropertyTagExifFPXVer        = $A000;
-  {$EXTERNALSYM PropertyTagExifFPXVer}
   PropertyTagExifColorSpace    = $A001;
-  {$EXTERNALSYM PropertyTagExifColorSpace}
   PropertyTagExifPixXDim       = $A002;
-  {$EXTERNALSYM PropertyTagExifPixXDim}
   PropertyTagExifPixYDim       = $A003;
-  {$EXTERNALSYM PropertyTagExifPixYDim}
   PropertyTagExifRelatedWav    = $A004;  // related sound file
-  {$EXTERNALSYM PropertyTagExifRelatedWav}
   PropertyTagExifInterop       = $A005;
-  {$EXTERNALSYM PropertyTagExifInterop}
   PropertyTagExifFlashEnergy   = $A20B;
-  {$EXTERNALSYM PropertyTagExifFlashEnergy}
   PropertyTagExifSpatialFR     = $A20C;  // Spatial Frequency Response
-  {$EXTERNALSYM PropertyTagExifSpatialFR}
   PropertyTagExifFocalXRes     = $A20E;  // Focal Plane X Resolution
-  {$EXTERNALSYM PropertyTagExifFocalXRes}
   PropertyTagExifFocalYRes     = $A20F;  // Focal Plane Y Resolution
-  {$EXTERNALSYM PropertyTagExifFocalYRes}
   PropertyTagExifFocalResUnit  = $A210;  // Focal Plane Resolution Unit
-  {$EXTERNALSYM PropertyTagExifFocalResUnit}
   PropertyTagExifSubjectLoc    = $A214;
-  {$EXTERNALSYM PropertyTagExifSubjectLoc}
   PropertyTagExifExposureIndex = $A215;
-  {$EXTERNALSYM PropertyTagExifExposureIndex}
   PropertyTagExifSensingMethod = $A217;
-  {$EXTERNALSYM PropertyTagExifSensingMethod}
   PropertyTagExifFileSource    = $A300;
-  {$EXTERNALSYM PropertyTagExifFileSource}
   PropertyTagExifSceneType     = $A301;
-  {$EXTERNALSYM PropertyTagExifSceneType}
   PropertyTagExifCfaPattern    = $A302;
-  {$EXTERNALSYM PropertyTagExifCfaPattern}
 
   PropertyTagGpsVer            = $0000;
-  {$EXTERNALSYM PropertyTagGpsVer}
   PropertyTagGpsLatitudeRef    = $0001;
-  {$EXTERNALSYM PropertyTagGpsLatitudeRef}
   PropertyTagGpsLatitude       = $0002;
-  {$EXTERNALSYM PropertyTagGpsLatitude}
   PropertyTagGpsLongitudeRef   = $0003;
-  {$EXTERNALSYM PropertyTagGpsLongitudeRef}
   PropertyTagGpsLongitude      = $0004;
-  {$EXTERNALSYM PropertyTagGpsLongitude}
   PropertyTagGpsAltitudeRef    = $0005;
-  {$EXTERNALSYM PropertyTagGpsAltitudeRef}
   PropertyTagGpsAltitude       = $0006;
-  {$EXTERNALSYM PropertyTagGpsAltitude}
   PropertyTagGpsGpsTime        = $0007;
-  {$EXTERNALSYM PropertyTagGpsGpsTime}
   PropertyTagGpsGpsSatellites  = $0008;
-  {$EXTERNALSYM PropertyTagGpsGpsSatellites}
   PropertyTagGpsGpsStatus      = $0009;
-  {$EXTERNALSYM PropertyTagGpsGpsStatus}
   PropertyTagGpsGpsMeasureMode = $00A;
-  {$EXTERNALSYM PropertyTagGpsGpsMeasureMode}
   PropertyTagGpsGpsDop         = $000B;  // Measurement precision
-  {$EXTERNALSYM PropertyTagGpsGpsDop}
   PropertyTagGpsSpeedRef       = $000C;
-  {$EXTERNALSYM PropertyTagGpsSpeedRef}
   PropertyTagGpsSpeed          = $000D;
-  {$EXTERNALSYM PropertyTagGpsSpeed}
   PropertyTagGpsTrackRef       = $000E;
-  {$EXTERNALSYM PropertyTagGpsTrackRef}
   PropertyTagGpsTrack          = $000F;
-  {$EXTERNALSYM PropertyTagGpsTrack}
   PropertyTagGpsImgDirRef      = $0010;
-  {$EXTERNALSYM PropertyTagGpsImgDirRef}
   PropertyTagGpsImgDir         = $0011;
-  {$EXTERNALSYM PropertyTagGpsImgDir}
   PropertyTagGpsMapDatum       = $0012;
-  {$EXTERNALSYM PropertyTagGpsMapDatum}
   PropertyTagGpsDestLatRef     = $0013;
-  {$EXTERNALSYM PropertyTagGpsDestLatRef}
   PropertyTagGpsDestLat        = $0014;
-  {$EXTERNALSYM PropertyTagGpsDestLat}
   PropertyTagGpsDestLongRef    = $0015;
-  {$EXTERNALSYM PropertyTagGpsDestLongRef}
   PropertyTagGpsDestLong       = $0016;
-  {$EXTERNALSYM PropertyTagGpsDestLong}
   PropertyTagGpsDestBearRef    = $0017;
-  {$EXTERNALSYM PropertyTagGpsDestBearRef}
   PropertyTagGpsDestBear       = $0018;
-  {$EXTERNALSYM PropertyTagGpsDestBear}
   PropertyTagGpsDestDistRef    = $0019;
-  {$EXTERNALSYM PropertyTagGpsDestDistRef}
   PropertyTagGpsDestDist       = $001A;
-  {$EXTERNALSYM PropertyTagGpsDestDist}
 
 (**************************************************************************\
 *
@@ -3331,7 +2956,6 @@ const
 //----------------------------------------------------------------------------
 
 type
-  {$EXTERNALSYM ColorMatrix}
   ColorMatrix = packed array[0..4, 0..4] of Single;
   TColorMatrix = ColorMatrix;
   PColorMatrix = ^TColorMatrix;
@@ -3340,7 +2964,6 @@ type
 // Color Matrix flags
 //----------------------------------------------------------------------------
 
-  {$EXTERNALSYM ColorMatrixFlags}
   ColorMatrixFlags = (
     ColorMatrixFlagsDefault,
     ColorMatrixFlagsSkipGrays,
@@ -3352,7 +2975,6 @@ type
 // Color Adjust Type
 //----------------------------------------------------------------------------
 
-  {$EXTERNALSYM ColorAdjustType}
   ColorAdjustType = (
     ColorAdjustTypeDefault,
     ColorAdjustTypeBitmap,
@@ -3368,8 +2990,7 @@ type
 // Color Map
 //----------------------------------------------------------------------------
 
-  {$EXTERNALSYM ColorMap}
-  ColorMap = packed record
+  ColorMap = record
     oldColor: TGPColor;
     newColor: TGPColor;
   end;
@@ -3446,256 +3067,192 @@ type
 
   function GdipCreatePath(brushMode: GPFILLMODE;
     out path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreatePath}
 
   function GdipCreatePath2(v1: GPPOINTF; v2: PBYTE; v3: Integer; v4: GPFILLMODE;
     out path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreatePath2}
 
   function GdipCreatePath2I(v1: GPPOINT; v2: PBYTE; v3: Integer; v4: GPFILLMODE;
     out path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreatePath2I}
 
   function GdipClonePath(path: GPPATH;
     out clonePath: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipClonePath}
 
   function GdipDeletePath(path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeletePath}
 
   function GdipResetPath(path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipResetPath}
 
   function GdipGetPointCount(path: GPPATH;
     out count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPointCount}
 
   function GdipGetPathTypes(path: GPPATH; types: PBYTE;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathTypes}
 
   function GdipGetPathPoints(v1: GPPATH; points: GPPOINTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathPoints}
 
   function GdipGetPathPointsI(v1: GPPATH; points: GPPOINT;
              count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathPointsI}
 
   function GdipGetPathFillMode(path: GPPATH;
     var fillmode: GPFILLMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathFillMode}
 
   function GdipSetPathFillMode(path: GPPATH;
     fillmode: GPFILLMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathFillMode}
 
   function GdipGetPathData(path: GPPATH;
     pathData: Pointer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathData}
 
   function GdipStartPathFigure(path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipStartPathFigure}
 
   function GdipClosePathFigure(path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipClosePathFigure}
 
   function GdipClosePathFigures(path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipClosePathFigures}
 
   function GdipSetPathMarker(path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathMarker}
 
   function GdipClearPathMarkers(path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipClearPathMarkers}
 
   function GdipReversePath(path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipReversePath}
 
   function GdipGetPathLastPoint(path: GPPATH;
     lastPoint: GPPOINTF): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathLastPoint}
 
   function GdipAddPathLine(path: GPPATH;
     x1, y1, x2, y2: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathLine}
 
   function GdipAddPathLine2(path: GPPATH; points: GPPOINTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathLine2}
 
   function GdipAddPathArc(path: GPPATH; x, y, width, height, startAngle,
     sweepAngle: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathArc}
 
   function GdipAddPathBezier(path: GPPATH;
     x1, y1, x2, y2, x3, y3, x4, y4: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathBezier}
 
   function GdipAddPathBeziers(path: GPPATH; points: GPPOINTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathBeziers}
 
   function GdipAddPathCurve(path: GPPATH; points: GPPOINTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathCurve}
 
   function GdipAddPathCurve2(path: GPPATH; points: GPPOINTF; count: Integer;
     tension: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathCurve2}
 
   function GdipAddPathCurve3(path: GPPATH; points: GPPOINTF; count: Integer;
     offset: Integer; numberOfSegments: Integer;
     tension: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathCurve3}
 
   function GdipAddPathClosedCurve(path: GPPATH; points: GPPOINTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathClosedCurve}
 
   function GdipAddPathClosedCurve2(path: GPPATH; points: GPPOINTF;
     count: Integer; tension: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathClosedCurve2}
 
   function GdipAddPathRectangle(path: GPPATH; x: Single; y: Single;
     width: Single; height: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathRectangle}
 
   function GdipAddPathRectangles(path: GPPATH; rects: GPRECTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathRectangles}
 
   function GdipAddPathEllipse(path: GPPATH;  x: Single; y: Single;
     width: Single; height: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathEllipse}
 
   function GdipAddPathPie(path: GPPATH; x: Single; y: Single; width: Single;
     height: Single; startAngle: Single; sweepAngle: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathPie}
 
   function GdipAddPathPolygon(path: GPPATH; points: GPPOINTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathPolygon}
 
   function GdipAddPathPath(path: GPPATH; addingPath: GPPATH;
     connect: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathPath}
 
   function GdipAddPathString(path: GPPATH; string_: PWCHAR; length: Integer;
     family: GPFONTFAMILY; style: Integer; emSize: Single; layoutRect: PGPRectF;
     format: GPSTRINGFORMAT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathString}
 
   function GdipAddPathStringI(path: GPPATH; string_: PWCHAR; length: Integer;
     family: GPFONTFAMILY; style: Integer; emSize: Single; layoutRect: PGPRect;
     format: GPSTRINGFORMAT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathStringI}
 
   function GdipAddPathLineI(path: GPPATH; x1: Integer; y1: Integer; x2: Integer;
     y2: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathLineI}
 
   function GdipAddPathLine2I(path: GPPATH; points: GPPOINT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathLine2I}
 
   function GdipAddPathArcI(path: GPPATH; x: Integer; y: Integer; width: Integer;
     height: Integer; startAngle: Single; sweepAngle: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathArcI}
 
   function GdipAddPathBezierI(path: GPPATH; x1: Integer; y1: Integer;
     x2: Integer; y2: Integer; x3: Integer; y3: Integer; x4: Integer;
     y4: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathBezierI}
 
   function GdipAddPathBeziersI(path: GPPATH; points: GPPOINT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathBeziersI}
 
   function GdipAddPathCurveI(path: GPPATH; points: GPPOINT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathCurveI}
 
   function GdipAddPathCurve2I(path: GPPATH; points: GPPOINT; count: Integer;
     tension: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathCurve2I}
 
   function GdipAddPathCurve3I(path: GPPATH; points: GPPOINT; count: Integer;
     offset: Integer; numberOfSegments: Integer;
     tension: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathCurve3I}
 
   function GdipAddPathClosedCurveI(path: GPPATH; points: GPPOINT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathClosedCurveI}
 
   function GdipAddPathClosedCurve2I(path: GPPATH; points: GPPOINT;
     count: Integer; tension: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathClosedCurve2I}
 
   function GdipAddPathRectangleI(path: GPPATH; x: Integer; y: Integer;
     width: Integer; height: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathRectangleI}
 
   function GdipAddPathRectanglesI(path: GPPATH; rects: GPRECT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathRectanglesI}
 
   function GdipAddPathEllipseI(path: GPPATH; x: Integer; y: Integer;
     width: Integer; height: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathEllipseI}
 
   function GdipAddPathPieI(path: GPPATH; x: Integer; y: Integer; width: Integer;
     height: Integer; startAngle: Single; sweepAngle: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathPieI}
 
   function GdipAddPathPolygonI(path: GPPATH; points: GPPOINT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipAddPathPolygonI}
 
   function GdipFlattenPath(path: GPPATH; matrix: GPMATRIX;
     flatness: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFlattenPath}
 
   function GdipWindingModeOutline(path: GPPATH; matrix: GPMATRIX;
     flatness: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipWindingModeOutline}
 
   function GdipWidenPath(nativePath: GPPATH; pen: GPPEN; matrix: GPMATRIX;
     flatness: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipWidenPath}
 
   function GdipWarpPath(path: GPPATH; matrix: GPMATRIX; points: GPPOINTF;
     count: Integer; srcx: Single; srcy: Single; srcwidth: Single;
     srcheight: Single; warpMode: WARPMODE; flatness: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipWarpPath}
 
   function GdipTransformPath(path: GPPATH; matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTransformPath}
 
   function GdipGetPathWorldBounds(path: GPPATH; bounds: GPRECTF;
     matrix: GPMATRIX; pen: GPPEN): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathWorldBounds}
 
   function GdipGetPathWorldBoundsI(path: GPPATH; bounds: GPRECT;
     matrix: GPMATRIX; pen: GPPEN): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathWorldBoundsI}
 
   function GdipIsVisiblePathPoint(path: GPPATH; x: Single; y: Single;
     graphics: GPGRAPHICS; out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsVisiblePathPoint}
 
   function GdipIsVisiblePathPointI(path: GPPATH; x: Integer; y: Integer;
     graphics: GPGRAPHICS; out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsVisiblePathPointI}
 
   function GdipIsOutlineVisiblePathPoint(path: GPPATH; x: Single; y: Single;
     pen: GPPEN; graphics: GPGRAPHICS; out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsOutlineVisiblePathPoint}
 
   function GdipIsOutlineVisiblePathPointI(path: GPPATH; x: Integer; y: Integer;
     pen: GPPEN; graphics: GPGRAPHICS; out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsOutlineVisiblePathPointI}
 
 //----------------------------------------------------------------------------
 // PathIterator APIs 
@@ -3703,278 +3260,211 @@ type
 
   function GdipCreatePathIter(out iterator: GPPATHITERATOR;
     path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreatePathIter}
 
   function GdipDeletePathIter(iterator: GPPATHITERATOR): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeletePathIter}
 
   function GdipPathIterNextSubpath(iterator: GPPATHITERATOR;
     var resultCount: Integer; var startIndex: Integer; var endIndex: Integer;
     out isClosed: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPathIterNextSubpath}
 
   function GdipPathIterNextSubpathPath(iterator: GPPATHITERATOR;
     var resultCount: Integer; path: GPPATH;
     out isClosed: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPathIterNextSubpathPath}
 
   function GdipPathIterNextPathType(iterator: GPPATHITERATOR;
     var resultCount: Integer; pathType: PBYTE; var startIndex: Integer;
     var endIndex: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPathIterNextPathType}
 
   function GdipPathIterNextMarker(iterator: GPPATHITERATOR;
     var resultCount: Integer; var startIndex: Integer;
     var endIndex: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPathIterNextMarker}
 
   function GdipPathIterNextMarkerPath(iterator: GPPATHITERATOR;
     var resultCount: Integer; path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPathIterNextMarkerPath}
 
   function GdipPathIterGetCount(iterator: GPPATHITERATOR;
     out count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPathIterGetCount}
 
   function GdipPathIterGetSubpathCount(iterator: GPPATHITERATOR;
     out count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPathIterGetSubpathCount}
 
   function GdipPathIterIsValid(iterator: GPPATHITERATOR;
     out valid: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPathIterIsValid}
 
   function GdipPathIterHasCurve(iterator: GPPATHITERATOR;
     out hasCurve: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPathIterHasCurve}
 
   function GdipPathIterRewind(iterator: GPPATHITERATOR): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPathIterRewind}
 
   function GdipPathIterEnumerate(iterator: GPPATHITERATOR;
     var resultCount: Integer; points: GPPOINTF; types: PBYTE;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPathIterEnumerate}
 
   function GdipPathIterCopyData(iterator: GPPATHITERATOR;
     var resultCount: Integer; points: GPPOINTF; types: PBYTE;
     startIndex: Integer; endIndex: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPathIterCopyData}
 
 //----------------------------------------------------------------------------
 // Matrix APIs
 //----------------------------------------------------------------------------
 
   function GdipCreateMatrix(out matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateMatrix}
 
   function GdipCreateMatrix2(m11: Single; m12: Single; m21: Single; m22: Single;
     dx: Single; dy: Single; out matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateMatrix2}
 
   function GdipCreateMatrix3(rect: GPRECTF; dstplg: GPPOINTF;
     out matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateMatrix3}
 
   function GdipCreateMatrix3I(rect: GPRECT; dstplg: GPPOINT;
     out matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateMatrix3I}
 
   function GdipCloneMatrix(matrix: GPMATRIX;
     out cloneMatrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCloneMatrix}
 
   function GdipDeleteMatrix(matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeleteMatrix}
 
   function GdipSetMatrixElements(matrix: GPMATRIX; m11: Single; m12: Single;
     m21: Single; m22: Single; dx: Single; dy: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetMatrixElements}
 
   function GdipMultiplyMatrix(matrix: GPMATRIX; matrix2: GPMATRIX;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipMultiplyMatrix}
 
   function GdipTranslateMatrix(matrix: GPMATRIX; offsetX: Single;
     offsetY: Single; order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTranslateMatrix}
 
   function GdipScaleMatrix(matrix: GPMATRIX; scaleX: Single; scaleY: Single;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipScaleMatrix}
 
   function GdipRotateMatrix(matrix: GPMATRIX; angle: Single;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRotateMatrix}
 
   function GdipShearMatrix(matrix: GPMATRIX; shearX: Single; shearY: Single;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipShearMatrix}
 
   function GdipInvertMatrix(matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipInvertMatrix}
 
   function GdipTransformMatrixPoints(matrix: GPMATRIX; pts: GPPOINTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTransformMatrixPoints}
 
   function GdipTransformMatrixPointsI(matrix: GPMATRIX; pts: GPPOINT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTransformMatrixPointsI}
 
   function GdipVectorTransformMatrixPoints(matrix: GPMATRIX; pts: GPPOINTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipVectorTransformMatrixPoints}
 
   function GdipVectorTransformMatrixPointsI(matrix: GPMATRIX; pts: GPPOINT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipVectorTransformMatrixPointsI}
 
   function GdipGetMatrixElements(matrix: GPMATRIX;
     matrixOut: PSingle): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetMatrixElements}
 
   function GdipIsMatrixInvertible(matrix: GPMATRIX;
     out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsMatrixInvertible}
 
   function GdipIsMatrixIdentity(matrix: GPMATRIX;
     out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsMatrixIdentity}
 
   function GdipIsMatrixEqual(matrix: GPMATRIX; matrix2: GPMATRIX;
     out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsMatrixEqual}
 
 //----------------------------------------------------------------------------
 // Region APIs
 //----------------------------------------------------------------------------
 
   function GdipCreateRegion(out region: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateRegion}
 
   function GdipCreateRegionRect(rect: GPRECTF;
     out region: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateRegionRect}
 
   function GdipCreateRegionRectI(rect: GPRECT;
     out region: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateRegionRectI}
 
   function GdipCreateRegionPath(path: GPPATH;
     out region: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateRegionPath}
 
   function GdipCreateRegionRgnData(regionData: PBYTE; size: Integer;
     out region: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateRegionRgnData}
 
   function GdipCreateRegionHrgn(hRgn: HRGN;
     out region: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateRegionHrgn}
 
   function GdipCloneRegion(region: GPREGION;
     out cloneRegion: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCloneRegion}
 
   function GdipDeleteRegion(region: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeleteRegion}
 
   function GdipSetInfinite(region: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetInfinite}
 
   function GdipSetEmpty(region: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetEmpty}
 
   function GdipCombineRegionRect(region: GPREGION; rect: GPRECTF;
     combineMode: COMBINEMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCombineRegionRect}
 
   function GdipCombineRegionRectI(region: GPREGION; rect: GPRECT;
     combineMode: COMBINEMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCombineRegionRectI}
 
   function GdipCombineRegionPath(region: GPREGION; path: GPPATH;
     combineMode: COMBINEMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCombineRegionPath}
 
   function GdipCombineRegionRegion(region: GPREGION; region2: GPREGION;
     combineMode: COMBINEMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCombineRegionRegion}
 
   function GdipTranslateRegion(region: GPREGION; dx: Single;
     dy: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTranslateRegion}
 
   function GdipTranslateRegionI(region: GPREGION; dx: Integer;
     dy: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTranslateRegionI}
 
   function GdipTransformRegion(region: GPREGION;
     matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTransformRegion}
 
   function GdipGetRegionBounds(region: GPREGION; graphics: GPGRAPHICS;
     rect: GPRECTF): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetRegionBounds}
 
   function GdipGetRegionBoundsI(region: GPREGION; graphics: GPGRAPHICS;
     rect: GPRECT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetRegionBoundsI}
 
   function GdipGetRegionHRgn(region: GPREGION; graphics: GPGRAPHICS;
     out hRgn: HRGN): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetRegionHRgn}
 
   function GdipIsEmptyRegion(region: GPREGION; graphics: GPGRAPHICS;
     out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsEmptyRegion}
 
   function GdipIsInfiniteRegion(region: GPREGION; graphics: GPGRAPHICS;
     out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsInfiniteRegion}
 
   function GdipIsEqualRegion(region: GPREGION; region2: GPREGION;
     graphics: GPGRAPHICS; out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsEqualRegion}
 
   function GdipGetRegionDataSize(region: GPREGION;
     out bufferSize: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetRegionDataSize}
 
   function GdipGetRegionData(region: GPREGION; buffer: PBYTE;
     bufferSize: UINT; sizeFilled: PUINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetRegionData}
 
   function GdipIsVisibleRegionPoint(region: GPREGION; x: Single; y: Single;
     graphics: GPGRAPHICS; out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsVisibleRegionPoint}
 
   function GdipIsVisibleRegionPointI(region: GPREGION; x: Integer; y: Integer;
     graphics: GPGRAPHICS; out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsVisibleRegionPointI}
 
   function GdipIsVisibleRegionRect(region: GPREGION; x: Single; y: Single;
     width: Single; height: Single; graphics: GPGRAPHICS;
     out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsVisibleRegionRect}
 
   function GdipIsVisibleRegionRectI(region: GPREGION; x: Integer; y: Integer;
     width: Integer; height: Integer; graphics: GPGRAPHICS;
     out result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsVisibleRegionRectI}
 
   function GdipGetRegionScansCount(region: GPREGION; out count: UINT;
     matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetRegionScansCount}
 
   function GdipGetRegionScans(region: GPREGION; rects: GPRECTF;
     out count: Integer; matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetRegionScans}
 
   function GdipGetRegionScansI(region: GPREGION; rects: GPRECT;
     out count: Integer; matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetRegionScansI}
 
 //----------------------------------------------------------------------------
 // Brush APIs
@@ -3982,14 +3472,11 @@ type
 
   function GdipCloneBrush(brush: GPBRUSH;
     out cloneBrush: GPBRUSH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCloneBrush}
 
   function GdipDeleteBrush(brush: GPBRUSH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeleteBrush}
 
   function GdipGetBrushType(brush: GPBRUSH;
     out type_: GPBRUSHTYPE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetBrushType}
 
 //----------------------------------------------------------------------------
 // HatchBrush APIs
@@ -3997,19 +3484,15 @@ type
 
   function GdipCreateHatchBrush(hatchstyle: Integer; forecol: ARGB;
     backcol: ARGB; out brush: GPHATCH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateHatchBrush}
 
   function GdipGetHatchStyle(brush: GPHATCH;
     out hatchstyle: GPHATCHSTYLE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetHatchStyle}
 
   function GdipGetHatchForegroundColor(brush: GPHATCH;
     out forecol: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetHatchForegroundColor}
 
   function GdipGetHatchBackgroundColor(brush: GPHATCH;
     out backcol: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetHatchBackgroundColor}
 
 //----------------------------------------------------------------------------
 // TextureBrush APIs
@@ -4018,66 +3501,51 @@ type
 
   function GdipCreateTexture(image: GPIMAGE; wrapmode: GPWRAPMODE;
     var texture: GPTEXTURE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateTexture}
 
   function GdipCreateTexture2(image: GPIMAGE; wrapmode: GPWRAPMODE;
     x: Single; y: Single; width: Single; height: Single;
     out texture: GPTEXTURE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateTexture2}
 
   function GdipCreateTextureIA(image: GPIMAGE;
     imageAttributes: GPIMAGEATTRIBUTES; x: Single; y: Single; width: Single;
     height: Single; out texture: GPTEXTURE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateTextureIA}
 
   function GdipCreateTexture2I(image: GPIMAGE; wrapmode: GPWRAPMODE; x: Integer;
     y: Integer; width: Integer; height: Integer;
     out texture: GPTEXTURE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateTexture2I}
 
   function GdipCreateTextureIAI(image: GPIMAGE;
     imageAttributes: GPIMAGEATTRIBUTES; x: Integer; y: Integer; width: Integer;
     height: Integer; out texture: GPTEXTURE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateTextureIAI}
 
   function GdipGetTextureTransform(brush: GPTEXTURE;
     matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetTextureTransform}
 
   function GdipSetTextureTransform(brush: GPTEXTURE;
     matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetTextureTransform}
 
   function GdipResetTextureTransform(brush: GPTEXTURE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipResetTextureTransform}
 
   function GdipMultiplyTextureTransform(brush: GPTEXTURE; matrix: GPMATRIX;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipMultiplyTextureTransform}
 
   function GdipTranslateTextureTransform(brush: GPTEXTURE; dx: Single;
     dy: Single; order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTranslateTextureTransform}
 
   function GdipScaleTextureTransform(brush: GPTEXTURE; sx: Single; sy: Single;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipScaleTextureTransform}
 
   function GdipRotateTextureTransform(brush: GPTEXTURE; angle: Single;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRotateTextureTransform}
 
   function GdipSetTextureWrapMode(brush: GPTEXTURE;
     wrapmode: GPWRAPMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetTextureWrapMode}
 
   function GdipGetTextureWrapMode(brush: GPTEXTURE;
     var wrapmode: GPWRAPMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetTextureWrapMode}
 
   function GdipGetTextureImage(brush: GPTEXTURE;
     out image: GPIMAGE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetTextureImage}
 
 //----------------------------------------------------------------------------
 // SolidBrush APIs
@@ -4085,15 +3553,12 @@ type
 
   function GdipCreateSolidFill(color: ARGB;
     out brush: GPSOLIDFILL): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateSolidFill}
 
   function GdipSetSolidFillColor(brush: GPSOLIDFILL;
     color: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetSolidFillColor}
 
   function GdipGetSolidFillColor(brush: GPSOLIDFILL;
     out color: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetSolidFillColor}
 
 //----------------------------------------------------------------------------
 // LineBrush APIs
@@ -4102,123 +3567,94 @@ type
   function GdipCreateLineBrush(point1: GPPOINTF; point2: GPPOINTF; color1: ARGB;
     color2: ARGB; wrapMode: GPWRAPMODE;
     out lineGradient: GPLINEGRADIENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateLineBrush}
 
   function GdipCreateLineBrushI(point1: GPPOINT; point2: GPPOINT; color1: ARGB;
     color2: ARGB; wrapMode: GPWRAPMODE;
     out lineGradient: GPLINEGRADIENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateLineBrushI}
 
   function GdipCreateLineBrushFromRect(rect: GPRECTF; color1: ARGB;
     color2: ARGB; mode: LINEARGRADIENTMODE; wrapMode: GPWRAPMODE;
     out lineGradient: GPLINEGRADIENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateLineBrushFromRect}
 
   function GdipCreateLineBrushFromRectI(rect: GPRECT; color1: ARGB;
     color2: ARGB; mode: LINEARGRADIENTMODE; wrapMode: GPWRAPMODE;
     out lineGradient: GPLINEGRADIENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateLineBrushFromRectI}
 
   function GdipCreateLineBrushFromRectWithAngle(rect: GPRECTF; color1: ARGB;
     color2: ARGB; angle: Single; isAngleScalable: Bool; wrapMode: GPWRAPMODE;
     out lineGradient: GPLINEGRADIENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateLineBrushFromRectWithAngle}
 
   function GdipCreateLineBrushFromRectWithAngleI(rect: GPRECT; color1: ARGB;
     color2: ARGB; angle: Single; isAngleScalable: Bool; wrapMode: GPWRAPMODE;
     out lineGradient: GPLINEGRADIENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateLineBrushFromRectWithAngleI}
 
   function GdipSetLineColors(brush: GPLINEGRADIENT; color1: ARGB;
     color2: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetLineColors}
 
   function GdipGetLineColors(brush: GPLINEGRADIENT;
     colors: PARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLineColors}
 
   function GdipGetLineRect(brush: GPLINEGRADIENT;
     rect: GPRECTF): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLineRect}
 
   function GdipGetLineRectI(brush: GPLINEGRADIENT;
     rect: GPRECT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLineRectI}
 
   function GdipSetLineGammaCorrection(brush: GPLINEGRADIENT;
     useGammaCorrection: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetLineGammaCorrection}
 
   function GdipGetLineGammaCorrection(brush: GPLINEGRADIENT;
     out useGammaCorrection: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLineGammaCorrection}
 
   function GdipGetLineBlendCount(brush: GPLINEGRADIENT;
     out count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLineBlendCount}
 
   function GdipGetLineBlend(brush: GPLINEGRADIENT; blend: PSingle;
     positions: PSingle; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLineBlend}
 
   function GdipSetLineBlend(brush: GPLINEGRADIENT; blend: PSingle;
     positions: PSingle; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetLineBlend}
 
   function GdipGetLinePresetBlendCount(brush: GPLINEGRADIENT;
     out count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLinePresetBlendCount}
 
   function GdipGetLinePresetBlend(brush: GPLINEGRADIENT; blend: PARGB;
     positions: PSingle; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLinePresetBlend}
 
   function GdipSetLinePresetBlend(brush: GPLINEGRADIENT; blend: PARGB;
     positions: PSingle; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetLinePresetBlend}
 
   function GdipSetLineSigmaBlend(brush: GPLINEGRADIENT; focus: Single;
     scale: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetLineSigmaBlend}
 
   function GdipSetLineLinearBlend(brush: GPLINEGRADIENT; focus: Single;
     scale: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetLineLinearBlend}
 
   function GdipSetLineWrapMode(brush: GPLINEGRADIENT;
     wrapmode: GPWRAPMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetLineWrapMode}
 
   function GdipGetLineWrapMode(brush: GPLINEGRADIENT;
     out wrapmode: GPWRAPMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLineWrapMode}
 
   function GdipGetLineTransform(brush: GPLINEGRADIENT;
     matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLineTransform}
 
   function GdipSetLineTransform(brush: GPLINEGRADIENT;
     matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetLineTransform}
 
   function GdipResetLineTransform(brush: GPLINEGRADIENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipResetLineTransform}
 
   function GdipMultiplyLineTransform(brush: GPLINEGRADIENT; matrix: GPMATRIX;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipMultiplyLineTransform}
 
   function GdipTranslateLineTransform(brush: GPLINEGRADIENT; dx: Single;
     dy: Single; order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTranslateLineTransform}
 
   function GdipScaleLineTransform(brush: GPLINEGRADIENT; sx: Single; sy: Single;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipScaleLineTransform}
 
   function GdipRotateLineTransform(brush: GPLINEGRADIENT; angle: Single;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRotateLineTransform}
 
 //----------------------------------------------------------------------------
 // PathGradientBrush APIs
@@ -4226,155 +3662,117 @@ type
 
   function GdipCreatePathGradient(points: GPPOINTF; count: Integer;
     wrapMode: GPWRAPMODE; out polyGradient: GPPATHGRADIENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreatePathGradient}
 
   function GdipCreatePathGradientI(points: GPPOINT; count: Integer;
     wrapMode: GPWRAPMODE; out polyGradient: GPPATHGRADIENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreatePathGradientI}
 
   function GdipCreatePathGradientFromPath(path: GPPATH;
     out polyGradient: GPPATHGRADIENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreatePathGradientFromPath}
 
   function GdipGetPathGradientCenterColor(brush: GPPATHGRADIENT;
     out colors: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientCenterColor}
 
   function GdipSetPathGradientCenterColor(brush: GPPATHGRADIENT;
     colors: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientCenterColor}
 
   function GdipGetPathGradientSurroundColorsWithCount(brush: GPPATHGRADIENT;
     color: PARGB; var count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientSurroundColorsWithCount}
 
   function GdipSetPathGradientSurroundColorsWithCount(brush: GPPATHGRADIENT;
     color: PARGB; var count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientSurroundColorsWithCount}
 
   function GdipGetPathGradientPath(brush: GPPATHGRADIENT;
     path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientPath}
 
   function GdipSetPathGradientPath(brush: GPPATHGRADIENT;
     path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientPath}
 
   function GdipGetPathGradientCenterPoint(brush: GPPATHGRADIENT;
     points: GPPOINTF): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientCenterPoint}
 
   function GdipGetPathGradientCenterPointI(brush: GPPATHGRADIENT;
     points: GPPOINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientCenterPointI}
 
   function GdipSetPathGradientCenterPoint(brush: GPPATHGRADIENT;
     points: GPPOINTF): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientCenterPoint}
 
   function GdipSetPathGradientCenterPointI(brush: GPPATHGRADIENT;
     points: GPPOINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientCenterPointI}
 
   function GdipGetPathGradientRect(brush: GPPATHGRADIENT;
     rect: GPRECTF): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientRect}
 
   function GdipGetPathGradientRectI(brush: GPPATHGRADIENT;
     rect: GPRECT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientRectI}
 
   function GdipGetPathGradientPointCount(brush: GPPATHGRADIENT;
     var count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientPointCount}
 
   function GdipGetPathGradientSurroundColorCount(brush: GPPATHGRADIENT;
     var count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientSurroundColorCount}
 
   function GdipSetPathGradientGammaCorrection(brush: GPPATHGRADIENT;
     useGammaCorrection: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientGammaCorrection}
 
   function GdipGetPathGradientGammaCorrection(brush: GPPATHGRADIENT;
     var useGammaCorrection: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientGammaCorrection}
 
   function GdipGetPathGradientBlendCount(brush: GPPATHGRADIENT;
     var count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientBlendCount}
 
   function GdipGetPathGradientBlend(brush: GPPATHGRADIENT;
     blend: PSingle; positions: PSingle; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientBlend}
 
   function GdipSetPathGradientBlend(brush: GPPATHGRADIENT;
     blend: PSingle; positions: PSingle; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientBlend}
 
   function GdipGetPathGradientPresetBlendCount(brush: GPPATHGRADIENT;
     var count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientPresetBlendCount}
 
   function GdipGetPathGradientPresetBlend(brush: GPPATHGRADIENT;
     blend: PARGB; positions: PSingle; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientPresetBlend}
 
   function GdipSetPathGradientPresetBlend(brush: GPPATHGRADIENT;
     blend: PARGB; positions: PSingle; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientPresetBlend}
 
   function GdipSetPathGradientSigmaBlend(brush: GPPATHGRADIENT;
     focus: Single; scale: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientSigmaBlend}
 
   function GdipSetPathGradientLinearBlend(brush: GPPATHGRADIENT;
     focus: Single; scale: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientLinearBlend}
 
   function GdipGetPathGradientWrapMode(brush: GPPATHGRADIENT;
     var wrapmode: GPWRAPMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientWrapMode}
 
   function GdipSetPathGradientWrapMode(brush: GPPATHGRADIENT;
     wrapmode: GPWRAPMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientWrapMode}
 
   function GdipGetPathGradientTransform(brush: GPPATHGRADIENT;
     matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientTransform}
 
   function GdipSetPathGradientTransform(brush: GPPATHGRADIENT;
     matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientTransform}
 
   function GdipResetPathGradientTransform(
     brush: GPPATHGRADIENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipResetPathGradientTransform}
 
   function GdipMultiplyPathGradientTransform(brush: GPPATHGRADIENT;
     matrix: GPMATRIX; order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipMultiplyPathGradientTransform}
 
   function GdipTranslatePathGradientTransform(brush: GPPATHGRADIENT;
     dx: Single; dy: Single; order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTranslatePathGradientTransform}
 
   function GdipScalePathGradientTransform(brush: GPPATHGRADIENT;
     sx: Single; sy: Single; order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipScalePathGradientTransform}
 
   function GdipRotatePathGradientTransform(brush: GPPATHGRADIENT;
     angle: Single; order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRotatePathGradientTransform}
 
   function GdipGetPathGradientFocusScales(brush: GPPATHGRADIENT;
     var xScale: Single; var yScale: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPathGradientFocusScales}
 
   function GdipSetPathGradientFocusScales(brush: GPPATHGRADIENT;
     xScale: Single; yScale: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPathGradientFocusScales}
 
 //----------------------------------------------------------------------------
 // Pen APIs
@@ -4382,179 +3780,132 @@ type
 
   function GdipCreatePen1(color: ARGB; width: Single; unit_: GPUNIT;
     out pen: GPPEN): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreatePen1}
 
   function GdipCreatePen2(brush: GPBRUSH; width: Single; unit_: GPUNIT;
     out pen: GPPEN): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreatePen2}
 
   function GdipClonePen(pen: GPPEN; out clonepen: GPPEN): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipClonePen}
 
   function GdipDeletePen(pen: GPPEN): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeletePen}
 
   function GdipSetPenWidth(pen: GPPEN; width: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenWidth}
 
   function GdipGetPenWidth(pen: GPPEN; out width: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenWidth}
 
   function GdipSetPenUnit(pen: GPPEN; unit_: GPUNIT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenUnit}
 
   function GdipGetPenUnit(pen: GPPEN; var unit_: GPUNIT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenUnit}
 
   function GdipSetPenLineCap197819(pen: GPPEN; startCap: GPLINECAP;
     endCap: GPLINECAP; dashCap: GPDASHCAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenLineCap197819}
 
   function GdipSetPenStartCap(pen: GPPEN;
     startCap: GPLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenStartCap}
 
   function GdipSetPenEndCap(pen: GPPEN; endCap: GPLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenEndCap}
 
   function GdipSetPenDashCap197819(pen: GPPEN;
     dashCap: GPDASHCAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenDashCap197819}
 
   function GdipGetPenStartCap(pen: GPPEN;
     out startCap: GPLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenStartCap}
 
   function GdipGetPenEndCap(pen: GPPEN;
     out endCap: GPLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenEndCap}
 
   function GdipGetPenDashCap197819(pen: GPPEN;
     out dashCap: GPDASHCAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenDashCap197819}
 
   function GdipSetPenLineJoin(pen: GPPEN;
     lineJoin: GPLINEJOIN): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenLineJoin}
 
   function GdipGetPenLineJoin(pen: GPPEN;
     var lineJoin: GPLINEJOIN): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenLineJoin}
 
   function GdipSetPenCustomStartCap(pen: GPPEN;
     customCap: GPCUSTOMLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenCustomStartCap}
 
   function GdipGetPenCustomStartCap(pen: GPPEN;
     out customCap: GPCUSTOMLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenCustomStartCap}
 
   function GdipSetPenCustomEndCap(pen: GPPEN;
     customCap: GPCUSTOMLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenCustomEndCap}
 
   function GdipGetPenCustomEndCap(pen: GPPEN;
     out customCap: GPCUSTOMLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenCustomEndCap}
 
   function GdipSetPenMiterLimit(pen: GPPEN;
     miterLimit: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenMiterLimit}
 
   function GdipGetPenMiterLimit(pen: GPPEN;
     out miterLimit: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenMiterLimit}
 
   function GdipSetPenMode(pen: GPPEN;
     penMode: GPPENALIGNMENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenMode}
 
   function GdipGetPenMode(pen: GPPEN;
     var penMode: GPPENALIGNMENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenMode}
 
   function GdipSetPenTransform(pen: GPPEN;
     matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenTransform}
 
   function GdipGetPenTransform(pen: GPPEN;
     matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenTransform}
 
   function GdipResetPenTransform(pen: GPPEN): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipResetPenTransform}
 
   function GdipMultiplyPenTransform(pen: GPPEN; matrix: GPMATRIX;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipMultiplyPenTransform}
 
   function GdipTranslatePenTransform(pen: GPPEN; dx: Single; dy: Single;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTranslatePenTransform}
 
   function GdipScalePenTransform(pen: GPPEN; sx: Single; sy: Single;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipScalePenTransform}
 
   function GdipRotatePenTransform(pen: GPPEN; angle: Single;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRotatePenTransform}
 
   function GdipSetPenColor(pen: GPPEN; argb: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenColor}
 
   function GdipGetPenColor(pen: GPPEN; out argb: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenColor}
 
   function GdipSetPenBrushFill(pen: GPPEN; brush: GPBRUSH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenBrushFill}
 
   function GdipGetPenBrushFill(pen: GPPEN;
     out brush: GPBRUSH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenBrushFill}
 
   function GdipGetPenFillType(pen: GPPEN;
     out type_: GPPENTYPE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenFillType}
 
   function GdipGetPenDashStyle(pen: GPPEN;
     out dashstyle: GPDASHSTYLE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenDashStyle}
 
   function GdipSetPenDashStyle(pen: GPPEN;
     dashstyle: GPDASHSTYLE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenDashStyle}
 
   function GdipGetPenDashOffset(pen: GPPEN;
     out offset: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenDashOffset}
 
   function GdipSetPenDashOffset(pen: GPPEN; offset: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenDashOffset}
 
   function GdipGetPenDashCount(pen: GPPEN;
     var count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenDashCount}
 
   function GdipSetPenDashArray(pen: GPPEN; dash: PSingle;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenDashArray}
 
   function GdipGetPenDashArray(pen: GPPEN; dash: PSingle;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenDashArray}
 
   function GdipGetPenCompoundCount(pen: GPPEN;
     out count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenCompoundCount}
 
   function GdipSetPenCompoundArray(pen: GPPEN; dash: PSingle;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPenCompoundArray}
 
   function GdipGetPenCompoundArray(pen: GPPEN; dash: PSingle;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPenCompoundArray}
 
 //----------------------------------------------------------------------------
 // CustomLineCap APIs
@@ -4563,59 +3914,45 @@ type
   function GdipCreateCustomLineCap(fillPath: GPPATH; strokePath: GPPATH;
     baseCap: GPLINECAP; baseInset: Single;
     out customCap: GPCUSTOMLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateCustomLineCap}
 
   function GdipDeleteCustomLineCap(
     customCap: GPCUSTOMLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeleteCustomLineCap}
 
   function GdipCloneCustomLineCap(customCap: GPCUSTOMLINECAP;
     out clonedCap: GPCUSTOMLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCloneCustomLineCap}
 
   function GdipGetCustomLineCapType(customCap: GPCUSTOMLINECAP;
     var capType: CUSTOMLINECAPTYPE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetCustomLineCapType}
 
   function GdipSetCustomLineCapStrokeCaps(customCap: GPCUSTOMLINECAP;
     startCap: GPLINECAP; endCap: GPLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetCustomLineCapStrokeCaps}
 
   function GdipGetCustomLineCapStrokeCaps(customCap: GPCUSTOMLINECAP;
     var startCap: GPLINECAP; var endCap: GPLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetCustomLineCapStrokeCaps}
 
   function GdipSetCustomLineCapStrokeJoin(customCap: GPCUSTOMLINECAP;
   lineJoin: GPLINEJOIN): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetCustomLineCapStrokeJoin}
 
   function GdipGetCustomLineCapStrokeJoin(customCap: GPCUSTOMLINECAP;
   var lineJoin: GPLINEJOIN): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetCustomLineCapStrokeJoin}
 
   function GdipSetCustomLineCapBaseCap(customCap: GPCUSTOMLINECAP;
   baseCap: GPLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetCustomLineCapBaseCap}
 
   function GdipGetCustomLineCapBaseCap(customCap: GPCUSTOMLINECAP;
   var baseCap: GPLINECAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetCustomLineCapBaseCap}
 
   function GdipSetCustomLineCapBaseInset(customCap: GPCUSTOMLINECAP;
   inset: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetCustomLineCapBaseInset}
 
   function GdipGetCustomLineCapBaseInset(customCap: GPCUSTOMLINECAP;
   var inset: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetCustomLineCapBaseInset}
 
   function GdipSetCustomLineCapWidthScale(customCap: GPCUSTOMLINECAP;
   widthScale: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetCustomLineCapWidthScale}
 
   function GdipGetCustomLineCapWidthScale(customCap: GPCUSTOMLINECAP;
   var widthScale: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetCustomLineCapWidthScale}
 
 //----------------------------------------------------------------------------
 // AdjustableArrowCap APIs
@@ -4625,39 +3962,30 @@ type
   width: Single;
   isFilled: Bool;
   out cap: GPADJUSTABLEARROWCAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateAdjustableArrowCap}
 
   function GdipSetAdjustableArrowCapHeight(cap: GPADJUSTABLEARROWCAP;
   height: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetAdjustableArrowCapHeight}
 
   function GdipGetAdjustableArrowCapHeight(cap: GPADJUSTABLEARROWCAP;
   var height: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetAdjustableArrowCapHeight}
 
   function GdipSetAdjustableArrowCapWidth(cap: GPADJUSTABLEARROWCAP;
   width: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetAdjustableArrowCapWidth}
 
   function GdipGetAdjustableArrowCapWidth(cap: GPADJUSTABLEARROWCAP;
   var width: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetAdjustableArrowCapWidth}
 
   function GdipSetAdjustableArrowCapMiddleInset(cap: GPADJUSTABLEARROWCAP;
   middleInset: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetAdjustableArrowCapMiddleInset}
 
   function GdipGetAdjustableArrowCapMiddleInset(cap: GPADJUSTABLEARROWCAP;
   var middleInset: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetAdjustableArrowCapMiddleInset}
 
   function GdipSetAdjustableArrowCapFillState(cap: GPADJUSTABLEARROWCAP;
   fillState: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetAdjustableArrowCapFillState}
 
   function GdipGetAdjustableArrowCapFillState(cap: GPADJUSTABLEARROWCAP;
   var fillState: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetAdjustableArrowCapFillState}
 
 //---------------------------------------------------------------------------- 
 // Image APIs
@@ -4665,173 +3993,132 @@ type
 
   function GdipLoadImageFromStream(stream: ISTREAM;
   out image: GPIMAGE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipLoadImageFromStream}
 
   function GdipLoadImageFromFile(filename: PWCHAR;
   out image: GPIMAGE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipLoadImageFromFile}
 
   function GdipLoadImageFromStreamICM(stream: ISTREAM;
   out image: GPIMAGE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipLoadImageFromStreamICM}
 
   function GdipLoadImageFromFileICM(filename: PWCHAR;
   out image: GPIMAGE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipLoadImageFromFileICM}
 
   function GdipCloneImage(image: GPIMAGE;
   out cloneImage: GPIMAGE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCloneImage}
 
   function GdipDisposeImage(image: GPIMAGE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDisposeImage}
 
   function GdipSaveImageToFile(image: GPIMAGE;
   filename: PWCHAR;
   clsidEncoder: PGUID;
   encoderParams: PENCODERPARAMETERS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSaveImageToFile}
 
   function GdipSaveImageToStream(image: GPIMAGE;
   stream: ISTREAM;
   clsidEncoder: PGUID;
   encoderParams: PENCODERPARAMETERS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSaveImageToStream}
 
   function GdipSaveAdd(image: GPIMAGE;
   encoderParams: PENCODERPARAMETERS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSaveAdd}
 
   function GdipSaveAddImage(image: GPIMAGE;
   newImage: GPIMAGE;
   encoderParams: PENCODERPARAMETERS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSaveAddImage}
 
   function GdipGetImageGraphicsContext(image: GPIMAGE;
   out graphics: GPGRAPHICS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageGraphicsContext}
 
   function GdipGetImageBounds(image: GPIMAGE;
   srcRect: GPRECTF;
   var srcUnit: GPUNIT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageBounds}
 
   function GdipGetImageDimension(image: GPIMAGE;
   var width: Single;
   var height: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageDimension}
 
   function GdipGetImageType(image: GPIMAGE;
   var type_: IMAGETYPE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageType}
 
   function GdipGetImageWidth(image: GPIMAGE;
   var width: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageWidth}
 
   function GdipGetImageHeight(image: GPIMAGE;
   var height: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageHeight}
 
   function GdipGetImageHorizontalResolution(image: GPIMAGE;
   var resolution: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageHorizontalResolution}
 
   function GdipGetImageVerticalResolution(image: GPIMAGE;
   var resolution: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageVerticalResolution}
 
   function GdipGetImageFlags(image: GPIMAGE;
   var flags: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageFlags}
 
   function GdipGetImageRawFormat(image: GPIMAGE;
   format: PGUID): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageRawFormat}
 
   function GdipGetImagePixelFormat(image: GPIMAGE;
   out format: TPIXELFORMAT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImagePixelFormat}
 
   function GdipGetImageThumbnail(image: GPIMAGE; thumbWidth: UINT;
     thumbHeight: UINT; out thumbImage: GPIMAGE;
     callback: GETTHUMBNAILIMAGEABORT; callbackData: Pointer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageThumbnail}
 
   function GdipGetEncoderParameterListSize(image: GPIMAGE;
     clsidEncoder: PGUID; out size: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetEncoderParameterListSize}
 
   function GdipGetEncoderParameterList(image: GPIMAGE; clsidEncoder: PGUID;
     size: UINT; buffer: PENCODERPARAMETERS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetEncoderParameterList}
 
   function GdipImageGetFrameDimensionsCount(image: GPIMAGE;
     var count: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipImageGetFrameDimensionsCount}
 
   function GdipImageGetFrameDimensionsList(image: GPIMAGE; dimensionIDs: PGUID;
     count: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipImageGetFrameDimensionsList}
 
   function GdipImageGetFrameCount(image: GPIMAGE; dimensionID: PGUID;
     var count: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipImageGetFrameCount}
 
   function GdipImageSelectActiveFrame(image: GPIMAGE; dimensionID: PGUID;
     frameIndex: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipImageSelectActiveFrame}
 
   function GdipImageRotateFlip(image: GPIMAGE;
     rfType: ROTATEFLIPTYPE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipImageRotateFlip}
 
   function GdipGetImagePalette(image: GPIMAGE; palette: PCOLORPALETTE;
     size: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImagePalette}
 
   function GdipSetImagePalette(image: GPIMAGE;
     palette: PCOLORPALETTE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetImagePalette}
 
   function GdipGetImagePaletteSize(image: GPIMAGE;
     var size: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImagePaletteSize}
 
   function GdipGetPropertyCount(image: GPIMAGE;
     var numOfProperty: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPropertyCount}
 
   function GdipGetPropertyIdList(image: GPIMAGE; numOfProperty: UINT;
     list: PPROPID): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPropertyIdList}
 
   function GdipGetPropertyItemSize(image: GPIMAGE; propId: PROPID;
     var size: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPropertyItemSize}
 
   function GdipGetPropertyItem(image: GPIMAGE; propId: PROPID; propSize: UINT;
     buffer: PPROPERTYITEM): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPropertyItem}
 
   function GdipGetPropertySize(image: GPIMAGE; var totalBufferSize: UINT;
     var numProperties: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPropertySize}
 
   function GdipGetAllPropertyItems(image: GPIMAGE; totalBufferSize: UINT;
     numProperties: UINT; allItems: PPROPERTYITEM): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetAllPropertyItems}
 
   function GdipRemovePropertyItem(image: GPIMAGE;
     propId: PROPID): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRemovePropertyItem}
 
   function GdipSetPropertyItem(image: GPIMAGE;
     item: PPROPERTYITEM): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPropertyItem}
 
   function GdipImageForceValidation(image: GPIMAGE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipImageForceValidation}
 
 //---------------------------------------------------------------------------- 
 // Bitmap APIs
@@ -4839,86 +4126,66 @@ type
 
   function GdipCreateBitmapFromStream(stream: ISTREAM;
     out bitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateBitmapFromStream}
 
   function GdipCreateBitmapFromFile(filename: PWCHAR;
     out bitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateBitmapFromFile}
 
   function GdipCreateBitmapFromStreamICM(stream: ISTREAM;
     out bitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateBitmapFromStreamICM}
 
   function GdipCreateBitmapFromFileICM(filename: PWCHAR;
     var bitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateBitmapFromFileICM}
 
   function GdipCreateBitmapFromScan0(width: Integer; height: Integer;
     stride: Integer; format: PIXELFORMAT; scan0: PBYTE;
     out bitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateBitmapFromScan0}
 
   function GdipCreateBitmapFromGraphics(width: Integer; height: Integer;
     target: GPGRAPHICS; out bitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateBitmapFromGraphics}
 
   function GdipCreateBitmapFromDirectDrawSurface(surface: IDIRECTDRAWSURFACE7;
     out bitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateBitmapFromDirectDrawSurface}
 
   function GdipCreateBitmapFromGdiDib(gdiBitmapInfo: PBitmapInfo;
     gdiBitmapData: Pointer; out bitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateBitmapFromGdiDib}
 
   function GdipCreateBitmapFromHBITMAP(hbm: HBITMAP; hpal: HPALETTE;
     out bitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateBitmapFromHBITMAP}
 
   function GdipCreateHBITMAPFromBitmap(bitmap: GPBITMAP; out hbmReturn: HBITMAP;
     background: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateHBITMAPFromBitmap}
 
   function GdipCreateBitmapFromHICON(hicon: HICON;
     out bitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateBitmapFromHICON}
 
   function GdipCreateHICONFromBitmap(bitmap: GPBITMAP;
     out hbmReturn: HICON): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateHICONFromBitmap}
 
   function GdipCreateBitmapFromResource(hInstance: HMODULE;
     lpBitmapName: PWCHAR; out bitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateBitmapFromResource}
 
   function GdipCloneBitmapArea(x: Single; y: Single; width: Single;
     height: Single; format: PIXELFORMAT; srcBitmap: GPBITMAP;
     out dstBitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCloneBitmapArea}
 
   function GdipCloneBitmapAreaI(x: Integer; y: Integer; width: Integer;
     height: Integer; format: PIXELFORMAT; srcBitmap: GPBITMAP;
     out dstBitmap: GPBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCloneBitmapAreaI}
 
   function GdipBitmapLockBits(bitmap: GPBITMAP; rect: GPRECT; flags: UINT;
     format: PIXELFORMAT; lockedBitmapData: PBITMAPDATA): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipBitmapLockBits}
 
   function GdipBitmapUnlockBits(bitmap: GPBITMAP;
     lockedBitmapData: PBITMAPDATA): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipBitmapUnlockBits}
 
   function GdipBitmapGetPixel(bitmap: GPBITMAP; x: Integer; y: Integer;
     var color: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipBitmapGetPixel}
 
   function GdipBitmapSetPixel(bitmap: GPBITMAP; x: Integer; y: Integer;
     color: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipBitmapSetPixel}
 
   function GdipBitmapSetResolution(bitmap: GPBITMAP; xdpi: Single;
     ydpi: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipBitmapSetResolution}
 
 //----------------------------------------------------------------------------
 // ImageAttributes APIs
@@ -4926,74 +4193,58 @@ type
 
   function GdipCreateImageAttributes(
     out imageattr: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateImageAttributes}
 
   function GdipCloneImageAttributes(imageattr: GPIMAGEATTRIBUTES;
     out cloneImageattr: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCloneImageAttributes}
 
   function GdipDisposeImageAttributes(
     imageattr: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDisposeImageAttributes}
 
   function GdipSetImageAttributesToIdentity(imageattr: GPIMAGEATTRIBUTES;
     type_: COLORADJUSTTYPE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetImageAttributesToIdentity}
 
   function GdipResetImageAttributes(imageattr: GPIMAGEATTRIBUTES;
     type_: COLORADJUSTTYPE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipResetImageAttributes}
 
   function GdipSetImageAttributesColorMatrix(imageattr: GPIMAGEATTRIBUTES;
     type_: COLORADJUSTTYPE; enableFlag: Bool; colorMatrix: PCOLORMATRIX;
     grayMatrix: PCOLORMATRIX; flags: COLORMATRIXFLAGS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetImageAttributesColorMatrix}
 
   function GdipSetImageAttributesThreshold(imageattr: GPIMAGEATTRIBUTES;
     type_: COLORADJUSTTYPE; enableFlag: Bool;
     threshold: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetImageAttributesThreshold}
 
   function GdipSetImageAttributesGamma(imageattr: GPIMAGEATTRIBUTES;
     type_: COLORADJUSTTYPE; enableFlag: Bool; gamma: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetImageAttributesGamma}
 
   function GdipSetImageAttributesNoOp(imageattr: GPIMAGEATTRIBUTES;
   type_: COLORADJUSTTYPE; enableFlag: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetImageAttributesNoOp}
 
   function GdipSetImageAttributesColorKeys(imageattr: GPIMAGEATTRIBUTES;
     type_: COLORADJUSTTYPE; enableFlag: Bool; colorLow: ARGB;
     colorHigh: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetImageAttributesColorKeys}
 
   function GdipSetImageAttributesOutputChannel(imageattr: GPIMAGEATTRIBUTES;
     type_: COLORADJUSTTYPE; enableFlag: Bool;
     channelFlags: COLORCHANNELFLAGS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetImageAttributesOutputChannel}
 
   function GdipSetImageAttributesOutputChannelColorProfile(imageattr: GPIMAGEATTRIBUTES;
     type_: COLORADJUSTTYPE; enableFlag: Bool;
     colorProfileFilename: PWCHAR): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetImageAttributesOutputChannelColorProfile}
 
   function GdipSetImageAttributesRemapTable(imageattr: GPIMAGEATTRIBUTES;
     type_: COLORADJUSTTYPE; enableFlag: Bool; mapSize: UINT;
     map: PCOLORMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetImageAttributesRemapTable}
 
   function GdipSetImageAttributesWrapMode(imageAttr: GPIMAGEATTRIBUTES;
     wrap: WRAPMODE; argb: ARGB; clamp: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetImageAttributesWrapMode}
 
   function GdipSetImageAttributesICMMode(imageAttr: GPIMAGEATTRIBUTES;
     on_: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetImageAttributesICMMode}
 
   function GdipGetImageAttributesAdjustedPalette(imageAttr: GPIMAGEATTRIBUTES;
     colorPalette: PCOLORPALETTE;
     colorAdjustType: COLORADJUSTTYPE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageAttributesAdjustedPalette}
 
 //----------------------------------------------------------------------------
 // Graphics APIs
@@ -5001,735 +4252,567 @@ type
 
   function GdipFlush(graphics: GPGRAPHICS;
     intention: GPFLUSHINTENTION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFlush}
 
   function GdipCreateFromHDC(hdc: HDC;
     out graphics: GPGRAPHICS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateFromHDC}
 
   function GdipCreateFromHDC2(hdc: HDC; hDevice: THandle;
     out graphics: GPGRAPHICS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateFromHDC2}
 
   function GdipCreateFromHWND(hwnd: HWND;
     out graphics: GPGRAPHICS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateFromHWND}
 
   function GdipCreateFromHWNDICM(hwnd: HWND;
     out graphics: GPGRAPHICS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateFromHWNDICM}
 
   function GdipDeleteGraphics(graphics: GPGRAPHICS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeleteGraphics}
 
   function GdipGetDC(graphics: GPGRAPHICS; var hdc: HDC): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetDC}
 
   function GdipReleaseDC(graphics: GPGRAPHICS; hdc: HDC): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipReleaseDC}
 
   function GdipSetCompositingMode(graphics: GPGRAPHICS;
     compositingMode: COMPOSITINGMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetCompositingMode}
 
   function GdipGetCompositingMode(graphics: GPGRAPHICS;
     var compositingMode: COMPOSITINGMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetCompositingMode}
 
   function GdipSetRenderingOrigin(graphics: GPGRAPHICS; x: Integer;
     y: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetRenderingOrigin}
 
   function GdipGetRenderingOrigin(graphics: GPGRAPHICS; var x: Integer;
     var y: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetRenderingOrigin}
 
   function GdipSetCompositingQuality(graphics: GPGRAPHICS;
     compositingQuality: COMPOSITINGQUALITY): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetCompositingQuality}
 
   function GdipGetCompositingQuality(graphics: GPGRAPHICS;
     var compositingQuality: COMPOSITINGQUALITY): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetCompositingQuality}
 
   function GdipSetSmoothingMode(graphics: GPGRAPHICS;
     smoothingMode: SMOOTHINGMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetSmoothingMode}
 
   function GdipGetSmoothingMode(graphics: GPGRAPHICS;
     var smoothingMode: SMOOTHINGMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetSmoothingMode}
 
   function GdipSetPixelOffsetMode(graphics: GPGRAPHICS;
     pixelOffsetMode: PIXELOFFSETMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPixelOffsetMode}
 
   function GdipGetPixelOffsetMode(graphics: GPGRAPHICS;
     var pixelOffsetMode: PIXELOFFSETMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPixelOffsetMode}
 
   function GdipSetTextRenderingHint(graphics: GPGRAPHICS;
     mode: TEXTRENDERINGHINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetTextRenderingHint}
 
   function GdipGetTextRenderingHint(graphics: GPGRAPHICS;
     var mode: TEXTRENDERINGHINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetTextRenderingHint}
 
   function GdipSetTextContrast(graphics: GPGRAPHICS;
     contrast: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetTextContrast}
 
   function GdipGetTextContrast(graphics: GPGRAPHICS;
     var contrast: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetTextContrast}
 
   function GdipSetInterpolationMode(graphics: GPGRAPHICS;
     interpolationMode: INTERPOLATIONMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetInterpolationMode}
 
   function GdipGetInterpolationMode(graphics: GPGRAPHICS;
     var interpolationMode: INTERPOLATIONMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetInterpolationMode}
 
   function GdipSetWorldTransform(graphics: GPGRAPHICS;
     matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetWorldTransform}
 
   function GdipResetWorldTransform(graphics: GPGRAPHICS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipResetWorldTransform}
 
   function GdipMultiplyWorldTransform(graphics: GPGRAPHICS; matrix: GPMATRIX;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipMultiplyWorldTransform}
 
   function GdipTranslateWorldTransform(graphics: GPGRAPHICS; dx: Single;
     dy: Single; order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTranslateWorldTransform}
 
   function GdipScaleWorldTransform(graphics: GPGRAPHICS; sx: Single; sy: Single;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipScaleWorldTransform}
 
   function GdipRotateWorldTransform(graphics: GPGRAPHICS; angle: Single;
     order: GPMATRIXORDER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRotateWorldTransform}
 
   function GdipGetWorldTransform(graphics: GPGRAPHICS;
     matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetWorldTransform}
 
   function GdipResetPageTransform(graphics: GPGRAPHICS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipResetPageTransform}
 
   function GdipGetPageUnit(graphics: GPGRAPHICS;
     var unit_: GPUNIT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPageUnit}
 
   function GdipGetPageScale(graphics: GPGRAPHICS;
     var scale: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetPageScale}
 
   function GdipSetPageUnit(graphics: GPGRAPHICS;
     unit_: GPUNIT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPageUnit}
 
   function GdipSetPageScale(graphics: GPGRAPHICS;
     scale: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetPageScale}
 
   function GdipGetDpiX(graphics: GPGRAPHICS;
     var dpi: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetDpiX}
 
   function GdipGetDpiY(graphics: GPGRAPHICS;
     var dpi: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetDpiY}
 
   function GdipTransformPoints(graphics: GPGRAPHICS;
     destSpace: GPCOORDINATESPACE; srcSpace: GPCOORDINATESPACE;
     points: GPPOINTF; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTransformPoints}
 
   function GdipTransformPointsI(graphics: GPGRAPHICS;
     destSpace: GPCOORDINATESPACE; srcSpace: GPCOORDINATESPACE;
     points: GPPOINT; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTransformPointsI}
 
   function GdipGetNearestColor(graphics: GPGRAPHICS;
     argb: PARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetNearestColor}
 
 // Creates the Win9x Halftone Palette (even on NT) with correct Desktop colors
 
   function GdipCreateHalftonePalette: HPALETTE; stdcall;
-  {$EXTERNALSYM GdipCreateHalftonePalette}
 
   function GdipDrawLine(graphics: GPGRAPHICS; pen: GPPEN; x1: Single;
     y1: Single; x2: Single; y2: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawLine}
 
   function GdipDrawLineI(graphics: GPGRAPHICS; pen: GPPEN; x1: Integer;
     y1: Integer; x2: Integer; y2: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawLineI}
 
   function GdipDrawLines(graphics: GPGRAPHICS; pen: GPPEN; points: GPPOINTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawLines}
 
   function GdipDrawLinesI(graphics: GPGRAPHICS; pen: GPPEN; points: GPPOINT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawLinesI}
 
   function GdipDrawArc(graphics: GPGRAPHICS; pen: GPPEN; x: Single; y: Single;
     width: Single; height: Single; startAngle: Single;
     sweepAngle: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawArc}
 
   function GdipDrawArcI(graphics: GPGRAPHICS; pen: GPPEN; x: Integer;
     y: Integer; width: Integer; height: Integer; startAngle: Single;
     sweepAngle: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawArcI}
 
   function GdipDrawBezier(graphics: GPGRAPHICS; pen: GPPEN; x1: Single;
     y1: Single; x2: Single; y2: Single; x3: Single; y3: Single; x4: Single;
     y4: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawBezier}
 
   function GdipDrawBezierI(graphics: GPGRAPHICS; pen: GPPEN; x1: Integer;
     y1: Integer; x2: Integer; y2: Integer; x3: Integer; y3: Integer;
     x4: Integer; y4: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawBezierI}
 
   function GdipDrawBeziers(graphics: GPGRAPHICS; pen: GPPEN; points: GPPOINTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawBeziers}
 
   function GdipDrawBeziersI(graphics: GPGRAPHICS; pen: GPPEN; points: GPPOINT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawBeziersI}
 
   function GdipDrawRectangle(graphics: GPGRAPHICS; pen: GPPEN; x: Single;
     y: Single; width: Single; height: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawRectangle}
 
   function GdipDrawRectangleI(graphics: GPGRAPHICS; pen: GPPEN; x: Integer;
     y: Integer; width: Integer; height: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawRectangleI}
 
   function GdipDrawRectangles(graphics: GPGRAPHICS; pen: GPPEN; rects: GPRECTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawRectangles}
 
   function GdipDrawRectanglesI(graphics: GPGRAPHICS; pen: GPPEN; rects: GPRECT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawRectanglesI}
 
   function GdipDrawEllipse(graphics: GPGRAPHICS; pen: GPPEN; x: Single;
     y: Single; width: Single; height: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawEllipse}
 
   function GdipDrawEllipseI(graphics: GPGRAPHICS; pen: GPPEN; x: Integer;
     y: Integer; width: Integer; height: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawEllipseI}
 
   function GdipDrawPie(graphics: GPGRAPHICS; pen: GPPEN; x: Single; y: Single;
     width: Single;  height: Single; startAngle: Single;
     sweepAngle: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawPie}
 
   function GdipDrawPieI(graphics: GPGRAPHICS; pen: GPPEN; x: Integer;
     y: Integer; width: Integer; height: Integer; startAngle: Single;
     sweepAngle: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawPieI}
 
   function GdipDrawPolygon(graphics: GPGRAPHICS; pen: GPPEN; points: GPPOINTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawPolygon}
 
   function GdipDrawPolygonI(graphics: GPGRAPHICS; pen: GPPEN; points: GPPOINT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawPolygonI}
 
   function GdipDrawPath(graphics: GPGRAPHICS; pen: GPPEN;
     path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawPath}
 
   function GdipDrawCurve(graphics: GPGRAPHICS; pen: GPPEN; points: GPPOINTF;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawCurve}
 
   function GdipDrawCurveI(graphics: GPGRAPHICS; pen: GPPEN; points: GPPOINT;
     count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawCurveI}
 
   function GdipDrawCurve2(graphics: GPGRAPHICS; pen: GPPEN; points: GPPOINTF;
     count: Integer; tension: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawCurve2}
 
   function GdipDrawCurve2I(graphics: GPGRAPHICS; pen: GPPEN; points: GPPOINT;
     count: Integer; tension: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawCurve2I}
 
   function GdipDrawCurve3(graphics: GPGRAPHICS; pen: GPPEN; points: GPPOINTF;
     count: Integer; offset: Integer; numberOfSegments: Integer;
     tension: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawCurve3}
 
   function GdipDrawCurve3I(graphics: GPGRAPHICS; pen: GPPEN; points: GPPOINT;
     count: Integer; offset: Integer; numberOfSegments: Integer;
     tension: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawCurve3I}
 
   function GdipDrawClosedCurve(graphics: GPGRAPHICS; pen: GPPEN;
     points: GPPOINTF; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawClosedCurve}
 
   function GdipDrawClosedCurveI(graphics: GPGRAPHICS; pen: GPPEN;
     points: GPPOINT; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawClosedCurveI}
 
   function GdipDrawClosedCurve2(graphics: GPGRAPHICS; pen: GPPEN;
     points: GPPOINTF; count: Integer; tension: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawClosedCurve2}
 
   function GdipDrawClosedCurve2I(graphics: GPGRAPHICS; pen: GPPEN;
     points: GPPOINT; count: Integer; tension: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawClosedCurve2I}
 
   function GdipGraphicsClear(graphics: GPGRAPHICS;
     color: ARGB): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGraphicsClear}
 
   function GdipFillRectangle(graphics: GPGRAPHICS; brush: GPBRUSH; x: Single;
     y: Single; width: Single; height: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillRectangle}
 
   function GdipFillRectangleI(graphics: GPGRAPHICS; brush: GPBRUSH; x: Integer;
     y: Integer; width: Integer; height: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillRectangleI}
 
   function GdipFillRectangles(graphics: GPGRAPHICS; brush: GPBRUSH;
     rects: GPRECTF; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillRectangles}
 
   function GdipFillRectanglesI(graphics: GPGRAPHICS; brush: GPBRUSH;
     rects: GPRECT; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillRectanglesI}
 
   function GdipFillPolygon(graphics: GPGRAPHICS; brush: GPBRUSH;
     points: GPPOINTF; count: Integer; fillMode: GPFILLMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillPolygon}
 
   function GdipFillPolygonI(graphics: GPGRAPHICS; brush: GPBRUSH;
     points: GPPOINT; count: Integer; fillMode: GPFILLMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillPolygonI}
 
   function GdipFillPolygon2(graphics: GPGRAPHICS; brush: GPBRUSH;
     points: GPPOINTF; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillPolygon2}
 
   function GdipFillPolygon2I(graphics: GPGRAPHICS; brush: GPBRUSH;
     points: GPPOINT; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillPolygon2I}
 
   function GdipFillEllipse(graphics: GPGRAPHICS; brush: GPBRUSH; x: Single;
     y: Single; width: Single; height: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillEllipse}
 
   function GdipFillEllipseI(graphics: GPGRAPHICS; brush: GPBRUSH; x: Integer;
     y: Integer; width: Integer; height: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillEllipseI}
 
   function GdipFillPie(graphics: GPGRAPHICS; brush: GPBRUSH; x: Single;
     y: Single; width: Single; height: Single; startAngle: Single;
     sweepAngle: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillPie}
 
   function GdipFillPieI(graphics: GPGRAPHICS; brush: GPBRUSH; x: Integer;
     y: Integer; width: Integer; height: Integer; startAngle: Single;
     sweepAngle: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillPieI}
 
   function GdipFillPath(graphics: GPGRAPHICS; brush: GPBRUSH;
     path: GPPATH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillPath}
 
   function GdipFillClosedCurve(graphics: GPGRAPHICS; brush: GPBRUSH;
     points: GPPOINTF; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillClosedCurve}
 
   function GdipFillClosedCurveI(graphics: GPGRAPHICS; brush: GPBRUSH;
     points: GPPOINT; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillClosedCurveI}
 
   function GdipFillClosedCurve2(graphics: GPGRAPHICS; brush: GPBRUSH;
     points: GPPOINTF; count: Integer; tension: Single;
     fillMode: GPFILLMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillClosedCurve2}
 
   function GdipFillClosedCurve2I(graphics: GPGRAPHICS; brush: GPBRUSH;
     points: GPPOINT; count: Integer; tension: Single;
     fillMode: GPFILLMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillClosedCurve2I}
 
   function GdipFillRegion(graphics: GPGRAPHICS; brush: GPBRUSH;
     region: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFillRegion}
 
   function GdipDrawImage(graphics: GPGRAPHICS; image: GPIMAGE; x: Single;
     y: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawImage}
 
   function GdipDrawImageI(graphics: GPGRAPHICS; image: GPIMAGE; x: Integer;
     y: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawImageI}
 
   function GdipDrawImageRect(graphics: GPGRAPHICS; image: GPIMAGE; x: Single;
     y: Single; width: Single; height: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawImageRect}
 
   function GdipDrawImageRectI(graphics: GPGRAPHICS; image: GPIMAGE; x: Integer;
     y: Integer; width: Integer; height: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawImageRectI}
 
   function GdipDrawImagePoints(graphics: GPGRAPHICS; image: GPIMAGE;
     dstpoints: GPPOINTF; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawImagePoints}
 
   function GdipDrawImagePointsI(graphics: GPGRAPHICS; image: GPIMAGE;
     dstpoints: GPPOINT; count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawImagePointsI}
 
   function GdipDrawImagePointRect(graphics: GPGRAPHICS; image: GPIMAGE;
     x: Single; y: Single; srcx: Single; srcy: Single; srcwidth: Single;
     srcheight: Single; srcUnit: GPUNIT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawImagePointRect}
 
   function GdipDrawImagePointRectI(graphics: GPGRAPHICS; image: GPIMAGE;
     x: Integer; y: Integer; srcx: Integer; srcy: Integer; srcwidth: Integer;
     srcheight: Integer; srcUnit: GPUNIT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawImagePointRectI}
 
   function GdipDrawImageRectRect(graphics: GPGRAPHICS; image: GPIMAGE;
     dstx: Single; dsty: Single; dstwidth: Single; dstheight: Single;
     srcx: Single; srcy: Single; srcwidth: Single; srcheight: Single;
     srcUnit: GPUNIT; imageAttributes: GPIMAGEATTRIBUTES;
     callback: DRAWIMAGEABORT; callbackData: Pointer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawImageRectRect}
 
   function GdipDrawImageRectRectI(graphics: GPGRAPHICS; image: GPIMAGE;
     dstx: Integer; dsty: Integer; dstwidth: Integer; dstheight: Integer;
     srcx: Integer; srcy: Integer; srcwidth: Integer; srcheight: Integer;
     srcUnit: GPUNIT; imageAttributes: GPIMAGEATTRIBUTES;
     callback: DRAWIMAGEABORT; callbackData: Pointer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawImageRectRectI}
 
   function GdipDrawImagePointsRect(graphics: GPGRAPHICS; image: GPIMAGE;
     points: GPPOINTF; count: Integer; srcx: Single; srcy: Single;
     srcwidth: Single; srcheight: Single; srcUnit: GPUNIT;
     imageAttributes: GPIMAGEATTRIBUTES; callback: DRAWIMAGEABORT;
     callbackData: Pointer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawImagePointsRect}
 
   function GdipDrawImagePointsRectI(graphics: GPGRAPHICS; image: GPIMAGE;
     points: GPPOINT; count: Integer; srcx: Integer; srcy: Integer;
     srcwidth: Integer; srcheight: Integer; srcUnit: GPUNIT;
     imageAttributes: GPIMAGEATTRIBUTES; callback: DRAWIMAGEABORT;
     callbackData: Pointer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawImagePointsRectI}
 
   function GdipEnumerateMetafileDestPoint(graphics: GPGRAPHICS;
     metafile: GPMETAFILE; destPoint: PGPPointF; callback: ENUMERATEMETAFILEPROC;
     callbackData: Pointer;
     imageAttributes: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEnumerateMetafileDestPoint}
 
   function GdipEnumerateMetafileDestPointI(graphics: GPGRAPHICS;
     metafile: GPMETAFILE; destPoint: PGPPoint; callback: ENUMERATEMETAFILEPROC;
     callbackData: Pointer;
     imageAttributes: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEnumerateMetafileDestPointI}
 
   function GdipEnumerateMetafileDestRect(graphics: GPGRAPHICS;
     metafile: GPMETAFILE; destRect: PGPRectF; callback: ENUMERATEMETAFILEPROC;
     callbackData: Pointer;
     imageAttributes: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEnumerateMetafileDestRect}
 
   function GdipEnumerateMetafileDestRectI(graphics: GPGRAPHICS;
     metafile: GPMETAFILE; destRect: PGPRect; callback: ENUMERATEMETAFILEPROC;
     callbackData: Pointer;
     imageAttributes: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEnumerateMetafileDestRectI}
 
   function GdipEnumerateMetafileDestPoints(graphics: GPGRAPHICS;
     metafile: GPMETAFILE; destPoints: PGPPointF; count: Integer;
     callback: ENUMERATEMETAFILEPROC; callbackData: Pointer;
     imageAttributes: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEnumerateMetafileDestPoints}
 
   function GdipEnumerateMetafileDestPointsI(graphics: GPGRAPHICS;
     metafile: GPMETAFILE; destPoints: PGPPoint; count: Integer;
     callback: ENUMERATEMETAFILEPROC; callbackData: Pointer;
     imageAttributes: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEnumerateMetafileDestPointsI}
 
   function GdipEnumerateMetafileSrcRectDestPoint(graphics: GPGRAPHICS;
     metafile: GPMETAFILE; destPoint: PGPPointF; srcRect: PGPRectF; srcUnit: TUNIT;
     callback: ENUMERATEMETAFILEPROC; callbackData: Pointer;
     imageAttributes: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEnumerateMetafileSrcRectDestPoint}
 
   function GdipEnumerateMetafileSrcRectDestPointI(graphics: GPGRAPHICS;
     metafile: GPMETAFILE; destPoint: PGPPoint; srcRect: PGPRect; srcUnit: TUNIT;
     callback: ENUMERATEMETAFILEPROC; callbackData: Pointer;
     imageAttributes: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEnumerateMetafileSrcRectDestPointI}
 
   function GdipEnumerateMetafileSrcRectDestRect(graphics: GPGRAPHICS;
     metafile: GPMETAFILE; destRect: PGPRectF; srcRect: PGPRectF; srcUnit: TUNIT;
     callback: ENUMERATEMETAFILEPROC; callbackData: Pointer;
     imageAttributes: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEnumerateMetafileSrcRectDestRect}
 
   function GdipEnumerateMetafileSrcRectDestRectI(graphics: GPGRAPHICS;
     metafile: GPMETAFILE; destRect: PGPRect; srcRect: PGPRect; srcUnit: TUNIT;
     callback: ENUMERATEMETAFILEPROC; callbackData: Pointer;
     imageAttributes: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEnumerateMetafileSrcRectDestRectI}
 
   function GdipEnumerateMetafileSrcRectDestPoints(graphics: GPGRAPHICS;
     metafile: GPMETAFILE; destPoints: PGPPointF; count: Integer; srcRect: PGPRectF;
     srcUnit: TUNIT; callback: ENUMERATEMETAFILEPROC; callbackData: Pointer;
     imageAttributes: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEnumerateMetafileSrcRectDestPoints}
 
   function GdipEnumerateMetafileSrcRectDestPointsI(graphics: GPGRAPHICS;
     metafile: GPMETAFILE; destPoints: PGPPoint; count: Integer; srcRect: PGPRect;
     srcUnit: TUNIT; callback: ENUMERATEMETAFILEPROC; callbackData: Pointer;
     imageAttributes: GPIMAGEATTRIBUTES): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEnumerateMetafileSrcRectDestPointsI}
 
   function GdipPlayMetafileRecord(metafile: GPMETAFILE;
     recordType: EMFPLUSRECORDTYPE; flags: UINT; dataSize: UINT;
     data: PBYTE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPlayMetafileRecord}
 
   function GdipSetClipGraphics(graphics: GPGRAPHICS; srcgraphics: GPGRAPHICS;
     combineMode: COMBINEMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetClipGraphics}
 
   function GdipSetClipRect(graphics: GPGRAPHICS; x: Single; y: Single;
     width: Single; height: Single; combineMode: COMBINEMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetClipRect}
 
   function GdipSetClipRectI(graphics: GPGRAPHICS; x: Integer; y: Integer;
     width: Integer; height: Integer;
     combineMode: COMBINEMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetClipRectI}
 
   function GdipSetClipPath(graphics: GPGRAPHICS; path: GPPATH;
     combineMode: COMBINEMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetClipPath}
 
   function GdipSetClipRegion(graphics: GPGRAPHICS; region: GPREGION;
     combineMode: COMBINEMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetClipRegion}
 
   function GdipSetClipHrgn(graphics: GPGRAPHICS; hRgn: HRGN;
     combineMode: COMBINEMODE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetClipHrgn}
 
   function GdipResetClip(graphics: GPGRAPHICS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipResetClip}
 
   function GdipTranslateClip(graphics: GPGRAPHICS; dx: Single;
     dy: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTranslateClip}
 
   function GdipTranslateClipI(graphics: GPGRAPHICS; dx: Integer;
     dy: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipTranslateClipI}
 
   function GdipGetClip(graphics: GPGRAPHICS;
     region: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetClip}
 
   function GdipGetClipBounds(graphics: GPGRAPHICS;
     rect: GPRECTF): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetClipBounds}
 
   function GdipGetClipBoundsI(graphics: GPGRAPHICS;
     rect: GPRECT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetClipBoundsI}
 
   function GdipIsClipEmpty(graphics: GPGRAPHICS;
     result: PBool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsClipEmpty}
 
   function GdipGetVisibleClipBounds(graphics: GPGRAPHICS;
     rect: GPRECTF): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetVisibleClipBounds}
 
   function GdipGetVisibleClipBoundsI(graphics: GPGRAPHICS;
     rect: GPRECT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetVisibleClipBoundsI}
 
   function GdipIsVisibleClipEmpty(graphics: GPGRAPHICS;
     var result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsVisibleClipEmpty}
 
   function GdipIsVisiblePoint(graphics: GPGRAPHICS; x: Single; y: Single;
     var result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsVisiblePoint}
 
   function GdipIsVisiblePointI(graphics: GPGRAPHICS; x: Integer; y: Integer;
     var result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsVisiblePointI}
 
   function GdipIsVisibleRect(graphics: GPGRAPHICS; x: Single; y: Single;
     width: Single; height: Single; var result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsVisibleRect}
 
   function GdipIsVisibleRectI(graphics: GPGRAPHICS; x: Integer; y: Integer;
     width: Integer; height: Integer; var result: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsVisibleRectI}
 
   function GdipSaveGraphics(graphics: GPGRAPHICS;
     var state: GRAPHICSSTATE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSaveGraphics}
 
   function GdipRestoreGraphics(graphics: GPGRAPHICS;
     state: GRAPHICSSTATE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRestoreGraphics}
 
   function GdipBeginContainer(graphics: GPGRAPHICS; dstrect: GPRECTF;
     srcrect: GPRECTF; unit_: GPUNIT;
     var state: GRAPHICSCONTAINER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipBeginContainer}
 
   function GdipBeginContainerI(graphics: GPGRAPHICS; dstrect: GPRECT;
     srcrect: GPRECT; unit_: GPUNIT;
     var state: GRAPHICSCONTAINER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipBeginContainerI}
 
   function GdipBeginContainer2(graphics: GPGRAPHICS;
     var state: GRAPHICSCONTAINER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipBeginContainer2}
 
   function GdipEndContainer(graphics: GPGRAPHICS;
     state: GRAPHICSCONTAINER): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipEndContainer}
 
   function GdipGetMetafileHeaderFromWmf(hWmf: HMETAFILE;
     wmfPlaceableFileHeader: PWMFPLACEABLEFILEHEADER;
     header: Pointer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetMetafileHeaderFromWmf}
 
   function GdipGetMetafileHeaderFromEmf(hEmf: HENHMETAFILE;
     header: Pointer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetMetafileHeaderFromEmf}
 
   function GdipGetMetafileHeaderFromFile(filename: PWCHAR;
     header: Pointer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetMetafileHeaderFromFile}
 
   function GdipGetMetafileHeaderFromStream(stream: ISTREAM;
     header: Pointer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetMetafileHeaderFromStream}
 
   function GdipGetMetafileHeaderFromMetafile(metafile: GPMETAFILE;
     header: Pointer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetMetafileHeaderFromMetafile}
 
   function GdipGetHemfFromMetafile(metafile: GPMETAFILE;
     var hEmf: HENHMETAFILE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetHemfFromMetafile}
 
   function GdipCreateStreamOnFile(filename: PWCHAR; access: UINT;
     out stream: ISTREAM): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateStreamOnFile}
 
   function GdipCreateMetafileFromWmf(hWmf: HMETAFILE; deleteWmf: Bool;
     wmfPlaceableFileHeader: PWMFPLACEABLEFILEHEADER;
     out metafile: GPMETAFILE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateMetafileFromWmf}
 
   function GdipCreateMetafileFromEmf(hEmf: HENHMETAFILE; deleteEmf: Bool;
     out metafile: GPMETAFILE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateMetafileFromEmf}
 
   function GdipCreateMetafileFromFile(file_: PWCHAR;
     out metafile: GPMETAFILE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateMetafileFromFile}
 
   function GdipCreateMetafileFromWmfFile(file_: PWCHAR;
     wmfPlaceableFileHeader: PWMFPLACEABLEFILEHEADER;
     out metafile: GPMETAFILE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateMetafileFromWmfFile}
 
   function GdipCreateMetafileFromStream(stream: ISTREAM;
     out metafile: GPMETAFILE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateMetafileFromStream}
 
   function GdipRecordMetafile(referenceHdc: HDC; type_: EMFTYPE;
     frameRect: GPRECTF; frameUnit: METAFILEFRAMEUNIT;
     description: PWCHAR; out metafile: GPMETAFILE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRecordMetafile}
 
   function GdipRecordMetafileI(referenceHdc: HDC; type_: EMFTYPE;
     frameRect: GPRECT; frameUnit: METAFILEFRAMEUNIT; description: PWCHAR;
     out metafile: GPMETAFILE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRecordMetafileI}
 
   function GdipRecordMetafileFileName(fileName: PWCHAR; referenceHdc: HDC;
     type_: EMFTYPE; frameRect: GPRECTF; frameUnit: METAFILEFRAMEUNIT;
     description: PWCHAR; out metafile: GPMETAFILE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRecordMetafileFileName}
 
   function GdipRecordMetafileFileNameI(fileName: PWCHAR; referenceHdc: HDC;
     type_: EMFTYPE; frameRect: GPRECT; frameUnit: METAFILEFRAMEUNIT;
     description: PWCHAR; out metafile: GPMETAFILE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRecordMetafileFileNameI}
 
   function GdipRecordMetafileStream(stream: ISTREAM; referenceHdc: HDC;
     type_: EMFTYPE; frameRect: GPRECTF; frameUnit: METAFILEFRAMEUNIT;
     description: PWCHAR; out metafile: GPMETAFILE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRecordMetafileStream}
 
   function GdipRecordMetafileStreamI(stream: ISTREAM; referenceHdc: HDC;
     type_: EMFTYPE; frameRect: GPRECT; frameUnit: METAFILEFRAMEUNIT;
     description: PWCHAR; out metafile: GPMETAFILE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipRecordMetafileStreamI}
 
   function GdipSetMetafileDownLevelRasterizationLimit(metafile: GPMETAFILE;
     metafileRasterizationLimitDpi: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetMetafileDownLevelRasterizationLimit}
 
   function GdipGetMetafileDownLevelRasterizationLimit(metafile: GPMETAFILE;
     var metafileRasterizationLimitDpi: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetMetafileDownLevelRasterizationLimit}
 
   function GdipGetImageDecodersSize(out numDecoders: UINT;
     out size: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageDecodersSize}
 
   function GdipGetImageDecoders(numDecoders: UINT; size: UINT;
     decoders: PIMAGECODECINFO): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageDecoders}
 
   function GdipGetImageEncodersSize(out numEncoders: UINT;
     out size: UINT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageEncodersSize}
 
   function GdipGetImageEncoders(numEncoders: UINT; size: UINT;
     encoders: PIMAGECODECINFO): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetImageEncoders}
 
   function GdipComment(graphics: GPGRAPHICS; sizeData: UINT;
     data: PBYTE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipComment}
 
 //----------------------------------------------------------------------------
 // FontFamily APIs
@@ -5738,144 +4821,109 @@ type
   function GdipCreateFontFamilyFromName(name: PWCHAR;
     fontCollection: GPFONTCOLLECTION;
     out FontFamily: GPFONTFAMILY): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateFontFamilyFromName}
 
   function GdipDeleteFontFamily(FontFamily: GPFONTFAMILY): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeleteFontFamily}
 
   function GdipCloneFontFamily(FontFamily: GPFONTFAMILY;
     out clonedFontFamily: GPFONTFAMILY): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCloneFontFamily}
 
   function GdipGetGenericFontFamilySansSerif(
     out nativeFamily: GPFONTFAMILY): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetGenericFontFamilySansSerif}
 
   function GdipGetGenericFontFamilySerif(
     out nativeFamily: GPFONTFAMILY): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetGenericFontFamilySerif}
 
   function GdipGetGenericFontFamilyMonospace(
     out nativeFamily: GPFONTFAMILY): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetGenericFontFamilyMonospace}
 
   function GdipGetFamilyName(family: GPFONTFAMILY; name: PWideChar;
     language: LANGID): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetFamilyName}
 
   function GdipIsStyleAvailable(family: GPFONTFAMILY; style: Integer;
     var IsStyleAvailable: Bool): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipIsStyleAvailable}
 
   function GdipFontCollectionEnumerable(fontCollection: GPFONTCOLLECTION;
     graphics: GPGRAPHICS; var numFound: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFontCollectionEnumerable}
 
   function GdipFontCollectionEnumerate(fontCollection: GPFONTCOLLECTION;
     numSought: Integer; gpfamilies: array of GPFONTFAMILY;
     var numFound: Integer; graphics: GPGRAPHICS): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipFontCollectionEnumerate}
 
   function GdipGetEmHeight(family: GPFONTFAMILY; style: Integer;
     out EmHeight: UINT16): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetEmHeight}
 
   function GdipGetCellAscent(family: GPFONTFAMILY; style: Integer;
     var CellAscent: UINT16): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetCellAscent}
 
   function GdipGetCellDescent(family: GPFONTFAMILY; style: Integer;
     var CellDescent: UINT16): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetCellDescent}
 
   function GdipGetLineSpacing(family: GPFONTFAMILY; style: Integer;
     var LineSpacing: UINT16): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLineSpacing}
 
 //----------------------------------------------------------------------------
 // Font APIs
 //----------------------------------------------------------------------------
 
   function GdipCreateFontFromDC(hdc: HDC; out font: GPFONT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateFontFromDC}
 
   function GdipCreateFontFromLogfontA(hdc: HDC; logfont: PLOGFONTA;
     out font: GPFONT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateFontFromLogfontA}
 
   function GdipCreateFontFromLogfontW(hdc: HDC; logfont: PLOGFONTW;
     out font: GPFONT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateFontFromLogfontW}
 
   function GdipCreateFont(fontFamily: GPFONTFAMILY; emSize: Single;
     style: Integer; unit_: Integer; out font: GPFONT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateFont}
 
   function GdipCloneFont(font: GPFONT;
     out cloneFont: GPFONT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCloneFont}
 
   function GdipDeleteFont(font: GPFONT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeleteFont}
 
   function GdipGetFamily(font: GPFONT;
     out family: GPFONTFAMILY): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetFamily}
 
   function GdipGetFontStyle(font: GPFONT;
     var style: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetFontStyle}
 
   function GdipGetFontSize(font: GPFONT; var size: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetFontSize}
 
   function GdipGetFontUnit(font: GPFONT; var unit_: TUNIT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetFontUnit}
 
   function GdipGetFontHeight(font: GPFONT; graphics: GPGRAPHICS;
     var height: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetFontHeight}
 
   function GdipGetFontHeightGivenDPI(font: GPFONT; dpi: Single;
     var height: Single): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetFontHeightGivenDPI}
 
   function GdipGetLogFontA(font: GPFONT; graphics: GPGRAPHICS;
     var logfontA: LOGFONTA): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLogFontA}
 
   function GdipGetLogFontW(font: GPFONT; graphics: GPGRAPHICS;
     var logfontW: LOGFONTW): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetLogFontW}
 
   function GdipNewInstalledFontCollection(
     out fontCollection: GPFONTCOLLECTION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipNewInstalledFontCollection}
 
   function GdipNewPrivateFontCollection(
     out fontCollection: GPFONTCOLLECTION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipNewPrivateFontCollection}
 
   function GdipDeletePrivateFontCollection(
     out fontCollection: GPFONTCOLLECTION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeletePrivateFontCollection}
 
   function GdipGetFontCollectionFamilyCount(fontCollection: GPFONTCOLLECTION;
     var numFound: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetFontCollectionFamilyCount}
 
   function GdipGetFontCollectionFamilyList(fontCollection: GPFONTCOLLECTION;
     numSought: Integer; gpfamilies: GPFONTFAMILY;
     var numFound: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetFontCollectionFamilyList}
 
   function GdipPrivateAddFontFile(fontCollection: GPFONTCOLLECTION;
     filename: PWCHAR): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPrivateAddFontFile}
 
   function GdipPrivateAddMemoryFont(fontCollection: GPFONTCOLLECTION;
     memory: Pointer; length: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipPrivateAddMemoryFont}
 
 //----------------------------------------------------------------------------
 // Text APIs
@@ -5884,30 +4932,25 @@ type
   function GdipDrawString(graphics: GPGRAPHICS; string_: PWCHAR;
     length: Integer; font: GPFONT; layoutRect: PGPRectF;
     stringFormat: GPSTRINGFORMAT; brush: GPBRUSH): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawString}
 
   function GdipMeasureString(graphics: GPGRAPHICS; string_: PWCHAR;
     length: Integer; font: GPFONT; layoutRect: PGPRectF;
     stringFormat: GPSTRINGFORMAT; boundingBox: PGPRectF;
     codepointsFitted: PInteger; linesFilled: PInteger): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipMeasureString}
 
   function GdipMeasureCharacterRanges(graphics: GPGRAPHICS; string_: PWCHAR;
     length: Integer; font: GPFONT; layoutRect: PGPRectF;
     stringFormat: GPSTRINGFORMAT; regionCount: Integer;
     const regions: GPREGION): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipMeasureCharacterRanges}
 
   function GdipDrawDriverString(graphics: GPGRAPHICS; const text: PUINT16;
     length: Integer; const font: GPFONT; const brush: GPBRUSH;
     const positions: PGPPointF; flags: Integer;
     const matrix: GPMATRIX): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawDriverString}
 
   function GdipMeasureDriverString(graphics: GPGRAPHICS; text: PUINT16;
     length: Integer; font: GPFONT; positions: PGPPointF; flags: Integer;
     matrix: GPMATRIX; boundingBox: PGPRectF): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipMeasureDriverString}
 
 //----------------------------------------------------------------------------
 // String format APIs
@@ -5915,93 +4958,71 @@ type
 
   function GdipCreateStringFormat(formatAttributes: Integer; language: LANGID;
     out format: GPSTRINGFORMAT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateStringFormat}
 
   function GdipStringFormatGetGenericDefault(
     out format: GPSTRINGFORMAT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipStringFormatGetGenericDefault}
 
   function GdipStringFormatGetGenericTypographic(
     out format: GPSTRINGFORMAT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipStringFormatGetGenericTypographic}
 
   function GdipDeleteStringFormat(format: GPSTRINGFORMAT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeleteStringFormat}
 
   function GdipCloneStringFormat(format: GPSTRINGFORMAT;
     out newFormat: GPSTRINGFORMAT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCloneStringFormat}
 
   function GdipSetStringFormatFlags(format: GPSTRINGFORMAT;
     flags: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetStringFormatFlags}
 
   function GdipGetStringFormatFlags(format: GPSTRINGFORMAT;
     out flags: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetStringFormatFlags}
 
   function GdipSetStringFormatAlign(format: GPSTRINGFORMAT;
     align: STRINGALIGNMENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetStringFormatAlign}
 
   function GdipGetStringFormatAlign(format: GPSTRINGFORMAT;
     out align: STRINGALIGNMENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetStringFormatAlign}
 
   function GdipSetStringFormatLineAlign(format: GPSTRINGFORMAT;
     align: STRINGALIGNMENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetStringFormatLineAlign}
 
   function GdipGetStringFormatLineAlign(format: GPSTRINGFORMAT;
     out align: STRINGALIGNMENT): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetStringFormatLineAlign}
 
   function GdipSetStringFormatTrimming(format: GPSTRINGFORMAT;
     trimming: STRINGTRIMMING): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetStringFormatTrimming}
 
   function GdipGetStringFormatTrimming(format: GPSTRINGFORMAT;
     out trimming: STRINGTRIMMING): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetStringFormatTrimming}
 
   function GdipSetStringFormatHotkeyPrefix(format: GPSTRINGFORMAT;
     hotkeyPrefix: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetStringFormatHotkeyPrefix}
 
   function GdipGetStringFormatHotkeyPrefix(format: GPSTRINGFORMAT;
     out hotkeyPrefix: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetStringFormatHotkeyPrefix}
 
   function GdipSetStringFormatTabStops(format: GPSTRINGFORMAT;
     firstTabOffset: Single; count: Integer;
     tabStops: PSingle): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetStringFormatTabStops}
 
   function GdipGetStringFormatTabStops(format: GPSTRINGFORMAT;
     count: Integer; firstTabOffset: PSingle;
     tabStops: PSingle): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetStringFormatTabStops}
 
   function GdipGetStringFormatTabStopCount(format: GPSTRINGFORMAT;
     out count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetStringFormatTabStopCount}
 
   function GdipSetStringFormatDigitSubstitution(format: GPSTRINGFORMAT;
     language: LANGID;
     substitute: STRINGDIGITSUBSTITUTE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetStringFormatDigitSubstitution}
 
   function GdipGetStringFormatDigitSubstitution(format: GPSTRINGFORMAT;
     language: PUINT; substitute: PSTRINGDIGITSUBSTITUTE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetStringFormatDigitSubstitution}
 
   function GdipGetStringFormatMeasurableCharacterRangeCount(format: GPSTRINGFORMAT;
     out count: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipGetStringFormatMeasurableCharacterRangeCount}
 
   function GdipSetStringFormatMeasurableCharacterRanges(format: GPSTRINGFORMAT;
     rangeCount: Integer; ranges: PCHARACTERRANGE): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipSetStringFormatMeasurableCharacterRanges}
 
 //----------------------------------------------------------------------------
 // Cached Bitmap APIs
@@ -6009,647 +5030,643 @@ type
 
   function GdipCreateCachedBitmap(bitmap: GPBITMAP; graphics: GPGRAPHICS;
     out cachedBitmap: GPCACHEDBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipCreateCachedBitmap}
 
   function GdipDeleteCachedBitmap(
     cachedBitmap: GPCACHEDBITMAP): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDeleteCachedBitmap}
 
   function GdipDrawCachedBitmap(graphics: GPGRAPHICS;
     cachedBitmap: GPCACHEDBITMAP; x: Integer;
     y: Integer): GPSTATUS; stdcall;
-  {$EXTERNALSYM GdipDrawCachedBitmap}
 
   function GdipEmfToWmfBits(hemf: HENHMETAFILE; cbData16: UINT; pData16: PBYTE;
     iMapMode: Integer; eFlags: Integer): UINT; stdcall;
-  {$EXTERNALSYM GdipEmfToWmfBits}
 
 implementation
 
-  function GdipAlloc; external WINGDIPDLL name 'GdipAlloc';
-  procedure GdipFree; external WINGDIPDLL name 'GdipFree';
-  function GdiplusStartup; external WINGDIPDLL name 'GdiplusStartup';
-  procedure GdiplusShutdown; external WINGDIPDLL name 'GdiplusShutdown';
+function GdipAlloc; external WINGDIPDLL name 'GdipAlloc' delayed;
+procedure GdipFree; external WINGDIPDLL name 'GdipFree' delayed;
+function GdiplusStartup; external WINGDIPDLL name 'GdiplusStartup' delayed;
+procedure GdiplusShutdown; external WINGDIPDLL name 'GdiplusShutdown' delayed;
 
-  function GdipCreatePath; external WINGDIPDLL name 'GdipCreatePath';
-  function GdipCreatePath2; external WINGDIPDLL name 'GdipCreatePath2';
-  function GdipCreatePath2I; external WINGDIPDLL name 'GdipCreatePath2I';
-  function GdipClonePath; external WINGDIPDLL name 'GdipClonePath';
-  function GdipDeletePath; external WINGDIPDLL name 'GdipDeletePath';
-  function GdipResetPath; external WINGDIPDLL name 'GdipResetPath';
-  function GdipGetPointCount; external WINGDIPDLL name 'GdipGetPointCount';
-  function GdipGetPathTypes; external WINGDIPDLL name 'GdipGetPathTypes';
-  function GdipGetPathPoints; external WINGDIPDLL name 'GdipGetPathPoints';
-  function GdipGetPathPointsI; external WINGDIPDLL name 'GdipGetPathPointsI';
-  function GdipGetPathFillMode; external WINGDIPDLL name 'GdipGetPathFillMode';
-  function GdipSetPathFillMode; external WINGDIPDLL name 'GdipSetPathFillMode';
-  function GdipGetPathData; external WINGDIPDLL name 'GdipGetPathData';
-  function GdipStartPathFigure; external WINGDIPDLL name 'GdipStartPathFigure';
-  function GdipClosePathFigure; external WINGDIPDLL name 'GdipClosePathFigure';
-  function GdipClosePathFigures; external WINGDIPDLL name 'GdipClosePathFigures';
-  function GdipSetPathMarker; external WINGDIPDLL name 'GdipSetPathMarker';
-  function GdipClearPathMarkers; external WINGDIPDLL name 'GdipClearPathMarkers';
-  function GdipReversePath; external WINGDIPDLL name 'GdipReversePath';
-  function GdipGetPathLastPoint; external WINGDIPDLL name 'GdipGetPathLastPoint';
-  function GdipAddPathLine; external WINGDIPDLL name 'GdipAddPathLine';
-  function GdipAddPathLine2; external WINGDIPDLL name 'GdipAddPathLine2';
-  function GdipAddPathArc; external WINGDIPDLL name 'GdipAddPathArc';
-  function GdipAddPathBezier; external WINGDIPDLL name 'GdipAddPathBezier';
-  function GdipAddPathBeziers; external WINGDIPDLL name 'GdipAddPathBeziers';
-  function GdipAddPathCurve; external WINGDIPDLL name 'GdipAddPathCurve';
-  function GdipAddPathCurve2; external WINGDIPDLL name 'GdipAddPathCurve2';
-  function GdipAddPathCurve3; external WINGDIPDLL name 'GdipAddPathCurve3';
-  function GdipAddPathClosedCurve; external WINGDIPDLL name 'GdipAddPathClosedCurve';
-  function GdipAddPathClosedCurve2; external WINGDIPDLL name 'GdipAddPathClosedCurve2';
-  function GdipAddPathRectangle; external WINGDIPDLL name 'GdipAddPathRectangle';
-  function GdipAddPathRectangles; external WINGDIPDLL name 'GdipAddPathRectangles';
-  function GdipAddPathEllipse; external WINGDIPDLL name 'GdipAddPathEllipse';
-  function GdipAddPathPie; external WINGDIPDLL name 'GdipAddPathPie';
-  function GdipAddPathPolygon; external WINGDIPDLL name 'GdipAddPathPolygon';
-  function GdipAddPathPath; external WINGDIPDLL name 'GdipAddPathPath';
-  function GdipAddPathString; external WINGDIPDLL name 'GdipAddPathString';
-  function GdipAddPathStringI; external WINGDIPDLL name 'GdipAddPathStringI';
-  function GdipAddPathLineI; external WINGDIPDLL name 'GdipAddPathLineI';
-  function GdipAddPathLine2I; external WINGDIPDLL name 'GdipAddPathLine2I';
-  function GdipAddPathArcI; external WINGDIPDLL name 'GdipAddPathArcI';
-  function GdipAddPathBezierI; external WINGDIPDLL name 'GdipAddPathBezierI';
-  function GdipAddPathBeziersI; external WINGDIPDLL name 'GdipAddPathBeziersI';
-  function GdipAddPathCurveI; external WINGDIPDLL name 'GdipAddPathCurveI';
-  function GdipAddPathCurve2I; external WINGDIPDLL name 'GdipAddPathCurve2I';
-  function GdipAddPathCurve3I; external WINGDIPDLL name 'GdipAddPathCurve3I';
-  function GdipAddPathClosedCurveI; external WINGDIPDLL name 'GdipAddPathClosedCurveI';
-  function GdipAddPathClosedCurve2I; external WINGDIPDLL name 'GdipAddPathClosedCurve2I';
-  function GdipAddPathRectangleI; external WINGDIPDLL name 'GdipAddPathRectangleI';
-  function GdipAddPathRectanglesI; external WINGDIPDLL name 'GdipAddPathRectanglesI';
-  function GdipAddPathEllipseI; external WINGDIPDLL name 'GdipAddPathEllipseI';
-  function GdipAddPathPieI; external WINGDIPDLL name 'GdipAddPathPieI';
-  function GdipAddPathPolygonI; external WINGDIPDLL name 'GdipAddPathPolygonI';
-  function GdipFlattenPath; external WINGDIPDLL name 'GdipFlattenPath';
-  function GdipWindingModeOutline; external WINGDIPDLL name 'GdipWindingModeOutline';
-  function GdipWidenPath; external WINGDIPDLL name 'GdipWidenPath';
-  function GdipWarpPath; external WINGDIPDLL name 'GdipWarpPath';
-  function GdipTransformPath; external WINGDIPDLL name 'GdipTransformPath';
-  function GdipGetPathWorldBounds; external WINGDIPDLL name 'GdipGetPathWorldBounds';
-  function GdipGetPathWorldBoundsI; external WINGDIPDLL name 'GdipGetPathWorldBoundsI';
-  function GdipIsVisiblePathPoint; external WINGDIPDLL name 'GdipIsVisiblePathPoint';
-  function GdipIsVisiblePathPointI; external WINGDIPDLL name 'GdipIsVisiblePathPointI';
-  function GdipIsOutlineVisiblePathPoint; external WINGDIPDLL name 'GdipIsOutlineVisiblePathPoint';
-  function GdipIsOutlineVisiblePathPointI; external WINGDIPDLL name 'GdipIsOutlineVisiblePathPointI';
-  function GdipCreatePathIter; external WINGDIPDLL name 'GdipCreatePathIter';
-  function GdipDeletePathIter; external WINGDIPDLL name 'GdipDeletePathIter';
-  function GdipPathIterNextSubpath; external WINGDIPDLL name 'GdipPathIterNextSubpath';
-  function GdipPathIterNextSubpathPath; external WINGDIPDLL name 'GdipPathIterNextSubpathPath';
-  function GdipPathIterNextPathType; external WINGDIPDLL name 'GdipPathIterNextPathType';
-  function GdipPathIterNextMarker; external WINGDIPDLL name 'GdipPathIterNextMarker';
-  function GdipPathIterNextMarkerPath; external WINGDIPDLL name 'GdipPathIterNextMarkerPath';
-  function GdipPathIterGetCount; external WINGDIPDLL name 'GdipPathIterGetCount';
-  function GdipPathIterGetSubpathCount; external WINGDIPDLL name 'GdipPathIterGetSubpathCount';
-  function GdipPathIterIsValid; external WINGDIPDLL name 'GdipPathIterIsValid';
-  function GdipPathIterHasCurve; external WINGDIPDLL name 'GdipPathIterHasCurve';
-  function GdipPathIterRewind; external WINGDIPDLL name 'GdipPathIterRewind';
-  function GdipPathIterEnumerate; external WINGDIPDLL name 'GdipPathIterEnumerate';
-  function GdipPathIterCopyData; external WINGDIPDLL name 'GdipPathIterCopyData';
-  function GdipCreateMatrix; external WINGDIPDLL name 'GdipCreateMatrix';
-  function GdipCreateMatrix2; external WINGDIPDLL name 'GdipCreateMatrix2';
-  function GdipCreateMatrix3; external WINGDIPDLL name 'GdipCreateMatrix3';
-  function GdipCreateMatrix3I; external WINGDIPDLL name 'GdipCreateMatrix3I';
-  function GdipCloneMatrix; external WINGDIPDLL name 'GdipCloneMatrix';
-  function GdipDeleteMatrix; external WINGDIPDLL name 'GdipDeleteMatrix';
-  function GdipSetMatrixElements; external WINGDIPDLL name 'GdipSetMatrixElements';
-  function GdipMultiplyMatrix; external WINGDIPDLL name 'GdipMultiplyMatrix';
-  function GdipTranslateMatrix; external WINGDIPDLL name 'GdipTranslateMatrix';
-  function GdipScaleMatrix; external WINGDIPDLL name 'GdipScaleMatrix';
-  function GdipRotateMatrix; external WINGDIPDLL name 'GdipRotateMatrix';
-  function GdipShearMatrix; external WINGDIPDLL name 'GdipShearMatrix';
-  function GdipInvertMatrix; external WINGDIPDLL name 'GdipInvertMatrix';
-  function GdipTransformMatrixPoints; external WINGDIPDLL name 'GdipTransformMatrixPoints';
-  function GdipTransformMatrixPointsI; external WINGDIPDLL name 'GdipTransformMatrixPointsI';
-  function GdipVectorTransformMatrixPoints; external WINGDIPDLL name 'GdipVectorTransformMatrixPoints';
-  function GdipVectorTransformMatrixPointsI; external WINGDIPDLL name 'GdipVectorTransformMatrixPointsI';
-  function GdipGetMatrixElements; external WINGDIPDLL name 'GdipGetMatrixElements';
-  function GdipIsMatrixInvertible; external WINGDIPDLL name 'GdipIsMatrixInvertible';
-  function GdipIsMatrixIdentity; external WINGDIPDLL name 'GdipIsMatrixIdentity';
-  function GdipIsMatrixEqual; external WINGDIPDLL name 'GdipIsMatrixEqual';
-  function GdipCreateRegion; external WINGDIPDLL name 'GdipCreateRegion';
-  function GdipCreateRegionRect; external WINGDIPDLL name 'GdipCreateRegionRect';
-  function GdipCreateRegionRectI; external WINGDIPDLL name 'GdipCreateRegionRectI';
-  function GdipCreateRegionPath; external WINGDIPDLL name 'GdipCreateRegionPath';
-  function GdipCreateRegionRgnData; external WINGDIPDLL name 'GdipCreateRegionRgnData';
-  function GdipCreateRegionHrgn; external WINGDIPDLL name 'GdipCreateRegionHrgn';
-  function GdipCloneRegion; external WINGDIPDLL name 'GdipCloneRegion';
-  function GdipDeleteRegion; external WINGDIPDLL name 'GdipDeleteRegion';
-  function GdipSetInfinite; external WINGDIPDLL name 'GdipSetInfinite';
-  function GdipSetEmpty; external WINGDIPDLL name 'GdipSetEmpty';
-  function GdipCombineRegionRect; external WINGDIPDLL name 'GdipCombineRegionRect';
-  function GdipCombineRegionRectI; external WINGDIPDLL name 'GdipCombineRegionRectI';
-  function GdipCombineRegionPath; external WINGDIPDLL name 'GdipCombineRegionPath';
-  function GdipCombineRegionRegion; external WINGDIPDLL name 'GdipCombineRegionRegion';
-  function GdipTranslateRegion; external WINGDIPDLL name 'GdipTranslateRegion';
-  function GdipTranslateRegionI; external WINGDIPDLL name 'GdipTranslateRegionI';
-  function GdipTransformRegion; external WINGDIPDLL name 'GdipTransformRegion';
-  function GdipGetRegionBounds; external WINGDIPDLL name 'GdipGetRegionBounds';
-  function GdipGetRegionBoundsI; external WINGDIPDLL name 'GdipGetRegionBoundsI';
-  function GdipGetRegionHRgn; external WINGDIPDLL name 'GdipGetRegionHRgn';
-  function GdipIsEmptyRegion; external WINGDIPDLL name 'GdipIsEmptyRegion';
-  function GdipIsInfiniteRegion; external WINGDIPDLL name 'GdipIsInfiniteRegion';
-  function GdipIsEqualRegion; external WINGDIPDLL name 'GdipIsEqualRegion';
-  function GdipGetRegionDataSize; external WINGDIPDLL name 'GdipGetRegionDataSize';
-  function GdipGetRegionData; external WINGDIPDLL name 'GdipGetRegionData';
-  function GdipIsVisibleRegionPoint; external WINGDIPDLL name 'GdipIsVisibleRegionPoint';
-  function GdipIsVisibleRegionPointI; external WINGDIPDLL name 'GdipIsVisibleRegionPointI';
-  function GdipIsVisibleRegionRect; external WINGDIPDLL name 'GdipIsVisibleRegionRect';
-  function GdipIsVisibleRegionRectI; external WINGDIPDLL name 'GdipIsVisibleRegionRectI';
-  function GdipGetRegionScansCount; external WINGDIPDLL name 'GdipGetRegionScansCount';
-  function GdipGetRegionScans; external WINGDIPDLL name 'GdipGetRegionScans';
-  function GdipGetRegionScansI; external WINGDIPDLL name 'GdipGetRegionScansI';
-  function GdipCloneBrush; external WINGDIPDLL name 'GdipCloneBrush';
-  function GdipDeleteBrush; external WINGDIPDLL name 'GdipDeleteBrush';
-  function GdipGetBrushType; external WINGDIPDLL name 'GdipGetBrushType';
-  function GdipCreateHatchBrush; external WINGDIPDLL name 'GdipCreateHatchBrush';
-  function GdipGetHatchStyle; external WINGDIPDLL name 'GdipGetHatchStyle';
-  function GdipGetHatchForegroundColor; external WINGDIPDLL name 'GdipGetHatchForegroundColor';
-  function GdipGetHatchBackgroundColor; external WINGDIPDLL name 'GdipGetHatchBackgroundColor';
-  function GdipCreateTexture; external WINGDIPDLL name 'GdipCreateTexture';
-  function GdipCreateTexture2; external WINGDIPDLL name 'GdipCreateTexture2';
-  function GdipCreateTextureIA; external WINGDIPDLL name 'GdipCreateTextureIA';
-  function GdipCreateTexture2I; external WINGDIPDLL name 'GdipCreateTexture2I';
-  function GdipCreateTextureIAI; external WINGDIPDLL name 'GdipCreateTextureIAI';
-  function GdipGetTextureTransform; external WINGDIPDLL name 'GdipGetTextureTransform';
-  function GdipSetTextureTransform; external WINGDIPDLL name 'GdipSetTextureTransform';
-  function GdipResetTextureTransform; external WINGDIPDLL name 'GdipResetTextureTransform';
-  function GdipMultiplyTextureTransform; external WINGDIPDLL name 'GdipMultiplyTextureTransform';
-  function GdipTranslateTextureTransform; external WINGDIPDLL name 'GdipTranslateTextureTransform';
-  function GdipScaleTextureTransform; external WINGDIPDLL name 'GdipScaleTextureTransform';
-  function GdipRotateTextureTransform; external WINGDIPDLL name 'GdipRotateTextureTransform';
-  function GdipSetTextureWrapMode; external WINGDIPDLL name 'GdipSetTextureWrapMode';
-  function GdipGetTextureWrapMode; external WINGDIPDLL name 'GdipGetTextureWrapMode';
-  function GdipGetTextureImage; external WINGDIPDLL name 'GdipGetTextureImage';
-  function GdipCreateSolidFill; external WINGDIPDLL name 'GdipCreateSolidFill';
-  function GdipSetSolidFillColor; external WINGDIPDLL name 'GdipSetSolidFillColor';
-  function GdipGetSolidFillColor; external WINGDIPDLL name 'GdipGetSolidFillColor';
-  function GdipCreateLineBrush; external WINGDIPDLL name 'GdipCreateLineBrush';
-  function GdipCreateLineBrushI; external WINGDIPDLL name 'GdipCreateLineBrushI';
-  function GdipCreateLineBrushFromRect; external WINGDIPDLL name 'GdipCreateLineBrushFromRect';
-  function GdipCreateLineBrushFromRectI; external WINGDIPDLL name 'GdipCreateLineBrushFromRectI';
-  function GdipCreateLineBrushFromRectWithAngle; external WINGDIPDLL name 'GdipCreateLineBrushFromRectWithAngle';
-  function GdipCreateLineBrushFromRectWithAngleI; external WINGDIPDLL name 'GdipCreateLineBrushFromRectWithAngleI';
-  function GdipSetLineColors; external WINGDIPDLL name 'GdipSetLineColors';
-  function GdipGetLineColors; external WINGDIPDLL name 'GdipGetLineColors';
-  function GdipGetLineRect; external WINGDIPDLL name 'GdipGetLineRect';
-  function GdipGetLineRectI; external WINGDIPDLL name 'GdipGetLineRectI';
-  function GdipSetLineGammaCorrection; external WINGDIPDLL name 'GdipSetLineGammaCorrection';
-  function GdipGetLineGammaCorrection; external WINGDIPDLL name 'GdipGetLineGammaCorrection';
-  function GdipGetLineBlendCount; external WINGDIPDLL name 'GdipGetLineBlendCount';
-  function GdipGetLineBlend; external WINGDIPDLL name 'GdipGetLineBlend';
-  function GdipSetLineBlend; external WINGDIPDLL name 'GdipSetLineBlend';
-  function GdipGetLinePresetBlendCount; external WINGDIPDLL name 'GdipGetLinePresetBlendCount';
-  function GdipGetLinePresetBlend; external WINGDIPDLL name 'GdipGetLinePresetBlend';
-  function GdipSetLinePresetBlend; external WINGDIPDLL name 'GdipSetLinePresetBlend';
-  function GdipSetLineSigmaBlend; external WINGDIPDLL name 'GdipSetLineSigmaBlend';
-  function GdipSetLineLinearBlend; external WINGDIPDLL name 'GdipSetLineLinearBlend';
-  function GdipSetLineWrapMode; external WINGDIPDLL name 'GdipSetLineWrapMode';
-  function GdipGetLineWrapMode; external WINGDIPDLL name 'GdipGetLineWrapMode';
-  function GdipGetLineTransform; external WINGDIPDLL name 'GdipGetLineTransform';
-  function GdipSetLineTransform; external WINGDIPDLL name 'GdipSetLineTransform';
-  function GdipResetLineTransform; external WINGDIPDLL name 'GdipResetLineTransform';
-  function GdipMultiplyLineTransform; external WINGDIPDLL name 'GdipMultiplyLineTransform';
-  function GdipTranslateLineTransform; external WINGDIPDLL name 'GdipTranslateLineTransform';
-  function GdipScaleLineTransform; external WINGDIPDLL name 'GdipScaleLineTransform';
-  function GdipRotateLineTransform; external WINGDIPDLL name 'GdipRotateLineTransform';
-  function GdipCreatePathGradient; external WINGDIPDLL name 'GdipCreatePathGradient';
-  function GdipCreatePathGradientI; external WINGDIPDLL name 'GdipCreatePathGradientI';
-  function GdipCreatePathGradientFromPath; external WINGDIPDLL name 'GdipCreatePathGradientFromPath';
-  function GdipGetPathGradientCenterColor; external WINGDIPDLL name 'GdipGetPathGradientCenterColor';
-  function GdipSetPathGradientCenterColor; external WINGDIPDLL name 'GdipSetPathGradientCenterColor';
-  function GdipGetPathGradientSurroundColorsWithCount; external WINGDIPDLL name 'GdipGetPathGradientSurroundColorsWithCount';
-  function GdipSetPathGradientSurroundColorsWithCount; external WINGDIPDLL name 'GdipSetPathGradientSurroundColorsWithCount';
-  function GdipGetPathGradientPath; external WINGDIPDLL name 'GdipGetPathGradientPath';
-  function GdipSetPathGradientPath; external WINGDIPDLL name 'GdipSetPathGradientPath';
-  function GdipGetPathGradientCenterPoint; external WINGDIPDLL name 'GdipGetPathGradientCenterPoint';
-  function GdipGetPathGradientCenterPointI; external WINGDIPDLL name 'GdipGetPathGradientCenterPointI';
-  function GdipSetPathGradientCenterPoint; external WINGDIPDLL name 'GdipSetPathGradientCenterPoint';
-  function GdipSetPathGradientCenterPointI; external WINGDIPDLL name 'GdipSetPathGradientCenterPointI';
-  function GdipGetPathGradientRect; external WINGDIPDLL name 'GdipGetPathGradientRect';
-  function GdipGetPathGradientRectI; external WINGDIPDLL name 'GdipGetPathGradientRectI';
-  function GdipGetPathGradientPointCount; external WINGDIPDLL name 'GdipGetPathGradientPointCount';
-  function GdipGetPathGradientSurroundColorCount; external WINGDIPDLL name 'GdipGetPathGradientSurroundColorCount';
-  function GdipSetPathGradientGammaCorrection; external WINGDIPDLL name 'GdipSetPathGradientGammaCorrection';
-  function GdipGetPathGradientGammaCorrection; external WINGDIPDLL name 'GdipGetPathGradientGammaCorrection';
-  function GdipGetPathGradientBlendCount; external WINGDIPDLL name 'GdipGetPathGradientBlendCount';
-  function GdipGetPathGradientBlend; external WINGDIPDLL name 'GdipGetPathGradientBlend';
-  function GdipSetPathGradientBlend; external WINGDIPDLL name 'GdipSetPathGradientBlend';
-  function GdipGetPathGradientPresetBlendCount; external WINGDIPDLL name 'GdipGetPathGradientPresetBlendCount';
-  function GdipGetPathGradientPresetBlend; external WINGDIPDLL name 'GdipGetPathGradientPresetBlend';
-  function GdipSetPathGradientPresetBlend; external WINGDIPDLL name 'GdipSetPathGradientPresetBlend';
-  function GdipSetPathGradientSigmaBlend; external WINGDIPDLL name 'GdipSetPathGradientSigmaBlend';
-  function GdipSetPathGradientLinearBlend; external WINGDIPDLL name 'GdipSetPathGradientLinearBlend';
-  function GdipGetPathGradientWrapMode; external WINGDIPDLL name 'GdipGetPathGradientWrapMode';
-  function GdipSetPathGradientWrapMode; external WINGDIPDLL name 'GdipSetPathGradientWrapMode';
-  function GdipGetPathGradientTransform; external WINGDIPDLL name 'GdipGetPathGradientTransform';
-  function GdipSetPathGradientTransform; external WINGDIPDLL name 'GdipSetPathGradientTransform';
-  function GdipResetPathGradientTransform; external WINGDIPDLL name 'GdipResetPathGradientTransform';
-  function GdipMultiplyPathGradientTransform; external WINGDIPDLL name 'GdipMultiplyPathGradientTransform';
-  function GdipTranslatePathGradientTransform; external WINGDIPDLL name 'GdipTranslatePathGradientTransform';
-  function GdipScalePathGradientTransform; external WINGDIPDLL name 'GdipScalePathGradientTransform';
-  function GdipRotatePathGradientTransform; external WINGDIPDLL name 'GdipRotatePathGradientTransform';
-  function GdipGetPathGradientFocusScales; external WINGDIPDLL name 'GdipGetPathGradientFocusScales';
-  function GdipSetPathGradientFocusScales; external WINGDIPDLL name 'GdipSetPathGradientFocusScales';
-  function GdipCreatePen1; external WINGDIPDLL name 'GdipCreatePen1';
-  function GdipCreatePen2; external WINGDIPDLL name 'GdipCreatePen2';
-  function GdipClonePen; external WINGDIPDLL name 'GdipClonePen';
-  function GdipDeletePen; external WINGDIPDLL name 'GdipDeletePen';
-  function GdipSetPenWidth; external WINGDIPDLL name 'GdipSetPenWidth';
-  function GdipGetPenWidth; external WINGDIPDLL name 'GdipGetPenWidth';
-  function GdipSetPenUnit; external WINGDIPDLL name 'GdipSetPenUnit';
-  function GdipGetPenUnit; external WINGDIPDLL name 'GdipGetPenUnit';
-  function GdipSetPenLineCap197819; external WINGDIPDLL name 'GdipSetPenLineCap197819';
-  function GdipSetPenStartCap; external WINGDIPDLL name 'GdipSetPenStartCap';
-  function GdipSetPenEndCap; external WINGDIPDLL name 'GdipSetPenEndCap';
-  function GdipSetPenDashCap197819; external WINGDIPDLL name 'GdipSetPenDashCap197819';
-  function GdipGetPenStartCap; external WINGDIPDLL name 'GdipGetPenStartCap';
-  function GdipGetPenEndCap; external WINGDIPDLL name 'GdipGetPenEndCap';
-  function GdipGetPenDashCap197819; external WINGDIPDLL name 'GdipGetPenDashCap197819';
-  function GdipSetPenLineJoin; external WINGDIPDLL name 'GdipSetPenLineJoin';
-  function GdipGetPenLineJoin; external WINGDIPDLL name 'GdipGetPenLineJoin';
-  function GdipSetPenCustomStartCap; external WINGDIPDLL name 'GdipSetPenCustomStartCap';
-  function GdipGetPenCustomStartCap; external WINGDIPDLL name 'GdipGetPenCustomStartCap';
-  function GdipSetPenCustomEndCap; external WINGDIPDLL name 'GdipSetPenCustomEndCap';
-  function GdipGetPenCustomEndCap; external WINGDIPDLL name 'GdipGetPenCustomEndCap';
-  function GdipSetPenMiterLimit; external WINGDIPDLL name 'GdipSetPenMiterLimit';
-  function GdipGetPenMiterLimit; external WINGDIPDLL name 'GdipGetPenMiterLimit';
-  function GdipSetPenMode; external WINGDIPDLL name 'GdipSetPenMode';
-  function GdipGetPenMode; external WINGDIPDLL name 'GdipGetPenMode';
-  function GdipSetPenTransform; external WINGDIPDLL name 'GdipSetPenTransform';
-  function GdipGetPenTransform; external WINGDIPDLL name 'GdipGetPenTransform';
-  function GdipResetPenTransform; external WINGDIPDLL name 'GdipResetPenTransform';
-  function GdipMultiplyPenTransform; external WINGDIPDLL name 'GdipMultiplyPenTransform';
-  function GdipTranslatePenTransform; external WINGDIPDLL name 'GdipTranslatePenTransform';
-  function GdipScalePenTransform; external WINGDIPDLL name 'GdipScalePenTransform';
-  function GdipRotatePenTransform; external WINGDIPDLL name 'GdipRotatePenTransform';
-  function GdipSetPenColor; external WINGDIPDLL name 'GdipSetPenColor';
-  function GdipGetPenColor; external WINGDIPDLL name 'GdipGetPenColor';
-  function GdipSetPenBrushFill; external WINGDIPDLL name 'GdipSetPenBrushFill';
-  function GdipGetPenBrushFill; external WINGDIPDLL name 'GdipGetPenBrushFill';
-  function GdipGetPenFillType; external WINGDIPDLL name 'GdipGetPenFillType';
-  function GdipGetPenDashStyle; external WINGDIPDLL name 'GdipGetPenDashStyle';
-  function GdipSetPenDashStyle; external WINGDIPDLL name 'GdipSetPenDashStyle';
-  function GdipGetPenDashOffset; external WINGDIPDLL name 'GdipGetPenDashOffset';
-  function GdipSetPenDashOffset; external WINGDIPDLL name 'GdipSetPenDashOffset';
-  function GdipGetPenDashCount; external WINGDIPDLL name 'GdipGetPenDashCount';
-  function GdipSetPenDashArray; external WINGDIPDLL name 'GdipSetPenDashArray';
-  function GdipGetPenDashArray; external WINGDIPDLL name 'GdipGetPenDashArray';
-  function GdipGetPenCompoundCount; external WINGDIPDLL name 'GdipGetPenCompoundCount';
-  function GdipSetPenCompoundArray; external WINGDIPDLL name 'GdipSetPenCompoundArray';
-  function GdipGetPenCompoundArray; external WINGDIPDLL name 'GdipGetPenCompoundArray';
-  function GdipCreateCustomLineCap; external WINGDIPDLL name 'GdipCreateCustomLineCap';
-  function GdipDeleteCustomLineCap; external WINGDIPDLL name 'GdipDeleteCustomLineCap';
-  function GdipCloneCustomLineCap; external WINGDIPDLL name 'GdipCloneCustomLineCap';
-  function GdipGetCustomLineCapType; external WINGDIPDLL name 'GdipGetCustomLineCapType';
-  function GdipSetCustomLineCapStrokeCaps; external WINGDIPDLL name 'GdipSetCustomLineCapStrokeCaps';
-  function GdipGetCustomLineCapStrokeCaps; external WINGDIPDLL name 'GdipGetCustomLineCapStrokeCaps';
-  function GdipSetCustomLineCapStrokeJoin; external WINGDIPDLL name 'GdipSetCustomLineCapStrokeJoin';
-  function GdipGetCustomLineCapStrokeJoin; external WINGDIPDLL name 'GdipGetCustomLineCapStrokeJoin';
-  function GdipSetCustomLineCapBaseCap; external WINGDIPDLL name 'GdipSetCustomLineCapBaseCap';
-  function GdipGetCustomLineCapBaseCap; external WINGDIPDLL name 'GdipGetCustomLineCapBaseCap';
-  function GdipSetCustomLineCapBaseInset; external WINGDIPDLL name 'GdipSetCustomLineCapBaseInset';
-  function GdipGetCustomLineCapBaseInset; external WINGDIPDLL name 'GdipGetCustomLineCapBaseInset';
-  function GdipSetCustomLineCapWidthScale; external WINGDIPDLL name 'GdipSetCustomLineCapWidthScale';
-  function GdipGetCustomLineCapWidthScale; external WINGDIPDLL name 'GdipGetCustomLineCapWidthScale';
-  function GdipCreateAdjustableArrowCap; external WINGDIPDLL name 'GdipCreateAdjustableArrowCap';
-  function GdipSetAdjustableArrowCapHeight; external WINGDIPDLL name 'GdipSetAdjustableArrowCapHeight';
-  function GdipGetAdjustableArrowCapHeight; external WINGDIPDLL name 'GdipGetAdjustableArrowCapHeight';
-  function GdipSetAdjustableArrowCapWidth; external WINGDIPDLL name 'GdipSetAdjustableArrowCapWidth';
-  function GdipGetAdjustableArrowCapWidth; external WINGDIPDLL name 'GdipGetAdjustableArrowCapWidth';
-  function GdipSetAdjustableArrowCapMiddleInset; external WINGDIPDLL name 'GdipSetAdjustableArrowCapMiddleInset';
-  function GdipGetAdjustableArrowCapMiddleInset; external WINGDIPDLL name 'GdipGetAdjustableArrowCapMiddleInset';
-  function GdipSetAdjustableArrowCapFillState; external WINGDIPDLL name 'GdipSetAdjustableArrowCapFillState';
-  function GdipGetAdjustableArrowCapFillState; external WINGDIPDLL name 'GdipGetAdjustableArrowCapFillState';
-  function GdipLoadImageFromStream; external WINGDIPDLL name 'GdipLoadImageFromStream';
-  function GdipLoadImageFromFile; external WINGDIPDLL name 'GdipLoadImageFromFile';
-  function GdipLoadImageFromStreamICM; external WINGDIPDLL name 'GdipLoadImageFromStreamICM';
-  function GdipLoadImageFromFileICM; external WINGDIPDLL name 'GdipLoadImageFromFileICM';
-  function GdipCloneImage; external WINGDIPDLL name 'GdipCloneImage';
-  function GdipDisposeImage; external WINGDIPDLL name 'GdipDisposeImage';
-  function GdipSaveImageToFile; external WINGDIPDLL name 'GdipSaveImageToFile';
-  function GdipSaveImageToStream; external WINGDIPDLL name 'GdipSaveImageToStream';
-  function GdipSaveAdd; external WINGDIPDLL name 'GdipSaveAdd';
-  function GdipSaveAddImage; external WINGDIPDLL name 'GdipSaveAddImage';
-  function GdipGetImageGraphicsContext; external WINGDIPDLL name 'GdipGetImageGraphicsContext';
-  function GdipGetImageBounds; external WINGDIPDLL name 'GdipGetImageBounds';
-  function GdipGetImageDimension; external WINGDIPDLL name 'GdipGetImageDimension';
-  function GdipGetImageType; external WINGDIPDLL name 'GdipGetImageType';
-  function GdipGetImageWidth; external WINGDIPDLL name 'GdipGetImageWidth';
-  function GdipGetImageHeight; external WINGDIPDLL name 'GdipGetImageHeight';
-  function GdipGetImageHorizontalResolution; external WINGDIPDLL name 'GdipGetImageHorizontalResolution';
-  function GdipGetImageVerticalResolution; external WINGDIPDLL name 'GdipGetImageVerticalResolution';
-  function GdipGetImageFlags; external WINGDIPDLL name 'GdipGetImageFlags';
-  function GdipGetImageRawFormat; external WINGDIPDLL name 'GdipGetImageRawFormat';
-  function GdipGetImagePixelFormat; external WINGDIPDLL name 'GdipGetImagePixelFormat';
-  function GdipGetImageThumbnail; external WINGDIPDLL name 'GdipGetImageThumbnail';
-  function GdipGetEncoderParameterListSize; external WINGDIPDLL name 'GdipGetEncoderParameterListSize';
-  function GdipGetEncoderParameterList; external WINGDIPDLL name 'GdipGetEncoderParameterList';
-  function GdipImageGetFrameDimensionsCount; external WINGDIPDLL name 'GdipImageGetFrameDimensionsCount';
-  function GdipImageGetFrameDimensionsList; external WINGDIPDLL name 'GdipImageGetFrameDimensionsList';
-  function GdipImageGetFrameCount; external WINGDIPDLL name 'GdipImageGetFrameCount';
-  function GdipImageSelectActiveFrame; external WINGDIPDLL name 'GdipImageSelectActiveFrame';
-  function GdipImageRotateFlip; external WINGDIPDLL name 'GdipImageRotateFlip';
-  function GdipGetImagePalette; external WINGDIPDLL name 'GdipGetImagePalette';
-  function GdipSetImagePalette; external WINGDIPDLL name 'GdipSetImagePalette';
-  function GdipGetImagePaletteSize; external WINGDIPDLL name 'GdipGetImagePaletteSize';
-  function GdipGetPropertyCount; external WINGDIPDLL name 'GdipGetPropertyCount';
-  function GdipGetPropertyIdList; external WINGDIPDLL name 'GdipGetPropertyIdList';
-  function GdipGetPropertyItemSize; external WINGDIPDLL name 'GdipGetPropertyItemSize';
-  function GdipGetPropertyItem; external WINGDIPDLL name 'GdipGetPropertyItem';
-  function GdipGetPropertySize; external WINGDIPDLL name 'GdipGetPropertySize';
-  function GdipGetAllPropertyItems; external WINGDIPDLL name 'GdipGetAllPropertyItems';
-  function GdipRemovePropertyItem; external WINGDIPDLL name 'GdipRemovePropertyItem';
-  function GdipSetPropertyItem; external WINGDIPDLL name 'GdipSetPropertyItem';
-  function GdipImageForceValidation; external WINGDIPDLL name 'GdipImageForceValidation';
-  function GdipCreateBitmapFromStream; external WINGDIPDLL name 'GdipCreateBitmapFromStream';
-  function GdipCreateBitmapFromFile; external WINGDIPDLL name 'GdipCreateBitmapFromFile';
-  function GdipCreateBitmapFromStreamICM; external WINGDIPDLL name 'GdipCreateBitmapFromStreamICM';
-  function GdipCreateBitmapFromFileICM; external WINGDIPDLL name 'GdipCreateBitmapFromFileICM';
-  function GdipCreateBitmapFromScan0; external WINGDIPDLL name 'GdipCreateBitmapFromScan0';
-  function GdipCreateBitmapFromGraphics; external WINGDIPDLL name 'GdipCreateBitmapFromGraphics';
-  function GdipCreateBitmapFromDirectDrawSurface; external WINGDIPDLL name 'GdipCreateBitmapFromDirectDrawSurface';
-  function GdipCreateBitmapFromGdiDib; external WINGDIPDLL name 'GdipCreateBitmapFromGdiDib';
-  function GdipCreateBitmapFromHBITMAP; external WINGDIPDLL name 'GdipCreateBitmapFromHBITMAP';
-  function GdipCreateHBITMAPFromBitmap; external WINGDIPDLL name 'GdipCreateHBITMAPFromBitmap';
-  function GdipCreateBitmapFromHICON; external WINGDIPDLL name 'GdipCreateBitmapFromHICON';
-  function GdipCreateHICONFromBitmap; external WINGDIPDLL name 'GdipCreateHICONFromBitmap';
-  function GdipCreateBitmapFromResource; external WINGDIPDLL name 'GdipCreateBitmapFromResource';
-  function GdipCloneBitmapArea; external WINGDIPDLL name 'GdipCloneBitmapArea';
-  function GdipCloneBitmapAreaI; external WINGDIPDLL name 'GdipCloneBitmapAreaI';
-  function GdipBitmapLockBits; external WINGDIPDLL name 'GdipBitmapLockBits';
-  function GdipBitmapUnlockBits; external WINGDIPDLL name 'GdipBitmapUnlockBits';
-  function GdipBitmapGetPixel; external WINGDIPDLL name 'GdipBitmapGetPixel';
-  function GdipBitmapSetPixel; external WINGDIPDLL name 'GdipBitmapSetPixel';
-  function GdipBitmapSetResolution; external WINGDIPDLL name 'GdipBitmapSetResolution';
-  function GdipCreateImageAttributes; external WINGDIPDLL name 'GdipCreateImageAttributes';
-  function GdipCloneImageAttributes; external WINGDIPDLL name 'GdipCloneImageAttributes';
-  function GdipDisposeImageAttributes; external WINGDIPDLL name 'GdipDisposeImageAttributes';
-  function GdipSetImageAttributesToIdentity; external WINGDIPDLL name 'GdipSetImageAttributesToIdentity';
-  function GdipResetImageAttributes; external WINGDIPDLL name 'GdipResetImageAttributes';
-  function GdipSetImageAttributesColorMatrix; external WINGDIPDLL name 'GdipSetImageAttributesColorMatrix';
-  function GdipSetImageAttributesThreshold; external WINGDIPDLL name 'GdipSetImageAttributesThreshold';
-  function GdipSetImageAttributesGamma; external WINGDIPDLL name 'GdipSetImageAttributesGamma';
-  function GdipSetImageAttributesNoOp; external WINGDIPDLL name 'GdipSetImageAttributesNoOp';
-  function GdipSetImageAttributesColorKeys; external WINGDIPDLL name 'GdipSetImageAttributesColorKeys';
-  function GdipSetImageAttributesOutputChannel; external WINGDIPDLL name 'GdipSetImageAttributesOutputChannel';
-  function GdipSetImageAttributesOutputChannelColorProfile; external WINGDIPDLL name 'GdipSetImageAttributesOutputChannelColorProfile';
-  function GdipSetImageAttributesRemapTable; external WINGDIPDLL name 'GdipSetImageAttributesRemapTable';
-  function GdipSetImageAttributesWrapMode; external WINGDIPDLL name 'GdipSetImageAttributesWrapMode';
-  function GdipSetImageAttributesICMMode; external WINGDIPDLL name 'GdipSetImageAttributesICMMode';
-  function GdipGetImageAttributesAdjustedPalette; external WINGDIPDLL name 'GdipGetImageAttributesAdjustedPalette';
-  function GdipFlush; external WINGDIPDLL name 'GdipFlush';
-  function GdipCreateFromHDC; external WINGDIPDLL name 'GdipCreateFromHDC';
-  function GdipCreateFromHDC2; external WINGDIPDLL name 'GdipCreateFromHDC2';
-  function GdipCreateFromHWND; external WINGDIPDLL name 'GdipCreateFromHWND';
-  function GdipCreateFromHWNDICM; external WINGDIPDLL name 'GdipCreateFromHWNDICM';
-  function GdipDeleteGraphics; external WINGDIPDLL name 'GdipDeleteGraphics';
-  function GdipGetDC; external WINGDIPDLL name 'GdipGetDC';
-  function GdipReleaseDC; external WINGDIPDLL name 'GdipReleaseDC';
-  function GdipSetCompositingMode; external WINGDIPDLL name 'GdipSetCompositingMode';
-  function GdipGetCompositingMode; external WINGDIPDLL name 'GdipGetCompositingMode';
-  function GdipSetRenderingOrigin; external WINGDIPDLL name 'GdipSetRenderingOrigin';
-  function GdipGetRenderingOrigin; external WINGDIPDLL name 'GdipGetRenderingOrigin';
-  function GdipSetCompositingQuality; external WINGDIPDLL name 'GdipSetCompositingQuality';
-  function GdipGetCompositingQuality; external WINGDIPDLL name 'GdipGetCompositingQuality';
-  function GdipSetSmoothingMode; external WINGDIPDLL name 'GdipSetSmoothingMode';
-  function GdipGetSmoothingMode; external WINGDIPDLL name 'GdipGetSmoothingMode';
-  function GdipSetPixelOffsetMode; external WINGDIPDLL name 'GdipSetPixelOffsetMode';
-  function GdipGetPixelOffsetMode; external WINGDIPDLL name 'GdipGetPixelOffsetMode';
-  function GdipSetTextRenderingHint; external WINGDIPDLL name 'GdipSetTextRenderingHint';
-  function GdipGetTextRenderingHint; external WINGDIPDLL name 'GdipGetTextRenderingHint';
-  function GdipSetTextContrast; external WINGDIPDLL name 'GdipSetTextContrast';
-  function GdipGetTextContrast; external WINGDIPDLL name 'GdipGetTextContrast';
-  function GdipSetInterpolationMode; external WINGDIPDLL name 'GdipSetInterpolationMode';
-  function GdipGetInterpolationMode; external WINGDIPDLL name 'GdipGetInterpolationMode';
-  function GdipSetWorldTransform; external WINGDIPDLL name 'GdipSetWorldTransform';
-  function GdipResetWorldTransform; external WINGDIPDLL name 'GdipResetWorldTransform';
-  function GdipMultiplyWorldTransform; external WINGDIPDLL name 'GdipMultiplyWorldTransform';
-  function GdipTranslateWorldTransform; external WINGDIPDLL name 'GdipTranslateWorldTransform';
-  function GdipScaleWorldTransform; external WINGDIPDLL name 'GdipScaleWorldTransform';
-  function GdipRotateWorldTransform; external WINGDIPDLL name 'GdipRotateWorldTransform';
-  function GdipGetWorldTransform; external WINGDIPDLL name 'GdipGetWorldTransform';
-  function GdipResetPageTransform; external WINGDIPDLL name 'GdipResetPageTransform';
-  function GdipGetPageUnit; external WINGDIPDLL name 'GdipGetPageUnit';
-  function GdipGetPageScale; external WINGDIPDLL name 'GdipGetPageScale';
-  function GdipSetPageUnit; external WINGDIPDLL name 'GdipSetPageUnit';
-  function GdipSetPageScale; external WINGDIPDLL name 'GdipSetPageScale';
-  function GdipGetDpiX; external WINGDIPDLL name 'GdipGetDpiX';
-  function GdipGetDpiY; external WINGDIPDLL name 'GdipGetDpiY';
-  function GdipTransformPoints; external WINGDIPDLL name 'GdipTransformPoints';
-  function GdipTransformPointsI; external WINGDIPDLL name 'GdipTransformPointsI';
-  function GdipGetNearestColor; external WINGDIPDLL name 'GdipGetNearestColor';
-  function GdipCreateHalftonePalette; external WINGDIPDLL name 'GdipCreateHalftonePalette';
-  function GdipDrawLine; external WINGDIPDLL name 'GdipDrawLine';
-  function GdipDrawLineI; external WINGDIPDLL name 'GdipDrawLineI';
-  function GdipDrawLines; external WINGDIPDLL name 'GdipDrawLines';
-  function GdipDrawLinesI; external WINGDIPDLL name 'GdipDrawLinesI';
-  function GdipDrawArc; external WINGDIPDLL name 'GdipDrawArc';
-  function GdipDrawArcI; external WINGDIPDLL name 'GdipDrawArcI';
-  function GdipDrawBezier; external WINGDIPDLL name 'GdipDrawBezier';
-  function GdipDrawBezierI; external WINGDIPDLL name 'GdipDrawBezierI';
-  function GdipDrawBeziers; external WINGDIPDLL name 'GdipDrawBeziers';
-  function GdipDrawBeziersI; external WINGDIPDLL name 'GdipDrawBeziersI';
-  function GdipDrawRectangle; external WINGDIPDLL name 'GdipDrawRectangle';
-  function GdipDrawRectangleI; external WINGDIPDLL name 'GdipDrawRectangleI';
-  function GdipDrawRectangles; external WINGDIPDLL name 'GdipDrawRectangles';
-  function GdipDrawRectanglesI; external WINGDIPDLL name 'GdipDrawRectanglesI';
-  function GdipDrawEllipse; external WINGDIPDLL name 'GdipDrawEllipse';
-  function GdipDrawEllipseI; external WINGDIPDLL name 'GdipDrawEllipseI';
-  function GdipDrawPie; external WINGDIPDLL name 'GdipDrawPie';
-  function GdipDrawPieI; external WINGDIPDLL name 'GdipDrawPieI';
-  function GdipDrawPolygon; external WINGDIPDLL name 'GdipDrawPolygon';
-  function GdipDrawPolygonI; external WINGDIPDLL name 'GdipDrawPolygonI';
-  function GdipDrawPath; external WINGDIPDLL name 'GdipDrawPath';
-  function GdipDrawCurve; external WINGDIPDLL name 'GdipDrawCurve';
-  function GdipDrawCurveI; external WINGDIPDLL name 'GdipDrawCurveI';
-  function GdipDrawCurve2; external WINGDIPDLL name 'GdipDrawCurve2';
-  function GdipDrawCurve2I; external WINGDIPDLL name 'GdipDrawCurve2I';
-  function GdipDrawCurve3; external WINGDIPDLL name 'GdipDrawCurve3';
-  function GdipDrawCurve3I; external WINGDIPDLL name 'GdipDrawCurve3I';
-  function GdipDrawClosedCurve; external WINGDIPDLL name 'GdipDrawClosedCurve';
-  function GdipDrawClosedCurveI; external WINGDIPDLL name 'GdipDrawClosedCurveI';
-  function GdipDrawClosedCurve2; external WINGDIPDLL name 'GdipDrawClosedCurve2';
-  function GdipDrawClosedCurve2I; external WINGDIPDLL name 'GdipDrawClosedCurve2I';
-  function GdipGraphicsClear; external WINGDIPDLL name 'GdipGraphicsClear';
-  function GdipFillRectangle; external WINGDIPDLL name 'GdipFillRectangle';
-  function GdipFillRectangleI; external WINGDIPDLL name 'GdipFillRectangleI';
-  function GdipFillRectangles; external WINGDIPDLL name 'GdipFillRectangles';
-  function GdipFillRectanglesI; external WINGDIPDLL name 'GdipFillRectanglesI';
-  function GdipFillPolygon; external WINGDIPDLL name 'GdipFillPolygon';
-  function GdipFillPolygonI; external WINGDIPDLL name 'GdipFillPolygonI';
-  function GdipFillPolygon2; external WINGDIPDLL name 'GdipFillPolygon2';
-  function GdipFillPolygon2I; external WINGDIPDLL name 'GdipFillPolygon2I';
-  function GdipFillEllipse; external WINGDIPDLL name 'GdipFillEllipse';
-  function GdipFillEllipseI; external WINGDIPDLL name 'GdipFillEllipseI';
-  function GdipFillPie; external WINGDIPDLL name 'GdipFillPie';
-  function GdipFillPieI; external WINGDIPDLL name 'GdipFillPieI';
-  function GdipFillPath; external WINGDIPDLL name 'GdipFillPath';
-  function GdipFillClosedCurve; external WINGDIPDLL name 'GdipFillClosedCurve';
-  function GdipFillClosedCurveI; external WINGDIPDLL name 'GdipFillClosedCurveI';
-  function GdipFillClosedCurve2; external WINGDIPDLL name 'GdipFillClosedCurve2';
-  function GdipFillClosedCurve2I; external WINGDIPDLL name 'GdipFillClosedCurve2I';
-  function GdipFillRegion; external WINGDIPDLL name 'GdipFillRegion';
-  function GdipDrawImage; external WINGDIPDLL name 'GdipDrawImage';
-  function GdipDrawImageI; external WINGDIPDLL name 'GdipDrawImageI';
-  function GdipDrawImageRect; external WINGDIPDLL name 'GdipDrawImageRect';
-  function GdipDrawImageRectI; external WINGDIPDLL name 'GdipDrawImageRectI';
-  function GdipDrawImagePoints; external WINGDIPDLL name 'GdipDrawImagePoints';
-  function GdipDrawImagePointsI; external WINGDIPDLL name 'GdipDrawImagePointsI';
-  function GdipDrawImagePointRect; external WINGDIPDLL name 'GdipDrawImagePointRect';
-  function GdipDrawImagePointRectI; external WINGDIPDLL name 'GdipDrawImagePointRectI';
-  function GdipDrawImageRectRect; external WINGDIPDLL name 'GdipDrawImageRectRect';
-  function GdipDrawImageRectRectI; external WINGDIPDLL name 'GdipDrawImageRectRectI';
-  function GdipDrawImagePointsRect; external WINGDIPDLL name 'GdipDrawImagePointsRect';
-  function GdipDrawImagePointsRectI; external WINGDIPDLL name 'GdipDrawImagePointsRectI';
-  function GdipEnumerateMetafileDestPoint; external WINGDIPDLL name 'GdipEnumerateMetafileDestPoint';
-  function GdipEnumerateMetafileDestPointI; external WINGDIPDLL name 'GdipEnumerateMetafileDestPointI';
-  function GdipEnumerateMetafileDestRect; external WINGDIPDLL name 'GdipEnumerateMetafileDestRect';
-  function GdipEnumerateMetafileDestRectI; external WINGDIPDLL name 'GdipEnumerateMetafileDestRectI';
-  function GdipEnumerateMetafileDestPoints; external WINGDIPDLL name 'GdipEnumerateMetafileDestPoints';
-  function GdipEnumerateMetafileDestPointsI; external WINGDIPDLL name 'GdipEnumerateMetafileDestPointsI';
-  function GdipEnumerateMetafileSrcRectDestPoint; external WINGDIPDLL name 'GdipEnumerateMetafileSrcRectDestPoint';
-  function GdipEnumerateMetafileSrcRectDestPointI; external WINGDIPDLL name 'GdipEnumerateMetafileSrcRectDestPointI';
-  function GdipEnumerateMetafileSrcRectDestRect; external WINGDIPDLL name 'GdipEnumerateMetafileSrcRectDestRect';
-  function GdipEnumerateMetafileSrcRectDestRectI; external WINGDIPDLL name 'GdipEnumerateMetafileSrcRectDestRectI';
-  function GdipEnumerateMetafileSrcRectDestPoints; external WINGDIPDLL name 'GdipEnumerateMetafileSrcRectDestPoints';
-  function GdipEnumerateMetafileSrcRectDestPointsI; external WINGDIPDLL name 'GdipEnumerateMetafileSrcRectDestPointsI';
-  function GdipPlayMetafileRecord; external WINGDIPDLL name 'GdipPlayMetafileRecord';
-  function GdipSetClipGraphics; external WINGDIPDLL name 'GdipSetClipGraphics';
-  function GdipSetClipRect; external WINGDIPDLL name 'GdipSetClipRect';
-  function GdipSetClipRectI; external WINGDIPDLL name 'GdipSetClipRectI';
-  function GdipSetClipPath; external WINGDIPDLL name 'GdipSetClipPath';
-  function GdipSetClipRegion; external WINGDIPDLL name 'GdipSetClipRegion';
-  function GdipSetClipHrgn; external WINGDIPDLL name 'GdipSetClipHrgn';
-  function GdipResetClip; external WINGDIPDLL name 'GdipResetClip';
-  function GdipTranslateClip; external WINGDIPDLL name 'GdipTranslateClip';
-  function GdipTranslateClipI; external WINGDIPDLL name 'GdipTranslateClipI';
-  function GdipGetClip; external WINGDIPDLL name 'GdipGetClip';
-  function GdipGetClipBounds; external WINGDIPDLL name 'GdipGetClipBounds';
-  function GdipGetClipBoundsI; external WINGDIPDLL name 'GdipGetClipBoundsI';
-  function GdipIsClipEmpty; external WINGDIPDLL name 'GdipIsClipEmpty';
-  function GdipGetVisibleClipBounds; external WINGDIPDLL name 'GdipGetVisibleClipBounds';
-  function GdipGetVisibleClipBoundsI; external WINGDIPDLL name 'GdipGetVisibleClipBoundsI';
-  function GdipIsVisibleClipEmpty; external WINGDIPDLL name 'GdipIsVisibleClipEmpty';
-  function GdipIsVisiblePoint; external WINGDIPDLL name 'GdipIsVisiblePoint';
-  function GdipIsVisiblePointI; external WINGDIPDLL name 'GdipIsVisiblePointI';
-  function GdipIsVisibleRect; external WINGDIPDLL name 'GdipIsVisibleRect';
-  function GdipIsVisibleRectI; external WINGDIPDLL name 'GdipIsVisibleRectI';
-  function GdipSaveGraphics; external WINGDIPDLL name 'GdipSaveGraphics';
-  function GdipRestoreGraphics; external WINGDIPDLL name 'GdipRestoreGraphics';
-  function GdipBeginContainer; external WINGDIPDLL name 'GdipBeginContainer';
-  function GdipBeginContainerI; external WINGDIPDLL name 'GdipBeginContainerI';
-  function GdipBeginContainer2; external WINGDIPDLL name 'GdipBeginContainer2';
-  function GdipEndContainer; external WINGDIPDLL name 'GdipEndContainer';
-  function GdipGetMetafileHeaderFromWmf; external WINGDIPDLL name 'GdipGetMetafileHeaderFromWmf';
-  function GdipGetMetafileHeaderFromEmf; external WINGDIPDLL name 'GdipGetMetafileHeaderFromEmf';
-  function GdipGetMetafileHeaderFromFile; external WINGDIPDLL name 'GdipGetMetafileHeaderFromFile';
-  function GdipGetMetafileHeaderFromStream; external WINGDIPDLL name 'GdipGetMetafileHeaderFromStream';
-  function GdipGetMetafileHeaderFromMetafile; external WINGDIPDLL name 'GdipGetMetafileHeaderFromMetafile';
-  function GdipGetHemfFromMetafile; external WINGDIPDLL name 'GdipGetHemfFromMetafile';
-  function GdipCreateStreamOnFile; external WINGDIPDLL name 'GdipCreateStreamOnFile';
-  function GdipCreateMetafileFromWmf; external WINGDIPDLL name 'GdipCreateMetafileFromWmf';
-  function GdipCreateMetafileFromEmf; external WINGDIPDLL name 'GdipCreateMetafileFromEmf';
-  function GdipCreateMetafileFromFile; external WINGDIPDLL name 'GdipCreateMetafileFromFile';
-  function GdipCreateMetafileFromWmfFile; external WINGDIPDLL name 'GdipCreateMetafileFromWmfFile';
-  function GdipCreateMetafileFromStream; external WINGDIPDLL name 'GdipCreateMetafileFromStream';
-  function GdipRecordMetafile; external WINGDIPDLL name 'GdipRecordMetafile';
-  function GdipRecordMetafileI; external WINGDIPDLL name 'GdipRecordMetafileI';
-  function GdipRecordMetafileFileName; external WINGDIPDLL name 'GdipRecordMetafileFileName';
-  function GdipRecordMetafileFileNameI; external WINGDIPDLL name 'GdipRecordMetafileFileNameI';
-  function GdipRecordMetafileStream; external WINGDIPDLL name 'GdipRecordMetafileStream';
-  function GdipRecordMetafileStreamI; external WINGDIPDLL name 'GdipRecordMetafileStreamI';
-  function GdipSetMetafileDownLevelRasterizationLimit; external WINGDIPDLL name 'GdipSetMetafileDownLevelRasterizationLimit';
-  function GdipGetMetafileDownLevelRasterizationLimit; external WINGDIPDLL name 'GdipGetMetafileDownLevelRasterizationLimit';
-  function GdipGetImageDecodersSize; external WINGDIPDLL name 'GdipGetImageDecodersSize';
-  function GdipGetImageDecoders; external WINGDIPDLL name 'GdipGetImageDecoders';
-  function GdipGetImageEncodersSize; external WINGDIPDLL name 'GdipGetImageEncodersSize';
-  function GdipGetImageEncoders; external WINGDIPDLL name 'GdipGetImageEncoders';
-  function GdipComment; external WINGDIPDLL name 'GdipComment';
-  function GdipCreateFontFamilyFromName; external WINGDIPDLL name 'GdipCreateFontFamilyFromName';
-  function GdipDeleteFontFamily; external WINGDIPDLL name 'GdipDeleteFontFamily';
-  function GdipCloneFontFamily; external WINGDIPDLL name 'GdipCloneFontFamily';
-  function GdipGetGenericFontFamilySansSerif; external WINGDIPDLL name 'GdipGetGenericFontFamilySansSerif';
-  function GdipGetGenericFontFamilySerif; external WINGDIPDLL name 'GdipGetGenericFontFamilySerif';
-  function GdipGetGenericFontFamilyMonospace; external WINGDIPDLL name 'GdipGetGenericFontFamilyMonospace';
-  function GdipGetFamilyName; external WINGDIPDLL name 'GdipGetFamilyName';
-  function GdipIsStyleAvailable; external WINGDIPDLL name 'GdipIsStyleAvailable';
-  function GdipFontCollectionEnumerable; external WINGDIPDLL name 'GdipFontCollectionEnumerable';
-  function GdipFontCollectionEnumerate; external WINGDIPDLL name 'GdipFontCollectionEnumerate';
-  function GdipGetEmHeight; external WINGDIPDLL name 'GdipGetEmHeight';
-  function GdipGetCellAscent; external WINGDIPDLL name 'GdipGetCellAscent';
-  function GdipGetCellDescent; external WINGDIPDLL name 'GdipGetCellDescent';
-  function GdipGetLineSpacing; external WINGDIPDLL name 'GdipGetLineSpacing';
-  function GdipCreateFontFromDC; external WINGDIPDLL name 'GdipCreateFontFromDC';
-  function GdipCreateFontFromLogfontA; external WINGDIPDLL name 'GdipCreateFontFromLogfontA';
-  function GdipCreateFontFromLogfontW; external WINGDIPDLL name 'GdipCreateFontFromLogfontW';
-  function GdipCreateFont; external WINGDIPDLL name 'GdipCreateFont';
-  function GdipCloneFont; external WINGDIPDLL name 'GdipCloneFont';
-  function GdipDeleteFont; external WINGDIPDLL name 'GdipDeleteFont';
-  function GdipGetFamily; external WINGDIPDLL name 'GdipGetFamily';
-  function GdipGetFontStyle; external WINGDIPDLL name 'GdipGetFontStyle';
-  function GdipGetFontSize; external WINGDIPDLL name 'GdipGetFontSize';
-  function GdipGetFontUnit; external WINGDIPDLL name 'GdipGetFontUnit';
-  function GdipGetFontHeight; external WINGDIPDLL name 'GdipGetFontHeight';
-  function GdipGetFontHeightGivenDPI; external WINGDIPDLL name 'GdipGetFontHeightGivenDPI';
-  function GdipGetLogFontA; external WINGDIPDLL name 'GdipGetLogFontA';
-  function GdipGetLogFontW; external WINGDIPDLL name 'GdipGetLogFontW';
-  function GdipNewInstalledFontCollection; external WINGDIPDLL name 'GdipNewInstalledFontCollection';
-  function GdipNewPrivateFontCollection; external WINGDIPDLL name 'GdipNewPrivateFontCollection';
-  function GdipDeletePrivateFontCollection; external WINGDIPDLL name 'GdipDeletePrivateFontCollection';
-  function GdipGetFontCollectionFamilyCount; external WINGDIPDLL name 'GdipGetFontCollectionFamilyCount';
-  function GdipGetFontCollectionFamilyList; external WINGDIPDLL name 'GdipGetFontCollectionFamilyList';
-  function GdipPrivateAddFontFile; external WINGDIPDLL name 'GdipPrivateAddFontFile';
-  function GdipPrivateAddMemoryFont; external WINGDIPDLL name 'GdipPrivateAddMemoryFont';
-  function GdipDrawString; external WINGDIPDLL name 'GdipDrawString';
-  function GdipMeasureString; external WINGDIPDLL name 'GdipMeasureString';
-  function GdipMeasureCharacterRanges; external WINGDIPDLL name 'GdipMeasureCharacterRanges';
-  function GdipDrawDriverString; external WINGDIPDLL name 'GdipDrawDriverString';
-  function GdipMeasureDriverString; external WINGDIPDLL name 'GdipMeasureDriverString';
-  function GdipCreateStringFormat; external WINGDIPDLL name 'GdipCreateStringFormat';
-  function GdipStringFormatGetGenericDefault; external WINGDIPDLL name 'GdipStringFormatGetGenericDefault';
-  function GdipStringFormatGetGenericTypographic; external WINGDIPDLL name 'GdipStringFormatGetGenericTypographic';
-  function GdipDeleteStringFormat; external WINGDIPDLL name 'GdipDeleteStringFormat';
-  function GdipCloneStringFormat; external WINGDIPDLL name 'GdipCloneStringFormat';
-  function GdipSetStringFormatFlags; external WINGDIPDLL name 'GdipSetStringFormatFlags';
-  function GdipGetStringFormatFlags; external WINGDIPDLL name 'GdipGetStringFormatFlags';
-  function GdipSetStringFormatAlign; external WINGDIPDLL name 'GdipSetStringFormatAlign';
-  function GdipGetStringFormatAlign; external WINGDIPDLL name 'GdipGetStringFormatAlign';
-  function GdipSetStringFormatLineAlign; external WINGDIPDLL name 'GdipSetStringFormatLineAlign';
-  function GdipGetStringFormatLineAlign; external WINGDIPDLL name 'GdipGetStringFormatLineAlign';
-  function GdipSetStringFormatTrimming; external WINGDIPDLL name 'GdipSetStringFormatTrimming';
-  function GdipGetStringFormatTrimming; external WINGDIPDLL name 'GdipGetStringFormatTrimming';
-  function GdipSetStringFormatHotkeyPrefix; external WINGDIPDLL name 'GdipSetStringFormatHotkeyPrefix';
-  function GdipGetStringFormatHotkeyPrefix; external WINGDIPDLL name 'GdipGetStringFormatHotkeyPrefix';
-  function GdipSetStringFormatTabStops; external WINGDIPDLL name 'GdipSetStringFormatTabStops';
-  function GdipGetStringFormatTabStops; external WINGDIPDLL name 'GdipGetStringFormatTabStops';
-  function GdipGetStringFormatTabStopCount; external WINGDIPDLL name 'GdipGetStringFormatTabStopCount';
-  function GdipSetStringFormatDigitSubstitution; external WINGDIPDLL name 'GdipSetStringFormatDigitSubstitution';
-  function GdipGetStringFormatDigitSubstitution; external WINGDIPDLL name 'GdipGetStringFormatDigitSubstitution';
-  function GdipGetStringFormatMeasurableCharacterRangeCount; external WINGDIPDLL name 'GdipGetStringFormatMeasurableCharacterRangeCount';
-  function GdipSetStringFormatMeasurableCharacterRanges; external WINGDIPDLL name 'GdipSetStringFormatMeasurableCharacterRanges';
-  function GdipCreateCachedBitmap; external WINGDIPDLL name 'GdipCreateCachedBitmap';
-  function GdipDeleteCachedBitmap; external WINGDIPDLL name 'GdipDeleteCachedBitmap';
-  function GdipDrawCachedBitmap; external WINGDIPDLL name 'GdipDrawCachedBitmap';
-  function GdipEmfToWmfBits; external WINGDIPDLL name 'GdipEmfToWmfBits';
+function GdipCreatePath; external WINGDIPDLL name 'GdipCreatePath' delayed;
+function GdipCreatePath2; external WINGDIPDLL name 'GdipCreatePath2' delayed;
+function GdipCreatePath2I; external WINGDIPDLL name 'GdipCreatePath2I' delayed;
+function GdipClonePath; external WINGDIPDLL name 'GdipClonePath' delayed;
+function GdipDeletePath; external WINGDIPDLL name 'GdipDeletePath' delayed;
+function GdipResetPath; external WINGDIPDLL name 'GdipResetPath' delayed;
+function GdipGetPointCount; external WINGDIPDLL name 'GdipGetPointCount' delayed;
+function GdipGetPathTypes; external WINGDIPDLL name 'GdipGetPathTypes' delayed;
+function GdipGetPathPoints; external WINGDIPDLL name 'GdipGetPathPoints' delayed;
+function GdipGetPathPointsI; external WINGDIPDLL name 'GdipGetPathPointsI' delayed;
+function GdipGetPathFillMode; external WINGDIPDLL name 'GdipGetPathFillMode' delayed;
+function GdipSetPathFillMode; external WINGDIPDLL name 'GdipSetPathFillMode' delayed;
+function GdipGetPathData; external WINGDIPDLL name 'GdipGetPathData' delayed;
+function GdipStartPathFigure; external WINGDIPDLL name 'GdipStartPathFigure' delayed;
+function GdipClosePathFigure; external WINGDIPDLL name 'GdipClosePathFigure' delayed;
+function GdipClosePathFigures; external WINGDIPDLL name 'GdipClosePathFigures' delayed;
+function GdipSetPathMarker; external WINGDIPDLL name 'GdipSetPathMarker' delayed;
+function GdipClearPathMarkers; external WINGDIPDLL name 'GdipClearPathMarkers' delayed;
+function GdipReversePath; external WINGDIPDLL name 'GdipReversePath' delayed;
+function GdipGetPathLastPoint; external WINGDIPDLL name 'GdipGetPathLastPoint' delayed;
+function GdipAddPathLine; external WINGDIPDLL name 'GdipAddPathLine' delayed;
+function GdipAddPathLine2; external WINGDIPDLL name 'GdipAddPathLine2' delayed;
+function GdipAddPathArc; external WINGDIPDLL name 'GdipAddPathArc' delayed;
+function GdipAddPathBezier; external WINGDIPDLL name 'GdipAddPathBezier' delayed;
+function GdipAddPathBeziers; external WINGDIPDLL name 'GdipAddPathBeziers' delayed;
+function GdipAddPathCurve; external WINGDIPDLL name 'GdipAddPathCurve' delayed;
+function GdipAddPathCurve2; external WINGDIPDLL name 'GdipAddPathCurve2' delayed;
+function GdipAddPathCurve3; external WINGDIPDLL name 'GdipAddPathCurve3' delayed;
+function GdipAddPathClosedCurve; external WINGDIPDLL name 'GdipAddPathClosedCurve' delayed;
+function GdipAddPathClosedCurve2; external WINGDIPDLL name 'GdipAddPathClosedCurve2' delayed;
+function GdipAddPathRectangle; external WINGDIPDLL name 'GdipAddPathRectangle' delayed;
+function GdipAddPathRectangles; external WINGDIPDLL name 'GdipAddPathRectangles' delayed;
+function GdipAddPathEllipse; external WINGDIPDLL name 'GdipAddPathEllipse' delayed;
+function GdipAddPathPie; external WINGDIPDLL name 'GdipAddPathPie' delayed;
+function GdipAddPathPolygon; external WINGDIPDLL name 'GdipAddPathPolygon' delayed;
+function GdipAddPathPath; external WINGDIPDLL name 'GdipAddPathPath' delayed;
+function GdipAddPathString; external WINGDIPDLL name 'GdipAddPathString' delayed;
+function GdipAddPathStringI; external WINGDIPDLL name 'GdipAddPathStringI' delayed;
+function GdipAddPathLineI; external WINGDIPDLL name 'GdipAddPathLineI' delayed;
+function GdipAddPathLine2I; external WINGDIPDLL name 'GdipAddPathLine2I' delayed;
+function GdipAddPathArcI; external WINGDIPDLL name 'GdipAddPathArcI' delayed;
+function GdipAddPathBezierI; external WINGDIPDLL name 'GdipAddPathBezierI' delayed;
+function GdipAddPathBeziersI; external WINGDIPDLL name 'GdipAddPathBeziersI' delayed;
+function GdipAddPathCurveI; external WINGDIPDLL name 'GdipAddPathCurveI' delayed;
+function GdipAddPathCurve2I; external WINGDIPDLL name 'GdipAddPathCurve2I' delayed;
+function GdipAddPathCurve3I; external WINGDIPDLL name 'GdipAddPathCurve3I' delayed;
+function GdipAddPathClosedCurveI; external WINGDIPDLL name 'GdipAddPathClosedCurveI' delayed;
+function GdipAddPathClosedCurve2I; external WINGDIPDLL name 'GdipAddPathClosedCurve2I' delayed;
+function GdipAddPathRectangleI; external WINGDIPDLL name 'GdipAddPathRectangleI' delayed;
+function GdipAddPathRectanglesI; external WINGDIPDLL name 'GdipAddPathRectanglesI' delayed;
+function GdipAddPathEllipseI; external WINGDIPDLL name 'GdipAddPathEllipseI' delayed;
+function GdipAddPathPieI; external WINGDIPDLL name 'GdipAddPathPieI' delayed;
+function GdipAddPathPolygonI; external WINGDIPDLL name 'GdipAddPathPolygonI' delayed;
+function GdipFlattenPath; external WINGDIPDLL name 'GdipFlattenPath' delayed;
+function GdipWindingModeOutline; external WINGDIPDLL name 'GdipWindingModeOutline' delayed;
+function GdipWidenPath; external WINGDIPDLL name 'GdipWidenPath' delayed;
+function GdipWarpPath; external WINGDIPDLL name 'GdipWarpPath' delayed;
+function GdipTransformPath; external WINGDIPDLL name 'GdipTransformPath' delayed;
+function GdipGetPathWorldBounds; external WINGDIPDLL name 'GdipGetPathWorldBounds' delayed;
+function GdipGetPathWorldBoundsI; external WINGDIPDLL name 'GdipGetPathWorldBoundsI' delayed;
+function GdipIsVisiblePathPoint; external WINGDIPDLL name 'GdipIsVisiblePathPoint' delayed;
+function GdipIsVisiblePathPointI; external WINGDIPDLL name 'GdipIsVisiblePathPointI' delayed;
+function GdipIsOutlineVisiblePathPoint; external WINGDIPDLL name 'GdipIsOutlineVisiblePathPoint' delayed;
+function GdipIsOutlineVisiblePathPointI; external WINGDIPDLL name 'GdipIsOutlineVisiblePathPointI' delayed;
+function GdipCreatePathIter; external WINGDIPDLL name 'GdipCreatePathIter' delayed;
+function GdipDeletePathIter; external WINGDIPDLL name 'GdipDeletePathIter' delayed;
+function GdipPathIterNextSubpath; external WINGDIPDLL name 'GdipPathIterNextSubpath' delayed;
+function GdipPathIterNextSubpathPath; external WINGDIPDLL name 'GdipPathIterNextSubpathPath' delayed;
+function GdipPathIterNextPathType; external WINGDIPDLL name 'GdipPathIterNextPathType' delayed;
+function GdipPathIterNextMarker; external WINGDIPDLL name 'GdipPathIterNextMarker' delayed;
+function GdipPathIterNextMarkerPath; external WINGDIPDLL name 'GdipPathIterNextMarkerPath' delayed;
+function GdipPathIterGetCount; external WINGDIPDLL name 'GdipPathIterGetCount' delayed;
+function GdipPathIterGetSubpathCount; external WINGDIPDLL name 'GdipPathIterGetSubpathCount' delayed;
+function GdipPathIterIsValid; external WINGDIPDLL name 'GdipPathIterIsValid' delayed;
+function GdipPathIterHasCurve; external WINGDIPDLL name 'GdipPathIterHasCurve' delayed;
+function GdipPathIterRewind; external WINGDIPDLL name 'GdipPathIterRewind' delayed;
+function GdipPathIterEnumerate; external WINGDIPDLL name 'GdipPathIterEnumerate' delayed;
+function GdipPathIterCopyData; external WINGDIPDLL name 'GdipPathIterCopyData' delayed;
+function GdipCreateMatrix; external WINGDIPDLL name 'GdipCreateMatrix' delayed;
+function GdipCreateMatrix2; external WINGDIPDLL name 'GdipCreateMatrix2' delayed;
+function GdipCreateMatrix3; external WINGDIPDLL name 'GdipCreateMatrix3' delayed;
+function GdipCreateMatrix3I; external WINGDIPDLL name 'GdipCreateMatrix3I' delayed;
+function GdipCloneMatrix; external WINGDIPDLL name 'GdipCloneMatrix' delayed;
+function GdipDeleteMatrix; external WINGDIPDLL name 'GdipDeleteMatrix' delayed;
+function GdipSetMatrixElements; external WINGDIPDLL name 'GdipSetMatrixElements' delayed;
+function GdipMultiplyMatrix; external WINGDIPDLL name 'GdipMultiplyMatrix' delayed;
+function GdipTranslateMatrix; external WINGDIPDLL name 'GdipTranslateMatrix' delayed;
+function GdipScaleMatrix; external WINGDIPDLL name 'GdipScaleMatrix' delayed;
+function GdipRotateMatrix; external WINGDIPDLL name 'GdipRotateMatrix' delayed;
+function GdipShearMatrix; external WINGDIPDLL name 'GdipShearMatrix' delayed;
+function GdipInvertMatrix; external WINGDIPDLL name 'GdipInvertMatrix' delayed;
+function GdipTransformMatrixPoints; external WINGDIPDLL name 'GdipTransformMatrixPoints' delayed;
+function GdipTransformMatrixPointsI; external WINGDIPDLL name 'GdipTransformMatrixPointsI' delayed;
+function GdipVectorTransformMatrixPoints; external WINGDIPDLL name 'GdipVectorTransformMatrixPoints' delayed;
+function GdipVectorTransformMatrixPointsI; external WINGDIPDLL name 'GdipVectorTransformMatrixPointsI' delayed;
+function GdipGetMatrixElements; external WINGDIPDLL name 'GdipGetMatrixElements' delayed;
+function GdipIsMatrixInvertible; external WINGDIPDLL name 'GdipIsMatrixInvertible' delayed;
+function GdipIsMatrixIdentity; external WINGDIPDLL name 'GdipIsMatrixIdentity' delayed;
+function GdipIsMatrixEqual; external WINGDIPDLL name 'GdipIsMatrixEqual' delayed;
+function GdipCreateRegion; external WINGDIPDLL name 'GdipCreateRegion' delayed;
+function GdipCreateRegionRect; external WINGDIPDLL name 'GdipCreateRegionRect' delayed;
+function GdipCreateRegionRectI; external WINGDIPDLL name 'GdipCreateRegionRectI' delayed;
+function GdipCreateRegionPath; external WINGDIPDLL name 'GdipCreateRegionPath' delayed;
+function GdipCreateRegionRgnData; external WINGDIPDLL name 'GdipCreateRegionRgnData' delayed;
+function GdipCreateRegionHrgn; external WINGDIPDLL name 'GdipCreateRegionHrgn' delayed;
+function GdipCloneRegion; external WINGDIPDLL name 'GdipCloneRegion' delayed;
+function GdipDeleteRegion; external WINGDIPDLL name 'GdipDeleteRegion' delayed;
+function GdipSetInfinite; external WINGDIPDLL name 'GdipSetInfinite' delayed;
+function GdipSetEmpty; external WINGDIPDLL name 'GdipSetEmpty' delayed;
+function GdipCombineRegionRect; external WINGDIPDLL name 'GdipCombineRegionRect' delayed;
+function GdipCombineRegionRectI; external WINGDIPDLL name 'GdipCombineRegionRectI' delayed;
+function GdipCombineRegionPath; external WINGDIPDLL name 'GdipCombineRegionPath' delayed;
+function GdipCombineRegionRegion; external WINGDIPDLL name 'GdipCombineRegionRegion' delayed;
+function GdipTranslateRegion; external WINGDIPDLL name 'GdipTranslateRegion' delayed;
+function GdipTranslateRegionI; external WINGDIPDLL name 'GdipTranslateRegionI' delayed;
+function GdipTransformRegion; external WINGDIPDLL name 'GdipTransformRegion' delayed;
+function GdipGetRegionBounds; external WINGDIPDLL name 'GdipGetRegionBounds' delayed;
+function GdipGetRegionBoundsI; external WINGDIPDLL name 'GdipGetRegionBoundsI' delayed;
+function GdipGetRegionHRgn; external WINGDIPDLL name 'GdipGetRegionHRgn' delayed;
+function GdipIsEmptyRegion; external WINGDIPDLL name 'GdipIsEmptyRegion' delayed;
+function GdipIsInfiniteRegion; external WINGDIPDLL name 'GdipIsInfiniteRegion' delayed;
+function GdipIsEqualRegion; external WINGDIPDLL name 'GdipIsEqualRegion' delayed;
+function GdipGetRegionDataSize; external WINGDIPDLL name 'GdipGetRegionDataSize' delayed;
+function GdipGetRegionData; external WINGDIPDLL name 'GdipGetRegionData' delayed;
+function GdipIsVisibleRegionPoint; external WINGDIPDLL name 'GdipIsVisibleRegionPoint' delayed;
+function GdipIsVisibleRegionPointI; external WINGDIPDLL name 'GdipIsVisibleRegionPointI' delayed;
+function GdipIsVisibleRegionRect; external WINGDIPDLL name 'GdipIsVisibleRegionRect' delayed;
+function GdipIsVisibleRegionRectI; external WINGDIPDLL name 'GdipIsVisibleRegionRectI' delayed;
+function GdipGetRegionScansCount; external WINGDIPDLL name 'GdipGetRegionScansCount' delayed;
+function GdipGetRegionScans; external WINGDIPDLL name 'GdipGetRegionScans' delayed;
+function GdipGetRegionScansI; external WINGDIPDLL name 'GdipGetRegionScansI' delayed;
+function GdipCloneBrush; external WINGDIPDLL name 'GdipCloneBrush' delayed;
+function GdipDeleteBrush; external WINGDIPDLL name 'GdipDeleteBrush' delayed;
+function GdipGetBrushType; external WINGDIPDLL name 'GdipGetBrushType' delayed;
+function GdipCreateHatchBrush; external WINGDIPDLL name 'GdipCreateHatchBrush' delayed;
+function GdipGetHatchStyle; external WINGDIPDLL name 'GdipGetHatchStyle' delayed;
+function GdipGetHatchForegroundColor; external WINGDIPDLL name 'GdipGetHatchForegroundColor' delayed;
+function GdipGetHatchBackgroundColor; external WINGDIPDLL name 'GdipGetHatchBackgroundColor' delayed;
+function GdipCreateTexture; external WINGDIPDLL name 'GdipCreateTexture' delayed;
+function GdipCreateTexture2; external WINGDIPDLL name 'GdipCreateTexture2' delayed;
+function GdipCreateTextureIA; external WINGDIPDLL name 'GdipCreateTextureIA' delayed;
+function GdipCreateTexture2I; external WINGDIPDLL name 'GdipCreateTexture2I' delayed;
+function GdipCreateTextureIAI; external WINGDIPDLL name 'GdipCreateTextureIAI' delayed;
+function GdipGetTextureTransform; external WINGDIPDLL name 'GdipGetTextureTransform' delayed;
+function GdipSetTextureTransform; external WINGDIPDLL name 'GdipSetTextureTransform' delayed;
+function GdipResetTextureTransform; external WINGDIPDLL name 'GdipResetTextureTransform' delayed;
+function GdipMultiplyTextureTransform; external WINGDIPDLL name 'GdipMultiplyTextureTransform' delayed;
+function GdipTranslateTextureTransform; external WINGDIPDLL name 'GdipTranslateTextureTransform' delayed;
+function GdipScaleTextureTransform; external WINGDIPDLL name 'GdipScaleTextureTransform' delayed;
+function GdipRotateTextureTransform; external WINGDIPDLL name 'GdipRotateTextureTransform' delayed;
+function GdipSetTextureWrapMode; external WINGDIPDLL name 'GdipSetTextureWrapMode' delayed;
+function GdipGetTextureWrapMode; external WINGDIPDLL name 'GdipGetTextureWrapMode' delayed;
+function GdipGetTextureImage; external WINGDIPDLL name 'GdipGetTextureImage' delayed;
+function GdipCreateSolidFill; external WINGDIPDLL name 'GdipCreateSolidFill' delayed;
+function GdipSetSolidFillColor; external WINGDIPDLL name 'GdipSetSolidFillColor' delayed;
+function GdipGetSolidFillColor; external WINGDIPDLL name 'GdipGetSolidFillColor' delayed;
+function GdipCreateLineBrush; external WINGDIPDLL name 'GdipCreateLineBrush' delayed;
+function GdipCreateLineBrushI; external WINGDIPDLL name 'GdipCreateLineBrushI' delayed;
+function GdipCreateLineBrushFromRect; external WINGDIPDLL name 'GdipCreateLineBrushFromRect' delayed;
+function GdipCreateLineBrushFromRectI; external WINGDIPDLL name 'GdipCreateLineBrushFromRectI' delayed;
+function GdipCreateLineBrushFromRectWithAngle; external WINGDIPDLL name 'GdipCreateLineBrushFromRectWithAngle' delayed;
+function GdipCreateLineBrushFromRectWithAngleI; external WINGDIPDLL name 'GdipCreateLineBrushFromRectWithAngleI' delayed;
+function GdipSetLineColors; external WINGDIPDLL name 'GdipSetLineColors' delayed;
+function GdipGetLineColors; external WINGDIPDLL name 'GdipGetLineColors' delayed;
+function GdipGetLineRect; external WINGDIPDLL name 'GdipGetLineRect' delayed;
+function GdipGetLineRectI; external WINGDIPDLL name 'GdipGetLineRectI' delayed;
+function GdipSetLineGammaCorrection; external WINGDIPDLL name 'GdipSetLineGammaCorrection' delayed;
+function GdipGetLineGammaCorrection; external WINGDIPDLL name 'GdipGetLineGammaCorrection' delayed;
+function GdipGetLineBlendCount; external WINGDIPDLL name 'GdipGetLineBlendCount' delayed;
+function GdipGetLineBlend; external WINGDIPDLL name 'GdipGetLineBlend' delayed;
+function GdipSetLineBlend; external WINGDIPDLL name 'GdipSetLineBlend' delayed;
+function GdipGetLinePresetBlendCount; external WINGDIPDLL name 'GdipGetLinePresetBlendCount' delayed;
+function GdipGetLinePresetBlend; external WINGDIPDLL name 'GdipGetLinePresetBlend' delayed;
+function GdipSetLinePresetBlend; external WINGDIPDLL name 'GdipSetLinePresetBlend' delayed;
+function GdipSetLineSigmaBlend; external WINGDIPDLL name 'GdipSetLineSigmaBlend' delayed;
+function GdipSetLineLinearBlend; external WINGDIPDLL name 'GdipSetLineLinearBlend' delayed;
+function GdipSetLineWrapMode; external WINGDIPDLL name 'GdipSetLineWrapMode' delayed;
+function GdipGetLineWrapMode; external WINGDIPDLL name 'GdipGetLineWrapMode' delayed;
+function GdipGetLineTransform; external WINGDIPDLL name 'GdipGetLineTransform' delayed;
+function GdipSetLineTransform; external WINGDIPDLL name 'GdipSetLineTransform' delayed;
+function GdipResetLineTransform; external WINGDIPDLL name 'GdipResetLineTransform' delayed;
+function GdipMultiplyLineTransform; external WINGDIPDLL name 'GdipMultiplyLineTransform' delayed;
+function GdipTranslateLineTransform; external WINGDIPDLL name 'GdipTranslateLineTransform' delayed;
+function GdipScaleLineTransform; external WINGDIPDLL name 'GdipScaleLineTransform' delayed;
+function GdipRotateLineTransform; external WINGDIPDLL name 'GdipRotateLineTransform' delayed;
+function GdipCreatePathGradient; external WINGDIPDLL name 'GdipCreatePathGradient' delayed;
+function GdipCreatePathGradientI; external WINGDIPDLL name 'GdipCreatePathGradientI' delayed;
+function GdipCreatePathGradientFromPath; external WINGDIPDLL name 'GdipCreatePathGradientFromPath' delayed;
+function GdipGetPathGradientCenterColor; external WINGDIPDLL name 'GdipGetPathGradientCenterColor' delayed;
+function GdipSetPathGradientCenterColor; external WINGDIPDLL name 'GdipSetPathGradientCenterColor' delayed;
+function GdipGetPathGradientSurroundColorsWithCount; external WINGDIPDLL name 'GdipGetPathGradientSurroundColorsWithCount' delayed;
+function GdipSetPathGradientSurroundColorsWithCount; external WINGDIPDLL name 'GdipSetPathGradientSurroundColorsWithCount' delayed;
+function GdipGetPathGradientPath; external WINGDIPDLL name 'GdipGetPathGradientPath' delayed;
+function GdipSetPathGradientPath; external WINGDIPDLL name 'GdipSetPathGradientPath' delayed;
+function GdipGetPathGradientCenterPoint; external WINGDIPDLL name 'GdipGetPathGradientCenterPoint' delayed;
+function GdipGetPathGradientCenterPointI; external WINGDIPDLL name 'GdipGetPathGradientCenterPointI' delayed;
+function GdipSetPathGradientCenterPoint; external WINGDIPDLL name 'GdipSetPathGradientCenterPoint' delayed;
+function GdipSetPathGradientCenterPointI; external WINGDIPDLL name 'GdipSetPathGradientCenterPointI' delayed;
+function GdipGetPathGradientRect; external WINGDIPDLL name 'GdipGetPathGradientRect' delayed;
+function GdipGetPathGradientRectI; external WINGDIPDLL name 'GdipGetPathGradientRectI' delayed;
+function GdipGetPathGradientPointCount; external WINGDIPDLL name 'GdipGetPathGradientPointCount' delayed;
+function GdipGetPathGradientSurroundColorCount; external WINGDIPDLL name 'GdipGetPathGradientSurroundColorCount' delayed;
+function GdipSetPathGradientGammaCorrection; external WINGDIPDLL name 'GdipSetPathGradientGammaCorrection' delayed;
+function GdipGetPathGradientGammaCorrection; external WINGDIPDLL name 'GdipGetPathGradientGammaCorrection' delayed;
+function GdipGetPathGradientBlendCount; external WINGDIPDLL name 'GdipGetPathGradientBlendCount' delayed;
+function GdipGetPathGradientBlend; external WINGDIPDLL name 'GdipGetPathGradientBlend' delayed;
+function GdipSetPathGradientBlend; external WINGDIPDLL name 'GdipSetPathGradientBlend' delayed;
+function GdipGetPathGradientPresetBlendCount; external WINGDIPDLL name 'GdipGetPathGradientPresetBlendCount' delayed;
+function GdipGetPathGradientPresetBlend; external WINGDIPDLL name 'GdipGetPathGradientPresetBlend' delayed;
+function GdipSetPathGradientPresetBlend; external WINGDIPDLL name 'GdipSetPathGradientPresetBlend' delayed;
+function GdipSetPathGradientSigmaBlend; external WINGDIPDLL name 'GdipSetPathGradientSigmaBlend' delayed;
+function GdipSetPathGradientLinearBlend; external WINGDIPDLL name 'GdipSetPathGradientLinearBlend' delayed;
+function GdipGetPathGradientWrapMode; external WINGDIPDLL name 'GdipGetPathGradientWrapMode' delayed;
+function GdipSetPathGradientWrapMode; external WINGDIPDLL name 'GdipSetPathGradientWrapMode' delayed;
+function GdipGetPathGradientTransform; external WINGDIPDLL name 'GdipGetPathGradientTransform' delayed;
+function GdipSetPathGradientTransform; external WINGDIPDLL name 'GdipSetPathGradientTransform' delayed;
+function GdipResetPathGradientTransform; external WINGDIPDLL name 'GdipResetPathGradientTransform' delayed;
+function GdipMultiplyPathGradientTransform; external WINGDIPDLL name 'GdipMultiplyPathGradientTransform' delayed;
+function GdipTranslatePathGradientTransform; external WINGDIPDLL name 'GdipTranslatePathGradientTransform' delayed;
+function GdipScalePathGradientTransform; external WINGDIPDLL name 'GdipScalePathGradientTransform' delayed;
+function GdipRotatePathGradientTransform; external WINGDIPDLL name 'GdipRotatePathGradientTransform' delayed;
+function GdipGetPathGradientFocusScales; external WINGDIPDLL name 'GdipGetPathGradientFocusScales' delayed;
+function GdipSetPathGradientFocusScales; external WINGDIPDLL name 'GdipSetPathGradientFocusScales' delayed;
+function GdipCreatePen1; external WINGDIPDLL name 'GdipCreatePen1' delayed;
+function GdipCreatePen2; external WINGDIPDLL name 'GdipCreatePen2' delayed;
+function GdipClonePen; external WINGDIPDLL name 'GdipClonePen' delayed;
+function GdipDeletePen; external WINGDIPDLL name 'GdipDeletePen' delayed;
+function GdipSetPenWidth; external WINGDIPDLL name 'GdipSetPenWidth' delayed;
+function GdipGetPenWidth; external WINGDIPDLL name 'GdipGetPenWidth' delayed;
+function GdipSetPenUnit; external WINGDIPDLL name 'GdipSetPenUnit' delayed;
+function GdipGetPenUnit; external WINGDIPDLL name 'GdipGetPenUnit' delayed;
+function GdipSetPenLineCap197819; external WINGDIPDLL name 'GdipSetPenLineCap197819' delayed;
+function GdipSetPenStartCap; external WINGDIPDLL name 'GdipSetPenStartCap' delayed;
+function GdipSetPenEndCap; external WINGDIPDLL name 'GdipSetPenEndCap' delayed;
+function GdipSetPenDashCap197819; external WINGDIPDLL name 'GdipSetPenDashCap197819' delayed;
+function GdipGetPenStartCap; external WINGDIPDLL name 'GdipGetPenStartCap' delayed;
+function GdipGetPenEndCap; external WINGDIPDLL name 'GdipGetPenEndCap' delayed;
+function GdipGetPenDashCap197819; external WINGDIPDLL name 'GdipGetPenDashCap197819' delayed;
+function GdipSetPenLineJoin; external WINGDIPDLL name 'GdipSetPenLineJoin' delayed;
+function GdipGetPenLineJoin; external WINGDIPDLL name 'GdipGetPenLineJoin' delayed;
+function GdipSetPenCustomStartCap; external WINGDIPDLL name 'GdipSetPenCustomStartCap' delayed;
+function GdipGetPenCustomStartCap; external WINGDIPDLL name 'GdipGetPenCustomStartCap' delayed;
+function GdipSetPenCustomEndCap; external WINGDIPDLL name 'GdipSetPenCustomEndCap' delayed;
+function GdipGetPenCustomEndCap; external WINGDIPDLL name 'GdipGetPenCustomEndCap' delayed;
+function GdipSetPenMiterLimit; external WINGDIPDLL name 'GdipSetPenMiterLimit' delayed;
+function GdipGetPenMiterLimit; external WINGDIPDLL name 'GdipGetPenMiterLimit' delayed;
+function GdipSetPenMode; external WINGDIPDLL name 'GdipSetPenMode' delayed;
+function GdipGetPenMode; external WINGDIPDLL name 'GdipGetPenMode' delayed;
+function GdipSetPenTransform; external WINGDIPDLL name 'GdipSetPenTransform' delayed;
+function GdipGetPenTransform; external WINGDIPDLL name 'GdipGetPenTransform' delayed;
+function GdipResetPenTransform; external WINGDIPDLL name 'GdipResetPenTransform' delayed;
+function GdipMultiplyPenTransform; external WINGDIPDLL name 'GdipMultiplyPenTransform' delayed;
+function GdipTranslatePenTransform; external WINGDIPDLL name 'GdipTranslatePenTransform' delayed;
+function GdipScalePenTransform; external WINGDIPDLL name 'GdipScalePenTransform' delayed;
+function GdipRotatePenTransform; external WINGDIPDLL name 'GdipRotatePenTransform' delayed;
+function GdipSetPenColor; external WINGDIPDLL name 'GdipSetPenColor' delayed;
+function GdipGetPenColor; external WINGDIPDLL name 'GdipGetPenColor' delayed;
+function GdipSetPenBrushFill; external WINGDIPDLL name 'GdipSetPenBrushFill' delayed;
+function GdipGetPenBrushFill; external WINGDIPDLL name 'GdipGetPenBrushFill' delayed;
+function GdipGetPenFillType; external WINGDIPDLL name 'GdipGetPenFillType' delayed;
+function GdipGetPenDashStyle; external WINGDIPDLL name 'GdipGetPenDashStyle' delayed;
+function GdipSetPenDashStyle; external WINGDIPDLL name 'GdipSetPenDashStyle' delayed;
+function GdipGetPenDashOffset; external WINGDIPDLL name 'GdipGetPenDashOffset' delayed;
+function GdipSetPenDashOffset; external WINGDIPDLL name 'GdipSetPenDashOffset' delayed;
+function GdipGetPenDashCount; external WINGDIPDLL name 'GdipGetPenDashCount' delayed;
+function GdipSetPenDashArray; external WINGDIPDLL name 'GdipSetPenDashArray' delayed;
+function GdipGetPenDashArray; external WINGDIPDLL name 'GdipGetPenDashArray' delayed;
+function GdipGetPenCompoundCount; external WINGDIPDLL name 'GdipGetPenCompoundCount' delayed;
+function GdipSetPenCompoundArray; external WINGDIPDLL name 'GdipSetPenCompoundArray' delayed;
+function GdipGetPenCompoundArray; external WINGDIPDLL name 'GdipGetPenCompoundArray' delayed;
+function GdipCreateCustomLineCap; external WINGDIPDLL name 'GdipCreateCustomLineCap' delayed;
+function GdipDeleteCustomLineCap; external WINGDIPDLL name 'GdipDeleteCustomLineCap' delayed;
+function GdipCloneCustomLineCap; external WINGDIPDLL name 'GdipCloneCustomLineCap' delayed;
+function GdipGetCustomLineCapType; external WINGDIPDLL name 'GdipGetCustomLineCapType' delayed;
+function GdipSetCustomLineCapStrokeCaps; external WINGDIPDLL name 'GdipSetCustomLineCapStrokeCaps' delayed;
+function GdipGetCustomLineCapStrokeCaps; external WINGDIPDLL name 'GdipGetCustomLineCapStrokeCaps' delayed;
+function GdipSetCustomLineCapStrokeJoin; external WINGDIPDLL name 'GdipSetCustomLineCapStrokeJoin' delayed;
+function GdipGetCustomLineCapStrokeJoin; external WINGDIPDLL name 'GdipGetCustomLineCapStrokeJoin' delayed;
+function GdipSetCustomLineCapBaseCap; external WINGDIPDLL name 'GdipSetCustomLineCapBaseCap' delayed;
+function GdipGetCustomLineCapBaseCap; external WINGDIPDLL name 'GdipGetCustomLineCapBaseCap' delayed;
+function GdipSetCustomLineCapBaseInset; external WINGDIPDLL name 'GdipSetCustomLineCapBaseInset' delayed;
+function GdipGetCustomLineCapBaseInset; external WINGDIPDLL name 'GdipGetCustomLineCapBaseInset' delayed;
+function GdipSetCustomLineCapWidthScale; external WINGDIPDLL name 'GdipSetCustomLineCapWidthScale' delayed;
+function GdipGetCustomLineCapWidthScale; external WINGDIPDLL name 'GdipGetCustomLineCapWidthScale' delayed;
+function GdipCreateAdjustableArrowCap; external WINGDIPDLL name 'GdipCreateAdjustableArrowCap' delayed;
+function GdipSetAdjustableArrowCapHeight; external WINGDIPDLL name 'GdipSetAdjustableArrowCapHeight' delayed;
+function GdipGetAdjustableArrowCapHeight; external WINGDIPDLL name 'GdipGetAdjustableArrowCapHeight' delayed;
+function GdipSetAdjustableArrowCapWidth; external WINGDIPDLL name 'GdipSetAdjustableArrowCapWidth' delayed;
+function GdipGetAdjustableArrowCapWidth; external WINGDIPDLL name 'GdipGetAdjustableArrowCapWidth' delayed;
+function GdipSetAdjustableArrowCapMiddleInset; external WINGDIPDLL name 'GdipSetAdjustableArrowCapMiddleInset' delayed;
+function GdipGetAdjustableArrowCapMiddleInset; external WINGDIPDLL name 'GdipGetAdjustableArrowCapMiddleInset' delayed;
+function GdipSetAdjustableArrowCapFillState; external WINGDIPDLL name 'GdipSetAdjustableArrowCapFillState' delayed;
+function GdipGetAdjustableArrowCapFillState; external WINGDIPDLL name 'GdipGetAdjustableArrowCapFillState' delayed;
+function GdipLoadImageFromStream; external WINGDIPDLL name 'GdipLoadImageFromStream' delayed;
+function GdipLoadImageFromFile; external WINGDIPDLL name 'GdipLoadImageFromFile' delayed;
+function GdipLoadImageFromStreamICM; external WINGDIPDLL name 'GdipLoadImageFromStreamICM' delayed;
+function GdipLoadImageFromFileICM; external WINGDIPDLL name 'GdipLoadImageFromFileICM' delayed;
+function GdipCloneImage; external WINGDIPDLL name 'GdipCloneImage' delayed;
+function GdipDisposeImage; external WINGDIPDLL name 'GdipDisposeImage' delayed;
+function GdipSaveImageToFile; external WINGDIPDLL name 'GdipSaveImageToFile' delayed;
+function GdipSaveImageToStream; external WINGDIPDLL name 'GdipSaveImageToStream' delayed;
+function GdipSaveAdd; external WINGDIPDLL name 'GdipSaveAdd' delayed;
+function GdipSaveAddImage; external WINGDIPDLL name 'GdipSaveAddImage' delayed;
+function GdipGetImageGraphicsContext; external WINGDIPDLL name 'GdipGetImageGraphicsContext' delayed;
+function GdipGetImageBounds; external WINGDIPDLL name 'GdipGetImageBounds' delayed;
+function GdipGetImageDimension; external WINGDIPDLL name 'GdipGetImageDimension' delayed;
+function GdipGetImageType; external WINGDIPDLL name 'GdipGetImageType' delayed;
+function GdipGetImageWidth; external WINGDIPDLL name 'GdipGetImageWidth' delayed;
+function GdipGetImageHeight; external WINGDIPDLL name 'GdipGetImageHeight' delayed;
+function GdipGetImageHorizontalResolution; external WINGDIPDLL name 'GdipGetImageHorizontalResolution' delayed;
+function GdipGetImageVerticalResolution; external WINGDIPDLL name 'GdipGetImageVerticalResolution' delayed;
+function GdipGetImageFlags; external WINGDIPDLL name 'GdipGetImageFlags' delayed;
+function GdipGetImageRawFormat; external WINGDIPDLL name 'GdipGetImageRawFormat' delayed;
+function GdipGetImagePixelFormat; external WINGDIPDLL name 'GdipGetImagePixelFormat' delayed;
+function GdipGetImageThumbnail; external WINGDIPDLL name 'GdipGetImageThumbnail' delayed;
+function GdipGetEncoderParameterListSize; external WINGDIPDLL name 'GdipGetEncoderParameterListSize' delayed;
+function GdipGetEncoderParameterList; external WINGDIPDLL name 'GdipGetEncoderParameterList' delayed;
+function GdipImageGetFrameDimensionsCount; external WINGDIPDLL name 'GdipImageGetFrameDimensionsCount' delayed;
+function GdipImageGetFrameDimensionsList; external WINGDIPDLL name 'GdipImageGetFrameDimensionsList' delayed;
+function GdipImageGetFrameCount; external WINGDIPDLL name 'GdipImageGetFrameCount' delayed;
+function GdipImageSelectActiveFrame; external WINGDIPDLL name 'GdipImageSelectActiveFrame' delayed;
+function GdipImageRotateFlip; external WINGDIPDLL name 'GdipImageRotateFlip' delayed;
+function GdipGetImagePalette; external WINGDIPDLL name 'GdipGetImagePalette' delayed;
+function GdipSetImagePalette; external WINGDIPDLL name 'GdipSetImagePalette' delayed;
+function GdipGetImagePaletteSize; external WINGDIPDLL name 'GdipGetImagePaletteSize' delayed;
+function GdipGetPropertyCount; external WINGDIPDLL name 'GdipGetPropertyCount' delayed;
+function GdipGetPropertyIdList; external WINGDIPDLL name 'GdipGetPropertyIdList' delayed;
+function GdipGetPropertyItemSize; external WINGDIPDLL name 'GdipGetPropertyItemSize' delayed;
+function GdipGetPropertyItem; external WINGDIPDLL name 'GdipGetPropertyItem' delayed;
+function GdipGetPropertySize; external WINGDIPDLL name 'GdipGetPropertySize' delayed;
+function GdipGetAllPropertyItems; external WINGDIPDLL name 'GdipGetAllPropertyItems' delayed;
+function GdipRemovePropertyItem; external WINGDIPDLL name 'GdipRemovePropertyItem' delayed;
+function GdipSetPropertyItem; external WINGDIPDLL name 'GdipSetPropertyItem' delayed;
+function GdipImageForceValidation; external WINGDIPDLL name 'GdipImageForceValidation' delayed;
+function GdipCreateBitmapFromStream; external WINGDIPDLL name 'GdipCreateBitmapFromStream' delayed;
+function GdipCreateBitmapFromFile; external WINGDIPDLL name 'GdipCreateBitmapFromFile' delayed;
+function GdipCreateBitmapFromStreamICM; external WINGDIPDLL name 'GdipCreateBitmapFromStreamICM' delayed;
+function GdipCreateBitmapFromFileICM; external WINGDIPDLL name 'GdipCreateBitmapFromFileICM' delayed;
+function GdipCreateBitmapFromScan0; external WINGDIPDLL name 'GdipCreateBitmapFromScan0' delayed;
+function GdipCreateBitmapFromGraphics; external WINGDIPDLL name 'GdipCreateBitmapFromGraphics' delayed;
+function GdipCreateBitmapFromDirectDrawSurface; external WINGDIPDLL name 'GdipCreateBitmapFromDirectDrawSurface' delayed;
+function GdipCreateBitmapFromGdiDib; external WINGDIPDLL name 'GdipCreateBitmapFromGdiDib' delayed;
+function GdipCreateBitmapFromHBITMAP; external WINGDIPDLL name 'GdipCreateBitmapFromHBITMAP' delayed;
+function GdipCreateHBITMAPFromBitmap; external WINGDIPDLL name 'GdipCreateHBITMAPFromBitmap' delayed;
+function GdipCreateBitmapFromHICON; external WINGDIPDLL name 'GdipCreateBitmapFromHICON' delayed;
+function GdipCreateHICONFromBitmap; external WINGDIPDLL name 'GdipCreateHICONFromBitmap' delayed;
+function GdipCreateBitmapFromResource; external WINGDIPDLL name 'GdipCreateBitmapFromResource' delayed;
+function GdipCloneBitmapArea; external WINGDIPDLL name 'GdipCloneBitmapArea' delayed;
+function GdipCloneBitmapAreaI; external WINGDIPDLL name 'GdipCloneBitmapAreaI' delayed;
+function GdipBitmapLockBits; external WINGDIPDLL name 'GdipBitmapLockBits' delayed;
+function GdipBitmapUnlockBits; external WINGDIPDLL name 'GdipBitmapUnlockBits' delayed;
+function GdipBitmapGetPixel; external WINGDIPDLL name 'GdipBitmapGetPixel' delayed;
+function GdipBitmapSetPixel; external WINGDIPDLL name 'GdipBitmapSetPixel' delayed;
+function GdipBitmapSetResolution; external WINGDIPDLL name 'GdipBitmapSetResolution' delayed;
+function GdipCreateImageAttributes; external WINGDIPDLL name 'GdipCreateImageAttributes' delayed;
+function GdipCloneImageAttributes; external WINGDIPDLL name 'GdipCloneImageAttributes' delayed;
+function GdipDisposeImageAttributes; external WINGDIPDLL name 'GdipDisposeImageAttributes' delayed;
+function GdipSetImageAttributesToIdentity; external WINGDIPDLL name 'GdipSetImageAttributesToIdentity' delayed;
+function GdipResetImageAttributes; external WINGDIPDLL name 'GdipResetImageAttributes' delayed;
+function GdipSetImageAttributesColorMatrix; external WINGDIPDLL name 'GdipSetImageAttributesColorMatrix' delayed;
+function GdipSetImageAttributesThreshold; external WINGDIPDLL name 'GdipSetImageAttributesThreshold' delayed;
+function GdipSetImageAttributesGamma; external WINGDIPDLL name 'GdipSetImageAttributesGamma' delayed;
+function GdipSetImageAttributesNoOp; external WINGDIPDLL name 'GdipSetImageAttributesNoOp' delayed;
+function GdipSetImageAttributesColorKeys; external WINGDIPDLL name 'GdipSetImageAttributesColorKeys' delayed;
+function GdipSetImageAttributesOutputChannel; external WINGDIPDLL name 'GdipSetImageAttributesOutputChannel' delayed;
+function GdipSetImageAttributesOutputChannelColorProfile; external WINGDIPDLL name 'GdipSetImageAttributesOutputChannelColorProfile' delayed;
+function GdipSetImageAttributesRemapTable; external WINGDIPDLL name 'GdipSetImageAttributesRemapTable' delayed;
+function GdipSetImageAttributesWrapMode; external WINGDIPDLL name 'GdipSetImageAttributesWrapMode' delayed;
+function GdipSetImageAttributesICMMode; external WINGDIPDLL name 'GdipSetImageAttributesICMMode' delayed;
+function GdipGetImageAttributesAdjustedPalette; external WINGDIPDLL name 'GdipGetImageAttributesAdjustedPalette' delayed;
+function GdipFlush; external WINGDIPDLL name 'GdipFlush' delayed;
+function GdipCreateFromHDC; external WINGDIPDLL name 'GdipCreateFromHDC' delayed;
+function GdipCreateFromHDC2; external WINGDIPDLL name 'GdipCreateFromHDC2' delayed;
+function GdipCreateFromHWND; external WINGDIPDLL name 'GdipCreateFromHWND' delayed;
+function GdipCreateFromHWNDICM; external WINGDIPDLL name 'GdipCreateFromHWNDICM' delayed;
+function GdipDeleteGraphics; external WINGDIPDLL name 'GdipDeleteGraphics' delayed;
+function GdipGetDC; external WINGDIPDLL name 'GdipGetDC' delayed;
+function GdipReleaseDC; external WINGDIPDLL name 'GdipReleaseDC' delayed;
+function GdipSetCompositingMode; external WINGDIPDLL name 'GdipSetCompositingMode' delayed;
+function GdipGetCompositingMode; external WINGDIPDLL name 'GdipGetCompositingMode' delayed;
+function GdipSetRenderingOrigin; external WINGDIPDLL name 'GdipSetRenderingOrigin' delayed;
+function GdipGetRenderingOrigin; external WINGDIPDLL name 'GdipGetRenderingOrigin' delayed;
+function GdipSetCompositingQuality; external WINGDIPDLL name 'GdipSetCompositingQuality' delayed;
+function GdipGetCompositingQuality; external WINGDIPDLL name 'GdipGetCompositingQuality' delayed;
+function GdipSetSmoothingMode; external WINGDIPDLL name 'GdipSetSmoothingMode' delayed;
+function GdipGetSmoothingMode; external WINGDIPDLL name 'GdipGetSmoothingMode' delayed;
+function GdipSetPixelOffsetMode; external WINGDIPDLL name 'GdipSetPixelOffsetMode' delayed;
+function GdipGetPixelOffsetMode; external WINGDIPDLL name 'GdipGetPixelOffsetMode' delayed;
+function GdipSetTextRenderingHint; external WINGDIPDLL name 'GdipSetTextRenderingHint' delayed;
+function GdipGetTextRenderingHint; external WINGDIPDLL name 'GdipGetTextRenderingHint' delayed;
+function GdipSetTextContrast; external WINGDIPDLL name 'GdipSetTextContrast' delayed;
+function GdipGetTextContrast; external WINGDIPDLL name 'GdipGetTextContrast' delayed;
+function GdipSetInterpolationMode; external WINGDIPDLL name 'GdipSetInterpolationMode' delayed;
+function GdipGetInterpolationMode; external WINGDIPDLL name 'GdipGetInterpolationMode' delayed;
+function GdipSetWorldTransform; external WINGDIPDLL name 'GdipSetWorldTransform' delayed;
+function GdipResetWorldTransform; external WINGDIPDLL name 'GdipResetWorldTransform' delayed;
+function GdipMultiplyWorldTransform; external WINGDIPDLL name 'GdipMultiplyWorldTransform' delayed;
+function GdipTranslateWorldTransform; external WINGDIPDLL name 'GdipTranslateWorldTransform' delayed;
+function GdipScaleWorldTransform; external WINGDIPDLL name 'GdipScaleWorldTransform' delayed;
+function GdipRotateWorldTransform; external WINGDIPDLL name 'GdipRotateWorldTransform' delayed;
+function GdipGetWorldTransform; external WINGDIPDLL name 'GdipGetWorldTransform' delayed;
+function GdipResetPageTransform; external WINGDIPDLL name 'GdipResetPageTransform' delayed;
+function GdipGetPageUnit; external WINGDIPDLL name 'GdipGetPageUnit' delayed;
+function GdipGetPageScale; external WINGDIPDLL name 'GdipGetPageScale' delayed;
+function GdipSetPageUnit; external WINGDIPDLL name 'GdipSetPageUnit' delayed;
+function GdipSetPageScale; external WINGDIPDLL name 'GdipSetPageScale' delayed;
+function GdipGetDpiX; external WINGDIPDLL name 'GdipGetDpiX' delayed;
+function GdipGetDpiY; external WINGDIPDLL name 'GdipGetDpiY' delayed;
+function GdipTransformPoints; external WINGDIPDLL name 'GdipTransformPoints' delayed;
+function GdipTransformPointsI; external WINGDIPDLL name 'GdipTransformPointsI' delayed;
+function GdipGetNearestColor; external WINGDIPDLL name 'GdipGetNearestColor' delayed;
+function GdipCreateHalftonePalette; external WINGDIPDLL name 'GdipCreateHalftonePalette' delayed;
+function GdipDrawLine; external WINGDIPDLL name 'GdipDrawLine' delayed;
+function GdipDrawLineI; external WINGDIPDLL name 'GdipDrawLineI' delayed;
+function GdipDrawLines; external WINGDIPDLL name 'GdipDrawLines' delayed;
+function GdipDrawLinesI; external WINGDIPDLL name 'GdipDrawLinesI' delayed;
+function GdipDrawArc; external WINGDIPDLL name 'GdipDrawArc' delayed;
+function GdipDrawArcI; external WINGDIPDLL name 'GdipDrawArcI' delayed;
+function GdipDrawBezier; external WINGDIPDLL name 'GdipDrawBezier' delayed;
+function GdipDrawBezierI; external WINGDIPDLL name 'GdipDrawBezierI' delayed;
+function GdipDrawBeziers; external WINGDIPDLL name 'GdipDrawBeziers' delayed;
+function GdipDrawBeziersI; external WINGDIPDLL name 'GdipDrawBeziersI' delayed;
+function GdipDrawRectangle; external WINGDIPDLL name 'GdipDrawRectangle' delayed;
+function GdipDrawRectangleI; external WINGDIPDLL name 'GdipDrawRectangleI' delayed;
+function GdipDrawRectangles; external WINGDIPDLL name 'GdipDrawRectangles' delayed;
+function GdipDrawRectanglesI; external WINGDIPDLL name 'GdipDrawRectanglesI' delayed;
+function GdipDrawEllipse; external WINGDIPDLL name 'GdipDrawEllipse' delayed;
+function GdipDrawEllipseI; external WINGDIPDLL name 'GdipDrawEllipseI' delayed;
+function GdipDrawPie; external WINGDIPDLL name 'GdipDrawPie' delayed;
+function GdipDrawPieI; external WINGDIPDLL name 'GdipDrawPieI' delayed;
+function GdipDrawPolygon; external WINGDIPDLL name 'GdipDrawPolygon' delayed;
+function GdipDrawPolygonI; external WINGDIPDLL name 'GdipDrawPolygonI' delayed;
+function GdipDrawPath; external WINGDIPDLL name 'GdipDrawPath' delayed;
+function GdipDrawCurve; external WINGDIPDLL name 'GdipDrawCurve' delayed;
+function GdipDrawCurveI; external WINGDIPDLL name 'GdipDrawCurveI' delayed;
+function GdipDrawCurve2; external WINGDIPDLL name 'GdipDrawCurve2' delayed;
+function GdipDrawCurve2I; external WINGDIPDLL name 'GdipDrawCurve2I' delayed;
+function GdipDrawCurve3; external WINGDIPDLL name 'GdipDrawCurve3' delayed;
+function GdipDrawCurve3I; external WINGDIPDLL name 'GdipDrawCurve3I' delayed;
+function GdipDrawClosedCurve; external WINGDIPDLL name 'GdipDrawClosedCurve' delayed;
+function GdipDrawClosedCurveI; external WINGDIPDLL name 'GdipDrawClosedCurveI' delayed;
+function GdipDrawClosedCurve2; external WINGDIPDLL name 'GdipDrawClosedCurve2' delayed;
+function GdipDrawClosedCurve2I; external WINGDIPDLL name 'GdipDrawClosedCurve2I' delayed;
+function GdipGraphicsClear; external WINGDIPDLL name 'GdipGraphicsClear' delayed;
+function GdipFillRectangle; external WINGDIPDLL name 'GdipFillRectangle' delayed;
+function GdipFillRectangleI; external WINGDIPDLL name 'GdipFillRectangleI' delayed;
+function GdipFillRectangles; external WINGDIPDLL name 'GdipFillRectangles' delayed;
+function GdipFillRectanglesI; external WINGDIPDLL name 'GdipFillRectanglesI' delayed;
+function GdipFillPolygon; external WINGDIPDLL name 'GdipFillPolygon' delayed;
+function GdipFillPolygonI; external WINGDIPDLL name 'GdipFillPolygonI' delayed;
+function GdipFillPolygon2; external WINGDIPDLL name 'GdipFillPolygon2' delayed;
+function GdipFillPolygon2I; external WINGDIPDLL name 'GdipFillPolygon2I' delayed;
+function GdipFillEllipse; external WINGDIPDLL name 'GdipFillEllipse' delayed;
+function GdipFillEllipseI; external WINGDIPDLL name 'GdipFillEllipseI' delayed;
+function GdipFillPie; external WINGDIPDLL name 'GdipFillPie' delayed;
+function GdipFillPieI; external WINGDIPDLL name 'GdipFillPieI' delayed;
+function GdipFillPath; external WINGDIPDLL name 'GdipFillPath' delayed;
+function GdipFillClosedCurve; external WINGDIPDLL name 'GdipFillClosedCurve' delayed;
+function GdipFillClosedCurveI; external WINGDIPDLL name 'GdipFillClosedCurveI' delayed;
+function GdipFillClosedCurve2; external WINGDIPDLL name 'GdipFillClosedCurve2' delayed;
+function GdipFillClosedCurve2I; external WINGDIPDLL name 'GdipFillClosedCurve2I' delayed;
+function GdipFillRegion; external WINGDIPDLL name 'GdipFillRegion' delayed;
+function GdipDrawImage; external WINGDIPDLL name 'GdipDrawImage' delayed;
+function GdipDrawImageI; external WINGDIPDLL name 'GdipDrawImageI' delayed;
+function GdipDrawImageRect; external WINGDIPDLL name 'GdipDrawImageRect' delayed;
+function GdipDrawImageRectI; external WINGDIPDLL name 'GdipDrawImageRectI' delayed;
+function GdipDrawImagePoints; external WINGDIPDLL name 'GdipDrawImagePoints' delayed;
+function GdipDrawImagePointsI; external WINGDIPDLL name 'GdipDrawImagePointsI' delayed;
+function GdipDrawImagePointRect; external WINGDIPDLL name 'GdipDrawImagePointRect' delayed;
+function GdipDrawImagePointRectI; external WINGDIPDLL name 'GdipDrawImagePointRectI' delayed;
+function GdipDrawImageRectRect; external WINGDIPDLL name 'GdipDrawImageRectRect' delayed;
+function GdipDrawImageRectRectI; external WINGDIPDLL name 'GdipDrawImageRectRectI' delayed;
+function GdipDrawImagePointsRect; external WINGDIPDLL name 'GdipDrawImagePointsRect' delayed;
+function GdipDrawImagePointsRectI; external WINGDIPDLL name 'GdipDrawImagePointsRectI' delayed;
+function GdipEnumerateMetafileDestPoint; external WINGDIPDLL name 'GdipEnumerateMetafileDestPoint' delayed;
+function GdipEnumerateMetafileDestPointI; external WINGDIPDLL name 'GdipEnumerateMetafileDestPointI' delayed;
+function GdipEnumerateMetafileDestRect; external WINGDIPDLL name 'GdipEnumerateMetafileDestRect' delayed;
+function GdipEnumerateMetafileDestRectI; external WINGDIPDLL name 'GdipEnumerateMetafileDestRectI' delayed;
+function GdipEnumerateMetafileDestPoints; external WINGDIPDLL name 'GdipEnumerateMetafileDestPoints' delayed;
+function GdipEnumerateMetafileDestPointsI; external WINGDIPDLL name 'GdipEnumerateMetafileDestPointsI' delayed;
+function GdipEnumerateMetafileSrcRectDestPoint; external WINGDIPDLL name 'GdipEnumerateMetafileSrcRectDestPoint' delayed;
+function GdipEnumerateMetafileSrcRectDestPointI; external WINGDIPDLL name 'GdipEnumerateMetafileSrcRectDestPointI' delayed;
+function GdipEnumerateMetafileSrcRectDestRect; external WINGDIPDLL name 'GdipEnumerateMetafileSrcRectDestRect' delayed;
+function GdipEnumerateMetafileSrcRectDestRectI; external WINGDIPDLL name 'GdipEnumerateMetafileSrcRectDestRectI' delayed;
+function GdipEnumerateMetafileSrcRectDestPoints; external WINGDIPDLL name 'GdipEnumerateMetafileSrcRectDestPoints' delayed;
+function GdipEnumerateMetafileSrcRectDestPointsI; external WINGDIPDLL name 'GdipEnumerateMetafileSrcRectDestPointsI' delayed;
+function GdipPlayMetafileRecord; external WINGDIPDLL name 'GdipPlayMetafileRecord' delayed;
+function GdipSetClipGraphics; external WINGDIPDLL name 'GdipSetClipGraphics' delayed;
+function GdipSetClipRect; external WINGDIPDLL name 'GdipSetClipRect' delayed;
+function GdipSetClipRectI; external WINGDIPDLL name 'GdipSetClipRectI' delayed;
+function GdipSetClipPath; external WINGDIPDLL name 'GdipSetClipPath' delayed;
+function GdipSetClipRegion; external WINGDIPDLL name 'GdipSetClipRegion' delayed;
+function GdipSetClipHrgn; external WINGDIPDLL name 'GdipSetClipHrgn' delayed;
+function GdipResetClip; external WINGDIPDLL name 'GdipResetClip' delayed;
+function GdipTranslateClip; external WINGDIPDLL name 'GdipTranslateClip' delayed;
+function GdipTranslateClipI; external WINGDIPDLL name 'GdipTranslateClipI' delayed;
+function GdipGetClip; external WINGDIPDLL name 'GdipGetClip' delayed;
+function GdipGetClipBounds; external WINGDIPDLL name 'GdipGetClipBounds' delayed;
+function GdipGetClipBoundsI; external WINGDIPDLL name 'GdipGetClipBoundsI' delayed;
+function GdipIsClipEmpty; external WINGDIPDLL name 'GdipIsClipEmpty' delayed;
+function GdipGetVisibleClipBounds; external WINGDIPDLL name 'GdipGetVisibleClipBounds' delayed;
+function GdipGetVisibleClipBoundsI; external WINGDIPDLL name 'GdipGetVisibleClipBoundsI' delayed;
+function GdipIsVisibleClipEmpty; external WINGDIPDLL name 'GdipIsVisibleClipEmpty' delayed;
+function GdipIsVisiblePoint; external WINGDIPDLL name 'GdipIsVisiblePoint' delayed;
+function GdipIsVisiblePointI; external WINGDIPDLL name 'GdipIsVisiblePointI' delayed;
+function GdipIsVisibleRect; external WINGDIPDLL name 'GdipIsVisibleRect' delayed;
+function GdipIsVisibleRectI; external WINGDIPDLL name 'GdipIsVisibleRectI' delayed;
+function GdipSaveGraphics; external WINGDIPDLL name 'GdipSaveGraphics' delayed;
+function GdipRestoreGraphics; external WINGDIPDLL name 'GdipRestoreGraphics' delayed;
+function GdipBeginContainer; external WINGDIPDLL name 'GdipBeginContainer' delayed;
+function GdipBeginContainerI; external WINGDIPDLL name 'GdipBeginContainerI' delayed;
+function GdipBeginContainer2; external WINGDIPDLL name 'GdipBeginContainer2' delayed;
+function GdipEndContainer; external WINGDIPDLL name 'GdipEndContainer' delayed;
+function GdipGetMetafileHeaderFromWmf; external WINGDIPDLL name 'GdipGetMetafileHeaderFromWmf' delayed;
+function GdipGetMetafileHeaderFromEmf; external WINGDIPDLL name 'GdipGetMetafileHeaderFromEmf' delayed;
+function GdipGetMetafileHeaderFromFile; external WINGDIPDLL name 'GdipGetMetafileHeaderFromFile' delayed;
+function GdipGetMetafileHeaderFromStream; external WINGDIPDLL name 'GdipGetMetafileHeaderFromStream' delayed;
+function GdipGetMetafileHeaderFromMetafile; external WINGDIPDLL name 'GdipGetMetafileHeaderFromMetafile' delayed;
+function GdipGetHemfFromMetafile; external WINGDIPDLL name 'GdipGetHemfFromMetafile' delayed;
+function GdipCreateStreamOnFile; external WINGDIPDLL name 'GdipCreateStreamOnFile' delayed;
+function GdipCreateMetafileFromWmf; external WINGDIPDLL name 'GdipCreateMetafileFromWmf' delayed;
+function GdipCreateMetafileFromEmf; external WINGDIPDLL name 'GdipCreateMetafileFromEmf' delayed;
+function GdipCreateMetafileFromFile; external WINGDIPDLL name 'GdipCreateMetafileFromFile' delayed;
+function GdipCreateMetafileFromWmfFile; external WINGDIPDLL name 'GdipCreateMetafileFromWmfFile' delayed;
+function GdipCreateMetafileFromStream; external WINGDIPDLL name 'GdipCreateMetafileFromStream' delayed;
+function GdipRecordMetafile; external WINGDIPDLL name 'GdipRecordMetafile' delayed;
+function GdipRecordMetafileI; external WINGDIPDLL name 'GdipRecordMetafileI' delayed;
+function GdipRecordMetafileFileName; external WINGDIPDLL name 'GdipRecordMetafileFileName' delayed;
+function GdipRecordMetafileFileNameI; external WINGDIPDLL name 'GdipRecordMetafileFileNameI' delayed;
+function GdipRecordMetafileStream; external WINGDIPDLL name 'GdipRecordMetafileStream' delayed;
+function GdipRecordMetafileStreamI; external WINGDIPDLL name 'GdipRecordMetafileStreamI' delayed;
+function GdipSetMetafileDownLevelRasterizationLimit; external WINGDIPDLL name 'GdipSetMetafileDownLevelRasterizationLimit' delayed;
+function GdipGetMetafileDownLevelRasterizationLimit; external WINGDIPDLL name 'GdipGetMetafileDownLevelRasterizationLimit' delayed;
+function GdipGetImageDecodersSize; external WINGDIPDLL name 'GdipGetImageDecodersSize' delayed;
+function GdipGetImageDecoders; external WINGDIPDLL name 'GdipGetImageDecoders' delayed;
+function GdipGetImageEncodersSize; external WINGDIPDLL name 'GdipGetImageEncodersSize' delayed;
+function GdipGetImageEncoders; external WINGDIPDLL name 'GdipGetImageEncoders' delayed;
+function GdipComment; external WINGDIPDLL name 'GdipComment' delayed;
+function GdipCreateFontFamilyFromName; external WINGDIPDLL name 'GdipCreateFontFamilyFromName' delayed;
+function GdipDeleteFontFamily; external WINGDIPDLL name 'GdipDeleteFontFamily' delayed;
+function GdipCloneFontFamily; external WINGDIPDLL name 'GdipCloneFontFamily' delayed;
+function GdipGetGenericFontFamilySansSerif; external WINGDIPDLL name 'GdipGetGenericFontFamilySansSerif' delayed;
+function GdipGetGenericFontFamilySerif; external WINGDIPDLL name 'GdipGetGenericFontFamilySerif' delayed;
+function GdipGetGenericFontFamilyMonospace; external WINGDIPDLL name 'GdipGetGenericFontFamilyMonospace' delayed;
+function GdipGetFamilyName; external WINGDIPDLL name 'GdipGetFamilyName' delayed;
+function GdipIsStyleAvailable; external WINGDIPDLL name 'GdipIsStyleAvailable' delayed;
+function GdipFontCollectionEnumerable; external WINGDIPDLL name 'GdipFontCollectionEnumerable' delayed;
+function GdipFontCollectionEnumerate; external WINGDIPDLL name 'GdipFontCollectionEnumerate' delayed;
+function GdipGetEmHeight; external WINGDIPDLL name 'GdipGetEmHeight' delayed;
+function GdipGetCellAscent; external WINGDIPDLL name 'GdipGetCellAscent' delayed;
+function GdipGetCellDescent; external WINGDIPDLL name 'GdipGetCellDescent' delayed;
+function GdipGetLineSpacing; external WINGDIPDLL name 'GdipGetLineSpacing' delayed;
+function GdipCreateFontFromDC; external WINGDIPDLL name 'GdipCreateFontFromDC' delayed;
+function GdipCreateFontFromLogfontA; external WINGDIPDLL name 'GdipCreateFontFromLogfontA' delayed;
+function GdipCreateFontFromLogfontW; external WINGDIPDLL name 'GdipCreateFontFromLogfontW' delayed;
+function GdipCreateFont; external WINGDIPDLL name 'GdipCreateFont' delayed;
+function GdipCloneFont; external WINGDIPDLL name 'GdipCloneFont' delayed;
+function GdipDeleteFont; external WINGDIPDLL name 'GdipDeleteFont' delayed;
+function GdipGetFamily; external WINGDIPDLL name 'GdipGetFamily' delayed;
+function GdipGetFontStyle; external WINGDIPDLL name 'GdipGetFontStyle' delayed;
+function GdipGetFontSize; external WINGDIPDLL name 'GdipGetFontSize' delayed;
+function GdipGetFontUnit; external WINGDIPDLL name 'GdipGetFontUnit' delayed;
+function GdipGetFontHeight; external WINGDIPDLL name 'GdipGetFontHeight' delayed;
+function GdipGetFontHeightGivenDPI; external WINGDIPDLL name 'GdipGetFontHeightGivenDPI' delayed;
+function GdipGetLogFontA; external WINGDIPDLL name 'GdipGetLogFontA' delayed;
+function GdipGetLogFontW; external WINGDIPDLL name 'GdipGetLogFontW' delayed;
+function GdipNewInstalledFontCollection; external WINGDIPDLL name 'GdipNewInstalledFontCollection' delayed;
+function GdipNewPrivateFontCollection; external WINGDIPDLL name 'GdipNewPrivateFontCollection' delayed;
+function GdipDeletePrivateFontCollection; external WINGDIPDLL name 'GdipDeletePrivateFontCollection' delayed;
+function GdipGetFontCollectionFamilyCount; external WINGDIPDLL name 'GdipGetFontCollectionFamilyCount' delayed;
+function GdipGetFontCollectionFamilyList; external WINGDIPDLL name 'GdipGetFontCollectionFamilyList' delayed;
+function GdipPrivateAddFontFile; external WINGDIPDLL name 'GdipPrivateAddFontFile' delayed;
+function GdipPrivateAddMemoryFont; external WINGDIPDLL name 'GdipPrivateAddMemoryFont' delayed;
+function GdipDrawString; external WINGDIPDLL name 'GdipDrawString' delayed;
+function GdipMeasureString; external WINGDIPDLL name 'GdipMeasureString' delayed;
+function GdipMeasureCharacterRanges; external WINGDIPDLL name 'GdipMeasureCharacterRanges' delayed;
+function GdipDrawDriverString; external WINGDIPDLL name 'GdipDrawDriverString' delayed;
+function GdipMeasureDriverString; external WINGDIPDLL name 'GdipMeasureDriverString' delayed;
+function GdipCreateStringFormat; external WINGDIPDLL name 'GdipCreateStringFormat' delayed;
+function GdipStringFormatGetGenericDefault; external WINGDIPDLL name 'GdipStringFormatGetGenericDefault' delayed;
+function GdipStringFormatGetGenericTypographic; external WINGDIPDLL name 'GdipStringFormatGetGenericTypographic' delayed;
+function GdipDeleteStringFormat; external WINGDIPDLL name 'GdipDeleteStringFormat' delayed;
+function GdipCloneStringFormat; external WINGDIPDLL name 'GdipCloneStringFormat' delayed;
+function GdipSetStringFormatFlags; external WINGDIPDLL name 'GdipSetStringFormatFlags' delayed;
+function GdipGetStringFormatFlags; external WINGDIPDLL name 'GdipGetStringFormatFlags' delayed;
+function GdipSetStringFormatAlign; external WINGDIPDLL name 'GdipSetStringFormatAlign' delayed;
+function GdipGetStringFormatAlign; external WINGDIPDLL name 'GdipGetStringFormatAlign' delayed;
+function GdipSetStringFormatLineAlign; external WINGDIPDLL name 'GdipSetStringFormatLineAlign' delayed;
+function GdipGetStringFormatLineAlign; external WINGDIPDLL name 'GdipGetStringFormatLineAlign' delayed;
+function GdipSetStringFormatTrimming; external WINGDIPDLL name 'GdipSetStringFormatTrimming' delayed;
+function GdipGetStringFormatTrimming; external WINGDIPDLL name 'GdipGetStringFormatTrimming' delayed;
+function GdipSetStringFormatHotkeyPrefix; external WINGDIPDLL name 'GdipSetStringFormatHotkeyPrefix' delayed;
+function GdipGetStringFormatHotkeyPrefix; external WINGDIPDLL name 'GdipGetStringFormatHotkeyPrefix' delayed;
+function GdipSetStringFormatTabStops; external WINGDIPDLL name 'GdipSetStringFormatTabStops' delayed;
+function GdipGetStringFormatTabStops; external WINGDIPDLL name 'GdipGetStringFormatTabStops' delayed;
+function GdipGetStringFormatTabStopCount; external WINGDIPDLL name 'GdipGetStringFormatTabStopCount' delayed;
+function GdipSetStringFormatDigitSubstitution; external WINGDIPDLL name 'GdipSetStringFormatDigitSubstitution' delayed;
+function GdipGetStringFormatDigitSubstitution; external WINGDIPDLL name 'GdipGetStringFormatDigitSubstitution' delayed;
+function GdipGetStringFormatMeasurableCharacterRangeCount; external WINGDIPDLL name 'GdipGetStringFormatMeasurableCharacterRangeCount' delayed;
+function GdipSetStringFormatMeasurableCharacterRanges; external WINGDIPDLL name 'GdipSetStringFormatMeasurableCharacterRanges' delayed;
+function GdipCreateCachedBitmap; external WINGDIPDLL name 'GdipCreateCachedBitmap' delayed;
+function GdipDeleteCachedBitmap; external WINGDIPDLL name 'GdipDeleteCachedBitmap' delayed;
+function GdipDrawCachedBitmap; external WINGDIPDLL name 'GdipDrawCachedBitmap' delayed;
+function GdipEmfToWmfBits; external WINGDIPDLL name 'GdipEmfToWmfBits' delayed;
 
 // -----------------------------------------------------------------------------
 // TGdiplusBase class
 // -----------------------------------------------------------------------------
 
-  class function TGdiplusBase.NewInstance: TObject;
-  begin
-    Result := InitInstance(GdipAlloc(ULONG(instanceSize)));
-  end;
+class function TGdiplusBase.NewInstance: TObject;
+begin
+  Result := InitInstance(GdipAlloc(ULONG(instanceSize)));
+end;
 
-  procedure TGdiplusBase.FreeInstance;
-  begin
-    CleanupInstance;
-    GdipFree(Self);
-  end;
+procedure TGdiplusBase.FreeInstance;
+begin
+  CleanupInstance;
+  GdipFree(Self);
+end;
 
 // -----------------------------------------------------------------------------
 // macros
@@ -6680,108 +5697,108 @@ end;
 // TGPPoint Util
 //--------------------------------------------------------------------------
 
-  function MakePoint(X, Y: Integer): TGPPoint;
-  begin
-    result.X := X;
-    result.Y := Y;
-  end;
+function MakePoint(X, Y: Integer): TGPPoint;
+begin
+  result.X := X;
+  result.Y := Y;
+end;
 
-  function MakePoint(X, Y: Single): TGPPointF;
-  begin
-    Result.X := X;
-    result.Y := Y;
-  end;
+function MakePoint(X, Y: Single): TGPPointF;
+begin
+  Result.X := X;
+  result.Y := Y;
+end;
 
 //--------------------------------------------------------------------------
 // TGPSize Util
 //--------------------------------------------------------------------------
 
-  function MakeSize(Width, Height: Single): TGPSizeF;
-  begin
-    result.Width := Width;
-    result.Height := Height;
-  end;
+function MakeSize(Width, Height: Single): TGPSizeF;
+begin
+  result.Width := Width;
+  result.Height := Height;
+end;
 
-  function MakeSize(Width, Height: Integer): TGPSize;
-  begin
-    result.Width := Width;
-    result.Height := Height;
-  end;
+function MakeSize(Width, Height: Integer): TGPSize;
+begin
+  result.Width := Width;
+  result.Height := Height;
+end;
 
 //--------------------------------------------------------------------------
 // TCharacterRange Util
 //--------------------------------------------------------------------------
 
-  function MakeCharacterRange(First, Length: Integer): TCharacterRange;
-  begin
-    result.First  := First;
-    result.Length := Length;
-  end;
+function MakeCharacterRange(First, Length: Integer): TCharacterRange;
+begin
+  result.First  := First;
+  result.Length := Length;
+end;
 
 // -----------------------------------------------------------------------------
 // RectF class
 // -----------------------------------------------------------------------------
 
-  function MakeRect(x, y, width, height: Single): TGPRectF; overload;
-  begin
-    Result.X      := x;
-    Result.Y      := y;
-    Result.Width  := width;
-    Result.Height := height;
-  end;
+function MakeRect(x, y, width, height: Single): TGPRectF; overload;
+begin
+  Result.X      := x;
+  Result.Y      := y;
+  Result.Width  := width;
+  Result.Height := height;
+end;
 
-  function MakeRect(location: TGPPointF; size: TGPSizeF): TGPRectF; overload;
-  begin
-    Result.X      := location.X;
-    Result.Y      := location.Y;
-    Result.Width  := size.Width;
-    Result.Height := size.Height;
-  end;
+function MakeRect(location: TGPPointF; size: TGPSizeF): TGPRectF; overload;
+begin
+  Result.X      := location.X;
+  Result.Y      := location.Y;
+  Result.Width  := size.Width;
+  Result.Height := size.Height;
+end;
 
 // -----------------------------------------------------------------------------
 // Rect class
 // -----------------------------------------------------------------------------
 
-  function MakeRect(x, y, width, height: Integer): TGPRect; overload;
-  begin
-    Result.X      := x;
-    Result.Y      := y;
-    Result.Width  := width;
-    Result.Height := height;
-  end;
+function MakeRect(x, y, width, height: Integer): TGPRect; overload;
+begin
+  Result.X      := x;
+  Result.Y      := y;
+  Result.Width  := width;
+  Result.Height := height;
+end;
 
-  function MakeRect(location: TGPPoint; size: TGPSize): TGPRect; overload;
-  begin
-    Result.X      := location.X;
-    Result.Y      := location.Y;
-    Result.Width  := size.Width;
-    Result.Height := size.Height;
-  end;
+function MakeRect(location: TGPPoint; size: TGPSize): TGPRect; overload;
+begin
+  Result.X      := location.X;
+  Result.Y      := location.Y;
+  Result.Width  := size.Width;
+  Result.Height := size.Height;
+end;
 
-  function MakeRect(const Rect: TRect): TGPRect;
-  begin
-    Result.X := rect.Left;
-    Result.Y := Rect.Top;
-    Result.Width := Rect.Right-Rect.Left;
-    Result.Height:= Rect.Bottom-Rect.Top;
-  end;
+function MakeRect(const Rect: TRect): TGPRect;
+begin
+  Result.X := rect.Left;
+  Result.Y := Rect.Top;
+  Result.Width := Rect.Right-Rect.Left;
+  Result.Height:= Rect.Bottom-Rect.Top;
+end;
 
 // -----------------------------------------------------------------------------
 // PathData class
 // -----------------------------------------------------------------------------
 
-  constructor TPathData.Create;
-  begin
-    Count := 0;
-    Points := nil;
-    Types := nil;
-  end;
+constructor TPathData.Create;
+begin
+  Count := 0;
+  Points := nil;
+  Types := nil;
+end;
 
-  destructor TPathData.destroy;
-  begin
-    if assigned(Points) then freemem(Points);
-    if assigned(Types) then freemem(Types);
-  end;
+destructor TPathData.destroy;
+begin
+  if assigned(Points) then freemem(Points);
+  if assigned(Types) then freemem(Types);
+end;
 
 
 function GetPixelFormatSize(pixfmt: PixelFormat): UINT;
@@ -6906,48 +5923,48 @@ end;
                (DWORD(a) shl AlphaShift));
   end;  }
 
-  function MakeColor(r, g, b: Byte): ARGB; overload;
-  begin
-    result := MakeColor(255, r, g, b);
-  end;
+function MakeColor(r, g, b: Byte): ARGB; overload;
+begin
+  result := MakeColor(255, r, g, b);
+end;
 
-  function MakeColor(a, r, g, b: Byte): ARGB; overload;
-  begin
-    result := ((DWORD(b) shl  BlueShift) or
-               (DWORD(g) shl GreenShift) or
-               (DWORD(r) shl   RedShift) or
-               (DWORD(a) shl AlphaShift));
-  end;
+function MakeColor(a, r, g, b: Byte): ARGB; overload;
+begin
+  result := ((DWORD(b) shl  BlueShift) or
+             (DWORD(g) shl GreenShift) or
+             (DWORD(r) shl   RedShift) or
+             (DWORD(a) shl AlphaShift));
+end;
 
-  function GetAlpha(color: ARGB): BYTE;
-  begin
-    result := BYTE(color shr AlphaShift);
-  end;
+function GetAlpha(color: ARGB): BYTE;
+begin
+  result := BYTE(color shr AlphaShift);
+end;
 
-  function GetRed(color: ARGB): BYTE;
-  begin
-    result := BYTE(color shr RedShift);
-  end;
+function GetRed(color: ARGB): BYTE;
+begin
+  result := BYTE(color shr RedShift);
+end;
 
-  function GetGreen(color: ARGB): BYTE;
-  begin
-    result := BYTE(color shr GreenShift);
-  end;
+function GetGreen(color: ARGB): BYTE;
+begin
+  result := BYTE(color shr GreenShift);
+end;
 
-  function GetBlue(color: ARGB): BYTE;
-  begin
-    result := BYTE(color shr BlueShift);
-  end;
+function GetBlue(color: ARGB): BYTE;
+begin
+  result := BYTE(color shr BlueShift);
+end;
 
-  function ColorRefToARGB(rgb: COLORREF): ARGB;
-  begin
-    result := MakeColor(255, GetRValue(rgb), GetGValue(rgb), GetBValue(rgb));
-  end;
+function ColorRefToARGB(rgb: COLORREF): ARGB;
+begin
+  result := MakeColor(255, GetRValue(rgb), GetGValue(rgb), GetBValue(rgb));
+end;
 
-  function ARGBToColorRef(Color: ARGB): COLORREF;
-  begin
-    result := RGB(GetRed(Color), GetGreen(Color), GetBlue(Color));
-  end;
+function ARGBToColorRef(Color: ARGB): COLORREF;
+begin
+  result := RGB(GetRed(Color), GetGreen(Color), GetBlue(Color));
+end;
 
 
 // -----------------------------------------------------------------------------

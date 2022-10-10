@@ -1,5 +1,10 @@
 {$I Defines.inc}
 
+{$ifdef bDelphi}
+ {-$Define DebugInfo}
+ {$ifdef DebugInfo} {$D+,L+,Y+} {$else} {$D-} {$endif}
+{$endif bDelphi}
+
 unit MixDebug;
 
 interface
@@ -14,6 +19,7 @@ interface
     cTrue :Boolean = True;
 
   procedure NOP;
+  procedure DEB; deprecated;
 
  {$ifdef bStackX64}
   function CaptureStackBackTrace(FramesToSkip :TUns32{ULONG}; FramesToCapture :TUns32{ULONG}; BackTrace :Pointer; BackTraceHash :PUns32{PULONG}) :Word{USHORT}; stdcall;
@@ -62,7 +68,8 @@ interface
   procedure TraceFA(const AMsg :TAnsiStr; const Args: array of const);
   procedure TraceFW(const AMsg :TWideStr; const Args: array of const);
 
-  procedure TraceBeg(const AMsg :TString);
+  procedure TraceBeg(const AMsg :TString); overload;
+  procedure TraceBeg(const AMsg :TString; const Args: array of const); overload;
   procedure TraceBegF(const AMsg :TString; const Args: array of const);
   procedure TraceEnd(const AMsg :TString);
  {$endif bTrace}
@@ -85,6 +92,11 @@ interface
 
 
   procedure NOP;
+  begin
+  end;
+
+
+  procedure DEB;
   begin
   end;
 
@@ -584,12 +596,18 @@ interface
     gStart := GetTickCount;
   end;
 
+  procedure TraceBeg(const AMsg :TString; const Args: array of const);
+  begin
+    TraceBegF(AMsg, Args);
+  end;
+
   procedure TraceBegF(const AMsg :TString; const Args: array of const);
   begin
     TraceF(AMsg, Args);
     gStart1 := gStart;
     gStart := GetTickCount;
   end;
+
 
   procedure TraceEnd(const AMsg :TString);
   begin

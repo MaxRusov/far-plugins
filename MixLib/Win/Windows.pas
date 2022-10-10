@@ -58,6 +58,8 @@ type
   UCHAR = Byte;
   PUCHAR = ^Byte;
   SHORT = Smallint;
+  USHORT = Word;
+  PUShort = ^USHORT;
   UINT = LongWord;
   PUINT = ^UINT;
   ULONG = Cardinal;
@@ -93,8 +95,13 @@ type
   HANDLE_PTR = TUnsPtr;
 
   UInt64 = TUns64;
+  ULONG64 = UInt64;
+  PULONG64 = ^ULONG64;
 
   PTChar = MixTypes.PTChar;
+
+  FixedUInt = LongWord;
+  PFixedUInt = ^FixedUInt;
 
 {------------------------------------------------------------------------------}
 { Типы, не рекомендуемые к использованию                                       }
@@ -720,6 +727,17 @@ type
   end;
   TGenericMapping = _GENERIC_MAPPING;
   GENERIC_MAPPING = _GENERIC_MAPPING;
+
+//
+// Locally Unique Identifier
+//
+  PLUID = ^TLUID;
+  _LUID = record
+    LowPart: DWORD;
+    HighPart: INT32;
+  end;
+  TLUID = _LUID;
+  LUID = _LUID;
 
   PLUIDAndAttributes = ^TLUIDAndAttributes;
   _LUID_AND_ATTRIBUTES = packed record
@@ -1832,6 +1850,9 @@ type
   HKL = THandle;
 
   HFILE = THandle;
+
+  VARIANT_BOOL = SHORT;
+
   HCURSOR = HICON;              { HICONs & HCURSORs are polymorphic }
 
   COLORREF = DWORD;
@@ -3226,8 +3247,8 @@ function CreateMailslot(lpName: PTChar; nMaxMessageSize: DWORD;
 function GetMailslotInfo(hMailslot: THandle; lpMaxMessageSize: Pointer;
   var lpNextSize: DWORD; lpMessageCount, lpReadTimeout: Pointer): BOOL; stdcall;
 function SetMailslotInfo(hMailslot: THandle; lReadTimeout: DWORD): BOOL; stdcall;
-function MapViewOfFile(hFileMappingObject: THandle; dwDesiredAccess: DWORD;
-  dwFileOffsetHigh, dwFileOffsetLow, dwNumberOfBytesToMap: DWORD): Pointer; stdcall;
+function MapViewOfFile(hFileMappingObject: THandle; dwDesiredAccess :DWORD;
+  dwFileOffsetHigh, dwFileOffsetLow :DWORD; dwNumberOfBytesToMap :SIZE_T): Pointer; stdcall;
 function FlushViewOfFile(const lpBaseAddress: Pointer; dwNumberOfBytesToFlush: DWORD): BOOL; stdcall;
 function UnmapViewOfFile(lpBaseAddress: Pointer): BOOL; stdcall;
 function EncryptFileA(lpFilename: PAnsiChar): BOOL; stdcall;
@@ -19050,6 +19071,9 @@ function SetWindowLongPtr(hWnd: HWND; nIndex: Integer; dwNewLong: LONG_PTR): LON
 function SetWindowLongPtrA(hWnd: HWND; nIndex: Integer; dwNewLong: LONG_PTR): LONG_PTR; stdcall;
 function SetWindowLongPtrW(hWnd: HWND; nIndex: Integer; dwNewLong: LONG_PTR): LONG_PTR; stdcall;
 
+//BOOL WINAPI SetDllDirectory(_In_opt_  LPCTSTR lpPathName);
+function SetDllDirectory(aPath :PTChar) :BOOL; stdcall;
+
 
 const
   advapi32  = 'advapi32.dll';
@@ -21284,6 +21308,7 @@ function SetWindowLongPtrA; external user32 name 'SetWindowLongA';
 function SetWindowLongPtrW; external user32 name 'SetWindowLongW';
 {$endif b64}
 
+function SetDllDirectory; external kernel32 name 'SetDllDirectory'+_X;
 
 {$ifdef b64}
 {$ifdef bFreePascal}

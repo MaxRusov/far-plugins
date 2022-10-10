@@ -1,5 +1,9 @@
 {$I Defines.inc}
 
+{$ifdef bDelphiXE7}
+ {$TypedAddress Off}
+{$endif}
+
 unit MixWinUtils;
 
 interface
@@ -52,6 +56,7 @@ interface
   function WinFolderExists(const AFolderName :TString) :Boolean;
   function WinFolderNotEmpty(const aFolderName :TString) :Boolean;
 
+  function CreateFolders(const APath :TString; aRaise :Boolean = False) :Boolean;
 
  {-----------------------------------------------------------------------------}
 
@@ -77,6 +82,8 @@ interface
 
   function WinEnumFiles(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; const aProc :TMethod) :Boolean;
   function WinEnumFilesEx(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; aOptions :TEnumFileOptions; const aProc :TMethod) :Boolean;
+
+  function FolderIsEmpty(const aFolderName :TString) :Boolean;
 
   function ShellOpen(const AName :TString; const AParam :TString = '') :Boolean;
 
@@ -182,7 +189,7 @@ interface
 
   procedure RegOpenWrite(ARoot :HKEY; const APath :TString; var AKey :HKey);
   var
-    vDisposition :TUns32;
+    vDisposition :DWORD;
   begin
     ApiCheckCode( RegCreateKeyEx(ARoot, PTChar(APath), 0, '', REG_OPTION_NON_VOLATILE, KEY_READ or KEY_WRITE, nil, AKey, @vDisposition) );
   end;
@@ -375,6 +382,31 @@ interface
 
 
 
+  function CreateFolders(const APath :TString; aRaise :Boolean = False) :Boolean;
+  var
+    vDrive :TString;
+
+    function LocCreate(const APath :TString) :Boolean;
+    begin
+      Result := True;
+      if (APath = '') or (vDrive = APath) or WinFolderExists(APath) then
+        Exit;
+      Result := LocCreate(ExtractFilePath(APath, True));
+      if Result then
+        Result := CreateDir(APath, aRaise);
+    end;
+
+  begin
+    Result := False;
+    vDrive := ExtractFileDrive(APath);
+    if FileNameIsLocal(APath) then
+      vDrive := AddBackSlash(vDrive);
+    if (vDrive = '') or WinFolderExists(vDrive) then
+      Result := LocCreate(APath);
+  end;
+
+
+
  {-----------------------------------------------------------------------------}
 
   function CallFilesEnum(const AProc :TMethod; const APath :TString; const ARec :TWin32FindData) :Boolean;
@@ -469,6 +501,30 @@ interface
         Exit;
     Result := True;
   end;
+
+
+  function FolderIsEmpty(const aFolderName :TString) :Boolean; {override;}
+  var
+    vFileName :TString;
+    vHandle :THandle;
+    vData :TWIN32FindData;
+  begin
+    Result := False;
+    vFileName := AddFileName(aFolderName, '*.*');
+    vHandle := FindFirstFile(PTChar(vFileName), vData);
+    if vHandle = INVALID_HANDLE_VALUE then
+      Exit;
+    while True do begin
+      Result := (vData.cFileName[0] = '.') and ((vData.cFileName[1] = #0) or
+        ((vData.cFileName[1] = '.') and (vData.cFileName[2] = #0)));
+      if not Result then
+        Break;
+      if not FindNextFile(vHandle, vData) then
+        Break;
+    end;
+    Windows.FindClose(vHandle);
+  end;
+
 
 
   function ShellOpen(const AName :TString; const AParam :TString = '') :Boolean;

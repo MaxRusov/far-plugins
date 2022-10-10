@@ -121,6 +121,7 @@ interface
       function GetConsoleWindowScrolls :Integer;
       procedure ChangeConsoleWindowSize(ADX, ADY :Integer);
       procedure SetConsoleWindowBufferSize(const AWinSize :TCoord; const ABufSize :TCoord);
+      procedure SetConsoleWindowBufferSizeEx(const AWinSize :TCoord; const ABufSize :TCoord);
       procedure SetConsoleWindowSize(ACX, ACY :Integer; AScrolls :Integer = -1; ALock :Boolean = True);
       procedure ChangeConsoleBufferSize(ADX, ADY :Integer);
       procedure SetConsoleBufferSize(ACX, ACY :Integer);
@@ -646,6 +647,7 @@ interface
         vSize.CY := FSize0.cy + vPoint.y - FPoint0.y;
       if FMode in [0, 2] then
         vSize.CX := FSize0.cx + vPoint.x - FPoint0.x;
+
       SetConsoleWindowSize( vSize.CX, vSize.CY );
       HintWindowSize;
 
@@ -1068,12 +1070,19 @@ interface
     vSize :TCoord;
     vRect :TSmallRect;
   begin
+//  Trace('SetConsoleWindowBufferSize: WinSize=%d x %d, BufSize=%d x %d', [AWinSize.X, AWinSize.Y, ABufSize.X, ABufSize.Y]);
+
+    if Assigned(GetConsoleScreenBufferInfoEx) and Assigned(SetConsoleScreenBufferInfoEx) then begin
+      SetConsoleWindowBufferSizeEx(AWinSize, ABufSize);
+      Exit;
+    end;
+
     FillZero(vInfo, SizeOf(vInfo));
     if GetConsoleScreenBufferInfo(hStdOut, vInfo) then begin
 
       vSize := vInfo.dwSize;
       vRect := vInfo.srWindow;
-      
+
       vSize.X := ABufSize.X;
       vRect.Left := RangeLimit(vRect.Left, 0, ABufSize.X - AWinSize.X);
       vRect.Right := vRect.Left + AWinSize.X - 1;
@@ -1089,8 +1098,8 @@ interface
     end;
   end;
 
-(*
-  procedure TConCtrlPlug.SetConsoleWindowBufferSize(const AWinSize :TCoord; const ABufSize :TCoord);
+
+  procedure TConCtrlPlug.SetConsoleWindowBufferSizeEx(const AWinSize :TCoord; const ABufSize :TCoord);
   var
     vInfo :TConsoleScreenBufferInfoEx;
   begin
@@ -1099,6 +1108,7 @@ interface
     if GetConsoleScreenBufferInfoEx(hStdOut, @vInfo) then begin
 
       vInfo.dwSize := ABufSize;
+//    vInfo.dwMaximumWindowSize := AWinSize;
 
       vInfo.srWindow.Left := RangeLimit(vInfo.srWindow.Left, 0, ABufSize.X - AWinSize.X);
       vInfo.srWindow.Right := vInfo.srWindow.Left + AWinSize.X;
@@ -1115,7 +1125,7 @@ interface
         StoreWindowSize;
     end;
   end;
-*)
+
 
   procedure TConCtrlPlug.SetConsoleWindowSize(ACX, ACY :Integer; AScrolls :Integer = -1; ALock :Boolean = True);
   var

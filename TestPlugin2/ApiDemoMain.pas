@@ -2,6 +2,7 @@
 
 unit ApiDemoMain;
 
+
 interface
 
   uses
@@ -276,6 +277,32 @@ implementation
       end;
     end;
 
+    procedure LocErrorTest();
+    var
+//    E :Extended;
+//    I :Integer;
+      P :Pointer;
+    begin
+//    Set8087CW(Default8087CW);
+//    TraceF('Default8087CW: %x', [Default8087CW]);
+//    TraceF('8087CW: %x', [Get8087CW]);
+
+
+      P := nil;
+      Integer(P^) := 1;
+(*
+      E := 0;
+      E := 1 / E;
+
+//    E := 0;
+//    E := 1 / E;
+
+      Set8087CW(Default8087CW);
+      E := 1.2;
+      I := Trunc(E);
+*)
+    end;
+
   var
     vMenu :TFarMenu;
   begin
@@ -287,6 +314,7 @@ implementation
       GetMsg(sDialog),
       '&Grid based Dialog',
       '&Colors Dialog',
+      '&Exception',
       '',
       GetMsg(sOptions)
     ]);
@@ -302,6 +330,7 @@ implementation
         2: LocDialog;
         3: LocGrid;
         4: LocColorDialog;
+        5: LocErrorTest;
       else
         Sorry;
       end;
@@ -345,90 +374,14 @@ implementation
   end;
 
 
-type
-  TA = Class (TObject)
-  public
-    procedure my;virtual;abstract;
-  End;
-
-type
-  TB = Class (TA)
-  public
-    procedure my;override;
-  End;
-
-type
-  TC = Class (TB)
-  protected
-    procedure my;override;
-  End;
-
-type
-  TD = Class (TC)
-  public
-    procedure my;override;
-  End;
-
-
-  procedure TB.my;
-  begin
-  end;
-
-  procedure TC.my;
-  begin
-    inherited My;
-  end;
-
-  procedure TD.my;
-  begin
-    inherited My;
-  end;
-
-
-
-  procedure Test;
-//var
-//  E :Extended;
-//  I :Integer;
-//  P :Pointer;
-  begin
-    with TD.Create do
-      try
-        My;
-      finally
-        Destroy;
-      end;
-
-
-//    Set8087CW(Default8087CW);
-//  TraceF('Default8087CW: %x', [Default8087CW]);
-//  TraceF('8087CW: %x', [Get8087CW]);
-
-//    Sorry;
-
-//  P := nil;
-//  Integer(P^) := 1;
-
-(*
-    E := 0;
-    E := 1 / E;
-
-//  E := 0;
-//  E := 1 / E;
-
-    Set8087CW(Default8087CW);
-    E := 1.2;
-    I := Trunc(E);
-*)
-  end;
-
-
   function TDemoPlug.Open(AFrom :Integer; AParam :TIntPtr) :THandle; {override;}
+  var
+    V :TVarData;
   begin
-    Test;
     MainMenu;
     Result := INVALID_HANDLE_VALUE;
   end;
+
 
 
 initialization

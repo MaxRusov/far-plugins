@@ -57,22 +57,27 @@ interface
       property Grid :TFarGrid read FGrid;
     end;
 
+  const
+    cSelSeleted  = 1;
+    cSelGroup    = 2;
+    cSelExpanded = 4;
 
   type
     TFilteredListDlg = class;
 
     PFilterRec = ^TFilterRec;
     TFilterRec = packed record
-      FIdx :Integer;
-      FPos :Word;
-      FLen :Word;
+      FIdx :Integer; { Индекс записи истории (для группы - индекс первой записи группы) }
+      FPos :Word;    { Позиция быстрого фильтра }
+      FLen :Byte;    { Длина быстрого фильтра }
+      FSel :Byte;    { 1 - Selected, 2 - Group, 4 - Expanded Group }
     end;
 
     TListFilter = class(TExList)
     public
       constructor Create; override;
 
-      procedure Add(AIndex, APos, ALen :Integer);
+      procedure Add(AIndex, APos, ALen :Integer; ASel :Integer = 0);
 
       function ItemCompare(PItem, PAnother :Pointer; Context :TIntPtr) :Integer; override;
 
@@ -118,6 +123,7 @@ interface
 
       function RowToIdx(ARow :Integer) :Integer;
       function IdxToRow(AIndex :Integer) :Integer;
+      function SelIdxToIdx(ASelIdx :Integer) :Integer;
     end;
 
 
@@ -275,13 +281,14 @@ interface
   end;
 
 
-  procedure TListFilter.Add(AIndex, APos, ALen :Integer);
+  procedure TListFilter.Add(AIndex, APos, ALen :Integer; ASel :Integer = 0);
   var
     vRec :TFilterRec;
   begin
     vRec.FIdx := AIndex;
     vRec.FPos := Word(APos);
-    vRec.FLen := Word(ALen);
+    vRec.FLen := Byte(ALen);
+    vRec.FSel := Byte(ASel);
     AddData(vRec);
   end;
 
@@ -423,6 +430,22 @@ interface
           Exit;
         end;
     end;
+  end;
+
+
+  function TFilteredListDlg.SelIdxToIdx(ASelIdx :Integer) :Integer;
+  var
+    I :Integer;
+  begin
+    if FFilter <> nil then
+      for I := 0 to FFilter.Count - 1 do
+        with PFilterRec(FFilter.PItems[I])^ do
+          if FSel and 1 <> 0 then begin
+            if ASelIdx = 0 then
+              Exit(FIdx);
+            Dec(ASelIdx);
+          end;
+    Result := -1;
   end;
 
 

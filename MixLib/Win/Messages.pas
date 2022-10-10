@@ -2,22 +2,25 @@
 
 {*******************************************************}
 {                                                       }
-{       Borland Delphi Runtime Library                  }
-{       Windows Messages and Types                      }
+{                Delphi Runtime Library                 }
 {                                                       }
-{       Copyright (C) 1991,99 Inprise Corporation       }
+{          File: winuser.h                              }
+{          Copyright (c) Microsoft Corporation          }
+{          All Rights Reserved.                         }
 {                                                       }
+{       Translator: Embarcadero Technologies, Inc.      }
+{ Copyright(c) 1995-2014 Embarcadero Technologies, Inc. }
+{                                                       }
+{*******************************************************}
+
+{*******************************************************}
+{             Windows Messages and Types                }
 {*******************************************************}
 
 unit Messages;
 
-{$Align On}
+{$ALIGN ON}
 {$WEAKPACKAGEUNIT}
-
-{$ifdef bFreePascal}
- {$PACKRECORDS C}
-{$endif bFreePascal}
-
 
 interface
 
@@ -85,7 +88,7 @@ const
   WM_WINDOWPOSCHANGING = $0046;
   WM_WINDOWPOSCHANGED = $0047;
   WM_POWER            = $0048;
-
+  WM_COPYGLOBALDATA   = $0049;
   WM_COPYDATA         = $004A;
   WM_CANCELJOURNAL    = $004B;
   WM_NOTIFY           = $004E;
@@ -121,6 +124,12 @@ const
   WM_NCMBUTTONUP      = $00A8;
   WM_NCMBUTTONDBLCLK  = $00A9;
 
+  WM_NCXBUTTONDOWN = $00AB;
+  WM_NCXBUTTONUP = $00AC;
+  WM_NCXBUTTONDBLCLK = $00AD;
+  WM_INPUT_DEVICE_CHANGE = $00FE;
+  WM_INPUT = $00FF;
+
   WM_KEYFIRST         = $0100;
   WM_KEYDOWN          = $0100;
   WM_KEYUP            = $0101;
@@ -130,7 +139,8 @@ const
   WM_SYSKEYUP         = $0105;
   WM_SYSCHAR          = $0106;
   WM_SYSDEADCHAR      = $0107;
-  WM_KEYLAST          = $0108;
+  WM_UNICHAR          = $0109;
+  WM_KEYLAST          = $0109;
 
   WM_INITDIALOG       = $0110;
   WM_COMMAND          = $0111;
@@ -140,6 +150,10 @@ const
   WM_VSCROLL          = $0115;
   WM_INITMENU         = $0116;
   WM_INITMENUPOPUP    = $0117;
+
+  WM_GESTURE = $0119;
+  WM_GESTURENOTIFY = $011A;
+
   WM_MENUSELECT       = $011F;
   WM_MENUCHAR         = $0120;
   WM_ENTERIDLE        = $0121;
@@ -174,7 +188,13 @@ const
   WM_MBUTTONUP        = $0208;
   WM_MBUTTONDBLCLK    = $0209;
   WM_MOUSEWHEEL       = $020A;
-  WM_MOUSELAST        = $020A;
+
+  WM_XBUTTONDOWN = $020B; 
+  WM_XBUTTONUP = $020C; 
+  WM_XBUTTONDBLCLK = $020D; 
+  WM_MOUSEHWHEEL = $020E; 
+
+  WM_MOUSELAST = $020E; 
 
   WM_PARENTNOTIFY     = $0210;
   WM_ENTERMENULOOP    = $0211;
@@ -220,8 +240,17 @@ const
   WM_DROPFILES        = $0233;
   WM_MDIREFRESHMENU   = $0234;
 
+  WM_TOUCH            = $0240;
+
   WM_MOUSEHOVER       = $02A1;
   WM_MOUSELEAVE       = $02A3;
+
+  WM_NCMOUSEHOVER     = $02A0;
+  WM_NCMOUSELEAVE     = $02A2;
+  WM_WTSSESSION_CHANGE = $02B1;
+
+  WM_TABLET_FIRST     = $02C0;
+  WM_TABLET_LAST      = $02DF;
 
   WM_CUT              = $0300;
   WM_COPY             = $0301;
@@ -245,6 +274,10 @@ const
 
   WM_PRINT            = 791;
   WM_PRINTCLIENT      = 792;
+  WM_APPCOMMAND       = $0319;
+  WM_THEMECHANGED     = $031A;
+
+  WM_CLIPBOARDUPDATE  = $031D;
 
   WM_HANDHELDFIRST    = 856;
   WM_HANDHELDLAST     = 863;
@@ -266,6 +299,23 @@ const
   WM_DDE_POKE         = WM_DDE_FIRST + 7;
   WM_DDE_EXECUTE      = WM_DDE_FIRST + 8;
   WM_DDE_LAST         = WM_DDE_FIRST + 8;
+
+  WM_DWMCOMPOSITIONCHANGED        = $031E; 
+  WM_DWMNCRENDERINGCHANGED        = $031F;
+  WM_DWMCOLORIZATIONCOLORCHANGED  = $0320;
+  WM_DWMWINDOWMAXIMIZEDCHANGE     = $0321;
+
+  WM_DWMSENDICONICTHUMBNAIL       = $0323;
+  WM_DWMSENDICONICLIVEPREVIEWBITMAP = $0326;
+
+  WM_GETTITLEBARINFOEX = $033F;
+
+  WM_TABLET_DEFBASE = $02C0;
+  WM_TABLET_MAXOFFSET = $20;
+  WM_TABLET_ADDED = WM_TABLET_DEFBASE + 8;
+  WM_TABLET_DELETED = WM_TABLET_DEFBASE + 9;
+  WM_TABLET_FLICK = WM_TABLET_DEFBASE + 11;
+  WM_TABLET_QUERYSYSTEMGESTURESTATUS = WM_TABLET_DEFBASE + 12;
 
   WM_APP = $8000;
 
@@ -300,6 +350,7 @@ const
   BM_CLICK    = $00F5;
   BM_GETIMAGE = $00F6;
   BM_SETIMAGE = $00F7;
+  BM_SETDONTCLICK = $00F8;
 
 { Listbox Notification Codes }
 
@@ -354,7 +405,10 @@ const
   LB_SETCOUNT             = $01A7;
   LB_INITSTORAGE          = $01A8;
   LB_ITEMFROMPOINT        = $01A9;
-  LB_MSGMAX               = 432;
+  LB_MSGMAX               = $01B3; { if _WIN32_WINNT >= 0x0501 }
+  //LB_MSGMAX             = $01B1; { else if _WIN32_WCE >= 0x0400 }
+  //LB_MSGMAX             = $01B0; { else if WINVER >= 0x0400 }
+  //LB_MSGMAX             = $01A8] { else }
 
 { Combo Box Notification Codes }
 
@@ -407,7 +461,10 @@ const
   CB_GETDROPPEDWIDTH       = 351;
   CB_SETDROPPEDWIDTH       = 352;
   CB_INITSTORAGE           = 353;
-  CB_MSGMAX                = 354;
+  CB_MSGMAX                = $165; { if _WIN32_WINNT >= 0x0501 }
+  //CB_MSGMAX                = $163; { else if _WIN32_WCE >= 0x0400 }
+  //CB_MSGMAX                = $162; { else if _WIN32_VER >= 0x0400 }
+  //CB_MSGMAX                = $15B; { else }
 
 { Edit Control Notification Codes }
 
@@ -474,6 +531,7 @@ const
   SBM_ENABLE_ARROWS = 228;      { not in win3.1  }
   SBM_SETSCROLLINFO = 233;
   SBM_GETSCROLLINFO = 234;
+  SBM_GETSCROLLBARINFO = 235;   { Win XP or later }
 
 { Dialog messages }
 
@@ -486,230 +544,260 @@ const
 
 type
 
+  { Generic 64 bits Filler record }
+
+(*  T4Byte64Filler = record
+  {$IFDEF CPUX64}
+    Filler: array[0..3] of Byte;
+  {$ENDIF}
+  end;*)
+
+  TWordFiller = record
+  {$IFDEF CPUX86}
+    Filler: array[1..2] of Byte; // Pad word make it 4 Bytes (2+2)
+  {$ENDIF}
+  {$IFDEF CPUX64}
+    Filler: array[1..6] of Byte; // Pad word to make it 8 Bytes (2+6)
+  {$ENDIF}
+  end;
+
+  TDWordFiller = record
+  {$IFDEF CPUX64}
+    Filler: array[1..4] of Byte; // Pad DWORD to make it 8 bytes (4+4) [x64 only]
+  {$ENDIF}
+  end;
+
 { Generic window message record }
-
- {$ifdef b64}
-  HALFLRESULT = DWORD;
-  HALFPARAM = DWORD;
-  HALFPARAMBOOL = LONGBOOL;
- {$else}
-  HALFLRESULT = WORD;
-  HALFPARAM = WORD;
-  HALFPARAMBOOL = WORDBOOL;
- {$endif b64}
-
 
   PMessage = ^TMessage;
   TMessage = record
-    msg  :UINT;
-    case longint of
+    Msg: Cardinal;
+    case Integer of
       0: (
-        wParam :WPARAM;
-        lParam :LPARAM;
-        Result :LRESULT;
-       );
+        WParam: WPARAM;
+        LParam: LPARAM;
+        Result: LRESULT);
       1: (
-        wParamlo, wParamhi : HALFPARAM;
-        lParamlo, lParamhi : HALFPARAM;
-        Resultlo, Resulthi : HALFLRESULT;
-      );
-   end;
+        WParamLo: Word;
+        WParamHi: Word;
+        WParamFiller: TDWordFiller;
+        LParamLo: Word;
+        LParamHi: Word;
+        LParamFiller: TDWordFiller;
+        ResultLo: Word;
+        ResultHi: Word;
+        ResultFiller: TDWordFiller);
+  end;
 
 { Common message format records }
 
-   TWMNoParams = record
-     Msg : UINT;
-     Unused : array[0..3] of HALFPARAM;
-     Result : LRESULT;
-   end;
+  TWMNoParams = record
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    Unused: array[0..3] of Word;
+    UnusedFiller: TDWordFiller;
+    UnusedFiller2: TDWordFiller;
+    Result: LRESULT;
+  end;
 
   TWMKey = record
-    Msg: UINT;
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     CharCode: Word;
     Unused: Word;
+	  CharCodeUnusedFiller: TDWordFiller;
     KeyData: Longint;
+    KeyDataFiller: TDWordFiller;
     Result: LRESULT;
   end;
 
   TWMMouse = record
-    Msg :Cardinal;
-    Keys :WPARAM;
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    Keys: Longint;
+    KeysFiller: TDWordFiller;
     case Integer of
       0: (
-        XPos :Smallint;
-        YPos :Smallint);
+        XPos: Smallint;
+        YPos: Smallint;
+        XYPosFiller: TDWordFiller;);
       1: (
-        Pos :TSmallPoint;
-        Result :LRESULT);
+        Pos: TSmallPoint;
+        PosFiller: TDWordFiller;
+        Result: LRESULT);
   end;
 
-  TWMMouseWheel = packed record
+  TWMMouseWheel = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Keys: SmallInt;
     WheelDelta: SmallInt;
+    KeysWhellFiller: TDWordFiller;
     case Integer of
       0: (
         XPos: Smallint;
-        YPos: Smallint);
+        YPos: Smallint;
+        XYPosFiller: TDWordFiller);
       1: (
         Pos: TSmallPoint;
-        Result: Longint);
+        PosFiller: TDWordFiller;
+        Result: LRESULT);
   end;
 
-  TMSHMouseWheel = packed record
+  TMSHMouseWheel = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     WheelDelta: Integer;
+    WheelDeltaFiller: TDWordFiller;
     case Integer of
       0: (
         XPos: Smallint;
-        YPos: Smallint);
+        YPos: Smallint;
+        XYPosFiller: TDWordFiller);
       1: (
         Pos: TSmallPoint;
-        Result: Longint);
+        PosFiller: TDWordFiller;
+        Result: LRESULT);
   end;
 
-  TWMWindowPosMsg = packed record
+  TWMWindowPosMsg = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Unused: Integer;
+    UnusedFiller: TDWordFiller;
     WindowPos: PWindowPos;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-(*
-  TWMScroll = packed record
+  TWMScroll = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     ScrollCode: Smallint; { SB_xxxx }
     Pos: Smallint;
+    ScrollCodePosFiller: TDWordFiller;
     ScrollBar: HWND;
-    Result: Longint;
-  end;
-*)
-  TWMScroll = record
-    Msg :Cardinal;
-    case Integer of
-      0: (
-        ScrollCode :Smallint; { SB_xxxx }
-        Pos :Smallint);
-      1: (
-        wParam :WPARAM;
-        ScrollBar: HWND;
-        Result: Longint);
+    Result: LRESULT;
   end;
 
 { Message records }
 
-  TWMActivate = packed record
+  TWMActivate = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Active: Word; { WA_INACTIVE, WA_ACTIVE, WA_CLICKACTIVE }
     Minimized: WordBool;
+    ActiveMinimizedFiller: TDWordFiller;
     ActiveWindow: HWND;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMActivateApp = packed record
+  TWMActivateApp = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Active: BOOL;
+    ActiveFiller: TDWordFiller;
     ThreadId: Longint;
-    Result: Longint;
+    TheadIdFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
-  TWMAskCBFormatName = packed record
+  TWMAskCBFormatName = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     NameLen: Word;
-    Unused: Word;
+    NameLenFiller: TWordFiller;
     FormatName: PTChar;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMCancelMode = TWMNoParams;
 
-  TWMChangeCBChain = packed record
+  TWMChangeCBChain = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Remove: HWND;
     Next: HWND;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMChar = TWMKey;
 
-  TWMCharToItem = packed record
+  TWMCharToItem = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Key: Word;
     CaretPos: Word;
+    keyCaretPosFiller: TDWordFiller;
     ListBox: HWND;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMChildActivate = TWMNoParams;
 
-  TWMChooseFont_GetLogFont = packed record
+  TWMChooseFont_GetLogFont = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Unused: Longint;
+    UnusedFiller: TDWordFiller;
     LogFont: PLogFont;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMClear = TWMNoParams;
   TWMClose = TWMNoParams;
 
-(*
   TWMCommand = record
-    Msg :Cardinal;
-    ItemID :Word;
-    NotifyCode :Word;
-    Ctl :HWND;
-    Result :LRESULT;
-  end;
-*)
-  TWMCommand = record
-    Msg :Cardinal;
-    case Integer of
-      0: (
-        ItemID :Word;
-        NotifyCode :Word);
-      1: (
-        wParam :WPARAM;
-        Ctl :HWND;
-        Result :LRESULT);
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    ItemID: Word;
+    NotifyCode: Word;
+    ItemIDNotifyCodeFiller: TDWordFiller;
+    Ctl: HWND;
+    Result: LRESULT;
   end;
 
-  TWMCompacting = packed record
+  TWMCompacting = record
     Msg: Cardinal;
-    CompactRatio: Longint;
-    Unused: Longint;
-    Result: Longint;
+    MsgFiller: TDWordFiller;
+    CompactRatio: WPARAM;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMCompareItem = packed record
+  TWMCompareItem = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Ctl: HWnd;
     CompareItemStruct: PCompareItemStruct;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMCopy = TWMNoParams;
 
-  TWMCopyData = packed record
+  TWMCopyData = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     From: HWND;
     CopyDataStruct: PCopyDataStruct;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   { ?? WM_CLP_LAUNCH, WM_CPL_LAUNCHED }
 
   TWMCreate = record
-    Msg :Cardinal;
-    Unused :WPARAM;
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    Unused: WPARAM;
     CreateStruct: PCreateStruct;
-    Result :LRESULT;
+    Result: LRESULT;
   end;
 
   TWMCtlColor = record
-    Msg :Cardinal;
-    ChildDC :HDC;
-    ChildWnd :HWND;
-    Result :LRESULT;
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    ChildDC: HDC;
+    ChildWnd: HWND;
+    Result: LRESULT;
   end;
 
   TWMCtlColorBtn = TWMCtlColor;
@@ -722,229 +810,270 @@ type
 
   TWMCut = TWMNoParams;
 
-  TWMDDE_Ack = packed record
+  TWMDDE_Ack = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     PostingApp: HWND;
     case Word of
       WM_DDE_INITIATE: (
         App: Word;
         Topic: Word;
-        Result: Longint);
+        AppTopicFiller: TDWordFiller;
+        Result: LRESULT);
       WM_DDE_EXECUTE {and all others}: (
-        PackedVal: Longint);
+        PackedVal: Longint;
+        PackedValFiller: TDWordFiller;);
   end;
 
-  TWMDDE_Advise = packed record
+  TWMDDE_Advise = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     PostingApp: HWND;
     PackedVal: Longint;
-    Result: Longint;
+    PackedValFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
-  TWMDDE_Data = packed record
+  TWMDDE_Data = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     PostingApp: HWND;
     PackedVal: Longint;
-    Result: Longint;
+    PackedValFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
-  TWMDDE_Execute = packed record
+  TWMDDE_Execute = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     PostingApp: HWND;
     Commands: THandle;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMDDE_Initiate = packed record
+  TWMDDE_Initiate = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     PostingApp: HWND;
     App: Word;
     Topic: Word;
-    Result: Longint;
+    AppTopicFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
-  TWMDDE_Poke = packed record
+  TWMDDE_Poke = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     PostingApp: HWND;
     PackedVal: Longint;
-    Result: Longint;
+    PackedValFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
-  TWMDDE_Request = packed record
+  TWMDDE_Request = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     PostingApp: HWND;
     Format: Word;
     Item: Word;
-    Result: Longint;
+    FormatItemFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
-  TWMDDE_Terminate = packed record
+  TWMDDE_Terminate = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     PostingApp: HWND;
-    Unused: Longint;
-    Result: Longint;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMDDE_Unadvise = packed record
+  TWMDDE_Unadvise = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     PostingApp: HWND;
     Format: Word;
     Item: Word;
-    Result: Longint;
+    FormatItemFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
   TWMDeadChar = TWMChar;
 
-  TWMDeleteItem = packed record
+  TWMDeleteItem = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Ctl: HWND;
     DeleteItemStruct: PDeleteItemStruct;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMDestroy = TWMNoParams;
   TWMDestroyClipboard = TWMNoParams;
 
-  TWMDevModeChange = packed record
+  TWMDevModeChange = record
     Msg: Cardinal;
-    Unused: Integer;
+    MsgFiller: TDWordFiller;
+    Unused: WPARAM;
     Device: PTChar;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMDrawClipboard = TWMNoParams;
 
-  TWMDrawItem = packed record
+  TWMDrawItem = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Ctl: HWND;
     DrawItemStruct: PDrawItemStruct;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMDropFiles = packed record
+  TWMDropFiles = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Drop: THANDLE;
-    Unused: Longint;
-    Result: Longint;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMEnable = packed record
+  TWMEnable = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Enabled: LongBool;
-    Unused: Longint;
-    Result: Longint;
+    EnabledFiller: TDWordFiller;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMEndSession = packed record
+  TWMEndSession = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     EndSession: LongBool;
-    Unused: Longint;
-    Result: Longint;
+    EndSessionFiller: TDWordFiller;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMEnterIdle = packed record
+  TWMEnterIdle = record
     Msg: Cardinal;
-    Source: Longint; { MSGF_DIALOGBOX, MSGF_MENU }
+    MsgFiller: TDWordFiller;
+    Source: WPARAM; { MSGF_DIALOGBOX, MSGF_MENU }
     IdleWnd: HWND;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMEnterMenuLoop = packed record
+  TWMEnterMenuLoop = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     IsTrackPopupMenu: LongBool;
-    Unused: Longint;
-    Result: Longint;
+    IsTrackPopupMenuFiller: TDWordFiller;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
   TWMExitMenuLoop = TWMEnterMenuLoop;
 
   TWMEraseBkgnd = record
-    Msg :UINT;
-    DC :HDC;
-    Unused :LPARAM;
-    Result :LRESULT;
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    DC: HDC;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
   TWMFontChange = TWMNoParams;
   TWMGetDlgCode = TWMNoParams;
   TWMGetFont = TWMNoParams;
 
-  TWMGetIcon = packed record
+  TWMGetIcon = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     BigIcon: Longbool;
-    Unused: Longint;
-    Result: Longint;
+    BigIconFiller: TDWordFiller;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
   TWMGetHotKey = TWMNoParams;
 
-  TWMGetMinMaxInfo = packed record
+  TWMGetMinMaxInfo = record
     Msg: Cardinal;
-    Unused: Integer;
+    MsgFiller: TDWordFiller;
+    Unused: WPARAM;
     MinMaxInfo: PMinMaxInfo;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMGetText = record
     Msg: Cardinal;
-    TextMax: Integer;
+    MsgFiller: TDWordFiller;
+    TextMax: WPARAM;
     Text: PTChar;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMGetTextLength = TWMNoParams;
 
-  TWMHotKey = packed record
+  TWMHotKey = record
     Msg: Cardinal;
-    HotKey: Longint;
-    Unused: Longint;
-    Result: Longint;
+    MsgFiller: TDWordFiller;
+    HotKey: WPARAM;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
   TWMHScroll = TWMScroll;
 
-  TWMHScrollClipboard = packed record
+  TWMHScrollClipboard = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Viewer: HWND;
     ScrollCode: Word; {SB_BOTTOM, SB_ENDSCROLL, SB_LINEDOWN, SB_LINEUP,
                        SB_PAGEDOWN, SB_PAGEUP, SB_THUMBPOSITION,
                        SB_THUMBTRACK, SB_TOP }
     Pos: Word;
-    Result: Longint;
+    ScrollCodePosFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
   TWMIconEraseBkgnd = TWMEraseBkgnd;
 
-  TWMInitDialog = packed record
+  TWMInitDialog = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Focus: HWND;
-    InitParam: Longint;
-    Result: Longint;
+    InitParam: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMInitMenu = packed record
+  TWMInitMenu = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Menu: HMENU;
-    Unused: Longint;
-    Result: Longint;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMInitMenuPopup = packed record
+  TWMInitMenuPopup = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     MenuPopup: HMENU;
     Pos: Smallint;
     SystemMenu: WordBool;
-    Result: Longint;
+    PosSystemMenuFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
   TWMKeyDown = TWMKey;
   TWMKeyUp = TWMKey;
 
-  TWMKillFocus = packed record
+  TWMKillFocus = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     FocusedWnd: HWND;
-    Unused: Longint;
-    Result: Longint;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
   TWMLButtonDblClk = TWMMouse;
@@ -954,172 +1083,207 @@ type
   TWMMButtonDown   = TWMMouse;
   TWMMButtonUp     = TWMMouse;
 
-  TWMMDIActivate = packed record
+  TWMMDIActivate = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     case Integer of
       0: (
         ChildWnd: HWND);
       1: (
         DeactiveWnd: HWND;
         ActiveWnd: HWND;
-        Result: Longint);
+        Result: LRESULT);
   end;
 
-  TWMMDICascade = packed record
+  TWMMDICascade = record
     Msg: Cardinal;
-    Cascade: Longint; { 0, MDITILE_SKIPDISABLED }
-    Unused: Longint;
-    Result: Longint;
+    MsgFiller: TDWordFiller;
+    Cascade: WPARAM; { 0, MDITILE_SKIPDISABLED }
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMMDICreate = packed record
+  TWMMDICreate = record
     Msg: Cardinal;
-    Unused: Integer;
+    MsgFiller: TDWordFiller;
+    Unused: WPARAM;
     MDICreateStruct: PMDICreateStruct;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMMDIDestroy = packed record
+  TWMMDIDestroy = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Child: HWND;
-    Unused: Longint;
-    Result: Longint;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
   TWMMDIGetActive = TWMNoParams;
   TWMMDIIconArrange = TWMNoParams;
 
-  TWMMDIMaximize = packed record
+  TWMMDIMaximize = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Maximize: HWND;
-    Unused: Longint;
-    Result: Longint;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMMDINext = packed record
+  TWMMDINext = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Child: HWND;
-    Next: Longint;
-    Result: Longint;
+    Next: LPARAM;
+    Result: LRESULT;
   end;
 
   TWMMDIRefreshMenu = TWMNoParams;
 
-  TWMMDIRestore = packed record
+  TWMMDIRestore = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     IDChild: HWND;
-    Unused: Longint;
-    Result: Longint;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMMDISetMenu = packed record
+  TWMMDISetMenu = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     MenuFrame: HMENU;
     MenuWindow: HMENU;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMMDITile = packed record
+  TWMMDITile = record
     Msg: Cardinal;
-    Tile: Longint; { MDITILE_HORIZONTAL, MDITILE_SKIPDISABLE,
+    MsgFiller: TDWordFiller;
+    Tile: WPARAM;  { MDITILE_HORIZONTAL, MDITILE_SKIPDISABLE,
                      MDITILE_VERTICAL }
-    Unused: Longint;
-    Result: Longint;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMMeasureItem = packed record
+  TWMMeasureItem = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     IDCtl: HWnd;
     MeasureItemStruct: PMeasureItemStruct;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMMenuChar = packed record
-    Msg :Cardinal;
-   {$ifdef bUnicode}
-    User :WideChar;
-   {$else}
-    User :AnsiChar;
-    Unused :Byte;
-   {$endif bUnicode}
-    MenuFlag: Word; { MF_POPUP, MF_SYSMENU }
-    Menu :HMENU;
-    Result :Longint;
-  end;
-
-  TWMMenuSelect = packed record
+  TWMMenuChar = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    User:TChar;
+{$IF NOT DEFINED(UNICODE)}
+    Unused: Byte;
+{$ENDIF}
+    MenuFlag: Word; { MF_POPUP, MF_SYSMENU }
+    UserMenuFlagFiller: TDWordFiller;
+    Menu: HMENU;
+    Result: LRESULT;
+  end;
+
+  TWMMenuSelect = record
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     IDItem: Word;
     MenuFlag: Word; { MF_BITMAP, MF_CHECKED, MF_DISABLED, MF_GRAYED,
                       MF_MOUSESELECT, MF_OWNERDRAW, MF_POPUP, MF_SEPARATOR,
                       MF_SYSMENU }
+    IDItemMenuFlagFiller: TDWordFiller;
     Menu: HMENU;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMMouseActivate = {packed} record
-    Msg :Cardinal;
-    TopLevel :HWND;
-    HitTestCode :Word;
-    MouseMsg :Word;
-    Result :LRESULT;
+  TWMMouseActivate = record
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    TopLevel: HWND;
+    HitTestCode: Word;
+    MouseMsg: Word;
+    HitTestCodeMouseMsg: TDWordFiller;
+    Result: LRESULT;
   end;
 
   TWMMouseMove = TWMMouse;
 
-  TWMMove = packed record
+  TWMMove = record
     Msg: Cardinal;
-    Unused: Integer;
+    MsgFiller: TDWordFiller;
+    Unused: WPARAM;
     case Integer of
       0: (
         XPos: Smallint;
-        YPos: Smallint);
+        YPos: Smallint;
+        XYPosFiller: TDWordFiller);
       1: (
         Pos: TSmallPoint;
-        Result: Longint);
+        PosFiller: TDWordFiller;
+        Result: LRESULT);
   end;
 
-  TWMNCActivate = packed record
+  TWMMoving = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    Edge: WPARAM;
+    DragRect: PRect;
+  end;
+
+  TWMNCActivate = record
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Active: BOOL;
-    Unused: Longint;
-    Result: Longint;
+    ActiveFiller: TDWordFiller;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMNCCalcSize = packed record
+  TWMNCCalcSize = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     CalcValidRects: BOOL;
+    CalcValidRectsFiller: TDWordFiller;
     CalcSize_Params: PNCCalcSizeParams;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMNCCreate = packed record
+  TWMNCCreate = record
     Msg: Cardinal;
-    Unused: Integer;
+    MsgFiller: TDWordFiller;
+    Unused: WPARAM;
     CreateStruct: PCreateStruct;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMNCDestroy = TWMNoParams;
 
   TWMNCHitTest = record
-    Msg :UINT;
-    Unused :LPARAM;
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    Unused: WPARAM;
     case Integer of
       0: (
-        XPos :Smallint;
-        YPos :Smallint);
+        XPos: Smallint;
+        YPos: Smallint;
+        XYPosFiller: TDWordFiller);
       1: (
-        Pos :TSmallPoint;
-        Result :LRESULT);
+        Pos: TSmallPoint;
+        PosFiller: TDWordFiller;
+        Result: LRESULT);
   end;
 
-  TWMNCHitMessage = packed record
+  TWMNCHitMessage = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     HitTest: Longint;
+    HitTestFiller: TDWordFiller;
     XCursor: Smallint;
     YCursor: Smallint;
-    Result: Longint;
+    XYCursorFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
   TWMNCLButtonDblClk = TWMNCHitMessage;
@@ -1130,108 +1294,132 @@ type
   TWMNCMButtonUp     = TWMNCHitMessage;
   TWMNCMouseMove     = TWMNCHitMessage;
 
-  TWMNCPaint = TWMNoParams;
+  TWMNCPaint = record
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    RGN: HRGN;
+    Unused: LPARAM;
+    Result: LRESULT;
+  end;
 
   TWMNCRButtonDblClk = TWMNCHitMessage;
   TWMNCRButtonDown   = TWMNCHitMessage;
   TWMNCRButtonUp     = TWMNCHitMessage;
 
-  TWMNextDlgCtl = packed record
+  TWMNextDlgCtl = record
     Msg: Cardinal;
-    CtlFocus: Longint;
+    MsgFiller: TDWordFiller;
+    CtlFocus: WPARAM;
     Handle: WordBool;
-    Unused: Word;
-    Result: Longint;
+    HandleFiller: TWordFiller;
+    Result: LRESULT;
   end;
 
-  TWMNotify = packed record
+  TWMNotify = record
     Msg: Cardinal;
-    IDCtrl: Longint;
+    MsgFiller: TDWordFiller;
+    IDCtrl: WPARAM;
     NMHdr: PNMHdr;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMNotifyFormat = packed record
+  TWMNotifyFormat = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     From: HWND;
-    Command: Longint;
-    Result: Longint;
+    Command: LPARAM;
+    Result: LRESULT;
   end;
 
   TWMPaint = record
-    Msg :UINT;
-    DC :HDC;
-    Unused :LPARAM;
-    Result :LRESULT;
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    DC: HDC;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMPaintClipboard = packed record
+  TWMPaintClipboard = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Viewer: HWND;
     PaintStruct: THandle;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMPaintIcon = TWMNoParams;
 
-  TWMPaletteChanged = packed record
+  TWMPaletteChanged = record
     Msg: Cardinal;
+    MsgFiller:TDWordFiller;
     PalChg: HWND;
-    Unused: Longint;
-    Result: Longint;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMPaletteIsChanging = packed record
+  TWMPaletteIsChanging = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Realize: HWND;
-    Unused: Longint;
-    Result: Longint;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMParentNotify = packed record
+  TWMParentNotify = record
     Msg: Cardinal;
-    case Event: Word of
+    MsgFiller: TDWordFiller;
+    case Word of
       WM_CREATE, WM_DESTROY: (
+        Unused1: Word;
         ChildID: Word;
+        EventChildIDFiller: TDWordFiller;
         ChildWnd: HWnd);
       WM_LBUTTONDOWN, WM_MBUTTONDOWN, WM_RBUTTONDOWN: (
+        Unused2: Word;
         Value: Word;
+        EventValueFiller: TDWordFiller;
         XPos: Smallint;
-        YPos: Smallint);
+        YPos: Smallint;
+        XYPosFiller: TDWordFiller);
       0: (
+        Event: Word;
         Value1: Word;
-        Value2: Longint;
-        Result: Longint);
+        EventValue1Filler: TDWordFiller;
+        Value2: LPARAM;
+        Result: LRESULT);
   end;
 
   TWMPaste = TWMNoParams;
 
-  TWMPower = packed record
+  TWMPower = record
     Msg: Cardinal;
-    PowerEvt: Longint; { PWR_SUSPENDREQUEST, PWR_SUSPENDRESUME,
+    MsgFiller: TDWordFiller;
+    PowerEvt: WPARAM;  { PWR_SUSPENDREQUEST, PWR_SUSPENDRESUME,
                          PWR_CRITICALRESUME }
-    Unused: Longint;
-    Result: Longint;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
   TWMQueryDragIcon = TWMNoParams;
 
-  TWMQueryEndSession = packed record
+  TWMQueryEndSession = record
     Msg: Cardinal;
-    Source: Longint;
-    Unused: Longint;
-    Result: Longint;
+    MsgFiller: TDWordFiller;
+    Source: WPARAM;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
   TWMQueryNewPalette = TWMNoParams;
   TWMQueryOpen = TWMNoParams;
   TWMQueueSync = TWMNoParams;
 
-  TWMQuit = packed record
+  TWMQuit = record
     Msg: Cardinal;
-    ExitCode: Longint;
-    Unused: Longint;
-    Result: Longint;
+    MsgFiller: TDWordFiller;
+    ExitCode: WPARAM;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
   TWMRButtonDblClk = TWMMouse;
@@ -1240,107 +1428,118 @@ type
 
   TWMRenderAllFormats = TWMNoParams;
 
-  TWMRenderFormat = packed record
+  TWMRenderFormat = record
     Msg: Cardinal;
-    Format: Longint;
-    Unused: Longint;
-    Result: Longint;
+    MsgFiller: TDWordFiller;
+    Format: WPARAM;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMSetCursor = packed record
+  TWMSetCursor = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     CursorWnd: HWND;
-    HitTest: Word;
+    HitTest: SmallInt;
     MouseMsg: Word;
-    Result: Longint;
+    HitTestMouseMsgFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
-  TWMSetFocus = packed record
+  TWMSetFocus = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     FocusedWnd: HWND;
-    Unused: Longint;
-    Result: Longint;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMSetFont = packed record
+  TWMSetFont = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Font: HFONT;
     Redraw: WordBool;
-    Unused: Word;
-    Result: Longint;
+    RedrawFiller: TWordFiller;
+    Result: LRESULT;
   end;
 
-  TWMSetHotKey = packed record
+  TWMSetHotKey = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Key: Longint;
-    Unused: Longint;
-    Result: Longint;
+    KeyFiller: TDWordFiller;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMSetIcon = packed record
+  TWMSetIcon = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     BigIcon: Longbool;
+    BigIconFiller: TDWordFiller;
     Icon: HICON;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMSetRedraw = packed record
+  TWMSetRedraw = record
     Msg: Cardinal;
-    Redraw: Longint;
-    Unused: Longint;
-    Result: Longint;
+    MsgFiller: TDWordFiller;
+    Redraw: WPARAM;
+    Unused: LPARAM;
+    Result: LRESULT;
   end;
 
-  TWMSetText = packed record
+  TWMSetText = record
     Msg: Cardinal;
-    Unused: Longint;
+    MsgFiller: TDWordFiller;
+    Unused: WPARAM;
     Text: PTChar;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMShowWindow = record
-    Msg: UINT;
-    case longint of
-    0: (
-      Show :BOOL;
-    );
-    1: (
-      wParam :WPARAM;
-      Status :LPARAM;
-      Result :LRESULT;
-    );
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    Show: BOOL;
+    ShowFiller: TDWordFiller;
+    Status: LPARAM;
+    Result: LRESULT;
   end;
 
-
-  TWMSize = packed record
+  TWMSize = record
     Msg: Cardinal;
-    SizeType: Longint; { SIZE_MAXIMIZED, SIZE_MINIMIZED, SIZE_RESTORED,
+    MsgFiller: TDWordFiller;
+    SizeType: WPARAM;  { SIZE_MAXIMIZED, SIZE_MINIMIZED, SIZE_RESTORED,
                          SIZE_MAXHIDE, SIZE_MAXSHOW }
     Width: Word;
     Height: Word;
-    Result: Longint;
+    WidthHeightFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
-  TWMSizeClipboard = packed record
+  TWMSizeClipboard = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Viewer: HWND;
     RC: THandle;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMSpoolerStatus = packed record
+  TWMSpoolerStatus = record
     Msg: Cardinal;
-    JobStatus: Longint;
+    MsgFiller: TDWordFiller;
+    JobStatus: WPARAM;
     JobsLeft: Word;
-    Unused: Word;
-    Result: Longint;
+    JobsLeftFiller: TWordFiller;
+    Result: LRESULT;
   end;
 
-  TWMStyleChange = packed record
+  TWMStyleChange = record
     Msg: Cardinal;
-    StyleType: Longint;
+    MsgFiller: TDWordFiller;
+    StyleType: WPARAM;
     StyleStruct: PStyleStruct;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
   TWMStyleChanged = TWMStyleChange;
@@ -1349,9 +1548,11 @@ type
   TWMSysChar = TWMKey;
   TWMSysColorChange = TWMNoParams;
 
-  TWMSysCommand = packed record
+  TWMSysCommand = record
     Msg: Cardinal;
-    case CmdType: Longint of
+    MsgFiller: TDWordFiller;
+    CmdType: WPARAM;
+    case WPARAM of
       SC_HOTKEY: (
         ActivateWnd: HWND);
       SC_KEYMENU: (
@@ -1361,21 +1562,24 @@ type
       SC_TASKLIST, SC_VSCROLL: (
         XPos: Smallint;
         YPos: Smallint;
-        Result: Longint);
+        XYPosFiller: TDWordFiller;
+        Result: LRESULT);
   end;
 
-  TWMSysDeadChar = packed record
+  TWMSysDeadChar = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     CharCode: Word;
-    Unused: Word;
+    CharCodeFiller: TWordFiller;
     KeyData: Longint;
-    Result: Longint;
+    KeyDataFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
   TWMSysKeyDown = TWMKey;
   TWMSysKeyUp = TWMKey;
 
-  TWMSystemError = packed record
+  TWMSystemError = record
     Msg: Cardinal;
     ErrSpec: Word;
     Unused: Longint;
@@ -1384,30 +1588,21 @@ type
 
   TWMTimeChange = TWMNoParams;
 
-(*
-  TWMTimer = packed record
-    Msg: Cardinal;
-    TimerID: Longint;
-    TimerProc: TFarProc;
-    Result: Longint;
-  end;
-*)
   TWMTimer = record
     Msg: Cardinal;
-    case Integer of
-      0: (
-        TimerID: Longint);
-      1: (
-        wParam :WPARAM;
-        TimerProc: TFarProc;
-        Result: Longint);
+    MsgFiller: TDWordFiller;
+    TimerID: WPARAM;
+    TimerProc: TFarProc;
+    Result: LRESULT;
   end;
 
-  TWMUIState = packed record
+  TWMUIState = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Action: Word;
     Flags: Word;
-    Unused: Longint;
+    ActionFlagsFiller: TDWordFiller;
+    Unused: LPARAM;
   end;
 
   TWMChangeUIState = TWMUIState;
@@ -1420,58 +1615,130 @@ type
 
   TWMVScroll = TWMScroll;
 
-  TWMVScrollClipboard = packed record
+  TWMVScrollClipboard = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     Viewer: HWND;
     ScollCode: Word;
     ThumbPos: Word;
-    Result: Longint;
+    ScrollCodeThumbPosFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
   TWMWindowPosChanged = TWMWindowPosMsg;
   TWMWindowPosChanging = TWMWindowPosMsg;
 
-  TWMWinIniChange = packed record
+  TWMWinIniChange = record
     Msg: Cardinal;
-    Unused: Integer;
+    MsgFiller: TDWordFiller;
+    Unused: WPARAM;
     Section: PTChar;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMSettingChange = packed record
+  TWMSettingChange = record
     Msg: Cardinal;
-    Flag: Integer;
+    MsgFiller: TDWordFiller;
+    Flag: WPARAM;
     Section: PTChar;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMHelp = packed record
+  TWMHelp = record
     Msg: Cardinal;
-    Unused: Integer;
+    MsgFiller: TDWordFiller;
+    Unused: WPARAM;
     HelpInfo: PHelpInfo;
-    Result: Longint;
+    Result: LRESULT;
   end;
 
-  TWMDisplayChange = packed record
+  TWMDisplayChange = record
     Msg: Cardinal;
-    BitsPerPixel: Integer;
+    MsgFiller: TDWordFiller;
+    BitsPerPixel: WPARAM;
     Width: Word;
     Height: Word;
-    Result: Longint;
+    WidthHeightFiller: TDWordFiller;
+    Result: LRESULT;
   end;
 
-  TWMContextMenu = packed record
+  TWMContextMenu = record
     Msg: Cardinal;
+    MsgFiller: TDWordFiller;
     hWnd: HWND;
     case Integer of
       0: (
         XPos: Smallint;
-        YPos: Smallint);
+        YPos: Smallint;
+        XYPosFiller: TDWordFiller);
       1: (
         Pos: TSmallPoint;
-        Result: Longint);
+        PosFiller: TDWordFiller;
+        Result: LRESULT);
   end;
 
+  TWMPrint = record
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    DC: HDC;
+    Flags: Cardinal;
+    FlagsFiller: TDWordFiller;
+    Result: LRESULT;
+  end;
+
+  TWMPrintClient = TWMPrint;
+
+  PGestureNotifyStruct = pointer;
+
+  TWMGestureNotify = record
+    Msg: Cardinal;
+    MsgFiller: TDWordFiller;
+    Unused: WPARAM;
+    NotifyStruct: PGestureNotifyStruct;
+    Result: LRESULT;
+  end;
+
+// Utility functions to simplify .NET/Win32 single code source
+
+{$IFNDEF UNICODE}
+function SendTextMessage(Handle: HWND; Msg: UINT; WParam: WPARAM; LParam: AnsiString): LRESULT; overload;
+{$ENDIF}
+function SendTextMessage(Handle: HWND; Msg: UINT; WParam: WPARAM; LParam: UnicodeString): LRESULT; overload;
+function SendStructMessage(Handle: HWND; Msg: UINT; WParam: WPARAM; const LParam): LRESULT;
+function SendGetStructMessage(Handle: HWND; Msg: UINT; WParam: WPARAM;
+  var LParam; Unused: Boolean = False): LRESULT;
+function SendGetIntMessage(Handle: HWND; Msg: UINT; var WParam: Integer;
+  var LParam: Integer): LRESULT;
+
 implementation
+
+{$IFNDEF UNICODE}
+function SendTextMessage(Handle: HWND; Msg: UINT; WParam: WPARAM; LParam: AnsiString): LRESULT;
+begin
+  Result := SendMessage(Handle, Msg, WParam, Windows.LPARAM(PAnsiChar(LParam)));
+end;
+{$ENDIF}
+
+function SendTextMessage(Handle: HWND; Msg: UINT; WParam: WPARAM; LParam: UnicodeString): LRESULT;
+begin
+  Result := SendMessage(Handle, Msg, WParam, Windows.LPARAM(PWideChar(LParam)));
+end;
+
+function SendStructMessage(Handle: HWND; Msg: UINT; WParam: WPARAM; const LParam): LRESULT;
+begin
+  Result := SendMessage(Handle, Msg, WParam, Windows.LPARAM(@LParam));
+end;
+
+function SendGetStructMessage(Handle: HWND; Msg: UINT; WParam: WPARAM;
+  var LParam; Unused: Boolean = False): LRESULT;
+begin
+  Result := SendMessage(Handle, Msg, WParam, Windows.LPARAM(@LParam));
+end;
+
+function SendGetIntMessage(Handle: HWND; Msg: UINT; var WParam: Integer;
+  var LParam: Integer): LRESULT;
+begin
+  Result := SendMessage(Handle, Msg, Windows.WPARAM(@WParam), Windows.LPARAM(@LParam));
+end;
 
 end.

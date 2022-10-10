@@ -333,7 +333,6 @@ interface
   function FileTimeToDateTime(const AFileTime :TFileTime) :TDateTime;
   procedure InsertText(const AStr :TString);
   function GetNearestExistFolder(const APath :TString) :TString;
-  function CreateFolders(const APath :TString) :Boolean;
 
   procedure RestoreDefColor;
   procedure ColorMenu;
@@ -426,30 +425,6 @@ interface
         Result := vDrive;
       end;
     end;
-  end;
-
-  
-  function CreateFolders(const APath :TString) :Boolean;
-  var
-    vDrive :TString;
-
-    function LocCreate(const APath :TString) :Boolean;
-    begin
-      Result := True;
-      if (APath = '') or (vDrive = APath) or WinFolderExists(APath) then
-        Exit;
-      Result := LocCreate(RemoveBackSlash(ExtractFilePath(APath)));
-      if Result then
-        Result := CreateDir(APath);
-    end;
-
-  begin
-    Result := False;
-    vDrive := ExtractFileDrive(APath);
-    if FileNameIsLocal(APath) then
-      vDrive := AddBackSlash(vDrive);
-    if (vDrive = '') or WinFolderExists(vDrive) then
-      Result := LocCreate(APath);
   end;
 
 

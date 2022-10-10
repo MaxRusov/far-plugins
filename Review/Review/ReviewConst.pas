@@ -153,7 +153,7 @@ interface
     optThumbFontSize   :Integer = 8;
     optThumbFontName   :TString = '';
 
-    optHandlesLimit    :Integer = 1000;    { Макс кол-во GDI Handles }
+    optHandlesLimit    :Integer = 100;    { Макс кол-во GDI Handles }
    {$endif bThumbs}
 
   var
@@ -205,6 +205,7 @@ interface
   procedure AppErrorIdFmt(AMess :TMessages; const Args: array of const);
 
   function PlugIdToStr(const ID :TGUID) :TString;
+  function LengthToStr(ASec :Integer) :TString;
 
   function MulDivI32(ANum, AMul, ADiv :Integer) :Integer; stdcall;
   function MulDivU32(ANum, AMul, ADiv :UINT) :UINT; stdcall;
@@ -257,6 +258,24 @@ interface
   function PlugIdToStr(const ID :TGUID) :TString;
   begin
     Result := StrDeleteChars(GUIDToString(ID), ['{', '}']);
+  end;
+
+
+  function LengthToStr(ASec :Integer) :TString;
+  var
+    H, M, S :Integer;
+  begin
+    M := ASec div 60;
+    S := ASec mod 60;
+    H := M div 60;
+    M := M mod 60;
+    if H > 0 then
+      Result := IntToStr(H) + ' hour ' + IntToStr(M) + ' min'
+    else
+    if M > 0 then
+      Result := IntToStr(M) + ' min ' + IntToStr(S) + ' sec'
+    else
+      Result := IntToStr(S) + ' sec'
   end;
 
 

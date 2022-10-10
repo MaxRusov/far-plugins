@@ -121,17 +121,6 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  procedure OleError(ErrorCode: HResult);
-  begin
-    raise EOleSysError.Create('', ErrorCode, 0);
-  end;
-
-  procedure OleCheck(Result: HResult);
-  begin
-    if not Succeeded(Result) then
-      OleError(Result);
-  end;
-
   function CreateComObject(const ClassID :TGUID) :IUnknown;
   begin
     OleCheck(CoCreateInstance(ClassID, nil, CLSCTX_INPROC_SERVER or CLSCTX_LOCAL_SERVER, IUnknown, Result));

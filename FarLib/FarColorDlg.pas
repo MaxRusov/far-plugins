@@ -2,6 +2,8 @@
 
 unit FarColorDlg;
 
+{$Define bCommDlg}
+
 {******************************************************************************}
 {* (c) 2010 Max Rusov                                                         *}
 {*                                                                            *}
@@ -14,7 +16,9 @@ interface
   uses
     Windows,
     Messages,
-    CommDlg,  
+   {$ifdef bCommDlg}
+    CommDlg,
+   {$endif bCommDlg}
     MixTypes,
     MixUtils,
     MixStrings,
@@ -82,8 +86,10 @@ interface
   type
     TCustomColors = array[0..MaxCustomColors - 1] of COLORREF;
 
+ {$ifdef bCommDlg}
   var
     GUserColors :TCustomColors;
+ {$endif bCommDlg}
 
 
 (*
@@ -101,6 +107,7 @@ interface
 *)
 
   function WinChooseColor(var AColor :COLORREF) :Boolean;
+ {$ifdef bCommDlg}
   var
     vRec :TChooseColor;
   begin
@@ -114,6 +121,10 @@ interface
     Result := ChooseColor(vRec);
     if Result then
       AColor := vRec.rgbResult;
+ {$else}
+  begin
+    Sorry; Result := False;
+ {$endif bCommDlg}
   end;
  {$endif Far3}
 

@@ -1,5 +1,5 @@
 
-#include "Build.h"
+#include "..\Build.h"
 
 #ifdef Far3
  #define FarVerS "3"
@@ -33,7 +33,7 @@ BEGIN
             VALUE "OriginalFilename", "GFL.pvd\0"
             VALUE "FileVersion", "1." BuildS "\0"
             VALUE "CompanyName", "Max Rusov\0"
-            VALUE "LegalCopyright", "(c) 2013-2015, Max Rusov\0"
+            VALUE "LegalCopyright", "(c) 2013-2021, Max Rusov\0"
             VALUE "ProductName", "GFL\0"
             VALUE "ProductVersion", "1.0\0"
         END
