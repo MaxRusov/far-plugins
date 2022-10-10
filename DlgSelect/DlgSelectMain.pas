@@ -29,6 +29,7 @@ interface
 
 
   type
+
     TDlgSelectPlug = class(TFarPlug)
     public
       procedure Init; override;

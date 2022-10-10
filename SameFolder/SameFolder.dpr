@@ -1,11 +1,18 @@
+{******************************************************************************}
+{* (c) 2012-2022 Max Rusov                                                    *}
+{* SameFolder                                                                 *}
+{* License: WTFPL                                                             *}
+{* Home: https://github.com/MaxRusov/far-plugins                              *}
+{******************************************************************************}
+
+library SameFolder;
+
 {$I Defines.inc}
 
 {$APPTYPE CONSOLE}
 {$ifdef Debug}
  {$ImageBase $40D00000}
 {$endif Debug}
-
-library SameFolder;
 
 uses
 //MixErrors,

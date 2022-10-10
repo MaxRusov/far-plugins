@@ -30,6 +30,9 @@
         <Projects Include="ConsoleControl\ConCtrl.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="ColorSet\ColorSet.dproj">
+            <Dependencies/>
+        </Projects>
         <Projects Include="FastWheel\FastWheel.dproj">
             <Dependencies/>
         </Projects>
@@ -131,6 +134,15 @@
     <Target Name="ConCtrl:Make">
         <MSBuild Projects="ConsoleControl\ConCtrl.dproj" Targets="Make"/>
     </Target>
+    <Target Name="ColorSet">
+        <MSBuild Projects="ColorSet\ColorSet.dproj"/>
+    </Target>
+    <Target Name="ColorSet:Clean">
+        <MSBuild Projects="ColorSet\ColorSet.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="ColorSet:Make">
+        <MSBuild Projects="ColorSet\ColorSet.dproj" Targets="Make"/>
+    </Target>
     <Target Name="FastWheel">
         <MSBuild Projects="FastWheel\FastWheel.dproj"/>
     </Target>
@@ -168,13 +180,13 @@
         <MSBuild Projects="GitShell\GitShell.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="HelloWorld;ApiDemo;PlugMenu;MacroLib;EdtFind;PanelTabs;MoreHistory;UCharMap;ConCtrl;FastWheel;DlgSelect;VisComp;GitShell"/>
+        <CallTarget Targets="HelloWorld;ApiDemo;PlugMenu;MacroLib;EdtFind;PanelTabs;MoreHistory;UCharMap;ConCtrl;ColorSet;FastWheel;DlgSelect;VisComp;GitShell"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="HelloWorld:Clean;ApiDemo:Clean;PlugMenu:Clean;MacroLib:Clean;EdtFind:Clean;PanelTabs:Clean;MoreHistory:Clean;UCharMap:Clean;ConCtrl:Clean;FastWheel:Clean;DlgSelect:Clean;VisComp:Clean;GitShell:Clean"/>
+        <CallTarget Targets="HelloWorld:Clean;ApiDemo:Clean;PlugMenu:Clean;MacroLib:Clean;EdtFind:Clean;PanelTabs:Clean;MoreHistory:Clean;UCharMap:Clean;ConCtrl:Clean;ColorSet:Clean;FastWheel:Clean;DlgSelect:Clean;VisComp:Clean;GitShell:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="HelloWorld:Make;ApiDemo:Make;PlugMenu:Make;MacroLib:Make;EdtFind:Make;PanelTabs:Make;MoreHistory:Make;UCharMap:Make;ConCtrl:Make;FastWheel:Make;DlgSelect:Make;VisComp:Make;GitShell:Make"/>
+        <CallTarget Targets="HelloWorld:Make;ApiDemo:Make;PlugMenu:Make;MacroLib:Make;EdtFind:Make;PanelTabs:Make;MoreHistory:Make;UCharMap:Make;ConCtrl:Make;ColorSet:Make;FastWheel:Make;DlgSelect:Make;VisComp:Make;GitShell:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>
