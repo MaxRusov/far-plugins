@@ -166,7 +166,8 @@ interface
 
     ReviewConst,
     ReviewDecoders,
-    ReviewClasses;
+    ReviewClasses,
+    ReviewVideo;
 
   type
     TReviewPlug = class(TFarPlug)
@@ -565,8 +566,10 @@ interface
       Result := 0;
       if Review.Window <> nil then begin
         vValue := FarValuesToInt(AParams, ACount, 1, -1);
-        if vValue <> -1 then
+        if vValue <> -1 then begin
           Review.Window.SetMediaVolume(vValue);
+          optVolume := vValue;
+        end;
         vValue := Review.Window.GetMediaVolume;
         Result := FarReturnValues([vValue]);
       end;
@@ -686,6 +689,9 @@ interface
 //  Trace('ViewerEvent: Event=%d, AParam=%d, AID=%d', [AEvent, TIntPtr(AParam), AID);
 
     if AEvent = VE_Read then begin
+      if (ModalDlg <> nil) {$ifdef bThumbs} or (ThumbsModalDlg <> nil) {$endif bThumbs} then
+        Exit(0);
+
       vForce := 0;
       try
        {$ifdef Far3}
@@ -771,7 +777,7 @@ interface
         end;
 
     else
-      if AParam <> nil then
+      if (AParam <> nil) {and (TIntPtr(aParam) > 1024)} then
         with TCmdObject(AParam) do begin
           Execute;
           Destroy;

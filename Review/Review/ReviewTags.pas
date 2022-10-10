@@ -117,12 +117,23 @@ interface
 
   var
     vStr :TString;
+    vDateTime :TDateTime;
   begin
     Add(strIName,   ExtractFileName(aImage.FName));
     if aImage.FSize <> 0 then
       Add(strISize,   Int64ToStrEx(aImage.FSize));
-    if aImage.FTime <> 0 then
-      Add(strITime,   DateTimeToStr(FileDateToDateTime(aImage.FTime)));
+    if aImage.FTime <> 0 then begin
+//      try
+//        vStr := DateTimeToStr(FileDateToDateTime(aImage.FTime));
+//      except
+//        vStr := '???';
+//      end;
+      if TryFileDateToDateTime(aImage.FTime, vDateTime) then
+        vStr := DateTimeToStr(vDateTime)
+      else
+        vStr := '???';
+      Add(strITime, vStr);
+    end;
 
     Add1('', '');
 

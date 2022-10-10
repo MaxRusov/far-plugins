@@ -646,6 +646,7 @@ interface
   begin
     Windows.GetClientRect(hFarWindow, Result);
 
+//  DEB;
 //  Result.Top := Result.Bottom div 2;
 //  Result.Left := Result.Right div 2;
 
@@ -1055,6 +1056,8 @@ interface
 
   function TModalStateDlg.DialogHandler(Msg :Integer; Param1 :Integer; Param2 :TIntPtr) :TIntPtr; {override;}
   begin
+//  Trace('DialogHandler: %d', [Msg]);
+
 //  Result := 1;
     case Msg of
       DN_RESIZECONSOLE:
@@ -1064,6 +1067,10 @@ interface
         end;
 //    DN_HELP:
 //      Review.SyncDelayed(SyncCmdUpdateWin, 100);  *)
+
+      DN_DRAGGED:
+        Exit( 0 );
+
       DN_ENTERIDLE:
         begin
           if FHidden then
@@ -4584,7 +4591,7 @@ interface
         Result := aStep
       else
         Result := IntIf(aStep > 0, 1, -1);
-      Result := Result * 1000;
+//    Result := Result * 1000;  ???
     end;
 
 
