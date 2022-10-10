@@ -815,7 +815,7 @@ interface
       Inc(P1);
       Inc(P2);
     end;
-    Result := 0;
+//  Result := 0;
   end;
 
 
@@ -831,7 +831,7 @@ interface
       Inc(P1);
       Inc(P2);
     end;
-    Result := 0;
+//  Result := 0;
   end;
 
 

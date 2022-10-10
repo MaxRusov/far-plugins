@@ -156,8 +156,10 @@
      {$Define bDelphi25}            { 10.2 - Tokyo }
    {$ifend}
 
-   {$if CompilerVersion >= 33.0}
-     !
+   {$if CompilerVersion >= 33.0}    { 10.3 - RIO }
+   {$ifend}
+
+   {$if CompilerVersion >= 34.0}    { 10.4 - Sidney }
    {$ifend}
 
   {$endif}

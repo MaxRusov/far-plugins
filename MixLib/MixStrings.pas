@@ -106,7 +106,8 @@ interface
   function Hex2Int64(const AHexStr :TString) :TInt64;
 
   function Float2Str(Value :TFloat; aDec :Integer = 0) :TString;
-  function TryPCharToFloat(Str :PTChar; var Value :TFloat) :Boolean;
+//function TryPCharToFloat(Str :PAnsiChar; var Value :TFloat) :Boolean; overload;
+  function TryPCharToFloat(Str :PWideChar; var Value :TFloat) :Boolean; overload;
   function TryStrToFloat(const Str :TString; var Value :TFloat) :Boolean;
   function StrToFloatDef(const Str :TString; const Def :TFloat) :TFloat;
   function Str2Float(const Str :TString) :TFloat;
@@ -1240,8 +1241,16 @@ interface
   end;
 *)
 
+//  function TryPCharToFloat(Str :PAnsiChar; var Value :TFloat) :Boolean; overload;
+//  var
+//    vErr :Integer;
+//  begin
+//    Val(Str, Value, vErr);
+//    Result := vErr = 0;
+//  end;
 
-  function TryPCharToFloat(Str :PTChar; var Value :TFloat) :Boolean;
+
+  function TryPCharToFloat(Str :PWideChar; var Value :TFloat) :Boolean; overload;
   var
     vErr :Integer;
   begin

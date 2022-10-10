@@ -1643,6 +1643,10 @@ interface
     vColor.EndPos := ACol + ALen - 1;
     vColor.ColorItem := 0;
     vColor.Color := AColor;
+
+    TRGBQuad(vColor.Color.ForegroundColor).rgbReserved := 255;
+    TRGBQuad(vColor.Color.BackgroundColor).rgbReserved := 255;
+
     vColor.Owner := PluginID;
     vColor.Priority := EDITOR_COLOR_NORMAL_PRIORITY;
     vColor.Flags := IntIf(AWholeTab, 0, ECF_TABMARKFIRST);
