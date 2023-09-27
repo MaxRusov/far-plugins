@@ -18,7 +18,7 @@ interface
 
 
   var
-    FPluginTitles :TString = 'Process list;Список процессов';
+    FPluginTitles :TString = 'Process list;РЎРїРёСЃРѕРє РїСЂРѕС†РµСЃСЃРѕРІ';
 
 
   function GetPluginInterface :IHintPlugin; stdcall;
@@ -57,9 +57,9 @@ interface
       FPrBase  :Cardinal;
       FAppType :Integer;
      {$ifdef bUnicodeFar}
-      FPath    :array[0..MAX_PATH - 1] of WideChar;
+      FPath    :PWideChar;
      {$else}
-      FPath    :array[0..MAX_PATH - 1] of AnsiChar;
+      FPath    :PAnsiChar;
      {$endif bUnicodeFar}
     end;
 
