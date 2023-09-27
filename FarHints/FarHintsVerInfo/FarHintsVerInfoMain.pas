@@ -127,25 +127,11 @@ interface
         AItem.AddStringInfo(APrompt, vStr);
     end;
 
-    function VerToStr(const Ver: array of WORD): WideString;
-    var
-      S, Res: ShortString;
-      A: integer;
-    begin
-      for A := 0 to 3 do
-      begin
-        Str(Ver[A], S);
-        if A>0 then Res := Res + '.';
-        Res := Res + S;
-      end;
-      Result := WideString(Res);
-    end;
-
     procedure VerAdd(const APrompt: WideString; const MS, LS: DWORD);
     begin
       if (MS or LS) <> 0 then
         AItem.AddStringInfo(APrompt,
-          VerToStr([HiWord(MS), LoWord(MS), HiWord(LS), Loword(LS)]));
+          FAPI.Format('%d.%d.%d.%d', [HiWord(MS), LoWord(MS), HiWord(LS), Loword(LS)]));
     end;
 
   type
