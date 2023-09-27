@@ -99,7 +99,7 @@ interface
       vCP  :^LANGANDCODEPAGE;
       vPtr, vEnd :PWideChar;
     begin
-      { Ищем сканированием, потому что иногда Translation не совпадает с StringInfo }
+      { РС‰РµРј СЃРєР°РЅРёСЂРѕРІР°РЅРёРµРј, РїРѕС‚РѕРјСѓ С‡С‚Рѕ РёРЅРѕРіРґР° Translation РЅРµ СЃРѕРІРїР°РґР°РµС‚ СЃ StringInfo }
       vPtr := vBuf;
       vEnd := vBuf + (vSize div SizeOf(WideChar)) - Length(cStrInfo) - 4 - 8;
       while vPtr < vEnd do begin
@@ -111,7 +111,7 @@ interface
         Inc(vPtr);
       end;
 
-      { Не нашли сканированием (возможно 16-ти разрядная программа), попробуем через Translation}
+      { РќРµ РЅР°С€Р»Рё СЃРєР°РЅРёСЂРѕРІР°РЅРёРµРј (РІРѕР·РјРѕР¶РЅРѕ 16-С‚Рё СЂР°Р·СЂСЏРґРЅР°СЏ РїСЂРѕРіСЂР°РјРјР°), РїРѕРїСЂРѕР±СѓРµРј С‡РµСЂРµР· Translation}
       if VerQueryValue(vBuf, '\VarFileInfo\Translation', Pointer(vCP), vLen) then
         vLang := FAPI.Format('%.4x%.4x', [vCP.wLanguage, vCP.wCodePage]);
     end;
@@ -127,9 +127,35 @@ interface
         AItem.AddStringInfo(APrompt, vStr);
     end;
 
+    function VerToStr(const Ver: array of WORD): WideString;
+    var
+      S, Res: ShortString;
+      A: integer;
+    begin
+      for A := 0 to 3 do
+      begin
+        Str(Ver[A], S);
+        if A>0 then Res := Res + '.';
+        Res := Res + S;
+      end;
+      Result := WideString(Res);
+    end;
+
+    procedure VerAdd(const APrompt: WideString; const MS, LS: DWORD);
+    begin
+      if (MS or LS) <> 0 then
+        AItem.AddStringInfo(APrompt,
+          VerToStr([HiWord(MS), LoWord(MS), HiWord(LS), Loword(LS)]));
+    end;
+
+  type
+    PFFI = ^TVSFixedFileInfo;
+
   var
     vName :TString;
     vTemp :DWORD;
+    vFixIn: PFFI;
+    vFixLen: UINT;
   begin
     Result := False;
     vName := AItem.FullName;
@@ -142,10 +168,14 @@ interface
 
         AItem.AddStringInfo(GetMsg(strName), AItem.Name);
 
+        if VerQueryValue(vBuf, '\', Pointer(vFixIn), vFixLen) then
+          with vFixIn^ do
+            VerAdd(GetMsg(strVersion), dwFileVersionMS, dwFileVersionLS);
+
         if vLang <> '' then begin
           LocAdd(GetMsg(strDescription), 'FileDescription');
           LocAdd(GetMsg(strCopyright), 'LegalCopyright');
-          LocAdd(GetMsg(strVersion), 'FileVersion');
+//        LocAdd(GetMsg(strVersion), 'FileVersion');
 //        LocAdd('CompanyName');
 //        LocAdd('OriginalFilename');
 //        LocAdd('InternalName');
