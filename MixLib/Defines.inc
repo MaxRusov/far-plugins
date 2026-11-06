@@ -41,9 +41,9 @@
   {$Define bInline}
   {-$Define bUnicodeStr}        { Поддерживается тип UnicodeString }
 
-  {$ifdef CPUX86_64}
+  {$ifdef CPU64}
    {$Define b64}
-  {$endif CPUX86_64}
+  {$endif CPU64}
 
   {$ifdef Ver2_3}
    {$Define bFPC23}
@@ -228,8 +228,13 @@
   {Free Pascal}
   {$Align On}
   {$SmartLink On}
-  {$AsmMode Intel}
+  {$if defined(CPUX86) or defined(CPUX86_64)}
+   {$AsmMode Intel}
+  {$endif}
   {$packset 1}
+  {$ifdef CPUAARCH64}
+   {$modeswitch nestedprocvars}
+  {$endif}
 {$else}
   {$ifdef bDelphiXE}
    {$ifdef b64}

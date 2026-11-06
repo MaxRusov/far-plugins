@@ -70,7 +70,8 @@ interface
   type
     { Тип процедуры перечисления элементов каталога. }
     TEnumFilesFunc = function(const aPath :TString; const aSRec :TWin32FindData) :Boolean
-      {$ifndef bOldLocalCall}of object{$endif};
+      {$if defined(CPUAARCH64)}is nested; stdcall{$elseif not defined(bOldLocalCall)}of object{$endif};
+    TEnumFilesCallback = {$ifdef CPUAARCH64}TEnumFilesFunc{$else}TMethod{$endif};
 
     { Параметры перечисления элементов каталога. }
     TEnumFileOptions = set of (
@@ -80,8 +81,8 @@ interface
     );
 
 
-  function WinEnumFiles(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; const aProc :TMethod) :Boolean;
-  function WinEnumFilesEx(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; aOptions :TEnumFileOptions; const aProc :TMethod) :Boolean;
+  function WinEnumFiles(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; const aProc :TEnumFilesCallback) :Boolean;
+  function WinEnumFilesEx(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; aOptions :TEnumFileOptions; const aProc :TEnumFilesCallback) :Boolean;
 
   function FolderIsEmpty(const aFolderName :TString) :Boolean;
 
@@ -409,7 +410,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
-  function CallFilesEnum(const AProc :TMethod; const APath :TString; const ARec :TWin32FindData) :Boolean;
+  function CallFilesEnum(const AProc :TEnumFilesCallback; const APath :TString; const ARec :TWin32FindData) :Boolean;
  {$ifdef bOldLocalCall}
   var
     vTmp :Pointer;
@@ -420,12 +421,16 @@ interface
     asm pop ECX; end;
  {$else}
   begin
-    Result := TEnumFilesFunc(AProc)(aPath, ARec)
+   {$ifdef CPUAARCH64}
+    Result := AProc(aPath, ARec);
+   {$else}
+    Result := TEnumFilesFunc(AProc)(aPath, ARec);
+   {$endif}
  {$endif bOldLocalCall}
   end;
 
 
-  function WinEnumFiles(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; const aProc :TMethod) :Boolean;
+  function WinEnumFiles(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; const aProc :TEnumFilesCallback) :Boolean;
   var
     I :Integer;
     vHandle :THandle;
@@ -464,9 +469,9 @@ interface
   end;
 
 
-  function WinEnumFilesEx(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; aOptions :TEnumFileOptions; const aProc :TMethod) :Boolean;
+  function WinEnumFilesEx(const aFolderName :TString; const aMasks :TString; aAttrs :DWORD; aOptions :TEnumFileOptions; const aProc :TEnumFilesCallback) :Boolean;
 
-    function locEnumFolder(const APath :TString; const ARec :TWin32FindData) :Boolean;
+    function locEnumFolder(const APath :TString; const ARec :TWin32FindData) :Boolean; {$ifdef CPUAARCH64}stdcall;{$endif}
     var
       vPath :TString;
     begin
@@ -494,7 +499,7 @@ interface
       if not WinEnumFiles(aFolderName, aMasks, aAttrs, aProc) then
         Exit;
     if efoRecursive in aOptions then
-      if not WinEnumFiles(aFolderName, '*.*', (aAttrs and not cDirMask) or faEnumFolders, LocalAddr(@locEnumFolder)) then
+      if not WinEnumFiles(aFolderName, '*.*', (aAttrs and not cDirMask) or faEnumFolders, {$ifdef CPUAARCH64}locEnumFolder{$else}LocalAddr(@locEnumFolder){$endif}) then
         Exit;
     if efoFilesFirst in aOptions then
       if not WinEnumFiles(aFolderName, aMasks, aAttrs, aProc) then
