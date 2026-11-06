@@ -7,7 +7,9 @@
  #define FarVerS "2"
 #endif
 
-#ifdef x64
+#ifdef arm64
+ #define PlatformS "ARM64"
+#elif defined(x64)
  #define PlatformS "x64"
 #else
  #define PlatformS "x32"

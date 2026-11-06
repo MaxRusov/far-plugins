@@ -577,7 +577,7 @@ interface
 
   procedure TFileProvider.Enumerate(const AFolder :TString); {override;}
 
-    function LocAddItem(const aPath :TString; const aSRec :TWin32FindData) :Boolean;
+    function LocAddItem(const aPath :TString; const aSRec :TWin32FindData) :Boolean; {$ifdef CPUAARCH64}stdcall;{$endif}
     begin
       with aSRec do
         FComparator.AddItem(cFileName, dwFileAttributes, MakeInt64(nFileSizeLow, nFileSizeHigh), FileTimeToDosFileDate(aSRec.ftLastWriteTime));
@@ -588,7 +588,7 @@ interface
     vFolder :TString;
   begin
     vFolder := MakePath(AFolder);
-    WinEnumFiles(vFolder, '*.*', faEnumFilesAndFolders, LocalAddr(@LocAddItem));
+    WinEnumFiles(vFolder, '*.*', faEnumFilesAndFolders, {$ifdef CPUAARCH64}LocAddItem{$else}LocalAddr(@LocAddItem){$endif});
   end;
 
  {-----------------------------------------------------------------------------}
@@ -623,7 +623,7 @@ interface
 
   procedure TSVNProvider.Enumerate(const AFolder :TString); {override;}
 
-    function LocAddFolder(const aPath :TString; const aSRec :TWin32FindData) :Boolean;
+    function LocAddFolder(const aPath :TString; const aSRec :TWin32FindData) :Boolean; {$ifdef CPUAARCH64}stdcall;{$endif}
     var
       vName, vPath :TString;
     begin
@@ -640,7 +640,7 @@ interface
         FComparator.AddItem(vName, dwFileAttributes, 0, 0);
     end;
 
-    function LocAddItem(const aPath :TString; const aSRec :TWin32FindData) :Boolean;
+    function LocAddItem(const aPath :TString; const aSRec :TWin32FindData) :Boolean; {$ifdef CPUAARCH64}stdcall;{$endif}
     begin
       with aSRec do
         FComparator.AddItem(ClearFileExt(cFileName), dwFileAttributes, MakeInt64(nFileSizeLow, nFileSizeHigh), FileTimeToDosFileDate(aSRec.ftLastWriteTime));
@@ -651,10 +651,10 @@ interface
     vFolder :TString;
   begin
     vFolder := MakePath(AFolder);
-    WinEnumFiles(vFolder, '*.*', faEnumFolders, LocalAddr(@LocAddFolder));
+    WinEnumFiles(vFolder, '*.*', faEnumFolders, {$ifdef CPUAARCH64}LocAddFolder{$else}LocalAddr(@LocAddFolder){$endif});
 
     vFolder := AddFileName(vFolder, '.svn\text-base');
-    WinEnumFiles(vFolder, '*.*', faEnumFiles, LocalAddr(@LocAddItem));
+    WinEnumFiles(vFolder, '*.*', faEnumFiles, {$ifdef CPUAARCH64}LocAddItem{$else}LocalAddr(@LocAddItem){$endif});
   end;
 
 

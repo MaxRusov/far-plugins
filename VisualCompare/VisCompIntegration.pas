@@ -10,7 +10,7 @@ interface
     MixUtils,
     MixStrings,
     MixClasses,
-    MixCRC,
+    MixCrc,
 
     VisCompCtrl,
     VisCompFiles,

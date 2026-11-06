@@ -160,7 +160,7 @@ interface
 
     function LocClearFolder(const AName :TString) :Boolean;
 
-      function LocDeleteItem(const aPath :TString; const aSRec :TWin32FindData) :Boolean;
+      function LocDeleteItem(const aPath :TString; const aSRec :TWin32FindData) :Boolean; {$ifdef CPUAARCH64}stdcall;{$endif}
       var
         vName :TString;
       begin
@@ -171,11 +171,12 @@ interface
           LocDeleteFolder(vName);
         if not vContinue then
           Abort;
+        Result := True;
       end;
 
     begin
       try
-        WinEnumFilesEx(AName, '*.*', faEnumFiles, [efoRecursive, efoIncludeDir, efoFilesFirst], LocalAddr(@LocDeleteItem));
+        WinEnumFilesEx(AName, '*.*', faEnumFiles, [efoRecursive, efoIncludeDir, efoFilesFirst], {$ifdef CPUAARCH64}LocDeleteItem{$else}LocalAddr(@LocDeleteItem){$endif});
       except
         on E :EAbort do
           Result := False;
@@ -329,7 +330,7 @@ interface
 
     function LocClearFolder(const AName :TString) :Boolean;
 
-      function LocDeleteItem(const aPath :TString; const aSRec :TWin32FindData) :Boolean;
+      function LocDeleteItem(const aPath :TString; const aSRec :TWin32FindData) :Boolean; {$ifdef CPUAARCH64}stdcall;{$endif}
       var
         vName :TString;
       begin
@@ -340,11 +341,12 @@ interface
           LocDeleteFolder(vName);
         if not vContinue then
           Abort;
+        Result := True;
       end;
 
     begin
       try
-        WinEnumFilesEx(AName, '*.*', faEnumFiles, [efoRecursive, efoIncludeDir, efoFilesFirst], LocalAddr(@LocDeleteItem));
+        WinEnumFilesEx(AName, '*.*', faEnumFiles, [efoRecursive, efoIncludeDir, efoFilesFirst], {$ifdef CPUAARCH64}LocDeleteItem{$else}LocalAddr(@LocDeleteItem){$endif});
       except
         on E :EAbort do
           Result := False;
@@ -507,7 +509,7 @@ interface
 
     function LocClearFolder(const AName :TString) :Boolean;
 
-      procedure LocDeleteItem(const aPath :TString; const aSRec :TWin32FindData);
+      function LocDeleteItem(const aPath :TString; const aSRec :TWin32FindData) :Boolean; {$ifdef CPUAARCH64}stdcall;{$endif}
       var
         vName :TString;
       begin
@@ -518,11 +520,12 @@ interface
           LocDeleteFolder(vName);
         if not vContinue then
           Abort;
+        Result := True;
       end;
 
     begin
       try
-        WinEnumFilesEx(AName, '*.*', faEnumFiles, [efoRecursive, efoIncludeDir, efoFilesFirst], LocalAddr(@LocDeleteItem));
+        WinEnumFilesEx(AName, '*.*', faEnumFiles, [efoRecursive, efoIncludeDir, efoFilesFirst], {$ifdef CPUAARCH64}LocDeleteItem{$else}LocalAddr(@LocDeleteItem){$endif});
         Result := True;
       except
         on E :EAbort do
