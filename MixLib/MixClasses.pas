@@ -160,7 +160,7 @@ interface
     public
       function _AddRef :Integer; virtual; stdcall;
       function _Release :Integer; virtual; stdcall;
-      function QueryInterface(const IID: TGUID; out Obj) :HResult; virtual; stdcall;
+      function QueryInterface({$ifdef CPUAARCH64}constref{$else}const{$endif} IID: TGUID; out Obj) :HResult; virtual; stdcall;
       function GetInstance :TBasis; stdcall;
 
     protected
@@ -512,7 +512,7 @@ interface
     TThreadPriority = (tpIdle, tpLowest, tpLower, tpNormal, tpHigher, tpHighest, tpTimeCritical);
 
    {$ifndef bDelphi15}
-    TThreadID = THandle;
+    TThreadID = {$ifdef CPUAARCH64}System.TThreadID{$else}THandle{$endif};
    {$endif bDelphi15}
 
     TThread = class
@@ -773,7 +773,7 @@ interface
   end;
 
 
-  function TComBasis.QueryInterface(const IID: TGUID; out Obj) :HResult; {virtual;}
+  function TComBasis.QueryInterface({$ifdef CPUAARCH64}constref{$else}const{$endif} IID: TGUID; out Obj) :HResult; {virtual;}
   begin
     if GetInterface(IID, Obj) then
       Result := S_OK
@@ -2224,7 +2224,32 @@ interface
  { TBits                                                                       }
  {-----------------------------------------------------------------------------}
 
- {$ifdef b64}
+ {$ifdef CPUAARCH64}
+  procedure _SetBit(ABits :Pointer; ABitIdx :TIntPtr);
+  var
+    vWord :PCardinal;
+  begin
+    vWord := PCardinal(ABits) + (ABitIdx div 32);
+    vWord^ := vWord^ or (Cardinal(1) shl (ABitIdx mod 32));
+  end;
+
+  procedure _ClearBit(ABits :Pointer; ABitIdx :TIntPtr);
+  var
+    vWord :PCardinal;
+  begin
+    vWord := PCardinal(ABits) + (ABitIdx div 32);
+    vWord^ := vWord^ and not (Cardinal(1) shl (ABitIdx mod 32));
+  end;
+
+  function _GetBit(ABits :Pointer; ABitIdx :TIntPtr): Boolean;
+  var
+    vWord :PCardinal;
+  begin
+    vWord := PCardinal(ABits) + (ABitIdx div 32);
+    Result := (vWord^ and (Cardinal(1) shl (ABitIdx mod 32))) <> 0;
+  end;
+
+ {$elseif defined(b64)}
   procedure _SetBit({RCX:}ABits :Pointer; {RDX:}ABitIdx :TIntPtr); register;
   asm
     BTS     [RCX], EDX {!!!Pulsar}

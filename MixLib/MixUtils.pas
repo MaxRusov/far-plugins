@@ -300,7 +300,9 @@ interface
   procedure AbstractError;
   procedure CtrlBreakException;
 
+  {$ifndef CPUAARCH64}
   function LocalAddr(Proc :Pointer) :TMethod;
+  {$endif}
 
   type
     TRectHelper = record helper for TRect
@@ -1712,6 +1714,7 @@ interface
   end;
 
 
+ {$ifndef CPUAARCH64}
  {$ifdef b64}
   function LocalAddr({rcx:@Result;} {rdx}Proc :Pointer) :TMethod; assembler; {$ifdef bFreePascal}nostackframe;{$endif bFreePascal}
   asm
@@ -1725,6 +1728,7 @@ interface
     mov [edx].DWORD, Proc
   end;
  {$endif b64}
+ {$endif CPUAARCH64}
 
  {-----------------------------------------------------------------------------}
 

@@ -21,7 +21,7 @@ interface
   procedure NOP;
   procedure DEB; deprecated;
 
- {$ifdef bStackX64}
+ {$if defined(bStackX64) or defined(CPUAARCH64)}
   function CaptureStackBackTrace(FramesToSkip :TUns32{ULONG}; FramesToCapture :TUns32{ULONG}; BackTrace :Pointer; BackTraceHash :PUns32{PULONG}) :Word{USHORT}; stdcall;
   function ReturnAddr :Pointer; overload;
   function ReturnAddr2 :Pointer;
@@ -32,7 +32,7 @@ interface
   function ReturnAddr :Pointer;
   function ReturnAddr2 :Pointer;
   function ReturnAddr3 :Pointer;
- {$endif bStackX64}
+ {$endif}
 
   function GetAllocAddr :Pointer;
   procedure SetAllocAddr(Addr :Pointer);
@@ -136,7 +136,7 @@ interface
 
  {-----------------------------------------------------------------------------}
 
- {$ifdef bStackX64}
+ {$if defined(bStackX64) or defined(CPUAARCH64)}
   function CaptureStackBackTrace; external 'kernel32.dll' name 'RtlCaptureStackBackTrace';
 
 
@@ -225,7 +225,7 @@ interface
     MOV  EAX, [EAX + 4]
   end;
  {$endif b64}
- {$endif bStackX64}
+ {$endif}
 
 
  {-----------------------------------------------------------------------------}
@@ -281,7 +281,7 @@ interface
 
   procedure SetReturnAddr;
   begin
-   {$ifdef bStackX64}
+   {$if defined(bStackX64) or defined(CPUAARCH64)}
     if GetAllocAddr = nil then
       SetAllocAddr( ReturnAddr(2) );
    {$else}
@@ -294,13 +294,13 @@ interface
       SetAllocAddr( ReturnAddr2 );
    {$endif bFreePascal}
 
-   {$endif bStackX64}
+   {$endif}
   end;
 
 
   procedure SetReturnAddrNewInstance;
   begin
-   {$ifdef bStackX64}
+   {$if defined(bStackX64) or defined(CPUAARCH64)}
     if GetAllocAddr = nil then
       SetAllocAddr( ReturnAddr(4) );
    {$else}
@@ -313,7 +313,7 @@ interface
       SetAllocAddr( ReturnAddr3 );
    {$endif bFreePascal}
 
-   {$endif bStackX64}
+   {$endif}
   end;
 
 
@@ -331,7 +331,7 @@ interface
 
 
   procedure TraceCallstack(AAddr :Pointer);
- {$ifdef bStackX64}
+ {$if defined(bStackX64) or defined(CPUAARCH64)}
   const
     { Windows Server 2003 and Windows XP:  The sum of the FramesToSkip and FramesToCapture parameters must be less than 63. }
     { http://msdn.microsoft.com/en-us/library/windows/desktop/bb204633%28v=vs.85%29.aspx }
@@ -389,7 +389,7 @@ interface
 
     vChr^ := #0;
     TraceStr(@vStr[0]);
- {$endif bStackX64}
+ {$endif}
   end;
 
  {$endif bTrace}
